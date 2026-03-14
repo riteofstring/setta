@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatHydrationCacheKey,
   clearProjectChatHydrationCacheEntriesForChat,
+  resolveProjectChatSubmitAppGeneration,
 } from "./ProjectChatCore";
 
 type HydrationCacheEntry = {
@@ -65,5 +66,26 @@ describe("ProjectChatCore hydration cache identity", () => {
     expect(removed).toEqual([
       "project-a:shared-chat:external_agent:revision-1",
     ]);
+  });
+});
+
+describe("ProjectChatCore submit app-generation resolution", () => {
+  it("keeps inheriting the active app-generation mode when no override is provided", () => {
+    expect(
+      resolveProjectChatSubmitAppGeneration({
+        activeAppGeneration: { mode: "json_render" },
+      }),
+    ).toEqual({ mode: "json_render" });
+  });
+
+  it("treats an explicit null override as plain chat instead of inheriting", () => {
+    expect(
+      resolveProjectChatSubmitAppGeneration({
+        activeAppGeneration: { mode: "json_render" },
+        options: {
+          appGeneration: null,
+        },
+      }),
+    ).toBeNull();
   });
 });

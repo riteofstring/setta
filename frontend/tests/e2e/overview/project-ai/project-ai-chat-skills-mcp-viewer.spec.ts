@@ -3,8 +3,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
-  ensureProjectChatThreadsPanelVisible,
   ensureAppReady,
+  ensureManagedChatEngine,
+  ensureProjectChatThreadsPanelVisible,
   getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
@@ -169,7 +170,9 @@ async function openSlashCommandsViewer(page: Page): Promise<void> {
 }
 
 async function closeSkillsMcpViewer(page: Page): Promise<void> {
-  const returnToChatButton = page.getByRole("button", { name: "Return to chat" });
+  const returnToChatButton = page.getByRole("button", {
+    name: "Return to chat",
+  });
   await expect(returnToChatButton).toBeVisible();
   await returnToChatButton.evaluate((element: HTMLElement) => {
     element.click();
@@ -186,7 +189,9 @@ async function openRawSkillMarkdown(page: Page): Promise<void> {
 
 async function clickSkillMarkdownViewToggle(
   page: Page,
-  testId: "project-chat-skill-markdown-view-raw" | "project-chat-skill-markdown-view-rendered",
+  testId:
+    | "project-chat-skill-markdown-view-raw"
+    | "project-chat-skill-markdown-view-rendered",
 ): Promise<void> {
   const toggle = page.getByTestId(testId);
   await expect(toggle).toBeVisible();
@@ -306,7 +311,10 @@ test("project ai chat can open the skills side view", async ({ page }) => {
     "project-chat-skill-markdown-view-rendered",
   );
   await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
-  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
   await expect(
     page.getByTestId("project-chat-skills-resize-handle"),
   ).toBeVisible();
@@ -1420,6 +1428,327 @@ test("custom slash commands preserve attachments on submit", async ({
   }
 });
 
+test("custom app-generation slash commands submit with the selected mode", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+
+  const capturedRequests: Array<{
+    appGenerationMode?: string | null;
+    appGenerationByMessageId?: Record<string, string>;
+    message?: {
+      id?: string;
+      content?: Array<{
+        text?: string;
+      }>;
+    };
+  }> = [];
+  await page.route("**/api/getLLMResponse", async (route) => {
+    capturedRequests.push(
+      route.request().postDataJSON() as (typeof capturedRequests)[number],
+    );
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify("custom-mode-chat"),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: {},
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+        appGenerationByMessageId: {},
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
+  let engineCleanup = async () => {};
+
+  try {
+    projectContext = await openIsolatedProject(page);
+    engineCleanup = await ensureManagedChatEngine(page);
+    await seedLocalStorage(page, {
+      customProjectChatSlashCommandsByProjectConfigId: {
+        [projectContext.projectConfigId]: [
+          {
+            command: "/wireframe",
+            prompt: "Create a wireframe dashboard.",
+            appGenerationMode: "json_render",
+          },
+        ],
+      },
+    });
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await openSlashCommandsViewer(page);
+
+    await expect(
+      page.locator("#project-chat-custom-slash-mode-input"),
+    ).toBeVisible();
+
+    const customCommandRow = page
+      .getByTestId("project-chat-custom-slash-command")
+      .filter({ hasText: "/wireframe" })
+      .locator("..");
+    await expect(customCommandRow).toBeVisible();
+    await expect(customCommandRow).toContainText("Submits as JSON Render.");
+
+    await closeSkillsMcpViewer(page);
+
+    await page
+      .getByTestId("chat-input-textarea")
+      .fill("/wireframe support ops");
+    await page.getByLabel("Send message").click();
+
+    await expect.poll(() => capturedRequests.length).toBe(1);
+    expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
+    expect(capturedRequests[0]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render",
+    });
+    expect(capturedRequests[0]?.message?.content?.[0]?.text).toBe(
+      "Create a wireframe dashboard.\n\nsupport ops",
+    );
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("custom plain-chat slash commands clear app-generation mode inside active app threads", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+
+  const capturedRequests: Array<{
+    chatId?: string | null;
+    appGenerationMode?: string | null;
+    appGenerationByMessageId?: Record<string, string>;
+    message?: {
+      id?: string;
+      content?: Array<{
+        text?: string;
+      }>;
+      attachments?: Array<{
+        name?: string;
+      }>;
+    };
+  }> = [];
+  const chatStateById = new Map<
+    string,
+    {
+      messages: Array<
+        NonNullable<(typeof capturedRequests)[number]["message"]>
+      >;
+      appGenerationByMessageId: Record<string, string>;
+    }
+  >();
+  let createdChatCount = 0;
+  let assistantMessageCount = 0;
+
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route
+      .request()
+      .postDataJSON() as (typeof capturedRequests)[number];
+    capturedRequests.push(payload);
+    const returnedChatId =
+      payload.chatId ?? `custom-plain-chat-${createdChatCount + 1}`;
+    const previousState = chatStateById.get(returnedChatId) ?? {
+      messages: [],
+      appGenerationByMessageId: {},
+    };
+    const nextMessages = [...previousState.messages];
+    if (payload.message) {
+      nextMessages.push(payload.message);
+      assistantMessageCount += 1;
+      nextMessages.push({
+        id: `assistant-${assistantMessageCount}`,
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: `Mock response ${assistantMessageCount}`,
+          },
+        ],
+        attachments: [],
+      });
+    }
+    chatStateById.set(returnedChatId, {
+      messages: nextMessages,
+      appGenerationByMessageId: payload.appGenerationByMessageId ?? {},
+    });
+    if (payload.chatId == null) {
+      createdChatCount += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(returnedChatId),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatState =
+      typeof payload.chatId === "string"
+        ? chatStateById.get(payload.chatId) ?? null
+        : null;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: chatState?.messages ?? [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: chatState?.appGenerationByMessageId ?? {},
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatState =
+      typeof payload.chatId === "string"
+        ? chatStateById.get(payload.chatId) ?? null
+        : null;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: chatState?.messages ?? [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+        appGenerationByMessageId: chatState?.appGenerationByMessageId ?? {},
+      }),
+    });
+  });
+  await page.route("**/api/stopLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        alreadyStopped: false,
+        stoppedRunId: "mock-run",
+        stoppedMessageId: null,
+      }),
+    });
+  });
+  await page.route("**/api/stopExternalAgentRun", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(null),
+    });
+  });
+
+  await ensureAppReady(page);
+  let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
+  let engineCleanup = async () => {};
+
+  try {
+    projectContext = await openIsolatedProject(page);
+    engineCleanup = await ensureManagedChatEngine(page);
+    await seedLocalStorage(page, {
+      customProjectChatSlashCommandsByProjectConfigId: {
+        [projectContext.projectConfigId]: [
+          {
+            command: "/plain-review",
+            prompt: "Review the current plan.",
+            appGenerationMode: null,
+          },
+        ],
+      },
+    });
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await openSlashCommandsViewer(page);
+
+    const customCommandRow = page
+      .getByTestId("project-chat-custom-slash-command")
+      .filter({ hasText: "/plain-review" })
+      .locator("..");
+    await expect(customCommandRow).toBeVisible();
+    await expect(customCommandRow).toContainText("Submits as Plain chat.");
+
+    await closeSkillsMcpViewer(page);
+
+    const projectChatSurface = await getVisibleProjectChatSurface(page);
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("/app-json support ops dashboard");
+    await projectChatSurface.getByLabel("Send message").click();
+    await expect.poll(() => capturedRequests.length).toBe(1);
+    await expect(projectChatSurface.getByLabel("Stop response")).toBeVisible();
+    await projectChatSurface.getByLabel("Stop response").click();
+    await expect(projectChatSurface.getByLabel("Send message")).toBeVisible();
+
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("/plain-review keep the language concise");
+    await projectChatSurface.getByLabel("Send message").click();
+    await expect.poll(() => capturedRequests.length).toBe(2);
+
+    expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
+    expect(capturedRequests[1]?.appGenerationMode).toBeNull();
+    expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render",
+    });
+    expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
+      "Review the current plan.\n\nkeep the language concise",
+    );
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai chat can open the project ai settings pane from tools", async ({
   page,
 }) => {
@@ -1787,7 +2116,9 @@ test("mcp view keeps threads visible when threads are open", async ({
   });
   await ensureAppReady(page);
   await page.getByTestId("project-chat-window-maximize").first().click();
-  await expect(page.getByTestId("project-chat-maximized-window").first()).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-maximized-window").first(),
+  ).toBeVisible();
 
   const overviewPane = await getVisibleProjectChatSurface(page);
   const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -2222,7 +2553,10 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   });
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
-  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
   await expect(page.getByLabel("Skill Markdown Content")).toBeVisible();
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "false");
@@ -2233,7 +2567,10 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
 
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
-  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toBeVisible();
   const immediateText = (await markdown.textContent()) ?? "";
@@ -3094,7 +3431,10 @@ test("project ai chat renders unsaved raw markdown edits before save", async ({
   await openSkillsViewer(page);
 
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
 
   const markdown = page.getByLabel("Skill Markdown Content");
   const editorContent = markdown.locator(".cm-content");
@@ -3109,7 +3449,10 @@ test("project ai chat renders unsaved raw markdown edits before save", async ({
   await expect(page.getByText("Updated draft from raw mode")).toBeVisible();
   await expect(page.getByText("Original body")).toHaveCount(0);
 
-  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
   await expect(
     page.getByTestId("project-chat-custom-skill-save"),
   ).toBeEnabled();
@@ -3846,7 +4189,10 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
 
   await skillMarkdownToggle.click();
-  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
 
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "Preview body",
