@@ -98,6 +98,20 @@ type ManagedGeminiProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedAzureProviderRequest = {
+  path: string;
+  query: string;
+  apiKey: string;
+  authorization: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedAzureProviderServer = {
+  origin: string;
+  requests: ManagedAzureProviderRequest[];
+  close: () => Promise<void>;
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ATTACHMENT_FIXTURES_DIR = path.join(
@@ -656,6 +670,151 @@ test.describe.serial("chat attachments", () => {
     }
   });
 
+  test("project chat attachments reach Azure OpenAI with explicit attachment text", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page, page.request);
+    const initialLLMConfig = await getBackend<LLMConfigPayload>(
+      page.request,
+      "/llm/config",
+    );
+    if (!initialLLMConfig) {
+      throw new Error("Missing LLM config payload.");
+    }
+    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
+      page.request,
+      "/llm/apiKeys",
+    );
+    if (!initialAPIKeysSnapshot) {
+      throw new Error("Missing managed API keys snapshot.");
+    }
+    const providerServer = await startManagedAzureAttachmentProviderServer();
+    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+    let createdEngineConfigId: string | null = null;
+    const llmConfigId = `e2e-project-chat-azure-attachments-${Date.now()}`;
+    const engineName = `Project Azure Attachment Engine ${Date.now()}`;
+
+    try {
+      await postBackend(page.request, "/llm/config", {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [llmConfigId]: {
+            model: "gpt-4o-mini",
+            provider: "azure",
+            api_key_env: "AZURE_OPENAI_API_KEY",
+            base_url: providerServer.origin,
+            other_params: {
+              api_version: "2024-06-01",
+            },
+            temporary: false,
+          },
+        },
+      } as Record<string, unknown>);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          AZURE_OPENAI_API_KEY: "e2e-azure-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+      const createdEngine = await postBackend<EngineConfig>(
+        page.request,
+        "/createEngineConfig",
+        {
+          name: engineName,
+          engineType: "setta_llm",
+          settaLlmConfigId: llmConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing managed engine config id.");
+      }
+
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, engineName);
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await expect(input).toBeEnabled();
+
+      const fileInput = projectChatSurface
+        .locator('input[type="file"]')
+        .first();
+      await fileInput.setInputFiles([
+        {
+          name: "notes.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("Hello from project chat."),
+        },
+        {
+          name: "image.png",
+          mimeType: "image/png",
+          buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        },
+      ]);
+
+      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
+      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
+
+      await input.fill("Here are Azure attachments.");
+      await input.press("Enter");
+
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe(
+        "/openai/deployments/gpt-4o-mini/chat/completions",
+      );
+      expect(providerRequest?.query).toBe("api-version=2024-06-01");
+      expect(providerRequest?.apiKey).toBe("e2e-azure-secret");
+      expect(providerRequest?.authorization).toBe("");
+
+      const providerMessages = providerRequest?.body.messages;
+      expect(Array.isArray(providerMessages)).toBe(true);
+      const userMessage =
+        Array.isArray(providerMessages) && providerMessages.length > 1
+          ? (providerMessages[1] as Record<string, unknown>)
+          : null;
+      expect(userMessage).not.toBeNull();
+      expect("attachments" in (userMessage ?? {})).toBe(false);
+      const providerContent =
+        typeof userMessage?.content === "string" ? userMessage.content : "";
+      expect(providerContent).toContain("Here are Azure attachments.");
+      expect(providerContent).toContain("[Attachment: notes.txt]");
+      expect(providerContent).toContain("Hello from project chat.");
+      expect(providerContent).toContain("[Attachment: image.png]");
+      expect(providerContent).toContain("Type: image/png");
+      expect(providerContent).toContain("Content not inlined.");
+
+      await expect(
+        projectChatSurface.getByText("Azure attachment reply"),
+      ).toBeVisible();
+    } finally {
+      if (createdEngineConfigId) {
+        await postBackend(page.request, "/deleteEngineConfig", {
+          configId: createdEngineConfigId,
+        });
+      }
+      await postBackend(
+        page.request,
+        "/llm/config",
+        initialLLMConfig as Record<string, unknown>,
+      );
+      await postManagedAPIKeys(page.request, {
+        apiKeys: initialAPIKeysSnapshot.apiKeys,
+        expectedRevision: latestAPIKeysSnapshot.revision,
+      });
+      await providerServer.close();
+      await cleanupIsolatedProject(page.request, projectContext);
+    }
+  });
+
   test("chat section drag-and-drop attachments", async ({ page }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page, page.request);
@@ -1165,6 +1324,80 @@ async function startManagedGeminiAttachmentProviderServer(): Promise<ManagedGemi
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate Gemini attachment test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAzureAttachmentProviderServer(): Promise<ManagedAzureProviderServer> {
+  const requests: ManagedAzureProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          const parsedURL = new URL(request.url ?? "/", "http://127.0.0.1");
+          requests.push({
+            path: parsedURL.pathname,
+            query: parsedURL.searchParams.toString(),
+            apiKey: Array.isArray(request.headers["api-key"])
+              ? request.headers["api-key"].join(", ")
+              : request.headers["api-key"] ?? "",
+            authorization: Array.isArray(request.headers.authorization)
+              ? request.headers.authorization.join(", ")
+              : request.headers.authorization ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":"Azure"}}]}\n\n',
+        );
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":" attachment reply"},"finish_reason":"stop"}]}\n\n',
+        );
+        response.write(
+          'data: {"choices":[],"usage":{"prompt_tokens":34,"completion_tokens":3,"total_tokens":37}}\n\n',
+        );
+        response.end("data: [DONE]\n\n");
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Azure attachment test port.")),
         );
         return;
       }
