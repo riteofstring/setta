@@ -20,7 +20,9 @@ test("app spec patch streaming updates the app preview incrementally", async ({
   });
   await ensureAppReady(page);
 
-  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "JSON Render" }),
+  ).toBeVisible();
 
   const projectConfigId = await getCurrentProjectConfigId(page);
 
