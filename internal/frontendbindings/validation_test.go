@@ -1039,6 +1039,16 @@ func TestCurrentRouteGroupManifest(t *testing.T) {
 	assertGoldenFile(t, "route_group_manifest.txt", renderRouteGroupManifest(CurrentRouteGroups()))
 }
 
+func TestCurrentAdditionalDeclarationManifest(t *testing.T) {
+	t.Helper()
+
+	assertGoldenFile(
+		t,
+		"additional_declaration_manifest.txt",
+		renderAdditionalDeclarationManifest(CurrentAdditionalDeclarations()),
+	)
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
@@ -6268,6 +6278,57 @@ func renderRouteGroupManifest(routeGroups []RouteGroup) string {
 				"enum=" + route.EnumName,
 			}, " "))
 		}
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n")
+}
+
+func renderAdditionalDeclarationManifest(declarations []TypeDeclaration) string {
+	lines := make([]string, 0, len(declarations))
+	for _, declaration := range declarations {
+		lineParts := []string{
+			declaration.Name,
+			"kind=" + declaration.Kind,
+		}
+		if declaration.TypeParams != "" {
+			lineParts = append(lineParts, "typeParams="+declaration.TypeParams)
+		}
+		switch declaration.Kind {
+		case "object":
+			lineParts = append(lineParts, "props="+strconv.Itoa(len(declaration.Properties)))
+		case "enum":
+			lineParts = append(lineParts, "values="+strconv.Itoa(len(declaration.EnumValues)))
+		case "alias", "local_alias":
+			lineParts = append(lineParts, "target=present")
+		case "set":
+			lineParts = append(
+				lineParts,
+				"element="+declaration.SetElementType,
+				"members="+strconv.Itoa(len(declaration.SetMembers)),
+			)
+		case "type_guard":
+			lineParts = append(
+				lineParts,
+				"input="+declaration.GuardInputType,
+				"return="+declaration.GuardReturnType,
+				"set="+declaration.GuardSetName,
+			)
+		case "function":
+			lineParts = append(
+				lineParts,
+				"params="+strconv.Itoa(len(declaration.FunctionParams)),
+				"return="+declaration.FunctionReturn,
+			)
+		case "const":
+			lineParts = append(lineParts, "expr=present")
+		}
+		if declaration.CreateExpr != "" {
+			lineParts = append(lineParts, "create=expr")
+		}
+		if declaration.CreateBody != "" {
+			lineParts = append(lineParts, "create=body")
+		}
+		lines = append(lines, strings.Join(lineParts, " "))
 	}
 	slices.Sort(lines)
 	return strings.Join(lines, "\n")
