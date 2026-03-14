@@ -33,6 +33,7 @@ const (
 
 var (
 	ErrProviderUnsupported    = errors.New("managed llm provider is not supported")
+	ErrProviderConfigInvalid  = errors.New("managed llm provider config is invalid")
 	ErrReasoningUnsupported   = errors.New("managed llm reasoning is not supported without explicit provider-native config")
 	ErrToolsUnsupported       = errors.New("managed llm tools are not supported")
 	ErrAttachmentsUnsupported = errors.New("managed llm attachments are not supported")
@@ -103,6 +104,9 @@ func (e *Executor) Validate(request agentruns.ExecutionRequest) error {
 	if _, err := resolveManagedProvider(request); err != nil {
 		return err
 	}
+	if err := validateProviderConfig(request); err != nil {
+		return err
+	}
 	return validateReasoningRequest(request)
 }
 
@@ -113,6 +117,9 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	}
 	if strings.TrimSpace(request.LLMConfig.Model) == "" {
 		return preparedExecution{}, ErrModelRequired
+	}
+	if err := validateProviderConfig(request); err != nil {
+		return preparedExecution{}, err
 	}
 	if err := validateReasoningRequest(request); err != nil {
 		return preparedExecution{}, err
@@ -189,8 +196,31 @@ func resolveManagedProvider(request agentruns.ExecutionRequest) (string, error) 
 	case openAIProvider, anthropicProvider, geminiProvider:
 		return provider, nil
 	default:
+		if isAzureOpenAIProvider(provider) {
+			return openAIProvider, nil
+		}
 		return "", fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 	}
+}
+
+func validateProviderConfig(request agentruns.ExecutionRequest) error {
+	if !isAzureOpenAIProvider(resolveProviderHint(request)) {
+		return nil
+	}
+	return validateAzureOpenAIConfig(request)
+}
+
+func validateAzureOpenAIConfig(request agentruns.ExecutionRequest) error {
+	if strings.TrimSpace(request.LLMConfig.APIKeyEnv) == "" {
+		return fmt.Errorf("%w: azure provider requires explicit api_key_env", ErrProviderConfigInvalid)
+	}
+	if _, err := resolveAzureEndpoint(request); err != nil {
+		return err
+	}
+	if _, err := resolveAzureAPIVersion(request); err != nil {
+		return err
+	}
+	return nil
 }
 
 func validateReasoningRequest(request agentruns.ExecutionRequest) error {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	openai "github.com/openai/openai-go/v3"
+	openaiazure "github.com/openai/openai-go/v3/azure"
 	openaioption "github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/responses"
@@ -17,6 +18,9 @@ import (
 )
 
 func buildOpenAIClient(request agentruns.ExecutionRequest, httpClient *http.Client) (openai.Client, error) {
+	if isAzureOpenAIProvider(resolveProviderHint(request)) {
+		return buildAzureOpenAIClient(request, httpClient)
+	}
 	apiKey, err := resolveAPIKey(request)
 	if err != nil {
 		return openai.Client{}, err
@@ -32,12 +36,49 @@ func buildOpenAIClient(request agentruns.ExecutionRequest, httpClient *http.Clie
 	return openai.NewClient(options...), nil
 }
 
+func buildAzureOpenAIClient(request agentruns.ExecutionRequest, httpClient *http.Client) (openai.Client, error) {
+	apiKey, err := resolveAPIKey(request)
+	if err != nil {
+		return openai.Client{}, err
+	}
+	endpoint, err := resolveAzureEndpoint(request)
+	if err != nil {
+		return openai.Client{}, err
+	}
+	apiVersion, err := resolveAzureAPIVersion(request)
+	if err != nil {
+		return openai.Client{}, err
+	}
+	options := []openaioption.RequestOption{
+		openaioption.WithHTTPClient(httpClient),
+		openaiazure.WithEndpoint(endpoint, apiVersion),
+		openaiazure.WithAPIKey(apiKey),
+	}
+	return openai.NewClient(options...), nil
+}
+
 func buildOpenAIChatRequestOverrides(request agentruns.ExecutionRequest) ([]openaioption.RequestOption, error) {
 	overrides := []openaioption.RequestOption{}
 	for key, value := range request.RequestParams {
 		trimmedKey := strings.TrimSpace(key)
 		switch trimmedKey {
-		case "", "model", "messages", "stream", "stream_options", "api_key", "custom_llm_provider", "api_base", "tools", "tool_choice", "functions", "function_call", "reasoning_effort":
+		case "",
+			"model",
+			"messages",
+			"stream",
+			"stream_options",
+			"api_key",
+			"custom_llm_provider",
+			"api_base",
+			"api_version",
+			"apiVersion",
+			"azure_api_version",
+			"azureApiVersion",
+			"tools",
+			"tool_choice",
+			"functions",
+			"function_call",
+			"reasoning_effort":
 			continue
 		default:
 			overrides = append(overrides, openaioption.WithJSONSet(trimmedKey, cloneJSONValue(value)))
@@ -69,6 +110,10 @@ func buildOpenAIResponseRequestOverrides(request agentruns.ExecutionRequest) []o
 			"api_key",
 			"custom_llm_provider",
 			"api_base",
+			"api_version",
+			"apiVersion",
+			"azure_api_version",
+			"azureApiVersion",
 			"tools",
 			"tool_choice",
 			"functions",
@@ -98,9 +143,38 @@ func resolveOpenAIBaseURL(request agentruns.ExecutionRequest) string {
 	return baseURL
 }
 
+func resolveAzureEndpoint(request agentruns.ExecutionRequest) (string, error) {
+	endpoint := strings.TrimSpace(request.LLMConfig.BaseURL)
+	if rawBaseURL, ok := request.RequestParams["api_base"]; ok {
+		if explicit := strings.TrimSpace(stringValue(rawBaseURL)); explicit != "" {
+			endpoint = explicit
+		}
+	}
+	if endpoint == "" {
+		return "", fmt.Errorf("%w: azure provider requires explicit api_base", ErrProviderConfigInvalid)
+	}
+	return endpoint, nil
+}
+
+func resolveAzureAPIVersion(request agentruns.ExecutionRequest) (string, error) {
+	for _, key := range []string{"api_version", "apiVersion", "azure_api_version", "azureApiVersion"} {
+		raw, ok := request.RequestParams[key]
+		if !ok {
+			continue
+		}
+		if explicit := strings.TrimSpace(stringValue(raw)); explicit != "" {
+			return explicit, nil
+		}
+	}
+	return "", fmt.Errorf("%w: azure provider requires explicit api_version", ErrProviderConfigInvalid)
+}
+
 func resolveThinkingReasoningEffort(request agentruns.ExecutionRequest) (shared.ReasoningEffort, bool, error) {
 	if !request.Thinking {
 		return "", false, nil
+	}
+	if isAzureOpenAIProvider(resolveProviderHint(request)) {
+		return "", false, unsupportedThinkingError(request)
 	}
 	if effort, ok, err := extractExplicitReasoningEffort(request.RequestParams); err != nil {
 		return "", false, err
@@ -181,6 +255,10 @@ func isOpenAIReasoningModel(modelName string) bool {
 
 func isOpenAIProvider(provider string) bool {
 	return strings.Contains(provider, "openai") || strings.Contains(provider, "azure")
+}
+
+func isAzureOpenAIProvider(provider string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(provider)), "azure")
 }
 
 func buildOpenAIChatCompletionParams(

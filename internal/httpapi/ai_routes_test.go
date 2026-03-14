@@ -449,6 +449,47 @@ func TestRegisterAIRoutesReturnsBadRequestForManagedProviderUnsupported(t *testi
 	}
 }
 
+func TestRegisterAIRoutesReturnsBadRequestForManagedProviderConfigInvalid(t *testing.T) {
+	t.Parallel()
+
+	managedStarter := &aiRouteStubManagedStarter{
+		err: fmt.Errorf("%w: azure provider requires explicit api_version", managedllm.ErrProviderConfigInvalid),
+	}
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Use Azure OpenAI."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "provider_config_invalid" {
+		t.Fatalf("expected provider_config_invalid, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesRejectsInvalidAppGenerationModeForExternalSend(t *testing.T) {
 	t.Parallel()
 

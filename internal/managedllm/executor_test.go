@@ -214,6 +214,127 @@ func TestExecutorExecuteStreamsManagedChatAndReturnsOutputs(t *testing.T) {
 	}
 }
 
+func TestExecutorExecuteStreamsManagedAzureChatAndReturnsOutputs(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	type requestMeta struct {
+		Path   string
+		Query  string
+		APIKey string
+		Auth   string
+	}
+	var meta requestMeta
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		meta = requestMeta{
+			Path:   r.URL.Path,
+			Query:  r.URL.RawQuery,
+			APIKey: r.Header.Get("Api-Key"),
+			Auth:   r.Header.Get("Authorization"),
+		}
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Azure\"}}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":2,\"total_tokens\":11}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-4o-mini",
+			Provider:  "azure",
+			BaseURL:   server.URL,
+			APIKeyEnv: "AZURE_OPENAI_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"api_version": "2024-06-01",
+			"temperature": 0.2,
+		},
+		APIKeys: map[string]string{
+			"AZURE_OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       testStringPtr("section-chat"),
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Hello from the user"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed azure stream: %v", err)
+	}
+
+	state, err := live.GetLiveChatState(run.ID)
+	if err != nil {
+		t.Fatalf("get live state: %v", err)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected finalized live state, got %#v", state)
+	}
+	if len(state.Messages) != 2 {
+		t.Fatalf("expected user and assistant messages, got %#v", state.Messages)
+	}
+	if assistantText(state.Messages[1]) != "Azure reply" {
+		t.Fatalf("unexpected assistant text %#v", state.Messages[1])
+	}
+	if broadcaster.Count() != 5 {
+		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
+	}
+
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok || int(usage["prompt_tokens"].(float64)) != 9 {
+		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
+	}
+	if meta.Path != "/openai/deployments/gpt-4o-mini/chat/completions" {
+		t.Fatalf("unexpected provider path %q", meta.Path)
+	}
+	if meta.Query != "api-version=2024-06-01" {
+		t.Fatalf("unexpected provider query %q", meta.Query)
+	}
+	if meta.APIKey != "secret" {
+		t.Fatalf("unexpected api key header %q", meta.APIKey)
+	}
+	if meta.Auth != "" {
+		t.Fatalf("expected azure requests to avoid Authorization header, got %q", meta.Auth)
+	}
+	if seenRequest["temperature"] != 0.2 {
+		t.Fatalf("expected request param passthrough, got %#v", seenRequest["temperature"])
+	}
+}
+
 func TestExecutorExecuteStreamsManagedToolArgumentPreview(t *testing.T) {
 	t.Parallel()
 
@@ -1206,6 +1327,62 @@ func TestExecutorValidateAllowsThinkingForOpenAIReasoningModel(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected supported OpenAI reasoning model to validate, got %v", err)
+	}
+}
+
+func TestExecutorValidateRejectsAzureWithoutExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gpt-4o-mini",
+			Provider:  "azure",
+			APIKeyEnv: "AZURE_OPENAI_API_KEY",
+			BaseURL:   "https://example-resource.openai.azure.com",
+		},
+		APIKeys: map[string]string{
+			"AZURE_OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if !errors.Is(err, ErrProviderConfigInvalid) {
+		t.Fatalf("expected provider config invalid, got %v", err)
+	}
+}
+
+func TestExecutorValidateRejectsAzureThinking(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gpt-4o-mini",
+			Provider:  "azure",
+			APIKeyEnv: "AZURE_OPENAI_API_KEY",
+			BaseURL:   "https://example-resource.openai.azure.com",
+		},
+		RequestParams: map[string]any{
+			"api_version": "2024-06-01",
+		},
+		APIKeys: map[string]string{
+			"AZURE_OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if !errors.Is(err, ErrReasoningUnsupported) {
+		t.Fatalf("expected reasoning unsupported, got %v", err)
 	}
 }
 

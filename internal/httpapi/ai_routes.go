@@ -517,6 +517,8 @@ func writeGetLLMResponseError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, r, http.StatusConflict, "chat_project_config_mismatch", err.Error())
 	case errors.Is(err, managedllm.ErrProviderUnsupported):
 		writeError(w, r, http.StatusBadRequest, "provider_unsupported", err.Error())
+	case errors.Is(err, managedllm.ErrProviderConfigInvalid):
+		writeError(w, r, http.StatusBadRequest, "provider_config_invalid", err.Error())
 	case errors.Is(err, managedllm.ErrReasoningUnsupported):
 		writeError(w, r, http.StatusBadRequest, "thinking_unsupported", err.Error())
 	case errors.Is(err, externalagents.ErrExternalAgentEngineRequired), errors.Is(err, agentruns.ErrManagedLLMEngineRequired):
