@@ -813,17 +813,6 @@ test("canvas engine host renders a selection overlay and nudges selected section
       host.locator(`[data-canvas-engine-dom-island="${secondSectionId}"]`),
     ).toHaveCount(1);
 
-    const firstLayoutBefore = await readTopLevelSectionPosition(
-      page,
-      projectContext.projectConfigId,
-      firstSectionId,
-    );
-    const secondLayoutBefore = await readTopLevelSectionPosition(
-      page,
-      projectContext.projectConfigId,
-      secondSectionId,
-    );
-
     await dispatchMountedSectionRootClick(page, firstSectionId);
     await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
     try {
@@ -864,6 +853,150 @@ test("canvas engine host renders a selection overlay and nudges selected section
         secondDeltaX: 15,
         secondDeltaY: 0,
       });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host drags a selected group from the selection overlay gap", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const firstSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const secondSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await setTopLevelSectionLayout(page, projectContext.projectConfigId, {
+      sectionId: firstSectionId,
+      x: 80,
+      y: 60,
+    });
+    await setTopLevelSectionLayout(page, projectContext.projectConfigId, {
+      sectionId: secondSectionId,
+      x: 720,
+      y: 120,
+    });
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${firstSectionId}"]`),
+    ).toHaveCount(1);
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${secondSectionId}"]`),
+    ).toHaveCount(1);
+
+    const firstLayoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+
+    await dispatchMountedSectionRootClick(page, firstSectionId);
+    await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
+    try {
+      await dispatchMountedSectionRootClick(page, secondSectionId);
+    } finally {
+      await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
+    }
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
+
+    const selectionOverlay = page.locator(
+      '[data-canvas-engine-selection-overlay-rect="v1"]',
+    );
+    await expect(selectionOverlay).toBeVisible();
+    const firstSectionIsland = host.locator(
+      `[data-canvas-engine-dom-island="${firstSectionId}"]`,
+    );
+    const secondSectionIsland = host.locator(
+      `[data-canvas-engine-dom-island="${secondSectionId}"]`,
+    );
+    const [firstSectionBox, secondSectionBox, selectionOverlayBox] =
+      await Promise.all([
+        firstSectionIsland.boundingBox(),
+        secondSectionIsland.boundingBox(),
+        selectionOverlay.boundingBox(),
+      ]);
+    if (!firstSectionBox || !secondSectionBox || !selectionOverlayBox) {
+      throw new Error(
+        "Missing bounds for canvas engine selection overlay drag.",
+      );
+    }
+
+    const leftSectionBox =
+      firstSectionBox.x <= secondSectionBox.x
+        ? firstSectionBox
+        : secondSectionBox;
+    const rightSectionBox =
+      firstSectionBox.x <= secondSectionBox.x
+        ? secondSectionBox
+        : firstSectionBox;
+    const overlapTop = Math.max(leftSectionBox.y, rightSectionBox.y);
+    const overlapBottom = Math.min(
+      leftSectionBox.y + leftSectionBox.height,
+      rightSectionBox.y + rightSectionBox.height,
+    );
+    const dragStart = {
+      x: (leftSectionBox.x + leftSectionBox.width + rightSectionBox.x) / 2,
+      y:
+        overlapBottom > overlapTop
+          ? (overlapTop + overlapBottom) / 2
+          : selectionOverlayBox.y + selectionOverlayBox.height / 2,
+    };
+    const dragDeltaScreen = { x: 90, y: 60 };
+    const cameraBefore = await readCamera(host);
+    await page.mouse.move(dragStart.x, dragStart.y);
+    await page.mouse.down();
+    await page.mouse.move(
+      dragStart.x + dragDeltaScreen.x,
+      dragStart.y + dragDeltaScreen.y,
+      { steps: 10 },
+    );
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const [firstSectionBoxAfter, secondSectionBoxAfter] = await Promise.all(
+          [firstSectionIsland.boundingBox(), secondSectionIsland.boundingBox()],
+        );
+        if (!firstSectionBoxAfter || !secondSectionBoxAfter) {
+          return false;
+        }
+        const cameraAfter = await readCamera(host);
+        const firstDeltaX = firstSectionBoxAfter.x - firstSectionBox.x;
+        const firstDeltaY = firstSectionBoxAfter.y - firstSectionBox.y;
+        const secondDeltaX = secondSectionBoxAfter.x - secondSectionBox.x;
+        const secondDeltaY = secondSectionBoxAfter.y - secondSectionBox.y;
+        return (
+          Math.abs(firstDeltaX - secondDeltaX) < 1 &&
+          Math.abs(firstDeltaY - secondDeltaY) < 1 &&
+          Math.abs(firstDeltaX - dragDeltaScreen.x) < 4 &&
+          Math.abs(firstDeltaY - dragDeltaScreen.y) < 4 &&
+          Math.abs(cameraAfter.x - cameraBefore.x) < 1 &&
+          Math.abs(cameraAfter.y - cameraBefore.y) < 1
+        );
+      })
+      .toBe(true);
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

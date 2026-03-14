@@ -1352,6 +1352,128 @@ describe("CanvasEngineHost", () => {
     });
   });
 
+  it("drags the selected group from empty space inside the selection overlay", async () => {
+    const layoutSpy = vi
+      .spyOn(endpoints, "route_set_top_level_section_layout")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+        "section-b": {
+          x: 420,
+          y: 80,
+          zIndex: 1,
+          w: 360,
+          h: 220,
+        },
+      };
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+    useActiveSectionUI.setState({
+      activeIds: ["section-a", "section-b"],
+      selectionGeneration: 1,
+      backendGeneration: 1,
+      backendHydrationEnabled: true,
+      pendingBackendSyncOpIds: [],
+      pendingBackendSyncGenerationByOpId: {},
+      scheduledBackendSync: null,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const selectionOverlay = host.querySelector(
+      '[data-canvas-engine-selection-overlay-rect="v1"]',
+    ) as HTMLDivElement | null;
+    if (!selectionOverlay) {
+      throw new Error("Canvas engine selection overlay failed to render.");
+    }
+
+    await dispatchPointerEvent(selectionOverlay, "pointerdown", {
+      button: 0,
+      clientX: 380,
+      clientY: 150,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 470,
+      clientY: 210,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 470,
+      clientY: 210,
+      pointerId: 1,
+    });
+
+    expect(
+      useProjectState.getState().projectConfig.topLevelSections,
+    ).toMatchObject({
+      "section-a": expect.objectContaining({
+        x: 114,
+        y: 76,
+      }),
+      "section-b": expect.objectContaining({
+        x: 510,
+        y: 140,
+      }),
+    });
+    expect(useReactFlow.getState().nodesSelectionDims).toEqual({
+      x: 114,
+      y: 76,
+      width: 756,
+      height: 284,
+    });
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-a",
+      "section-b",
+    ]);
+    expect(document.activeElement).toBe(selectionOverlay);
+    expect(layoutSpy).toHaveBeenCalledOnce();
+    expect(layoutSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      topLevelSections: expect.objectContaining({
+        "section-a": expect.objectContaining({
+          x: 114,
+          y: 76,
+        }),
+        "section-b": expect.objectContaining({
+          x: 510,
+          y: 140,
+        }),
+      }),
+    });
+  });
+
   it("clears active sections from a stationary blank-pane click", async () => {
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
