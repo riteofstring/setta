@@ -6264,6 +6264,7 @@ func renderEndpointContractManifest(specs []EndpointSpec) string {
 			spec.FunctionName,
 			spec.Method,
 			spec.RouteCollection + "." + spec.RouteName,
+			"pathParams=" + endpointContractTypeName(spec.PathParamsType),
 			"request=" + endpointContractTypeName(spec.RequestType),
 			"response=" + endpointContractTypeName(spec.ResponseType),
 			"binary=" + strconv.FormatBool(spec.BinaryResponse),

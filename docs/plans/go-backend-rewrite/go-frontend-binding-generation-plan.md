@@ -178,6 +178,11 @@ Current status:
   declared in `internal/wsapi/routes.go` is represented somewhere in
   `CurrentRouteGroups()`, so websocket route widening cannot silently drift
   past the binding source of truth
+- the validation suite now also snapshots the current endpoint-contract
+  inventory in a golden manifest, including request, response, and path-param
+  DTO ownership, so wrapper-contract widening or reshaping becomes an explicit
+  reviewed diff instead of only surfacing through broader generated-endpoint
+  churn
 - the validation suite now also snapshots the current route-group inventory in
   a golden manifest, so route-group widening or reshaping becomes an explicit
   reviewed diff instead of only surfacing through missing-route failures
