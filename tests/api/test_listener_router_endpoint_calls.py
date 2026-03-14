@@ -2,7 +2,11 @@ import asyncio
 
 import pytest
 
-from setta.api.listener import ListenerRuntimeState, SettaListener
+from setta.api.listener import (
+    ListenerDependencyMetadata,
+    ListenerRuntimeState,
+    SettaListener,
+)
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.project_state.project_manager_types import GetChatSectionChatIdRequest
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -64,6 +68,9 @@ def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
     listener = SettaListener(project_name=project_state.projectConfig.name)
     dependency_graph = DependencyGraph(project_state)
     listener._runtime_state = ListenerRuntimeState(
+        dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
+            dependency_graph
+        ),
         dependency_graph=dependency_graph,
         s_instance=None,
     )

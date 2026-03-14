@@ -372,6 +372,59 @@ func TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSeq
 	assertListenerForceRefreshMessage(t, readEnvelope(t, listenerShared), "project-a", "session-a", projectState)
 }
 
+func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-a", "")
+	defer listener.CloseNow()
+	recordBootstrapOnly(t, broadcaster, "listener-a", "project-a", "")
+
+	delivered, err := broadcaster.SendForceRefresh(context.Background(), ForceRefreshParams{
+		ProjectID:    "project-a",
+		ProjectState: json.RawMessage(`{"projectId":"project-a"}`),
+		DependencyCatalog: &ListenerDependencyCatalog{
+			Entries: []ListenerDependencyCatalogEntry{
+				{
+					DependencyKey: "section-a.param-a",
+					FullPathName:  "Section__param",
+					CodeObjType:   "TextParam",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("send force refresh with dependency catalog: %v", err)
+	}
+	if delivered != 1 {
+		t.Fatalf("expected force refresh delivery to 1 listener, got %d", delivered)
+	}
+
+	content := decodeListenerForceRefreshContent(t, readEnvelope(t, listener))
+	if content.DependencyCatalog == nil {
+		t.Fatal("expected dependency catalog in listener force refresh")
+	}
+	if len(content.DependencyCatalog.Entries) != 1 {
+		t.Fatalf("expected 1 dependency catalog entry, got %d", len(content.DependencyCatalog.Entries))
+	}
+	entry := content.DependencyCatalog.Entries[0]
+	if entry.DependencyKey != "section-a.param-a" {
+		t.Fatalf("expected dependency key section-a.param-a, got %q", entry.DependencyKey)
+	}
+	if entry.FullPathName != "Section__param" {
+		t.Fatalf("expected dependency full path name Section__param, got %q", entry.FullPathName)
+	}
+	if entry.CodeObjType != "TextParam" {
+		t.Fatalf("expected dependency code obj type TextParam, got %q", entry.CodeObjType)
+	}
+}
+
 func TestListenerBroadcasterForceRefreshResetsSequenceWithoutTargets(t *testing.T) {
 	t.Parallel()
 
@@ -532,10 +585,7 @@ func assertListenerForceRefreshMessage(
 		t.Fatalf("expected listener force refresh, got %q", envelope.MessageType)
 	}
 
-	var content ListenerForceRefreshContent
-	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode listener force refresh content: %v", err)
-	}
+	content := decodeListenerForceRefreshContent(t, envelope)
 	if content.ProjectConfigID != projectID {
 		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
@@ -545,6 +595,19 @@ func assertListenerForceRefreshMessage(
 	if string(content.ProjectState) != string(projectState) {
 		t.Fatalf("expected project state %s, got %s", string(projectState), string(content.ProjectState))
 	}
+}
+
+func decodeListenerForceRefreshContent(
+	t *testing.T,
+	envelope hubMessageEnvelope,
+) ListenerForceRefreshContent {
+	t.Helper()
+
+	var content ListenerForceRefreshContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode listener force refresh content: %v", err)
+	}
+	return content
 }
 
 func assertListenerDependencyEventMessage(

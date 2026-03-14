@@ -707,6 +707,52 @@ func TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh(t *
 	assertRouteListenerForceRefresh(t, forceRefresh, "project-target", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-target"))
 }
 
+func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	sectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-a"}}`)); err != nil {
+		t.Fatalf("write listener init: %v", err)
+	}
+
+	content := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
+	if content.DependencyCatalog == nil {
+		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
+	}
+	expectedName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", sectionID, "")
+	for _, entry := range content.DependencyCatalog.Entries {
+		if entry.DependencyKey != sectionID {
+			continue
+		}
+		if entry.FullPathName != expectedName {
+			t.Fatalf("expected dependency name %q, got %q", expectedName, entry.FullPathName)
+		}
+		return
+	}
+
+	t.Fatalf("expected dependency catalog to include section %q", sectionID)
+}
+
 func TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh(t *testing.T) {
 	t.Parallel()
 
@@ -2805,10 +2851,7 @@ func assertRouteListenerForceRefresh(
 		t.Fatalf("expected listener force refresh, got %q", message.MessageType)
 	}
 
-	var content realtime.ListenerForceRefreshContent
-	if err := json.Unmarshal(message.Content, &content); err != nil {
-		t.Fatalf("decode listener force refresh: %v", err)
-	}
+	content := decodeRouteListenerForceRefreshContent(t, message)
 	if content.ProjectConfigID != projectID {
 		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
@@ -2818,6 +2861,19 @@ func assertRouteListenerForceRefresh(
 	if canonicalJSON(t, content.ProjectState) != canonicalJSON(t, expectedProjectState) {
 		t.Fatalf("expected project state %s, got %s", string(expectedProjectState), string(content.ProjectState))
 	}
+}
+
+func decodeRouteListenerForceRefreshContent(
+	t *testing.T,
+	message routeMessageEnvelope,
+) realtime.ListenerForceRefreshContent {
+	t.Helper()
+
+	var content realtime.ListenerForceRefreshContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener force refresh: %v", err)
+	}
+	return content
 }
 
 func assertRouteListenerError(

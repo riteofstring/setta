@@ -1,6 +1,10 @@
 import pytest
 
-from setta.api.listener import ListenerRuntimeState, SettaListener
+from setta.api.listener import (
+    ListenerDependencyMetadata,
+    ListenerRuntimeState,
+    SettaListener,
+)
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
@@ -120,6 +124,9 @@ class TestSettaListenerDependencyTranslation:
         )
         listener._project_config_id = self.project_state.projectConfig.id
         listener._runtime_state = ListenerRuntimeState(
+            dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
+                self.dependency_graph
+            ),
             dependency_graph=self.dependency_graph,
             s_instance=object(),
         )

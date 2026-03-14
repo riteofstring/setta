@@ -63,6 +63,7 @@ from setta.types.generated.websocket_unions import (
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.listener import (
     DependencyEvent,
+    ListenerDependencyCatalog,
     ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
@@ -229,6 +230,7 @@ class ListenerCallbackContext:
 
 @dataclass(slots=True)
 class ListenerRuntimeState:
+    dependency_metadata: "ListenerDependencyMetadata"
     dependency_graph: DependencyGraph
     s_instance: Any | None
 
@@ -245,20 +247,110 @@ class ListenerDependencyId:
     paramInfoId: "ID | None" = None
 
 
-class ListenerDependencyIds:
-    def __init__(
-        self,
+@dataclass(frozen=True, slots=True)
+class ListenerDependencyMetadataEntry:
+    dependencyKey: BaseDependencyKeyUnion
+    fullPathName: str
+    sectionType: str | None = None
+    codeObjType: str | None = None
+    controlCodeObjId: "ID | None" = None
+
+
+class ListenerDependencyMetadata:
+    def __init__(self, entries: Sequence[ListenerDependencyMetadataEntry]) -> None:
+        by_key: dict[BaseDependencyKeyUnion, ListenerDependencyMetadataEntry] = {}
+        by_name: dict[str, ListenerDependencyMetadataEntry] = {}
+        ordered_names: list[str] = []
+        for entry in entries:
+            by_key[entry.dependencyKey] = entry
+            by_name[entry.fullPathName] = entry
+            ordered_names.append(entry.fullPathName)
+        self._by_key = by_key
+        self._by_name = by_name
+        self._ordered_names = tuple(ordered_names)
+
+    @classmethod
+    def from_dependency_graph(
+        cls,
         dependency_graph: DependencyGraph,
-    ) -> None:
-        self._dependency_graph = dependency_graph
+    ) -> "ListenerDependencyMetadata":
+        entries: list[ListenerDependencyMetadataEntry] = []
+        for dep_key, node in dependency_graph.graph.items():
+            section_type: str | None = None
+            code_obj_type: str | None = None
+            control_code_obj_id = None
+            if isinstance(node, SectionNode):
+                section_type = node.type
+                control_code_obj_id = node.control_code_obj_id
+            elif isinstance(node, ParamNode):
+                code_obj_type = node.type
+            entries.append(
+                ListenerDependencyMetadataEntry(
+                    dependencyKey=dep_key,
+                    fullPathName=node.full_path_name,
+                    sectionType=section_type,
+                    codeObjType=code_obj_type,
+                    controlCodeObjId=control_code_obj_id,
+                )
+            )
+        entries.sort(key=lambda entry: entry.fullPathName)
+        return cls(entries)
+
+    @classmethod
+    def from_catalog(
+        cls,
+        catalog: ListenerDependencyCatalog,
+    ) -> "ListenerDependencyMetadata":
+        return cls(
+            [
+                ListenerDependencyMetadataEntry(
+                    dependencyKey=entry.dependencyKey,
+                    fullPathName=entry.fullPathName,
+                    sectionType=entry.sectionType,
+                    codeObjType=entry.codeObjType,
+                    controlCodeObjId=entry.controlCodeObjId,
+                )
+                for entry in catalog.entries
+            ]
+        )
 
     def dependency_key(self, name: str) -> BaseDependencyKeyUnion:
         if not name:
             raise ValueError("dependency name must be non-empty")
-        lookup = self._dependency_graph.full_path_name_to_dep_key
-        if name not in lookup:
+        if name not in self._by_name:
             raise KeyError(f"Unknown dependency name: {name}")
-        return lookup[name]
+        return self._by_name[name].dependencyKey
+
+    def dependency_name(self, dep_key: BaseDependencyKeyUnion) -> str:
+        if dep_key not in self._by_key:
+            raise KeyError(f"Unknown dependency key: {dep_key!r}")
+        return self._by_key[dep_key].fullPathName
+
+    def entry_for_name(self, name: str) -> ListenerDependencyMetadataEntry:
+        if name not in self._by_name:
+            raise KeyError(f"Unknown dependency name: {name}")
+        return self._by_name[name]
+
+    def entry_for_key(
+        self, dep_key: BaseDependencyKeyUnion
+    ) -> ListenerDependencyMetadataEntry:
+        if dep_key not in self._by_key:
+            raise KeyError(f"Unknown dependency key: {dep_key!r}")
+        return self._by_key[dep_key]
+
+    def names(self) -> tuple[str, ...]:
+        return self._ordered_names
+
+
+class ListenerDependencyIds:
+    def __init__(
+        self,
+        dependency_metadata: ListenerDependencyMetadata,
+    ) -> None:
+        self._dependency_metadata = dependency_metadata
+
+    def dependency_key(self, name: str) -> BaseDependencyKeyUnion:
+        return self._dependency_metadata.dependency_key(name)
 
     def section_id(self, dependency_name: str) -> "ID":
         dep_key = self.dependency_key(dependency_name)
@@ -283,19 +375,23 @@ class ListenerDependencyIds:
         )
 
     def meta_control_param_ids(self, dependency_name: str) -> ListenerParamIds:
-        dep_key = self.dependency_key(dependency_name)
-        node = self._dependency_graph.graph[dep_key]
-        if not isinstance(node, SectionNode) or node.type is not SectionType.MetaControl:
+        entry = self._dependency_metadata.entry_for_name(dependency_name)
+        dep_key = entry.dependencyKey
+        if not isinstance(dep_key, SectionDependencyKey):
+            raise ValueError(
+                f"Dependency {dependency_name!r} does not refer to a section"
+            )
+        if entry.sectionType != SectionType.MetaControl:
             raise ValueError(
                 f"Dependency {dependency_name!r} does not refer to a meta control section"
             )
-        if node.control_code_obj_id is None:
+        if entry.controlCodeObjId is None:
             raise KeyError(
                 f"Meta control dependency {dependency_name!r} is missing control param metadata"
             )
         return ListenerParamIds(
-            sectionId=node.id,
-            paramInfoId=node.control_code_obj_id,
+            sectionId=dep_key.sectionId,
+            paramInfoId=entry.controlCodeObjId,
         )
 
     def dependency_id(self, dependency_name: str) -> ListenerDependencyId:
@@ -306,31 +402,40 @@ class ListenerDependencyIds:
         self, section_id: "ID", param_info_id: "ID | None" = None
     ) -> str:
         dep_key = create_dep_key(sectionId=section_id, codeObjId=param_info_id)
-        graph = self._dependency_graph.graph
-        if dep_key not in graph:
+        try:
+            return self._dependency_metadata.dependency_name(dep_key)
+        except KeyError as error:
             raise KeyError(
                 f"Unknown dependency id: sectionId={section_id} paramInfoId={param_info_id}"
-            )
-        return graph[dep_key].full_path_name
+            ) from error
 
 
 class ListenerDependencyValues:
     def __init__(
         self,
-        dependency_graph: DependencyGraph | None = None,
+        dependency_metadata: ListenerDependencyMetadata | None = None,
         state: Any = _MISSING,
         *,
-        dependency_graph_resolver: Callable[[], DependencyGraph | None] | None = None,
+        dependency_metadata_resolver: Callable[
+            [], ListenerDependencyMetadata | None
+        ]
+        | None = None,
         value_resolver: Callable[[str], Any] | None = None,
         state_resolver: Callable[[], Any] | None = None,
     ) -> None:
-        if dependency_graph_resolver is not None and dependency_graph is not None:
+        if (
+            dependency_metadata_resolver is not None
+            and dependency_metadata is not None
+        ):
             raise ValueError(
-                "ListenerDependencyValues accepts either dependency_graph or dependency_graph_resolver"
+                "ListenerDependencyValues accepts either dependency_metadata or dependency_metadata_resolver"
             )
-        if dependency_graph_resolver is None and dependency_graph is None:
+        if (
+            dependency_metadata_resolver is None
+            and dependency_metadata is None
+        ):
             raise ValueError(
-                "ListenerDependencyValues requires dependency_graph or dependency_graph_resolver"
+                "ListenerDependencyValues requires dependency_metadata or dependency_metadata_resolver"
             )
         if state_resolver is not None and state is not _MISSING:
             raise ValueError(
@@ -340,20 +445,20 @@ class ListenerDependencyValues:
             raise ValueError(
                 "ListenerDependencyValues requires state or state_resolver"
             )
-        self._dependency_graph = dependency_graph
-        self._dependency_graph_resolver = dependency_graph_resolver
+        self._dependency_metadata = dependency_metadata
+        self._dependency_metadata_resolver = dependency_metadata_resolver
         self._state = state
         self._value_resolver = value_resolver
         self._state_resolver = state_resolver
 
-    def _require_dependency_graph(self) -> DependencyGraph:
-        if self._dependency_graph_resolver is not None:
-            dependency_graph = self._dependency_graph_resolver()
+    def _require_dependency_metadata(self) -> ListenerDependencyMetadata:
+        if self._dependency_metadata_resolver is not None:
+            dependency_metadata = self._dependency_metadata_resolver()
         else:
-            dependency_graph = self._dependency_graph
-        if dependency_graph is None:
-            raise RuntimeError("Listener dependency graph is unavailable")
-        return dependency_graph
+            dependency_metadata = self._dependency_metadata
+        if dependency_metadata is None:
+            raise RuntimeError("Listener dependency metadata is unavailable")
+        return dependency_metadata
 
     def _require_state(self) -> Any:
         if self._state_resolver is not None:
@@ -366,12 +471,12 @@ class ListenerDependencyValues:
 
     def by_id(self, section_id: "ID", param_id: "ID | None" = None) -> Any:
         dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        graph = self._require_dependency_graph().graph
-        if dep_key not in graph:
+        try:
+            name = self._require_dependency_metadata().dependency_name(dep_key)
+        except KeyError as error:
             raise KeyError(
                 f"Unknown dependency id: sectionId={section_id} paramInfoId={param_id}"
-            )
-        name = graph[dep_key].full_path_name
+            ) from error
         if self._value_resolver is not None:
             value = self._value_resolver(name)
             if value is not _MISSING:
@@ -383,28 +488,32 @@ class _ListenerCallbackStateView:
     def __init__(
         self,
         *,
-        dependency_graph_resolver: Callable[[], DependencyGraph | None],
+        dependency_metadata_resolver: Callable[
+            [], ListenerDependencyMetadata | None
+        ],
         value_resolver: Callable[[str], Any],
         log_identifier: str,
     ) -> None:
-        self._dependency_graph_resolver = dependency_graph_resolver
+        self._dependency_metadata_resolver = dependency_metadata_resolver
         self._value_resolver = value_resolver
         self._log_identifier = log_identifier
 
-    def _require_dependency_graph(self) -> DependencyGraph:
-        dependency_graph = self._dependency_graph_resolver()
-        if dependency_graph is None:
-            raise RuntimeError("Listener dependency graph is unavailable")
-        return dependency_graph
+    def _require_dependency_metadata(self) -> ListenerDependencyMetadata:
+        dependency_metadata = self._dependency_metadata_resolver()
+        if dependency_metadata is None:
+            raise RuntimeError("Listener dependency metadata is unavailable")
+        return dependency_metadata
 
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):
             raise AttributeError(name)
-        dependency_graph = self._require_dependency_graph()
-        if name not in dependency_graph.full_path_name_to_dep_key:
+        dependency_metadata = self._require_dependency_metadata()
+        try:
+            dependency_metadata.dependency_key(name)
+        except KeyError as error:
             raise AttributeError(
                 f"{type(self).__name__!r} object has no attribute {name!r}"
-            )
+            ) from error
         value = self._value_resolver(name)
         if value is _MISSING:
             raise RuntimeError(
@@ -417,10 +526,10 @@ class _ListenerCallbackStateView:
 
     def __dir__(self) -> list[str]:
         base = set(super().__dir__())
-        dependency_graph = self._dependency_graph_resolver()
-        if dependency_graph is None:
+        dependency_metadata = self._dependency_metadata_resolver()
+        if dependency_metadata is None:
             return sorted(base)
-        return sorted(base | set(dependency_graph.full_path_name_to_dep_key))
+        return sorted(base | set(dependency_metadata.names()))
 
 
 ListenerDependencySpec = str | ListenerDependencyId | BaseDependencyKeyUnion
@@ -489,6 +598,7 @@ class SettaListener:
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
+        self._latest_dependency_metadata: ListenerDependencyMetadata | None = None
         self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
         self._pending_router_endpoint_force_refreshes: dict[
             str, asyncio.Future[None]
@@ -1109,8 +1219,7 @@ class SettaListener:
             raise RuntimeError(
                 "Listener runtime state unavailable during registration payload build"
             )
-        dependency_graph = runtime_state.dependency_graph
-        self._refresh_callback_dependency_metadata(dependency_graph)
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
         callbacks: dict[str, ListenerRegisterCallback] = {}
         for spec in self._callbacks.values():
             callbacks[spec.callback_id] = ListenerRegisterCallback(
@@ -1126,7 +1235,7 @@ class SettaListener:
 
     def _resolve_dependency_spec(
         self,
-        dependency_graph: DependencyGraph,
+        dependency_metadata: ListenerDependencyMetadata,
         dependency: ListenerDependencySpec,
     ) -> BaseDependencyKeyUnion:
         if isinstance(dependency, ListenerDependencyId):
@@ -1137,25 +1246,26 @@ class SettaListener:
         elif isinstance(dependency, (SectionDependencyKey, SectionParamDependencyKey)):
             dep_key = dependency
         elif isinstance(dependency, str):
-            lookup = dependency_graph.full_path_name_to_dep_key
-            if dependency not in lookup:
+            try:
+                dep_key = dependency_metadata.dependency_key(dependency)
+            except KeyError as error:
                 raise KeyError(
                     f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
-                )
-            dep_key = lookup[dependency]
+                ) from error
         else:
             raise TypeError(
                 "Listener dependencies must be a name, dependency id, or dependency key"
             )
-        graph = dependency_graph.graph
-        if dep_key not in graph:
+        try:
+            dependency_metadata.entry_for_key(dep_key)
+        except KeyError as error:
             raise KeyError(
                 f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
-            )
+            ) from error
         return dep_key
 
     def _refresh_callback_dependency_metadata(
-        self, dependency_graph: DependencyGraph
+        self, dependency_metadata: ListenerDependencyMetadata
     ) -> None:
         for spec in self._callbacks.values():
             if spec.declared_dependencies and not spec.structured_dependencies:
@@ -1163,7 +1273,7 @@ class SettaListener:
                 for dependency in spec.declared_dependencies:
                     structured.append(
                         self._resolve_dependency_spec(
-                            dependency_graph,
+                            dependency_metadata,
                             dependency,
                         )
                     )
@@ -1172,13 +1282,13 @@ class SettaListener:
                 spec.dependency_names = ()
                 continue
             names: list[str] = []
-            graph = dependency_graph.graph
             for dep_key in spec.structured_dependencies:
-                if dep_key not in graph:
+                try:
+                    names.append(dependency_metadata.dependency_name(dep_key))
+                except KeyError as error:
                     raise KeyError(
                         f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
-                    )
-                names.append(graph[dep_key].full_path_name)
+                    ) from error
             spec.dependency_names = tuple(names)
 
     @staticmethod
@@ -1254,6 +1364,7 @@ class SettaListener:
         self,
         project_state: ProjectStateSingleConfig,
         *,
+        dependency_catalog: ListenerDependencyCatalog | None = None,
         share_session_id: str | None = None,
     ) -> None:
         """Refresh listener state from a snapshot delivered over the websocket."""
@@ -1266,6 +1377,7 @@ class SettaListener:
         await self._process_snapshot(
             project_state,
             refresh_kind=refresh_kind,
+            dependency_catalog=dependency_catalog,
             share_session_id=share_session_id,
         )
 
@@ -1274,6 +1386,7 @@ class SettaListener:
         project_state: ProjectStateSingleConfig,
         *,
         refresh_kind: Literal["bootstrap", "force_refresh"],
+        dependency_catalog: ListenerDependencyCatalog | None = None,
         share_session_id: str | None,
     ) -> None:
         self._validate_sequence_session_id(share_session_id)
@@ -1312,6 +1425,10 @@ class SettaListener:
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
             return
+        runtime_state.dependency_metadata = self._build_dependency_metadata(
+            dependency_catalog,
+            runtime_state.dependency_graph,
+        )
         snapshot_values: dict[str, Any] = {}
         previous_cache = dict(self._dependency_cache)
         updated_cache = (
@@ -1320,7 +1437,7 @@ class SettaListener:
             else dict(self._dependency_cache)
         )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
@@ -1331,10 +1448,14 @@ class SettaListener:
                 if runtime_state.s_instance is None:
                     value = updated_cache.get(dependency, _UNAVAILABLE)
                 else:
+                    runtime_dependency = self._runtime_dependency_name(
+                        runtime_state,
+                        dep_key,
+                    )
                     value = self._get_dependency_value(
                         runtime_state,
                         runtime_state.s_instance,
-                        dependency,
+                        runtime_dependency,
                         snapshot_values,
                         project_state=project_state,
                         dep_key=dep_key,
@@ -1361,6 +1482,7 @@ class SettaListener:
                 callbacks_to_run.append((spec, changed))
 
         self._runtime_state = runtime_state
+        self._latest_dependency_metadata = runtime_state.dependency_metadata
         self._dependency_cache = updated_cache
 
         if refresh_kind == "bootstrap":
@@ -1398,6 +1520,9 @@ class SettaListener:
         self, project_state: ProjectStateSingleConfig
     ) -> ListenerRuntimeState:
         dep_graph = DependencyGraph(project_state)
+        dependency_metadata = ListenerDependencyMetadata.from_dependency_graph(
+            dep_graph
+        )
         code_generator = build_python_code_generator(
             project_state,
             dep_graph,
@@ -1413,6 +1538,7 @@ class SettaListener:
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
             return ListenerRuntimeState(
+                dependency_metadata=dependency_metadata,
                 dependency_graph=dep_graph,
                 s_instance=None,
             )
@@ -1427,6 +1553,7 @@ class SettaListener:
             )
             s_instance = None
         return ListenerRuntimeState(
+            dependency_metadata=dependency_metadata,
             dependency_graph=dep_graph,
             s_instance=s_instance,
         )
@@ -1485,7 +1612,8 @@ class SettaListener:
         value_codec = self._new_live_value_codec(runtime_state.dependency_graph)
         values_by_key: dict[BaseDependencyKeyUnion, Any] = {}
         values_by_name: dict[str, Any] = {}
-        for name, dep_key in runtime_state.dependency_graph.full_path_name_to_dep_key.items():
+        for name in runtime_state.dependency_metadata.names():
+            dep_key = runtime_state.dependency_metadata.dependency_key(name)
             value = self._build_cached_dependency_value(
                 runtime_state,
                 dep_key,
@@ -1755,7 +1883,7 @@ class SettaListener:
             )
             return
 
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
         sequence_session_id = self._validate_sequence_session_id(content.shareSessionId)
         last_sequence = self._get_last_realtime_sequence()
@@ -1795,7 +1923,18 @@ class SettaListener:
                     )
                     continue
                 runtime_state.dependency_graph.change_value(dep_key, delta.value)
-                affected_dependency_names[dep_key] = node.full_path_name
+                try:
+                    dependency_name = runtime_state.dependency_metadata.dependency_name(
+                        dep_key
+                    )
+                except KeyError:
+                    logger.error(
+                        "Listener %s received realtime delta for unknown dependency metadata key %s",
+                        self._log_identifier,
+                        dep_key,
+                    )
+                    continue
+                affected_dependency_names[dep_key] = dependency_name
             updated_cache = self._build_dependency_cache_from_runtime_state(runtime_state)
             self._dependency_cache = updated_cache
 
@@ -1842,7 +1981,16 @@ class SettaListener:
                 )
                 continue
             value = delta.value
-            dependency = node.full_path_name
+            try:
+                dependency = runtime_state.dependency_metadata.dependency_name(dep_key)
+            except KeyError:
+                logger.error(
+                    "Listener %s received realtime delta for unknown dependency metadata key %s",
+                    self._log_identifier,
+                    dep_key,
+                )
+                continue
+            runtime_dependency = node.full_path_name
             binary_payload = (
                 delta.binaryPayload
                 if value.type is DependencyValueType.Binary
@@ -1851,7 +1999,7 @@ class SettaListener:
             try:
                 hydrated_value = self._set_dependency_value(
                     runtime_state.s_instance,
-                    dependency,
+                    runtime_dependency,
                     value,
                     node,
                     dependency_graph=runtime_state.dependency_graph,
@@ -1897,8 +2045,12 @@ class SettaListener:
                 if dep_key not in applied_dependencies_by_key:
                     continue
                 try:
+                    runtime_dependency = self._runtime_dependency_name(
+                        runtime_state,
+                        dep_key,
+                    )
                     value = self._resolve_dependency_value(
-                        runtime_state.s_instance, dependency
+                        runtime_state.s_instance, runtime_dependency
                     )
                 except (AttributeError, KeyError, IndexError, ValueError) as error:
                     logger.error(
@@ -1968,7 +2120,7 @@ class SettaListener:
             )
             return
 
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
         callbacks_to_run: dict[str, list[DependencyEvent]] = {}
         for event in content.dependencyEvents:
             for spec in self._callbacks.values():
@@ -1999,6 +2151,7 @@ class SettaListener:
             if project_state is not None:
                 await self._refresh_from_snapshot(
                     project_state,
+                    dependency_catalog=content.dependencyCatalog,
                     share_session_id=content.shareSessionId,
                 )
                 completed = True
@@ -2016,6 +2169,7 @@ class SettaListener:
             await self._process_snapshot(
                 project_state,
                 refresh_kind="force_refresh",
+                dependency_catalog=content.dependencyCatalog,
                 share_session_id=content.shareSessionId,
             )
             completed = True
@@ -2274,16 +2428,16 @@ class SettaListener:
             raise RuntimeError(
                 "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
             )
-        ids = ListenerDependencyIds(runtime_state.dependency_graph)
+        ids = ListenerDependencyIds(runtime_state.dependency_metadata)
         values = ListenerDependencyValues(
-            dependency_graph_resolver=self._current_runtime_state_dependency_graph,
+            dependency_metadata_resolver=self._current_runtime_state_dependency_metadata,
             value_resolver=self._current_dependency_value_by_name,
             state_resolver=self._current_callback_state,
         )
         return ListenerCallbackContext(
             changed=changed,
             changed_by_id=self._build_changed_by_id(
-                runtime_state.dependency_graph, changed
+                runtime_state.dependency_metadata, changed
             ),
             events=events,
             log=spec_logger,
@@ -2300,6 +2454,14 @@ class SettaListener:
             return None
         return runtime_state.dependency_graph
 
+    def _current_runtime_state_dependency_metadata(
+        self,
+    ) -> ListenerDependencyMetadata | None:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            return None
+        return runtime_state.dependency_metadata
+
     def _current_callback_state(self) -> Any:
         runtime_state = self._runtime_state
         if runtime_state is None:
@@ -2309,40 +2471,54 @@ class SettaListener:
     def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
         return self._dependency_cache.get(dependency_name, _MISSING)
 
+    def _build_dependency_metadata(
+        self,
+        dependency_catalog: ListenerDependencyCatalog | None,
+        dependency_graph: DependencyGraph,
+    ) -> ListenerDependencyMetadata:
+        if dependency_catalog is None:
+            return ListenerDependencyMetadata.from_dependency_graph(dependency_graph)
+        return ListenerDependencyMetadata.from_catalog(dependency_catalog)
+
     def _build_callback_state(
         self,
         runtime_state: ListenerRuntimeState,
         *,
         value_resolver: Callable[[str], Any] | None = None,
-        dependency_graph_resolver: Callable[[], DependencyGraph | None] | None = None,
+        dependency_metadata_resolver: Callable[
+            [], ListenerDependencyMetadata | None
+        ]
+        | None = None,
     ) -> Any:
         if runtime_state.s_instance is not None:
             return runtime_state.s_instance
         if value_resolver is None:
             value_resolver = self._current_dependency_value_by_name
-        if dependency_graph_resolver is None:
-            dependency_graph_resolver = self._current_runtime_state_dependency_graph
+        if dependency_metadata_resolver is None:
+            dependency_metadata_resolver = (
+                self._current_runtime_state_dependency_metadata
+            )
         return _ListenerCallbackStateView(
-            dependency_graph_resolver=dependency_graph_resolver,
+            dependency_metadata_resolver=dependency_metadata_resolver,
             value_resolver=value_resolver,
             log_identifier=self._log_identifier,
         )
 
     def _build_changed_by_id(
         self,
-        dependency_graph: DependencyGraph,
+        dependency_metadata: ListenerDependencyMetadata,
         changed: dict[str, Any],
     ) -> dict[ListenerDependencyId, Any]:
         if not changed:
             return {}
-        lookup = dependency_graph.full_path_name_to_dep_key
         changed_by_id: dict[ListenerDependencyId, Any] = {}
         for dependency_name, value in changed.items():
-            if dependency_name not in lookup:
+            try:
+                dep_key = dependency_metadata.dependency_key(dependency_name)
+            except KeyError as error:
                 raise KeyError(
                     f"Unknown dependency name {dependency_name!r} for project {self._log_identifier}"
-                )
-            dep_key = lookup[dependency_name]
+                ) from error
             changed_by_id[_dependency_id_from_key(dep_key)] = value
         return changed_by_id
 
@@ -2388,6 +2564,8 @@ class SettaListener:
                     exc_info=logger.isEnabledFor(logging.DEBUG),
                 )
                 return
+            if self._latest_dependency_metadata is not None:
+                runtime_state.dependency_metadata = self._latest_dependency_metadata
             self._runtime_state = runtime_state
 
         snapshot_values: dict[str, Any] = {}
@@ -2397,7 +2575,7 @@ class SettaListener:
             else dict(self._dependency_cache)
         )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
@@ -2413,10 +2591,14 @@ class SettaListener:
                 if runtime_state.s_instance is None:
                     value = updated_cache.get(dependency, _UNAVAILABLE)
                 else:
+                    runtime_dependency = self._runtime_dependency_name(
+                        runtime_state,
+                        dep_key,
+                    )
                     value = self._get_dependency_value(
                         runtime_state,
                         runtime_state.s_instance,
-                        dependency,
+                        runtime_dependency,
                         snapshot_values,
                         project_state=snapshot,
                         dep_key=dep_key,
@@ -2437,8 +2619,20 @@ class SettaListener:
                 dependency_name,
                 _MISSING,
             ),
-            dependency_graph_resolver=lambda: runtime_state.dependency_graph,
+            dependency_metadata_resolver=lambda: runtime_state.dependency_metadata,
         )
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed, events=[])
             await self._invoke_callback(spec, callback_state, ctx)
+
+    def _runtime_dependency_name(
+        self,
+        runtime_state: ListenerRuntimeState,
+        dep_key: BaseDependencyKeyUnion,
+    ) -> str:
+        node = runtime_state.dependency_graph.graph.get(dep_key)
+        if node is None:
+            raise KeyError(
+                f"Unknown dependency key {dep_key!r} for project {self._log_identifier}"
+            )
+        return node.full_path_name

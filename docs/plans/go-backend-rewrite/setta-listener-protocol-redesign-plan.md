@@ -72,10 +72,16 @@ Current state:
   - `ListenerRuntimeState` no longer retains the full project snapshot; the
     remaining chat snapshot fallback reads the explicit refresh/replay snapshot
     input instead
+  - Go listener bootstrap/force-refresh snapshots now carry an authoritative
+    dependency catalog, and retained Python listener bookkeeping now consumes
+    that catalog for callback dependency names, `ctx.ids.*`,
+    `ctx.values.by_id(...)`, and `ctx.changed_by_id`, including cached
+    snapshot replay
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
-  - local dependency-graph rebuilding and generated runtime state
+  - local dependency-graph rebuilding and generated runtime state for value
+    hydration only
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -232,6 +238,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
   authoritative cached dependency values.
 - Keep metadata-backed fallback state access fail-closed for unresolved known
   dependencies instead of synthesizing heuristic values.
+- Keep local dependency-graph/runtime generation only where current value
+  hydration still requires it, and treat Go-provided dependency metadata as
+  authoritative for listener bookkeeping.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

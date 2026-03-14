@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/artifacts"
 	"setta/internal/deployments"
+	"setta/internal/listenersnapshot"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -736,7 +737,7 @@ func handleListenerInit(
 		}, deps)
 	}
 
-	projectID, projectStatePayload, details, err := resolveListenerBootstrap(
+	projectID, snapshotPayload, details, err := resolveListenerBootstrap(
 		requestInfo,
 		content,
 		deps,
@@ -764,7 +765,8 @@ func handleListenerInit(
 	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
 		ProjectID:           projectID,
 		ShareSessionID:      requestInfo.ShareSessionID,
-		ProjectState:        projectStatePayload,
+		ProjectState:        snapshotPayload.ProjectState,
+		DependencyCatalog:   snapshotPayload.DependencyCatalog,
 		TargetConnectionIDs: []string{connectionID},
 	})
 	return err
@@ -774,10 +776,10 @@ func resolveListenerBootstrap(
 	requestInfo modes.RequestInfo,
 	content realtime.ListenerInitContent,
 	deps RouteDependencies,
-) (string, json.RawMessage, map[string]any, error) {
+) (string, listenersnapshot.ListenerSnapshotPayload, map[string]any, error) {
 	snapshot, err := listenerBootstrapSnapshot(requestInfo, deps)
 	if err != nil {
-		return "", nil, map[string]any{"message": err.Error()}, err
+		return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{"message": err.Error()}, err
 	}
 
 	projectID := strings.TrimSpace(content.ProjectConfigID)
@@ -788,7 +790,7 @@ func resolveListenerBootstrap(
 	case projectName != "":
 		projectID, err = snapshot.Document.ProjectIDByName(projectName)
 		if err != nil {
-			return "", nil, map[string]any{
+			return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{
 				"projectName": projectName,
 				"message":     err.Error(),
 			}, err
@@ -797,11 +799,11 @@ func resolveListenerBootstrap(
 		projectID = strings.TrimSpace(snapshot.Document.DefaultProjectID)
 		if projectID == "" {
 			err := fmt.Errorf("%w: default project id", projectview.ErrProjectConfigIDRequired)
-			return "", nil, map[string]any{"message": err.Error()}, err
+			return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{"message": err.Error()}, err
 		}
 	}
 
-	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+	_, err = projectview.SingleConfigByProjectID(snapshot.Document, projectID)
 	if err != nil {
 		details := map[string]any{
 			"message": err.Error(),
@@ -812,14 +814,14 @@ func resolveListenerBootstrap(
 		if projectName != "" {
 			details["projectName"] = projectName
 		}
-		return "", nil, details, err
+		return "", listenersnapshot.ListenerSnapshotPayload{}, details, err
 	}
 
-	projectStatePayload, err := json.Marshal(projectStateView)
+	snapshotPayload, err := listenersnapshot.BuildListenerSnapshotPayload(snapshot.Document, projectID)
 	if err != nil {
-		return "", nil, map[string]any{"message": err.Error()}, err
+		return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{"message": err.Error()}, err
 	}
-	return projectID, projectStatePayload, nil, nil
+	return projectID, snapshotPayload, nil, nil
 }
 
 func listenerBootstrapSnapshot(
@@ -1015,20 +1017,17 @@ func sendListenerEndpointForceRefresh(
 		return err
 	}
 
-	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
-	if err != nil {
-		return err
-	}
-	projectStatePayload, err := json.Marshal(projectStateView)
+	snapshotPayload, err := listenersnapshot.BuildListenerSnapshotPayload(snapshot.Document, projectID)
 	if err != nil {
 		return err
 	}
 
 	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
-		ProjectID:      projectID,
-		ShareSessionID: requestInfo.ShareSessionID,
-		CallID:         strings.TrimSpace(callID),
-		ProjectState:   projectStatePayload,
+		ProjectID:         projectID,
+		ShareSessionID:    requestInfo.ShareSessionID,
+		CallID:            strings.TrimSpace(callID),
+		ProjectState:      snapshotPayload.ProjectState,
+		DependencyCatalog: snapshotPayload.DependencyCatalog,
 	})
 	return err
 }

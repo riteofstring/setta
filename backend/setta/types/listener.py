@@ -69,10 +69,23 @@ class ListenerDependencyEventContent(BaseModel):
     sequence: int
 
 
+class ListenerDependencyCatalogEntry(BaseModel):
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    fullPathName: str
+    sectionType: str | None = None
+    codeObjType: str | None = None
+    controlCodeObjId: ID | None = None
+
+
+class ListenerDependencyCatalog(BaseModel):
+    entries: list[ListenerDependencyCatalogEntry] = Field(default_factory=list)
+
+
 class ListenerForceRefreshContent(BaseModel):
     shareSessionId: str | None = None
     callId: str | None = None
     projectState: ProjectStateSingleConfig | None = None
+    dependencyCatalog: ListenerDependencyCatalog | None = None
 
 
 class ListenerErrorContent(BaseModel):

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/deployments"
+	"setta/internal/listenersnapshot"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -89,16 +89,17 @@ func forceRefreshListenerHandler(deps ListenerRouteDependencies) http.HandlerFun
 			return
 		}
 
-		projectStatePayload, err := listenerForceRefreshPayload(deps, requestInfo, projectID)
+		snapshotPayload, err := listenerForceRefreshPayload(deps, requestInfo, projectID)
 		if err != nil {
 			writeListenerForceRefreshError(w, r, err)
 			return
 		}
 
 		if _, err := deps.ListenerBroadcaster.SendForceRefresh(r.Context(), realtime.ForceRefreshParams{
-			ProjectID:      projectID,
-			ShareSessionID: requestInfo.ShareSessionID,
-			ProjectState:   projectStatePayload,
+			ProjectID:         projectID,
+			ShareSessionID:    requestInfo.ShareSessionID,
+			ProjectState:      snapshotPayload.ProjectState,
+			DependencyCatalog: snapshotPayload.DependencyCatalog,
 		}); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -142,34 +143,25 @@ func listenerForceRefreshPayload(
 	deps ListenerRouteDependencies,
 	requestInfo modes.RequestInfo,
 	projectID string,
-) (json.RawMessage, error) {
+) (listenersnapshot.ListenerSnapshotPayload, error) {
 	var snapshot projectstate.Snapshot
 	if requestInfo.Policy.IsDeployment() {
 		if deps.Deployment == nil {
-			return nil, fmt.Errorf("deployment runtime is required")
+			return listenersnapshot.ListenerSnapshotPayload{}, fmt.Errorf("deployment runtime is required")
 		}
 		deploymentSnapshot, err := deps.Deployment.SessionSnapshot(requestInfo.ShareSessionID)
 		if err != nil {
-			return nil, err
+			return listenersnapshot.ListenerSnapshotPayload{}, err
 		}
 		snapshot = deploymentSnapshot
 	} else {
 		if deps.ProjectState == nil {
-			return nil, fmt.Errorf("project runtime is required")
+			return listenersnapshot.ListenerSnapshotPayload{}, fmt.Errorf("project runtime is required")
 		}
 		snapshot = deps.ProjectState.Snapshot()
 	}
 
-	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	payload, err := json.Marshal(projectStateView)
-	if err != nil {
-		return nil, err
-	}
-	return payload, nil
+	return listenersnapshot.BuildListenerSnapshotPayload(snapshot.Document, projectID)
 }
 
 func writeListenerForceRefreshError(w http.ResponseWriter, r *http.Request, err error) {

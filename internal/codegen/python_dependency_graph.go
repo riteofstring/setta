@@ -90,6 +90,7 @@ type PythonSectionNode struct {
 	SectionType                string
 	Representation             projectstate.PythonSectionRepresentationMode
 	ControlCodeObjType         string
+	ControlCodeObjID           string
 	ControlCodeObjImplID       string
 	ControlValueRepresentation projectstate.PythonCodeObjValueRepresentationMode
 }
@@ -550,6 +551,7 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 			SectionType:                section.Type,
 			Representation:             section.Policy.Representation,
 			ControlCodeObjType:         controlCodeObj.Type,
+			ControlCodeObjID:           controlParamID,
 			ControlCodeObjImplID:       controlCodeObj.ImplID,
 			ControlValueRepresentation: controlCodeObj.ValuePolicy.Representation,
 		}

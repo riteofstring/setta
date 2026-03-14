@@ -11,6 +11,7 @@ import pytest
 
 from setta.api.listener import (
     ListenerCallbackSpec,
+    ListenerDependencyMetadata,
     ListenerRuntimeState,
     SettaListener,
 )
@@ -844,6 +845,9 @@ class TestSettaListenerRealtimeIntegration:
             ),
         )
         listener._runtime_state = ListenerRuntimeState(
+            dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
+                dep_graph
+            ),
             dependency_graph=dep_graph,
             s_instance=state,
         )
@@ -1040,12 +1044,13 @@ class TestSettaListenerBootstrapFailure:
 
         runtime_state = listener._build_runtime_state(project_state)
         listener._runtime_state = ListenerRuntimeState(
+            dependency_metadata=runtime_state.dependency_metadata,
             dependency_graph=runtime_state.dependency_graph,
             s_instance=None,
         )
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = {"Welcome": "Hello"}
-        listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+        listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
         spec = next(iter(listener._callbacks.values()))
         dependency_key = spec.structured_dependencies[0]

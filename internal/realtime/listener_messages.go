@@ -145,11 +145,24 @@ type ListenerDependencyEventMessage struct {
 	Content     ListenerDependencyEventContent `json:"content"`
 }
 
+type ListenerDependencyCatalog struct {
+	Entries []ListenerDependencyCatalogEntry `json:"entries"`
+}
+
+type ListenerDependencyCatalogEntry struct {
+	DependencyKey    string `json:"dependencyKey"`
+	FullPathName     string `json:"fullPathName"`
+	SectionType      string `json:"sectionType,omitempty"`
+	CodeObjType      string `json:"codeObjType,omitempty"`
+	ControlCodeObjID string `json:"controlCodeObjId,omitempty"`
+}
+
 type ListenerForceRefreshContent struct {
-	ProjectConfigID string          `json:"projectConfigId"`
-	ShareSessionID  string          `json:"shareSessionId,omitempty"`
-	CallID          string          `json:"callId,omitempty"`
-	ProjectState    json.RawMessage `json:"projectState,omitempty"`
+	ProjectConfigID   string                     `json:"projectConfigId"`
+	ShareSessionID    string                     `json:"shareSessionId,omitempty"`
+	CallID            string                     `json:"callId,omitempty"`
+	ProjectState      json.RawMessage            `json:"projectState,omitempty"`
+	DependencyCatalog *ListenerDependencyCatalog `json:"dependencyCatalog,omitempty"`
 }
 
 type ListenerForceRefreshMessage struct {
@@ -249,6 +262,52 @@ func (e *ListenerDependencyEvent) UnmarshalJSON(data []byte) error {
 	e.DependencyKey = dependencyKey
 	e.Payload = payload.Payload
 	e.TimestampMS = payload.TimestampMS
+	return nil
+}
+
+func (e ListenerDependencyCatalogEntry) MarshalJSON() ([]byte, error) {
+	dependencyKey, err := structuredDependencyKeyJSON(e.DependencyKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		DependencyKey    json.RawMessage `json:"dependencyKey"`
+		FullPathName     string          `json:"fullPathName"`
+		SectionType      string          `json:"sectionType,omitempty"`
+		CodeObjType      string          `json:"codeObjType,omitempty"`
+		ControlCodeObjID string          `json:"controlCodeObjId,omitempty"`
+	}
+	payload.DependencyKey = dependencyKey
+	payload.FullPathName = e.FullPathName
+	payload.SectionType = e.SectionType
+	payload.CodeObjType = e.CodeObjType
+	payload.ControlCodeObjID = e.ControlCodeObjID
+	return json.Marshal(payload)
+}
+
+func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		DependencyKey    json.RawMessage `json:"dependencyKey"`
+		FullPathName     string          `json:"fullPathName"`
+		SectionType      string          `json:"sectionType,omitempty"`
+		CodeObjType      string          `json:"codeObjType,omitempty"`
+		ControlCodeObjID string          `json:"controlCodeObjId,omitempty"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	dependencyKey, err := canonicalDependencyKeyFromWire(payload.DependencyKey)
+	if err != nil {
+		return err
+	}
+
+	e.DependencyKey = dependencyKey
+	e.FullPathName = payload.FullPathName
+	e.SectionType = payload.SectionType
+	e.CodeObjType = payload.CodeObjType
+	e.ControlCodeObjID = payload.ControlCodeObjID
 	return nil
 }
 

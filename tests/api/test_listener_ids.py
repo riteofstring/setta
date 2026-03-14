@@ -1,7 +1,9 @@
+import asyncio
+
 import pytest
 
 from setta.api import ListenerDependencyId, SettaListener, dep_id
-from setta.api.listener import ListenerRuntimeState
+from setta.api.listener import ListenerDependencyMetadata, ListenerRuntimeState
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.code_obj_impls import CodeParamCodeObjImpl, NestedParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -11,6 +13,10 @@ from setta.types.dependency_key import (
     create_dep_key,
 )
 from setta.types.id import ID
+from setta.types.listener import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+)
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DictSectionImpl
@@ -164,7 +170,7 @@ def test_listener_context_exposes_id_helpers() -> None:
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
-    listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
     dependency_name = spec.dependency_names[0]
     state_value = getattr(runtime_state.s_instance, dependency_name)
@@ -197,12 +203,13 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = ListenerRuntimeState(
+        dependency_metadata=runtime_state.dependency_metadata,
         dependency_graph=runtime_state.dependency_graph,
         s_instance=None,
     )
     listener._project_config_id = project_state.projectConfig.id
 
-    listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
     dependency_name = spec.dependency_names[0]
     listener._dependency_cache[dependency_name] = "cached-value"
@@ -223,12 +230,13 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = ListenerRuntimeState(
+        dependency_metadata=runtime_state.dependency_metadata,
         dependency_graph=runtime_state.dependency_graph,
         s_instance=None,
     )
     listener._project_config_id = project_state.projectConfig.id
 
-    listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
     ctx = listener._build_callback_context(spec, {}, [])
 
@@ -248,11 +256,12 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = ListenerRuntimeState(
+        dependency_metadata=runtime_state.dependency_metadata,
         dependency_graph=runtime_state.dependency_graph,
         s_instance=None,
     )
     listener._project_config_id = project_state.projectConfig.id
-    listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
     dependency_name = spec.dependency_names[0]
 
@@ -271,3 +280,51 @@ def test_dependency_graph_exposes_section_and_param() -> None:
 
     assert section_key in dep_graph.graph
     assert param_key in dep_graph.graph
+
+
+@pytest.mark.asyncio
+async def test_listener_context_prefers_catalog_dependency_names() -> None:
+    project_state, section_id, param_id = build_project_state("11")
+    listener = SettaListener(project_name=project_state.projectConfig.name)
+    callback_changes: list[dict[str, object]] = []
+    dependency_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+    catalog_name = "Catalog__count"
+
+    @listener.listen(deps=[dep_id(section_id, param_id)], run_on_refresh=True)
+    def on_param(_state, ctx) -> None:
+        callback_changes.append(dict(ctx.changed))
+
+    listener._project_config_id = project_state.projectConfig.id
+    catalog = ListenerDependencyCatalog(
+        entries=[
+            ListenerDependencyCatalogEntry(
+                dependencyKey=dependency_key,
+                fullPathName=catalog_name,
+            )
+        ]
+    )
+    listener._latest_dependency_metadata = ListenerDependencyMetadata.from_catalog(
+        catalog
+    )
+
+    await listener._process_snapshot(
+        project_state,
+        refresh_kind="force_refresh",
+        dependency_catalog=catalog,
+        share_session_id=None,
+    )
+    await asyncio.sleep(0)
+
+    assert callback_changes == [{catalog_name: 11}]
+    assert listener._dependency_cache[catalog_name] == 11
+
+    spec = next(iter(listener._callbacks.values()))
+    ctx = listener._build_callback_context(
+        spec,
+        {catalog_name: listener._dependency_cache[catalog_name]},
+        [],
+    )
+
+    assert spec.dependency_names == (catalog_name,)
+    assert ctx.ids.dependency_name(section_id, param_id) == catalog_name
+    assert ctx.values.by_id(section_id, param_id) == 11

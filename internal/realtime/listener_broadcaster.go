@@ -58,6 +58,7 @@ type ForceRefreshParams struct {
 	ShareSessionID      string
 	CallID              string
 	ProjectState        json.RawMessage
+	DependencyCatalog   *ListenerDependencyCatalog
 	TargetConnectionIDs []string
 }
 
@@ -300,10 +301,11 @@ func (b *ListenerBroadcaster) SendForceRefresh(ctx context.Context, params Force
 	return b.sendMessageToTargets(
 		ctx,
 		NewListenerForceRefreshMessage(ListenerForceRefreshContent{
-			ProjectConfigID: params.ProjectID,
-			ShareSessionID:  params.ShareSessionID,
-			CallID:          params.CallID,
-			ProjectState:    cloneRawMessage(params.ProjectState),
+			ProjectConfigID:   params.ProjectID,
+			ShareSessionID:    params.ShareSessionID,
+			CallID:            params.CallID,
+			ProjectState:      cloneRawMessage(params.ProjectState),
+			DependencyCatalog: cloneListenerDependencyCatalog(params.DependencyCatalog),
 		}),
 		targetConnectionIDs,
 	)
@@ -408,6 +410,17 @@ func cloneDependencyEvents(events []ListenerDependencyEvent) []ListenerDependenc
 		})
 	}
 	return cloned
+}
+
+func cloneListenerDependencyCatalog(catalog *ListenerDependencyCatalog) *ListenerDependencyCatalog {
+	if catalog == nil {
+		return nil
+	}
+	clonedEntries := make([]ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
+	for _, entry := range catalog.Entries {
+		clonedEntries = append(clonedEntries, entry)
+	}
+	return &ListenerDependencyCatalog{Entries: clonedEntries}
 }
 
 func cloneConnectionIDs(connectionIDs []string) []string {
