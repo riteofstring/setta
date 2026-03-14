@@ -21,9 +21,6 @@ export function isSameOrDescendantBrowserPath(
   if (!normalizedPath || !normalizedAncestor) {
     return false;
   }
-  if (normalizedAncestor === "/") {
-    return normalizedPath.startsWith("/");
-  }
   if (normalizedPath === normalizedAncestor) {
     return true;
   }
