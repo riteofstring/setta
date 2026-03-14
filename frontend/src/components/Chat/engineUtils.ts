@@ -129,22 +129,3 @@ export function getChatPlaceholderText(
   }
   return "Type a message...";
 }
-
-export function supportsThinkingExecutionControl(
-  engineType: EngineTypeEnum | null,
-): boolean {
-  return engineType === EngineTypeEnum.external_agent;
-}
-
-export function resolveEffectiveThinking({
-  engineType,
-  requestedThinking,
-}: {
-  engineType: EngineTypeEnum | null;
-  requestedThinking: boolean;
-}): boolean {
-  if (!supportsThinkingExecutionControl(engineType)) {
-    return false;
-  }
-  return requestedThinking;
-}

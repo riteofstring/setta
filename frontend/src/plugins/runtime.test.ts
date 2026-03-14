@@ -23,8 +23,8 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
-import * as realtimeDependencySend from "state/actions/realtimeDependencySend";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
+import * as websocketReceive from "state/actions/websocketReceive";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
@@ -62,8 +62,6 @@ function buildPluginStatusEntry(
     state: PluginRuntimeStateEnum.active,
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
-    sourceManager: "setta",
-    sourceManagerHint: null,
     sourcePath: "/tmp/acme.plugin",
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
@@ -71,10 +69,6 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
-    registeredLanguageServers: [],
-    registeredExternalAgentAdapters: [],
-    registeredCodegenTargets: [],
-    enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],
@@ -91,8 +85,6 @@ function buildPluginListEntry(
     version: "1.0.0",
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
-    sourceManager: "setta",
-    sourceManagerHint: null,
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
     frontend: {
@@ -106,13 +98,9 @@ function buildPluginListEntry(
     },
     config: {
       hasSchema: false,
-      schemaJson: {},
-      schemaJsonDigestSha256: null,
-      currentConfig: {},
-      currentConfigDigestSha256: null,
+      schemaJson: null,
     },
     effectiveCapabilities: [],
-    enablementSource: null,
     restartRequired: false,
     ...overrides,
   });
@@ -2444,7 +2432,7 @@ describe("plugin runtime helpers", () => {
 
   it("emits realtime dependency events through websocket action helpers", async () => {
     const realtimeSpy = vi
-      .spyOn(realtimeDependencySend, "sendRealtimeDependencyEvent")
+      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +
@@ -2536,7 +2524,7 @@ describe("plugin runtime helpers", () => {
 
   it("rejects non-object payloads for emitSectionRealtimeValue", async () => {
     const realtimeSpy = vi
-      .spyOn(realtimeDependencySend, "sendRealtimeDependencyEvent")
+      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +

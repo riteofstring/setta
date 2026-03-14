@@ -1,5 +1,4 @@
 import {
-  useActiveSectionUI,
   useLspDiagnostics,
   useProjectState,
   useShareSession,
@@ -86,7 +85,6 @@ describe("formatActiveCodeSection", () => {
       state.sectionImpls = { [implId]: impl };
       state.previewSectionVariantMap = {};
     });
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
     useLspDiagnostics.setState({ codeSections: {}, unmappedGenCode: [] });
   }
 
