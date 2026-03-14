@@ -1,12 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
   useSettings,
-  useShareSession,
 } from "state/definitions";
+import {
+  useAllProjectMetadata,
+  useShareSession,
+} from "state/stores/sessionStores";
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

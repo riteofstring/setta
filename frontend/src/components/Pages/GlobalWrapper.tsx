@@ -1,30 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { loadAllProjectMetadata } from "state/actions/project/loadProject";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import {
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectLoading,
   useSettings,
-  useShareSession,
 } from "state/definitions";
+import { useShareSession } from "state/stores/sessionStores";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_get_backend_init_status } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_get_backend_init_status,
+  router_get_default_project_config_name,
+} from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
-import {
-  resolveDefaultProjectConfigName,
-  shouldLoadDefaultProjectMetadata,
-} from "./defaultProjectRouting";
 
 const THEME_COLOR_LIGHT = "#dce1ea";
 const THEME_COLOR_DARK = "#0b0e13";
-
-type BackendInitStatusRouteResponse =
-  ResponseDataAndStatus<BackendInitStatusResponse>;
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -54,14 +48,13 @@ export function IndexRouteComponent() {
   const showDefaultConfigOnLoad = useSettings(
     (x) => x.backend.showDefaultConfigOnLoad,
   );
-  const defaultProjectConfigName = useDefaultProjectConfigName(
-    showDefaultConfigOnLoad,
-  );
-  if (!showDefaultConfigOnLoad || defaultProjectConfigName === null) {
-    return <Navigate to={HOME_ROUTER_PATH} replace />;
-  }
+  const defaultProjectConfigName = useDefaultProjectConfigName();
   if (defaultProjectConfigName === undefined) {
     return null;
+  }
+
+  if (!showDefaultConfigOnLoad || defaultProjectConfigName === null) {
+    return <Navigate to={HOME_ROUTER_PATH} replace />;
   }
 
   return <Navigate to={defaultProjectConfigName} replace />;
@@ -138,59 +131,21 @@ function useOpenCloseWebsocket() {
   }, [location.pathname, shareSessionId]);
 }
 
-function useDefaultProjectConfigName(enabled: boolean) {
-  const defaultProjectConfigId = useAllProjectMetadata(
-    (x) => x.defaultProjectConfigId,
-  );
-  const projectMetadata = useAllProjectMetadata((x) => x.projectMetadata);
+function useDefaultProjectConfigName() {
   const [defaultProjectConfigName, setDefaultProjectConfigName] = useState<
     string | null | undefined
   >(undefined);
-  const [hasAttemptedMetadataLoad, setHasAttemptedMetadataLoad] =
-    useState(false);
+
+  async function fn() {
+    const res = await router_get_default_project_config_name();
+    if (res200(res)) {
+      setDefaultProjectConfigName(res.data);
+    }
+  }
 
   useEffect(() => {
-    const resolvedDefaultProjectConfigName = resolveDefaultProjectConfigName(
-      defaultProjectConfigId,
-      projectMetadata,
-    );
-    if (resolvedDefaultProjectConfigName !== null) {
-      setDefaultProjectConfigName(resolvedDefaultProjectConfigName);
-      return;
-    }
-    if (!enabled || hasAttemptedMetadataLoad || projectMetadata.length > 0) {
-      setDefaultProjectConfigName(null);
-    }
-  }, [
-    defaultProjectConfigId,
-    enabled,
-    hasAttemptedMetadataLoad,
-    projectMetadata,
-  ]);
-
-  useEffect(() => {
-    if (
-      !shouldLoadDefaultProjectMetadata({
-        enabled,
-        hasAttemptedMetadataLoad,
-        projectMetadataCount: projectMetadata.length,
-      })
-    ) {
-      return;
-    }
-
-    let isCancelled = false;
-    void (async () => {
-      await loadAllProjectMetadata();
-      if (!isCancelled) {
-        setHasAttemptedMetadataLoad(true);
-      }
-    })();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [enabled, hasAttemptedMetadataLoad, projectMetadata.length]);
+    fn();
+  }, []);
 
   return defaultProjectConfigName;
 }
@@ -203,8 +158,7 @@ function useBackendInitStatus() {
     let intervalId: number | undefined;
 
     async function poll() {
-      const res: BackendInitStatusRouteResponse =
-        await route_get_backend_init_status();
+      const res = await route_get_backend_init_status();
       if (!isMounted || !res200(res)) {
         return;
       }

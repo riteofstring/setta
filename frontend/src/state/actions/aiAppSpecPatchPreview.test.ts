@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { __resetAppSpecPatchStreamsForTests } from "state/appSpecPatchStreaming";
-import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useAppPreview } from "state/stores/appStores";
 import { resetProjectStores } from "state/utils";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
-import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
+import { getDefaultChatDetails } from "./aiChatDetails";
+import { receiveLLMResponseChunk } from "./aiChatStreaming";
 
 describe("ai app spec patch preview streaming", () => {
   beforeEach(() => {

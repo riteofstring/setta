@@ -33,13 +33,15 @@ import {
   useCreateAndGoToProjectConfig,
 } from "state/actions/project/loadProject";
 import {
-  useAllProjectMetadata,
-  useHomeFileBrowserState,
-  useHomePageSearch,
   useLocalStorage,
   useProjectLoading,
-  useShareSession,
 } from "state/definitions";
+import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
+import { useHomePageSearch } from "state/stores/searchStores";
+import {
+  useAllProjectMetadata,
+  useShareSession,
+} from "state/stores/sessionStores";
 import { useWindowSize } from "state/hooks/utils";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
@@ -53,7 +55,7 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { route_set_as_default_project } from "utils/generatedEndpoints";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
@@ -376,7 +378,7 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await route_set_as_default_project({ projectConfigId });
+    await router_set_as_default_project({ projectConfigId });
   }
 
   const commonGalleryProps = {

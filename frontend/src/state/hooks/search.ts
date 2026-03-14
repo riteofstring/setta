@@ -12,12 +12,14 @@ import {
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
-  useProjectSearch,
   useProjectState,
   useSettings,
-  ZustandProjectSearch,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  useProjectSearch,
+  type ZustandProjectSearch,
+} from "state/stores/searchStores";
 import { clamp } from "utils/utils";
 
 export function useUpdateProjectSearch() {
