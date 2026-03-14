@@ -315,6 +315,12 @@ This verdict holds under both of the only reasonable definitions:
   - `backend/setta/server_state.py`
   - plugin language-server and plugin external-agent adapter lists are now
     sourced as empty on that legacy Python server-state path
+- The legacy Python `BaseProjectManager` no longer owns plugin codegen target
+  validation or plugin codegen output materialization/cache state:
+  - `backend/setta/project_state/base_project_manager.py`
+  - the remaining Python project-state path now treats plugin codegen targets
+    as opaque config payloads instead of running a duplicate Python-side plugin
+    codegen runtime
 - The frontend transport helpers and active websocket callers point at the Go
   route helpers rather than legacy Python routes:
   - `frontend/src/utils/transportRouteConstants.ts`
@@ -357,10 +363,10 @@ explicit retained boundary list, most notably the still-active Python plugin
 worker implementation/runtime path in `backend/setta/plugins/worker.py`, the
 Python plugin-management path in `backend/setta/plugins/manager.py`, and the
 remaining Python plugin-backed callers that still thread that manager through
-project-state/codegen and UI-setting flows. The old top-level Python FastAPI
-app, the old `setta.dev_start` shim, the old source-only Python startup/CLI
-helper surfaces, and the legacy Python server-state startup path are no longer
-part of that blocker set.
+UI-setting flows. The old top-level Python FastAPI app, the old
+`setta.dev_start` shim, the old source-only Python startup/CLI helper
+surfaces, the legacy Python server-state startup path, and the legacy Python
+project-state plugin-codegen owner are no longer part of that blocker set.
 
 ### Test and smoke evidence executed
 
@@ -387,6 +393,9 @@ part of that blocker set.
   - `source activate.sh && pytest tests/share/test_policy.py tests/routers/test_share_dependencies.py -q`
   - `source activate.sh && pytest tests/routers/test_share_websocket_requirements.py -q`
   - `source activate.sh && python -m py_compile backend/setta/server_state.py tests/server_state/test_share_state.py tests/server_state/test_launcher_state.py`
+  - `source activate.sh && pytest tests/project_state/test_codegen_targets.py -q`
+  - `source activate.sh && pytest tests/project_state -q`
+  - `source activate.sh && python -m py_compile backend/setta/project_state/base_project_manager.py tests/project_state/test_codegen_targets.py`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
 - Inconclusive / not counted as proof:
@@ -516,3 +525,14 @@ tests still pass. This narrows the remaining Python plugin blocker away from
 the deleted server-state startup owner and toward the standalone plugin
 manager/worker modules plus the project-state/UI-setting surfaces that still
 depend on them.
+
+A fifteenth follow-up rewrite step removed the duplicate Python plugin-codegen
+owner from `backend/setta/project_state/base_project_manager.py`. The legacy
+Python project-state runtime no longer validates plugin codegen registrations,
+no longer materializes plugin codegen outputs under `plugin_codegen/`, and no
+longer maintains Python-side plugin codegen cache/fingerprint state. The direct
+Python project-state plugin-codegen tests were removed, and the focused plus
+full `tests/project_state` suites still pass. This narrows the remaining Python
+plugin blocker away from project-state/codegen and further toward the
+standalone plugin manager/worker modules plus the Python UI-setting/plugin-pane
+surface that still depends on them.
