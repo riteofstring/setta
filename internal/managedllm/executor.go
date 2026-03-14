@@ -75,6 +75,7 @@ type preparedExecution struct {
 	anthropicRequestOpts      []anthropicoption.RequestOption
 	model                     string
 	transcript                []map[string]any
+	executionTranscript       []map[string]any
 	providerMessages          []map[string]any
 	toolDefinitions           []map[string]any
 	availableTools            map[string]mcpx.ToolDescriptor
@@ -129,7 +130,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		return preparedExecution{}, err
 	}
 
-	transcript, providerMessages, err := e.buildMessages(provider, request)
+	transcript, executionTranscript, providerMessages, err := e.buildMessages(provider, request)
 	if err != nil {
 		return preparedExecution{}, err
 	}
@@ -152,6 +153,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		systemPrompt:         strings.TrimSpace(request.SystemPrompt),
 		model:                request.LLMConfig.Model,
 		transcript:           transcript,
+		executionTranscript:  executionTranscript,
 		providerMessages:     providerMessages,
 		toolDefinitions:      toolDefinitions,
 		availableTools:       availableTools,
@@ -252,19 +254,21 @@ func validateReasoningRequest(request agentruns.ExecutionRequest) error {
 
 func (e *Executor) executeConversation(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest) (agentruns.ExecutionResult, error) {
 	transcript := cloneMessageSlice(prepared.transcript)
+	executionTranscript := cloneMessageSlice(prepared.executionTranscript)
 	providerMessages := cloneMessageSlice(prepared.providerMessages)
 	toolCalls := []map[string]any{}
 	var usage map[string]any
 
 	for round := 0; round < maxToolCallRounds; round++ {
 		assistantMessage := newAssistantMessage()
-		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, transcript, providerMessages, request)
+		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, executionTranscript, providerMessages, request)
 		if turnUsage != nil {
 			usage = turnUsage
 		}
 		if err != nil {
 			if shouldPersistMessage(assistantMessage) {
 				transcript = append(transcript, cloneMessage(assistantMessage))
+				executionTranscript = append(executionTranscript, cloneMessage(assistantMessage))
 			}
 			result := e.buildResult(transcript, toolCalls, usage)
 			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
@@ -275,6 +279,7 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 
 		if shouldPersistMessage(assistantMessage) {
 			transcript = append(transcript, cloneMessage(assistantMessage))
+			executionTranscript = append(executionTranscript, cloneMessage(assistantMessage))
 			providerPayload, include, payloadErr := providerPayloadForMessage(prepared.provider, assistantMessage)
 			if payloadErr != nil {
 				return e.buildResult(transcript, toolCalls, usage), payloadErr
@@ -296,6 +301,7 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 		}
 		for _, toolMessage := range toolMessages {
 			transcript = append(transcript, cloneMessage(toolMessage))
+			executionTranscript = append(executionTranscript, cloneMessage(toolMessage))
 		}
 		providerMessages = append(providerMessages, providerToolMessages...)
 	}
@@ -307,7 +313,7 @@ func (e *Executor) executeTurn(
 	ctx context.Context,
 	prepared preparedExecution,
 	assistantMessage map[string]any,
-	transcript []map[string]any,
+	executionTranscript []map[string]any,
 	providerMessages []map[string]any,
 	request agentruns.ExecutionRequest,
 ) (map[string]any, error) {
@@ -320,7 +326,7 @@ func (e *Executor) executeTurn(
 		}
 	}
 
-	usage, err := e.consumeProviderStream(ctx, prepared, assistantMessage, transcript, providerMessages, request)
+	usage, err := e.consumeProviderStream(ctx, prepared, assistantMessage, executionTranscript, providerMessages, request)
 	compactAssistantContent(assistantMessage)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
@@ -347,7 +353,7 @@ func (e *Executor) consumeProviderStream(
 	ctx context.Context,
 	prepared preparedExecution,
 	assistantMessage map[string]any,
-	transcript []map[string]any,
+	executionTranscript []map[string]any,
 	providerMessages []map[string]any,
 	request agentruns.ExecutionRequest,
 ) (map[string]any, error) {
@@ -358,7 +364,7 @@ func (e *Executor) consumeProviderStream(
 				request,
 				prepared.model,
 				prepared.systemPrompt,
-				transcript,
+				executionTranscript,
 				prepared.toolDefinitions,
 			)
 			if err != nil {
@@ -1061,20 +1067,22 @@ func providerPayloadForMessage(provider string, message map[string]any) (map[str
 	}
 }
 
-func (e *Executor) buildMessages(provider string, request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, error) {
+func (e *Executor) buildMessages(provider string, request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, []map[string]any, error) {
 	transcript := []map[string]any{}
+	executionTranscript := []map[string]any{}
 
 	if rawMessages, ok := request.Inputs["messages"]; ok {
-		messages, err := e.parseTranscriptMessages(rawMessages, strings.TrimSpace(request.ProjectConfigID))
+		messages, executionMessages, err := e.parseTranscriptMessages(rawMessages, strings.TrimSpace(request.ProjectConfigID))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		transcript = append(transcript, messages...)
+		executionTranscript = append(executionTranscript, executionMessages...)
 	}
 	if rawPrompt, ok := request.Inputs["prompt"]; ok {
 		prompt, ok := rawPrompt.(string)
 		if !ok {
-			return nil, nil, fmt.Errorf("%w: prompt must be a string", agentruns.ErrInvalidRunInput)
+			return nil, nil, nil, fmt.Errorf("%w: prompt must be a string", agentruns.ErrInvalidRunInput)
 		}
 		trimmed := strings.TrimSpace(prompt)
 		if trimmed != "" {
@@ -1090,37 +1098,44 @@ func (e *Executor) buildMessages(provider string, request agentruns.ExecutionReq
 				"attachments": []any{},
 			}
 			transcript = append(transcript, cloneMessage(userMessage))
+			executionTranscript = append(executionTranscript, cloneMessage(userMessage))
 		}
 	}
-	providerMessages, err := buildProviderMessages(provider, strings.TrimSpace(request.SystemPrompt), transcript)
+	providerMessages, err := buildProviderMessages(provider, strings.TrimSpace(request.SystemPrompt), executionTranscript)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return transcript, providerMessages, nil
+	return transcript, executionTranscript, providerMessages, nil
 }
 
-func (e *Executor) parseTranscriptMessages(raw any, projectConfigID string) ([]map[string]any, error) {
+func (e *Executor) parseTranscriptMessages(raw any, projectConfigID string) ([]map[string]any, []map[string]any, error) {
 	rawList, ok := raw.([]any)
 	if !ok {
-		return nil, fmt.Errorf("%w: messages must be a list", agentruns.ErrInvalidRunInput)
+		return nil, nil, fmt.Errorf("%w: messages must be a list", agentruns.ErrInvalidRunInput)
 	}
 	transcript := make([]map[string]any, 0, len(rawList))
+	executionTranscript := make([]map[string]any, 0, len(rawList))
 	for index, entry := range rawList {
 		message, ok := entry.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("%w: message %d must be an object", ErrHistoryUnsupported, index)
+			return nil, nil, fmt.Errorf("%w: message %d must be an object", ErrHistoryUnsupported, index)
 		}
-		resolved, err := e.resolveMessageAttachments(message, projectConfigID)
+		persisted, err := normalizePersistedTranscriptMessage(message)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		resolved, err := e.resolveMessageAttachments(persisted, projectConfigID)
+		if err != nil {
+			return nil, nil, err
 		}
 		normalized, err := normalizeTranscriptMessage(resolved)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		transcript = append(transcript, normalized)
+		transcript = append(transcript, persisted)
+		executionTranscript = append(executionTranscript, normalized)
 	}
-	return transcript, nil
+	return transcript, executionTranscript, nil
 }
 
 func (e *Executor) resolveMessageAttachments(message map[string]any, projectConfigID string) (map[string]any, error) {
@@ -1209,6 +1224,37 @@ func normalizeTranscriptMessage(message map[string]any) (map[string]any, error) 
 	}
 	if hasNonEmptyAttachments(normalized["attachments"]) {
 		return nil, ErrAttachmentsUnsupported
+	}
+	if _, _, err := normalizeProviderToolCalls(normalized["tool_calls"], role); err != nil {
+		return nil, err
+	}
+	toolCallID := strings.TrimSpace(stringValue(normalized["tool_call_id"]))
+	if role == "tool" && toolCallID == "" {
+		return nil, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+	}
+	if role != "tool" && toolCallID != "" {
+		return nil, ErrToolsUnsupported
+	}
+	if _, _, err := normalizeProviderMessageContent(normalized["content"]); err != nil {
+		return nil, err
+	}
+	if _, ok := normalized["attachments"]; !ok {
+		normalized["attachments"] = []any{}
+	}
+	return normalized, nil
+}
+
+func normalizePersistedTranscriptMessage(message map[string]any) (map[string]any, error) {
+	normalized := cloneMessage(message)
+	messageID := strings.TrimSpace(stringValue(normalized["id"]))
+	if messageID == "" {
+		return nil, fmt.Errorf("%w: message id is required", ErrHistoryUnsupported)
+	}
+	role := strings.TrimSpace(stringValue(normalized["role"]))
+	switch role {
+	case "system", "user", "assistant", "tool":
+	default:
+		return nil, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
 	}
 	if _, _, err := normalizeProviderToolCalls(normalized["tool_calls"], role); err != nil {
 		return nil, err

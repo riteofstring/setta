@@ -679,7 +679,7 @@ func TestExecutorInlinesManagedAttachmentTextWhenAttachmentServiceIsAvailable(t 
 		HTTPClient:  server.Client(),
 		Attachments: attachmentService,
 	})
-	_, err = executor.Execute(context.Background(), agentruns.ExecutionRequest{
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
 		Run: agentruns.Run{ID: "run-alpha"},
 		LLMConfig: llmconfig.Config{
 			Model:     "gpt-4o-mini",
@@ -724,6 +724,19 @@ func TestExecutorInlinesManagedAttachmentTextWhenAttachmentServiceIsAvailable(t 
 	}
 	if !strings.Contains(content, "[Attachment: notes.txt]") || !strings.Contains(content, "Hello from attachment.") {
 		t.Fatalf("expected attachment text to be inlined, got %q", content)
+	}
+	outputMessages, _ := result.Outputs["messages"].([]any)
+	if len(outputMessages) != 2 {
+		t.Fatalf("expected persisted output messages, got %#v", result.Outputs["messages"])
+	}
+	persistedUserMessage, _ := outputMessages[0].(map[string]any)
+	persistedAttachments, _ := persistedUserMessage["attachments"].([]any)
+	if len(persistedAttachments) != 1 {
+		t.Fatalf("expected persisted user attachment metadata, got %#v", persistedUserMessage["attachments"])
+	}
+	persistedAttachment, _ := persistedAttachments[0].(map[string]any)
+	if persistedAttachment["id"] != "artifacts/notes.txt" || persistedAttachment["name"] != "notes.txt" {
+		t.Fatalf("unexpected persisted attachment %#v", persistedAttachment)
 	}
 }
 
