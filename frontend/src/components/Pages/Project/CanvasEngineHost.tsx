@@ -23,6 +23,10 @@ import {
   type CanvasEngineProjectSceneInput,
   type CanvasEngineSceneSnapshotResult,
 } from "canvas-engine/sceneAdapter";
+import {
+  getCanvasEngineKeyboardMoveDelta,
+  getCanvasEngineTopLevelSelectionBounds,
+} from "canvas-engine/selectionBounds";
 import type {
   CanvasEngineCamera,
   CanvasEngineConnectionPreview,
@@ -44,6 +48,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
@@ -71,6 +77,7 @@ import {
 import {
   useActiveSectionUI,
   useEdgeHandleRegistry,
+  useLocalStorage,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -301,6 +308,8 @@ export function CanvasEngineHost() {
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
+  const snapGrid = useSettings((state) => state.gui.snapGrid);
+  const snapToGrid = useLocalStorage((state) => state.snapToGrid);
   const { canEditStructure } = useShareCapabilities();
   const connectedDataEdgeHandleKeys = useMemo(
     () => buildConnectedDataEdgeHandleKeys(dataEdges),
@@ -331,6 +340,7 @@ export function CanvasEngineHost() {
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const selectionOverlayRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);
   const hasHydratedReactFlowTransformRef = useRef(false);
@@ -373,6 +383,22 @@ export function CanvasEngineHost() {
   >([]);
   const [cachedNestedDataHandlePositions, setCachedNestedDataHandlePositions] =
     useState<Record<string, CanvasEngineEdgeHandlePosition>>({});
+
+  const selectedTopLevelSectionIds = useMemo(
+    () =>
+      activeSectionIds.filter(
+        (sectionId) => topLevelSections[sectionId] !== undefined,
+      ),
+    [activeSectionIds, topLevelSections],
+  );
+  const selectedTopLevelSelectionBounds = useMemo(
+    () =>
+      getCanvasEngineTopLevelSelectionBounds({
+        activeSectionIds: selectedTopLevelSectionIds,
+        topLevelSections,
+      }),
+    [selectedTopLevelSectionIds, topLevelSections],
+  );
 
   const updateConnectionPreview = useCallback(
     (nextPreview: CanvasEngineConnectionPreview | null) => {
@@ -526,6 +552,41 @@ export function CanvasEngineHost() {
       ).length,
     [snapshotResult.snapshot.dataEdges],
   );
+
+  useEffect(() => {
+    const currentSelectionBounds = useReactFlow.getState().nodesSelectionDims;
+    if (
+      areSelectionBoundsEqual(
+        currentSelectionBounds,
+        selectedTopLevelSelectionBounds,
+      )
+    ) {
+      return;
+    }
+    useReactFlow.setState({
+      nodesSelectionDims: selectedTopLevelSelectionBounds,
+    });
+  }, [selectedTopLevelSelectionBounds]);
+
+  useEffect(() => {
+    return () => {
+      if (useReactFlow.getState().nodesSelectionDims === null) {
+        return;
+      }
+      useReactFlow.setState({
+        nodesSelectionDims: null,
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTopLevelSelectionBounds) {
+      return;
+    }
+    selectionOverlayRef.current?.focus({
+      preventScroll: true,
+    });
+  }, [selectedTopLevelSectionIds, selectedTopLevelSelectionBounds]);
 
   const domIslandViewportSectionIds = useMemo(() => {
     const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
@@ -1626,6 +1687,61 @@ export function CanvasEngineHost() {
     };
   }, [handleContextMenu]);
 
+  const handleSelectionOverlayContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (selectedTopLevelSectionIds.length === 0) {
+        return;
+      }
+      openSelectionContextMenu(event, selectedTopLevelSectionIds);
+    },
+    [selectedTopLevelSectionIds],
+  );
+
+  const handleSelectionOverlayKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const delta = getCanvasEngineKeyboardMoveDelta({
+        key: event.key,
+        isShiftPressed: event.shiftKey,
+        snapToGrid,
+        snapGrid,
+      });
+      if (!delta || selectedTopLevelSectionIds.length === 0) {
+        return;
+      }
+      event.preventDefault();
+      const currentTopLevelSections =
+        useProjectState.getState().projectConfig.topLevelSections;
+      const patches = selectedTopLevelSectionIds.flatMap((sectionId) => {
+        const layout = currentTopLevelSections[sectionId];
+        if (!layout) {
+          return [];
+        }
+        const currentX = typeof layout.x === "number" ? layout.x : 0;
+        const currentY = typeof layout.y === "number" ? layout.y : 0;
+        return [
+          {
+            sectionId,
+            nextLayoutPatch: {
+              x: currentX + delta.x,
+              y: currentY + delta.y,
+            },
+          },
+        ];
+      });
+      if (patches.length === 0) {
+        return;
+      }
+      setTopLevelSectionLayoutRects(patches);
+      void route_set_top_level_section_layout({
+        projectConfigId,
+        topLevelSections:
+          useProjectState.getState().projectConfig.topLevelSections,
+      });
+    },
+    [projectConfigId, selectedTopLevelSectionIds, snapGrid, snapToGrid],
+  );
+
   const releasePointerCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pointerSession = pointerSessionRef.current;
@@ -1897,6 +2013,29 @@ export function CanvasEngineHost() {
           </div>
         </div>
       ) : null}
+      {selectedTopLevelSelectionBounds ? (
+        <div
+          className="react-flow__container react-flow__nodesselection pointer-events-none absolute inset-0"
+          style={domIslandLayerTransform}
+          data-canvas-engine-selection-overlay="v1"
+        >
+          <div
+            ref={selectionOverlayRef}
+            tabIndex={-1}
+            className="react-flow__nodesselection-rect"
+            data-canvas-engine-selection-overlay-rect="v1"
+            style={{
+              left: selectedTopLevelSelectionBounds.x,
+              top: selectedTopLevelSelectionBounds.y,
+              width: selectedTopLevelSelectionBounds.width,
+              height: selectedTopLevelSelectionBounds.height,
+              pointerEvents: "all",
+            }}
+            onContextMenu={handleSelectionOverlayContextMenu}
+            onKeyDown={handleSelectionOverlayKeyDown}
+          />
+        </div>
+      ) : null}
       {selectionRect ? (
         <div
           aria-hidden="true"
@@ -1956,6 +2095,34 @@ function areHoveredEdgesEqual(
 function areSelectionRectsEqual(
   left: CanvasEngineSelectionRect | null,
   right: CanvasEngineSelectionRect | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
+function areSelectionBoundsEqual(
+  left: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null,
+  right: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null,
 ): boolean {
   if (left === right) {
     return true;

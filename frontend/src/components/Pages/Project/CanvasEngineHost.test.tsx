@@ -1243,6 +1243,115 @@ describe("CanvasEngineHost", () => {
     );
   });
 
+  it("publishes a selection overlay and nudges selected sections with arrow keys", async () => {
+    const layoutSpy = vi
+      .spyOn(endpoints, "route_set_top_level_section_layout")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+        "section-b": {
+          x: 420,
+          y: 80,
+          zIndex: 1,
+          w: 360,
+          h: 220,
+        },
+      };
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+    useActiveSectionUI.setState({
+      activeIds: ["section-a", "section-b"],
+      selectionGeneration: 1,
+      backendGeneration: 1,
+      backendHydrationEnabled: true,
+      pendingBackendSyncOpIds: [],
+      pendingBackendSyncGenerationByOpId: {},
+      scheduledBackendSync: null,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const selectionOverlay = host.querySelector(
+      '[data-canvas-engine-selection-overlay-rect="v1"]',
+    ) as HTMLDivElement | null;
+    if (!selectionOverlay) {
+      throw new Error("Canvas engine selection overlay failed to render.");
+    }
+
+    expect(useReactFlow.getState().nodesSelectionDims).toEqual({
+      x: 24,
+      y: 16,
+      width: 756,
+      height: 284,
+    });
+    expect(document.activeElement).toBe(selectionOverlay);
+
+    await act(async () => {
+      selectionOverlay.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "ArrowRight",
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      useProjectState.getState().projectConfig.topLevelSections,
+    ).toMatchObject({
+      "section-a": expect.objectContaining({
+        x: 39,
+        y: 16,
+      }),
+      "section-b": expect.objectContaining({
+        x: 435,
+        y: 80,
+      }),
+    });
+    expect(useReactFlow.getState().nodesSelectionDims).toEqual({
+      x: 39,
+      y: 16,
+      width: 756,
+      height: 284,
+    });
+    expect(layoutSpy).toHaveBeenCalledOnce();
+    expect(layoutSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      topLevelSections: expect.objectContaining({
+        "section-a": expect.objectContaining({
+          x: 39,
+          y: 16,
+        }),
+        "section-b": expect.objectContaining({
+          x: 435,
+          y: 80,
+        }),
+      }),
+    });
+  });
+
   it("clears active sections from a stationary blank-pane click", async () => {
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
