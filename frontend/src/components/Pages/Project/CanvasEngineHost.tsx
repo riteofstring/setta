@@ -1724,29 +1724,49 @@ export function CanvasEngineHost() {
       if (isCanvasContextMenuBlockedByTarget(event.target)) {
         return;
       }
+      const selectedSectionIdSet = new Set(activeSectionIds);
       const target = event.target;
       if (target instanceof Element) {
+        const sectionElement = target.closest("section[data-section-id]");
+        const sectionId = sectionElement?.getAttribute("data-section-id");
+        if (sectionId && selectedSectionIdSet.has(sectionId)) {
+          openSelectionContextMenu(event, activeSectionIds);
+          return;
+        }
         const topLevelDomIsland = target.closest(
           "[data-canvas-engine-dom-island]",
         );
         if (topLevelDomIsland instanceof HTMLElement) {
           const topLevelSectionId =
             topLevelDomIsland.dataset.canvasEngineDomIsland ?? null;
-          const selectedTopLevelSectionIds = activeSectionIds.filter(
-            (sectionId) => topLevelSections[sectionId] !== undefined,
-          );
           if (
             topLevelSectionId &&
-            selectedTopLevelSectionIds.includes(topLevelSectionId)
+            selectedSectionIdSet.has(topLevelSectionId)
           ) {
-            openSelectionContextMenu(event, selectedTopLevelSectionIds);
+            openSelectionContextMenu(event, activeSectionIds);
           }
+          return;
+        }
+      }
+      const worldPoint = resolveWorldPointFromMouseEvent(
+        event,
+        hostRef.current,
+        camera,
+      );
+      if (worldPoint) {
+        const sectionId = sceneAdapter.hitTestSectionAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          resolveSectionHitToleranceWorld(camera.zoom),
+        );
+        if (sectionId && selectedSectionIdSet.has(sectionId)) {
+          openSelectionContextMenu(event, activeSectionIds);
           return;
         }
       }
       openPaneContextMenu(event);
     },
-    [activeSectionIds, topLevelSections],
+    [activeSectionIds, camera, sceneAdapter],
   );
 
   useEffect(() => {
@@ -2540,6 +2560,26 @@ function resolveWorldPointFromPointerEvent(
   camera: CanvasEngineCamera,
 ): { x: number; y: number } | null {
   const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  const localX = event.clientX - rect.left;
+  const localY = event.clientY - rect.top;
+  return {
+    x: camera.x + localX / camera.zoom,
+    y: camera.y + localY / camera.zoom,
+  };
+}
+
+function resolveWorldPointFromMouseEvent(
+  event: MouseEvent,
+  hostElement: HTMLElement | null,
+  camera: CanvasEngineCamera,
+): { x: number; y: number } | null {
+  if (!hostElement) {
+    return null;
+  }
+  const rect = hostElement.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
     return null;
   }

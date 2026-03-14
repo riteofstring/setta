@@ -1254,6 +1254,112 @@ describe("CanvasEngineHost", () => {
     expect(layoutSpy).not.toHaveBeenCalled();
   });
 
+  it("opens the selection context menu from a selected cached nested preview", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+
+    seedNestedSectionsWithDataEdge();
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = host.querySelector(
+      '[data-canvas-engine-dom-island="group-a"]',
+    ) as HTMLDivElement | null;
+    if (!domIsland) {
+      throw new Error("Missing DOM island for group-a.");
+    }
+    setElementBounds(domIsland, { x: 80, y: 60, width: 320, height: 220 });
+
+    const sourceSection = document.createElement("section");
+    sourceSection.setAttribute("data-section-id", "child-a");
+    setElementBounds(sourceSection, { x: 120, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(sourceSection);
+
+    const targetSection = document.createElement("section");
+    targetSection.setAttribute("data-section-id", "child-b");
+    setElementBounds(targetSection, { x: 320, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(targetSection);
+
+    await dispatchWheelEvent(engineHost, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -48,
+    });
+
+    for (let index = 0; index < 32; index += 1) {
+      if (readEngineHostCamera(engineHost).zoom <= 0.11) {
+        break;
+      }
+      await dispatchWheelEvent(engineHost, {
+        clientX: 320,
+        clientY: 180,
+        ctrlKey: true,
+        deltaY: 120,
+      });
+    }
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const childPreviewRect = useReactFlow
+      .getState()
+      .canvasEngineNestedPreviewRects.find((rect) => rect.id === "child-a");
+    if (!childPreviewRect) {
+      throw new Error("Missing cached nested preview rect for child-a.");
+    }
+    const camera = readEngineHostCamera(engineHost);
+    const childCenterClientX =
+      (childPreviewRect.x + childPreviewRect.width / 2 - camera.x) *
+      camera.zoom;
+    const childCenterClientY =
+      (childPreviewRect.y + childPreviewRect.height / 2 - camera.y) *
+      camera.zoom;
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: childCenterClientX,
+      clientY: childCenterClientY,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: childCenterClientX,
+      clientY: childCenterClientY,
+      pointerId: 1,
+    });
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["child-a"]);
+
+    await dispatchContextMenuEvent(engineHost, {
+      clientX: childCenterClientX,
+      clientY: childCenterClientY,
+    });
+
+    expect(useContextMenus.getState().selection).toMatchObject({
+      isOpen: true,
+      x: childCenterClientX,
+      y: childCenterClientY,
+      nodeIds: ["child-a"],
+    });
+    expect(useContextMenus.getState().pane.isOpen).toBe(false);
+  });
+
   it("drags a top-level section and persists the updated layout", async () => {
     const layoutSpy = vi
       .spyOn(endpoints, "route_set_top_level_section_layout")
