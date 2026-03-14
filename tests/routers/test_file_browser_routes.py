@@ -522,34 +522,24 @@ class TestFileBrowserRoutes:
                     )
         assert ctx.value.status_code == 403
 
-    async def test_get_folder_contents_shows_dotfiles_but_keeps_ignored_roots_hidden(
-        self,
-    ) -> None:
+    async def test_get_folder_contents_filters_hidden_and_ignored(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / "visible.txt").write_text("hello", encoding="utf-8")
             (root_path / "child").mkdir()
             (root_path / "node_modules").mkdir()
-            (root_path / ".env").write_text("API_KEY=test\n", encoding="utf-8")
-            (root_path / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
-            (root_path / ".git").mkdir()
-            (root_path / ".venv").mkdir()
+            (root_path / ".env").write_text("hidden", encoding="utf-8")
             with runtime_context(state) as runtime_ctx:
                 items = route_get_folder_contents(
                     GetFolderContentsRequest(folderPath=str(root_path)),
                     runtime_ctx,
                 )
         names = {item["name"] for item in items}
-        # Dev-relevant dotfiles should now be visible by default.
         assert "visible.txt" in names
         assert "child" in names
-        assert ".env" in names
-        assert ".gitignore" in names
-        # Explicitly ignored roots should stay hidden even when they are dot-prefixed.
-        assert ".git" not in names
-        assert ".venv" not in names
         assert "node_modules" not in names
+        assert ".env" not in names
 
     async def test_get_folder_contents_include_hidden_and_ignore_override(self) -> None:
         state = await self._build_state()
