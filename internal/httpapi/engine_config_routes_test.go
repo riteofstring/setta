@@ -200,6 +200,86 @@ func TestRegisterEngineConfigRoutesAdvertisesGeminiThinkingRuntimeSupport(t *tes
 	}
 }
 
+func TestRegisterEngineConfigRoutesAdvertisesOpenAIThinkingRuntimeSupport(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	settaConfigID := "openai-thinking"
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-openai",
+			Name:             "OpenAI Thinking",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetEngineConfigs, nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var configPayloads []agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &configPayloads); err != nil {
+		t.Fatalf("decode engine configs: %v", err)
+	}
+	if len(configPayloads) != 1 {
+		t.Fatalf("expected one engine config, got %#v", configPayloads)
+	}
+	// The active Project AI caller reads runtimeSupport from the list route.
+	if configPayloads[0].RuntimeSupport == nil || !configPayloads[0].RuntimeSupport.Thinking {
+		t.Fatalf("expected OpenAI runtime support in list response, got %#v", configPayloads[0])
+	}
+}
+
+func TestRegisterEngineConfigRoutesKeepsAzureThinkingRuntimeSupportDisabled(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	settaConfigID := "azure-thinking"
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-azure",
+			Name:             "Azure Thinking",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetEngineConfigs, nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var configPayloads []agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &configPayloads); err != nil {
+		t.Fatalf("decode engine configs: %v", err)
+	}
+	if len(configPayloads) != 1 {
+		t.Fatalf("expected one engine config, got %#v", configPayloads)
+	}
+	// Azure thinking remains intentionally fail-closed until that provider edge
+	// is widened beyond standard-turn support.
+	if configPayloads[0].RuntimeSupport == nil {
+		t.Fatalf("expected runtime support payload, got %#v", configPayloads[0])
+	}
+	if configPayloads[0].RuntimeSupport.Thinking {
+		t.Fatalf("expected Azure thinking to stay disabled, got %#v", configPayloads[0])
+	}
+}
+
 func TestRegisterEngineConfigRoutesCreatesConfig(t *testing.T) {
 	t.Parallel()
 
@@ -644,6 +724,25 @@ func newEngineConfigRouteTestHandler(t *testing.T, mode config.Mode, store *agen
 						"thinking_budget": 128,
 						"thinking_level":  "medium",
 					},
+				},
+			},
+			"openai-thinking": {
+				ID:       "openai-thinking",
+				Model:    "gpt-5-codex",
+				Provider: "openai",
+				OtherParams: map[string]any{
+					"reasoning_effort": "high",
+				},
+			},
+			"azure-thinking": {
+				ID:        "azure-thinking",
+				Model:     "gpt-5-codex",
+				Provider:  "azure",
+				BaseURL:   "https://example-resource.openai.azure.com",
+				APIKeyEnv: "AZURE_OPENAI_API_KEY",
+				OtherParams: map[string]any{
+					"api_version":      "2024-06-01",
+					"reasoning_effort": "high",
 				},
 			},
 		},

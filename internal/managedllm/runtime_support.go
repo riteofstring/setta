@@ -15,6 +15,8 @@ func SupportsThinkingOutput(config llmconfig.Config) bool {
 		Thinking:      true,
 	}
 	switch strings.ToLower(strings.TrimSpace(config.Provider)) {
+	case openAIProvider:
+		return hasExplicitReasoningConfig(request.RequestParams)
 	case anthropicProvider:
 		_, enabled, err := resolveAnthropicThinkingConfig(request)
 		return err == nil && enabled
