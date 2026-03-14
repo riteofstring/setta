@@ -87,7 +87,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/keyActivations.ts` at 705 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
-  - `frontend/src/utils/focusManager.ts` at 657 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
@@ -155,11 +154,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `terminal.ts` for React mount, ready/focus wiring, and resize observation
   - `terminalSessions.ts` for cached websocket session reuse, stdin gating, and resize transport
   - `terminalFit.ts` for xterm fit-addon fallback logic and widen-reflow patching
-- `focusManager.ts` at 657 lines mixes:
-  - tab-scope registration
-  - keyboard navigation policy
-  - section focus behavior
-  - canvas-specific pane movement
+- `focusManager.ts`, `focusManagerRegistry.ts`, `focusManagerElements.ts`,
+  `focusManagerNavigation.ts`, and `focusManagerSections.ts` now split into:
+  - `focusManager.ts` as the thin compatibility entrypoint
+  - `focusManagerRegistry.ts` for tab-scope registration and focus tracking
+  - `focusManagerElements.ts` for focusable-element normalization and canvas ordering helpers
+  - `focusManagerNavigation.ts` for generic scope traversal and `Tab` movement
+  - `focusManagerSections.ts` for section-targeted and canvas-adjacent focus movement
 - `constants.ts` at 301 lines is a grab bag for:
   - routes
   - pane/tab enums
@@ -217,11 +218,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 4. Split cross-cutting interaction utilities
 
-- Break `focusManager.ts` into smaller modules for:
-  - tab-scope registry
-  - keyboard navigation
-  - section focus helpers
-  - canvas-specific focus movement
+- Keep `focusManager.ts` as a thin re-export only, and route new tab-scope
+  registration, navigation policy, and section/canvas focus work into
+  `focusManagerRegistry.ts`, `focusManagerNavigation.ts`,
+  `focusManagerSections.ts`, or `focusManagerElements.ts` instead of rebuilding
+  a monolith.
 - Split `constants.ts` into domain constants:
   - routes
   - panes/tabs

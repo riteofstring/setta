@@ -119,6 +119,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/keyShortcutUtils.ts` and `Tab`/`Escape`,
   section-selection, and React Flow key-mode handlers to
   `frontend/src/state/actions/keyActivationHandlers.ts`.
+- `frontend/src/utils/focusManager.ts` is down to a thin compatibility surface
+  and now delegates tab-scope registration/focus tracking to
+  `frontend/src/utils/focusManagerRegistry.ts`, focusable-element/canvas-order
+  helpers to `frontend/src/utils/focusManagerElements.ts`, generic scope
+  traversal to `frontend/src/utils/focusManagerNavigation.ts`, and
+  section/canvas focus behavior to
+  `frontend/src/utils/focusManagerSections.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation orchestration, lease ownership, snapshot rollback,
   pane activation, DOM anchor/highlight helpers, and execution-status utilities

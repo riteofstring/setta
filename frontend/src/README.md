@@ -203,6 +203,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     ready/focus wiring, and resize observation; `terminalSessions.ts` owns
     cached terminal websocket sessions, and `terminalFit.ts` owns xterm
     fit/fallback/reflow behavior.
+  - `utils/focusManager.ts` is now just the compatibility entrypoint;
+    `focusManagerRegistry.ts` owns tab-scope registration plus focus tracking,
+    `focusManagerNavigation.ts` owns generic scope traversal, and
+    `focusManagerSections.ts` owns section/canvas focus helpers while
+    `focusManagerElements.ts` owns focusable-element normalization and canvas
+    ordering helpers.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -252,11 +258,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `utils/focusManager.ts` focus-registry split across tab-scope registration,
-  keyboard navigation policy, section focus behavior, and canvas-specific pane
-  movement
 - `components/Utils/Resizable/CustomResizable.tsx` resize-surface split across
   low-level drag math, DOM event wiring, and window/pane-specific behavior
+- `state/actions/stateMachineEdges.ts` edge mutation split across graph reads,
+  optimistic project-state writes, and view/runtime-specific edge commands
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
