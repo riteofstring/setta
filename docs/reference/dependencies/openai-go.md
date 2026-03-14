@@ -90,6 +90,9 @@
     items, and `response.completed` fallback function calls now also drive the
     live tool-call delta / preview path when the authoritative final arguments
     extend the known streamed prefix and earlier argument deltas were omitted
+  - `response.output_item.added` now also emits live thinking/text deltas when
+    reasoning or message items already carry content instead of waiting for a
+    later `*_done`, `response.completed`, or terminal failure payload
   - authoritative `response.output_item.done` and `response.completed`
     reasoning/message items now also emit live thinking/text suffix deltas
     when the final content extends the streamed prefix instead of waiting only

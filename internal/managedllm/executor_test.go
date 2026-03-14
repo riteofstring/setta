@@ -1819,6 +1819,107 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	}
 }
 
+func TestExecutorExecuteEmitsOpenAIResponsesOutputItemAddedContentDeltas(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseReasoningItemAddedWithContentEvent(0, "reasoning-1", "Plan summary", "Planning deeply"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseOutputMessageAddedEvent("message-1", 1, "Final answer"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseCompletedEvent([]map[string]any{}, 8, 3, 11, 2))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Think this through"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed llm output_item.added request: %v", err)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and assistant output messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != "Plan summary" || thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected thinking block %#v", content[0])
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Final answer" {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+
+	broadcastMessages := broadcaster.Messages()
+	expectedSummary := "Plan summary"
+	if findBroadcastThinkingDelta(broadcastMessages, 0, "", &expectedSummary) == nil {
+		t.Fatalf("expected output_item.added summary delta in %#v", broadcastMessages)
+	}
+	if findBroadcastThinkingDelta(broadcastMessages, 0, "Planning deeply", nil) == nil {
+		t.Fatalf("expected output_item.added thinking delta in %#v", broadcastMessages)
+	}
+	if findBroadcastTextDelta(broadcastMessages, 1, "Final answer") == nil {
+		t.Fatalf("expected output_item.added text delta in %#v", broadcastMessages)
+	}
+	if broadcaster.Count() != 6 {
+		t.Fatalf("expected start, three delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
 func TestExecutorExecuteUsesOpenAIResponsesDoneEventsAsAuthoritativeContent(t *testing.T) {
 	t.Parallel()
 
@@ -4886,6 +4987,25 @@ func openAIResponseReasoningItemAddedEvent(outputIndex int, itemID string) strin
 	})
 }
 
+func openAIResponseReasoningItemAddedWithContentEvent(outputIndex int, itemID string, summary string, reasoning string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_item.added",
+		"sequence_number": 1,
+		"output_index":    outputIndex,
+		"item": map[string]any{
+			"type":   "reasoning",
+			"id":     itemID,
+			"status": "in_progress",
+			"summary": []any{
+				map[string]any{"text": summary},
+			},
+			"content": []any{
+				map[string]any{"type": "reasoning_text", "text": reasoning},
+			},
+		},
+	})
+}
+
 func openAIResponseReasoningSummaryPartAddedEvent(itemID string, outputIndex int, summaryIndex int, text string) string {
 	return openAIResponseEvent(map[string]any{
 		"type":            "response.reasoning_summary_part.added",
@@ -5107,6 +5227,27 @@ func openAIResponseOutputMessageDoneEvent(itemID string, outputIndex int, text s
 			"id":     itemID,
 			"role":   "assistant",
 			"status": "incomplete",
+			"content": []any{
+				map[string]any{
+					"type":        "output_text",
+					"text":        text,
+					"annotations": []any{},
+				},
+			},
+		},
+	})
+}
+
+func openAIResponseOutputMessageAddedEvent(itemID string, outputIndex int, text string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_item.added",
+		"sequence_number": 5,
+		"output_index":    outputIndex,
+		"item": map[string]any{
+			"type":   "message",
+			"id":     itemID,
+			"role":   "assistant",
+			"status": "in_progress",
 			"content": []any{
 				map[string]any{
 					"type":        "output_text",

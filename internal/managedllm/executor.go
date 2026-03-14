@@ -602,21 +602,6 @@ func (e *Executor) processOpenAIResponseEvent(
 	switch typed := event.AsAny().(type) {
 	case responses.ResponseOutputItemAddedEvent:
 		switch item := typed.Item.AsAny().(type) {
-		case responses.ResponseReasoningItem:
-			prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-			streamState.reasoningSeen = true
-			summary := joinOpenAIResponseReasoningSummary(item.Summary)
-			if strings.TrimSpace(summary) != "" && strings.TrimSpace(streamState.summary) == "" {
-				streamState.summary = summary
-				streamState.summaryParts = openAIResponseReasoningSummaryParts(item.Summary)
-				streamState.reasoningEmitted = true
-				setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
-			}
-			reasoning := joinOpenAIResponseReasoningContent(item.Content)
-			if strings.TrimSpace(reasoning) != "" {
-				streamState.reasoningEmitted = true
-				appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
-			}
 		case responses.ResponseFunctionToolCall:
 			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
 			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
@@ -628,6 +613,18 @@ func (e *Executor) processOpenAIResponseEvent(
 				previewAccumulator,
 				state,
 				argumentsDelta,
+			); err != nil {
+				return nil, err
+			}
+		default:
+			if err := e.applyOpenAIResponseOutputItemFallback(
+				ctx,
+				prepared,
+				assistantMessage,
+				typed.Item,
+				int(typed.OutputIndex),
+				streamState,
+				accumulator,
 			); err != nil {
 				return nil, err
 			}
