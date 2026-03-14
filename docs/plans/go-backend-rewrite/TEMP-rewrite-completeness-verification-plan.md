@@ -27,6 +27,11 @@ Blocking repo-backed gap found during execution:
   - Python still owns that active caller path through
     `backend/setta/routers/agentic.py` and
     `backend/setta/agentic/state_machine_runner.py`
+  - the remaining blocker is not route-only: current workflow authoring already
+    exposes signal-filtered edges, current node presentation renders
+    `signal_reported` / `signal_edges_activated`, and Python still owns the
+    corresponding `report_state_machine_signal` MCP tool path in
+    `backend/setta/mcp/tools/agentic_tools.py`
 
 Other audit findings remained consistent with the retained-boundary rules:
 
