@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
+import { useDecodedImages } from "state/definitions";
 import {
   decodeExistingRawImages,
   useImageArtifact,
 } from "state/hooks/artifacts";
-import { useDecodedImages } from "state/stores/artifactStores";
 
 function _ImageArea({ sectionId }: { sectionId: string }) {
   const imageArtifact = useImageArtifact(sectionId);

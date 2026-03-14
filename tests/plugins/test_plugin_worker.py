@@ -184,11 +184,13 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert "host.register_mcp_tool" in initialize_result["supportedRpcMethods"]
 
         host_method_calls: list[str] = []
+        host_requests: list[dict[str, Any]] = []
         register_response = _rpc_call(
             worker,
             request_id=2,
             method="plugin.register",
             host_method_calls=host_method_calls,
+            host_requests=host_requests,
         )
         assert register_response["id"] == 2
         assert register_response["result"] == {"ok": True}
@@ -198,6 +200,26 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
             "host.register_mcp_tool",
             "host.register_mcp_tool",
         ]
+        mcp_tool_requests = [
+            request
+            for request in host_requests
+            if request.get("method") == "host.register_mcp_tool"
+        ]
+        assert len(mcp_tool_requests) == 2
+
+        read_payload = mcp_tool_requests[0]["params"]["tool"]
+        assert read_payload["name"] == "setta_fixture_backend_echo"
+        assert read_payload["description"] == ""
+        assert read_payload["inputSchema"]["type"] == "object"
+        assert read_payload["inputSchema"]["required"] == ["value"]
+        assert read_payload["metadata"]["kind"] == "discoverable"
+        assert read_payload["metadata"]["accessType"] == "read"
+
+        summary_payload = mcp_tool_requests[1]["params"]["tool"]
+        assert summary_payload["name"] == "setta_fixture_backend_project_summary"
+        assert summary_payload["inputSchema"]["type"] == "object"
+        assert summary_payload["metadata"]["accessType"] == "read"
+        assert summary_payload["metadata"]["searchCategory"] == "project"
 
         shutdown_response = _rpc_call(
             worker,
