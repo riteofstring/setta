@@ -5,10 +5,6 @@ import {
   CodeBlock,
   MarkdownCodePre,
 } from "components/Section/Layouts/TextBlock";
-import {
-  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
-  BrailleSpinner,
-} from "components/Utils/BrailleSpinner";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
@@ -24,7 +20,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,7 +28,6 @@ import { FaBrain } from "react-icons/fa6";
 import {
   FiArchive,
   FiCopy,
-  FiCpu,
   FiEdit3,
   FiFileText,
   FiMusic,
@@ -49,10 +43,9 @@ import {
   MdChevronRight,
   MdErrorOutline,
   MdKeyboardArrowDown,
-  MdOutlineSmartToy,
 } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -86,13 +79,10 @@ import {
   type CodeLanguage,
   resolveCodeLanguageFromPath,
 } from "utils/codeLanguage";
-import {
-  type ConversationSearchTextRange,
-  findConversationSearchTextRanges,
-} from "utils/conversationSearch";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
+  AttachmentDownloadURLEntry,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -104,11 +94,6 @@ import { ApprovalCard } from "./ApprovalCard";
 import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
-import {
-  type AnimatedStreamingCharacter,
-  reconcileAnimatedStreamingCharacters,
-  splitStreamingMarkdownText,
-} from "./streamingMarkdown";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 type AssistantChatMessage = Extract<
@@ -132,7 +117,6 @@ type ThinkingRenderEntry = {
   messageId: string;
   itemIndex: number;
   timerRunKey: string;
-  timestampMs: number | null;
   isStreaming: boolean;
   wasInterrupted: boolean;
 };
@@ -158,16 +142,8 @@ type ActivityTimelineEntry =
 
 type ActivityPreviewData = {
   label: string;
-  kind:
-    | "none"
-    | "thought"
-    | "context"
-    | "action"
-    | "tool"
-    | "terminal"
-    | "subagent";
+  kind: "none" | "thought" | "context" | "action" | "tool";
   thoughtText: string | null;
-  thoughtActivityKey: string | null;
   hasStreamingThought: boolean;
   shouldScrambleTitle: boolean;
 };
@@ -182,14 +158,7 @@ type AssistantContentPartition = {
   displayItems: AssistantDisplayItem[];
 };
 
-type ToolCallDisplayKind =
-  | "tool"
-  | "action"
-  | "compaction"
-  | "terminal"
-  | "subagent";
-type StructuredOutputOwner = "action" | "tool" | "terminal" | "subagent";
-type ActivityToolLikeRowKind = StructuredOutputOwner;
+type ToolCallDisplayKind = "tool" | "action" | "compaction";
 
 type ToolCallContext = {
   todoPayloadById: Record<string, TodoListPayload>;
@@ -204,21 +173,14 @@ const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const CHAT_MARKDOWN_BASE_CLASS =
-  "prose prose-sm max-w-full prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-ul:leading-[1.45] prose-ol:leading-[1.45] prose-li:my-0 prose-li:leading-[1.45] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_p+ul]:mt-2 [&_p+ol]:mt-2 [&_ul+p]:mt-2.5 [&_ol+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
+  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-ul:leading-[1.45] prose-ol:leading-[1.45] prose-li:my-0 prose-li:leading-[1.45] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_p+ul]:mt-2 [&_p+ol]:mt-2 [&_ul+p]:mt-2.5 [&_ol+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
 const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
 const ASSISTANT_ERROR_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-red-900 dark:prose-headings:text-red-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-red-400`;
-const STREAMING_ASSISTANT_TAIL_CLASS =
-  "whitespace-pre-wrap break-words text-[13px] leading-[1.45] text-setta-700 dark:text-setta-100";
-const THOUGHT_PREVIEW_MARKDOWN_CLASS =
-  "prose prose-sm max-w-none text-[9px] leading-[1.35] text-setta-400 dark:prose-invert dark:text-setta-400/90 prose-headings:my-0 prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-[10px] prose-h2:text-[9.5px] prose-h3:text-[9px] prose-h4:text-[9px] prose-p:my-0 prose-p:text-[9px] prose-p:leading-[1.35] prose-ul:my-0.5 prose-ol:my-0.5 prose-ul:pl-3.5 prose-ol:pl-3.5 prose-ul:text-[9px] prose-ol:text-[9px] prose-li:my-0 prose-li:text-[9px] prose-li:leading-[1.35] prose-code:before:hidden prose-code:after:hidden prose-code:text-[8px] prose-pre:my-1 prose-pre:px-2 prose-pre:py-1.5 prose-pre:text-[8px] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_li+li]:mt-0.5 [&_*]:break-words";
-const THOUGHT_PREVIEW_TAIL_CLASS =
-  "whitespace-pre-wrap break-words text-[9px] leading-[1.35] text-setta-400 dark:text-setta-400/90";
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 const TOOL_CALL_RAIL_BACKGROUND_CLASS = "bg-setta-100/75 dark:bg-setta-800/75";
 const ACTIVITY_ROW_HOVER_CLASS =
   "hover:bg-setta-100/35 dark:hover:bg-setta-900/55";
-const ACTIVITY_CHILD_TRIGGER_CLASS =
-  "bg-setta-50/95 hover:bg-setta-100/95 dark:bg-setta-875 dark:hover:bg-setta-850";
+const ACTIVITY_CHILD_TRIGGER_CLASS = "bg-setta-875 hover:bg-setta-850";
 const STRUCTURED_OUTPUT_DEFAULT_MAX_HEIGHT_PX = 260;
 const STRUCTURED_OUTPUT_MIN_HEIGHT_PX = 90;
 const STRUCTURED_OUTPUT_MAX_VIEWPORT_RATIO = 0.8;
@@ -228,38 +190,19 @@ const STRUCTURED_OUTPUT_RESIZE_HANDLE_BAR_CLASS =
   "absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-setta-200/90 transition-colors group-hover/resize:bg-blue-400 group-focus-visible/resize:bg-blue-400 dark:bg-setta-700/90 dark:group-hover/resize:bg-blue-400 dark:group-focus-visible/resize:bg-blue-400";
 const ACTIVITY_ACCORDION_CONTENT_CLASS =
   "overflow-hidden data-[state=closed]:hidden data-[state=open]:block";
-const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pt-1`;
+const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pl-1 pt-1`;
 const TOOL_SECTION_CARD_CLASS = "w-full overflow-hidden";
 const TOOL_SECTION_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const TOOL_ROW_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
-const ASSISTANT_ACTIVITY_PARENT_CLASS = "w-full overflow-hidden bg-transparent";
-const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-parent flex w-full flex-col cursor-pointer items-stretch text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
+const ASSISTANT_ACTIVITY_PARENT_CLASS =
+  "w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-2 dark:border-setta-700/90";
+const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group flex w-full cursor-pointer items-stretch pl-1 pr-2 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ACTIVITY_COUNT_BADGE_CLASS =
   "inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200";
 const ACTIVITY_COPY_BUTTON_BASE_CLASS =
   "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] text-setta-500 transition-colors hover:bg-setta-200/80 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:text-setta-300 dark:hover:bg-setta-700 dark:hover:text-setta-100";
 const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
 const ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS = `${ACTIVITY_SECTION_COPY_BUTTON_CLASS} opacity-0 pointer-events-none transition-opacity group-hover/chat-activity-row:opacity-100 group-hover/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`;
-const ACTIVITY_PARENT_HOVER_META_CLASS =
-  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-parent:opacity-100 group-focus-within/chat-activity-parent:opacity-100";
-const ACTIVITY_ITEM_HOVER_META_CLASS =
-  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:opacity-100";
-const ACTIVITY_PARENT_LABEL_CLASS =
-  "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-parent:pr-[12rem] group-focus-within/chat-activity-parent:pr-[12rem]";
-const ACTIVITY_ITEM_LABEL_CLASS =
-  "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-row:pr-[8.5rem] group-focus-within/chat-activity-row:pr-[8.5rem]";
-const ACTIVITY_THOUGHT_TOP_ONLY_MASK =
-  "linear-gradient(to bottom, transparent 0%, black 18%, black 100%)";
-const CHAT_TIMESTAMP_CLASS =
-  "shrink-0 text-[10px] font-medium tabular-nums text-setta-400 dark:text-setta-500";
-const CHAT_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  hour: "numeric",
-  minute: "2-digit",
-});
-const CHAT_TIMESTAMP_TOOLTIP_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "full",
-  timeStyle: "long",
-});
 const COUNT_BADGE_STEP_ANIMATION_MS = 120;
 const COUNT_BADGE_STEP_PAUSE_MS = 24;
 const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
@@ -273,23 +216,11 @@ const ACTION_TOOL_NAMES = new Set<string>([
   "enteredReviewMode",
   "exitedReviewMode",
 ]);
-const ACTIVE_RUNTIME_TERMINAL_TOOL_NAMES = new Set<string>([
-  "command_execution",
-]);
-const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
-  "setta__run_agent_profile",
-  "run_agent_profile",
-]);
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
 type AttachmentUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
-type AttachmentUrlResponseEntry = {
-  artifactId: string;
-  url: string;
-  expiresAt: number;
+  url: AttachmentDownloadURLEntry["url"];
+  expiresAt: AttachmentDownloadURLEntry["expiresAt"];
 };
 type AttachmentTextPreview = {
   text: string;
@@ -302,11 +233,6 @@ type AssistantActivityChildAccordionControl = {
   defaultOpen: boolean;
   expandAllSignal: number;
   collapseAllSignal: number;
-  suppressSummaries: boolean;
-  onThinkingOpenStateChange?: (
-    activityKey: string,
-    isExpanded: boolean,
-  ) => void;
 };
 
 type ChatMessageListProps = {
@@ -316,8 +242,6 @@ type ChatMessageListProps = {
   toolCallArguments?: Record<string, string>;
   interruptedAssistantMessageIds?: Record<string, true>;
   activeSearchMessageId?: string | null;
-  activeSearchMatchOccurrenceIndex?: number | null;
-  conversationSearchTerms?: Array<string>;
   className?: string;
   contentClassName?: string;
   scrollRef?: Ref<HTMLDivElement>;
@@ -337,564 +261,40 @@ type MarkdownContentProps = {
   className: string;
   role: ChatRoleEnum;
   isStreaming: boolean;
-  highlightTerms?: Array<string>;
 };
-
-type HastNode = {
-  type: string;
-  value?: string;
-  tagName?: string;
-  properties?: Record<string, unknown>;
-  children?: Array<HastNode>;
-};
-
-const CHAT_SEARCH_HIGHLIGHT_CLASS_NAME =
-  "rounded-sm bg-amber-200/80 px-[0.06rem] text-inherit dark:bg-amber-500/20";
-const CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS = new Set([
-  "code",
-  "pre",
-  "script",
-  "style",
-]);
-
-function buildConversationSearchHighlightNodes(
-  value: string,
-  ranges: Array<ConversationSearchTextRange>,
-): Array<HastNode> {
-  if (ranges.length === 0) {
-    return [{ type: "text", value }];
-  }
-  const nodes: Array<HastNode> = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) {
-      nodes.push({
-        type: "text",
-        value: value.slice(cursor, range.start),
-      });
-    }
-    nodes.push({
-      type: "element",
-      tagName: "mark",
-      properties: {
-        className: [CHAT_SEARCH_HIGHLIGHT_CLASS_NAME],
-        "data-chat-search-highlight": "true",
-      },
-      children: [
-        {
-          type: "text",
-          value: value.slice(range.start, range.end),
-        },
-      ],
-    });
-    cursor = range.end;
-  }
-  if (cursor < value.length) {
-    nodes.push({
-      type: "text",
-      value: value.slice(cursor),
-    });
-  }
-  return nodes;
-}
-
-function highlightConversationSearchTextNodes(
-  node: HastNode,
-  normalizedSearchTerms: Array<string>,
-): void {
-  const children = node.children;
-  if (!children || children.length === 0) {
-    return;
-  }
-  for (let index = 0; index < children.length; index += 1) {
-    const child = children[index];
-    if (!child) {
-      continue;
-    }
-    if (child.type === "text" && typeof child.value === "string") {
-      const ranges = findConversationSearchTextRanges(
-        child.value,
-        normalizedSearchTerms,
-      );
-      if (ranges.length === 0) {
-        continue;
-      }
-      const replacementNodes = buildConversationSearchHighlightNodes(
-        child.value,
-        ranges,
-      );
-      children.splice(index, 1, ...replacementNodes);
-      index += replacementNodes.length - 1;
-      continue;
-    }
-    if (
-      child.type === "element" &&
-      typeof child.tagName === "string" &&
-      CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS.has(child.tagName)
-    ) {
-      continue;
-    }
-    highlightConversationSearchTextNodes(child, normalizedSearchTerms);
-  }
-}
-
-function buildConversationSearchHighlightPlugin(
-  normalizedSearchTerms: Array<string>,
-) {
-  return () => {
-    return (tree: HastNode) => {
-      highlightConversationSearchTextNodes(tree, normalizedSearchTerms);
-    };
-  };
-}
-
-function getConversationSearchRehypePlugins(
-  normalizedSearchTerms: Array<string>,
-): Array<() => (tree: HastNode) => void> | undefined {
-  if (normalizedSearchTerms.length === 0) {
-    return undefined;
-  }
-  return [buildConversationSearchHighlightPlugin(normalizedSearchTerms)];
-}
-
-function renderConversationSearchHighlightedText(
-  text: string,
-  normalizedSearchTerms: Array<string>,
-): ReactNode {
-  const ranges = findConversationSearchTextRanges(text, normalizedSearchTerms);
-  if (ranges.length === 0) {
-    return text;
-  }
-  const nodes: ReactNode[] = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) {
-      nodes.push(text.slice(cursor, range.start));
-    }
-    nodes.push(
-      <mark
-        key={`${range.start}-${range.end}`}
-        className={CHAT_SEARCH_HIGHLIGHT_CLASS_NAME}
-        data-chat-search-highlight="true"
-      >
-        {text.slice(range.start, range.end)}
-      </mark>,
-    );
-    cursor = range.end;
-  }
-  if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
-  }
-  return nodes;
-}
-
-const CHAT_MARKDOWN_COMPONENTS: Components = {
-  code: (props) => <CodeBlock {...props} wrapLines />,
-  pre: MarkdownCodePre,
-  table: ({ children }) => (
-    <div
-      data-chat-markdown-table-wrapper="true"
-      className="my-2 max-w-full overflow-x-auto"
-    >
-      <table className="w-full table-fixed border-collapse">{children}</table>
-    </div>
-  ),
-  th: ({ children }) => (
-    <th className="break-words px-2 py-1 text-left align-top font-semibold">
-      {children}
-    </th>
-  ),
-  td: ({ children }) => (
-    <td className="break-words px-2 py-1 align-top">{children}</td>
-  ),
-};
-
-function buildInitialAnimatedStreamingCharacters(
-  text: string,
-): Array<AnimatedStreamingCharacter> {
-  let nextId = 0;
-  return Array.from(text || "").map((value) => ({
-    id: nextId++,
-    value,
-    animate: false,
-  }));
-}
-
-function useAnimatedStreamingCharacters(
-  text: string,
-  enabled: boolean,
-): Array<AnimatedStreamingCharacter> {
-  const nextIdRef = useRef(0);
-  const [characters, setCharacters] = useState<
-    Array<AnimatedStreamingCharacter>
-  >(() => {
-    const initialCharacters = buildInitialAnimatedStreamingCharacters(text);
-    nextIdRef.current = initialCharacters.length;
-    return initialCharacters;
-  });
-
-  useEffect(() => {
-    const normalizedText = text || "";
-    if (!enabled) {
-      const nextCharacters =
-        buildInitialAnimatedStreamingCharacters(normalizedText);
-      nextIdRef.current = nextCharacters.length;
-      setCharacters((previousCharacters) => {
-        const previousText = previousCharacters
-          .map((character) => character.value)
-          .join("");
-        if (previousText === normalizedText) {
-          return previousCharacters.every((character) => !character.animate)
-            ? previousCharacters
-            : previousCharacters.map((character) => ({
-                ...character,
-                animate: false,
-              }));
-        }
-        return nextCharacters;
-      });
-      return;
-    }
-    setCharacters((previousCharacters) => {
-      const reconciledCharacters = reconcileAnimatedStreamingCharacters(
-        previousCharacters.map(({ id, value }) => ({ id, value })),
-        normalizedText,
-        nextIdRef.current,
-      );
-      nextIdRef.current = reconciledCharacters.nextId;
-      return reconciledCharacters.characters;
-    });
-  }, [enabled, text]);
-
-  useEffect(() => {
-    if (!enabled || !characters.some((character) => character.animate)) {
-      return;
-    }
-    const timeoutId = window.setTimeout(() => {
-      setCharacters((previousCharacters) =>
-        previousCharacters.some((character) => character.animate)
-          ? previousCharacters.map((character) =>
-              character.animate
-                ? {
-                    ...character,
-                    animate: false,
-                  }
-                : character,
-            )
-          : previousCharacters,
-      );
-    }, 180);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [characters, enabled]);
-
-  return characters;
-}
-
-function useStreamingCommitAnimationClass(
-  committedLineCount: number,
-  enabled: boolean,
-): string {
-  const previousCommittedLineCountRef = useRef(committedLineCount);
-  const [commitAnimationPhase, setCommitAnimationPhase] = useState(0);
-
-  useEffect(() => {
-    if (!enabled) {
-      previousCommittedLineCountRef.current = committedLineCount;
-      return;
-    }
-    if (committedLineCount > previousCommittedLineCountRef.current) {
-      setCommitAnimationPhase((previousPhase) => previousPhase + 1);
-    }
-    previousCommittedLineCountRef.current = committedLineCount;
-  }, [committedLineCount, enabled]);
-
-  if (commitAnimationPhase === 0) {
-    return "";
-  }
-  return commitAnimationPhase % 2 === 0
-    ? "chat-stream-commit-b"
-    : "chat-stream-commit-a";
-}
-
-function useStreamingGrowthAnimation(
-  elementRef: Ref<HTMLDivElement>,
-  animationSignal: number,
-  enabled: boolean,
-) {
-  const previousHeightRef = useRef<number | null>(null);
-
-  useLayoutEffect(() => {
-    if (
-      !enabled ||
-      typeof window === "undefined" ||
-      !(elementRef && "current" in elementRef)
-    ) {
-      return;
-    }
-    const element = elementRef.current;
-    if (!element) {
-      return;
-    }
-    const nextHeightPx = element.getBoundingClientRect().height;
-    const previousHeightPx = previousHeightRef.current;
-    previousHeightRef.current = nextHeightPx;
-    if (previousHeightPx === null) {
-      return;
-    }
-    const growthPx = nextHeightPx - previousHeightPx;
-    if (growthPx <= 1 || typeof element.animate !== "function") {
-      return;
-    }
-    element.animate(
-      [
-        {
-          opacity: 0.96,
-          transform: `translateY(${-Math.min(10, growthPx)}px)`,
-        },
-        { opacity: 1, transform: "translateY(0)" },
-      ],
-      {
-        duration: 170,
-        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-      },
-    );
-  }, [animationSignal, elementRef, enabled]);
-}
-
-function StreamingTailText({
-  text,
-  className,
-  highlightTerms = [],
-  animateCharacters,
-  dataAttributeName,
-}: {
-  text: string;
-  className: string;
-  highlightTerms?: Array<string>;
-  animateCharacters: boolean;
-  dataAttributeName: string;
-}) {
-  const characters = useAnimatedStreamingCharacters(
-    text,
-    animateCharacters && highlightTerms.length === 0,
-  );
-  const attribute =
-    dataAttributeName === "data-chat-streaming-markdown-tail"
-      ? { "data-chat-streaming-markdown-tail": "true" }
-      : { "data-chat-assistant-activity-thought-stream-tail": "true" };
-
-  return (
-    <div {...attribute} className={className}>
-      {highlightTerms.length > 0
-        ? renderConversationSearchHighlightedText(text, highlightTerms)
-        : characters.map((character) => (
-            <span
-              key={character.id}
-              className={
-                character.animate ? "chat-stream-char-enter" : undefined
-              }
-              data-chat-streaming-character={
-                character.animate ? "entering" : "settled"
-              }
-            >
-              {character.value === " " ? "\u00A0" : character.value}
-            </span>
-          ))}
-    </div>
-  );
-}
-
-function StreamingMarkdownContent({
-  content,
-  className,
-  highlightTerms = [],
-}: {
-  content: string;
-  className: string;
-  highlightTerms?: Array<string>;
-}) {
-  const displayText = useTypewriterEffect(content, true, {
-    typingSpeed: 8,
-    baseMaxCharsPerFrame: 1,
-    maxCharsPerFrameCap: 4,
-  });
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const { committedMarkdown, activeTailText, committedLineCount } = useMemo(
-    () => splitStreamingMarkdownText(displayText),
-    [displayText],
-  );
-  const rehypePlugins = useMemo(() => {
-    if (highlightTerms.length === 0) {
-      return [rehypeKatex];
-    }
-    return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
-  }, [highlightTerms]);
-  const commitAnimationClass = useStreamingCommitAnimationClass(
-    committedLineCount,
-    true,
-  );
-
-  useStreamingGrowthAnimation(rootRef, committedLineCount, true);
-
-  return (
-    <div
-      ref={rootRef}
-      className="inline-block max-w-full align-top"
-      data-chat-streaming-markdown="true"
-      data-chat-streaming-markdown-mode="line-committed"
-      data-chat-streaming-markdown-has-tail={
-        activeTailText.length > 0 ? "true" : "false"
-      }
-    >
-      {committedMarkdown ? (
-        <div
-          data-chat-streaming-markdown-committed="true"
-          className={commitAnimationClass}
-        >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={rehypePlugins}
-            className={className}
-            components={CHAT_MARKDOWN_COMPONENTS}
-          >
-            {committedMarkdown}
-          </ReactMarkdown>
-        </div>
-      ) : null}
-      {activeTailText ? (
-        <StreamingTailText
-          text={activeTailText}
-          className={STREAMING_ASSISTANT_TAIL_CLASS}
-          highlightTerms={highlightTerms}
-          animateCharacters={true}
-          dataAttributeName="data-chat-streaming-markdown-tail"
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function ThoughtPreviewMarkdown({
-  text,
-  animate,
-}: {
-  text: string;
-  animate: boolean;
-}) {
-  const displayText = useTypewriterEffect(text, animate, {
-    typingSpeed: 9,
-    baseMaxCharsPerFrame: 1,
-    maxCharsPerFrameCap: 3,
-  });
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const { committedMarkdown, activeTailText, committedLineCount } = useMemo(
-    () =>
-      animate
-        ? splitStreamingMarkdownText(displayText)
-        : {
-            committedMarkdown: displayText,
-            activeTailText: "",
-            committedLineCount: 0,
-          },
-    [animate, displayText],
-  );
-  const commitAnimationClass = useStreamingCommitAnimationClass(
-    committedLineCount,
-    animate,
-  );
-
-  useStreamingGrowthAnimation(rootRef, committedLineCount, animate);
-
-  return (
-    <div
-      ref={rootRef}
-      data-chat-assistant-activity-thought-markdown-preview="true"
-      data-chat-assistant-activity-thought-markdown-mode={
-        animate ? "line-committed" : "static"
-      }
-    >
-      {committedMarkdown ? (
-        <div className={commitAnimationClass}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            className={THOUGHT_PREVIEW_MARKDOWN_CLASS}
-            components={CHAT_MARKDOWN_COMPONENTS}
-          >
-            {committedMarkdown}
-          </ReactMarkdown>
-        </div>
-      ) : null}
-      {activeTailText ? (
-        <StreamingTailText
-          text={activeTailText}
-          className={THOUGHT_PREVIEW_TAIL_CLASS}
-          animateCharacters={animate}
-          dataAttributeName="data-chat-assistant-activity-thought-stream-tail"
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function StaticMarkdownContent({
-  content,
-  className,
-  highlightTerms = [],
-}: {
-  content: string;
-  className: string;
-  highlightTerms?: Array<string>;
-}) {
-  const rehypePlugins = useMemo(() => {
-    if (highlightTerms.length === 0) {
-      return [rehypeKatex];
-    }
-    return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
-  }, [highlightTerms]);
-
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={rehypePlugins}
-      className={className}
-      components={CHAT_MARKDOWN_COMPONENTS}
-    >
-      {content}
-    </ReactMarkdown>
-  );
-}
 
 function MarkdownContent({
   content,
   className,
   role,
   isStreaming,
-  highlightTerms = [],
 }: MarkdownContentProps) {
-  if (role === ChatRoleEnum.assistant && isStreaming) {
+  const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
+  const displayText = useTypewriterEffect(content, shouldAnimate, 5);
+  if (shouldAnimate) {
     return (
-      <StreamingMarkdownContent
-        content={content}
-        className={className}
-        highlightTerms={highlightTerms}
-      />
+      <div className={className} data-chat-streaming-markdown="true">
+        <pre
+          className="m-0 whitespace-pre-wrap break-words"
+          style={{ fontFamily: "inherit" }}
+        >
+          {displayText}
+        </pre>
+      </div>
     );
   }
 
-  const markdownWidthClassName =
-    role === ChatRoleEnum.assistant
-      ? "inline-block max-w-full align-top"
-      : "w-full max-w-full";
-
   return (
-    <StaticMarkdownContent
-      content={content}
-      className={`${markdownWidthClassName} ${className}`}
-      highlightTerms={highlightTerms}
-    />
+    <div>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        className={className}
+        components={{ code: CodeBlock, pre: MarkdownCodePre }}
+      >
+        {displayText}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -990,13 +390,6 @@ function resolveToolCallDisplayKind(
   entry: ToolCallRenderEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): ToolCallDisplayKind {
-  const runtimeDisplayKind = resolveActiveRuntimeDisplayKind(
-    entry,
-    toolResultsById,
-  );
-  if (runtimeDisplayKind) {
-    return runtimeDisplayKind;
-  }
   const normalizedName = resolveToolDisplayName(entry, toolResultsById);
   if (normalizedName === CONTEXT_COMPACTION_TOOL_NAME) {
     return "compaction";
@@ -1009,41 +402,6 @@ function resolveToolCallDisplayKind(
     return "action";
   }
   return "tool";
-}
-
-function resolveRuntimeToolCategory(
-  toolName: string | null,
-): "terminal" | "subagent" | null {
-  if (!toolName) {
-    return null;
-  }
-  const normalizedToolName = normalizeToolName(toolName);
-  if (!normalizedToolName) {
-    return null;
-  }
-  const lowerCaseToolName = normalizedToolName.toLowerCase();
-  if (ACTIVE_RUNTIME_TERMINAL_TOOL_NAMES.has(lowerCaseToolName)) {
-    return "terminal";
-  }
-  if (ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES.has(lowerCaseToolName)) {
-    return "subagent";
-  }
-  return null;
-}
-
-function resolveActiveRuntimeDisplayKind(
-  entry: ToolCallRenderEntry,
-  toolResultsById: Record<string, ToolChatMessage>,
-): "terminal" | "subagent" | null {
-  if (!entry.isStreaming) {
-    return null;
-  }
-  if (toolResultsById[entry.toolCall.id]) {
-    return null;
-  }
-  return resolveRuntimeToolCategory(
-    resolveToolDisplayName(entry, toolResultsById),
-  );
 }
 
 function hashStringToBase36(input: string): string {
@@ -1083,7 +441,6 @@ function buildActivityTimelineEntries(
     );
     const thinkingIsStreaming =
       isStreaming && !hasMeaningfulAssistantDisplayItems(displayItems);
-    const thinkingTimestampMs = resolveMessageCreatedAtMs(message);
     for (let itemIndex = 0; itemIndex < thinkingItems.length; itemIndex += 1) {
       const item = thinkingItems[itemIndex];
       if (!item) {
@@ -1101,7 +458,6 @@ function buildActivityTimelineEntries(
             itemIndex,
             item,
           }),
-          timestampMs: thinkingTimestampMs,
           isStreaming: thinkingIsStreaming,
           wasInterrupted,
         },
@@ -1700,11 +1056,15 @@ function resolveActionEntryLabel(
   const toolResult = toolResultsById[toolCall.id];
   const rawToolName =
     toolResult?.tool_name || toolCall.function?.name || `Action ${toolCall.id}`;
-  const argsToDisplay = resolveDisplayArgsForToolCallEntry({
-    toolCall,
-    toolResult,
-    toolCallArguments,
-  });
+  const argsFromResult = toolResult?.arguments;
+  const argsFromAssistant = toolCall.function?.arguments;
+  const pendingArgs = toolCallArguments?.[toolCall.id];
+  let argsToDisplay: unknown = pendingArgs;
+  if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+    argsToDisplay = argsFromResult;
+  } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+    argsToDisplay = argsFromAssistant;
+  }
   return resolveActionLabel(rawToolName, argsToDisplay);
 }
 
@@ -1718,54 +1078,6 @@ function resolveToolEntryLabel(
     entry.toolCall.function?.name ||
     `Tool call ${entry.toolCall.id}`
   );
-}
-
-function resolveSubagentEntryLabel({
-  entry,
-  toolResultsById,
-  toolCallArguments,
-}: {
-  entry: ToolCallRenderEntry;
-  toolResultsById: Record<string, ToolChatMessage>;
-  toolCallArguments: Record<string, string>;
-}): string {
-  const toolCall = entry.toolCall;
-  const toolResult = toolResultsById[toolCall.id];
-  const rawToolName =
-    toolResult?.tool_name ||
-    toolCall.function?.name ||
-    `Subagent ${toolCall.id}`;
-  const argsToDisplay = resolveDisplayArgsForToolCallEntry({
-    toolCall,
-    toolResult,
-    toolCallArguments,
-  });
-  const profileId = extractNonEmptyStringArg(argsToDisplay, "profileId");
-  if (profileId) {
-    return profileId;
-  }
-  return normalizeToolName(rawToolName) ?? rawToolName;
-}
-
-function resolveDisplayArgsForToolCallEntry({
-  toolCall,
-  toolResult,
-  toolCallArguments,
-}: {
-  toolCall: ToolCall;
-  toolResult: ToolChatMessage | undefined;
-  toolCallArguments: Record<string, string>;
-}): unknown {
-  const argsFromResult = toolResult?.arguments;
-  const argsFromAssistant = toolCall.function?.arguments;
-  const pendingArgs = toolCallArguments?.[toolCall.id];
-  if (argsFromResult && Object.keys(argsFromResult).length > 0) {
-    return argsFromResult;
-  }
-  if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
-    return argsFromAssistant;
-  }
-  return pendingArgs;
 }
 
 function resolveCompactionEntryLabel({
@@ -1783,9 +1095,9 @@ function resolveCompactionEntryLabel({
   );
 }
 
-function resolveLatestThoughtPreview(
+function resolveLatestThoughtText(
   timelineEntries: ActivityTimelineEntry[],
-): { activityKey: string | null; thoughtText: string | null } {
+): string | null {
   for (let index = timelineEntries.length - 1; index >= 0; index -= 1) {
     const entry = timelineEntries[index];
     if (!entry || entry.kind !== "thinking") {
@@ -1793,16 +1105,10 @@ function resolveLatestThoughtPreview(
     }
     const thoughtText = entry.thinkingEntry.item.thinking.trim();
     if (thoughtText.length > 0) {
-      return {
-        activityKey: entry.key,
-        thoughtText,
-      };
+      return thoughtText;
     }
   }
-  return {
-    activityKey: null,
-    thoughtText: null,
-  };
+  return null;
 }
 
 function resolveHasStreamingThought(
@@ -1865,47 +1171,26 @@ function resolveLatestActivityPreview({
   toolCallArguments: Record<string, string>;
 }): ActivityPreviewData {
   const hasStreamingThought = resolveHasStreamingThought(timelineEntries);
-  const { activityKey: thoughtActivityKey, thoughtText } =
-    resolveLatestThoughtPreview(timelineEntries);
-  const thinkingEntryCount = timelineEntries.filter(
-    (entry) => entry.kind === "thinking",
-  ).length;
-  const hasThoughtPreviewText = (thoughtText?.trim().length ?? 0) > 0;
+  const thoughtText = resolveLatestThoughtText(timelineEntries);
   const latestEntry = timelineEntries[timelineEntries.length - 1];
   if (!latestEntry) {
     return {
       label: "No recent activity",
       kind: "none",
       thoughtText,
-      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
   }
   if (latestEntry.kind === "thinking") {
-    if (hasThoughtPreviewText) {
-      return {
-        label: hasStreamingThought
-          ? "Thinking"
-          : thinkingEntryCount > 1
-            ? "Thoughts"
-            : "Reasoning",
-        kind: "thought",
-        thoughtText,
-        thoughtActivityKey,
-        hasStreamingThought,
-        shouldScrambleTitle: false,
-      };
-    }
     const latestHeadline = resolveThinkingPreviewHeadline(
       latestEntry.thinkingEntry,
     );
     if (latestHeadline.headline) {
       return {
-        label: latestHeadline.headline,
+        label: `Thought: ${latestHeadline.headline}`,
         kind: "thought",
         thoughtText,
-        thoughtActivityKey,
         hasStreamingThought,
         shouldScrambleTitle: false,
       };
@@ -1916,29 +1201,26 @@ function resolveLatestActivityPreview({
     );
     if (fallbackHeadline) {
       return {
-        label: fallbackHeadline,
+        label: `Thought: ${fallbackHeadline}`,
         kind: "thought",
         thoughtText,
-        thoughtActivityKey,
         hasStreamingThought,
         shouldScrambleTitle: false,
       };
     }
     if (latestHeadline.shouldScramble) {
       return {
-        label: "Thinking",
+        label: "Thought: Thinking...",
         kind: "thought",
         thoughtText,
-        thoughtActivityKey,
         hasStreamingThought,
-        shouldScrambleTitle: false,
+        shouldScrambleTitle: true,
       };
     }
     return {
-      label: "Reasoning",
+      label: "Thought: Reasoning complete.",
       kind: "thought",
       thoughtText,
-      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1952,7 +1234,6 @@ function resolveLatestActivityPreview({
       })}`,
       kind: "context",
       thoughtText,
-      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1966,35 +1247,6 @@ function resolveLatestActivityPreview({
       )}`,
       kind: "action",
       thoughtText,
-      thoughtActivityKey,
-      hasStreamingThought,
-      shouldScrambleTitle: false,
-    };
-  }
-  if (latestEntry.kind === "terminal") {
-    return {
-      label: `Terminal: ${resolveActionEntryLabel(
-        latestEntry.toolEntry,
-        toolResultsById,
-        toolCallArguments,
-      )}`,
-      kind: "terminal",
-      thoughtText,
-      thoughtActivityKey,
-      hasStreamingThought,
-      shouldScrambleTitle: false,
-    };
-  }
-  if (latestEntry.kind === "subagent") {
-    return {
-      label: `Subagent: ${resolveSubagentEntryLabel({
-        entry: latestEntry.toolEntry,
-        toolResultsById,
-        toolCallArguments,
-      })}`,
-      kind: "subagent",
-      thoughtText,
-      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -2006,7 +1258,6 @@ function resolveLatestActivityPreview({
     )}`,
     kind: "tool",
     thoughtText,
-    thoughtActivityKey,
     hasStreamingThought,
     shouldScrambleTitle: false,
   };
@@ -2179,91 +1430,6 @@ function resolveDurationLabel({
   return formatElapsedDuration(elapsedSeconds);
 }
 
-function resolveTimestampMs(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    return null;
-  }
-  return value;
-}
-
-function resolveMessageCreatedAtMs(
-  message: BaseChatMessageUnion,
-): number | null {
-  return resolveTimestampMs((message as { createdAt?: unknown }).createdAt);
-}
-
-function resolveActivityTimestampMs(
-  startedAtMs: number | null,
-  completedAtMs: number | null,
-): number | null {
-  return resolveTimestampMs(startedAtMs) ?? resolveTimestampMs(completedAtMs);
-}
-
-function formatChatTimestamp(timestampMs: number | null): string | null {
-  const resolvedTimestampMs = resolveTimestampMs(timestampMs);
-  if (resolvedTimestampMs === null) {
-    return null;
-  }
-  return CHAT_TIMESTAMP_FORMATTER.format(resolvedTimestampMs);
-}
-
-function formatChatTimestampTitle(timestampMs: number | null): string | null {
-  const resolvedTimestampMs = resolveTimestampMs(timestampMs);
-  if (resolvedTimestampMs === null) {
-    return null;
-  }
-  return CHAT_TIMESTAMP_TOOLTIP_FORMATTER.format(resolvedTimestampMs);
-}
-
-function ChatTimestamp({
-  timestampMs,
-  kind,
-}: {
-  timestampMs: number | null;
-  kind: "message" | "activity-item";
-}) {
-  const label = formatChatTimestamp(timestampMs);
-  if (!label) {
-    return null;
-  }
-  const title = formatChatTimestampTitle(timestampMs) ?? undefined;
-  if (kind === "activity-item") {
-    return (
-      <span
-        data-chat-activity-item-timestamp="true"
-        className={CHAT_TIMESTAMP_CLASS}
-        title={title}
-      >
-        {label}
-      </span>
-    );
-  }
-  return (
-    <span
-      data-chat-message-timestamp="true"
-      className={CHAT_TIMESTAMP_CLASS}
-      title={title}
-    >
-      {label}
-    </span>
-  );
-}
-
-function ChatMessageTimestampFooter({
-  timestampMs,
-}: {
-  timestampMs: number | null;
-}) {
-  if (timestampMs === null) {
-    return null;
-  }
-  return (
-    <div className="mt-0.5 flex justify-end">
-      <ChatTimestamp timestampMs={timestampMs} kind="message" />
-    </div>
-  );
-}
-
 function deriveThinkingHeadlineFromContent(content: string): string | null {
   const trimmed = content.trim();
   if (trimmed.length === 0) {
@@ -2378,26 +1544,16 @@ function resolveThinkingSummaryHeadline({
   summary: string | null | undefined;
   isStreaming: boolean;
 }): string {
-  if (isStreaming) {
-    return (
-      resolveStreamingThinkingHeadline({ content, summary }) ?? "Thinking..."
-    );
-  }
   return resolveThinkingSummaryMeta({ content, summary, isStreaming }).headline;
-}
-
-function resolveCollapsedThinkingActivityLabel({
-  isStreaming,
-}: {
-  isStreaming: boolean;
-}): string {
-  return isStreaming ? "Thinking" : "Reasoning";
 }
 
 function resolveLatestThinkingSummary(
   thinkingItems: ThinkingContentItem[],
   isStreaming: boolean,
 ): string {
+  if (isStreaming) {
+    return "Thinking...";
+  }
   const latestItem = thinkingItems[thinkingItems.length - 1];
   if (!latestItem) {
     return "No thoughts yet.";
@@ -3599,10 +2755,8 @@ function ChatAttachmentList({
 }
 
 const ThinkingBox = memo(function ThinkingBox({
-  activityKey,
   content,
   summary,
-  timestampMs,
   isStreaming,
   wasInterrupted,
   runKey,
@@ -3612,14 +2766,9 @@ const ThinkingBox = memo(function ThinkingBox({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
-  suppressCollapsedSummary = false,
-  conversationSearchTerms = [],
-  onExpansionChange,
 }: {
-  activityKey: string;
   content: string;
   summary: string | null | undefined;
-  timestampMs: number | null;
   isStreaming: boolean;
   wasInterrupted: boolean;
   runKey: string;
@@ -3629,37 +2778,27 @@ const ThinkingBox = memo(function ThinkingBox({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
-  suppressCollapsedSummary?: boolean;
-  conversationSearchTerms?: Array<string>;
-  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const streaming = isStreaming;
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
   const summaryText = summary?.trim() ?? "";
   const hasThinkingText = content.trim().length > 0;
   const summaryHasAdditionalLines = /\r?\n/u.test(summaryText);
-  const resolvedSummaryHeadlineText = resolveThinkingSummaryHeadline({
+  const summaryHeadlineText = resolveThinkingSummaryHeadline({
     content,
     summary,
     isStreaming: streaming,
   });
-  const summaryHeadlineText = suppressCollapsedSummary
-    ? resolveCollapsedThinkingActivityLabel({
-        isStreaming: streaming,
-      })
-    : resolvedSummaryHeadlineText;
   const collapsedSummaryText = summaryHeadlineText;
   const collapsedSummaryWithHint =
     activityHint && !hasThinkingText
       ? `${collapsedSummaryText} - ${activityHint}`
       : collapsedSummaryText;
   const shouldRenderPlainSummaryWithHint = Boolean(
-    !suppressCollapsedSummary && activityHint && !hasThinkingText,
+    activityHint && !hasThinkingText,
   );
   const shouldMeasureSummaryOverflow =
-    !suppressCollapsedSummary &&
-    !hasThinkingText &&
-    collapsedSummaryText.length > 0;
+    !hasThinkingText && collapsedSummaryText.length > 0;
   const [isSummaryTitleTruncated, setIsSummaryTitleTruncated] = useState(false);
   const hasExpandableContent =
     hasThinkingText ||
@@ -3671,11 +2810,7 @@ const ThinkingBox = memo(function ThinkingBox({
         ? ACTIVITY_ROW_DETAILS_VALUE
         : undefined,
   );
-  const lastExpandAllSignalRef = useRef(expandAllSignal);
-  const lastCollapseAllSignalRef = useRef(collapseAllSignal);
   const expandedContent = hasThinkingText ? content : summaryText;
-  const isExpanded =
-    hasExpandableContent && accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
   const thinkingRunState: ToolCallSectionState = streaming
     ? "running"
     : wasInterrupted
@@ -3702,21 +2837,14 @@ const ThinkingBox = memo(function ThinkingBox({
   useEffect(() => {
     if (!hasExpandableContent) {
       setAccordionValue(undefined);
-      lastExpandAllSignalRef.current = expandAllSignal;
-      lastCollapseAllSignalRef.current = collapseAllSignal;
       return;
     }
-    if (collapseAllSignal !== lastCollapseAllSignalRef.current) {
-      lastCollapseAllSignalRef.current = collapseAllSignal;
-      if (collapseAllSignal > 0) {
-        setAccordionValue(undefined);
-      }
+    if (collapseAllSignal > 0) {
+      setAccordionValue(undefined);
+      return;
     }
-    if (expandAllSignal !== lastExpandAllSignalRef.current) {
-      lastExpandAllSignalRef.current = expandAllSignal;
-      if (expandAllSignal > 0) {
-        setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
-      }
+    if (expandAllSignal > 0) {
+      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
     }
   }, [collapseAllSignal, expandAllSignal, hasExpandableContent]);
 
@@ -3747,15 +2875,13 @@ const ThinkingBox = memo(function ThinkingBox({
       observer = new ResizeObserver(measure);
       observer.observe(summaryPreviewRef.current);
     }
+    window.addEventListener("resize", measure);
     return () => {
       window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
   }, [activityHint, shouldMeasureSummaryOverflow, summaryHeadlineText]);
-
-  useEffect(() => {
-    onExpansionChange?.(activityKey, isExpanded);
-  }, [activityKey, isExpanded, onExpansionChange]);
 
   const triggerClassName = `grid w-full ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} max-w-full overflow-hidden text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180 ${
     hasExpandableContent ? "cursor-pointer" : "cursor-default"
@@ -3780,7 +2906,7 @@ const ThinkingBox = memo(function ThinkingBox({
         className="group/chat-activity-row w-full overflow-hidden border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
         data-chat-thinking-section="true"
       >
-        <div className="relative flex w-full items-stretch">
+        <div className="flex w-full items-stretch">
           <Accordion.Trigger
             disabled={!hasExpandableContent}
             data-chat-thinking-trigger="true"
@@ -3798,27 +2924,16 @@ const ThinkingBox = memo(function ThinkingBox({
               {railIcon ?? <FaBrain size={13} className="min-w-4" />}
             </div>
             <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
-              <div
-                data-chat-activity-item-label="true"
-                className={ACTIVITY_ITEM_LABEL_CLASS}
-              >
+              <div className="min-w-0 flex-1">
                 <div
                   ref={summaryPreviewRef}
                   className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
                 >
                   {shouldRenderPlainSummaryWithHint ? (
-                    <span>
-                      {renderConversationSearchHighlightedText(
-                        collapsedSummaryWithHint,
-                        conversationSearchTerms,
-                      )}
-                    </span>
+                    <span>{collapsedSummaryWithHint}</span>
                   ) : (
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
-                      rehypePlugins={getConversationSearchRehypePlugins(
-                        conversationSearchTerms,
-                      )}
                       components={{
                         p: ({ children }) => <span>{children}</span>,
                         a: ({ children }) => <span>{children}</span>,
@@ -3829,7 +2944,69 @@ const ThinkingBox = memo(function ThinkingBox({
                   )}
                 </div>
               </div>
-              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
+              <div className="ml-auto inline-flex shrink-0 items-center gap-1.5 self-center">
+                {onCopy ? (
+                  <button
+                    type="button"
+                    aria-label="Copy activity item"
+                    data-chat-activity-item-copy-button="true"
+                    data-chat-activity-item-copy-kind="thought"
+                    className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCopy();
+                    }}
+                  >
+                    <FiCopy />
+                  </button>
+                ) : null}
+                {thinkingRunState === "complete" ? (
+                  durationLabel ? (
+                    <span
+                      data-chat-thinking-status="true"
+                      className="inline-flex items-center gap-1 text-setta-500 dark:text-setta-300"
+                    >
+                      <span
+                        data-chat-thinking-timer="true"
+                        className="font-mono text-[10px] text-setta-400 dark:text-setta-400/90"
+                      >
+                        {durationLabel}
+                      </span>
+                    </span>
+                  ) : null
+                ) : thinkingRunState === "stopped" ? (
+                  <span
+                    data-chat-thinking-status="true"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300"
+                  >
+                    <MdErrorOutline className="text-[11px]" />
+                    Stopped
+                    {durationLabel ? (
+                      <span
+                        data-chat-thinking-timer="true"
+                        className="font-mono text-[10px] normal-case tracking-normal text-amber-700 dark:text-amber-200"
+                      >
+                        {durationLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span
+                    data-chat-thinking-status="true"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300"
+                  >
+                    <i className="gg-spinner !scale-75" />
+                    Working
+                    {durationLabel ? (
+                      <span
+                        data-chat-thinking-timer="true"
+                        className="font-mono text-[10px] normal-case tracking-normal text-setta-400 dark:text-setta-400/90"
+                      >
+                        {durationLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                )}
                 {hasExpandableContent ? (
                   <MdKeyboardArrowDown
                     data-chat-thinking-chevron="true"
@@ -3839,76 +3016,6 @@ const ThinkingBox = memo(function ThinkingBox({
               </div>
             </div>
           </Accordion.Trigger>
-          <div
-            data-chat-activity-item-hover-meta="true"
-            className={ACTIVITY_ITEM_HOVER_META_CLASS}
-          >
-            {onCopy ? (
-              <button
-                type="button"
-                aria-label="Copy activity item"
-                data-chat-activity-item-copy-button="true"
-                data-chat-activity-item-copy-kind="thought"
-                className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onCopy();
-                }}
-              >
-                <FiCopy />
-              </button>
-            ) : null}
-            <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
-            {thinkingRunState === "complete" ? (
-              durationLabel ? (
-                <span
-                  data-chat-thinking-status="true"
-                  className="inline-flex items-center gap-1 text-setta-500 dark:text-setta-300"
-                >
-                  <span
-                    data-chat-thinking-timer="true"
-                    className="font-mono text-[10px] text-setta-400 dark:text-setta-400/90"
-                  >
-                    {durationLabel}
-                  </span>
-                </span>
-              ) : null
-            ) : thinkingRunState === "stopped" ? (
-              <span
-                data-chat-thinking-status="true"
-                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300"
-              >
-                <MdErrorOutline className="text-[11px]" />
-                Stopped
-                {durationLabel ? (
-                  <span
-                    data-chat-thinking-timer="true"
-                    className="font-mono text-[10px] normal-case tracking-normal text-amber-700 dark:text-amber-200"
-                  >
-                    {durationLabel}
-                  </span>
-                ) : null}
-              </span>
-            ) : (
-              <span
-                data-chat-thinking-status="true"
-                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300"
-              >
-                <BrailleSpinner
-                  className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
-                />
-                Working
-                {durationLabel ? (
-                  <span
-                    data-chat-thinking-timer="true"
-                    className="font-mono text-[10px] normal-case tracking-normal text-setta-400 dark:text-setta-400/90"
-                  >
-                    {durationLabel}
-                  </span>
-                ) : null}
-              </span>
-            )}
-          </div>
         </div>
         {hasExpandableContent ? (
           <Accordion.Content
@@ -3922,7 +3029,6 @@ const ThinkingBox = memo(function ThinkingBox({
                   className={ASSISTANT_MARKDOWN_CLASS}
                   role={ChatRoleEnum.assistant}
                   isStreaming={isStreaming}
-                  highlightTerms={conversationSearchTerms}
                 />
               </div>
             ) : (
@@ -3935,7 +3041,6 @@ const ThinkingBox = memo(function ThinkingBox({
                   className={ASSISTANT_MARKDOWN_CLASS}
                   role={ChatRoleEnum.assistant}
                   isStreaming={false}
-                  highlightTerms={conversationSearchTerms}
                 />
               </div>
             )}
@@ -3977,7 +3082,6 @@ const ThinkingSection = memo(function ThinkingSection({
   sectionState,
   runKey,
   hasExpandableDetails,
-  conversationSearchTerms = [],
 }: {
   children: ReactNode;
   thoughtCount: number;
@@ -3985,7 +3089,6 @@ const ThinkingSection = memo(function ThinkingSection({
   sectionState: ToolCallSectionState;
   runKey: string;
   hasExpandableDetails: boolean;
-  conversationSearchTerms?: Array<string>;
 }) {
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
   const [isSummaryTitleTruncated, setIsSummaryTitleTruncated] = useState(false);
@@ -4029,8 +3132,10 @@ const ThinkingSection = memo(function ThinkingSection({
       observer = new ResizeObserver(measure);
       observer.observe(summaryPreviewRef.current);
     }
+    window.addEventListener("resize", measure);
     return () => {
       window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
   }, [latestSummary, shouldMeasureSummaryOverflow]);
@@ -4085,9 +3190,6 @@ const ThinkingSection = memo(function ThinkingSection({
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  rehypePlugins={getConversationSearchRehypePlugins(
-                    conversationSearchTerms,
-                  )}
                   components={{
                     p: ({ children }) => <span>{children}</span>,
                     a: ({ children }) => <span>{children}</span>,
@@ -4116,7 +3218,7 @@ const ThinkingSection = memo(function ThinkingSection({
           </div>
         </Accordion.Trigger>
         {hasExpandableContent ? (
-          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=open]:block data-[state=closed]:hidden dark:border-setta-700/70">
+          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
             <div className="flex w-full flex-col">{children}</div>
           </Accordion.Content>
         ) : null}
@@ -4128,11 +3230,9 @@ const ThinkingSection = memo(function ThinkingSection({
 const AssistantThinkingSection = memo(function AssistantThinkingSection({
   entries,
   runKey,
-  conversationSearchTerms = [],
 }: {
   entries: ThinkingRenderEntry[];
   runKey: string;
-  conversationSearchTerms?: Array<string>;
 }) {
   const thinkingItems = entries.map(({ item }) => item);
   const isStreaming = entries.some(
@@ -4161,18 +3261,15 @@ const AssistantThinkingSection = memo(function AssistantThinkingSection({
       sectionState={sectionState}
       runKey={runKey}
       hasExpandableDetails={hasExpandableDetails}
-      conversationSearchTerms={conversationSearchTerms}
     >
       {entries.map((entry) => (
         <ThinkingBox
           key={`${entry.messageId}-thinking-${entry.itemIndex}`}
           content={entry.item.thinking}
           summary={entry.item.summary}
-          timestampMs={entry.timestampMs}
           isStreaming={entry.isStreaming}
           wasInterrupted={entry.wasInterrupted}
           runKey={`${entry.messageId}-thinking-${entry.itemIndex}`}
-          conversationSearchTerms={conversationSearchTerms}
         />
       ))}
     </ThinkingSection>
@@ -4188,16 +3285,11 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
-  const [isPinnedToBottom, setIsPinnedToBottom] = useState(false);
-  const previousTextRef = useRef(text);
-  const pinnedBottomTextRef = useRef<string | null>(null);
-  const animatedScrollTopRef = useRef(0);
 
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) {
       setHasOverflow(false);
-      setIsPinnedToBottom(false);
       return;
     }
     const measure = () => {
@@ -4206,21 +3298,9 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         setHasOverflow(false);
         return;
       }
-      const maxScrollTop = Math.max(
-        0,
-        current.scrollHeight - current.clientHeight,
-      );
-      const nextHasOverflow = maxScrollTop > 1 && text.trim().length > 0;
-      if (nextHasOverflow && pinnedBottomTextRef.current === text) {
-        animatedScrollTopRef.current = maxScrollTop;
-        current.scrollTop = maxScrollTop;
-        setIsPinnedToBottom(true);
-      } else if (!nextHasOverflow) {
-        animatedScrollTopRef.current = 0;
-        current.scrollTop = 0;
-        pinnedBottomTextRef.current = null;
-        setIsPinnedToBottom(false);
-      }
+      const nextHasOverflow =
+        current.scrollHeight > current.clientHeight + 1 &&
+        text.trim().length > 0;
       setHasOverflow((prev) =>
         prev === nextHasOverflow ? prev : nextHasOverflow,
       );
@@ -4232,8 +3312,10 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       observer = new ResizeObserver(measure);
       observer.observe(element);
     }
+    window.addEventListener("resize", measure);
     return () => {
       window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
   }, [text]);
@@ -4243,58 +3325,15 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     if (!element) {
       return;
     }
-    const previousText = previousTextRef.current;
-    const textWasReplaced =
-      previousText.length > 0 &&
-      (text.length < previousText.length || !text.startsWith(previousText));
-    previousTextRef.current = text;
-    if (textWasReplaced) {
-      pinnedBottomTextRef.current = null;
-      animatedScrollTopRef.current = 0;
+    if (!animate || !hasOverflow) {
       element.scrollTop = 0;
-      setIsPinnedToBottom(false);
-    }
-    if (!hasOverflow) {
-      animatedScrollTopRef.current = 0;
-      element.scrollTop = 0;
-      pinnedBottomTextRef.current = null;
-      setIsPinnedToBottom(false);
       return;
     }
-    const maxScrollTop = Math.max(
-      0,
-      element.scrollHeight - element.clientHeight,
-    );
-    if (maxScrollTop <= 0) {
-      animatedScrollTopRef.current = 0;
-      element.scrollTop = 0;
-      pinnedBottomTextRef.current = null;
-      setIsPinnedToBottom(false);
-      return;
-    }
-    if (!animate) {
-      animatedScrollTopRef.current = maxScrollTop;
-      element.scrollTop = maxScrollTop;
-      pinnedBottomTextRef.current = text;
-      setIsPinnedToBottom(true);
-      return;
-    }
-    if (pinnedBottomTextRef.current === text) {
-      animatedScrollTopRef.current = maxScrollTop;
-      element.scrollTop = maxScrollTop;
-      setIsPinnedToBottom(true);
-      return;
-    }
-    setIsPinnedToBottom(false);
-    animatedScrollTopRef.current = Math.min(
-      maxScrollTop,
-      Math.max(animatedScrollTopRef.current, element.scrollTop),
-    );
     let frameId = 0;
-    const initialTimestamp = window.performance.now();
-    const startScrollTop = animatedScrollTopRef.current;
-    const distanceToBottomPx = Math.max(0, maxScrollTop - startScrollTop);
-    const durationMs = Math.min(720, Math.max(180, distanceToBottomPx * 7));
+    let lastTimestamp = window.performance.now();
+    let pauseUntil = 0;
+    let direction = 1;
+    const speedPixelsPerSecond = 14;
     const stepAnimation = (timestamp: number) => {
       const current = scrollRef.current;
       if (!current) {
@@ -4305,31 +3344,31 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         current.scrollHeight - current.clientHeight,
       );
       if (maxScrollTop <= 0) {
-        animatedScrollTopRef.current = 0;
         current.scrollTop = 0;
-        pinnedBottomTextRef.current = null;
-        setIsPinnedToBottom(false);
         return;
       }
-      if (pinnedBottomTextRef.current === text) {
-        animatedScrollTopRef.current = maxScrollTop;
+      if (timestamp < pauseUntil) {
+        frameId = window.requestAnimationFrame(stepAnimation);
+        return;
+      }
+      const deltaSeconds = Math.min(0.06, (timestamp - lastTimestamp) / 1000);
+      lastTimestamp = timestamp;
+      const nextScrollTop =
+        current.scrollTop + direction * speedPixelsPerSecond * deltaSeconds;
+      if (nextScrollTop >= maxScrollTop) {
         current.scrollTop = maxScrollTop;
-        setIsPinnedToBottom(true);
+        direction = -1;
+        pauseUntil = timestamp + 700;
+        frameId = window.requestAnimationFrame(stepAnimation);
         return;
       }
-      const progress = Math.min(
-        1,
-        Math.max(0, (timestamp - initialTimestamp) / durationMs),
-      );
-      const nextScrollTop = startScrollTop + distanceToBottomPx * progress;
-      if (progress >= 1 || nextScrollTop >= maxScrollTop) {
-        animatedScrollTopRef.current = maxScrollTop;
-        current.scrollTop = maxScrollTop;
-        pinnedBottomTextRef.current = text;
-        setIsPinnedToBottom(true);
+      if (nextScrollTop <= 0) {
+        current.scrollTop = 0;
+        direction = 1;
+        pauseUntil = timestamp + 700;
+        frameId = window.requestAnimationFrame(stepAnimation);
         return;
       }
-      animatedScrollTopRef.current = nextScrollTop;
       current.scrollTop = nextScrollTop;
       frameId = window.requestAnimationFrame(stepAnimation);
     };
@@ -4337,17 +3376,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [animate, hasOverflow, text]);
-
-  const thoughtPreviewMaskStyle = !hasOverflow
-    ? {
-        WebkitMaskImage: "none",
-        maskImage: "none",
-      }
-    : {
-        WebkitMaskImage: ACTIVITY_THOUGHT_TOP_ONLY_MASK,
-        maskImage: ACTIVITY_THOUGHT_TOP_ONLY_MASK,
-      };
+  }, [animate, hasOverflow]);
 
   return (
     <div
@@ -4356,17 +3385,13 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       data-chat-assistant-activity-thought-scroll-enabled={
         animate && hasOverflow ? "true" : "false"
       }
-      data-chat-assistant-activity-thought-at-bottom={
-        hasOverflow && isPinnedToBottom ? "true" : "false"
-      }
-      className="top-bottom-fade h-9 overflow-y-auto break-words pb-1.5 pr-1 pt-0.5 text-[10px] leading-[1.4] text-setta-400 dark:text-setta-400/90"
+      className="top-bottom-fade h-10 overflow-y-auto break-words pr-1 text-[10px] text-setta-400 dark:text-setta-400/90"
       style={{
         scrollbarWidth: "none",
         msOverflowStyle: "none",
-        ...thoughtPreviewMaskStyle,
       }}
     >
-      <ThoughtPreviewMarkdown text={text} animate={animate} />
+      {text}
     </div>
   );
 });
@@ -4381,7 +3406,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   suppressThoughtScrollAnimation = false,
   defaultOpen = false,
   defaultChildrenOpen = false,
-  conversationSearchTerms = [],
   children,
 }: {
   preview: ActivityPreviewData;
@@ -4393,7 +3417,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   suppressThoughtScrollAnimation?: boolean;
   defaultOpen?: boolean;
   defaultChildrenOpen?: boolean;
-  conversationSearchTerms?: Array<string>;
   children: (
     showItemCopyButtons: boolean,
     childAccordionControl: AssistantActivityChildAccordionControl,
@@ -4438,10 +3461,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   const [allChildrenExpanded, setAllChildrenExpanded] =
     useState(defaultChildrenOpen);
   const isExpanded = accordionValue === ASSISTANT_ACTIVITY_DETAILS_VALUE;
-  const suppressSummaries = isExpanded && allChildrenExpanded;
-  const [previewThoughtExpanded, setPreviewThoughtExpanded] = useState(
-    () => defaultChildrenOpen && preview.thoughtActivityKey !== null,
-  );
   const openAllButtonLabel = allChildrenExpanded ? "Close all" : "Open all";
   const openAllButtonTitle = allChildrenExpanded
     ? "Close all activity details"
@@ -4472,12 +3491,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
     },
     [],
   );
-  const handleActivityTriggerPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      event.stopPropagation();
-    },
-    [],
-  );
   const handleActivityTriggerKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.target !== event.currentTarget) {
@@ -4494,47 +3507,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   useEffect(() => {
     setAllChildrenExpanded(defaultChildrenOpen);
   }, [defaultChildrenOpen]);
-  useEffect(() => {
-    setPreviewThoughtExpanded(
-      defaultChildrenOpen && preview.thoughtActivityKey !== null,
-    );
-  }, [defaultChildrenOpen, preview.thoughtActivityKey]);
-  const handlePreviewThoughtExpansionChange = useCallback(
-    (activityKey: string, nextExpanded: boolean) => {
-      if (!nextExpanded) {
-        setAllChildrenExpanded(false);
-      }
-      if (activityKey !== preview.thoughtActivityKey) {
-        return;
-      }
-      setPreviewThoughtExpanded((previous) =>
-        previous === nextExpanded ? previous : nextExpanded,
-      );
-    },
-    [preview.thoughtActivityKey],
-  );
-  const hideThoughtPreview = isExpanded && previewThoughtExpanded;
-  const previewShellClassName = hideThoughtPreview
-    ? "max-h-0 opacity-0"
-    : "max-h-12 opacity-100";
-  const activityTitleLabel =
-    suppressSummaries && preview.kind === "thought"
-      ? preview.hasStreamingThought
-        ? "Thinking"
-        : "Reasoning"
-      : displayLabel;
-  const activityPrimaryLabel =
-    preview.kind === "thought"
-      ? preview.hasStreamingThought
-        ? "Thinking"
-        : itemCount > 1
-          ? "Thoughts"
-          : "Reasoning"
-      : activityTitleLabel;
-  const showActivityPreviewLabel =
-    preview.kind === "thought" &&
-    activityTitleLabel.trim().length > 0 &&
-    activityTitleLabel !== activityPrimaryLabel;
   return (
     <Accordion.Root
       type="single"
@@ -4554,41 +3526,21 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
         className={ASSISTANT_ACTIVITY_PARENT_CLASS}
         data-chat-assistant-activity-section="true"
       >
-        <div
-          className={ASSISTANT_ACTIVITY_TRIGGER_CLASS}
-          data-chat-assistant-activity-trigger="true"
-          data-state={isExpanded ? "open" : "closed"}
-          aria-expanded={isExpanded}
-          role="button"
-          tabIndex={0}
-          onPointerDown={handleActivityTriggerPointerDown}
-          onKeyDown={handleActivityTriggerKeyDown}
-          onClick={handleActivityTriggerClick}
-        >
-          <div className="w-full @container">
-            <div
-              data-chat-assistant-activity-header-row="true"
-              className="flex w-full min-w-0 flex-col gap-1.5"
-            >
-              <div
-                data-chat-assistant-activity-header-top-row="true"
-                className="relative flex min-h-6 w-full min-w-0 items-center gap-2"
-              >
-                <div
-                  data-chat-assistant-activity-label="true"
-                  className={ACTIVITY_PARENT_LABEL_CLASS}
-                >
-                  <div className="flex min-w-0 items-center gap-1.5">
+        <Accordion.Trigger asChild>
+          <div
+            className={ASSISTANT_ACTIVITY_TRIGGER_CLASS}
+            data-chat-assistant-activity-trigger="true"
+            role="button"
+            tabIndex={0}
+            onKeyDown={handleActivityTriggerKeyDown}
+            onClick={handleActivityTriggerClick}
+          >
+            <div className="w-full @container">
+              <div className="flex w-full min-w-0 items-center gap-2 @[20rem]:h-8">
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 @[20rem]:flex-nowrap">
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
-                      <span
-                        data-chat-assistant-activity-icon="robot"
-                        className="inline-flex items-center justify-center text-[12px]"
-                        title="Project AI activity"
-                        aria-label="Project AI activity"
-                      >
-                        <MdOutlineSmartToy size={13} aria-hidden />
-                        <span className="sr-only">Activity</span>
-                      </span>
+                      <span>Activity</span>
                       <span
                         data-chat-assistant-activity-count-badge="true"
                         className={ACTIVITY_COUNT_BADGE_CLASS}
@@ -4601,17 +3553,29 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                       </span>
                     </span>
                     <div
-                      data-chat-assistant-activity-primary-label="true"
-                      className="min-w-0 truncate text-[11px] text-setta-300 dark:text-setta-200"
+                      data-chat-assistant-activity-latest="true"
+                      data-chat-assistant-activity-latest-scrambling={
+                        preview.shouldScrambleTitle ? "true" : "false"
+                      }
+                      className="min-w-0 basis-full truncate text-[11px] text-setta-500 @[20rem]:flex-1 @[20rem]:basis-auto dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
                     >
-                      {activityPrimaryLabel}
+                      {preview.shouldScrambleTitle ? (
+                        displayLabel
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <span>{children}</span>,
+                            a: ({ children }) => <span>{children}</span>,
+                          }}
+                        >
+                          {displayLabel}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div
-                  data-chat-assistant-activity-hover-meta="true"
-                  className={ACTIVITY_PARENT_HOVER_META_CLASS}
-                >
+                <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-start @[20rem]:self-center">
                   <button
                     type="button"
                     onPointerDown={handleOpenAllPointerDown}
@@ -4642,66 +3606,23 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                       {durationLabel}
                     </span>
                   ) : null}
-                </div>
-                <div className="ml-auto inline-flex shrink-0 self-center">
                   <MdKeyboardArrowDown
                     data-chat-assistant-activity-chevron="true"
                     className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
                   />
                 </div>
               </div>
-              {showActivityPreviewLabel ? (
-                <div
-                  data-chat-assistant-activity-preview-row="true"
-                  className="h-9 min-w-0 overflow-hidden pl-[2.35rem] pr-6 pt-0.5 text-[11px] text-setta-500 dark:text-setta-300"
-                >
-                  <div
-                    data-chat-assistant-activity-latest="true"
-                    data-chat-assistant-activity-latest-scrambling={
-                      preview.shouldScrambleTitle ? "true" : "false"
-                    }
-                    className="min-w-0 overflow-hidden leading-[1.35] [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0"
-                  >
-                    {preview.shouldScrambleTitle ? (
-                      renderConversationSearchHighlightedText(
-                        activityTitleLabel,
-                        conversationSearchTerms,
-                      )
-                    ) : (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={getConversationSearchRehypePlugins(
-                          conversationSearchTerms,
-                        )}
-                        components={{
-                          p: ({ children }) => <span>{children}</span>,
-                          a: ({ children }) => <span>{children}</span>,
-                        }}
-                      >
-                        {activityTitleLabel}
-                      </ReactMarkdown>
-                    )}
-                  </div>
+              {showThoughtScroll ? (
+                <div>
+                  <ActivityThoughtPreview
+                    text={preview.thoughtText ?? ""}
+                    animate={shouldAnimateThoughtScroll}
+                  />
                 </div>
               ) : null}
             </div>
           </div>
-          {showThoughtScroll ? (
-            <div
-              data-chat-assistant-activity-thought-preview-shell="true"
-              data-chat-assistant-activity-thought-preview-visible={
-                hideThoughtPreview ? "false" : "true"
-              }
-              aria-hidden={hideThoughtPreview}
-              className={`w-full overflow-hidden transition-[max-height,opacity] duration-200 ease-out motion-reduce:transition-none ${previewShellClassName}`}
-            >
-              <ActivityThoughtPreview
-                text={preview.thoughtText ?? ""}
-                animate={shouldAnimateThoughtScroll}
-              />
-            </div>
-          ) : null}
-        </div>
+        </Accordion.Trigger>
         <Accordion.Content
           forceMount
           data-chat-assistant-activity-content="true"
@@ -4712,8 +3633,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
               defaultOpen: defaultChildrenOpen,
               expandAllSignal: openAllSignal,
               collapseAllSignal: closeAllSignal,
-              suppressSummaries,
-              onThinkingOpenStateChange: handlePreviewThoughtExpansionChange,
             })}
           </div>
         </Accordion.Content>
@@ -4820,7 +3739,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=open]:block data-[state=closed]:hidden dark:border-setta-700/70">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
           <div className="px-2 py-1">
             <MarkdownContent
               content={displayText}
@@ -4852,9 +3771,7 @@ function ToolCallAccordionStatus({ runState }: { runState: ToolCallRunState }) {
     );
   }
   return (
-    <BrailleSpinner
-      className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
-    />
+    <i className="gg-spinner !scale-75 text-setta-400 dark:text-setta-300/70" />
   );
 }
 
@@ -4941,7 +3858,7 @@ const StructuredOutputViewport = memo(function StructuredOutputViewport({
   part,
   children,
 }: {
-  owner: StructuredOutputOwner;
+  owner: "action" | "tool";
   part: StructuredOutputPart;
   children: ReactNode;
 }) {
@@ -5116,7 +4033,7 @@ const StructuredOutputBlock = memo(function StructuredOutputBlock({
   isStreaming,
 }: {
   payload: StructuredOutputPayload;
-  owner: StructuredOutputOwner;
+  owner: "action" | "tool";
   part: StructuredOutputPart;
   isStreaming: boolean;
 }) {
@@ -5203,264 +4120,6 @@ const StructuredOutputBlock = memo(function StructuredOutputBlock({
   );
 });
 
-type ActivityToolLikeMeta = {
-  itemAttr: Record<string, string>;
-  triggerAttr: Record<string, string>;
-  railAttr: Record<string, string>;
-  contentAttr: Record<string, string>;
-  chevronAttr: Record<string, string>;
-  copyKind: string;
-  stateLabel: string;
-};
-
-function resolveActivityToolLikeMeta(
-  rowKind: ActivityToolLikeRowKind,
-): ActivityToolLikeMeta {
-  if (rowKind === "action") {
-    return {
-      itemAttr: { "data-chat-action-item": "true" },
-      triggerAttr: { "data-chat-action-item-trigger": "true" },
-      railAttr: { "data-chat-action-item-rail": "true" },
-      contentAttr: { "data-chat-action-item-content": "true" },
-      chevronAttr: { "data-chat-action-item-chevron": "true" },
-      copyKind: "action",
-      stateLabel: "Action",
-    };
-  }
-  if (rowKind === "tool") {
-    return {
-      itemAttr: { "data-chat-tool-call-item": "true" },
-      triggerAttr: { "data-chat-tool-call-item-trigger": "true" },
-      railAttr: { "data-chat-tool-call-item-rail": "true" },
-      contentAttr: { "data-chat-tool-call-item-content": "true" },
-      chevronAttr: { "data-chat-tool-call-item-chevron": "true" },
-      copyKind: "tool",
-      stateLabel: "Tool",
-    };
-  }
-  if (rowKind === "terminal") {
-    return {
-      itemAttr: { "data-chat-terminal-item": "true" },
-      triggerAttr: { "data-chat-terminal-item-trigger": "true" },
-      railAttr: { "data-chat-terminal-item-rail": "true" },
-      contentAttr: { "data-chat-terminal-item-content": "true" },
-      chevronAttr: { "data-chat-terminal-item-chevron": "true" },
-      copyKind: "terminal",
-      stateLabel: "Terminal",
-    };
-  }
-  return {
-    itemAttr: { "data-chat-subagent-item": "true" },
-    triggerAttr: { "data-chat-subagent-item-trigger": "true" },
-    railAttr: { "data-chat-subagent-item-rail": "true" },
-    contentAttr: { "data-chat-subagent-item-content": "true" },
-    chevronAttr: { "data-chat-subagent-item-chevron": "true" },
-    copyKind: "subagent",
-    stateLabel: "Subagent",
-  };
-}
-
-const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
-  rowKind,
-  label,
-  inputTitle,
-  outputTitle,
-  inputPayload,
-  resultPayload,
-  runState,
-  startedAtMs,
-  completedAtMs,
-  runKey,
-  railIcon,
-  onCopy,
-  defaultOpen = false,
-  expandAllSignal = 0,
-  collapseAllSignal = 0,
-  onExpansionChange,
-}: {
-  rowKind: ActivityToolLikeRowKind;
-  label: string;
-  inputTitle: string;
-  outputTitle: string;
-  inputPayload: StructuredOutputPayload | null;
-  resultPayload: StructuredOutputPayload | null;
-  runState: ToolCallRunState;
-  startedAtMs: number | null;
-  completedAtMs: number | null;
-  runKey: string;
-  railIcon: ReactNode;
-  onCopy?: () => void;
-  defaultOpen?: boolean;
-  expandAllSignal?: number;
-  collapseAllSignal?: number;
-  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
-}) {
-  const activityMeta = resolveActivityToolLikeMeta(rowKind);
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
-    {
-      active: runState === "running",
-      startedAtMs,
-      completedAtMs,
-      runKey,
-    },
-  );
-  const durationLabel = resolveDurationLabel({
-    elapsedMs,
-    elapsedSeconds,
-    hasKnownDuration,
-    isRunning: runState === "running",
-  });
-  const timestampMs = resolveActivityTimestampMs(startedAtMs, completedAtMs);
-  const durationClassName =
-    runState === "failed" || runState === "stopped"
-      ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
-      : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(
-    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
-  );
-  const lastExpandAllSignalRef = useRef(expandAllSignal);
-  const lastCollapseAllSignalRef = useRef(collapseAllSignal);
-  const isExpanded = accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
-
-  useEffect(() => {
-    if (expandAllSignal === lastExpandAllSignalRef.current) {
-      return;
-    }
-    lastExpandAllSignalRef.current = expandAllSignal;
-    if (expandAllSignal > 0) {
-      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
-    }
-  }, [expandAllSignal]);
-
-  useEffect(() => {
-    if (collapseAllSignal === lastCollapseAllSignalRef.current) {
-      return;
-    }
-    lastCollapseAllSignalRef.current = collapseAllSignal;
-    if (collapseAllSignal > 0) {
-      setAccordionValue(undefined);
-    }
-  }, [collapseAllSignal]);
-
-  useEffect(() => {
-    onExpansionChange?.(runKey, isExpanded);
-  }, [isExpanded, onExpansionChange, runKey]);
-
-  return (
-    <Accordion.Root
-      type="single"
-      collapsible
-      className="w-full"
-      value={accordionValue}
-      onValueChange={(nextValue) => {
-        setAccordionValue(
-          nextValue === ACTIVITY_ROW_DETAILS_VALUE
-            ? ACTIVITY_ROW_DETAILS_VALUE
-            : undefined,
-        );
-      }}
-    >
-      <Accordion.Item
-        value={ACTIVITY_ROW_DETAILS_VALUE}
-        className="group/chat-activity-row w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-        {...activityMeta.itemAttr}
-      >
-        <div className="relative flex w-full items-stretch">
-          <Accordion.Trigger
-            className={`${TOOL_ROW_TRIGGER_CLASS} min-w-0 flex-1`}
-            {...activityMeta.triggerAttr}
-          >
-            <div
-              className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
-              title={`${activityMeta.stateLabel} state: ${runState}`}
-              aria-label={`${activityMeta.stateLabel} state: ${runState}`}
-              {...activityMeta.railAttr}
-            >
-              {railIcon}
-            </div>
-            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
-              <div
-                data-chat-activity-item-label="true"
-                className={`${ACTIVITY_ITEM_LABEL_CLASS} truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200`}
-              >
-                {label}
-              </div>
-              <div className="ml-auto inline-flex shrink-0 items-center self-center">
-                <MdKeyboardArrowDown
-                  className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
-                  {...activityMeta.chevronAttr}
-                />
-              </div>
-            </div>
-          </Accordion.Trigger>
-          <div
-            data-chat-activity-item-hover-meta="true"
-            className={ACTIVITY_ITEM_HOVER_META_CLASS}
-          >
-            {onCopy ? (
-              <button
-                type="button"
-                aria-label="Copy activity item"
-                data-chat-activity-item-copy-button="true"
-                data-chat-activity-item-copy-kind={activityMeta.copyKind}
-                className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onCopy();
-                }}
-              >
-                <FiCopy />
-              </button>
-            ) : null}
-            <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
-            {durationLabel ? (
-              <span
-                data-chat-activity-item-timer="true"
-                data-chat-activity-item-run-state={runState}
-                className={durationClassName}
-              >
-                {durationLabel}
-              </span>
-            ) : null}
-            <ToolCallAccordionStatus runState={runState} />
-          </div>
-        </div>
-        <Accordion.Content
-          className={ACTIVITY_ACCORDION_CONTENT_CLASS}
-          {...activityMeta.contentAttr}
-        >
-          {inputPayload ? (
-            <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
-              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
-                {inputTitle}
-              </h3>
-              <StructuredOutputBlock
-                payload={inputPayload}
-                owner={rowKind}
-                part="input"
-                isStreaming={false}
-              />
-            </div>
-          ) : null}
-          {resultPayload ? (
-            <div className="border-t border-setta-200/70 bg-white/95 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
-              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
-                {outputTitle}
-              </h3>
-              <StructuredOutputBlock
-                payload={resultPayload}
-                owner={rowKind}
-                part="output"
-                isStreaming={runState === "running"}
-              />
-            </div>
-          ) : null}
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
-  );
-});
-
 const ActionItem = memo(function ActionItem({
   name,
   args,
@@ -5474,7 +4133,6 @@ const ActionItem = memo(function ActionItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
-  onExpansionChange,
 }: {
   name: string;
   args: unknown;
@@ -5488,7 +4146,6 @@ const ActionItem = memo(function ActionItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
-  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const actionLabel = resolveActionLabel(name, args);
   const inputPayload = resolveStructuredOutputPayload({
@@ -5509,25 +4166,143 @@ const ActionItem = memo(function ActionItem({
       successLabel: "Action completed successfully",
       stoppedLabel: "Action stopped before completion.",
     });
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: runState === "running",
+      startedAtMs,
+      completedAtMs,
+      runKey,
+    },
+  );
+  const durationLabel = resolveDurationLabel({
+    elapsedMs,
+    elapsedSeconds,
+    hasKnownDuration,
+    isRunning: runState === "running",
+  });
+  const durationClassName =
+    runState === "failed" || runState === "stopped"
+      ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
+      : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
+  );
+
+  useEffect(() => {
+    if (expandAllSignal > 0) {
+      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
+    }
+  }, [expandAllSignal]);
+
+  useEffect(() => {
+    if (collapseAllSignal > 0) {
+      setAccordionValue(undefined);
+    }
+  }, [collapseAllSignal]);
+
   return (
-    <ActivityToolLikeItem
-      rowKind="action"
-      label={actionLabel}
-      inputTitle="Input"
-      outputTitle="Output"
-      inputPayload={inputPayload}
-      resultPayload={resultPayload}
-      runState={runState}
-      startedAtMs={startedAtMs}
-      completedAtMs={completedAtMs}
-      runKey={runKey}
-      railIcon={railIcon ?? <ToolCallAccordionStatus runState={runState} />}
-      onCopy={onCopy}
-      defaultOpen={defaultOpen}
-      expandAllSignal={expandAllSignal}
-      collapseAllSignal={collapseAllSignal}
-      onExpansionChange={onExpansionChange}
-    />
+    <Accordion.Root
+      type="single"
+      collapsible
+      className="w-full"
+      value={accordionValue}
+      onValueChange={(nextValue) => {
+        setAccordionValue(
+          nextValue === ACTIVITY_ROW_DETAILS_VALUE
+            ? ACTIVITY_ROW_DETAILS_VALUE
+            : undefined,
+        );
+      }}
+    >
+      <Accordion.Item
+        value={ACTIVITY_ROW_DETAILS_VALUE}
+        className="group/chat-activity-row w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+        data-chat-action-item="true"
+      >
+        <div className="flex w-full items-stretch">
+          <Accordion.Trigger
+            className={`${TOOL_ROW_TRIGGER_CLASS} min-w-0 flex-1`}
+            data-chat-action-item-trigger="true"
+          >
+            <div
+              className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
+              data-chat-action-item-rail="true"
+              title={`Action state: ${runState}`}
+              aria-label={`Action state: ${runState}`}
+            >
+              {railIcon ?? <ToolCallAccordionStatus runState={runState} />}
+            </div>
+            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
+              <div className="min-w-0 flex-1 truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+                {actionLabel}
+              </div>
+              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
+                {onCopy ? (
+                  <button
+                    type="button"
+                    aria-label="Copy activity item"
+                    data-chat-activity-item-copy-button="true"
+                    data-chat-activity-item-copy-kind="action"
+                    className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCopy();
+                    }}
+                  >
+                    <FiCopy />
+                  </button>
+                ) : null}
+                {durationLabel ? (
+                  <span
+                    data-chat-activity-item-timer="true"
+                    data-chat-activity-item-run-state={runState}
+                    className={durationClassName}
+                  >
+                    {durationLabel}
+                  </span>
+                ) : null}
+                <ToolCallAccordionStatus runState={runState} />
+                <MdKeyboardArrowDown
+                  data-chat-action-item-chevron="true"
+                  className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
+                />
+              </div>
+            </div>
+          </Accordion.Trigger>
+        </div>
+        <Accordion.Content
+          className={ACTIVITY_ACCORDION_CONTENT_CLASS}
+          data-chat-action-item-content="true"
+        >
+          {inputPayload ? (
+            <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+                Input
+              </h3>
+              <StructuredOutputBlock
+                payload={inputPayload}
+                owner="action"
+                part="input"
+                isStreaming={false}
+              />
+            </div>
+          ) : null}
+          {resultPayload ? (
+            <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+                Output
+              </h3>
+              <StructuredOutputBlock
+                payload={resultPayload}
+                owner="action"
+                part="output"
+                isStreaming={runState === "running"}
+              />
+            </div>
+          ) : null}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
   );
 });
 
@@ -5544,7 +4319,6 @@ const ToolCallItem = memo(function ToolCallItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
-  onExpansionChange,
 }: {
   name: string;
   args: unknown;
@@ -5558,7 +4332,6 @@ const ToolCallItem = memo(function ToolCallItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
-  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const inputPayload = resolveStructuredOutputPayload({
     value: args,
@@ -5578,166 +4351,144 @@ const ToolCallItem = memo(function ToolCallItem({
       successLabel: "Tool completed successfully",
       stoppedLabel: "Stopped mid-tool call before completion.",
     });
-  return (
-    <ActivityToolLikeItem
-      rowKind="tool"
-      label={name}
-      inputTitle="Arguments"
-      outputTitle="Result"
-      inputPayload={inputPayload}
-      resultPayload={resultPayload}
-      runState={runState}
-      startedAtMs={startedAtMs}
-      completedAtMs={completedAtMs}
-      runKey={runKey}
-      railIcon={railIcon ?? <ToolCallAccordionStatus runState={runState} />}
-      onCopy={onCopy}
-      defaultOpen={defaultOpen}
-      expandAllSignal={expandAllSignal}
-      collapseAllSignal={collapseAllSignal}
-      onExpansionChange={onExpansionChange}
-    />
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: runState === "running",
+      startedAtMs,
+      completedAtMs,
+      runKey,
+    },
   );
-});
-
-const TerminalItem = memo(function TerminalItem({
-  name,
-  args,
-  result,
-  runState,
-  startedAtMs,
-  completedAtMs,
-  runKey,
-  onCopy,
-  defaultOpen = false,
-  expandAllSignal = 0,
-  collapseAllSignal = 0,
-  onExpansionChange,
-}: {
-  name: string;
-  args: unknown;
-  result: ToolResultValue | undefined;
-  runState: ToolCallRunState;
-  startedAtMs: number | null;
-  completedAtMs: number | null;
-  runKey: string;
-  onCopy?: () => void;
-  defaultOpen?: boolean;
-  expandAllSignal?: number;
-  collapseAllSignal?: number;
-  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
-}) {
-  const inputPayload = resolveStructuredOutputPayload({
-    value: args,
-    toolName: name,
-    part: "input",
+  const durationLabel = resolveDurationLabel({
+    elapsedMs,
+    elapsedSeconds,
+    hasKnownDuration,
+    isRunning: runState === "running",
   });
-  const resultPayload =
-    resolveStructuredOutputPayload({
-      value: result,
-      toolName: name,
-      part: "output",
-      contextValue: args,
-    }) ??
-    resolveStructuredOutputFallbackPayload({
-      runState,
-      failedLabel: "Terminal command failed",
-      successLabel: "Terminal command completed successfully",
-      stoppedLabel: "Terminal command stopped before completion.",
-    });
-
-  return (
-    <ActivityToolLikeItem
-      rowKind="terminal"
-      label={resolveActionLabel(name, args)}
-      inputTitle="Terminal preview"
-      outputTitle="Terminal output"
-      inputPayload={inputPayload}
-      resultPayload={resultPayload}
-      runState={runState}
-      startedAtMs={startedAtMs}
-      completedAtMs={completedAtMs}
-      runKey={runKey}
-      railIcon={<FiTerminal size={13} className="min-w-4" />}
-      onCopy={onCopy}
-      defaultOpen={defaultOpen}
-      expandAllSignal={expandAllSignal}
-      collapseAllSignal={collapseAllSignal}
-      onExpansionChange={onExpansionChange}
-    />
+  const durationClassName =
+    runState === "failed" || runState === "stopped"
+      ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
+      : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
   );
-});
 
-const SubagentItem = memo(function SubagentItem({
-  name,
-  toolCallId,
-  args,
-  result,
-  runState,
-  startedAtMs,
-  completedAtMs,
-  runKey,
-  onCopy,
-  defaultOpen = false,
-  expandAllSignal = 0,
-  collapseAllSignal = 0,
-  onExpansionChange,
-}: {
-  name: string;
-  toolCallId: string;
-  args: unknown;
-  result: ToolResultValue | undefined;
-  runState: ToolCallRunState;
-  startedAtMs: number | null;
-  completedAtMs: number | null;
-  runKey: string;
-  onCopy?: () => void;
-  defaultOpen?: boolean;
-  expandAllSignal?: number;
-  collapseAllSignal?: number;
-  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
-}) {
-  const inputPayload = resolveStructuredOutputPayload({
-    value: args,
-    toolName: name,
-    part: "input",
-  });
-  const resultPayload =
-    resolveStructuredOutputPayload({
-      value: result,
-      toolName: name,
-      part: "output",
-      contextValue: args,
-    }) ??
-    resolveStructuredOutputFallbackPayload({
-      runState,
-      failedLabel: "Subagent failed",
-      successLabel: "Subagent completed successfully",
-      stoppedLabel: "Subagent stopped before completion.",
-    });
-  const profileId = extractNonEmptyStringArg(args, "profileId");
-  const label =
-    profileId || normalizeToolName(name) || `Subagent ${toolCallId}`;
+  useEffect(() => {
+    if (expandAllSignal > 0) {
+      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
+    }
+  }, [expandAllSignal]);
+
+  useEffect(() => {
+    if (collapseAllSignal > 0) {
+      setAccordionValue(undefined);
+    }
+  }, [collapseAllSignal]);
 
   return (
-    <ActivityToolLikeItem
-      rowKind="subagent"
-      label={label}
-      inputTitle="Subagent details"
-      outputTitle="Self-talk"
-      inputPayload={inputPayload}
-      resultPayload={resultPayload}
-      runState={runState}
-      startedAtMs={startedAtMs}
-      completedAtMs={completedAtMs}
-      runKey={runKey}
-      railIcon={<FiCpu size={13} className="min-w-4" />}
-      onCopy={onCopy}
-      defaultOpen={defaultOpen}
-      expandAllSignal={expandAllSignal}
-      collapseAllSignal={collapseAllSignal}
-      onExpansionChange={onExpansionChange}
-    />
+    <Accordion.Root
+      type="single"
+      collapsible
+      className="w-full"
+      value={accordionValue}
+      onValueChange={(nextValue) => {
+        setAccordionValue(
+          nextValue === ACTIVITY_ROW_DETAILS_VALUE
+            ? ACTIVITY_ROW_DETAILS_VALUE
+            : undefined,
+        );
+      }}
+    >
+      <Accordion.Item
+        value={ACTIVITY_ROW_DETAILS_VALUE}
+        className="group/chat-activity-row w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+        data-chat-tool-call-item="true"
+      >
+        <div className="flex w-full items-stretch">
+          <Accordion.Trigger
+            className={`${TOOL_ROW_TRIGGER_CLASS} min-w-0 flex-1`}
+            data-chat-tool-call-item-trigger="true"
+          >
+            <div
+              className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
+              data-chat-tool-call-item-rail="true"
+              title={`Tool state: ${runState}`}
+              aria-label={`Tool state: ${runState}`}
+            >
+              {railIcon ?? <ToolCallAccordionStatus runState={runState} />}
+            </div>
+            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
+              <div className="min-w-0 flex-1 truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+                {name}
+              </div>
+              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
+                {onCopy ? (
+                  <button
+                    type="button"
+                    aria-label="Copy activity item"
+                    data-chat-activity-item-copy-button="true"
+                    data-chat-activity-item-copy-kind="tool"
+                    className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCopy();
+                    }}
+                  >
+                    <FiCopy />
+                  </button>
+                ) : null}
+                {durationLabel ? (
+                  <span
+                    data-chat-activity-item-timer="true"
+                    data-chat-activity-item-run-state={runState}
+                    className={durationClassName}
+                  >
+                    {durationLabel}
+                  </span>
+                ) : null}
+                <ToolCallAccordionStatus runState={runState} />
+                <MdKeyboardArrowDown
+                  data-chat-tool-call-item-chevron="true"
+                  className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
+                />
+              </div>
+            </div>
+          </Accordion.Trigger>
+        </div>
+
+        <Accordion.Content
+          className={ACTIVITY_ACCORDION_CONTENT_CLASS}
+          data-chat-tool-call-item-content="true"
+        >
+          {inputPayload ? (
+            <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+                Arguments
+              </h3>
+              <StructuredOutputBlock
+                payload={inputPayload}
+                owner="tool"
+                part="input"
+                isStreaming={false}
+              />
+            </div>
+          ) : null}
+          {resultPayload && (
+            <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+                Result
+              </h3>
+              <StructuredOutputBlock
+                payload={resultPayload}
+                owner="tool"
+                part="output"
+                isStreaming={runState === "running"}
+              />
+            </div>
+          )}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
   );
 });
 
@@ -5749,9 +4500,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
   defaultChildrenOpen = false,
   openAllSignal = 0,
   closeAllSignal = 0,
-  suppressCollapsedSummary = false,
-  conversationSearchTerms = [],
-  onThinkingOpenStateChange,
 }: {
   timelineEntries: ActivityTimelineEntry[];
   toolResultsById: Record<string, ToolChatMessage>;
@@ -5760,12 +4508,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
   defaultChildrenOpen?: boolean;
   openAllSignal?: number;
   closeAllSignal?: number;
-  suppressCollapsedSummary?: boolean;
-  conversationSearchTerms?: Array<string>;
-  onThinkingOpenStateChange?: (
-    activityKey: string,
-    isExpanded: boolean,
-  ) => void;
 }) {
   const rows = timelineEntries.map((entry) => {
     const copyText = buildCopyTextForActivityTimelineEntry({
@@ -5786,10 +4528,8 @@ const AssistantActionSection = memo(function AssistantActionSection({
       return (
         <ThinkingBox
           key={entry.key}
-          activityKey={entry.key}
           content={entry.thinkingEntry.item.thinking}
           summary={entry.thinkingEntry.item.summary}
-          timestampMs={entry.thinkingEntry.timestampMs}
           isStreaming={entry.thinkingEntry.isStreaming}
           wasInterrupted={entry.thinkingEntry.wasInterrupted}
           runKey={`activity-${entry.thinkingEntry.timerRunKey}`}
@@ -5798,9 +4538,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
-          suppressCollapsedSummary={suppressCollapsedSummary}
-          conversationSearchTerms={conversationSearchTerms}
-          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5819,11 +4556,15 @@ const AssistantActionSection = memo(function AssistantActionSection({
     const { startedAtMs, completedAtMs } =
       resolveToolResultTimingAnchors(toolResult);
     const formattedToolResult = formatToolResult(toolResult);
-    const argsToDisplay = resolveDisplayArgsForToolCallEntry({
-      toolCall,
-      toolResult,
-      toolCallArguments,
-    });
+    const argsFromResult = toolResult?.arguments;
+    const argsFromAssistant = toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments?.[toolCall.id];
+    let argsToDisplay: unknown = pendingArgs;
+    if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+      argsToDisplay = argsFromResult;
+    } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+      argsToDisplay = argsFromAssistant;
+    }
 
     if (entry.kind === "action") {
       return (
@@ -5845,48 +4586,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
-          onExpansionChange={onThinkingOpenStateChange}
-        />
-      );
-    }
-
-    if (entry.kind === "terminal") {
-      return (
-        <TerminalItem
-          key={entry.key}
-          name={rawToolName}
-          args={argsToDisplay}
-          result={formattedToolResult}
-          runState={runState}
-          startedAtMs={startedAtMs}
-          completedAtMs={completedAtMs}
-          runKey={`activity-item-${toolCall.id}`}
-          onCopy={onCopyRow}
-          defaultOpen={defaultChildrenOpen}
-          expandAllSignal={openAllSignal}
-          collapseAllSignal={closeAllSignal}
-          onExpansionChange={onThinkingOpenStateChange}
-        />
-      );
-    }
-
-    if (entry.kind === "subagent") {
-      return (
-        <SubagentItem
-          key={entry.key}
-          name={rawToolName}
-          toolCallId={toolCall.id}
-          args={argsToDisplay}
-          result={formattedToolResult}
-          runState={runState}
-          startedAtMs={startedAtMs}
-          completedAtMs={completedAtMs}
-          runKey={`activity-item-${toolCall.id}`}
-          onCopy={onCopyRow}
-          defaultOpen={defaultChildrenOpen}
-          expandAllSignal={openAllSignal}
-          collapseAllSignal={closeAllSignal}
-          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5911,7 +4610,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
-          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5931,7 +4629,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
         defaultOpen={defaultChildrenOpen}
         expandAllSignal={openAllSignal}
         collapseAllSignal={closeAllSignal}
-        onExpansionChange={onThinkingOpenStateChange}
       />
     );
   });
@@ -6163,9 +4860,7 @@ function ToolCallSectionStatus({
   }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
-      <BrailleSpinner
-        className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
-      />
+      <i className="gg-spinner !scale-75" />
       {runningLabel}
       {durationLabel ? (
         <span
@@ -6258,7 +4953,7 @@ const ToolCallSection = memo(function ToolCallSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=open]:block data-[state=closed]:hidden dark:border-setta-700/70">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
           <div className="flex w-full flex-col">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
@@ -6374,13 +5069,7 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
   );
 });
 
-function AssistantErrorCallout({
-  content,
-  conversationSearchTerms = [],
-}: {
-  content: string;
-  conversationSearchTerms?: Array<string>;
-}) {
+function AssistantErrorCallout({ content }: { content: string }) {
   const displayText = stripAssistantErrorPrefix(content);
   return (
     <div
@@ -6397,7 +5086,6 @@ function AssistantErrorCallout({
           className={ASSISTANT_ERROR_MARKDOWN_CLASS}
           role={ChatRoleEnum.assistant}
           isStreaming={false}
-          highlightTerms={conversationSearchTerms}
         />
       </div>
     </div>
@@ -6408,22 +5096,15 @@ function StreamItem({
   item,
   isStreaming,
   runKey,
-  conversationSearchTerms = [],
 }: {
   item: ChatContentItem;
   isStreaming: boolean;
   runKey: string;
-  conversationSearchTerms?: Array<string>;
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
       if (isAssistantErrorText(item.text)) {
-        return (
-          <AssistantErrorCallout
-            content={item.text}
-            conversationSearchTerms={conversationSearchTerms}
-          />
-        );
+        return <AssistantErrorCallout content={item.text} />;
       }
       return (
         <MarkdownContent
@@ -6431,20 +5112,16 @@ function StreamItem({
           className={ASSISTANT_MARKDOWN_CLASS}
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
-          highlightTerms={conversationSearchTerms}
         />
       );
     case C.LLM_THINKING:
       return (
         <ThinkingBox
-          activityKey={runKey}
           content={item.thinking}
           summary={item.summary}
-          timestampMs={null}
           isStreaming={isStreaming}
           wasInterrupted={false}
           runKey={runKey}
-          conversationSearchTerms={conversationSearchTerms}
         />
       );
     case "image_url":
@@ -6505,9 +5182,7 @@ function AssistantTypingIndicator({ visible }: { visible: boolean }) {
       data-chat-assistant-typing-indicator="true"
       aria-hidden="true"
     >
-      <BrailleSpinner
-        className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
-      />
+      <span className="chat-typing-inline" data-typing="true" />
     </div>
   );
 }
@@ -6525,8 +5200,8 @@ function AssistantMessageGroup({
 }) {
   const widthClass = `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`;
   const containerClassName = isSearchMatchActive
-    ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
-    : "mb-2 mt-1.5 flex justify-start @container/chat-message";
+    ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70"
+    : "mb-2 mt-1.5 flex justify-start";
   return (
     <div
       className={containerClassName}
@@ -6549,9 +5224,9 @@ function AssistantMessageGroup({
 
 function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
-    <div className="inline-flex max-w-full">
+    <div className="w-fit max-w-full">
       <div
-        className="relative inline-flex min-h-[24px] min-w-[24px] max-w-full cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2 pl-3 pr-2.5 pt-1 text-setta-800 dark:border-setta-700/45 dark:bg-setta-850 dark:text-setta-50"
+        className="relative flex min-h-[24px] w-fit min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2 pl-3 pr-2.5 pt-1 text-setta-800 dark:border-setta-700/45 dark:bg-setta-850 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
@@ -6563,32 +5238,30 @@ function LLMChatBubble({ children }: { children: ReactNode }) {
 function UserChatBubble({
   children,
   actions,
-  footer,
   messageId,
   bubbleWidthPx,
   isSearchMatchActive = false,
 }: {
   children: ReactNode;
   actions?: ReactNode;
-  footer?: ReactNode;
   messageId?: string;
   bubbleWidthPx?: number | null;
   isSearchMatchActive?: boolean;
 }) {
   const containerClassName = isSearchMatchActive
-    ? "my-2 flex justify-end rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
-    : "my-2 flex justify-end @container/chat-message";
+    ? "my-2 flex justify-end rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70"
+    : "my-2 flex justify-end";
   return (
     <div
       className={containerClassName}
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
       <div
-        className={`group flex w-fit ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
+        className={`group flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
         data-message-id={messageId}
       >
         <div
-          className="relative inline-flex max-w-full cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-300 bg-blue-200 pb-2 pl-3 pr-2.5 pt-1 text-setta-950 dark:border-blue-800/80 dark:bg-blue-950 dark:text-white"
+          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-300 bg-blue-200 pb-2 pl-3 pr-2.5 pt-1 text-setta-950 dark:border-blue-800/80 dark:bg-blue-950 dark:text-white"
           data-chat-user-bubble="true"
           style={
             typeof bubbleWidthPx === "number"
@@ -6606,7 +5279,6 @@ function UserChatBubble({
             </div>
           ) : null}
         </div>
-        {footer}
       </div>
     </div>
   );
@@ -6615,19 +5287,17 @@ function UserChatBubble({
 function SystemChatBubble({
   children,
   actions,
-  footer,
   messageId,
   isSearchMatchActive = false,
 }: {
   children: ReactNode;
   actions?: ReactNode;
-  footer?: ReactNode;
   messageId?: string;
   isSearchMatchActive?: boolean;
 }) {
   const containerClassName = isSearchMatchActive
-    ? "my-2 flex justify-center rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
-    : "my-2 flex justify-center @container/chat-message";
+    ? "my-2 flex justify-center rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70"
+    : "my-2 flex justify-center";
   return (
     <div
       className={containerClassName}
@@ -6651,7 +5321,6 @@ function SystemChatBubble({
             </div>
           ) : null}
         </div>
-        {footer}
       </div>
     </div>
   );
@@ -6693,7 +5362,7 @@ function ChatMessageActions({
 
   return (
     <div
-      className="pointer-events-none relative z-[1] inline-flex flex-col items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 @[40rem]/chat-message:flex-row dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
+      className="pointer-events-none relative z-[1] inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
       data-chat-message-actions="true"
     >
       <button
@@ -6931,7 +5600,6 @@ const ChatMessage = memo(function ChatMessage({
   interrupted,
   activityAccordionOpenByDefault = false,
   activityChildrenOpenByDefault = false,
-  conversationSearchTerms = [],
   canEdit = false,
   editDisabledReason = null,
   onStartEdit,
@@ -6958,7 +5626,6 @@ const ChatMessage = memo(function ChatMessage({
   interrupted: boolean;
   activityAccordionOpenByDefault?: boolean;
   activityChildrenOpenByDefault?: boolean;
-  conversationSearchTerms?: Array<string>;
   canEdit?: boolean;
   editDisabledReason?: string | null;
   onStartEdit?: (bubbleWidthPx?: number) => void;
@@ -6991,7 +5658,6 @@ const ChatMessage = memo(function ChatMessage({
       failureMessage: "Failed to copy message.",
     });
   }, [message, toolCallArguments, toolResultsById]);
-  const messageTimestampMs = resolveMessageCreatedAtMs(message);
   const actionBar = !isEditing ? (
     <ChatMessageActions
       onCopy={handleCopy}
@@ -7110,7 +5776,6 @@ const ChatMessage = memo(function ChatMessage({
                 }
                 defaultOpen={activityAccordionOpenByDefault}
                 defaultChildrenOpen={activityChildrenOpenByDefault}
-                conversationSearchTerms={conversationSearchTerms}
               >
                 {(showItemCopyButtons, childAccordionControl) => (
                   <AssistantToolCallCard>
@@ -7122,13 +5787,6 @@ const ChatMessage = memo(function ChatMessage({
                       defaultChildrenOpen={childAccordionControl.defaultOpen}
                       openAllSignal={childAccordionControl.expandAllSignal}
                       closeAllSignal={childAccordionControl.collapseAllSignal}
-                      suppressCollapsedSummary={
-                        childAccordionControl.suppressSummaries
-                      }
-                      onThinkingOpenStateChange={
-                        childAccordionControl.onThinkingOpenStateChange
-                      }
-                      conversationSearchTerms={conversationSearchTerms}
                     />
                   </AssistantToolCallCard>
                 )}
@@ -7151,14 +5809,10 @@ const ChatMessage = memo(function ChatMessage({
                   item={item}
                   isStreaming={isStreaming}
                   runKey={`${message.id}-content-${fullIndex}`}
-                  conversationSearchTerms={conversationSearchTerms}
                 />
               );
             })}
           </LLMChatBubble>
-        ) : null}
-        {shouldRenderBubble ? (
-          <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
         ) : null}
         <AssistantTypingIndicator
           visible={
@@ -7167,9 +5821,6 @@ const ChatMessage = memo(function ChatMessage({
             !hasThinkingActivity
           }
         />
-        {!shouldRenderBubble && !hasActivityContent ? (
-          <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
-        ) : null}
       </AssistantMessageGroup>
     );
   }
@@ -7206,7 +5857,6 @@ const ChatMessage = memo(function ChatMessage({
     <Wrapper
       messageId={message.id}
       actions={actionBar}
-      footer={<ChatMessageTimestampFooter timestampMs={messageTimestampMs} />}
       isSearchMatchActive={isSearchMatchActive}
     >
       <ChatAttachmentList
@@ -7225,7 +5875,6 @@ const ChatMessage = memo(function ChatMessage({
               className={textClassName}
               role={message.role}
               isStreaming={false}
-              highlightTerms={conversationSearchTerms}
             />
           );
         }
@@ -7237,7 +5886,6 @@ const ChatMessage = memo(function ChatMessage({
               className={`${textClassName} italic`}
               role={message.role}
               isStreaming={false}
-              highlightTerms={conversationSearchTerms}
             />
           );
         }
@@ -7307,7 +5955,6 @@ function ChatMessages({
   toolCallArguments,
   interruptedAssistantMessageIds,
   activeSearchMessageId,
-  conversationSearchTerms = [],
   allMessages,
   editDisabledReason,
   onRedoMessage,
@@ -7320,7 +5967,6 @@ function ChatMessages({
   toolCallArguments: Record<string, string>;
   interruptedAssistantMessageIds?: Record<string, true>;
   activeSearchMessageId?: string | null;
-  conversationSearchTerms?: Array<string>;
   allMessages: Array<BaseChatMessageUnion>;
   editDisabledReason?: string | null;
   onRedoMessage?: (messageId: string) => Promise<boolean> | boolean;
@@ -7384,7 +6030,7 @@ function ChatMessages({
         attachmentUrlRequests.current.add(attachment.id);
       }
       const projectConfigId = getCurrProjectConfigId();
-      let entries: AttachmentUrlResponseEntry[] = [];
+      let entries: AttachmentDownloadURLEntry[] = [];
       try {
         const res = await route_get_attachment_download_urls({
           artifactIds: pending.map((attachment) => attachment.id),
@@ -7586,7 +6232,6 @@ function ChatMessages({
                   }
                   defaultOpen={activityAccordionOpenByDefault}
                   defaultChildrenOpen={activityChildrenOpenByDefault}
-                  conversationSearchTerms={conversationSearchTerms}
                 >
                   {(showItemCopyButtons, childAccordionControl) => (
                     <AssistantToolCallCard>
@@ -7598,13 +6243,6 @@ function ChatMessages({
                         defaultChildrenOpen={childAccordionControl.defaultOpen}
                         openAllSignal={childAccordionControl.expandAllSignal}
                         closeAllSignal={childAccordionControl.collapseAllSignal}
-                        suppressCollapsedSummary={
-                          childAccordionControl.suppressSummaries
-                        }
-                        onThinkingOpenStateChange={
-                          childAccordionControl.onThinkingOpenStateChange
-                        }
-                        conversationSearchTerms={conversationSearchTerms}
                       />
                     </AssistantToolCallCard>
                   )}
@@ -7652,7 +6290,6 @@ function ChatMessages({
         interrupted={Boolean(interruptedAssistantMessageIds?.[message.id])}
         activityAccordionOpenByDefault={activityAccordionOpenByDefault}
         activityChildrenOpenByDefault={activityChildrenOpenByDefault}
-        conversationSearchTerms={conversationSearchTerms}
         canEdit={canEdit}
         editDisabledReason={resolvedEditDisabledReason}
         onStartEdit={
@@ -7736,8 +6373,6 @@ export const ChatMessageList = memo(function ChatMessageList({
   toolCallArguments,
   interruptedAssistantMessageIds,
   activeSearchMessageId = null,
-  activeSearchMatchOccurrenceIndex = null,
-  conversationSearchTerms = [],
   className,
   contentClassName,
   scrollRef,
@@ -7769,54 +6404,14 @@ export const ChatMessageList = memo(function ChatMessageList({
   const toolArgs = toolCallArguments ?? {};
   const wrapperClassName =
     `flex min-h-0 min-w-0 flex-1 flex-col-reverse overflow-x-hidden overflow-y-auto pr-1 ${className ?? ""}`.trim();
-  const previousActiveSearchTargetRef = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    const scrollContainer = internalScrollRef.current;
-    if (!scrollContainer) {
-      return;
-    }
-    const highlights = scrollContainer.querySelectorAll<HTMLElement>(
-      'mark[data-chat-search-highlight="true"]',
-    );
-    highlights.forEach((highlight) => {
-      highlight.removeAttribute("data-chat-search-highlight-target");
-    });
-    if (!activeSearchMessageId || conversationSearchTerms.length === 0) {
-      return;
-    }
-    const escapedMessageId = escapeMessageIdSelectorValue(
-      activeSearchMessageId,
-    );
-    const activeMessageHighlights = Array.from(
-      scrollContainer.querySelectorAll<HTMLElement>(
-        `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight="true"]`,
-      ),
-    );
-    const resolvedOccurrenceIndex =
-      activeSearchMatchOccurrenceIndex === null
-        ? 0
-        : Math.max(0, activeSearchMatchOccurrenceIndex);
-    const activeHighlight =
-      activeMessageHighlights[
-        Math.min(resolvedOccurrenceIndex, activeMessageHighlights.length - 1)
-      ] ?? null;
-    activeHighlight?.setAttribute("data-chat-search-highlight-target", "true");
-  }, [
-    activeSearchMatchOccurrenceIndex,
-    activeSearchMessageId,
-    conversationSearchTerms,
-  ]);
+  const previousActiveSearchMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!activeSearchMessageId) {
-      previousActiveSearchTargetRef.current = null;
+      previousActiveSearchMessageIdRef.current = null;
       return;
     }
-    const activeSearchTargetKey = `${activeSearchMessageId}\u0000${
-      activeSearchMatchOccurrenceIndex ?? 0
-    }\u0000${conversationSearchTerms.join("\u0000")}`;
-    if (previousActiveSearchTargetRef.current === activeSearchTargetKey) {
+    if (previousActiveSearchMessageIdRef.current === activeSearchMessageId) {
       return;
     }
     const scrollContainer = internalScrollRef.current;
@@ -7826,26 +6421,18 @@ export const ChatMessageList = memo(function ChatMessageList({
     const escapedMessageId = escapeMessageIdSelectorValue(
       activeSearchMessageId,
     );
-    const target =
-      scrollContainer.querySelector<HTMLElement>(
-        `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight-target="true"]`,
-      ) ??
-      scrollContainer.querySelector<HTMLElement>(
-        `[data-message-id="${escapedMessageId}"]`,
-      );
+    const target = scrollContainer.querySelector<HTMLElement>(
+      `[data-message-id="${escapedMessageId}"]`,
+    );
     if (!target) {
       return;
     }
-    previousActiveSearchTargetRef.current = activeSearchTargetKey;
+    previousActiveSearchMessageIdRef.current = activeSearchMessageId;
     target.scrollIntoView({
       block: "center",
       behavior: "smooth",
     });
-  }, [
-    activeSearchMatchOccurrenceIndex,
-    activeSearchMessageId,
-    conversationSearchTerms,
-  ]);
+  }, [activeSearchMessageId]);
 
   return (
     <div
@@ -7860,7 +6447,6 @@ export const ChatMessageList = memo(function ChatMessageList({
           toolCallArguments={toolArgs}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           activeSearchMessageId={activeSearchMessageId}
-          conversationSearchTerms={conversationSearchTerms}
           allMessages={toolResultMessages}
           editDisabledReason={editDisabledReason}
           onRedoMessage={onRedoMessage}
