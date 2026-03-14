@@ -74,11 +74,9 @@ export const GoHTTPRoutes = {
   launch: "/launch",
   shareDeploymentCurrentSession: "/share/deployments/current/session",
   appDeploymentCurrentSession: "/app/deployments/current/session",
-  shareDeploymentProjectConfig:
-    "/share/deployments/{deploymentName}/{version}/project_config",
+  shareDeploymentProjectConfig: "/share/deployments/{deploymentName}/{version}/project_config",
   appDeploymentState: "/app/deployments/{deploymentName}/{version}/state",
-  appDeploymentProjectConfig:
-    "/app/deployments/{deploymentName}/{version}/project_config",
+  appDeploymentProjectConfig: "/app/deployments/{deploymentName}/{version}/project_config",
   shareDeployments: "/share/deployments",
   appDeployments: "/app/deployments",
   getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
@@ -255,8 +253,7 @@ export const GoHTTPRoutes = {
   getLatestLspDiagnostics: "/getLatestLspDiagnostics",
   setTypeErrorIgnore: "/setTypeErrorIgnore",
   setCodeSectionDiagnosticsMute: "/setCodeSectionDiagnosticsMute",
-  setCodeSectionDiagnosticCodeSuppression:
-    "/setCodeSectionDiagnosticCodeSuppression",
+  setCodeSectionDiagnosticCodeSuppression: "/setCodeSectionDiagnosticCodeSuppression",
   pluginsRuntime: "/plugins/runtime",
   pluginsRescan: "/plugins/rescan",
   pluginsInstall: "/plugins/install",
@@ -344,11 +341,9 @@ export const RouteEnum = {
   LAUNCH: "/launch",
   SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
   APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
-  SHARE_DEPLOYMENT_PROJECT_CONFIG:
-    "/share/deployments/{deploymentName}/{version}/project_config",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG: "/share/deployments/{deploymentName}/{version}/project_config",
   APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
-  APP_DEPLOYMENT_PROJECT_CONFIG:
-    "/app/deployments/{deploymentName}/{version}/project_config",
+  APP_DEPLOYMENT_PROJECT_CONFIG: "/app/deployments/{deploymentName}/{version}/project_config",
   SHARE_DEPLOYMENTS: "/share/deployments",
   APP_DEPLOYMENTS: "/app/deployments",
   GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
@@ -525,8 +520,7 @@ export const RouteEnum = {
   GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
-  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
-    "/setCodeSectionDiagnosticCodeSuppression",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION: "/setCodeSectionDiagnosticCodeSuppression",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_RESCAN: "/plugins/rescan",
   PLUGINS_INSTALL: "/plugins/install",

@@ -131,19 +131,25 @@ export function getChatPlaceholderText(
 }
 
 export function supportsThinkingExecutionControl(
-  engineType: EngineTypeEnum | null,
+  engineConfig: EngineConfig | null,
 ): boolean {
-  return engineType === EngineTypeEnum.external_agent;
+  if (!engineConfig) {
+    return false;
+  }
+  if (engineConfig.engineType === EngineTypeEnum.external_agent) {
+    return true;
+  }
+  return Boolean(engineConfig.runtimeSupport?.thinking);
 }
 
 export function resolveEffectiveThinking({
-  engineType,
+  engineConfig,
   requestedThinking,
 }: {
-  engineType: EngineTypeEnum | null;
+  engineConfig: EngineConfig | null;
   requestedThinking: boolean;
 }): boolean {
-  if (!supportsThinkingExecutionControl(engineType)) {
+  if (!supportsThinkingExecutionControl(engineConfig)) {
     return false;
   }
   return requestedThinking;

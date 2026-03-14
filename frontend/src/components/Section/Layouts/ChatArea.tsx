@@ -1237,7 +1237,7 @@ function ManagedChatArea({
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const effectiveThinking = resolveEffectiveThinking({
-    engineType,
+    engineConfig: selectedEngineConfig,
     requestedThinking: thinking,
   });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {

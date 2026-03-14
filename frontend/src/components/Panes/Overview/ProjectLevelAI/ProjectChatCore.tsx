@@ -89,6 +89,7 @@ import {
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
+  EngineConfig,
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
@@ -1228,6 +1229,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
+  engineConfig,
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
@@ -1258,6 +1260,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
+  engineConfig: EngineConfig | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
@@ -1371,9 +1374,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const showThinkingExecutionControl =
-    supportsThinkingExecutionControl(engineType);
+    supportsThinkingExecutionControl(engineConfig);
   const effectiveThinking = resolveEffectiveThinking({
-    engineType,
+    engineConfig,
     requestedThinking: thinking,
   });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
