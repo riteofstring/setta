@@ -2164,7 +2164,7 @@ function ThreadUngroupedFolder({
         className={
           hasGroupsAbove
             ? "ml-1 mt-1 flex flex-col gap-1 border-l border-setta-200/70 pl-1 dark:border-setta-700/70"
-            : "mt-1 flex flex-col gap-1"
+            : "mt-1 flex flex-col gap-1 pl-1"
         }
         data-testid="project-chat-ungrouped-entries"
       >

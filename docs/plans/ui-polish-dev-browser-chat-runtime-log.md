@@ -873,3 +873,15 @@ For each new entry, append:
 - Decisions: Restore a true two-row header instead of trying to rescue the wide inline layout with more right-padding math. Keep the second row conditional so thought-only groups do not duplicate `Reasoning`/`Thinking`, while tool/action groups can still show their latest detail line beneath the header.
 - Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the restored parent activity layout in a live browser.
 - Next recommended slice: Continue only with new follow-up polish items.
+
+### 2026-03-13 13:56
+
+- Date: 2026-03-13 13:56 EDT
+- Scope: Added back a small left inset for the lone ungrouped thread list so it no longer feels visually glued to the pane edge after the earlier ungrouped-chrome removal.
+- Tests added or updated first: Updated `frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts` so the lone ungrouped wrapper is still required to have no left rail, but now must keep a `4px` left padding when there are no named groups. Re-ran `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` as the touched local sanity suite.
+- Production code changed: Updated `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` so the ungrouped-only entries wrapper now uses `pl-1` while still omitting the `Ungrouped` label and the left divider/rail. Grouped sections keep the tighter rail gutter from the prior slice unchanged.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai threads render folder groups and keep pinned scopes separate"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live visual confirmation remains blocked.
+- Decisions: Add only a left inset in the lone ungrouped state rather than restoring symmetric padding or the old rail, because the right edge already felt correct and the problem was specifically the left edge being too abrupt.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the lone ungrouped spacing in a live browser.
+- Next recommended slice: Continue only with new follow-up polish items.

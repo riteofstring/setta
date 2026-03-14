@@ -1207,7 +1207,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       })
       .toEqual({
         borderLeftWidth: "0px",
-        paddingLeft: "0px",
+        paddingLeft: "4px",
       });
 
     await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
