@@ -521,6 +521,9 @@ func derefTrimmedString(value *string) string {
 }
 
 func buildOpenAIRealtimeSessionUpdate(model string, language *string) openAIRealtimeSessionUpdate {
+	// The pinned SDK also exposes transcription_session.* constants, but the
+	// current repo-owned runtime intentionally stays on the proven session.update
+	// websocket shape until a provider-backed migration slice replaces it.
 	session := openAIRealtimeSessionUpdate{
 		Type: string(openaiconstant.ValueOf[openaiconstant.SessionUpdate]()),
 		Session: openAIRealtimeSessionUpdateSettings{

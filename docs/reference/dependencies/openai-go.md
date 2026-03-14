@@ -137,6 +137,11 @@
   - current realtime transcription path now uses the SDK's realtime
     transcription session/audio config models and the current `session.update`
     request shape
+  - the pinned SDK also exposes `transcription_session.update` /
+    `transcription_session.updated` constants plus transcription-session
+    request types, but the current repo-owned runtime intentionally stays on
+    the proven `session.update` request shape until we open a provider-backed
+    migration slice instead of silently switching websocket shapes mid-rewrite
   - the repo-owned startup path now requires an explicit realtime
     `session.updated` / `transcription_session.updated` readiness ack before
     `StartSession` succeeds, and still drains the startup window after that
@@ -157,6 +162,11 @@
 - the remaining bespoke part of realtime transcription is the websocket
   transport/event loop and event parsing; the SDK now covers the session/audio
   request typing but still does not replace the runtime client surface
+- the pinned SDK now exposes transcription-specific websocket constants and
+  request types, but the current rewrite source of truth is still the
+  repo-proven `session.update` request shape; do not silently switch the
+  runtime or tests to `transcription_session.update` without a bounded
+  provider-backed migration decision
 - the Realtime transcription docs explicitly call out
   `input_audio_buffer.committed.previous_item_id` as the ordering source of
   truth across speech turns; the repo-owned event loop should continue to
