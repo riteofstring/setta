@@ -1,7 +1,7 @@
 # openai-go
 
 - Module: `github.com/openai/openai-go/v3`
-- Local status: pinned in `go.mod`; active for the managed-chat OpenAI transport boundary (chat-completions for standard turns plus Responses streaming for thinking-enabled reasoning output) and file-mode transcription uploads
+- Local status: pinned in `go.mod`; active for the managed-chat OpenAI transport boundary (chat-completions for standard turns plus Responses streaming for thinking-enabled reasoning output), the bounded Azure OpenAI API-key standard-turn path via the SDK's `azure` package, and file-mode transcription uploads
 - Retrieved: 2026-03-10
 - Actual downloaded upstream files: `docs/reference/dependencies/openai-go-src/`
 - Official OpenAI Libraries doc: https://developers.openai.com/api/docs/libraries/
@@ -76,6 +76,8 @@
 - `internal/managedllm/executor.go`
   - active managed-chat OpenAI transport now uses `openai-go`
   - standard turns stay on chat-completions streaming
+  - explicit Azure OpenAI API-key configs now use the SDK's `azure`
+    endpoint/API-version request options for standard turns
   - thinking-enabled turns now use Responses streaming so reasoning
     summary/content stays inside the current Setta websocket/message contract
 - `internal/transcriptionsessions/service.go`
@@ -98,3 +100,6 @@
 - managed chat now splits the OpenAI path on purpose: standard turns stay on
   chat-completions, while thinking-enabled turns use Responses to surface
   reasoning output without changing the Setta caller contract
+- the landed Azure OpenAI slice is intentionally bounded to explicit API-key
+  configs with explicit endpoint plus `api_version`; managed Azure thinking is
+  still fail-closed until an Azure reasoning-output path is caller-proven
