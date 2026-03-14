@@ -611,27 +611,6 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   return normalized;
 }
 
-function normalizePersistedProjectChatDraftMessageByProjectConfigId(
-  value: unknown,
-): Record<string, string> {
-  if (!isPersistedRecord(value)) {
-    return {};
-  }
-  const normalized: Record<string, string> = {};
-  for (const [projectConfigId, rawDraftMessage] of Object.entries(value)) {
-    const normalizedProjectConfigId = projectConfigId.trim();
-    if (!normalizedProjectConfigId || typeof rawDraftMessage !== "string") {
-      continue;
-    }
-    const draftMessage = rawDraftMessage.trim();
-    if (!draftMessage) {
-      continue;
-    }
-    normalized[normalizedProjectConfigId] = draftMessage;
-  }
-  return normalized;
-}
-
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
@@ -1154,7 +1133,6 @@ type ZustandLocalStorage = {
     string,
     Array<ProjectChatCustomSlashCommand>
   >;
-  projectChatDraftMessageByProjectConfigId: Record<string, string>;
   projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
   runInstructionsAccordionOpenValuesByProjectConfigId: Record<
@@ -1229,7 +1207,6 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       customProjectChatSlashCommandsByProjectConfigId: {},
-      projectChatDraftMessageByProjectConfigId: {},
       projectChatAuxViewByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
@@ -1302,10 +1279,6 @@ export const useLocalStorage = createWithEqualityFn(
         merged.customProjectChatSlashCommandsByProjectConfigId =
           normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
             merged.customProjectChatSlashCommandsByProjectConfigId,
-          );
-        merged.projectChatDraftMessageByProjectConfigId =
-          normalizePersistedProjectChatDraftMessageByProjectConfigId(
-            merged.projectChatDraftMessageByProjectConfigId,
           );
         merged.projectChatAuxViewByProjectConfigId = {};
         if (
@@ -1399,8 +1372,6 @@ export const useLocalStorage = createWithEqualityFn(
         customRunsByProjectConfigId: state.customRunsByProjectConfigId,
         customProjectChatSlashCommandsByProjectConfigId:
           state.customProjectChatSlashCommandsByProjectConfigId,
-        projectChatDraftMessageByProjectConfigId:
-          state.projectChatDraftMessageByProjectConfigId,
         runSnapshotModeByProjectConfigId:
           state.runSnapshotModeByProjectConfigId,
         runInstructionsAccordionOpenValuesByProjectConfigId:

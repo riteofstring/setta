@@ -1220,7 +1220,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   newThreadContinuationRequiredReason = null,
   newThreadSeedChatId = null,
   activeConversationSearchMatchMessageId = null,
-  activeConversationSearchMatchOccurrenceIndex = null,
   hydrationAuthority,
   hydrationMetadataRevision,
   thinking,
@@ -1251,7 +1250,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   newThreadContinuationRequiredReason?: string | null;
   newThreadSeedChatId?: string | null;
   activeConversationSearchMatchMessageId?: string | null;
-  activeConversationSearchMatchOccurrenceIndex?: number | null;
   hydrationAuthority: ProjectChatHydrationAuthority;
   hydrationMetadataRevision: string;
   thinking: boolean;
@@ -1322,7 +1320,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
+    typeof chatId === "undefined" ||
+    (chatId === null && messages.length === 0);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
@@ -1560,6 +1559,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const shouldProbeMissingProvenance =
       hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
     if (hydrationRunType === null && !shouldProbeMissingProvenance) {
+      return;
+    }
+    if (waitingForResponse) {
       return;
     }
     const cacheKey = shouldProbeMissingProvenance
@@ -2208,10 +2210,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           toolCallArguments={toolCallArguments}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           activeSearchMessageId={activeConversationSearchMatchMessageId}
-          activeSearchMatchOccurrenceIndex={
-            activeConversationSearchMatchOccurrenceIndex
-          }
-          conversationSearchTerms={normalizedConversationSearchTerms}
           editDisabledReason={editDisabledReason}
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}

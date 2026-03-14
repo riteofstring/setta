@@ -942,14 +942,14 @@ export function focusProjectChatWindowInState(
   instanceId: string,
   nowMs: number = Date.now(),
 ): ProjectChatWindowingState {
-  const highestZIndex = getHighestWindowZIndex(state);
+  const nextZIndex = getHighestWindowZIndex(state) + 1;
   return withUpdatedWindow(state, instanceId, (current) => {
-    if (current.zIndex >= highestZIndex) {
+    if (current.zIndex === nextZIndex && current.lastFocusedAt === nowMs) {
       return current;
     }
     return {
       ...current,
-      zIndex: highestZIndex + 1,
+      zIndex: nextZIndex,
       lastFocusedAt: nowMs,
     };
   });
