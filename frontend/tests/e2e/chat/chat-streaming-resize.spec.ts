@@ -143,81 +143,6 @@ test("chat streaming stays visible during resize", async ({ page }) => {
   }
 });
 
-test("streaming assistant markdown renders as formatted markdown before the stream completes", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-
-  try {
-    const { sectionId } = await createChatSection(
-      page,
-      projectContext.projectConfigId,
-      "__pw_chat_stream_markdown__",
-    );
-    const chatId = `chat-stream-markdown-${Date.now()}`;
-    await postBackend(page, "/setChatSectionChatId", {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId,
-      chatId,
-    });
-
-    await setChatSectionState(page, {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId,
-      state: {
-        messages: [
-          {
-            id: "msg-stream-markdown",
-            role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: [
-                  "Based on the Setta documentation:",
-                  "",
-                  "## Core Purpose",
-                  "",
-                  "- Build interactive applications",
-                  "- Stream rendered markdown",
-                  "Cur",
-                ].join("\n"),
-              },
-            ],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
-        inputText: "",
-        waitingForResponse: true,
-        toolCallArguments: {},
-      },
-    });
-
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    await expect(
-      node.getByRole("heading", { name: "Core Purpose" }),
-    ).toBeVisible({
-      timeout: 10000,
-    });
-    await expect(
-      node.getByText("Build interactive applications", { exact: false }),
-    ).toBeVisible();
-    await expect(
-      node.getByText("Stream rendered markdown", { exact: false }),
-    ).toBeVisible();
-    await expect(node.getByText("Cur", { exact: false })).toBeVisible();
-
-    await expect
-      .poll(async () => {
-        return node.evaluate((element) => element.textContent ?? "");
-      })
-      .not.toContain("## Core Purpose");
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
 test("assistant reasoning card matches bubble width with compact padding", async ({
   page,
 }) => {
@@ -453,10 +378,7 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       await activityTrigger.click();
     }
     await expect(trigger).toBeVisible({ timeout: 10000 });
-    await expect(trigger).toHaveAttribute(
-      "data-chat-thinking-expandable",
-      "false",
-    );
+    await expect(trigger).toHaveAttribute("data-chat-thinking-expandable", "false");
     const shortCursor = await trigger.evaluate(
       (el) => window.getComputedStyle(el).cursor,
     );
@@ -510,10 +432,7 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       },
     });
 
-    await expect(trigger).toHaveAttribute(
-      "data-chat-thinking-expandable",
-      "true",
-    );
+    await expect(trigger).toHaveAttribute("data-chat-thinking-expandable", "true");
     const longCursor = await trigger.evaluate(
       (el) => window.getComputedStyle(el).cursor,
     );

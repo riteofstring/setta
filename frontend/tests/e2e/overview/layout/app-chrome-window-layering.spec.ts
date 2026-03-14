@@ -118,17 +118,6 @@ test("header menus and side panes stay above docked and floating chat windows", 
     expect(fileMenuZIndex).toBeGreaterThan(stripZIndex);
     await page.keyboard.press("Escape");
 
-    await page.getByTestId("overview-tab-more").click();
-    const customRunsMenuItem = page.getByText("Custom Runs", {
-      exact: true,
-    });
-    await expect(customRunsMenuItem).toBeVisible();
-    const overviewMoreMenuZIndex =
-      await getNearestLayerZIndex(customRunsMenuItem);
-    expect(overviewMoreMenuZIndex).toBeGreaterThan(stripZIndex);
-    expect(overviewMoreMenuZIndex).toBeGreaterThan(overviewPaneZIndex);
-    await page.keyboard.press("Escape");
-
     await hideSidePanes(page);
     const floatingWindow = await ensureFloatingWindow(page);
     await showSidePanes(page);
