@@ -4686,7 +4686,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
             </div>
           ) : null}
           {resultPayload ? (
-            <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+            <div className="border-t border-setta-200/70 bg-white/95 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 {outputTitle}
               </h3>

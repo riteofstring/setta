@@ -1457,6 +1457,14 @@ test.describe.serial("chat tool calls", () => {
       await expect(toolCallTrigger).toBeVisible();
       await expect(toolCallTrigger).toHaveClass(/bg-setta-50\/95/);
       await expect(toolCallTrigger).toHaveClass(/hover:bg-setta-100\/95/);
+
+      await toolCallTrigger.click();
+      const toolCallResultPanel = section
+        .locator('[data-chat-tool-call-item-content="true"] > div')
+        .nth(1);
+      await expect(toolCallResultPanel).toBeVisible();
+      await expect(toolCallResultPanel).toHaveClass(/bg-white\/95/);
+      await expect(toolCallResultPanel).not.toHaveClass(/bg-setta-200/);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
