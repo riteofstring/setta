@@ -22,7 +22,7 @@ import {
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { getSectionHeaderHeightKey } from "utils/constants/measurements";
+import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
