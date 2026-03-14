@@ -276,6 +276,10 @@ This verdict holds under both of the only reasonable definitions:
   through a Go-owned wrapper instead of failing on a missing sibling binary:
   - `backend/setta/entrypoint.py`
   - `scripts/run_setta_server.sh`
+- The legacy `backend/setta/start.py` compatibility surface no longer owns
+  Python `uvicorn` startup for the default IDE path or the explicit `share` and
+  `app` server modes:
+  - `backend/setta/start.py`
 - The current Go binaries are real repo entrypoints:
   - `cmd/setta/main.go`
   - `cmd/setta-server/main.go`
@@ -335,6 +339,8 @@ execution paths, so the rewrite is not complete in the repo-wide sense.
   - `source activate.sh && python -m setta --no-open --workspace /tmp/setta-go-entrypoint-smoke`
     - verified live source-checkout boot reaches the Go server and `Ctrl+C`
       exits without a Python traceback
+  - `source activate.sh && pytest tests/start/test_start_server_dispatch.py tests/start/test_start_workspace_validation.py tests/start/test_launcher_cli.py tests/start/test_module_entrypoint.py -q`
+  - `./scripts/go.sh test ./internal/config -count=1`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
 - Inconclusive / not counted as proof:
@@ -396,6 +402,12 @@ handoff so the Go CLI receives a runnable `setta-server` companion through
 `SETTA_SERVER_BIN` instead of failing on the missing sibling-binary assumption
 that only works for packaged installs. The live source-checkout start path now
 boots the Go server successfully and exits cleanly on interrupt.
+
+An eighth follow-up rewrite step converted the remaining server-owning
+`backend/setta/start.py` default/share/app paths into thin Go dispatch shims
+and widened the Go server log-level parser to accept the legacy `CRITICAL`
+environment alias that the Python startup path had tolerated. The focused
+Python start-surface tests and `internal/config` Go tests pass.
 
 Those follow-up fixes cleared the targeted Go-owned parity blockers found by
 this audit and moved the default dev reload path and the explicit

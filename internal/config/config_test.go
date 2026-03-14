@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -244,6 +245,18 @@ func TestParsePortAllowsZero(t *testing.T) {
 	}
 	if value != 0 {
 		t.Fatalf("expected port 0, got %d", value)
+	}
+}
+
+func TestParseLogLevelAcceptsCriticalAlias(t *testing.T) {
+	t.Parallel()
+
+	value, err := parseLogLevel("CRITICAL")
+	if err != nil {
+		t.Fatalf("parse log level: %v", err)
+	}
+	if value != slog.LevelError {
+		t.Fatalf("expected critical alias to map to slog error level, got %d", value)
 	}
 }
 

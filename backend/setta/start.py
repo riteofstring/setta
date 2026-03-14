@@ -62,21 +62,15 @@ from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
 from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
-from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
+from setta.entrypoint import run_go_dispatch
 from setta.startup_runtime import (
     _DEFAULT_LOCAL_PORT,
     _apply_paths_to_env,
     _build_ssh_tunnel_command,
     _build_ssh_tunnel_command_for_port,
     _format_bind_hint,
-    _is_ssh_session,
-    _render_startup_message,
     _resolve_cli_paths,
-    _resolve_port,
-    _run_uvicorn_server,
-    _should_auto_open,
-    _warn_if_public_host_no_auth,
 )
 from setta.types.routes import Route
 from setta.types.share_deployment import DeploymentType
@@ -91,7 +85,6 @@ from setta.utils.network import (
 )
 from setta.utils.paths import get_setta_paths
 from setta.utils.setta_home import resolve_setta_home
-from setta.utils.user_config import ensure_setta_user_config_exists
 from setta.utils.utils import normalize_path
 
 _ROUTE_NAMES = {route.value.lstrip("/") for route in Route}
@@ -157,6 +150,46 @@ def _to_optional_string(value: object) -> str | None:
             return None
         return trimmed
     return str(value)
+
+
+def _append_go_dispatch_option(
+    args: list[str], option: str, value: object | None
+) -> None:
+    optional_value = _to_optional_string(value)
+    if optional_value is None:
+        return
+    args.extend([option, optional_value])
+
+
+def _build_go_dispatch_global_args(
+    *,
+    reload: bool,
+    host: str,
+    port: int | None,
+    workspace: Path | None,
+    profile: str | None,
+    setta_home: Path | None,
+    setta_files_root: Path | None,
+    setta_files_location: str | None,
+    runtime_root: Path | None,
+    log_level: str | None,
+    no_open: bool,
+) -> list[str]:
+    args: list[str] = []
+    if reload:
+        args.append("--reload")
+    _append_go_dispatch_option(args, "--host", host)
+    _append_go_dispatch_option(args, "--port", port)
+    _append_go_dispatch_option(args, "--workspace", workspace)
+    _append_go_dispatch_option(args, "--profile", profile)
+    _append_go_dispatch_option(args, "--setta-home", setta_home)
+    _append_go_dispatch_option(args, "--setta-files-root", setta_files_root)
+    _append_go_dispatch_option(args, "--setta-files-location", setta_files_location)
+    _append_go_dispatch_option(args, "--runtime-root", runtime_root)
+    _append_go_dispatch_option(args, "--log-level", log_level)
+    if no_open:
+        args.append("--no-open")
+    return args
 
 
 def _parse_ssh_args(raw: str | None) -> list[str]:
@@ -1437,65 +1470,26 @@ def share(
     latest: bool,
 ) -> None:
     params = ctx.obj or {}
-    reload = params.get("reload", False)
-    host = params.get("host", C.DEFAULT_HOST)
-    port = params.get("port", None)
-    log_level = params.get("log_level", None)
-    no_open = params.get("no_open", False)
-    if reload:
-        raise click.ClickException("Share mode does not support --reload.")
-
-    resolved_host = host
-    resolved_port = _resolve_port(resolved_host, port)
-    C.HOST = resolved_host
-    C.PORT = resolved_port
-
-    _warn_if_public_host_no_auth(mode="share", host=resolved_host)
-
-    resolved_deployment_root = _resolve_deployment_root(
-        deployment_root=deployment_root,
-        deployment_name=deployment_name,
-        deployment_version=deployment_version,
-        latest=latest,
+    args = _build_go_dispatch_global_args(
+        reload=bool(params.get("reload", False)),
+        host=str(params.get("host", C.DEFAULT_HOST)),
+        port=cast(int | None, params.get("port", None)),
+        workspace=cast(Path | None, params.get("workspace", None)),
+        profile=cast(str | None, params.get("profile", None)),
+        setta_home=cast(Path | None, params.get("setta_home", None)),
+        setta_files_root=cast(Path | None, params.get("setta_files_root", None)),
+        setta_files_location=cast(str | None, params.get("setta_files_location", None)),
+        runtime_root=cast(Path | None, params.get("runtime_root", None)),
+        log_level=cast(str | None, params.get("log_level", None)),
+        no_open=bool(params.get("no_open", False)),
     )
-    manifest = DBE(resolved_deployment_root).read_deployment_manifest_optional()
-    if manifest is None:
-        raise click.ClickException(
-            f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
-        )
-    if manifest.deploymentType is not DeploymentType.share:
-        raise click.ClickException(
-            f"Deployment is not a share deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
-        )
-    C.SHARE_MODE = True
-    C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
-    C.LAUNCHER_MODE = False
-
-    resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    resolved_version = manifest.deploymentVersion
-    resolved_deployment_label = deployment_name or manifest.deploymentName
-    share_url = C.BACKEND
-    auto_open = _should_auto_open(no_open)
-    C.OPEN_BROWSER_ON_START = share_url if auto_open else None
-    click.echo(
-        f"Starting share backend for {resolved_deployment_label}/{resolved_version}"
-    )
-    click.echo(f"Share URL: {share_url}")
-
-    import uvicorn
-
-    config = uvicorn.Config(
-        "setta.server:app",
-        host=resolved_host,
-        port=resolved_port,
-        log_level=uvicorn_log_level,
-        log_config=None,
-        reload=False,
-        timeout_graceful_shutdown=1,
-    )
-    server = uvicorn.Server(config)
-    _run_uvicorn_server(server)
+    args.append("share")
+    _append_go_dispatch_option(args, "--deployment-root", deployment_root)
+    _append_go_dispatch_option(args, "--deployment-name", deployment_name)
+    _append_go_dispatch_option(args, "--version", deployment_version)
+    if latest:
+        args.append("--latest")
+    ctx.exit(run_go_dispatch(args))
 
 
 @click.command()
@@ -2290,65 +2284,26 @@ def app(
     latest: bool,
 ) -> None:
     params = ctx.obj or {}
-    reload = params.get("reload", False)
-    host = params.get("host", C.DEFAULT_HOST)
-    port = params.get("port", None)
-    log_level = params.get("log_level", None)
-    no_open = params.get("no_open", False)
-    if reload:
-        raise click.ClickException("App mode does not support --reload.")
-
-    resolved_host = host
-    resolved_port = _resolve_port(resolved_host, port)
-    C.HOST = resolved_host
-    C.PORT = resolved_port
-
-    _warn_if_public_host_no_auth(mode="app", host=resolved_host)
-
-    resolved_deployment_root = _resolve_deployment_root(
-        deployment_root=deployment_root,
-        deployment_name=deployment_name,
-        deployment_version=deployment_version,
-        latest=latest,
+    args = _build_go_dispatch_global_args(
+        reload=bool(params.get("reload", False)),
+        host=str(params.get("host", C.DEFAULT_HOST)),
+        port=cast(int | None, params.get("port", None)),
+        workspace=cast(Path | None, params.get("workspace", None)),
+        profile=cast(str | None, params.get("profile", None)),
+        setta_home=cast(Path | None, params.get("setta_home", None)),
+        setta_files_root=cast(Path | None, params.get("setta_files_root", None)),
+        setta_files_location=cast(str | None, params.get("setta_files_location", None)),
+        runtime_root=cast(Path | None, params.get("runtime_root", None)),
+        log_level=cast(str | None, params.get("log_level", None)),
+        no_open=bool(params.get("no_open", False)),
     )
-    manifest = DBE(resolved_deployment_root).read_deployment_manifest_optional()
-    if manifest is None:
-        raise click.ClickException(
-            f"App deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
-        )
-    if manifest.deploymentType is not DeploymentType.app:
-        raise click.ClickException(
-            f"Deployment is not an app deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
-        )
-    C.APP_MODE = True
-    C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
-    C.LAUNCHER_MODE = False
-
-    resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    resolved_version = manifest.deploymentVersion
-    resolved_deployment_label = deployment_name or manifest.deploymentName
-    app_url = C.BACKEND
-    auto_open = _should_auto_open(no_open)
-    C.OPEN_BROWSER_ON_START = app_url if auto_open else None
-    click.echo(
-        f"Starting app backend for {resolved_deployment_label}/{resolved_version}"
-    )
-    click.echo(f"App URL: {app_url}")
-
-    import uvicorn
-
-    config = uvicorn.Config(
-        "setta.server:app",
-        host=resolved_host,
-        port=resolved_port,
-        log_level=uvicorn_log_level,
-        log_config=None,
-        reload=False,
-        timeout_graceful_shutdown=1,
-    )
-    server = uvicorn.Server(config)
-    _run_uvicorn_server(server)
+    args.append("app")
+    _append_go_dispatch_option(args, "--deployment-root", deployment_root)
+    _append_go_dispatch_option(args, "--deployment-name", deployment_name)
+    _append_go_dispatch_option(args, "--version", deployment_version)
+    if latest:
+        args.append("--latest")
+    ctx.exit(run_go_dispatch(args))
 
 
 @click.command()
@@ -3794,8 +3749,26 @@ def cli(
     ctx.obj["runtime_root"] = runtime_root
     ctx.obj["log_level"] = log_level
     ctx.obj["no_open"] = no_open
-    resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
+    if ctx.invoked_subcommand is None:
+        ctx.exit(
+            run_go_dispatch(
+                _build_go_dispatch_global_args(
+                    reload=reload,
+                    host=host,
+                    port=port,
+                    workspace=workspace,
+                    profile=profile,
+                    setta_home=setta_home,
+                    setta_files_root=setta_files_root,
+                    setta_files_location=setta_files_location,
+                    runtime_root=runtime_root,
+                    log_level=log_level,
+                    no_open=no_open,
+                )
+            )
+        )
+
+    configure_logging(level_override=log_level)
 
     paths_override = None
     if _should_resolve_group_paths(ctx) and (
@@ -3816,85 +3789,6 @@ def cli(
             validate=True,
         )
         _apply_paths_to_env(paths_override)
-    if ctx.invoked_subcommand is None:
-        paths = paths_override or _resolve_cli_paths(
-            workspace=workspace,
-            setta_home=setta_home,
-            profile=profile,
-            setta_files_root=setta_files_root,
-            setta_files_location=setta_files_location,
-            runtime_root=runtime_root,
-            validate=True,
-        )
-        if paths_override is None:
-            _apply_paths_to_env(paths)
-
-        config_error = ensure_setta_user_config_exists(setta_home=paths.setta_home)
-        if config_error:
-            logging.getLogger(__name__).warning(config_error)
-
-        logging.getLogger(__name__).info("Starting Setta")
-
-        resolved_host = host
-        resolved_port = _resolve_port(resolved_host, port)
-        C.HOST = resolved_host
-        C.PORT = resolved_port
-
-        sessions_root = paths.runtime_sessions_root
-        registry = SessionRegistry(sessions_root=sessions_root)
-        display_workspace = workspace or paths.workspace_root
-        session = registry.create_session(
-            paths.workspace_root,
-            resolved_host,
-            resolved_port,
-            os.getpid(),
-            workspace_display_path=str(display_workspace),
-            setta_files_location=paths.setta_files_location,
-            setta_files_root=str(paths.setta_files_root),
-            runtime_root=str(paths.runtime_root),
-            setta_home=str(paths.setta_home),
-            profile=paths.profile_name,
-            server_mode="launcher" if C.LAUNCHER_MODE else "ide",
-        )
-        os.environ[SESSION_ID_ENV_VAR] = session.id
-        os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
-        secret = registry.load_secret(session)
-        token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
-
-        bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
-            resolved_host, resolved_port, token
-        )
-        auto_open = _should_auto_open(no_open)
-        C.OPEN_BROWSER_ON_START = bootstrap_url_fragment if auto_open else None
-
-        is_remote_session = _is_ssh_session()
-        click.echo(
-            _render_startup_message(
-                session.id,
-                resolved_host,
-                resolved_port,
-                Path(session.workspacePathCanonical),
-                bootstrap_url_fragment,
-                bootstrap_url_plain,
-                token,
-                auto_open,
-                is_remote_session,
-            )
-        )
-
-        import uvicorn
-
-        config = uvicorn.Config(
-            "setta.server:app",
-            host=resolved_host,
-            port=resolved_port,
-            log_level=uvicorn_log_level,
-            log_config=None,
-            reload=reload,
-            timeout_graceful_shutdown=1,
-        )
-        server = uvicorn.Server(config)
-        _run_uvicorn_server(server)
 
 
 cli.add_command(version)
