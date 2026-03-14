@@ -1,4 +1,4 @@
-import { useSectionRefs } from "state/stores/authoringStores";
+import { useSectionRefs } from "state/definitions";
 
 export function setSectionRef({ sectionId, withNested, selfOnly }) {
   useSectionRefs.setState((state) => {

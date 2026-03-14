@@ -38,10 +38,10 @@ import {
   useProjectState,
   useResizeEvent,
   useShareSession,
+  useToolArgumentPreview,
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
-import { useToolArgumentPreview } from "state/stores/aiFollowStores";
 import { C } from "utils/c";
 import {
   getPythonCodegenTarget,
