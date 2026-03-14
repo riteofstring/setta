@@ -1,19 +1,28 @@
 /* @vitest-environment jsdom */
 
+import { useReactFlow } from "forks/xyflow/core/store";
+import initialState from "forks/xyflow/core/store/initialState";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import initialState from "forks/xyflow/core/store/initialState";
-import { useReactFlow } from "forks/xyflow/core/store";
-import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import { createProjectConfig } from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CanvasEngineHost,
   createCanvasEngineHostSnapshotResult,
 } from "./CanvasEngineHost";
+
+vi.mock("components/Section/Container/SectionContainer", () => ({
+  SectionContainer: ({
+    sectionId,
+  }: {
+    sectionId: string;
+    isTopLevel: boolean;
+  }) => <div data-testid={`mock-section-container-${sectionId}`} />,
+}));
 
 describe("CanvasEngineHost", () => {
   let host: HTMLDivElement;
@@ -199,6 +208,10 @@ describe("CanvasEngineHost", () => {
       '[data-canvas-engine-host="v1"]',
     ) as HTMLElement | null;
     expect(engineHost?.dataset.canvasEngineRectCount).toBe("1");
+    expect(engineHost?.dataset.canvasEngineDomIslandMountedCount).toBe("1");
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-a"]'),
+    ).not.toBeNull();
   });
 
   it("syncs an initialized persisted viewport into the engine camera and React Flow store", async () => {

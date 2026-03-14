@@ -4582,3 +4582,48 @@ New benchmark stages:
   hitching must never happen.
 - The tradeoff is now explicit: we pay the idle memory / always-promoted-shell
   cost continuously instead of paying a one-time cold-start setup cost.
+
+## Addendum (2026-03-12): canvas-engine DOM-island overlay stays sparse on Settings
+
+### Goal
+
+- Start validating the `frontend-performance-5` canvas-engine direction on
+  current `main`.
+- Confirm that the experimental GPU host can keep a sparse live-DOM overlay
+  instead of mounting every visible section shell at once.
+
+### Implementation under test
+
+- `CanvasEngineHost` renders the retained scene through the GPU backends.
+- The host now mounts a transformed DOM-island layer on top of the canvas.
+- DOM islands are limited to visible top-level sections plus active sections,
+  with a short retention window for offscreen transitions.
+
+### Measurement method
+
+- Live headed browser via chrome-devtools-mcp on
+  `http://127.0.0.1:3010/settings`
+- Enable `useCanvasEngineV1`, reload Settings, wait for the experimental host
+  to mount
+- Read the host's structural counters and inspect the first mounted island
+
+### Result
+
+- Canvas-engine scene rect count: `43`
+- Mounted DOM islands: `6`
+- Retained DOM islands at rest: `0`
+- DOM layer present: `true`
+- First mounted island display state: `block`
+- First mounted island text begins with:
+  `chatWindowing / Auto Create Initial Chat / Restore Prior State On Unmaximize`
+
+### Conclusion
+
+- The experimental host is no longer a canvas-only scaffold; it can now keep a
+  sparse live DOM layer over the retained scene.
+- On the live Settings page, only `6` live top-level section islands were
+  mounted for `43` scene rects, which is the first concrete sign that the
+  engine path can reduce live DOM footprint during navigation.
+- This is still an intermediate checkpoint:
+  camera movement works and DOM islands mount, but hit testing, selection,
+  drag/resize, and broader parity remain future slices.

@@ -25,6 +25,48 @@ type CanvasEngineCameraSnapshot = {
   zoom: number;
 };
 
+test("canvas engine host mounts visible top-level sections as dom islands", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-dom-island-mounted-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${sectionId}"]`),
+    ).toHaveCount(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host persists camera viewport after pan and zoom", async ({
   page,
 }) => {
@@ -108,6 +150,31 @@ async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   return { x, y, zoom };
 }
 
+async function createCallableSectionForCanvasEngine(
+  page: Page,
+  projectConfigId: string,
+): Promise<string> {
+  const viewportBounds = await page.evaluate(() => ({
+    x: 0,
+    y: 0,
+    w: window.innerWidth,
+    h: window.innerHeight,
+  }));
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+    },
+  );
+  if (!response?.sectionId) {
+    throw new Error("Missing sectionId when creating callable section.");
+  }
+  return response.sectionId;
+}
+
 function areCamerasClose(
   left: CanvasEngineCameraSnapshot,
   right: CanvasEngineCameraSnapshot,
@@ -146,6 +213,20 @@ async function readPersistedViewport(
     y: viewport.y,
     zoom: viewport.zoom,
   };
+}
+
+async function readNumericHostAttribute(
+  host: Locator,
+  attributeName: string,
+): Promise<number> {
+  const value = await host.getAttribute(attributeName);
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `Invalid numeric host attribute ${attributeName}: ${String(value)}`,
+    );
+  }
+  return parsed;
 }
 
 async function resolvePaneScreenPoint(

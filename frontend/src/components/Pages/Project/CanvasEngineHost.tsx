@@ -1,16 +1,22 @@
 import {
+  getNextDomIslandRetentionDelayMs,
+  resolveDomIslandMountPolicy,
+} from "canvas-engine/domIslandMountPolicy";
+import {
   createCanvasEngineRenderer,
   type CanvasEngineBackendSelection,
   type CanvasEngineRenderer,
 } from "canvas-engine/renderer";
-import type { CanvasEngineCamera } from "canvas-engine/types";
-import { useReactFlow } from "forks/xyflow/core/store";
 import {
   CanvasEngineSceneAdapter,
   type CanvasEngineProjectSceneInput,
   type CanvasEngineSceneSnapshotResult,
 } from "canvas-engine/sceneAdapter";
+import type { CanvasEngineCamera, CanvasEngineRect } from "canvas-engine/types";
+import { SectionContainer } from "components/Section/Container/SectionContainer";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -20,6 +26,10 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { useProjectState } from "state/definitions";
+import {
+  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+} from "utils/constants";
 
 type PanePointerSession = {
   pointerId: number;
@@ -27,8 +37,17 @@ type PanePointerSession = {
   lastClientY: number;
 };
 
+type DomIslandRenderEntry = {
+  rect: CanvasEngineRect;
+  retained: boolean;
+};
+
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
+const DOM_ISLAND_VIEWPORT_PADDING_PX = 240;
+const DOM_ISLAND_MIN_ZOOM = 0.35;
+const DOM_ISLAND_RETENTION_MS = 280;
+const DOM_ISLAND_MAX_RETAINED_SECTIONS = 96;
 
 const DEFAULT_CAMERA: CanvasEngineCamera = {
   x: 0,
@@ -82,6 +101,11 @@ export function CanvasEngineHost() {
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
   const pointerSessionRef = useRef<PanePointerSession | null>(null);
   const skipInitialCameraSyncRef = useRef(true);
+  const domIslandMountedSectionIdsRef = useRef<string[]>([]);
+  const domIslandRetentionExpiryByIdRef = useRef<Map<string, number>>(
+    new Map(),
+  );
+  const domIslandRetentionTimerIdRef = useRef<number | null>(null);
   if (!sceneAdapterRef.current) {
     sceneAdapterRef.current = new CanvasEngineSceneAdapter();
   }
@@ -96,6 +120,8 @@ export function CanvasEngineHost() {
   );
   const [viewport, setViewport] = useState(DEFAULT_VIEWPORT);
   const [rendererRevision, setRendererRevision] = useState(0);
+  const [domIslandRetentionRevision, setDomIslandRetentionRevision] =
+    useState(0);
 
   const snapshotResult = useMemo(() => {
     const sceneInput = {
@@ -117,6 +143,83 @@ export function CanvasEngineHost() {
     topLevelSections,
     viewport,
   ]);
+
+  const domIslandViewportSectionIds = useMemo(() => {
+    if (camera.zoom < DOM_ISLAND_MIN_ZOOM) {
+      return [];
+    }
+    const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
+    const viewportRect = {
+      x: camera.x - worldPadding,
+      y: camera.y - worldPadding,
+      width: viewport.width / camera.zoom + worldPadding * 2,
+      height: viewport.height / camera.zoom + worldPadding * 2,
+    };
+    const sectionIdsInMountWindow = sceneAdapter.querySectionIdsInWorldRect(
+      viewportRect,
+      true,
+    );
+    return sortSectionIdsByZIndexThenId(sectionIdsInMountWindow, sceneAdapter);
+  }, [
+    camera,
+    domIslandRetentionRevision,
+    sceneAdapter,
+    topLevelSections,
+    viewport,
+  ]);
+
+  const domIslandMountState = useMemo(() => {
+    const mountPolicyResult = resolveDomIslandMountPolicy({
+      activeSectionIds,
+      viewportSectionIds: domIslandViewportSectionIds,
+      previousMountedSectionIds: domIslandMountedSectionIdsRef.current,
+      retentionExpiryBySectionId: domIslandRetentionExpiryByIdRef.current,
+      nowMs: Date.now(),
+      retentionMs: DOM_ISLAND_RETENTION_MS,
+      maxRetainedSections: DOM_ISLAND_MAX_RETAINED_SECTIONS,
+      hasRectForSection: (sectionId: string) =>
+        sceneAdapter.getRectById(sectionId) !== null,
+      sortSectionIds: (sectionIds: string[]) =>
+        sortSectionIdsByZIndexThenId(sectionIds, sceneAdapter),
+    });
+    domIslandMountedSectionIdsRef.current = mountPolicyResult.mountedSectionIds;
+    return mountPolicyResult;
+  }, [
+    activeSectionIds,
+    domIslandRetentionRevision,
+    domIslandViewportSectionIds,
+    sceneAdapter,
+  ]);
+
+  const domIslandSectionIds = domIslandMountState.mountedSectionIds;
+  const domIslandRetainedSectionIdSet =
+    domIslandMountState.retainedSectionIdSet;
+  const domIslandRenderEntries = useMemo(() => {
+    const entries: DomIslandRenderEntry[] = [];
+    for (const sectionId of domIslandSectionIds) {
+      const rect = sceneAdapter.getRectById(sectionId);
+      if (rect) {
+        entries.push({
+          rect,
+          retained: domIslandRetainedSectionIdSet.has(sectionId),
+        });
+      }
+    }
+    return entries;
+  }, [
+    domIslandRetainedSectionIdSet,
+    domIslandSectionIds,
+    sceneAdapter,
+    topLevelSections,
+  ]);
+
+  const domIslandLayerTransform = useMemo(
+    () => ({
+      transform: `translate(${-camera.x * camera.zoom}px, ${-camera.y * camera.zoom}px) scale(${camera.zoom})`,
+      transformOrigin: "top left",
+    }),
+    [camera],
+  );
 
   useEffect(() => {
     const nextCamera = getInitialCamera({
@@ -259,9 +362,37 @@ export function CanvasEngineHost() {
     renderer.render(snapshotResult.snapshot, viewport);
   }, [rendererRevision, snapshotResult, viewport]);
 
+  useEffect(() => {
+    const expiryById = domIslandRetentionExpiryByIdRef.current;
+    if (domIslandRetentionTimerIdRef.current !== null) {
+      window.clearTimeout(domIslandRetentionTimerIdRef.current);
+      domIslandRetentionTimerIdRef.current = null;
+    }
+    const delayMs = getNextDomIslandRetentionDelayMs(expiryById, Date.now());
+    if (delayMs === null) {
+      return;
+    }
+    domIslandRetentionTimerIdRef.current = window.setTimeout(() => {
+      domIslandRetentionTimerIdRef.current = null;
+      setDomIslandRetentionRevision((value) => value + 1);
+    }, delayMs);
+  }, [domIslandSectionIds]);
+
+  useEffect(() => {
+    return () => {
+      if (domIslandRetentionTimerIdRef.current !== null) {
+        window.clearTimeout(domIslandRetentionTimerIdRef.current);
+        domIslandRetentionTimerIdRef.current = null;
+      }
+    };
+  }, []);
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) {
+        return;
+      }
+      if (isCanvasGestureBlockedByTarget(event.target)) {
         return;
       }
       pointerSessionRef.current = {
@@ -314,6 +445,9 @@ export function CanvasEngineHost() {
   );
 
   const handleWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
+    if (isCanvasWheelBlockedByTarget(event.target)) {
+      return;
+    }
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
@@ -371,8 +505,36 @@ export function CanvasEngineHost() {
       data-canvas-engine-camera-y={camera.y.toFixed(2)}
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
       data-canvas-engine-active-section-count={activeSectionIds.length}
+      data-canvas-engine-dom-island-mounted-count={domIslandSectionIds.length}
+      data-canvas-engine-dom-island-retained-count={
+        domIslandMountState.retainedSectionCount
+      }
+      data-canvas-engine-dom-island-retention-ms={DOM_ISLAND_RETENTION_MS}
+      data-canvas-engine-dom-island-retention-cap={
+        DOM_ISLAND_MAX_RETAINED_SECTIONS
+      }
     >
       <canvas ref={canvasRef} className="h-full w-full" />
+      {domIslandRenderEntries.length > 0 ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          data-canvas-engine-dom-layer="v1"
+        >
+          <div
+            className="absolute left-0 top-0"
+            style={domIslandLayerTransform}
+          >
+            {domIslandRenderEntries.map((entry) => (
+              <CanvasEngineDomIsland
+                key={entry.rect.id}
+                rect={entry.rect}
+                retained={entry.retained}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute left-4 top-4 rounded-md bg-slate-900/80 px-3 py-2 text-xs text-slate-100">
         Canvas engine {backendSelection.activeBackend}
       </div>
@@ -406,4 +568,98 @@ function getInitialCamera({
 
 function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+}
+
+function sortSectionIdsByZIndexThenId(
+  sectionIds: string[],
+  sceneAdapter: CanvasEngineSceneAdapter,
+): string[] {
+  return Array.from(new Set(sectionIds)).sort((leftId, rightId) => {
+    const leftRect = sceneAdapter.getRectById(leftId);
+    const rightRect = sceneAdapter.getRectById(rightId);
+    if (!leftRect || !rightRect) {
+      return leftId.localeCompare(rightId);
+    }
+    if (leftRect.zIndex !== rightRect.zIndex) {
+      return leftRect.zIndex - rightRect.zIndex;
+    }
+    return leftId.localeCompare(rightId);
+  });
+}
+
+function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest("[data-canvas-engine-dom-island]") !== null
+  );
+}
+
+function isCanvasWheelBlockedByTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (!target.closest("[data-canvas-engine-dom-island]")) {
+    return false;
+  }
+  return Boolean(
+    target.closest(
+      [
+        "input",
+        "textarea",
+        "select",
+        "[contenteditable='true']",
+        `.${NO_WHEEL_CLASS_NAME}`,
+      ].join(","),
+    ),
+  );
+}
+
+const CanvasEngineDomIsland = memo(function CanvasEngineDomIsland({
+  rect,
+  retained,
+}: DomIslandRenderEntry) {
+  return (
+    <div
+      className={`${retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
+      data-canvas-engine-dom-island={rect.id}
+      data-canvas-engine-dom-island-retained={String(retained)}
+      style={
+        retained
+          ? { display: "none" }
+          : {
+              left: rect.x,
+              top: rect.y,
+              width: rect.width,
+              height: rect.height,
+            }
+      }
+    >
+      <SectionContainer sectionId={rect.id} isTopLevel={true} />
+    </div>
+  );
+}, areDomIslandEntriesEqual);
+
+function areDomIslandEntriesEqual(
+  left: DomIslandRenderEntry,
+  right: DomIslandRenderEntry,
+): boolean {
+  if (left.retained !== right.retained) {
+    return false;
+  }
+  return areRectsEqual(left.rect, right.rect);
+}
+
+function areRectsEqual(
+  left: CanvasEngineRect,
+  right: CanvasEngineRect,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.zIndex === right.zIndex &&
+    left.isActive === right.isActive
+  );
 }
