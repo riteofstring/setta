@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { receiveLLMResponseChunk } from "./ai";
+import { receiveLLMResponseChunk } from "./ai/chatStreaming";
 
 import {
   useAppDefinition,
