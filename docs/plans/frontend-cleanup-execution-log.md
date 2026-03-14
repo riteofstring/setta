@@ -1611,3 +1611,34 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/projectChatWindowingWrites.ts`, now the
     largest authored/shared state hotspot, by separating write coordination and
     authoritative publish flow from the remaining sync helpers.
+
+## 2026-03-14 23:22:05 PDT
+
+- Slice completed: split project chat windowing write-state reads and optimistic
+  apply helpers from serialized write coordination and authoritative
+  publish/replay flow
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingWrites.ts`
+  - `frontend/src/state/actions/projectChatWindowingWriteState.ts`
+  - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts`
+  - `frontend/src/state/actions/projectChatWindowingWriteState.test.ts`
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowingWriteState.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/windowSpaces.test.ts`
+  - `pnpm -C frontend exec vitest run src/state/actions/git.test.ts src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/components/Section/Header/SectionWindowToggleButton.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowing.ts src/state/actions/projectChatWindowingCanvasBoot.ts src/state/actions/projectChatWindowingTrackedGitPane.ts src/state/actions/projectChatWindowingWrites.ts src/state/actions/projectChatWindowingWritePipeline.ts src/state/actions/projectChatWindowingWriteState.ts src/state/actions/projectChatWindowingWriteState.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `9d3120dc2`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sections/createSections.ts`, now the
+    largest authored/shared state hotspot, by separating section creation
+    orchestration from per-impl defaults and placement helpers.
