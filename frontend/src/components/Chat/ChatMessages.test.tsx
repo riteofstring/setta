@@ -129,6 +129,13 @@ function formatExpectedChatTimestamp(timestampMs: number): string {
   }).format(timestampMs);
 }
 
+function formatExpectedChatTimestampTitle(timestampMs: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full",
+    timeStyle: "long",
+  }).format(timestampMs);
+}
+
 describe("ChatMessageList edit gating", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -748,8 +755,12 @@ describe("ChatMessages tool call status", () => {
       expect(activityTriggerTag).toContain('aria-expanded="true"');
       expect(toolCallTriggerTag).not.toBeNull();
       expect(toolCallTriggerTag).toContain('aria-expanded="true"');
-      expect(toolCallTriggerTag).toContain("bg-setta-875");
-      expect(toolCallTriggerTag).toContain("hover:bg-setta-850");
+      expect(toolCallTriggerTag).toContain("bg-setta-50/95");
+      expect(toolCallTriggerTag).toContain("hover:bg-setta-100/95");
+      expect(toolCallTriggerTag).toContain("dark:bg-setta-875");
+      expect(toolCallTriggerTag).toContain("dark:hover:bg-setta-850");
+      expect(markup).not.toContain("animate-slideUp");
+      expect(markup).not.toContain("animate-slideDown");
     } finally {
       useAIStore.setState({
         projectChatActivityAccordionOpenByDefault: false,
@@ -1544,7 +1555,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
     expect(activitySectionTag).not.toBeNull();
     expect(activitySectionTag).toContain(
-      'class="w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-2 dark:border-setta-700/90"',
+      'class="w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-1.5 dark:border-setta-700/90"',
     );
     const activityAnchorTag = getTagByMarker(
       markup,
@@ -1558,7 +1569,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
     expect(activityContentTag).not.toBeNull();
     expect(activityContentTag).toContain("overflow-hidden");
-    expect(activityContentTag).toContain("pl-1 pt-1");
+    expect(activityContentTag).toContain("pl-0.5 pt-1");
     expect(activityContentTag).not.toContain("pr-");
     expect(activityContentTag).toContain("data-[state=closed]:hidden");
     expect(activityContentTag).toContain("data-[state=open]:block");
@@ -1569,7 +1580,7 @@ describe("ChatMessages assistant reasoning layout", () => {
       "flex w-full flex-col border border-setta-200/70 dark:border-setta-700/70",
     );
     expect(activityContentTag).not.toContain("border-t");
-    expect(markup).toContain("items-stretch pl-1 pr-2 text-left");
+    expect(markup).toContain("items-stretch pl-0.5 pr-2 text-left");
     expect(markup).not.toContain("px-2 pb-1");
     expect(markup).toContain(
       'data-chat-assistant-activity-open-all-button="true"',
@@ -1882,6 +1893,12 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("00:02");
     expect(markup).toContain(formatExpectedChatTimestamp(firstStartedAtMs));
     expect(markup).toContain(formatExpectedChatTimestamp(secondStartedAtMs));
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(firstStartedAtMs)}"`,
+    );
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(secondStartedAtMs)}"`,
+    );
   });
 
   it("hides activity timers when timing data is unavailable", () => {
@@ -2157,6 +2174,12 @@ describe("ChatMessages assistant reasoning layout", () => {
     ).toBe(2);
     expect(markup).toContain(formatExpectedChatTimestamp(userCreatedAtMs));
     expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(userCreatedAtMs)}"`,
+    );
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(assistantCreatedAtMs)}"`,
+    );
     expect(markup).toContain('data-chat-assistant-activity-icon="robot"');
   });
 
@@ -2203,6 +2226,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       countOccurrences(markup, 'data-chat-message-timestamp="true"'),
     ).toBe(1);
     expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(assistantCreatedAtMs)}"`,
+    );
   });
 
   it("renders message timestamps outside fit-content user and assistant bubbles", () => {

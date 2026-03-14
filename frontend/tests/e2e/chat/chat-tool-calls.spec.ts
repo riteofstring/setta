@@ -476,6 +476,9 @@ test.describe.serial("chat tool calls", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      const userCreatedAtMs = Date.parse("2026-01-01T09:15:00Z");
+      const assistantCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+      const activityStartedAtMs = Date.parse("2026-01-01T09:16:05Z");
       const { sectionId, sectionName } = await createChatSection(
         page,
         projectContext.projectConfigId,
@@ -495,7 +498,7 @@ test.describe.serial("chat tool calls", () => {
               role: "user",
               content: [{ type: "text", text: "Please summarize the latest run." }],
               attachments: [],
-              createdAt: Date.parse("2026-01-01T09:15:00Z"),
+              createdAt: userCreatedAtMs,
             },
             {
               id: "timestamp-assistant-message",
@@ -517,7 +520,7 @@ test.describe.serial("chat tool calls", () => {
                   },
                 },
               ],
-              createdAt: Date.parse("2026-01-01T09:16:00Z"),
+              createdAt: assistantCreatedAtMs,
             },
             {
               id: "timestamp-assistant-tool-result",
@@ -547,6 +550,18 @@ test.describe.serial("chat tool calls", () => {
       await expect(
         section.locator('[data-chat-message-timestamp="true"]').nth(1),
       ).toHaveText(/\d{1,2}:\d{2}/);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]').nth(0),
+      ).toHaveAttribute(
+        "title",
+        formatExpectedChatTimestampTitle(userCreatedAtMs),
+      );
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]').nth(1),
+      ).toHaveAttribute(
+        "title",
+        formatExpectedChatTimestampTitle(assistantCreatedAtMs),
+      );
 
       const activityTrigger = section.locator(
         '[data-chat-assistant-activity-trigger="true"]',
@@ -558,6 +573,12 @@ test.describe.serial("chat tool calls", () => {
       await expect(
         section.locator('[data-chat-activity-item-timestamp="true"]').first(),
       ).toHaveText(/\d{1,2}:\d{2}/);
+      await expect(
+        section.locator('[data-chat-activity-item-timestamp="true"]').first(),
+      ).toHaveAttribute(
+        "title",
+        formatExpectedChatTimestampTitle(activityStartedAtMs),
+      );
 
       await section.evaluate((element) => {
         const sectionElement = element as HTMLElement;
@@ -1280,6 +1301,82 @@ test.describe.serial("chat tool calls", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
+
+  test("uses light-mode activity row surfaces instead of dark-only tool-call cards", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      await page.evaluate(async () => {
+        const { useLocalStorage } = await import("/src/state/definitions.ts");
+        useLocalStorage.setState({
+          colorMode: "light",
+          darkMode: false,
+        });
+      });
+
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_light_mode_tool_rows__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "light-tool-mode-message",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "light-tool-mode-call",
+                  type: "function",
+                  function: {
+                    name: "setta__run_tests",
+                    arguments: { target: "chat" },
+                  },
+                },
+              ],
+            },
+            {
+              id: "light-tool-mode-result",
+              role: "tool",
+              tool_call_id: "light-tool-mode-call",
+              tool_name: "setta__run_tests",
+              arguments: { target: "chat" },
+              result: { ok: true },
+              content: [],
+              is_error: false,
+              started_at: "2026-01-01T09:16:05Z",
+              completed_at: "2026-01-01T09:16:15Z",
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      await section.locator('[data-chat-assistant-activity-trigger="true"]').click();
+      const toolCallTrigger = section
+        .locator('[data-chat-tool-call-item-trigger="true"]')
+        .first();
+      await expect(toolCallTrigger).toBeVisible();
+      await expect(toolCallTrigger).toHaveClass(/bg-setta-50\/95/);
+      await expect(toolCallTrigger).toHaveClass(/hover:bg-setta-100\/95/);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
 });
 
 function findSectionByName(page: Page, name: string): Locator {
@@ -1319,4 +1416,11 @@ async function getHorizontalOverflowMetrics(
       hasScrollOverflow: bubbleElement.scrollWidth > bubbleElement.clientWidth + 1,
     };
   });
+}
+
+function formatExpectedChatTimestampTitle(timestampMs: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full",
+    timeStyle: "long",
+  }).format(timestampMs);
 }

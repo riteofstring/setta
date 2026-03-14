@@ -196,7 +196,8 @@ const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 const TOOL_CALL_RAIL_BACKGROUND_CLASS = "bg-setta-100/75 dark:bg-setta-800/75";
 const ACTIVITY_ROW_HOVER_CLASS =
   "hover:bg-setta-100/35 dark:hover:bg-setta-900/55";
-const ACTIVITY_CHILD_TRIGGER_CLASS = "bg-setta-875 hover:bg-setta-850";
+const ACTIVITY_CHILD_TRIGGER_CLASS =
+  "bg-setta-50/95 hover:bg-setta-100/95 dark:bg-setta-875 dark:hover:bg-setta-850";
 const STRUCTURED_OUTPUT_DEFAULT_MAX_HEIGHT_PX = 260;
 const STRUCTURED_OUTPUT_MIN_HEIGHT_PX = 90;
 const STRUCTURED_OUTPUT_MAX_VIEWPORT_RATIO = 0.8;
@@ -206,13 +207,13 @@ const STRUCTURED_OUTPUT_RESIZE_HANDLE_BAR_CLASS =
   "absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-setta-200/90 transition-colors group-hover/resize:bg-blue-400 group-focus-visible/resize:bg-blue-400 dark:bg-setta-700/90 dark:group-hover/resize:bg-blue-400 dark:group-focus-visible/resize:bg-blue-400";
 const ACTIVITY_ACCORDION_CONTENT_CLASS =
   "overflow-hidden data-[state=closed]:hidden data-[state=open]:block";
-const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pl-1 pt-1`;
+const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pl-0.5 pt-1`;
 const TOOL_SECTION_CARD_CLASS = "w-full overflow-hidden";
 const TOOL_SECTION_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const TOOL_ROW_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ASSISTANT_ACTIVITY_PARENT_CLASS =
-  "w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-2 dark:border-setta-700/90";
-const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group flex w-full cursor-pointer items-stretch pl-1 pr-2 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
+  "w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-1.5 dark:border-setta-700/90";
+const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group flex w-full cursor-pointer items-stretch pl-0.5 pr-2 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ACTIVITY_COUNT_BADGE_CLASS =
   "inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200";
 const ACTIVITY_COPY_BUTTON_BASE_CLASS =
@@ -228,8 +229,8 @@ const CHAT_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 const CHAT_TIMESTAMP_TOOLTIP_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
+  dateStyle: "full",
+  timeStyle: "long",
 });
 const COUNT_BADGE_STEP_ANIMATION_MS = 120;
 const COUNT_BADGE_STEP_PAUSE_MS = 24;
@@ -3452,7 +3453,7 @@ const ThinkingSection = memo(function ThinkingSection({
           </div>
         </Accordion.Trigger>
         {hasExpandableContent ? (
-          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
+          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:hidden data-[state=open]:block dark:border-setta-700/70">
             <div className="flex w-full flex-col">{children}</div>
           </Accordion.Content>
         ) : null}
@@ -3582,7 +3583,10 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       setIsPinnedToBottom(false);
       return;
     }
-    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    const maxScrollTop = Math.max(
+      0,
+      element.scrollHeight - element.clientHeight,
+    );
     if (maxScrollTop <= 0) {
       animatedScrollTopRef.current = 0;
       element.scrollTop = 0;
@@ -3602,8 +3606,13 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       Math.max(animatedScrollTopRef.current, element.scrollTop),
     );
     let frameId = 0;
-    let lastTimestamp = window.performance.now();
-    const speedPixelsPerSecond = 14;
+    const initialTimestamp = window.performance.now();
+    const startScrollTop = animatedScrollTopRef.current;
+    const distanceToBottomPx = Math.max(0, maxScrollTop - startScrollTop);
+    const durationMs = Math.min(
+      720,
+      Math.max(180, distanceToBottomPx * 7),
+    );
     const stepAnimation = (timestamp: number) => {
       const current = scrollRef.current;
       if (!current) {
@@ -3626,14 +3635,12 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         setIsPinnedToBottom(true);
         return;
       }
-      const deltaSeconds = Math.min(
-        0.06,
-        Math.max(0, (timestamp - lastTimestamp) / 1000),
+      const progress = Math.min(
+        1,
+        Math.max(0, (timestamp - initialTimestamp) / durationMs),
       );
-      lastTimestamp = timestamp;
-      const nextScrollTop =
-        animatedScrollTopRef.current + speedPixelsPerSecond * deltaSeconds;
-      if (nextScrollTop >= maxScrollTop) {
+      const nextScrollTop = startScrollTop + distanceToBottomPx * progress;
+      if (progress >= 1 || nextScrollTop >= maxScrollTop) {
         animatedScrollTopRef.current = maxScrollTop;
         current.scrollTop = maxScrollTop;
         pinnedBottomTextRef.current = text;
@@ -4033,7 +4040,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:hidden data-[state=open]:block dark:border-setta-700/70">
           <div className="px-2 py-1">
             <MarkdownContent
               content={displayText}
@@ -5413,7 +5420,7 @@ const ToolCallSection = memo(function ToolCallSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:hidden data-[state=open]:block dark:border-setta-700/70">
           <div className="flex w-full flex-col">{children}</div>
         </Accordion.Content>
       </Accordion.Item>

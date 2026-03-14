@@ -59,15 +59,17 @@ test.describe.serial("chat activity thought preview", () => {
         "true",
       );
 
-      await expect.poll(async () => {
-        const metrics = await getThoughtPreviewMetrics(preview);
-        return (
-          metrics.maxScrollTop > 0 &&
-          metrics.scrollTop >= metrics.maxScrollTop - 1 &&
-          metrics.atBottom &&
-          metrics.inlineMaskImage.includes("black 100%")
-        );
-      }).toBe(true);
+      await expect
+        .poll(async () => {
+          const metrics = await getThoughtPreviewMetrics(preview);
+          return (
+            metrics.maxScrollTop > 0 &&
+            metrics.scrollTop >= metrics.maxScrollTop - 1 &&
+            metrics.atBottom &&
+            metrics.inlineMaskImage.includes("black 100%")
+          );
+        }, { timeout: 1200 })
+        .toBe(true);
       const initialBottomMetrics = await getThoughtPreviewMetrics(preview);
       expect(
         Math.abs(
@@ -170,7 +172,7 @@ async function getThoughtPreviewMetrics(preview: Locator) {
 }
 
 function buildOverflowingThoughtText(label: string): string {
-  return Array.from({ length: 4 }, (_, index) =>
+  return Array.from({ length: 10 }, (_, index) =>
     `Thought ${label} line ${index + 1} keeps the latest reasoning visible.`,
   ).join("\n");
 }

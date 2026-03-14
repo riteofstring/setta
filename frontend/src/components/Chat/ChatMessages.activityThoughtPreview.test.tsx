@@ -145,6 +145,24 @@ describe("ChatMessages activity thought preview scroll", () => {
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
   });
 
+  it("finishes larger minimized-preview scroll ranges within a bounded interaction window", async () => {
+    await renderStreamingThoughtPreview(buildStreamingThoughtText("bounded"));
+
+    const preview = getThoughtPreviewElement(host);
+    const scroll = attachScrollMetrics(preview, {
+      clientHeight: 40,
+      scrollHeight: 140,
+    });
+
+    await enablePreviewScrollMeasurement();
+    await flushAnimationFrames(48);
+
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
+    expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
+  });
+
   async function renderStreamingThoughtPreview(thinking: string) {
     await act(async () => {
       root.render(<StreamingThoughtPreviewHarness initialThinking={thinking} />);
@@ -212,11 +230,9 @@ describe("ChatMessages activity thought preview scroll", () => {
   }
 
   function buildStreamingThoughtText(label: string): string {
-    return [
-      `Reviewing ${label} activity rows before final output.`,
-      "Keeping the preview long enough to overflow the collapsed viewport.",
-      "Ensuring the latest reasoning stays visible in minimized mode.",
-    ].join("\n");
+    return Array.from({ length: 10 }, (_, index) =>
+      `Reviewing ${label} activity rows before final output line ${index + 1}.`,
+    ).join("\n");
   }
 
   async function flushAnimationFrames(frameCount: number) {
