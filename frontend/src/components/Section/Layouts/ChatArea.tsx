@@ -61,7 +61,6 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import {
   useAIStore,
   useProjectState,
@@ -80,10 +79,7 @@ import {
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
-  DependencyKeyTypeEnum,
-  DependencyValueTypeEnum,
   EngineTypeEnum,
-  LiteralDependencyValue,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   createMessageTextContent,
@@ -95,103 +91,19 @@ import {
   resolveManagedChatRunType,
   toSortedHistoryEntries,
 } from "./ChatAreaHistoryPanel";
-
-type ChatSendActionPayload = {
-  action: "send";
-  sectionId: string;
-  messageId: string;
-  text: string;
-  attachments: ChatFileAttachment[];
-  role: ChatRoleEnum;
-  timestampMs: number;
-  managed: boolean;
-};
-
-type ChatStopActionPayload = {
-  action: "stop";
-  sectionId: string;
-  timestampMs: number;
-  managed: boolean;
-};
-
-type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
+import {
+  emitChatSendAction,
+  emitChatStopAction,
+} from "./chatAreaRealtimeActions";
+import {
+  buildManagedZeroScopeBannerSessionKey,
+  executeSectionChatSlashCommand,
+} from "./chatAreaThreadControls";
 
 type ChatSectionChatId = string | null;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
-
-function buildManagedZeroScopeBannerSessionKey(
-  projectConfigId: string,
-  sectionId: string,
-): string {
-  return `setta:managed-zero-scope-banner-dismissed:${projectConfigId}:${sectionId}`;
-}
-
-type EmitChatSendActionArgs = {
-  sectionId: string;
-  messageId: string;
-  text: string;
-  attachments: ChatFileAttachment[];
-  role: ChatRoleEnum;
-  managed: boolean;
-  timestampMs: number;
-};
-
-type EmitChatStopActionArgs = {
-  sectionId: string;
-  managed: boolean;
-  timestampMs: number;
-};
-
-function emitChatAction(payload: ChatActionPayload) {
-  const literalPayload: LiteralDependencyValue = {
-    payload: JSON.stringify(payload),
-    type: DependencyValueTypeEnum.Literal,
-  };
-  sendRealtimeDependencyEvent({
-    dependencyKey: {
-      type: DependencyKeyTypeEnum.Section,
-      sectionId: payload.sectionId,
-    },
-    payload: literalPayload,
-    timestampMs: payload.timestampMs,
-  });
-}
-
-function emitChatSendAction({
-  sectionId,
-  messageId,
-  text,
-  attachments,
-  role,
-  managed,
-  timestampMs,
-}: EmitChatSendActionArgs) {
-  emitChatAction({
-    action: "send",
-    sectionId,
-    messageId,
-    text,
-    attachments,
-    role,
-    timestampMs,
-    managed,
-  });
-}
-
-function emitChatStopAction({
-  sectionId,
-  managed,
-  timestampMs,
-}: EmitChatStopActionArgs) {
-  emitChatAction({
-    action: "stop",
-    sectionId,
-    managed,
-    timestampMs,
-  });
-}
 
 export function ChatArea({
   sectionId,
@@ -1423,34 +1335,13 @@ function ManagedChatArea({
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      if (
-        !canUseManagedChat &&
-        (command.action === "new" || command.action === "resume")
-      ) {
-        return {
-          feedback: "Chat thread changes are disabled by share policy.",
-          keepInput: true,
-        };
-      }
-      if (command.action === "new") {
-        handleNewChatStart();
-        return { feedback: "Started a new chat thread." };
-      }
-      if (command.action === "resume") {
-        const resumed = await handleResumeLatestChat();
-        return resumed
-          ? { feedback: "Resumed the latest section chat." }
-          : {
-              feedback: "No previous section chat found to resume.",
-              keepInput: true,
-            };
-      }
-      if (command.action === "help") {
-        return {
-          feedback: formatSlashCommandHelp(slashCommands),
-        };
-      }
-      return false;
+      return executeSectionChatSlashCommand({
+        command,
+        canUseManagedChat,
+        slashCommands,
+        onStartNewChat: handleNewChatStart,
+        onResumeLatestChat: handleResumeLatestChat,
+      });
     },
     [
       canUseManagedChat,
