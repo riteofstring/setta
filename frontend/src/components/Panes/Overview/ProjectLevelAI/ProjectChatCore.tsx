@@ -1,21 +1,9 @@
-import {
-  createManagedExecutionControlHandlers,
-  type ChatPermissionModeValue,
-  type ManagedChatExecutionSettings,
-} from "components/Chat/chatComposerControls";
+import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import {
   type ChatSlashCommand,
   type ChatSlashCommandResult,
 } from "components/Chat/ChatInput";
-import {
-  Dispatch,
-  SetStateAction,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Dispatch, SetStateAction, memo, useCallback, useMemo } from "react";
 import { getDefaultChatDetails } from "state/actions/ai/chatRuntime";
 import {
   useAIStore,
@@ -41,10 +29,10 @@ import {
 import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
 import { ProjectChatConversationSurface } from "./ProjectChatConversationSurface";
 import { resolveProjectChatConversationViewModel } from "./projectChatConversationViewModel";
+import { useProjectChatExecutionControls } from "./projectChatExecutionControls";
 import { type ProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 import { useProjectChatRuntimeController } from "./projectChatRuntimeController";
 import {
-  getDefaultProjectChatPermissionMode,
   resolveProjectChatContextTelemetry,
   type ProjectChatBlockedErrorCode,
 } from "./projectChatRuntimeUtils";
@@ -62,7 +50,6 @@ import {
   settleProjectChatThreadStart,
   startProjectChatThread,
 } from "./projectChatThreadController";
-type ChatExecutionSettings = ManagedChatExecutionSettings;
 
 export const ProjectChatCore = memo(function ProjectChatCore({
   surfaceId,
@@ -157,11 +144,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
-  const [executionSettings, setExecutionSettings] =
-    useState<ChatExecutionSettings>(() => ({
-      permissionMode: getDefaultProjectChatPermissionMode(engineType),
-      searchEnabled: true,
-    }));
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const customProjectChatSlashCommands = useLocalStorage(
@@ -216,42 +198,19 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => resolveProjectChatContextTelemetry(contextUsage),
     [contextUsage],
   );
-  useEffect(() => {
-    if (!isExternalEngine) {
-      setExecutionSettings((current) => {
-        if (current.permissionMode !== "config_toml_custom") {
-          return current;
-        }
-        return {
-          permissionMode: getDefaultProjectChatPermissionMode(
-            EngineTypeEnum.setta_llm,
-          ),
-          searchEnabled: current.searchEnabled,
-        };
-      });
-      return;
-    }
-    setExecutionSettings((current) => {
-      if (current.permissionMode !== "minimal") {
-        return current;
-      }
-      return {
-        permissionMode: "config_toml_custom",
-        searchEnabled: current.searchEnabled,
-      };
-    });
-  }, [isExternalEngine]);
-  useEffect(() => {
-    if (!onPermissionModeChange) {
-      return;
-    }
-    onPermissionModeChange(executionSettings.permissionMode);
-  }, [executionSettings.permissionMode, onPermissionModeChange]);
-  const canConfigureExecutionSettings =
-    Boolean(engineConfigId) &&
-    (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
-  const showPermissionExecutionControl = canConfigureExecutionSettings;
-  const showSearchExecutionControl = false;
+  const {
+    executionSettings,
+    executionControlHandlers,
+    showPermissionExecutionControl,
+    showSearchExecutionControl,
+  } = useProjectChatExecutionControls({
+    engineType,
+    engineConfigId,
+    isExternalEngine,
+    externalEngineAvailable,
+    hasLLMConfig,
+    onPermissionModeChange,
+  });
   const agentRunsAuthorityState = useAIStore(
     (state) => state.agentRunsAuthorityState,
   );
@@ -320,11 +279,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       });
     },
     [onDraftThreadSettled, setChatId, surfaceId],
-  );
-
-  const executionControlHandlers = useMemo(
-    () => createManagedExecutionControlHandlers(setExecutionSettings),
-    [setExecutionSettings],
   );
   const handleSetAppGenerationMode = useCallback(
     (nextMode: AppGenerationMode) => {

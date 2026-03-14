@@ -106,6 +106,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Project Chat hydration/slash-command/runtime helper logic: open `components/Panes/Overview/ProjectLevelAI/projectChatRuntimeUtils.ts`.
 - Need Project Chat submit/edit/redo/stop/dictation composer runtime behavior: open `components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.ts`.
 - Need Project Chat disabled-state, runtime-activity, or input-surface state derivation: open `components/Panes/Overview/ProjectLevelAI/projectChatComposerState.ts`.
+- Need Project Chat execution-settings synchronization or execution-control visibility: open `components/Panes/Overview/ProjectLevelAI/projectChatExecutionControls.ts`.
 - Need Project Chat thread selection, draft-thread lifecycle, or resume-latest behavior: open `components/Panes/Overview/ProjectLevelAI/projectChatThreadController.ts`.
 - Need Project Chat slash-command state, authority-refresh fallback, or slash-command execution wiring: open `components/Panes/Overview/ProjectLevelAI/projectChatSlashCommands.ts`.
 - Need Project Chat blocked-banner, empty-state, message-list, or chat-input rendering ownership: open `components/Panes/Overview/ProjectLevelAI/ProjectChatConversationSurface.tsx`.
