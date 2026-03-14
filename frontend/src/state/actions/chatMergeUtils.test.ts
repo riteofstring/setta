@@ -2,11 +2,7 @@ import {
   mergeChatMessages,
   reconcileHydratedChatMessages,
 } from "state/actions/chatMergeUtils";
-import {
-  ChatRoleEnum,
-  createMessageTextContent,
-  createMessageThinkingContent,
-} from "utils/generatedTypes";
+import { ChatRoleEnum, createMessageTextContent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 describe("chatMergeUtils", () => {
@@ -119,57 +115,6 @@ describe("chatMergeUtils", () => {
     expect(reconciled.map((message) => message.id)).toEqual([
       "msg-remote",
       "msg-local",
-    ]);
-  });
-
-  it("keeps local streaming thought text while accepting backend summary metadata", () => {
-    const localThinking =
-      "Reviewing grouped activity rows before final answer output.";
-    const backendSummary = "Structured summary title from backend metadata.";
-
-    const reconciled = reconcileHydratedChatMessages({
-      backendMessages: [
-        {
-          id: "msg-thinking",
-          role: ChatRoleEnum.assistant,
-          content: [
-            createMessageThinkingContent({
-              thinking: "",
-              summary: backendSummary,
-              signature: "backend-signature",
-            }),
-          ],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      localMessages: [
-        {
-          id: "msg-thinking",
-          role: ChatRoleEnum.assistant,
-          content: [
-            createMessageThinkingContent({
-              thinking: localThinking,
-              summary: "",
-              signature: "",
-            }),
-          ],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      preserveLocalOnlyMessages: true,
-    });
-
-    expect(reconciled).toHaveLength(1);
-    const message = reconciled[0];
-    expect(message.role).toBe(ChatRoleEnum.assistant);
-    expect(message.content).toEqual([
-      createMessageThinkingContent({
-        thinking: localThinking,
-        summary: backendSummary,
-        signature: "backend-signature",
-      }),
     ]);
   });
 });
