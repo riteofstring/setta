@@ -1,32 +1,23 @@
-import {
-  showParamUITypeTab,
-  showProjectOverviewTab,
-  showVersionsTab,
-} from "components/Panes/paneFns";
-import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import { useSettings } from "state/stores/uiPreferenceStores";
-import { focusAdjacentTopLevelSection, focusScope } from "utils/focusManager";
 import { isMacOs } from "utils/utils";
 import {
-  handleTabKeyDown,
-  keyActivationCommands,
-  runParamShortcut,
-} from "./keyActivationHandlers";
+  createShortcutRegistrations,
+  type KeyAction,
+  type KeyActionEvent,
+  type KeyUpAction,
+  type ShortcutRegistration,
+  type ShortcutTrackingName,
+} from "./keyShortcutRegistrations";
 import {
   getIgnoreWhenInInputField,
+  getIsInput,
   getNormalizedEventCode,
   getShouldPreventDefault,
   isShortcutPressed,
-  isTabLikeShortcut,
   modifierKeyCodes,
   parseShortcut,
   type ParsedShortcut,
 } from "./keyShortcutUtils";
-
-type KeyActionEvent = Event | KeyboardEvent | MouseEvent;
-
-type KeyAction = (event: KeyboardEvent) => void;
-type KeyUpAction = (event: KeyActionEvent) => void;
 
 type ShortcutInfo = {
   parsedShortcut: ParsedShortcut;
@@ -96,7 +87,7 @@ function keyUpLoop(event: KeyActionEvent, shortcutInfo: Array<ShortcutInfo>) {
 }
 
 function addKeepKeyDownConditions(
-  shortcutInfoByName: Record<string, ShortcutInfo | undefined>,
+  shortcutInfoByName: Record<ShortcutTrackingName, ShortcutInfo | undefined>,
   isMacOsHost: boolean,
 ) {
   const showTooltipShortcut = shortcutInfoByName.showTooltipShortcut;
@@ -145,435 +136,28 @@ function addKeepKeyDownConditions(
 
 export function attachKeyEventListeners() {
   const shortcuts = useSettings.getState().shortcuts;
-  const shortcutInfoByName: Record<string, ShortcutInfo | undefined> = {};
-  const indentShortcutIsTab = isTabLikeShortcut(shortcuts.paramIndentShortcut);
-  const unindentShortcutIsTab = isTabLikeShortcut(
-    shortcuts.paramUnindentShortcut,
-  );
-
-  function registerTrackedShortcut(
-    name: string,
-    keyDownAction: KeyAction,
-    keyUpAction: KeyUpAction | null = null,
-    allowRepeat = false,
-  ) {
-    return [
-      shortcuts[name],
-      keyDownAction,
-      keyUpAction,
-      allowRepeat,
-      name,
-    ] as const;
-  }
-
-  const conditionAndAction = [
-    ["tab", handleTabKeyDown, null, false, null],
-    ["shift + tab", handleTabKeyDown, null, false, null],
-    [
-      shortcuts.focusHeaderShortcut,
-      () => focusScope("header"),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.focusOverviewShortcut,
-      () => focusScope("overview"),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.focusCanvasShortcut,
-      () => focusScope("canvas"),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.focusUiEditorShortcut,
-      () => focusScope("ui-editor"),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.nextTopLevelSectionShortcut,
-      () => focusAdjacentTopLevelSection({ direction: 1 }),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.prevTopLevelSectionShortcut,
-      () => focusAdjacentTopLevelSection({ direction: -1 }),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.newCardShortcut,
-      keyActivationCommands.addCallableSectionInEmptySpace,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.newGroupShortcut,
-      keyActivationCommands.addGroupInEmptySpace,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.newTerminalShortcut,
-      keyActivationCommands.addTerminalInEmptySpace,
-      null,
-      false,
-      null,
-    ],
-    registerTrackedShortcut(
-      "showTooltipShortcut",
-      keyActivationCommands.enableFloatingBox,
-      keyActivationCommands.disableFloatingBox,
-    ),
-    [
-      shortcuts.tooltipToPlaintextShortcut,
-      keyActivationCommands.getConvertFloatingBoxToSectionFn(false),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.tooltipToMarkdownShortcut,
-      keyActivationCommands.getConvertFloatingBoxToSectionFn(true),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.freezeTooltipShortcut,
-      keyActivationCommands.freezeFloatingBox,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.frozenTooltipToPlaintextShortcut,
-      keyActivationCommands.getConvertFloatingBoxToSectionFn(false),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.frozenTooltipToMarkdownShortcut,
-      keyActivationCommands.getConvertFloatingBoxToSectionFn(true),
-      null,
-      false,
-      null,
-    ],
-    registerTrackedShortcut(
-      "incrementTooltipPageShortcut",
-      keyActivationCommands.incrementFloatingBoxIdx,
-    ),
-    registerTrackedShortcut(
-      "decrementTooltipPageShortcut",
-      keyActivationCommands.decrementFloatingBoxIdx,
-    ),
-    registerTrackedShortcut(
-      "copyTooltipTextShortcut",
-      keyActivationCommands.copyFloatingBoxContent,
-    ),
-    [
-      shortcuts.frozenTooltipIncrementShortcut,
-      keyActivationCommands.incrementFrozenFloatingBoxIdx,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.frozenTooltipDecrementShortcut,
-      keyActivationCommands.decrementFrozenFloatingBoxIdx,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.frozenTooltipCopyShortcut,
-      keyActivationCommands.copyFrozenFloatingBoxContent,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.undoShortcut,
-      keyActivationCommands.undoProjectState,
-      null,
-      true,
-      null,
-    ],
-    [
-      shortcuts.redoShortcut,
-      keyActivationCommands.redoProjectState,
-      null,
-      true,
-      null,
-    ],
-    [
-      shortcuts.groupShortcut,
-      keyActivationCommands.groupActiveSections,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.ungroupShortcut,
-      keyActivationCommands.ungroupActiveGroups,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.saveShortcut,
-      keyActivationCommands.saveProject,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.loadShortcut,
-      keyActivationCommands.openFileMenuLoadProjectConfigModal,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.saveAsShortcut,
-      keyActivationCommands.openFileMenuSaveProjectConfigAsModal,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.searchShortcut,
-      keyActivationCommands.focusOnSearch,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.advancedSearchShortcut,
-      keyActivationCommands.focusOnAdvancedSearch,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.commandPaletteShortcut,
-      keyActivationCommands.focusOnCommandPalette,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.resetZoomShortcut,
-      keyActivationCommands.resetZoom,
-      null,
-      false,
-      null,
-    ],
-    [shortcuts.copyShortcut, keyActivationCommands.copy, null, false, null],
-    [shortcuts.pasteShortcut, keyActivationCommands.paste, null, false, null],
-    [
-      shortcuts.pasteAsRefShortcut,
-      () => keyActivationCommands.paste({ asRef: true }),
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.runEntryCodeBlockShortcut,
-      keyActivationCommands.runEntryCodeBlock,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.formatCode,
-      keyActivationCommands.formatActiveCodeSection,
-      null,
-      false,
-      null,
-    ],
-    ...(indentShortcutIsTab
-      ? []
-      : [
-          [
-            shortcuts.paramIndentShortcut,
-            (event: KeyboardEvent) =>
-              runParamShortcut(
-                keyActivationCommands.indentSelectedParams,
-                event,
-              ),
-            null,
-            false,
-            null,
-          ] as const,
-        ]),
-    ...(unindentShortcutIsTab
-      ? []
-      : [
-          [
-            shortcuts.paramUnindentShortcut,
-            (event: KeyboardEvent) =>
-              runParamShortcut(
-                keyActivationCommands.unindentSelectedParams,
-                event,
-              ),
-            null,
-            false,
-            null,
-          ] as const,
-        ]),
-    [
-      shortcuts.paramMoveUpShortcut,
-      (event: KeyboardEvent) =>
-        runParamShortcut(keyActivationCommands.moveSelectedParamsUp, event),
-      null,
-      true,
-      null,
-    ],
-    [
-      shortcuts.paramMoveDownShortcut,
-      (event: KeyboardEvent) =>
-        runParamShortcut(keyActivationCommands.moveSelectedParamsDown, event),
-      null,
-      true,
-      null,
-    ],
-    [
-      shortcuts.paramSelect,
-      keyActivationCommands.activateParamSelect,
-      keyActivationCommands.deactivateParamSelect,
-      false,
-      null,
-    ],
-    [shortcuts.fitViewShortcut, onFitViewHandler, null, false, null],
-    [
-      shortcuts.zoomToMouseShortcut,
-      keyActivationCommands.zoomToMouseLocation,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.deleteSectionShortcut,
-      keyActivationCommands.deleteEdgesOrSections,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.selectTopLevelNonGroupSections,
-      keyActivationCommands.setTopLevelNonGroupSectionsAsActive,
-      null,
-      false,
-      null,
-    ],
-    [shortcuts.selectAll, keyActivationCommands.selectAll, null, false, null],
-    [shortcuts.showVersionsTabShortcut, showVersionsTab, null, false, null],
-    [
-      shortcuts.showParamUITypeTabShortcut,
-      showParamUITypeTab,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.showProjectOverviewTabShortcut,
-      showProjectOverviewTab,
-      null,
-      false,
-      null,
-    ],
-    [shortcuts.zoomInShortcut, keyActivationCommands.zoomIn, null, true, null],
-    [
-      shortcuts.zoomOutShortcut,
-      keyActivationCommands.zoomOut,
-      null,
-      true,
-      null,
-    ],
-    [
-      shortcuts.restartLanguageServerShortcut,
-      keyActivationCommands.restartLanguageServer,
-      null,
-      false,
-      null,
-    ],
-    [
-      shortcuts.selectionKeyCode,
-      keyActivationCommands.activateSelectionKeyPressed,
-      keyActivationCommands.deactivateSelectionKeyPressed,
-      false,
-      null,
-    ],
-    [
-      shortcuts.multiSelectionKeyCode,
-      keyActivationCommands.activateMultiSelectionPressed,
-      keyActivationCommands.deactivateMultiSelectionPressed,
-      false,
-      null,
-    ],
-    [
-      shortcuts.panActivationKeyCode,
-      keyActivationCommands.activatePanMode,
-      keyActivationCommands.deactivatePanMode,
-      false,
-      null,
-    ],
-    [
-      shortcuts.zoomActivationKeyCode,
-      keyActivationCommands.activateZoomMode,
-      keyActivationCommands.deactivateZoomMode,
-      false,
-      null,
-    ],
-    [
-      shortcuts.moveSectionKeyCode,
-      keyActivationCommands.activateMoveSectionMode,
-      keyActivationCommands.deactivateMoveSectionMode,
-      false,
-      null,
-    ],
-    [
-      shortcuts.movingFreeShortcut,
-      keyActivationCommands.activateDndMovingFreeMode,
-      keyActivationCommands.deactivateDnd,
-      false,
-      null,
-    ],
-    [
-      shortcuts.sortingShortcut,
-      keyActivationCommands.activateDndSortingMode,
-      keyActivationCommands.deactivateDnd,
-      false,
-      null,
-    ],
-    ["Escape", keyActivationCommands.onEscapeKey, null, false, null],
-  ] as const;
+  const shortcutInfoByName: Record<
+    ShortcutTrackingName,
+    ShortcutInfo | undefined
+  > = {
+    copyTooltipTextShortcut: undefined,
+    decrementTooltipPageShortcut: undefined,
+    incrementTooltipPageShortcut: undefined,
+    showTooltipShortcut: undefined,
+  };
 
   const cleanupFunctions: Array<() => void> = [];
   const shortcutInfo: Array<ShortcutInfo> = [];
   const isMacOsHost = isMacOs();
 
-  for (const [
-    keyCombo,
-    keyDownAction,
-    keyUpAction,
-    allowRepeat,
-    nameForTracking,
-  ] of conditionAndAction) {
+  for (const registration of createShortcutRegistrations(shortcuts)) {
+    const {
+      keyCombo,
+      keyDownAction,
+      keyUpAction,
+      allowRepeat,
+      trackingName,
+    }: ShortcutRegistration = registration;
     if (!keyCombo) {
       continue;
     }
@@ -592,8 +176,8 @@ export function attachKeyEventListeners() {
       ),
     };
     shortcutInfo.push(info);
-    if (nameForTracking) {
-      shortcutInfoByName[nameForTracking] = info;
+    if (trackingName) {
+      shortcutInfoByName[trackingName] = info;
     }
   }
 
@@ -610,12 +194,7 @@ export function attachKeyEventListeners() {
       addKeyPressed(eventCode);
     }
 
-    const isInput = Boolean(
-      event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement ||
-        event.target instanceof HTMLSelectElement ||
-        (event.target as HTMLElement | null)?.isContentEditable,
-    );
+    const isInput = getIsInput(event);
 
     for (const info of shortcutInfo) {
       if (

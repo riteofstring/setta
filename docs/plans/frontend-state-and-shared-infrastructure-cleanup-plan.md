@@ -65,11 +65,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   owns pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
   lookup and highlighting, and `uiSettingRevealShared.ts` owns
   execution-context/status helpers.
-- `frontend/src/state/actions/keyActivations.ts` is now a 705-line listener
-  orchestration entrypoint; `keyShortcutUtils.ts` owns shortcut parsing,
-  event-code normalization, and input-ignore policy, and
-  `keyActivationHandlers.ts` owns `Tab`/`Escape`, section-selection, and React
-  Flow key-mode handlers.
+- `frontend/src/state/actions/keyActivations.ts` is now a 284-line listener
+  orchestration entrypoint; `keyShortcutRegistrations.ts` owns grouped shortcut
+  registration, `keyShortcutUtils.ts` owns shortcut parsing, event-code
+  normalization, and input-ignore policy, and `keyActivationHandlers.ts` owns
+  `Tab`/`Escape`, section-selection, and React Flow key-mode handlers.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessions.ts` owns cached websocket session
   reuse and transport wiring, and `terminalFit.ts` owns xterm
@@ -79,15 +79,23 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 ## Current State (Observed)
 
-- `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
-- The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/keyActivations.ts` at 705 lines
+- `frontend/src/state` plus shared infrastructure files in `components/Utils`
+  and `utils` total about 89.0k lines of authored code in the sampled
+  directories.
+- The largest remaining authored state surfaces are:
+  - `frontend/src/state/actions/projectChatWindowing.ts` at 2324 lines
+  - `frontend/src/state/actions/aiChatStreaming.ts` at 1349 lines
+  - `frontend/src/state/actions/projectChatThreads.ts` at 895 lines
+  - `frontend/src/state/actions/git.ts` at 805 lines
+  - `frontend/src/state/actions/aiConfiguration.ts` at 700 lines
+- The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 520 lines
-  - `frontend/src/state/actions/websocketLifecycle.ts` at 495 lines
+  - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
+  - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts` at 325 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
@@ -167,8 +175,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
-- `keyActivations.ts`, `keyShortcutUtils.ts`, and `keyActivationHandlers.ts` now split into:
+- `keyActivations.ts`, `keyShortcutRegistrations.ts`, `keyShortcutUtils.ts`,
+  and `keyActivationHandlers.ts` now split into:
   - `keyActivations.ts` for global key-listener wiring and pressed-key bookkeeping
+  - `keyShortcutRegistrations.ts` for grouped shortcut registration tables
   - `keyShortcutUtils.ts` for shortcut parsing, event-code normalization, and input-ignore policy
   - `keyActivationHandlers.ts` for `Tab`/`Escape`, section-selection, and React Flow key-mode handlers
 - `windowSpacePersistence.ts` now owns:

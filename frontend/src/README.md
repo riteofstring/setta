@@ -194,9 +194,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/windowSpaces.ts` now owns workspace restore orchestration for
     saved window spaces.
   - `state/actions/keyActivations.ts` now just owns global key-listener
-    orchestration; `keyShortcutUtils.ts` owns shortcut parsing/input-ignore
-    policy and `keyActivationHandlers.ts` owns `Tab`/`Escape`, section
-    selection, and React Flow key-mode handlers.
+    orchestration and pressed-key bookkeeping;
+    `state/actions/keyShortcutRegistrations.ts` owns the grouped shortcut
+    registry, `keyShortcutUtils.ts` owns shortcut parsing/input-ignore policy,
+    and `keyActivationHandlers.ts` owns `Tab`/`Escape`, section selection, and
+    React Flow key-mode handlers.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
     `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal
     orchestration, `uiSettingRevealMutationOwnership.ts` owns lease sequence and
@@ -264,9 +266,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/keyActivations.ts` remains the largest shared-state hotspot
-  and should keep shrinking across more explicit shortcut groups instead of
-  continuing as a 700-line listener surface
+- `state/actions/projectChatWindowing.ts` remains the largest authored state
+  hotspot and should continue from
+  `state/actions/projectChatWindowingAuthoritative.ts` and
+  `state/actions/projectChatWindowingEphemeral.ts` instead of regrowing around
+  those seams
+- `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
+  hotspot and should keep shrinking around restore orchestration versus saved
+  layout mutation ownership
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
@@ -276,18 +283,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
   backend sync, shared commands, optimistic mutation infrastructure, and
   top-level layout ownership
-- `state/actions/websocketReceive.ts` is now a compatibility facade that
-  delegates lifecycle or reconnect logic to
-  `state/actions/websocketLifecycle.ts`, outbound realtime sends to
-  `state/actions/websocketRealtime.ts`, and shared active-socket state to
-  `state/actions/websocketRuntime.ts`; follow-up websocket work should stay on
-  one of those owners instead of growing the facade again
-- `state/actions/stateMachineEdges.ts` is now a compatibility entrypoint that
-  delegates workflow connection rules and machine-group reads to
-  `state/actions/stateMachineEdgeConnections.ts` and optimistic create or
-  update or delete commands to `state/actions/stateMachineEdgeMutations.ts`;
-  follow-up work should stay on one of those owners instead of growing the
-  facade again
+- `state/actions/websocketLifecycle.ts` still owns a broad transport/auth or
+  reconnect/bootstrap surface even after `websocketReceive.ts` became a thin
+  facade, so future websocket cleanup should stay on the dedicated lifecycle or
+  realtime owners instead of rebuilding the facade
 - `components/Utils/Resizable/CustomResizable.tsx` now delegates resize
   lifecycle and optimistic persistence to
   `components/Utils/Resizable/useCustomResizableBehavior.ts`, pure clamp/auto-

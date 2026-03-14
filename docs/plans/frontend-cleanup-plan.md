@@ -68,7 +68,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
-- `frontend/src/state/actions/aiChatStreaming.ts` is now 1352 lines and owns streaming reducers, tool preview/app-spec reconciliation, and optimistic stream update behavior after retiring `frontend/src/state/actions/ai.ts`.
+- `frontend/src/state/actions/aiChatStreaming.ts` is now 1349 lines and owns streaming reducers, tool preview/app-spec reconciliation, and optimistic stream update behavior after retiring `frontend/src/state/actions/ai.ts`.
 - `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
 - `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration and backend request payload assembly.
@@ -116,9 +116,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/hooks/terminals/terminalSessions.ts` and xterm
   fit/fallback/reflow behavior to
   `frontend/src/state/hooks/terminals/terminalFit.ts`.
-- `frontend/src/state/actions/keyActivations.ts` is down to 705 lines and now
-  delegates shortcut parsing/input-ignore policy to
-  `frontend/src/state/actions/keyShortcutUtils.ts` and `Tab`/`Escape`,
+- `frontend/src/state/actions/keyActivations.ts` is down to 284 lines and now
+  delegates grouped shortcut registration to
+  `frontend/src/state/actions/keyShortcutRegistrations.ts`, shortcut
+  parsing/input-ignore policy to
+  `frontend/src/state/actions/keyShortcutUtils.ts`, and `Tab`/`Escape`,
   section-selection, and React Flow key-mode handlers to
   `frontend/src/state/actions/keyActivationHandlers.ts`.
 - `frontend/src/utils/focusManager.ts` is down to a thin compatibility surface
