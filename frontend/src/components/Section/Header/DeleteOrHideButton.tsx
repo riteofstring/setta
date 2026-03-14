@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
@@ -124,9 +125,13 @@ export function DeleteOrHideButton({
       } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${cursorClass} ${
         twClasses ?? ""
       }`}
+      aria-label={label}
       {...buttonProps}
       onClick={resolvedOnClick}
       disabled={buttonProps.disabled || isDisabled}
+      title={label}
+      type="button"
+      {...getFloatingBoxHandlers({ content: label })}
     >
       {resolvedIcon}
       {children}
@@ -148,9 +153,9 @@ function getDeleteOrHideIcon(isEditingViewMode: boolean, visibility: boolean) {
 function getDeleteOrHideLabel(isEditingViewMode: boolean, visibility: boolean) {
   if (isEditingViewMode) {
     if (visibility) {
-      return "Hide";
+      return "Hide section";
     }
-    return "Show";
+    return "Show section";
   }
-  return "Close";
+  return "Delete section";
 }

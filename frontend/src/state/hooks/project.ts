@@ -14,7 +14,7 @@ export function useLoadProjectConfig() {
   const is404 = useProjectLoading((x) => x.projectIs404);
   const isProjectLoading = useProjectLoading((x) => x.projectIsLoading);
   const isHotReload = useHotReload();
-  const loadKey = `${location.key}:${projectConfigName ?? ""}:${pageLoadType ?? ""}`;
+  const loadKey = `${projectConfigName ?? ""}:${pageLoadType ?? ""}`;
   const loadKeyRef = useRef(loadKey);
   const handledPageLoadActionKeyRef = useRef<string | null>(null);
   const isStaleLoadKey = loadKeyRef.current !== loadKey;
