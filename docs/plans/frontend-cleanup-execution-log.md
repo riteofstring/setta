@@ -1450,3 +1450,36 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/gitGraph.ts`, now the largest
     authored/shared state hotspot, into clearer repo-read helpers, graph
     filter state, and commit/detail selection modules.
+
+## 2026-03-14 22:19:20 PDT
+
+- Slice completed: split git graph loading and selection owners out of
+  `frontend/src/state/actions/gitGraph.ts`
+- Key files touched:
+  - `frontend/src/state/actions/gitGraph.ts`
+  - `frontend/src/state/actions/gitGraphLog.ts`
+  - `frontend/src/state/actions/gitGraphSelection.ts`
+  - `frontend/src/state/actions/gitGraphState.ts`
+  - `frontend/src/state/actions/gitGraphState.test.ts`
+  - `frontend/src/state/actions/git.ts`
+  - `frontend/src/state/actions/git.test.ts`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Git/GitGraphWindowContent.tsx`
+  - `frontend/src/components/Git/GitGraphWindowContent.test.tsx`
+  - `frontend/src/components/Panes/Overview/Git/GitPane.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/git.test.ts src/state/actions/gitGraphState.test.ts src/components/Git/GitGraphWindowContent.test.tsx src/components/Panes/Overview/Git/GitPane.test.tsx src/components/Git/GitGraphOverlay.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/gitGraph.ts src/state/actions/gitGraphLog.ts src/state/actions/gitGraphSelection.ts src/state/actions/gitGraphState.ts src/state/actions/git.ts src/state/actions/git.test.ts src/state/actions/gitGraphState.test.ts src/components/Git/GitGraphOverlay.tsx src/components/Git/GitGraphWindowContent.tsx src/components/Git/GitGraphWindowContent.test.tsx src/components/Panes/Overview/Git/GitPane.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `0dc87705f`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionEffectiveImpls.ts`, now the
+    largest authored/shared state hotspot, by separating core effective-impl
+    selectors from terminal attachment and orientation helpers.
