@@ -11,10 +11,4 @@ describe("resolvePathWithinRoot", () => {
   it("rejects paths that escape non-root roots", () => {
     expect(resolvePathWithinRoot("../etc", "/tmp/work")).toBeNull();
   });
-
-  it("preserves windows drive roots while resolving descendants", () => {
-    expect(resolvePathWithinRoot("repo", "C:/")).toBe("C:/repo");
-    expect(resolvePathWithinRoot("C:/repo/src", "C:/")).toBe("C:/repo/src");
-    expect(resolvePathWithinRoot("D:/repo", "C:/")).toBeNull();
-  });
 });

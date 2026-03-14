@@ -69,6 +69,47 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
+We are rewriting the backend in Go. Start by reading `docs/plans/go-backend-rewrite/CURRENT.md`.
+
+Treat `CURRENT.md` as the router and read only the docs the task needs:
+- `caller-backed-backend-surface-checklist.md` for active caller reachability
+- `backend-capability-coverage-checklist.md` for runtime/service ownership
+- `go-backend-rewrite-plan.md` for clean-break defaults and port-vs-redesign decisions
+- `testing-strategy.md` when code, behavior, or verification changes
+- `go-dependency-inventory-and-rationale.md` plus `docs/reference/dependencies/` when dependency, provider, transport, or library choices matter
+- `setta-listener-protocol-redesign-plan.md` or `go-frontend-binding-generation-plan.md` only when the task crosses those boundaries
+
+Use `docs/plans/go-backend-rewrite/README.md` only as the folder map.
+Use `docs/plans/go-backend-rewrite/*-audit-plan.md` only when editing the matching checklist.
+Treat `docs/plans/go-backend-rewrite/archive/` as secondary reference only.
+
+Working rules:
+- This is a clean break. Move backend ownership to Go as slices land, but keep superseded Python source in-tree until the rewrite is complete when that makes merges from `main` easier.
+- Retained Python boundaries are explicit: packaging/install entrypoints, dev-only startup/reload, public Python APIs such as `SettaListener` and `SettaRunner`, and sidecars intentionally executed by Go.
+- If docs disagree with current code/tests, trust the code/tests and update the docs.
+- Preserve active product behavior and current callers, not Python implementation details or route shapes.
+- Read Go code/tests first. Read Python only as behavior reference or when touching a retained Python boundary.
+- Prefer explicit ownership, typed boundaries, thin transports, deterministic source-of-truth paths, and established libraries over heuristics or transitional glue.
+- Do not widen scope unless a concrete caller, workflow, runtime issue, or documented product decision requires it.
+- Track rewrite progress in `caller-backed-backend-surface-checklist.md` and `backend-capability-coverage-checklist.md`, not by deleting Python files during the rewrite.
+
+Execution expectations:
+1. Inspect the current Go code, tests, and active transport/runtime path first.
+2. Map the task to the relevant caller-backed surface, ownership bucket, and any retained Python/shared boundary.
+3. In your first substantive update, summarize the relevant checklist rows or slice doc, the active code path, the boundary implications, and the single highest-leverage next step.
+4. Execute that step end-to-end unless the task is planning or inventory work.
+5. Update the relevant source-of-truth docs in the same change when caller reachability, ownership, dependency decisions, or workflow guidance changed.
+
+While working:
+- Update `caller-backed-backend-surface-checklist.md` if active caller reachability changed.
+- Update `backend-capability-coverage-checklist.md` if runtime/service ownership changed.
+- Update `CURRENT.md` only when routing, retained Python boundaries, or workflow guidance changed.
+- Do not create a new numbered phase or spike doc unless a bounded new slice is actually required.
+- If the task touches Go-to-TypeScript frontend binding generation, keep the canonical generated outputs Go-owned. Prefer Go DTOs and converter rules over handwritten TypeScript or shadow outputs.
+- Run the most relevant tests for the touched area, or explicitly state why they were not run.
+- If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
+- Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
+
 Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
 Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.

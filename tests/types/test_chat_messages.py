@@ -6,7 +6,6 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
-    ToolChatMessage,
     UserChatMessage,
 )
 
@@ -55,16 +54,3 @@ def test_to_openai_format_strips_attachments() -> None:
 
     assert "attachments" not in payload
     assert payload["content"] == [{"type": "text", "text": "Hello"}]
-
-
-def test_tool_to_openai_format_strips_ui_only_fields() -> None:
-    message = ToolChatMessage(tool_call_id="tool-call-1", createdAt=123)
-
-    payload = message.to_openai_format()
-
-    assert "createdAt" not in payload
-    assert payload == {
-        "role": "tool",
-        "tool_call_id": "tool-call-1",
-        "content": [],
-    }

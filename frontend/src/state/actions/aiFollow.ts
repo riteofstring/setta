@@ -1,7 +1,8 @@
 import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
+  type AIFollowSnapshotResponse,
   AIFollowToolArgumentsUpdateContent,
   AIFollowToolResultUpdateContent,
 } from "utils/generatedTypes";
@@ -15,22 +16,9 @@ type AIFollowIdsByProjectConfig = Record<
   string,
   Record<string, Record<string, Array<string>>>
 >;
-export type AIFollowIdsByType = Record<string, Array<string>>;
 
-function cloneIdsByType(
-  idsByType: AIFollowIdsByType | null | undefined,
-): AIFollowIdsByType | null {
-  if (!idsByType) {
-    return null;
-  }
-  const entries = Object.entries(idsByType);
-  if (entries.length === 0) {
-    return {};
-  }
-  return Object.fromEntries(
-    entries.map(([idType, ids]) => [idType, [...ids]]),
-  ) as AIFollowIdsByType;
-}
+type AIFollowSnapshotRouteResponse =
+  ResponseDataAndStatus<AIFollowSnapshotResponse>;
 
 function buildTimeoutKey(
   projectConfigId: string,
@@ -138,56 +126,6 @@ export function receiveAIFollowToolArgumentsUpdate(
   });
 }
 
-export function getAIFollowToolArgumentsSnapshot(
-  projectConfigId: string,
-  chatId: string,
-): AIFollowIdsByType | null {
-  return cloneIdsByType(
-    useAIFollow.getState().toolArgumentsIdsByProjectConfigId[projectConfigId]?.[
-      chatId
-    ] ?? null,
-  );
-}
-
-export function clearAIFollowToolArgumentsForChat(
-  projectConfigId: string,
-  chatId: string,
-): void {
-  useAIFollow.setState((state) => {
-    deleteChatEntry(
-      state.toolArgumentsIdsByProjectConfigId,
-      projectConfigId,
-      chatId,
-    );
-  });
-}
-
-export function restoreAIFollowToolArgumentsSnapshot({
-  projectConfigId,
-  chatId,
-  idsByType,
-}: {
-  projectConfigId: string;
-  chatId: string;
-  idsByType: AIFollowIdsByType | null;
-}): void {
-  const nextIdsByType = cloneIdsByType(idsByType);
-  useAIFollow.setState((state) => {
-    if (nextIdsByType === null) {
-      deleteChatEntry(
-        state.toolArgumentsIdsByProjectConfigId,
-        projectConfigId,
-        chatId,
-      );
-      return;
-    }
-    const projectEntries =
-      state.toolArgumentsIdsByProjectConfigId[projectConfigId] ??
-      (state.toolArgumentsIdsByProjectConfigId[projectConfigId] = {});
-    projectEntries[chatId] = nextIdsByType;
-  });
-}
-
 export function receiveAIFollowToolResultUpdate(
   payload: AIFollowToolResultUpdateContent,
 ): void {
@@ -287,7 +225,8 @@ export function receiveAgenticScopeViolationEdges({
 export async function requestAIFollowSnapshot(
   projectConfigId: string,
 ): Promise<void> {
-  const res = await route_get_ai_follow_snapshot({ projectConfigId });
+  const res: AIFollowSnapshotRouteResponse =
+    await route_get_ai_follow_snapshot({ projectConfigId });
   if (!res200(res)) {
     return;
   }

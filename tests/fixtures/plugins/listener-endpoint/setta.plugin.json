@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-fixture-listener-endpoint",
+  "name": "Setta Fixture Listener Endpoint",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "backend": {
+    "entrypoint": "backend/entrypoint.py"
+  },
+  "frontend": {
+    "entrypoint": "frontend/dist/index.js"
+  },
+  "capabilities": [
+    "registerPane",
+    "registerRouter",
+    "registerListenerEndpoint"
+  ]
+}

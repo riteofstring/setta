@@ -11,12 +11,15 @@ from setta.api.chat_toolkit import (
     ChatStreamEmitterClient,
     ChatToolRunnerClient,
 )
-from setta.api.generated_listener_endpoints import RouterEndpointAPI
+from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.api.listener import ListenerCallbackContext, SettaListener
 from setta.database.db_objs import DBE
 from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit.history import ChatHistory
-from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
+from setta.llm.chat_toolkit.section_sync import (
+    apply_stream_delta,
+    build_chat_section_state,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     ChatFileAttachment,
@@ -78,7 +81,7 @@ def _build_listener_context(
     listener._router_endpoint_api = RouterEndpointAPI(router_caller)
 
     @listener.listen()
-    def _noop(state: Any, ctx: ListenerCallbackContext) -> None:
+    def _noop(_state: Any, _ctx: ListenerCallbackContext) -> None:
         return None
 
     spec = next(iter(listener._callbacks.values()))
@@ -399,30 +402,28 @@ class TestChatSessionOpenFromEvent:
             assert isinstance(captured_messages[0], AssistantChatMessage)
 
     async def test_open_from_event_rejects_tool_role(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
-            section_id = ID("section-1")
+        engine_config_id = None
+        section_id = ID("section-1")
 
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
+        async def router_caller(endpoint_name: str, _payload: object) -> object:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-            project_state = _build_chat_project_state(ID("proj-chat-tool"))
-            ctx = _build_listener_context(project_state, router_caller)
+        project_state = _build_chat_project_state(ID("proj-chat-tool"))
+        ctx = _build_listener_context(project_state, router_caller)
 
-            event = ChatSendEvent(
-                sectionId=section_id,
-                messageId="msg-1",
-                text="Tool note",
-                role=ChatRole.tool,
-                timestampMs=123,
-                managed=True,
+        event = ChatSendEvent(
+            sectionId=section_id,
+            messageId="msg-1",
+            text="Tool note",
+            role=ChatRole.tool,
+            timestampMs=123,
+            managed=True,
+        )
+
+        with pytest.raises(ValueError):
+            await ChatSession.open_from_event(
+                ctx=ctx,
+                section_id=section_id,
+                engine_config_id=engine_config_id,
+                event=event,
             )
-
-            with pytest.raises(ValueError):
-                await ChatSession.open_from_event(
-                    ctx=ctx,
-                    section_id=section_id,
-                    engine_config_id=engine_config_id,
-                    event=event,
-                )

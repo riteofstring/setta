@@ -7506,8 +7506,8 @@ def test_dispatch_backend_worker_host_request_rejects_unsupported_host_method(
         ),
         (
             "host.register_mcp_tool",
-            {"toolName": "fixture_tool", "annotations": ["invalid"]},
-            "annotations must be an object",
+            {"tool": {"name": "fixture_tool", "metadata": ["invalid"]}},
+            "metadata must be an object",
         ),
     ],
 )
