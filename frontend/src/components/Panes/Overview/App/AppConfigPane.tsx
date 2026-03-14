@@ -525,9 +525,6 @@ export function AppConfigPane() {
     <section className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-4 pb-4 text-sm text-setta-600 dark:text-setta-300">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex max-w-2xl flex-col gap-1">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            App Config
-          </h3>
           <p className="text-xs text-setta-500 dark:text-setta-400">
             Advanced app-definition workbench for previewing, validating,
             saving, and editing the current app spec.

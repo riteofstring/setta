@@ -8,7 +8,9 @@ test("app config pane persists catalog, version, and spec path", async ({
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
 
-  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "JSON Render" }),
+  ).toBeVisible();
 
   const createDefaultButton = page.getByRole("button", {
     name: "Create Default",
@@ -50,7 +52,9 @@ test("app config pane persists catalog, version, and spec path", async ({
   await expect(page.getByText("App spec saved.")).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "JSON Render" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Advanced" }).click();
 
   await expect(page.getByLabel("Catalog ID")).toHaveValue(defaultCatalogId);

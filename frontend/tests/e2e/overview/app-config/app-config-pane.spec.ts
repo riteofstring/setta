@@ -13,7 +13,9 @@ test("app config pane can save a default spec and show preview", async ({
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
 
-  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "JSON Render" }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Create Default" }).click();
   const saveButton = page.getByRole("button", { name: "Save" });
@@ -42,7 +44,9 @@ test("app config keeps chat-owned generation controls out of the default workben
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
 
-  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "JSON Render" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Show Preview" }),
   ).toBeVisible();
