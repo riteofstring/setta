@@ -6229,6 +6229,24 @@ export function createSetSectionNameRequestInput(options: Partial<SetSectionName
 }
 
 
+export type AcceptRenameRefactorRequestInput = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+export function createAcceptRenameRefactorRequestInput(options: Partial<AcceptRenameRefactorRequestInput> = {}): AcceptRenameRefactorRequestInput {
+  return options as AcceptRenameRefactorRequestInput;
+}
+
+
+export type DeclineRenameRefactorRequestInput = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+export function createDeclineRenameRefactorRequestInput(options: Partial<DeclineRenameRefactorRequestInput> = {}): DeclineRenameRefactorRequestInput {
+  return options as DeclineRenameRefactorRequestInput;
+}
+
+
 export const LaunchSettaFilesLocationEnum = {
   Auto: "auto",
   Local: "local",
@@ -9885,4 +9903,3 @@ export const REQUIRED_UI_EDITOR_TABS = ({
   [SectionTypeEnum.Terminal]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.TextBlock]: [UIEditorTabNameEnum.SectionConfig, UIEditorTabNameEnum.InfoConfig, UIEditorTabNameEnum.SectionVariantsConfig],
 }) as Record<SectionType, readonly UIEditorTabName[]>;
-

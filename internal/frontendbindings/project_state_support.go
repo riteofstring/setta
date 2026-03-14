@@ -686,6 +686,16 @@ type SetSectionNameRequestInput struct {
 	Name            string  `json:"name"`
 }
 
+type AcceptRenameRefactorRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	FrontendOpID    string `json:"frontendOpId"`
+}
+
+type DeclineRenameRefactorRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	FrontendOpID    string `json:"frontendOpId"`
+}
+
 type ToggleSectionVisibilityRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectConfigID string   `json:"projectConfigId"`

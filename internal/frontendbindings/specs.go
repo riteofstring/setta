@@ -373,6 +373,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_NAME",
 				},
 				{
+					Name:     "acceptRenameRefactor",
+					Path:     httpapi.RouteAcceptRenameRefactor,
+					EnumName: "ACCEPT_RENAME_REFACTOR",
+				},
+				{
+					Name:     "declineRenameRefactor",
+					Path:     httpapi.RouteDeclineRenameRefactor,
+					EnumName: "DECLINE_RENAME_REFACTOR",
+				},
+				{
 					Name:     "createWorkspaceLaunchIntent",
 					Path:     httpapi.RouteCreateWorkspaceLaunchIntent,
 					EnumName: "CREATE_WORKSPACE_LAUNCH_INTENT",
@@ -1832,6 +1842,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSectionName",
 			RequestType:     reflect.TypeOf(SetSectionNameRequestInput{}),
+		},
+		{
+			FunctionName:    "route_accept_rename_refactor",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "acceptRenameRefactor",
+			RequestType:     reflect.TypeOf(AcceptRenameRefactorRequestInput{}),
+		},
+		{
+			FunctionName:    "route_decline_rename_refactor",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "declineRenameRefactor",
+			RequestType:     reflect.TypeOf(DeclineRenameRefactorRequestInput{}),
 		},
 		{
 			FunctionName:    "route_create_workspace_launch_intent",

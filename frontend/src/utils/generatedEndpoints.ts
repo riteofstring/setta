@@ -388,6 +388,18 @@ export async function route_set_section_name(
   return await post(GoHTTPRoutes.setSectionName, x);
 }
 
+export async function route_accept_rename_refactor(
+  x: gt.AcceptRenameRefactorRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.acceptRenameRefactor, x);
+}
+
+export async function route_decline_rename_refactor(
+  x: gt.DeclineRenameRefactorRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.declineRenameRefactor, x);
+}
+
 export async function route_create_workspace_launch_intent(
   x: gt.CreateWorkspaceLaunchIntentRequestInput,
 ): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {

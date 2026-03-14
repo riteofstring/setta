@@ -394,6 +394,8 @@ Current landed wedge:
       - `SetViewModeSortOrderRequestInput`
       - `DeleteViewModeRequestInput`
       - `SetSectionNameRequestInput`
+      - `AcceptRenameRefactorRequestInput`
+      - `DeclineRenameRefactorRequestInput`
     - current code file binding payloads
       - `CodeFileBindingUpdate`
       - `SetCodeFileBindingRequestInput`
@@ -1054,6 +1056,9 @@ Current landed wedge:
     and the Setta API preset helper now consume canonical Go-generated
     top-level section creation, view-mode lifecycle, and section-rename
     bindings
+  - `RenameReferencesModal` and `state/actions/renameRefactors` now consume
+    canonical Go-generated rename-refactor bindings for
+    `acceptRenameRefactor` and `declineRenameRefactor`
   - the current settings-backed UI/layout caller cluster in `ProjectNav`,
     `ProjectPageSearch`, `GlobalWrapper`, `DictArea`, `GroupContainer`,
     `FlowRenderer`, `ZoomPane`, `Pane`, `Background`, `ProjectAISettings`,

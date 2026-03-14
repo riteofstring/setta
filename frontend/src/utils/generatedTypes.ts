@@ -6419,6 +6419,26 @@ export function createSetSectionNameRequestInput(
   return options as SetSectionNameRequestInput;
 }
 
+export type AcceptRenameRefactorRequestInput = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+export function createAcceptRenameRefactorRequestInput(
+  options: Partial<AcceptRenameRefactorRequestInput> = {},
+): AcceptRenameRefactorRequestInput {
+  return options as AcceptRenameRefactorRequestInput;
+}
+
+export type DeclineRenameRefactorRequestInput = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+export function createDeclineRenameRefactorRequestInput(
+  options: Partial<DeclineRenameRefactorRequestInput> = {},
+): DeclineRenameRefactorRequestInput {
+  return options as DeclineRenameRefactorRequestInput;
+}
+
 export const LaunchSettaFilesLocationEnum = {
   Auto: "auto",
   Local: "local",

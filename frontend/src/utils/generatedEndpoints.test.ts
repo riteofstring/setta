@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
+  route_accept_rename_refactor,
   route_add_kwarg,
   route_append_draw_area_layer_item,
   route_append_transcription_audio,
@@ -28,6 +29,7 @@ import {
   route_delete_agentic_edges,
   route_delete_artifacts,
   route_delete_child_sections_via_decrementer,
+  route_decline_rename_refactor,
   route_delete_edges,
   route_delete_json_source_file_and_variant,
   route_delete_kwarg,
@@ -1548,6 +1550,39 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "section-a",
         name: "Renamed Section",
         frontendOpId: "frontend-op-rename-section",
+      }),
+    });
+  });
+
+  it("posts rename refactor accept and decline writes", async () => {
+    await route_accept_rename_refactor({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-accept-rename",
+    });
+    await route_decline_rename_refactor({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-decline-rename",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/acceptRenameRefactor`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-accept-rename",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/declineRenameRefactor`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-decline-rename",
       }),
     });
   });
