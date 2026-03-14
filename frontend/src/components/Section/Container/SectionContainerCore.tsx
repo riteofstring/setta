@@ -18,10 +18,12 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
+import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
@@ -146,8 +148,20 @@ function _SectionContainerCore({
         isolation: "isolate",
       } as React.CSSProperties)
     : sectionStyleVars;
-  const shouldRenderAgenticEdgeHandles =
+  const shouldRenderSharedChatHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const isWorkflowOnlyNodeSection =
+    sectionTypeName === SectionTypeEnum.StateMachineStart ||
+    sectionTypeName === SectionTypeEnum.StateMachineGate ||
+    sectionTypeName === SectionTypeEnum.StateMachineEnd;
+  const shouldRenderChatSharedHandles =
+    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
+  const shouldRenderAgenticEdgeHandles =
+    shouldRenderSharedChatHandles &&
+    !shouldRenderChatSharedHandles &&
+    !isWorkflowOnlyNodeSection;
+  const shouldRenderStateMachineEdgeHandles =
+    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
 
   return (
     <section
@@ -159,9 +173,15 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      {shouldRenderAgenticEdgeHandles && (
+      {shouldRenderChatSharedHandles ? (
+        <ChatSharedEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderAgenticEdgeHandles ? (
         <AgenticEdgeHandles isUserView={isUserView} />
-      )}
+      ) : null}
+      {shouldRenderStateMachineEdgeHandles ? (
+        <StateMachineEdgeHandles isUserView={isUserView} />
+      ) : null}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}

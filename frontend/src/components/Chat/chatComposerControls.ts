@@ -1,9 +1,4 @@
-import {
-  type AppGenerationSlashCommandAction,
-  buildAppGenerationSlashCommandDefinitions,
-  getAppGenerationSlashCommandByAction,
-  resolveAppGenerationModeForSlashAction,
-} from "./appGenerationSlashCommands";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 
 const CHAT_PERMISSION_MODES = [
   "minimal",
@@ -89,7 +84,10 @@ export function resolveToggleArg(
 export type ChatSlashCommandAction =
   | "new"
   | "resume"
-  | AppGenerationSlashCommandAction
+  | "app_json_render"
+  | "app_json_render_with_image"
+  | "app_prompt_builder"
+  | "app_mcp_server"
   | "model"
   | "permissions"
   | "search"
@@ -108,11 +106,6 @@ export type ChatSlashCommandDefinition = {
 type ManagedChatSlashCommandAction = Exclude<
   ChatSlashCommandAction,
   "custom_prompt" | "native_prompt"
->;
-
-type ManagedNonAppSlashCommandAction = Exclude<
-  ManagedChatSlashCommandAction,
-  AppGenerationSlashCommandAction
 >;
 
 type ChatSlashCommandInput = {
@@ -159,10 +152,12 @@ type ManagedChatSlashCommandArgs = {
   modelFeedback?: string | null;
   searchEnabled?: boolean;
   onSetSearchEnabled?: (nextValue: boolean) => void;
+  appGenerationMode?: AppGenerationMode | null;
+  onSetAppGenerationMode?: (nextMode: AppGenerationMode) => void;
 };
 
 const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
-  ManagedNonAppSlashCommandAction,
+  ManagedChatSlashCommandAction,
   ChatSlashCommandDefinition
 > = {
   new: { command: "/new", action: "new", summary: "Start a new chat thread." },
@@ -175,6 +170,26 @@ const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
     command: "/model",
     action: "model",
     summary: "Set or inspect model config.",
+  },
+  app_json_render: {
+    command: "/app-json",
+    action: "app_json_render",
+    summary: "Set app generation mode to JSON Render.",
+  },
+  app_json_render_with_image: {
+    command: "/app-image",
+    action: "app_json_render_with_image",
+    summary: "Set app generation mode to JSON + Image.",
+  },
+  app_prompt_builder: {
+    command: "/app-prompt",
+    action: "app_prompt_builder",
+    summary: "Set app generation mode to Prompt Builder.",
+  },
+  app_mcp_server: {
+    command: "/app-mcp",
+    action: "app_mcp_server",
+    summary: "Set app generation mode to MCP Server.",
   },
   permissions: {
     command: "/permissions",
@@ -200,24 +215,57 @@ export function buildChatSlashCommands(
   const includePermissions = capabilities.permissions ?? true;
   const includeSearch = capabilities.search ?? true;
   const includeAppGenerationModes = capabilities.appGenerationModes ?? false;
-  const commands: ChatSlashCommandDefinition[] = [
-    CHAT_SLASH_COMMAND_DEFINITIONS.new,
-    CHAT_SLASH_COMMAND_DEFINITIONS.resume,
-  ];
+  const actions: ManagedChatSlashCommandAction[] = ["new", "resume"];
   if (includeAppGenerationModes) {
-    commands.push(...buildAppGenerationSlashCommandDefinitions());
+    actions.push(
+      "app_json_render",
+      "app_json_render_with_image",
+      "app_prompt_builder",
+      "app_mcp_server",
+    );
   }
   if (includeModel) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.model);
+    actions.push("model");
   }
   if (includePermissions) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.permissions);
+    actions.push("permissions");
   }
   if (includeSearch) {
-    commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.search);
+    actions.push("search");
   }
-  commands.push(CHAT_SLASH_COMMAND_DEFINITIONS.help);
-  return commands;
+  actions.push("help");
+  return actions.map((action) => CHAT_SLASH_COMMAND_DEFINITIONS[action]);
+}
+
+function resolveAppGenerationModeForSlashAction(
+  action: ChatSlashCommandAction,
+): AppGenerationMode | null {
+  if (action === "app_json_render") {
+    return "json_render";
+  }
+  if (action === "app_json_render_with_image") {
+    return "json_render_with_image";
+  }
+  if (action === "app_prompt_builder") {
+    return "prompt_builder";
+  }
+  if (action === "app_mcp_server") {
+    return "mcp_server";
+  }
+  return null;
+}
+
+function formatAppGenerationModeLabel(mode: AppGenerationMode): string {
+  if (mode === "json_render") {
+    return "JSON Render";
+  }
+  if (mode === "json_render_with_image") {
+    return "JSON + Image";
+  }
+  if (mode === "prompt_builder") {
+    return "Prompt Builder";
+  }
+  return "MCP Server";
 }
 
 export function formatSlashCommandHelp(
@@ -238,6 +286,8 @@ export async function executeManagedChatSlashCommand({
   modelFeedback,
   searchEnabled,
   onSetSearchEnabled,
+  appGenerationMode,
+  onSetAppGenerationMode,
 }: ManagedChatSlashCommandArgs): Promise<ChatSlashCommandExecutionResult> {
   if (command.action === "new") {
     onStartNewChat();
@@ -287,16 +337,18 @@ export async function executeManagedChatSlashCommand({
     command.action === "app_mcp_server"
   ) {
     const nextMode = resolveAppGenerationModeForSlashAction(command.action);
-    const appGenerationCommand = getAppGenerationSlashCommandByAction(
-      command.action,
-    );
-    if (!nextMode || !appGenerationCommand || !command.promptTemplate?.trim()) {
+    if (!nextMode || typeof onSetAppGenerationMode !== "function") {
       return false;
     }
+    const unchanged = appGenerationMode === nextMode;
+    onSetAppGenerationMode(nextMode);
+    if (unchanged) {
+      return {
+        feedback: `App mode already set to ${formatAppGenerationModeLabel(nextMode)}.`,
+      };
+    }
     return {
-      appGenerationMode: nextMode,
-      feedback: `Submitted ${appGenerationCommand.command}.`,
-      submitPromptTemplate: true,
+      feedback: `App mode set to ${formatAppGenerationModeLabel(nextMode)}.`,
     };
   }
   if (command.action === "model") {

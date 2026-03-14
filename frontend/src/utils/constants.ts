@@ -62,7 +62,7 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Plugins]: "Plugins",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.Git]: "Git",
-  [OverviewTabNameEnum.App]: "JSON Render",
+  [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",

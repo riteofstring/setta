@@ -43,6 +43,7 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
+    runId: str | None = None
     frontendAffinityToken: str | None = None
     allowUnscoped: bool = False
     linkedChatInvocationDepth: int = 0
