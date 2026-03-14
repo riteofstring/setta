@@ -1499,7 +1499,7 @@ func newPluginRouteBackendRuntime(t *testing.T, roots pluginRouteTestRoots, mode
 		DiscoveryService: discovery,
 		RuntimeProvider: plugins.WorkerRuntimeProviderFunc(func(context.Context) (plugins.WorkerRuntime, error) {
 			return plugins.WorkerRuntime{
-				PythonBinary:     pluginRoutePythonBinary(t, repoRoot),
+				CommandPrefix:    []string{pluginRoutePythonBinary(t, repoRoot), "-m", "setta.plugins.worker"},
 				Environment:      pluginRouteWorkerEnv(repoRoot),
 				WorkingDirectory: repoRoot,
 			}, nil

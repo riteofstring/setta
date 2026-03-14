@@ -2087,10 +2087,11 @@ def _redirect_plugin_stdout_to_stderr() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Setta plugin backend worker")
-    parser.add_argument("--plugin-id", required=True)
-    parser.add_argument("--plugin-version", required=True)
-    parser.add_argument("--plugin-root", required=True)
-    parser.add_argument("--entrypoint", required=True)
+    parser.add_argument("--probe", action="store_true")
+    parser.add_argument("--plugin-id")
+    parser.add_argument("--plugin-version")
+    parser.add_argument("--plugin-root")
+    parser.add_argument("--entrypoint")
     parser.add_argument(
         "--server-mode",
         choices=["ide", "share", "app", "launcher"],
@@ -2107,6 +2108,9 @@ def main() -> int:
         default=[],
     )
     args = parser.parse_args()
+
+    if args.probe:
+        return 0
 
     plugin_id = str(args.plugin_id).strip()
     plugin_version = str(args.plugin_version).strip()

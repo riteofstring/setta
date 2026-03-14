@@ -520,7 +520,7 @@ func mustNewBackendRouteRuntimeWithOptions(
 		DiscoveryService: discovery,
 		RuntimeProvider: WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
 			return WorkerRuntime{
-				PythonBinary:     workerRPCTestPythonBinary(t, repoRoot),
+				CommandPrefix:    workerRPCTestCommandPrefix(t, repoRoot),
 				Environment:      workerRPCTestEnv(repoRoot),
 				WorkingDirectory: repoRoot,
 			}, nil

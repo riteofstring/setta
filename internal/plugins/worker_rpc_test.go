@@ -269,11 +269,7 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 		t.Fatalf("write worker RPC test entrypoint: %v", err)
 	}
 
-	pythonBinary := workerRPCTestPythonBinary(t, repoRoot)
-	cmd := exec.Command(
-		pythonBinary,
-		"-m",
-		"setta.plugins.worker",
+	command := append(workerRPCTestCommandPrefix(t, repoRoot),
 		"--plugin-id",
 		"fixture-plugin",
 		"--plugin-version",
@@ -287,6 +283,7 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 		"--effective-capability",
 		CapabilityEmitListenerEvents,
 	)
+	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Dir = repoRoot
 	cmd.Env = workerRPCTestEnv(repoRoot)
 
@@ -406,6 +403,16 @@ func workerRPCTestPythonBinary(t *testing.T, repoRoot string) string {
 
 	t.Fatalf("python interpreter not found under %s", repoRoot)
 	return ""
+}
+
+func workerRPCTestCommandPrefix(t *testing.T, repoRoot string) []string {
+	t.Helper()
+
+	return []string{
+		workerRPCTestPythonBinary(t, repoRoot),
+		"-m",
+		"setta.plugins.worker",
+	}
 }
 
 func workerRPCTestEnv(repoRoot string) []string {

@@ -354,7 +354,7 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 	}
 
 	started, err := launcher.StartAndRegister(ctx, BackendWorkerSpec{
-		PythonBinary:          runtime.PythonBinary,
+		CommandPrefix:         append([]string(nil), runtime.CommandPrefix...),
 		PluginID:              entry.PluginID,
 		PluginVersion:         entry.Version,
 		PluginRoot:            entry.SourcePath,

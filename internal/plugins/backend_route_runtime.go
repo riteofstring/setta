@@ -599,7 +599,7 @@ func (r *BackendRouteRuntime) startPlugin(
 	}
 
 	started, err := launcher.StartAndRegister(ctx, BackendWorkerSpec{
-		PythonBinary:          runtime.PythonBinary,
+		CommandPrefix:         append([]string(nil), runtime.CommandPrefix...),
 		PluginID:              entry.PluginID,
 		PluginVersion:         entry.Version,
 		PluginRoot:            entry.SourcePath,

@@ -262,7 +262,7 @@ func newBackendCodegenWorkerSpec(t *testing.T, effectiveCapabilities []string) B
 	repoRoot := workerRPCTestRepoRoot(t)
 	pluginRoot := copyBackendCodegenFixture(t, repoRoot)
 	return BackendWorkerSpec{
-		PythonBinary:          workerRPCTestPythonBinary(t, repoRoot),
+		CommandPrefix:         workerRPCTestCommandPrefix(t, repoRoot),
 		PluginID:              "setta-fixture-backend-codegen",
 		PluginVersion:         "0.1.0",
 		PluginRoot:            pluginRoot,

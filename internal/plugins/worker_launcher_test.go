@@ -246,7 +246,7 @@ func newWorkerLauncherTestSpec(t *testing.T, shareSessionID string) (BackendWork
 	}
 
 	return BackendWorkerSpec{
-		PythonBinary:          workerRPCTestPythonBinary(t, repoRoot),
+		CommandPrefix:         workerRPCTestCommandPrefix(t, repoRoot),
 		PluginID:              "fixture-plugin",
 		PluginVersion:         "0.1.0",
 		PluginRoot:            pluginRoot,

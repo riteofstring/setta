@@ -33,7 +33,7 @@ var (
 )
 
 type BackendWorkerSpec struct {
-	PythonBinary          string
+	CommandPrefix         []string
 	PluginID              string
 	PluginVersion         string
 	PluginRoot            string
@@ -122,7 +122,7 @@ func (s *StartedWorkerSession) Close() error {
 
 func (spec BackendWorkerSpec) sessionOptions(host *WorkerHost) WorkerSessionOptions {
 	return WorkerSessionOptions{
-		PythonBinary:          spec.PythonBinary,
+		CommandPrefix:         append([]string(nil), spec.CommandPrefix...),
 		PluginID:              spec.PluginID,
 		PluginVersion:         spec.PluginVersion,
 		PluginRoot:            spec.PluginRoot,

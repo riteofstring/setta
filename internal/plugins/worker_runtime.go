@@ -22,11 +22,12 @@ const (
 
 var (
 	ErrWorkerRuntimePythonUnavailable = errors.New("plugins: worker runtime python is unavailable")
-	ErrWorkerRuntimeModuleUnavailable = errors.New("plugins: worker runtime cannot import setta.plugins.worker")
+	ErrWorkerRuntimeProbeFailed       = errors.New("plugins: worker runtime command failed validation")
+	ErrWorkerRuntimeCommandRequired   = errors.New("plugins: worker runtime command prefix is required")
 )
 
 type WorkerRuntime struct {
-	PythonBinary     string
+	CommandPrefix    []string
 	Environment      []string
 	WorkingDirectory string
 }
@@ -112,7 +113,7 @@ func (p *CurrentProcessWorkerRuntimeProvider) ResolveWorkerRuntime(ctx context.C
 	}
 
 	runtime := WorkerRuntime{
-		PythonBinary:     pythonBinary,
+		CommandPrefix:    []string{pythonBinary, "-m", "setta.plugins.worker"},
 		Environment:      environment,
 		WorkingDirectory: p.workingDirectory,
 	}
@@ -122,7 +123,7 @@ func (p *CurrentProcessWorkerRuntimeProvider) ResolveWorkerRuntime(ctx context.C
 
 	p.mu.Lock()
 	p.cached = &WorkerRuntime{
-		PythonBinary:     runtime.PythonBinary,
+		CommandPrefix:    append([]string(nil), runtime.CommandPrefix...),
 		Environment:      append([]string(nil), runtime.Environment...),
 		WorkingDirectory: runtime.WorkingDirectory,
 	}
@@ -184,7 +185,13 @@ func resolveWorkerRuntimeBinary(candidate string) (string, error) {
 }
 
 func validateWorkerRuntime(ctx context.Context, runtime WorkerRuntime) error {
-	cmd := exec.CommandContext(ctx, runtime.PythonBinary, "-c", "import importlib.util, sys; raise SystemExit(0 if importlib.util.find_spec('setta.plugins.worker') else 1)")
+	commandPrefix, err := normalizeWorkerCommandPrefix(runtime.CommandPrefix)
+	if err != nil {
+		return err
+	}
+
+	args := append(append([]string(nil), commandPrefix[1:]...), "--probe")
+	cmd := exec.CommandContext(ctx, commandPrefix[0], args...)
 	if len(runtime.Environment) > 0 {
 		cmd.Env = append([]string(nil), runtime.Environment...)
 	}
@@ -195,11 +202,26 @@ func validateWorkerRuntime(ctx context.Context, runtime WorkerRuntime) error {
 	if err != nil {
 		message := strings.TrimSpace(string(output))
 		if message == "" {
-			return fmt.Errorf("%w: %v", ErrWorkerRuntimeModuleUnavailable, err)
+			return fmt.Errorf("%w: %v", ErrWorkerRuntimeProbeFailed, err)
 		}
-		return fmt.Errorf("%w: %s", ErrWorkerRuntimeModuleUnavailable, message)
+		return fmt.Errorf("%w: %s", ErrWorkerRuntimeProbeFailed, message)
 	}
 	return nil
+}
+
+func normalizeWorkerCommandPrefix(commandPrefix []string) ([]string, error) {
+	normalized := make([]string, 0, len(commandPrefix))
+	for _, part := range commandPrefix {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	if len(normalized) == 0 {
+		return nil, ErrWorkerRuntimeCommandRequired
+	}
+	return normalized, nil
 }
 
 func prependEnvironmentValue(environment []string, key string, prefix string, separator string) []string {
@@ -228,7 +250,7 @@ func prependEnvironmentValue(environment []string, key string, prefix string, se
 
 func cloneWorkerRuntime(runtime WorkerRuntime) WorkerRuntime {
 	return WorkerRuntime{
-		PythonBinary:     runtime.PythonBinary,
+		CommandPrefix:    append([]string(nil), runtime.CommandPrefix...),
 		Environment:      append([]string(nil), runtime.Environment...),
 		WorkingDirectory: runtime.WorkingDirectory,
 	}

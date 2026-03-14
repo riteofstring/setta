@@ -15,7 +15,7 @@ var (
 	ErrFilesystemWorkerSpecResolverWorkspaceRootRequired = ErrWorkspaceRootRequired
 	ErrFilesystemWorkerSpecResolverSettaFilesRootNeeded  = ErrSettaFilesRootRequired
 	ErrFilesystemWorkerSpecResolverSettaHomeRequired     = ErrSettaHomeRequired
-	ErrFilesystemWorkerSpecResolverPythonBinaryRequired  = errors.New("plugins: worker python binary is required")
+	ErrFilesystemWorkerSpecResolverCommandPrefixRequired = errors.New("plugins: worker command prefix is required")
 	ErrFilesystemWorkerSpecResolverServerModeRequired    = errors.New("plugins: server mode is required")
 	ErrFilesystemWorkerSpecResolverServerModeInvalid     = errors.New("plugins: server mode is unsupported")
 	ErrFilesystemWorkerSpecResolverTargetIDRequired      = errors.New("plugins: plugin codegen target id is required")
@@ -81,7 +81,7 @@ type FilesystemWorkerSpecResolverOptions struct {
 	SettaFilesRoot   string
 	SettaHome        string
 	RuntimeProvider  WorkerRuntimeProvider
-	PythonBinary     string
+	CommandPrefix    []string
 	ServerMode       config.Mode
 	Environment      []string
 	WorkingDirectory string
@@ -124,9 +124,9 @@ func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions
 
 	runtimeProvider := options.RuntimeProvider
 	if runtimeProvider == nil {
-		pythonBinary := strings.TrimSpace(options.PythonBinary)
-		if pythonBinary == "" {
-			return nil, ErrFilesystemWorkerSpecResolverPythonBinaryRequired
+		commandPrefix, err := normalizeWorkerCommandPrefix(options.CommandPrefix)
+		if err != nil {
+			return nil, ErrFilesystemWorkerSpecResolverCommandPrefixRequired
 		}
 
 		workingDirectory := ""
@@ -139,7 +139,7 @@ func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions
 
 		runtimeProvider = WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
 			return WorkerRuntime{
-				PythonBinary:     pythonBinary,
+				CommandPrefix:    append([]string(nil), commandPrefix...),
 				Environment:      append([]string(nil), options.Environment...),
 				WorkingDirectory: workingDirectory,
 			}, nil
@@ -216,7 +216,7 @@ func (r *FilesystemWorkerSpecResolver) ResolvePluginCodegenWorkerSpec(ctx contex
 		}
 
 		return BackendWorkerSpec{
-			PythonBinary:          runtime.PythonBinary,
+			CommandPrefix:         append([]string(nil), runtime.CommandPrefix...),
 			PluginID:              manifest.ID,
 			PluginVersion:         manifest.Version,
 			PluginRoot:            candidate.root,

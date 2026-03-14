@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"setta/internal/config"
@@ -20,7 +21,7 @@ func TestFilesystemWorkerSpecResolverResolvesWorkspacePlugin(t *testing.T) {
 		WorkspaceRoot:    roots.workspaceRoot,
 		SettaFilesRoot:   roots.settaFilesRoot,
 		SettaHome:        roots.settaHome,
-		PythonBinary:     workerRPCTestPythonBinary(t, workerRPCTestRepoRoot(t)),
+		CommandPrefix:    workerRPCTestCommandPrefix(t, workerRPCTestRepoRoot(t)),
 		ServerMode:       config.ModeIDE,
 		Environment:      workerRPCTestEnv(workerRPCTestRepoRoot(t)),
 		WorkingDirectory: roots.workspaceRoot,
@@ -49,6 +50,10 @@ func TestFilesystemWorkerSpecResolverResolvesWorkspacePlugin(t *testing.T) {
 	}
 	if spec.ServerMode != string(config.ModeIDE) {
 		t.Fatalf("expected ide mode, got %q", spec.ServerMode)
+	}
+	expectedPrefix := workerRPCTestCommandPrefix(t, workerRPCTestRepoRoot(t))
+	if !reflect.DeepEqual(spec.CommandPrefix, expectedPrefix) {
+		t.Fatalf("expected command prefix %#v, got %#v", expectedPrefix, spec.CommandPrefix)
 	}
 	if len(spec.RequestedCapabilities) != 1 || spec.RequestedCapabilities[0] != CapabilityRegisterCodegenTarget {
 		t.Fatalf("unexpected requested capabilities: %#v", spec.RequestedCapabilities)
@@ -221,7 +226,7 @@ func mustNewFilesystemResolver(t *testing.T, roots filesystemResolverTestRoots, 
 		WorkspaceRoot:    roots.workspaceRoot,
 		SettaFilesRoot:   roots.settaFilesRoot,
 		SettaHome:        roots.settaHome,
-		PythonBinary:     workerRPCTestPythonBinary(t, workerRPCTestRepoRoot(t)),
+		CommandPrefix:    workerRPCTestCommandPrefix(t, workerRPCTestRepoRoot(t)),
 		ServerMode:       mode,
 		Environment:      workerRPCTestEnv(workerRPCTestRepoRoot(t)),
 		WorkingDirectory: roots.workspaceRoot,

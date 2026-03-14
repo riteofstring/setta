@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -45,8 +46,9 @@ func TestCurrentProcessWorkerRuntimeProviderUsesExplicitPythonAndPrependsPythonP
 	if err != nil {
 		t.Fatalf("resolve worker runtime: %v", err)
 	}
-	if runtime.PythonBinary != pythonBinary {
-		t.Fatalf("expected python binary %q, got %q", pythonBinary, runtime.PythonBinary)
+	expectedPrefix := []string{pythonBinary, "-m", "setta.plugins.worker"}
+	if !reflect.DeepEqual(runtime.CommandPrefix, expectedPrefix) {
+		t.Fatalf("expected command prefix %#v, got %#v", expectedPrefix, runtime.CommandPrefix)
 	}
 
 	pythonPath := ""
@@ -60,9 +62,9 @@ func TestCurrentProcessWorkerRuntimeProviderUsesExplicitPythonAndPrependsPythonP
 	if pythonPath == "" {
 		t.Fatal("expected PYTHONPATH in worker environment")
 	}
-	expectedPrefix := backendRoot + string(os.PathListSeparator) + "existing-path"
-	if pythonPath != expectedPrefix {
-		t.Fatalf("expected PYTHONPATH %q, got %q", expectedPrefix, pythonPath)
+	expectedPythonPath := backendRoot + string(os.PathListSeparator) + "existing-path"
+	if pythonPath != expectedPythonPath {
+		t.Fatalf("expected PYTHONPATH %q, got %q", expectedPythonPath, pythonPath)
 	}
 }
 
@@ -98,8 +100,9 @@ func TestCurrentProcessWorkerRuntimeProviderUsesVirtualEnvFallback(t *testing.T)
 	}
 
 	expectedBinary := filepath.Join(virtualEnvRoot, "bin", "python")
-	if runtime.PythonBinary != expectedBinary {
-		t.Fatalf("expected python binary %q, got %q", expectedBinary, runtime.PythonBinary)
+	expectedPrefix := []string{expectedBinary, "-m", "setta.plugins.worker"}
+	if !reflect.DeepEqual(runtime.CommandPrefix, expectedPrefix) {
+		t.Fatalf("expected command prefix %#v, got %#v", expectedPrefix, runtime.CommandPrefix)
 	}
 }
 

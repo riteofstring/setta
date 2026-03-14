@@ -334,7 +334,7 @@ func newBackendCodegenWorkerSpec(t *testing.T) plugins.BackendWorkerSpec {
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(mustCallerFile(t)), "..", ".."))
 	pluginRoot := copyBackendCodegenFixture(t, repoRoot)
 	return plugins.BackendWorkerSpec{
-		PythonBinary:          workerPythonBinary(t, repoRoot),
+		CommandPrefix:         []string{workerPythonBinary(t, repoRoot), "-m", "setta.plugins.worker"},
 		PluginID:              "setta-fixture-backend-codegen",
 		PluginVersion:         "0.1.0",
 		PluginRoot:            pluginRoot,

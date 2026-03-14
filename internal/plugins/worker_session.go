@@ -16,7 +16,7 @@ import (
 const workerSessionCloseTimeout = time.Second
 
 var (
-	ErrWorkerSessionPythonBinaryRequired  = errors.New("plugins: worker session python binary is required")
+	ErrWorkerSessionCommandPrefixRequired = errors.New("plugins: worker session command prefix is required")
 	ErrWorkerSessionPluginIDRequired      = errors.New("plugins: worker session plugin id is required")
 	ErrWorkerSessionPluginVersionRequired = errors.New("plugins: worker session plugin version is required")
 	ErrWorkerSessionPluginRootRequired    = errors.New("plugins: worker session plugin root is required")
@@ -28,7 +28,7 @@ var (
 )
 
 type WorkerSessionOptions struct {
-	PythonBinary          string
+	CommandPrefix         []string
 	PluginID              string
 	PluginVersion         string
 	PluginRoot            string
@@ -53,9 +53,9 @@ type WorkerSession struct {
 }
 
 func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
-	pythonBinary := strings.TrimSpace(options.PythonBinary)
-	if pythonBinary == "" {
-		return nil, ErrWorkerSessionPythonBinaryRequired
+	commandPrefix, err := normalizeWorkerCommandPrefix(options.CommandPrefix)
+	if err != nil {
+		return nil, ErrWorkerSessionCommandPrefixRequired
 	}
 	pluginID := strings.TrimSpace(options.PluginID)
 	if pluginID == "" {
@@ -81,9 +81,8 @@ func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
 		return nil, ErrWorkerRPCHostRequired
 	}
 
-	args := []string{
-		"-m",
-		"setta.plugins.worker",
+	command := append([]string{}, commandPrefix...)
+	command = append(command,
 		"--plugin-id",
 		pluginID,
 		"--plugin-version",
@@ -94,23 +93,23 @@ func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
 		entrypoint,
 		"--server-mode",
 		serverMode,
-	}
+	)
 	for _, capability := range options.RequestedCapabilities {
 		capability = strings.TrimSpace(capability)
 		if capability == "" {
 			continue
 		}
-		args = append(args, "--requested-capability", capability)
+		command = append(command, "--requested-capability", capability)
 	}
 	for _, capability := range options.EffectiveCapabilities {
 		capability = strings.TrimSpace(capability)
 		if capability == "" {
 			continue
 		}
-		args = append(args, "--effective-capability", capability)
+		command = append(command, "--effective-capability", capability)
 	}
 
-	cmd := exec.Command(pythonBinary, args...)
+	cmd := exec.Command(command[0], command[1:]...)
 	if strings.TrimSpace(options.WorkingDirectory) != "" {
 		cmd.Dir = strings.TrimSpace(options.WorkingDirectory)
 	}

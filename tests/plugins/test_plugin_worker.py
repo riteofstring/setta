@@ -232,6 +232,24 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
+def test_worker_cli_probe_succeeds_without_plugin_metadata() -> None:
+    # Runtime validation should be able to probe the worker command without plugin-specific arguments.
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "setta.plugins.worker",
+            "--probe",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0
+    assert completed.stdout == ""
+    assert completed.stderr == ""
+
+
 def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
     # Import-time plugin prints should not pollute the worker stdout JSON-RPC stream.
     plugin_root = _copy_backend_fixture(tmp_path)

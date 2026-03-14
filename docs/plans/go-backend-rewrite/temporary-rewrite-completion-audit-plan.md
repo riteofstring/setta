@@ -290,6 +290,13 @@ This verdict holds under both of the only reasonable definitions:
   - `internal/wsapi/routes.go`
 - Go owns the main HTTP/runtime registration surface:
   - `internal/app/app.go`
+- The Go-owned plugin worker launcher/runtime boundary now starts backend
+  workers from a generic command prefix instead of hardcoding
+  `python -m setta.plugins.worker` inside session/launcher/spec plumbing:
+  - `internal/plugins/worker_runtime.go`
+  - `internal/plugins/worker_session.go`
+  - `internal/plugins/worker_launcher.go`
+  - `internal/plugins/filesystem_worker_spec_resolver.go`
 - The frontend transport helpers and active websocket callers point at the Go
   route helpers rather than legacy Python routes:
   - `frontend/src/utils/transportRouteConstants.ts`
@@ -329,9 +336,11 @@ packaged/runtime path is predominantly Go-owned.
 No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
 explicit retained boundary list, most notably the still-active Python plugin
-worker path. The old top-level Python FastAPI app, the old `setta.dev_start`
-shim, and the old source-only Python startup/CLI helper surfaces are no longer
-part of that blocker set.
+worker implementation/runtime path in `backend/setta/plugins/worker.py` and the
+Python plugin-management path that still launches that worker. The old
+top-level Python FastAPI app, the old `setta.dev_start` shim, and the old
+source-only Python startup/CLI helper surfaces are no longer part of that
+blocker set.
 
 ### Test and smoke evidence executed
 
@@ -440,3 +449,12 @@ legacy Python-style `project.json` payloads are still not readable by the Go
 project-state runtime, so the launcher auth/API integration fixture was updated
 to seed Go-schema registry files in order to verify the launcher/session
 handoff itself against the Go-owned persisted contract.
+
+A tenth follow-up rewrite step moved the Go plugin worker runtime/session/spec
+boundary off the hardcoded `PythonBinary + "-m setta.plugins.worker"` shape and
+onto a generic worker command prefix plus probe validation. The current default
+runtime provider still resolves that command prefix to the Python worker, but
+the Go launcher/spec plumbing now depends only on "start this worker command"
+instead of on a Python-specific subprocess shape. The focused and full
+`internal/plugins`, `internal/codegen`, `internal/httpapi`, and
+`tests/plugins/test_plugin_worker.py` verification now pass.

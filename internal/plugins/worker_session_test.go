@@ -16,7 +16,7 @@ import (
 func TestStartWorkerSessionRequiresFields(t *testing.T) {
 	host := newWorkerRPCTestHost(t)
 	baseOptions := WorkerSessionOptions{
-		PythonBinary:          "python3",
+		CommandPrefix:         []string{"python3", "-m", "setta.plugins.worker"},
 		PluginID:              "fixture-plugin",
 		PluginVersion:         "0.1.0",
 		PluginRoot:            "/tmp/plugin-root",
@@ -32,11 +32,11 @@ func TestStartWorkerSessionRequiresFields(t *testing.T) {
 		target error
 	}{
 		{
-			name: "python binary",
+			name: "command prefix",
 			mutate: func(options *WorkerSessionOptions) {
-				options.PythonBinary = ""
+				options.CommandPrefix = nil
 			},
-			target: ErrWorkerSessionPythonBinaryRequired,
+			target: ErrWorkerSessionCommandPrefixRequired,
 		},
 		{
 			name: "plugin id",
@@ -231,7 +231,7 @@ func newWorkerSessionTestOptions(t *testing.T, host *WorkerHost, shareSessionID 
 	}
 
 	return WorkerSessionOptions{
-		PythonBinary:          workerRPCTestPythonBinary(t, repoRoot),
+		CommandPrefix:         workerRPCTestCommandPrefix(t, repoRoot),
 		PluginID:              "fixture-plugin",
 		PluginVersion:         "0.1.0",
 		PluginRoot:            pluginRoot,
