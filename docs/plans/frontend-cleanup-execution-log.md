@@ -1334,3 +1334,38 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared state hotspot, by separating the remaining public
     window command orchestration from canvas boot and tracked-surface restore
     coordination.
+
+## 2026-03-14 21:43:24 PDT
+
+- Slice completed: split project-chat window canvas boot and tracked git-pane
+  ownership out of `frontend/src/state/actions/projectChatWindowing.ts`
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
+  - `frontend/src/state/actions/projectChatWindowing.test.ts`
+  - `frontend/src/state/actions/gitGraph.ts`
+  - `frontend/src/state/actions/git.test.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.tsx`
+  - `frontend/src/components/Section/Header/SectionWindowToggleButton.tsx`
+  - `frontend/src/components/Section/Header/SectionWindowToggleButton.test.tsx`
+  - `frontend/src/components/Section/Container/SectionWindowPlaceholder.tsx`
+  - `frontend/src/components/Section/Container/SectionWindowPlaceholder.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/git.test.ts src/components/Section/Header/SectionWindowToggleButton.test.tsx src/components/Section/Container/SectionWindowPlaceholder.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/ChatWindowing/UnifiedChatSurface.remount.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowing.ts src/state/actions/projectChatWindowingCanvasBoot.ts src/state/actions/projectChatWindowingTrackedGitPane.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/gitGraph.ts src/state/actions/git.test.ts src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.tsx src/components/Section/Header/SectionWindowToggleButton.tsx src/components/Section/Header/SectionWindowToggleButton.test.tsx src/components/Section/Container/SectionWindowPlaceholder.tsx src/components/Section/Container/SectionWindowPlaceholder.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `1e7a2339f`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionInfos.ts`, now the largest
+    authored/shared state hotspot, by separating displayed-child tree
+    derivation and section metadata/layout query ownership into narrower read
+    modules.
