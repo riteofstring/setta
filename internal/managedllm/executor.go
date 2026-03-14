@@ -750,11 +750,12 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseTextDeltaEvent:
-		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Delta); err != nil {
+		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, "output_text", typed.Delta); err != nil {
 			return nil, err
 		}
 	case responses.ResponseTextDoneEvent:
 		setAssistantProviderMessageID(assistantMessage, typed.ItemID)
+		setAssistantProviderMessageContentType(assistantMessage, "output_text")
 		if strings.TrimSpace(typed.Text) != "" {
 			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
 			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
@@ -766,11 +767,12 @@ func (e *Executor) processOpenAIResponseEvent(
 			}
 		}
 	case responses.ResponseRefusalDeltaEvent:
-		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Delta); err != nil {
+		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, "refusal", typed.Delta); err != nil {
 			return nil, err
 		}
 	case responses.ResponseRefusalDoneEvent:
 		setAssistantProviderMessageID(assistantMessage, typed.ItemID)
+		setAssistantProviderMessageContentType(assistantMessage, "refusal")
 		if strings.TrimSpace(typed.Refusal) != "" {
 			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
 			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
@@ -967,6 +969,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 			return nil
 		}
 		setAssistantProviderMessageID(assistantMessage, itemID)
+		setAssistantProviderMessageContentType(assistantMessage, "output_text")
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -982,6 +985,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 			return nil
 		}
 		setAssistantProviderMessageID(assistantMessage, itemID)
+		setAssistantProviderMessageContentType(assistantMessage, "refusal")
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -1028,6 +1032,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 			return nil
 		}
 		setAssistantProviderMessageID(assistantMessage, itemID)
+		setAssistantProviderMessageContentType(assistantMessage, "output_text")
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -1043,6 +1048,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 			return nil
 		}
 		setAssistantProviderMessageID(assistantMessage, itemID)
+		setAssistantProviderMessageContentType(assistantMessage, "refusal")
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -1108,12 +1114,14 @@ func (e *Executor) applyOpenAIResponseTextDelta(
 	assistantMessage map[string]any,
 	streamState *openAIResponseStreamState,
 	itemID string,
+	contentType string,
 	delta string,
 ) error {
 	if strings.TrimSpace(delta) == "" && delta == "" {
 		return nil
 	}
 	setAssistantProviderMessageID(assistantMessage, itemID)
+	setAssistantProviderMessageContentType(assistantMessage, contentType)
 	if streamState.reasoningSeen && !streamState.reasoningEmitted {
 		streamState.bufferedText.WriteString(delta)
 		return nil
@@ -1316,6 +1324,7 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 	case responses.ResponseOutputMessage:
 		setAssistantProviderMessageID(assistantMessage, item.ID)
 		setAssistantProviderMessagePhase(assistantMessage, string(item.Phase))
+		setAssistantProviderMessageContentType(assistantMessage, openAIResponseOutputMessageContentType(item.Content))
 		text := joinOpenAIResponseOutputMessageText(item.Content)
 		if strings.TrimSpace(text) == "" {
 			return nil
@@ -1470,6 +1479,40 @@ func joinOpenAIResponseOutputMessageText(content []responses.ResponseOutputMessa
 		}
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+func openAIResponseOutputMessageContentType(content []responses.ResponseOutputMessageContentUnion) string {
+	if len(content) == 0 {
+		return ""
+	}
+	contentType := ""
+	for _, entry := range content {
+		switch variant := entry.AsAny().(type) {
+		case responses.ResponseOutputText:
+			if strings.TrimSpace(variant.Text) == "" {
+				continue
+			}
+			if contentType == "" {
+				contentType = "output_text"
+				continue
+			}
+			if contentType != "output_text" {
+				return ""
+			}
+		case responses.ResponseOutputRefusal:
+			if strings.TrimSpace(variant.Refusal) == "" {
+				continue
+			}
+			if contentType == "" {
+				contentType = "refusal"
+				continue
+			}
+			if contentType != "refusal" {
+				return ""
+			}
+		}
+	}
+	return contentType
 }
 
 func (e *Executor) applyChunk(ctx context.Context, prepared preparedExecution, chunk any) error {
@@ -2108,6 +2151,17 @@ func setAssistantProviderMessagePhase(message map[string]any, phase string) {
 	message["provider_message_phase"] = trimmed
 }
 
+func setAssistantProviderMessageContentType(message map[string]any, contentType string) {
+	if message == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(contentType)
+	if trimmed == "" {
+		return
+	}
+	message["provider_message_content_type"] = trimmed
+}
+
 func ensureAssistantContentBlock(message map[string]any, index int, blockType string) ([]any, map[string]any) {
 	content, _ := message["content"].([]any)
 	if index < 0 {
@@ -2155,6 +2209,10 @@ func currentAssistantProviderMessageID(message map[string]any) string {
 
 func currentAssistantProviderMessagePhase(message map[string]any) string {
 	return strings.TrimSpace(stringValue(message["provider_message_phase"]))
+}
+
+func currentAssistantProviderMessageContentType(message map[string]any) string {
+	return strings.TrimSpace(stringValue(message["provider_message_content_type"]))
 }
 
 func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {

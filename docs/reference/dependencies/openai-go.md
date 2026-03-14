@@ -91,7 +91,10 @@
     provider's original output-message ID plus `phase` metadata instead of
     falling back to Setta-local message IDs and dropping `phase`; prior
     function-call items now also preserve and resend the provider's original
-    function-call item ID instead of collapsing everything to the `call_id`
+    function-call item ID instead of collapsing everything to the `call_id`;
+    prior assistant refusals now also preserve and resend the provider
+    refusal content type instead of being flattened back to generic
+    `output_text`
   - the Responses stream now also treats explicit `response.incomplete`
     events as provider failures instead of silently succeeding with truncated
     reasoning output, and still stops/finalizes any partial assistant message

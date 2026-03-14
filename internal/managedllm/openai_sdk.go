@@ -415,7 +415,7 @@ func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.Respo
 			if includeReasoning {
 				items = append(items, reasoningItems...)
 			}
-			content, include, err := buildOpenAIResponseOutputMessageContent(message["content"])
+			content, include, err := buildOpenAIResponseOutputMessageContent(message)
 			if err != nil {
 				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
 			}
@@ -528,13 +528,22 @@ func buildOpenAIResponseInputMessageContent(raw any) (responses.ResponseInputMes
 	}, true, nil
 }
 
-func buildOpenAIResponseOutputMessageContent(raw any) ([]responses.ResponseOutputMessageContentUnionParam, bool, error) {
-	text, include, err := normalizeProviderMessageContent(raw)
+func buildOpenAIResponseOutputMessageContent(message map[string]any) ([]responses.ResponseOutputMessageContentUnionParam, bool, error) {
+	text, include, err := normalizeProviderMessageContent(message["content"])
 	if err != nil {
 		return nil, false, err
 	}
 	if !include {
 		return nil, false, nil
+	}
+	if strings.TrimSpace(stringValue(message["provider_message_content_type"])) == "refusal" {
+		return []responses.ResponseOutputMessageContentUnionParam{
+			{
+				OfRefusal: &responses.ResponseOutputRefusalParam{
+					Refusal: text,
+				},
+			},
+		}, true, nil
 	}
 	return []responses.ResponseOutputMessageContentUnionParam{
 		{

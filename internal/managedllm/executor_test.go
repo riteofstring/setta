@@ -1995,6 +1995,121 @@ func TestExecutorExecuteResendsOpenAIResponsesProviderMessageMetadataInFollowUpT
 	}
 }
 
+func TestExecutorExecuteResendsOpenAIResponsesRefusalContentInFollowUpTranscript(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseCompletedEvent(
+			[]map[string]any{
+				{
+					"type":    "message",
+					"id":      "message-2",
+					"role":    "assistant",
+					"status":  "completed",
+					"phase":   "final_answer",
+					"content": []map[string]any{{"type": "output_text", "text": "Next answer", "annotations": []any{}}},
+				},
+			},
+			9,
+			2,
+			11,
+			0,
+		))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	executor := NewExecutor(ExecutorOptions{
+		HTTPClient: server.Client(),
+	})
+	_, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":                            "assistant-local-1",
+					"role":                          "assistant",
+					"provider_message_id":           "provider-message-1",
+					"provider_message_content_type": "refusal",
+					"content": []any{
+						map[string]any{
+							"type": "text",
+							"text": "Cannot comply",
+						},
+					},
+					"attachments": []any{},
+				},
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Continue"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed OpenAI Responses refusal follow-up request: %v", err)
+	}
+
+	input, ok := seenRequest["input"].([]any)
+	if !ok || len(input) < 2 {
+		t.Fatalf("expected OpenAI Responses transcript input, got %#v", seenRequest["input"])
+	}
+	foundRefusalMessage := false
+	for _, rawItem := range input {
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		if item["type"] != "message" || item["id"] != "provider-message-1" {
+			continue
+		}
+		content, ok := item["content"].([]any)
+		if !ok || len(content) != 1 {
+			continue
+		}
+		contentItem, ok := content[0].(map[string]any)
+		if !ok {
+			continue
+		}
+		if contentItem["type"] == "refusal" && contentItem["refusal"] == "Cannot comply" {
+			foundRefusalMessage = true
+		}
+	}
+	if !foundRefusalMessage {
+		t.Fatalf("expected follow-up Responses input to preserve refusal content type, got %#v", input)
+	}
+}
+
 func TestExecutorExecuteEmitsOpenAIResponsesOutputItemAddedContentDeltas(t *testing.T) {
 	t.Parallel()
 
@@ -2287,6 +2402,12 @@ func TestExecutorExecuteUsesOpenAIResponsesRefusalDoneAsAuthoritativeText(t *tes
 	if !ok || assistantText(assistant) != "Cannot comply" {
 		t.Fatalf("unexpected refusal assistant message %#v", messages[1])
 	}
+	if assistant["provider_message_id"] != "message-1" {
+		t.Fatalf("expected refusal provider message id, got %#v", assistant)
+	}
+	if assistant["provider_message_content_type"] != "refusal" {
+		t.Fatalf("expected refusal provider content type, got %#v", assistant)
+	}
 
 	state, stateErr := live.GetLiveChatState(run.ID)
 	if stateErr != nil {
@@ -2297,6 +2418,12 @@ func TestExecutorExecuteUsesOpenAIResponsesRefusalDoneAsAuthoritativeText(t *tes
 	}
 	if len(state.Messages) != 2 || assistantText(state.Messages[1]) != "Cannot comply" {
 		t.Fatalf("expected finalized live refusal text, got %#v", state)
+	}
+	if state.Messages[1]["provider_message_id"] != "message-1" {
+		t.Fatalf("expected finalized refusal provider message id, got %#v", state.Messages[1])
+	}
+	if state.Messages[1]["provider_message_content_type"] != "refusal" {
+		t.Fatalf("expected finalized refusal provider content type, got %#v", state.Messages[1])
 	}
 	if broadcaster.Count() != 5 {
 		t.Fatalf("expected start, two delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
@@ -2494,6 +2621,12 @@ func TestExecutorExecuteUsesOpenAIResponsesContentPartDoneAsAuthoritativeRefusal
 	if !ok || assistantText(assistant) != "Cannot comply" {
 		t.Fatalf("unexpected refusal assistant message %#v", messages[1])
 	}
+	if assistant["provider_message_id"] != "message-1" {
+		t.Fatalf("expected content-part refusal provider message id, got %#v", assistant)
+	}
+	if assistant["provider_message_content_type"] != "refusal" {
+		t.Fatalf("expected content-part refusal provider content type, got %#v", assistant)
+	}
 
 	state, stateErr := live.GetLiveChatState(run.ID)
 	if stateErr != nil {
@@ -2504,6 +2637,12 @@ func TestExecutorExecuteUsesOpenAIResponsesContentPartDoneAsAuthoritativeRefusal
 	}
 	if len(state.Messages) != 2 || assistantText(state.Messages[1]) != "Cannot comply" {
 		t.Fatalf("expected finalized live refusal text, got %#v", state)
+	}
+	if state.Messages[1]["provider_message_id"] != "message-1" {
+		t.Fatalf("expected finalized content-part refusal provider message id, got %#v", state.Messages[1])
+	}
+	if state.Messages[1]["provider_message_content_type"] != "refusal" {
+		t.Fatalf("expected finalized content-part refusal provider content type, got %#v", state.Messages[1])
 	}
 	if broadcaster.Count() != 5 {
 		t.Fatalf("expected start, two delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
