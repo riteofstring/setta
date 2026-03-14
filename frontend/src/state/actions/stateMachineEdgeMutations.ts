@@ -14,14 +14,14 @@ import {
   getConnectionDebugPayload,
   logWorkflowDebug,
 } from "./stateMachineDebug";
+import { normalizeWorkflowConnectionHandles } from "./stateMachineEdgeCanonicalization";
+import { buildStateMachineEdgeForConnection } from "./stateMachineEdgeConnections";
 import {
   applyWorkflowMachineGroupMerge,
-  buildStateMachineEdgeForConnection,
   captureWorkflowMachineGroupMergeSnapshot,
-  normalizeWorkflowConnectionHandles,
   resolveMachineGroupTransitionForConnection,
   restoreWorkflowMachineGroupMergeSnapshot,
-} from "./stateMachineEdgeConnections";
+} from "./stateMachineEdgeGraph";
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState

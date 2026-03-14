@@ -1,9 +1,9 @@
 export {
   STATE_MACHINE_EDGE_HANDLE_IDS,
-  isValidStateMachineEdgeConnection,
   isWorkflowHandleId,
   normalizeWorkflowConnectionHandles,
-} from "./stateMachineEdgeConnections";
+} from "./stateMachineEdgeCanonicalization";
+export { isValidStateMachineEdgeConnection } from "./stateMachineEdgeConnections";
 export {
   createStateMachineEdgeFromConnection,
   deleteSelectedStateMachineEdges,

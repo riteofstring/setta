@@ -1,10 +1,8 @@
 import type { Connection } from "forks/xyflow/core/types";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImpls";
-import {
-  isValidStateMachineEdgeConnection,
-  STATE_MACHINE_EDGE_HANDLE_IDS,
-} from "state/actions/stateMachineEdgeConnections";
+import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdgeCanonicalization";
+import { isValidStateMachineEdgeConnection } from "state/actions/stateMachineEdgeConnections";
 import { createStateMachineEdgeFromConnection } from "state/actions/stateMachineEdgeMutations";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";

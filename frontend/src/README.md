@@ -134,6 +134,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `state/actions/projectChatWindowingEphemeral.ts` already hold narrower helper
     seams and should be extended instead of recreated elsewhere.
 
+- Workflow edges
+
+  - `state/actions/stateMachineEdgeCanonicalization.ts` owns workflow handle
+    normalization and shared-chat workflow port canonicalization.
+  - `state/actions/stateMachineEdgeGraph.ts` owns section-type reads,
+    machine-group resolution, and machine-group merge snapshot/apply/restore
+    helpers.
+  - `state/actions/stateMachineEdgeConnections.ts` now owns workflow
+    connection validation and edge construction.
+  - `state/actions/stateMachineEdgeMutations.ts` owns optimistic workflow edge
+    create/select/delete/replace commands.
+
 - Section rendering and params
 
   - `components/Section/*` owns section containers, headers, layouts, and shared
@@ -360,10 +372,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/stateMachineEdgeConnections.ts` is now the largest
-  authored/shared state hotspot, so follow-up cleanup should separate workflow
-  graph reads and canonicalization from remaining edge-construction helpers
-  instead of regrowing the already-split section-creation surface
+- `state/actions/aiChatControls.ts` is now the largest authored/shared state
+  hotspot, so follow-up cleanup should separate stop/resume orchestration from
+  approval/question response flows and chat-surface sync helpers instead of
+  regrowing the already-split workflow-edge surface
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership

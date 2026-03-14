@@ -13,10 +13,8 @@ import {
   getConnectionDebugPayload,
   logWorkflowDebug,
 } from "./stateMachineDebug";
-import {
-  isValidStateMachineEdgeConnection,
-  normalizeWorkflowConnectionHandles,
-} from "./stateMachineEdgeConnections";
+import { normalizeWorkflowConnectionHandles } from "./stateMachineEdgeCanonicalization";
+import { isValidStateMachineEdgeConnection } from "./stateMachineEdgeConnections";
 import { createStateMachineEdgeFromConnection } from "./stateMachineEdgeMutations";
 
 type SharedChatConnectionResolution = {

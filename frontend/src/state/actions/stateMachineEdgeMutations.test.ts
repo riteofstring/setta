@@ -1,4 +1,4 @@
-import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdgeConnections";
+import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdgeCanonicalization";
 import {
   deleteSelectedStateMachineEdges,
   replaceStateMachineEdge,

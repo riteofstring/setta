@@ -156,22 +156,22 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/projectChatWindowing.ts` at 406 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 324 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
+  - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/projectChatWindowing.ts` at 406 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 324 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
+  - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -186,10 +186,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - low-level JSON and binary send helpers shared by lifecycle and realtime owners
 - `stateMachineEdges.ts` now owns:
   - compatibility re-exports for workflow edge callers that have not moved yet
-- `stateMachineEdgeConnections.ts` now owns:
+- `stateMachineEdgeCanonicalization.ts` now owns:
   - workflow handle normalization and shared-chat workflow port canonicalization
+- `stateMachineEdgeGraph.ts` now owns:
   - section-type and machine-group reads used to validate candidate connections
-  - machine-group merge snapshot capture or apply or restore helpers
+  - machine-group resolution plus merge snapshot or apply or restore helpers
+- `stateMachineEdgeConnections.ts` now owns:
+  - workflow connection validation
   - workflow edge construction from a validated connection
 - `stateMachineEdgeMutations.ts` now owns:
   - workflow edge creation plus merge-aware optimistic persistence
