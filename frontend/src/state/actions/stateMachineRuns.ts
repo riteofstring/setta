@@ -22,7 +22,7 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "./agentRunUtils";
-import { loadAgentRuns, receiveAgentRunUpdate } from "./aiAgentRuns";
+import { loadAgentRuns, receiveAgentRunUpdate } from "./ai";
 import { getCurrProjectConfigId } from "./sectionInfos";
 import { logWorkflowDebug } from "./stateMachineDebug";
 

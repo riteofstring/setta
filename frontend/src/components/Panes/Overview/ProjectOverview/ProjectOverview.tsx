@@ -2,7 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
-import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { loadAgentRuns } from "state/actions/ai";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImplIfPresent,
