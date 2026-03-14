@@ -1,7 +1,11 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
+import {
+  parseAppGenerationMode,
+  type AppGenerationMode,
+} from "state/types/appGenerationMode";
+import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -558,6 +562,7 @@ export type CustomRunItem = {
 export type ProjectChatCustomSlashCommand = {
   command: string;
   prompt: string;
+  appGenerationMode: AppGenerationMode | null;
 };
 
 export type ProjectChatAuxView =
@@ -590,6 +595,7 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       }
       const commandValue = rawCommand.command;
       const promptValue = rawCommand.prompt;
+      const appGenerationModeValue = rawCommand.appGenerationMode;
       if (typeof commandValue !== "string" || typeof promptValue !== "string") {
         continue;
       }
@@ -598,9 +604,11 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       if (!command || !prompt) {
         continue;
       }
+      const appGenerationMode = parseAppGenerationMode(appGenerationModeValue);
       normalizedCommands.push({
         command,
         prompt,
+        appGenerationMode,
       });
     }
     if (normalizedCommands.length === 0) {
@@ -870,6 +878,11 @@ type ZustandAIStore = {
   projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetailsBySurfaceId: Record<string, ChatDetails>;
+  chatAppGenerationDetailsByChatId: Record<string, ChatAppGenerationDetails>;
+  pendingChatAppGenerationDetailsBySurfaceId: Record<
+    string,
+    ChatAppGenerationDetails
+  >;
   interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
   viewThreads: boolean;
   projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
@@ -930,6 +943,8 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetailsBySurfaceId: {},
+        chatAppGenerationDetailsByChatId: {},
+        pendingChatAppGenerationDetailsBySurfaceId: {},
         interruptedAssistantMessageIdsByChatId: {},
         viewThreads: false,
         projectChatThreadsExplicitlyClosedAtLargeWidth: false,
@@ -1097,7 +1112,6 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
-  appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
   overviewProjectConfigOrder: string[];
@@ -1107,10 +1121,6 @@ type ZustandLocalStorage = {
   homeSelectedProjectPaneVis: boolean;
   homeSelectedProjectPaneWidth: number;
   homeSelectedProjectPaneTrueWidth: number;
-  appGenerationMode: AppGenerationMode;
-  appGenerationPrompt: string;
-  appGenerationReferenceImageUrl: string;
-  appGenerationReferenceImageNotes: string;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -1173,7 +1183,6 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       minimapSide: "left",
       projectConfigPreviewEnabled: true,
-      appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
       overviewProjectConfigOrder: [],
@@ -1183,10 +1192,6 @@ export const useLocalStorage = createWithEqualityFn(
       homeSelectedProjectPaneVis: true,
       homeSelectedProjectPaneWidth: 280,
       homeSelectedProjectPaneTrueWidth: 280,
-      appGenerationMode: "json_render",
-      appGenerationPrompt: "",
-      appGenerationReferenceImageUrl: "",
-      appGenerationReferenceImageNotes: "",
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
@@ -1337,7 +1342,6 @@ export const useLocalStorage = createWithEqualityFn(
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,
         projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
-        appSpecStreamingEnabled: state.appSpecStreamingEnabled,
         homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,
         favoriteProjectConfigIds: state.favoriteProjectConfigIds,
         overviewProjectConfigOrder: state.overviewProjectConfigOrder,
@@ -1348,11 +1352,6 @@ export const useLocalStorage = createWithEqualityFn(
         homeSelectedProjectPaneWidth: state.homeSelectedProjectPaneWidth,
         homeSelectedProjectPaneTrueWidth:
           state.homeSelectedProjectPaneTrueWidth,
-        appGenerationMode: state.appGenerationMode,
-        appGenerationPrompt: state.appGenerationPrompt,
-        appGenerationReferenceImageUrl: state.appGenerationReferenceImageUrl,
-        appGenerationReferenceImageNotes:
-          state.appGenerationReferenceImageNotes,
         overviewVis: state.overviewVis,
         overviewWidth: state.overviewWidth,
         overviewTrueWidth: state.overviewTrueWidth,
