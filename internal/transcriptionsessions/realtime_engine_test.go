@@ -173,6 +173,10 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 		if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
 			t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
 		}
+		turnDetection, ok := payload["turn_detection"]
+		if !ok || turnDetection != nil {
+			t.Fatalf("expected explicit null turn_detection for manual commits, got %#v", payload)
+		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for session update")
 	}
@@ -391,6 +395,10 @@ func TestBuildOpenAIRealtimeSessionUpdateUsesTranscriptionSessionShape(t *testin
 	}
 	if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
 		t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
+	}
+	turnDetection, ok := decoded["turn_detection"]
+	if !ok || turnDetection != nil {
+		t.Fatalf("expected explicit null turn_detection for manual commits, got %#v", decoded)
 	}
 }
 
