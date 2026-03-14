@@ -1246,3 +1246,28 @@ module map and placement guide while this cleanup progresses.
     largest authored state hotspot, into narrower reducer groups so placement,
     focus, and bounds reducers stop living beside chat-id/title and
     section-transition reducers.
+
+## 2026-03-14 21:15:21 PDT
+
+- Slice completed: split project chat windowing layout reducers by ownership
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingLayoutState.ts`
+  - `frontend/src/state/actions/projectChatWindowingState.ts`
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/state/actions/projectChatWindowing.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/windowSpaces.test.ts src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/ChatWindowing/UnifiedChatSurface.remount.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/components/Section/Header/SectionWindowToggleButton.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx src/state/actions/git.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowingLayoutState.ts src/state/actions/projectChatWindowingState.ts src/state/actions/projectChatWindowing.ts src/state/actions/projectChatWindowing.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `7c0265af5`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiConfiguration.ts`, now the largest
+    authored state hotspot, into narrower config/API-key mutation versus AI
+    settings catalog load/mutation modules.
