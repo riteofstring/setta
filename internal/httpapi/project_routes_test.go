@@ -1148,6 +1148,121 @@ func TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection(t *testing.T)
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionAppliesSnapshotViewportAndName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": mustNormalizedProjectRouteProject(t, projectstate.Project{
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				ActiveViewModeID: "focus",
+				TopLevelSectionIDs: []string{
+					"existing-section",
+				},
+				TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+					"existing-section": {X: 10, Y: 20, ZIndex: 1},
+				},
+				ViewModes: map[string]projectstate.ViewMode{
+					"focus": {
+						ID: "focus",
+						TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+							"existing-section": {X: 10, Y: 20, ZIndex: 1},
+						},
+						VisibilityBySectionID: map[string]bool{
+							"existing-section": true,
+						},
+					},
+				},
+				SectionVariantMap: map[string]string{
+					"existing-section": "existing-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"existing-section": {
+						ID:               "existing-section",
+						Name:             "Existing",
+						VariantIDs:       []string{"existing-variant"},
+						DefaultVariantID: "existing-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"existing-variant": {
+						ID:               "existing-variant",
+						ImplID:           "existing-impl",
+						NonPresetImplIDs: []string{"existing-impl"},
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"existing-impl": {
+						ID:      "existing-impl",
+						Kind:    projectstate.SectionKind("textblock"),
+						Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "existing-impl", "type": "TextBlock"}),
+					},
+				},
+			}),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTopLevelSection,
+		strings.NewReader(`{"projectConfigId":"project-alpha","implType":"Chat","name":"Planning Chat","topLevelSections":{"existing-section":{"x":840,"y":240,"zIndex":9}},"viewportBounds":{"x":760,"y":160,"w":1200,"h":700}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.CreateTopLevelSectionResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode createTopLevelSection response: %v", err)
+	}
+	if strings.TrimSpace(payload.SectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", payload)
+	}
+	if payload.PanTo != nil {
+		t.Fatalf("expected in-viewport placement without pan hint, got %#v", payload.PanTo)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project snapshot: %v", err)
+	}
+	created, ok := project.Sections[payload.SectionID]
+	if !ok {
+		t.Fatalf("expected created section in snapshot, got %#v", project.Sections)
+	}
+	if created.Name != "Planning Chat" {
+		t.Fatalf("expected created section name to persist, got %#v", created)
+	}
+
+	layout := project.TopLevelSections[payload.SectionID]
+	if layout.X <= 400 || layout.Y < 160 {
+		t.Fatalf("expected created layout near the live viewport, got %#v", layout)
+	}
+	existingLayout := project.TopLevelSections["existing-section"]
+	if existingLayout.X != 840 || existingLayout.Y != 240 || existingLayout.ZIndex != 9 {
+		t.Fatalf("expected snapshot layout update for existing section, got %#v", existingLayout)
+	}
+	if project.ViewModes["focus"].TopLevelSections["existing-section"].X != 840 || project.ViewModes["focus"].TopLevelSections["existing-section"].Y != 240 {
+		t.Fatalf("expected active view mode layout update, got %#v", project.ViewModes["focus"].TopLevelSections["existing-section"])
+	}
+}
+
 func TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	t.Parallel()
 

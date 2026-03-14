@@ -613,12 +613,15 @@ type ProjectConfig struct{}
 type ClipboardProjectStateCoreWithSectionVariantMap struct{}
 
 type CreateTopLevelSectionRequestInput struct {
-	FrontendOpID       *string         `json:"frontendOpId,omitempty"`
-	ProjectConfigID    string          `json:"projectConfigId"`
-	ImplType           string          `json:"implType"`
-	ControlCodeObjType *string         `json:"controlCodeObjType,omitempty"`
-	ImplOverrides      *map[string]any `json:"implOverrides,omitempty"`
-	Position           *Position       `json:"position,omitempty"`
+	FrontendOpID       *string                               `json:"frontendOpId,omitempty"`
+	ProjectConfigID    string                                `json:"projectConfigId"`
+	ImplType           string                                `json:"implType"`
+	ControlCodeObjType *string                               `json:"controlCodeObjType,omitempty"`
+	ImplOverrides      *map[string]any                       `json:"implOverrides,omitempty"`
+	Position           *Position                             `json:"position,omitempty"`
+	Name               *string                               `json:"name,omitempty"`
+	TopLevelSections   map[string]TopLevelSectionLayoutInput `json:"topLevelSections,omitempty"`
+	ViewportBounds     *ViewportBoundsInput                  `json:"viewportBounds,omitempty"`
 }
 
 type CreateTopLevelSectionResponse struct {
@@ -1368,6 +1371,13 @@ type ViewportInput struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`
 	Zoom float64 `json:"zoom"`
+}
+
+type ViewportBoundsInput struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	W float64 `json:"w"`
+	H float64 `json:"h"`
 }
 
 type TopLevelSectionLayoutInput struct {

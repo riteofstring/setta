@@ -37,6 +37,13 @@ type Viewport struct {
 	Zoom float64 `json:"zoom"`
 }
 
+type ViewportBounds struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	W float64 `json:"w"`
+	H float64 `json:"h"`
+}
+
 type TopLevelSectionLayout struct {
 	X      float64  `json:"x"`
 	Y      float64  `json:"y"`

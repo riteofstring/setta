@@ -6067,6 +6067,29 @@ export function createPosition(options: Partial<Position> = {}): Position {
 }
 
 
+export type TopLevelSectionLayoutInput = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
+  return options as TopLevelSectionLayoutInput;
+}
+
+
+export type ViewportBoundsInput = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+export function createViewportBoundsInput(options: Partial<ViewportBoundsInput> = {}): ViewportBoundsInput {
+  return options as ViewportBoundsInput;
+}
+
+
 export type CreateTopLevelSectionRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -6074,6 +6097,9 @@ export type CreateTopLevelSectionRequestInput = {
   controlCodeObjType?: string | null;
   implOverrides?: Record<string, unknown> | null;
   position?: Position | null;
+  name?: string | null;
+  topLevelSections?: Record<string, TopLevelSectionLayoutInput>;
+  viewportBounds?: ViewportBoundsInput | null;
 };
 export function createCreateTopLevelSectionRequestInput(options: Partial<CreateTopLevelSectionRequestInput> = {}): CreateTopLevelSectionRequestInput {
   return options as CreateTopLevelSectionRequestInput;
@@ -7663,18 +7689,6 @@ export type ForceRefreshListenerRequestInput = {
 };
 export function createForceRefreshListenerRequestInput(options: Partial<ForceRefreshListenerRequestInput> = {}): ForceRefreshListenerRequestInput {
   return options as ForceRefreshListenerRequestInput;
-}
-
-
-export type TopLevelSectionLayoutInput = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
-  return options as TopLevelSectionLayoutInput;
 }
 
 

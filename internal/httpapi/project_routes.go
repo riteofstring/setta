@@ -491,12 +491,15 @@ type DeleteChildSectionsViaDecrementerRequest struct {
 }
 
 type CreateTopLevelSectionRequest struct {
-	FrontendOpID       *string                `json:"frontendOpId"`
-	ProjectID          string                 `json:"projectConfigId"`
-	ImplType           string                 `json:"implType"`
-	ControlCodeObjType *string                `json:"controlCodeObjType"`
-	ImplOverrides      map[string]any         `json:"implOverrides"`
-	Position           *projectstate.Position `json:"position"`
+	FrontendOpID       *string                                       `json:"frontendOpId"`
+	ProjectID          string                                        `json:"projectConfigId"`
+	ImplType           string                                        `json:"implType"`
+	ControlCodeObjType *string                                       `json:"controlCodeObjType"`
+	ImplOverrides      map[string]any                                `json:"implOverrides"`
+	Position           *projectstate.Position                        `json:"position"`
+	Name               *string                                       `json:"name"`
+	TopLevelSections   map[string]projectstate.TopLevelSectionLayout `json:"topLevelSections"`
+	ViewportBounds     *projectstate.ViewportBounds                  `json:"viewportBounds"`
 }
 
 type CreateViewModeRequest struct {
@@ -2992,6 +2995,9 @@ func createTopLevelSectionHandler(deps ProjectRouteDependencies) http.HandlerFun
 				ControlCodeObjType: payload.ControlCodeObjType,
 				ImplOverrides:      payload.ImplOverrides,
 				Position:           payload.Position,
+				Name:               payload.Name,
+				TopLevelSections:   payload.TopLevelSections,
+				ViewportBounds:     payload.ViewportBounds,
 			},
 			settings,
 		)

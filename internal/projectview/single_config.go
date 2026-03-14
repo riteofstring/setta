@@ -240,7 +240,7 @@ func coreFromSection(section projectstate.Section) Core {
 		DisplayName:    section.DisplayName,
 		Variants:       cloneStringSlice(section.VariantIDs),
 		DefaultVariant: stringPointerOrNil(section.DefaultVariantID),
-		SharedModifier: cloneRawJSON(section.SharedModifier),
+		SharedModifier: cloneRawJSONObject(section.SharedModifier),
 		UnsharedKeys:   cloneStringSlice(section.UnsharedKeys),
 	}
 }
@@ -252,7 +252,7 @@ func coreFromCodeObject(codeObj projectstate.CodeObject) Core {
 		DisplayName:    codeObj.DisplayName,
 		Variants:       cloneStringSlice(codeObj.VariantIDs),
 		DefaultVariant: stringPointerOrNil(codeObj.DefaultVariantID),
-		SharedModifier: cloneRawJSON(codeObj.SharedModifier),
+		SharedModifier: cloneRawJSONObject(codeObj.SharedModifier),
 		UnsharedKeys:   cloneStringSlice(codeObj.UnsharedKeys),
 	}
 }
@@ -263,7 +263,7 @@ func variantFromSectionVariant(variant projectstate.SectionVariant) Variant {
 		Name:           variant.Name,
 		Impl:           variant.ImplID,
 		NonPresetImpls: cloneStringSlice(variant.NonPresetImplIDs),
-		Modifier:       cloneRawJSON(variant.Modifier),
+		Modifier:       cloneRawJSONObject(variant.Modifier),
 		IsFrozen:       variant.IsFrozen,
 	}
 }
@@ -274,7 +274,7 @@ func variantFromCodeObjectVariant(variant projectstate.CodeObjectVariant) Varian
 		Name:           variant.Name,
 		Impl:           variant.ImplID,
 		NonPresetImpls: cloneStringSlice(variant.NonPresetImplIDs),
-		Modifier:       cloneRawJSON(variant.Modifier),
+		Modifier:       cloneRawJSONObject(variant.Modifier),
 		IsFrozen:       variant.IsFrozen,
 	}
 }
@@ -1052,6 +1052,13 @@ func cloneRawJSON(raw json.RawMessage) json.RawMessage {
 	cloned := make(json.RawMessage, len(raw))
 	copy(cloned, raw)
 	return cloned
+}
+
+func cloneRawJSONObject(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return mustMarshal(map[string]any{})
+	}
+	return cloneRawJSON(raw)
 }
 
 func mustMarshal(payload map[string]any) json.RawMessage {

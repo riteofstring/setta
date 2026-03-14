@@ -96,6 +96,30 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	if view.CodeObjs["callable-root"].UnsharedKeys == nil {
 		t.Fatal("expected code object unshared keys slice to be non-nil")
 	}
+	if string(view.Sections["global-section"].SharedModifier) != "{}" {
+		t.Fatalf(
+			"expected empty section sharedModifier object, got %s",
+			string(view.Sections["global-section"].SharedModifier),
+		)
+	}
+	if string(view.SectionVariants["draw-variant"].Modifier) != "{}" {
+		t.Fatalf(
+			"expected empty section variant modifier object, got %s",
+			string(view.SectionVariants["draw-variant"].Modifier),
+		)
+	}
+	if string(view.CodeObjs["param-a"].SharedModifier) != "{}" {
+		t.Fatalf(
+			"expected empty code object sharedModifier object, got %s",
+			string(view.CodeObjs["param-a"].SharedModifier),
+		)
+	}
+	if string(view.CodeObjVariants["param-b-variant"].Modifier) != "{}" {
+		t.Fatalf(
+			"expected empty code object variant modifier object, got %s",
+			string(view.CodeObjVariants["param-b-variant"].Modifier),
+		)
+	}
 
 	jsonPayload, err := json.Marshal(view)
 	if err != nil {
@@ -126,6 +150,28 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	}
 	if order, ok := projectChatWindowing["order"].([]any); !ok || order == nil {
 		t.Fatalf("expected projectChatWindowing order json array, got %#v", projectChatWindowing["order"])
+	}
+	sections, ok := decoded["sections"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sections object, got %#v", decoded["sections"])
+	}
+	globalSection, ok := sections["global-section"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected global-section object, got %#v", sections["global-section"])
+	}
+	if sharedModifier, ok := globalSection["sharedModifier"].(map[string]any); !ok || sharedModifier == nil {
+		t.Fatalf("expected global-section sharedModifier json object, got %#v", globalSection["sharedModifier"])
+	}
+	sectionVariants, ok := decoded["sectionVariants"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sectionVariants object, got %#v", decoded["sectionVariants"])
+	}
+	drawVariant, ok := sectionVariants["draw-variant"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw-variant object, got %#v", sectionVariants["draw-variant"])
+	}
+	if modifier, ok := drawVariant["modifier"].(map[string]any); !ok || modifier == nil {
+		t.Fatalf("expected draw-variant modifier json object, got %#v", drawVariant["modifier"])
 	}
 }
 

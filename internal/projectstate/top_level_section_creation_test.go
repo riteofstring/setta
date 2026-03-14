@@ -109,6 +109,125 @@ func TestProjectCreateTopLevelSectionCreatesMetaControlParamAndHonorsExplicitPos
 	}
 }
 
+func TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "Terminal",
+	}, defaultAutoLayoutSectionSizingPolicy())
+	if err != nil {
+		t.Fatalf("create terminal top level section: %v", err)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+	if err != nil {
+		t.Fatalf("effective terminal payload: %v", err)
+	}
+	size, ok := payloadObjectField(payload, "size")
+	if !ok {
+		t.Fatalf("expected created terminal size payload, got %#v", payload)
+	}
+	if width, ok := size["width"].(float64); !ok || width != 250 {
+		t.Fatalf("expected terminal width 250, got %#v", size["width"])
+	}
+	if height, ok := size["height"].(float64); !ok || height != 150 {
+		t.Fatalf("expected terminal height 150, got %#v", size["height"])
+	}
+}
+
+func TestProjectCreateTopLevelSectionAppliesLayoutSnapshotViewportPlacementAndInitialName(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	project.ActiveViewModeID = "focus"
+	name := "Planning Chat"
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "Chat",
+		Name:     &name,
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"existing-section": {
+				X:      820,
+				Y:      220,
+				ZIndex: 8,
+			},
+		},
+		ViewportBounds: &ViewportBounds{
+			X: 760,
+			Y: 160,
+			W: 1200,
+			H: 700,
+		},
+	}, defaultAutoLayoutSectionSizingPolicy())
+	if err != nil {
+		t.Fatalf("create top level section with snapshot placement: %v", err)
+	}
+
+	created, ok := project.Sections[result.SectionID]
+	if !ok {
+		t.Fatalf("expected created section in project state, got %#v", project.Sections)
+	}
+	if created.Name != name {
+		t.Fatalf("expected created section name %q, got %#v", name, created)
+	}
+	if result.PanTo != nil {
+		t.Fatalf("expected in-viewport placement without pan hint, got %#v", result.PanTo)
+	}
+
+	layout, ok := project.TopLevelSections[result.SectionID]
+	if !ok {
+		t.Fatalf("expected created layout, got %#v", project.TopLevelSections)
+	}
+	if layout.X <= 400 {
+		t.Fatalf("expected snapshot-aware placement near the live viewport, got %#v", layout)
+	}
+	if layout.X < 760 || layout.Y < 160 {
+		t.Fatalf("expected created layout inside the provided viewport bounds, got %#v", layout)
+	}
+
+	existingLayout := project.TopLevelSections["existing-section"]
+	if existingLayout.X != 820 || existingLayout.Y != 220 || existingLayout.ZIndex != 8 {
+		t.Fatalf("expected active layout snapshot to update existing section, got %#v", existingLayout)
+	}
+	activeViewMode := project.ViewModes["focus"]
+	if activeViewMode.TopLevelSections["existing-section"].X != 820 || activeViewMode.TopLevelSections["existing-section"].Y != 220 {
+		t.Fatalf("expected active view mode layout snapshot update, got %#v", activeViewMode.TopLevelSections["existing-section"])
+	}
+	if project.ViewModes["secondary"].TopLevelSections["existing-section"].X != 40 || project.ViewModes["secondary"].TopLevelSections["existing-section"].Y != 50 {
+		t.Fatalf("expected inactive view mode layout to remain unchanged, got %#v", project.ViewModes["secondary"].TopLevelSections["existing-section"])
+	}
+}
+
+func TestProjectCreateTopLevelSectionDoesNotPersistPartialStateWhenInitialNameValidationFails(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	before := project.Clone()
+	name := "Existing"
+
+	_, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "Chat",
+		Name:     &name,
+	}, defaultAutoLayoutSectionSizingPolicy())
+	if !IsInvalidSectionNameError(err) {
+		t.Fatalf("expected InvalidSectionNameError, got %v", err)
+	}
+	if len(project.Sections) != len(before.Sections) {
+		t.Fatalf("expected section count to remain unchanged, got %d want %d", len(project.Sections), len(before.Sections))
+	}
+	if len(project.TopLevelSections) != len(before.TopLevelSections) {
+		t.Fatalf("expected top-level layouts to remain unchanged, got %#v want %#v", project.TopLevelSections, before.TopLevelSections)
+	}
+	if len(project.TopLevelSectionIDs) != len(before.TopLevelSectionIDs) {
+		t.Fatalf("expected top-level ids to remain unchanged, got %#v want %#v", project.TopLevelSectionIDs, before.TopLevelSectionIDs)
+	}
+	if len(project.SectionVariantMap) != len(before.SectionVariantMap) {
+		t.Fatalf("expected section variant map to remain unchanged, got %#v want %#v", project.SectionVariantMap, before.SectionVariantMap)
+	}
+}
+
 func TestProjectCreateTopLevelSectionRejectsUnsupportedImplType(t *testing.T) {
 	t.Parallel()
 
