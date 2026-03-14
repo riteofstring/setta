@@ -11,17 +11,13 @@ import pytest
 
 from setta.api.listener import (
     ListenerCallbackSpec,
-    ListenerDependencyMetadata,
     ListenerRuntimeState,
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
-from setta.types.code_obj_impls import (
-    CodeObjType,
-    CodeParamCodeObjImpl,
-    NestedParamCodeObjImpl,
-    ParameterPassingStyle,
-)
+from setta.code_gen.value_codec import PythonValueCodec
+from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
+from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.binary_content import BinaryContentRef
@@ -31,24 +27,16 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_g
 from setta.types.id import ID
 from setta.types.listener import (
     DependencyEvent,
-    ListenerDependencyCatalog,
-    ListenerDependencyCatalogEntry,
     ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
-    ListenerRenderedDependencyValue,
-    ListenerRenderedDependencyValues,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
-from setta.types.project_config import (
-    CodeObjValueRepresentationMode,
-    ProjectConfig,
-    TopLevelSectionLayout,
-)
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
+from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -57,6 +45,7 @@ from setta.types.websocket import (
 from setta.websockets.binary_frames import encode_binary_frame
 
 if TYPE_CHECKING:
+    from setta.code_gen.python.code_generator import PythonCodeGenerator
     from websockets import ClientConnection
 
 
@@ -68,20 +57,6 @@ class _StubWebsocket:
         self.sent.append(payload)
 
 
-class _GraphlessDependencyGraph:
-    def __init__(self) -> None:
-        self.graph: dict[BaseDependencyKeyUnion, object] = {}
-
-    def change_value(
-        self,
-        dep_key: BaseDependencyKeyUnion,
-        value: object,
-    ) -> None:
-        raise AssertionError(
-            f"unexpected fallback graph mutation for {dep_key!r}: {value!r}"
-        )
-
-
 def _attach_stub_websocket(listener: SettaListener, websocket: _StubWebsocket) -> None:
     listener._websocket = cast("ClientConnection", websocket)
 
@@ -90,100 +65,6 @@ PROJECT_TYPED_ID = ID("project-typed")
 SECTION_ONE_ID = ID("section-1")
 PARAM_SLIDER_ID = ID("param-slider")
 PARAM_SWITCH_ID = ID("param-switch")
-
-
-def _build_nested_controls_project_state(
-    project_config_id: ID,
-) -> tuple[ProjectStateSingleConfig, ID, ID]:
-    section_id = ID(f"{project_config_id}-controls")
-    section_impl_id = ID(f"{project_config_id}-section-impl")
-    section_variant_id = ID(f"{project_config_id}-section-variant")
-
-    root_param_id = ID(f"{project_config_id}-root-param")
-    root_param_impl_id = ID(f"{project_config_id}-root-param-impl")
-    root_param_variant_id = ID(f"{project_config_id}-root-param-variant")
-
-    param_id = ID(f"{project_config_id}-count-param")
-    param_impl_id = ID(f"{project_config_id}-count-param-impl")
-    param_variant_id = ID(f"{project_config_id}-count-param-variant")
-
-    root_param_impl = NestedParamCodeObjImpl(
-        id=root_param_impl_id,
-        children=[param_id],
-    )
-    root_param_variant = Variant(
-        id=root_param_variant_id,
-        impl=root_param_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(root_param_impl),
-    )
-    root_param_core = Core(
-        id=root_param_id,
-        name="root",
-        variants=[root_param_variant.id],
-        defaultVariant=root_param_variant.id,
-    )
-
-    param_impl = CodeParamCodeObjImpl(
-        id=param_impl_id,
-        value="1",
-    )
-    param_variant = Variant(
-        id=param_variant_id,
-        impl=param_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
-    )
-    param_core = Core(
-        id=param_id,
-        name="count",
-        variants=[param_variant.id],
-        defaultVariant=param_variant.id,
-    )
-
-    section_impl = DictSectionImpl(
-        id=section_impl_id,
-        topLevelParamId=root_param_id,
-        codeObjVariantMap={
-            root_param_id: root_param_variant.id,
-            param_id: param_variant.id,
-        },
-    )
-    section_variant = Variant(
-        id=section_variant_id,
-        impl=section_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-    )
-    section_core = Core(
-        id=section_id,
-        name="Controls",
-        variants=[section_variant.id],
-        defaultVariant=section_variant.id,
-    )
-
-    project_config = ProjectConfig(
-        id=project_config_id,
-        name=f"Project {project_config_id}",
-        sectionVariantMap={section_id: section_variant.id},
-        topLevelSections={section_id: TopLevelSectionLayout()},
-    )
-    project_state = ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={section_id: section_core},
-        sectionImpls={section_impl.id: section_impl},
-        sectionVariants={section_variant.id: section_variant},
-        codeObjs={
-            root_param_id: root_param_core,
-            param_id: param_core,
-        },
-        codeObjImpls={
-            root_param_impl.id: root_param_impl,
-            param_impl.id: param_impl,
-        },
-        codeObjVariants={
-            root_param_variant.id: root_param_variant,
-            param_variant.id: param_variant,
-        },
-    )
-    return project_state, section_id, param_id
 
 
 @pytest.mark.asyncio
@@ -254,11 +135,11 @@ class TestSettaListenerRealtimeIntegration:
             deps=("Welcome",),
             debounce_ms=50,
         )
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             refresh_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -334,7 +215,7 @@ class TestSettaListenerRealtimeIntegration:
         completed_event = asyncio.Event()
         total_callbacks = 4
 
-        async def on_refresh(_state, _ctx) -> None:
+        async def on_refresh(state, ctx) -> None:
             nonlocal active, max_active, completed
             async with active_lock:
                 active += 1
@@ -374,11 +255,11 @@ class TestSettaListenerRealtimeIntegration:
         standard_calls: list[dict[str, Any]] = []
 
         @listener.listen(deps=("Welcome",), run_on_refresh=True)
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             run_on_refresh_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_standard(_state, ctx):
+        def on_standard(state, ctx):
             standard_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -446,7 +327,7 @@ class TestSettaListenerRealtimeIntegration:
         realtime_calls: list[dict[str, Any]] = []
 
         @listener.listen(deps=("Welcome",))
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         await listener._process_snapshot(
@@ -551,7 +432,7 @@ class TestSettaListenerRealtimeIntegration:
             deps=(dependency_key,),
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
-        def on_action(_state, ctx):
+        def on_action(state, ctx):
             action_calls.append(
                 [
                     event.payload.payload
@@ -658,11 +539,11 @@ class TestSettaListenerRealtimeIntegration:
             deps=("Welcome",),
             dependency_mode=ListenerDependencyMode.REFRESH_ONLY,
         )
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             refresh_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -710,7 +591,7 @@ class TestSettaListenerRealtimeIntegration:
             deps=("Welcome",),
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -750,7 +631,7 @@ class TestSettaListenerRealtimeIntegration:
         refresh_calls: list[dict[str, Any]] = []
 
         @listener.listen()
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             refresh_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -796,7 +677,7 @@ class TestSettaListenerRealtimeIntegration:
             deps=(),
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -851,11 +732,11 @@ class TestSettaListenerRealtimeIntegration:
             deps=(),
             dependency_mode=ListenerDependencyMode.ALWAYS,
         )
-        def on_any(_state, ctx):
+        def on_any(state, ctx):
             any_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_specific(_state, ctx):
+        def on_specific(state, ctx):
             specific_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -965,11 +846,27 @@ class TestSettaListenerRealtimeIntegration:
                 },
             ),
         )
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
-                dep_graph
+        value_codec = PythonValueCodec(
+            dep_graph,
+            lambda key: (
+                f"{GEN_CODE_INSTANCE_NAME}.{dep_graph.graph[key].full_path_name}"
             ),
+        )
+
+        code_generator = cast(
+            "PythonCodeGenerator",
+            SimpleNamespace(
+                value_codec=value_codec,
+                get_value=lambda node: value_codec.format_param_expression(node)
+                if isinstance(node, ParamNode)
+                else None,
+            ),
+        )
+
+        listener._runtime_state = ListenerRuntimeState(
+            project_state=MagicMock(),
             dependency_graph=dep_graph,
+            code_generator=code_generator,
             s_instance=state,
         )
         listener._dependency_cache = {
@@ -1122,15 +1019,12 @@ class TestSettaListenerBootstrapFailure:
             sectionVariants={section_variant.id: section_variant},
         )
 
-    async def test_bootstrap_registers_fail_closed_when_snapshot_values_are_missing(
-        self,
-    ) -> None:
+    async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
         listener = SettaListener(project_name="Demo Project")
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
 
         @listener.listen(deps=("Welcome",))
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
+        def on_change(state, ctx):  # pragma: no cover - invoked only on success
+            raise AssertionError("callback should not execute when runtime state fails")
 
         project_state = self._build_project_state()
 
@@ -1145,601 +1039,12 @@ class TestSettaListenerBootstrapFailure:
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
         assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache == {}
         assert listener._registration_pending
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
-        assert callback_calls == []
-
-    async def test_bootstrap_uses_go_snapshot_values_when_runtime_state_is_unavailable(
-        self,
-    ) -> None:
-        listener = SettaListener(project_name="Demo Project")
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
-
-        @listener.listen(deps=("Welcome",))
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
-
-        project_state = self._build_project_state()
-        runtime_state = listener._build_runtime_state(project_state)
-        dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
-        dependency_catalog = ListenerDependencyCatalog(
-            entries=[
-                ListenerDependencyCatalogEntry(
-                    dependencyKey=dependency_entry.dependencyKey,
-                    name=dependency_entry.name,
-                    fullPathName=dependency_entry.fullPathName,
-                    dependencies=list(dependency_entry.dependencies),
-                    sectionType=dependency_entry.sectionType,
-                    codeObjType=dependency_entry.codeObjType,
-                    controlCodeObjId=dependency_entry.controlCodeObjId,
-                )
-            ]
-        )
-        dependency_values = ListenerRenderedDependencyValues(
-            entries=[
-                ListenerRenderedDependencyValue(
-                    dependencyKey=dependency_entry.dependencyKey,
-                    renderedValue="'From Go snapshot'",
-                )
-            ]
-        )
-
-        register_payloads: list[dict[str, Any]] = []
-
-        async def capture_payload(payload: str) -> None:
-            register_payloads.append(json.loads(payload))
-
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
-        listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
-
-        await listener._refresh_from_snapshot(
-            project_state,
-            dependency_catalog=dependency_catalog,
-            dependency_values=dependency_values,
-        )
-        await asyncio.sleep(0)
-
-        assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache["Welcome"] == "From Go snapshot"
-        assert listener._registration_pending
-        assert len(register_payloads) == 1
-        assert register_payloads[0]["messageType"] == "ListenerRegister"
-        assert callback_calls == [
-            ("From Go snapshot", {"Welcome": "From Go snapshot"})
-        ]
-
-    async def test_bootstrap_recomputes_composite_cache_from_go_snapshot_values(
-        self,
-    ) -> None:
-        project_state, section_id, param_id = _build_nested_controls_project_state(
-            ID("project-snapshot-composite")
-        )
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        callback_calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
-
-        runtime_state = listener._build_runtime_state(project_state)
-        section_key = create_dep_key(sectionId=section_id)
-        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
-        count_name = runtime_state.dependency_metadata.dependency_name(count_key)
-        dependency_catalog = ListenerDependencyCatalog(
-            entries=[
-                ListenerDependencyCatalogEntry(
-                    dependencyKey=entry.dependencyKey,
-                    name=entry.name,
-                    fullPathName=entry.fullPathName,
-                    dependencies=list(entry.dependencies),
-                    sectionType=entry.sectionType,
-                    codeObjType=entry.codeObjType,
-                    controlCodeObjId=entry.controlCodeObjId,
-                    controlCodeObjType=entry.controlCodeObjType,
-                    sectionRepresentation=entry.sectionRepresentation,
-                    controlValueRepresentation=entry.controlValueRepresentation,
-                    valueRepresentation=entry.valueRepresentation,
-                )
-                for entry in [
-                    runtime_state.dependency_metadata.entry_for_name(name)
-                    for name in runtime_state.dependency_metadata.names()
-                ]
-            ]
-        )
-        dependency_values = ListenerRenderedDependencyValues(
-            entries=[
-                ListenerRenderedDependencyValue(
-                    dependencyKey=count_key,
-                    renderedValue="5",
-                )
-            ]
-        )
-
-        @listener.listen(deps=(section_name,), run_on_refresh=True)
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Controls, dict(ctx.changed)))
-
-        register_payloads: list[dict[str, Any]] = []
-
-        async def capture_payload(payload: str) -> None:
-            register_payloads.append(json.loads(payload))
-
-        listener._build_runtime_state = MagicMock(
-            return_value=ListenerRuntimeState(
-                dependency_metadata=runtime_state.dependency_metadata,
-                dependency_graph=_GraphlessDependencyGraph(),
-                s_instance=None,
-            )
-        )
-        listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
-
-        await listener._refresh_from_snapshot(
-            project_state,
-            dependency_catalog=dependency_catalog,
-            dependency_values=dependency_values,
-        )
-        await asyncio.sleep(0)
-
-        assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache[count_name] == 5
-        assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {section_name: {"count": 5}})
-        ]
-        assert len(register_payloads) == 1
-        assert register_payloads[0]["messageType"] == "ListenerRegister"
-
-    async def test_realtime_updates_cache_when_runtime_state_is_unavailable(self) -> None:
-        listener = SettaListener(project_name="Demo Project")
-        project_state = self._build_project_state()
-
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
-
-        @listener.listen(deps=("Welcome",))
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
-
-        runtime_state = listener._build_runtime_state(project_state)
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=runtime_state.dependency_metadata,
-            dependency_graph=runtime_state.dependency_graph,
-            s_instance=None,
-        )
-        listener._project_config_id = project_state.projectConfig.id
-        listener._dependency_cache = {"Welcome": "Hello"}
-        listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-
-        spec = next(iter(listener._callbacks.values()))
-        dependency_key = spec.structured_dependencies[0]
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated while unavailable"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-        await listener._scheduler.flush(spec.callback_id)
-
-        assert listener._dependency_cache["Welcome"] == "Updated while unavailable"
-        assert listener._get_last_realtime_sequence() == 1
-        assert callback_calls == [
-            ("Updated while unavailable", {"Welcome": "Updated while unavailable"})
-        ]
-
-    async def test_realtime_uses_catalog_metadata_when_runtime_state_is_unavailable(
-        self,
-    ) -> None:
-        listener = SettaListener(project_name="Project project-typed")
-        slider_events: list[tuple[Any, Any]] = []
-        switch_events: list[tuple[Any, Any]] = []
-
-        @listener.listen(deps=("section__slider",))
-        def on_slider(state, ctx) -> None:
-            slider_events.append(
-                (state.section__slider, ctx.changed["section__slider"])
-            )
-
-        @listener.listen(deps=("section__switch",))
-        def on_switch(state, ctx) -> None:
-            switch_events.append(
-                (state.section__switch, ctx.changed["section__switch"])
-            )
-
-        slider_key = create_dep_key(
-            sectionId=SECTION_ONE_ID,
-            codeObjId=PARAM_SLIDER_ID,
-        )
-        switch_key = create_dep_key(
-            sectionId=SECTION_ONE_ID,
-            codeObjId=PARAM_SWITCH_ID,
-        )
-        catalog = ListenerDependencyCatalog(
-            entries=[
-                ListenerDependencyCatalogEntry(
-                    dependencyKey=slider_key,
-                    name="slider",
-                    fullPathName="section__slider",
-                    codeObjType=CodeObjType.SliderParam,
-                    valueRepresentation=CodeObjValueRepresentationMode.expression,
-                ),
-                ListenerDependencyCatalogEntry(
-                    dependencyKey=switch_key,
-                    name="switch",
-                    fullPathName="section__switch",
-                    codeObjType=CodeObjType.SwitchParam,
-                    valueRepresentation=CodeObjValueRepresentationMode.expression,
-                ),
-            ]
-        )
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=ListenerDependencyMetadata.from_catalog(catalog),
-            dependency_graph=_GraphlessDependencyGraph(),
-            s_instance=None,
-        )
-        listener._project_config_id = PROJECT_TYPED_ID
-        listener._dependency_cache = {
-            "section__slider": 1,
-            "section__switch": False,
-        }
-        listener._refresh_callback_dependency_metadata(
-            listener._runtime_state.dependency_metadata
-        )
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=PROJECT_TYPED_ID,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=slider_key,
-                        value=LiteralDependencyValue("5"),
-                    ),
-                    ListenerRealtimeDelta(
-                        dependency=switch_key,
-                        value=LiteralDependencyValue("true"),
-                    ),
-                ],
-                sequence=1,
-            )
-        )
-
-        slider_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.declared_dependencies == ("section__slider",)
-        )
-        switch_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.declared_dependencies == ("section__switch",)
-        )
-        await listener._scheduler.flush(slider_spec.callback_id)
-        await listener._scheduler.flush(switch_spec.callback_id)
-
-        assert listener._dependency_cache["section__slider"] == 5
-        assert isinstance(listener._dependency_cache["section__slider"], int)
-        assert slider_events == [(5, 5)]
-
-        assert listener._dependency_cache["section__switch"] is True
-        assert switch_events == [(True, True)]
-        assert listener._get_last_realtime_sequence() == 1
-
-    async def test_realtime_recomputes_composite_cache_from_metadata_when_runtime_state_is_unavailable(
-        self,
-    ) -> None:
-        project_state, section_id, param_id = _build_nested_controls_project_state(
-            ID("project-composite")
-        )
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
-        section_key = create_dep_key(sectionId=section_id)
-        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
-        count_name = runtime_state.dependency_metadata.dependency_name(count_key)
-        composite_names = [
-            name
-            for name in runtime_state.dependency_metadata.names()
-            if name not in {section_name, count_name}
-        ]
-        if composite_names:
-            raise AssertionError(
-                f"expected no intermediate composite dependency, got {composite_names!r}"
-            )
-        callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
-
-        @listener.listen(deps=(count_name,))
-        def on_count(state, ctx) -> None:
-            callback_calls.append(
-                (
-                    getattr(state, section_name),
-                    ctx.values.by_id(section_id),
-                    ctx.changed[count_name],
-                )
-            )
-
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=runtime_state.dependency_metadata,
-            dependency_graph=_GraphlessDependencyGraph(),
-            s_instance=None,
-        )
-        listener._project_config_id = project_state.projectConfig.id
-        listener._dependency_cache = dict(initial_cache)
-        listener._refresh_callback_dependency_metadata(
-            listener._runtime_state.dependency_metadata
-        )
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=count_key,
-                        value=LiteralDependencyValue("5"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-
-        callback_spec = next(iter(listener._callbacks.values()))
-        await listener._scheduler.flush(callback_spec.callback_id)
-
-        assert listener._dependency_cache[count_name] == 5
-        assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, 5)
-        ]
-        assert listener._get_last_realtime_sequence() == 1
-
-    async def test_realtime_triggers_composite_listener_when_runtime_state_is_unavailable(
-        self,
-    ) -> None:
-        project_state, section_id, param_id = _build_nested_controls_project_state(
-            ID("project-composite-parent")
-        )
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
-        section_key = create_dep_key(sectionId=section_id)
-        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
-        callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
-
-        @listener.listen(deps=(section_name,))
-        def on_section(state, ctx) -> None:
-            callback_calls.append(
-                (
-                    getattr(state, section_name),
-                    ctx.values.by_id(section_id),
-                    ctx.changed[section_name],
-                )
-            )
-
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=runtime_state.dependency_metadata,
-            dependency_graph=_GraphlessDependencyGraph(),
-            s_instance=None,
-        )
-        listener._project_config_id = project_state.projectConfig.id
-        listener._dependency_cache = dict(initial_cache)
-        listener._refresh_callback_dependency_metadata(
-            listener._runtime_state.dependency_metadata
-        )
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=count_key,
-                        value=LiteralDependencyValue("5"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-
-        callback_spec = next(iter(listener._callbacks.values()))
-        await listener._scheduler.flush(callback_spec.callback_id)
-
-        assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, {"count": 5})
-        ]
-        assert listener._get_last_realtime_sequence() == 1
-
-    async def test_realtime_recomputes_cached_composites_when_runtime_state_exists(
-        self,
-    ) -> None:
-        project_state, section_id, param_id = _build_nested_controls_project_state(
-            ID("project-runtime-composite")
-        )
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
-        section_key = create_dep_key(sectionId=section_id)
-        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
-        count_name = runtime_state.dependency_metadata.dependency_name(count_key)
-        callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
-
-        @listener.listen(deps=(count_name,))
-        def on_count(state, ctx) -> None:
-            callback_calls.append(
-                (
-                    getattr(state, section_name),
-                    ctx.values.by_id(section_id),
-                    ctx.changed[count_name],
-                )
-            )
-
-        listener._runtime_state = runtime_state
-        listener._project_config_id = project_state.projectConfig.id
-        listener._dependency_cache = dict(initial_cache)
-        listener._refresh_callback_dependency_metadata(
-            listener._runtime_state.dependency_metadata
-        )
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=count_key,
-                        value=LiteralDependencyValue("5"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-
-        callback_spec = next(iter(listener._callbacks.values()))
-        await listener._scheduler.flush(callback_spec.callback_id)
-
-        assert listener._dependency_cache[count_name] == 5
-        assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, 5)
-        ]
-        assert listener._get_last_realtime_sequence() == 1
-
-    async def test_realtime_triggers_composite_listener_when_runtime_state_exists(
-        self,
-    ) -> None:
-        project_state, section_id, param_id = _build_nested_controls_project_state(
-            ID("project-runtime-composite-parent")
-        )
-        listener = SettaListener(project_name=project_state.projectConfig.name)
-        runtime_state = listener._build_runtime_state(project_state)
-        initial_cache = listener._build_dependency_cache_from_runtime_state(
-            runtime_state
-        )
-        section_key = create_dep_key(sectionId=section_id)
-        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
-        callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
-
-        @listener.listen(deps=(section_name,))
-        def on_section(state, ctx) -> None:
-            callback_calls.append(
-                (
-                    getattr(state, section_name),
-                    ctx.values.by_id(section_id),
-                    ctx.changed[section_name],
-                )
-            )
-
-        listener._runtime_state = runtime_state
-        listener._project_config_id = project_state.projectConfig.id
-        listener._dependency_cache = dict(initial_cache)
-        listener._refresh_callback_dependency_metadata(
-            listener._runtime_state.dependency_metadata
-        )
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=count_key,
-                        value=LiteralDependencyValue("5"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-
-        callback_spec = next(iter(listener._callbacks.values()))
-        await listener._scheduler.flush(callback_spec.callback_id)
-
-        assert listener._dependency_cache[section_name] == {"count": 5}
-        assert callback_calls == [
-            ({"count": 5}, {"count": 5}, {"count": 5})
-        ]
-        assert listener._get_last_realtime_sequence() == 1
-
-    async def test_replay_cached_snapshot_fails_closed_without_latest_go_snapshot_values(
-        self,
-    ) -> None:
-        listener = SettaListener(project_name="Demo Project")
-        project_state = self._build_project_state()
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
-
-        @listener.listen(deps=("Welcome",), run_on_refresh=True)
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
-
-        listener._latest_persisted_snapshot = project_state
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
-
-        await listener._replay_cached_snapshot()
-
-        assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache == {}
-        assert callback_calls == []
-
-    async def test_replay_cached_snapshot_uses_latest_go_snapshot_values(self) -> None:
-        listener = SettaListener(project_name="Demo Project")
-        project_state = self._build_project_state()
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
-
-        @listener.listen(deps=("Welcome",), run_on_refresh=True)
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
-
-        runtime_state = listener._build_runtime_state(project_state)
-        dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
-        listener._latest_persisted_snapshot = project_state
-        listener._latest_dependency_metadata = runtime_state.dependency_metadata
-        listener._latest_dependency_snapshot_values = ListenerRenderedDependencyValues(
-            entries=[
-                ListenerRenderedDependencyValue(
-                    dependencyKey=dependency_entry.dependencyKey,
-                    renderedValue="'Replay from Go snapshot'",
-                )
-            ]
-        )
-        listener._build_runtime_state = MagicMock(
-            return_value=ListenerRuntimeState(
-                dependency_metadata=runtime_state.dependency_metadata,
-                dependency_graph=_GraphlessDependencyGraph(),
-                s_instance=None,
-            )
-        )
-
-        await listener._replay_cached_snapshot()
-
-        assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache["Welcome"] == "Replay from Go snapshot"
-        assert callback_calls == [
-            (
-                "Replay from Go snapshot",
-                {"Welcome": "Replay from Go snapshot"},
-            )
-        ]
 
 
 class TestSettaListenerBinaryParsing:
