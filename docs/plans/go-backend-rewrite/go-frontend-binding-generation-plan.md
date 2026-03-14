@@ -287,6 +287,9 @@ Current status:
 - backend-origin URL and websocket construction now also flows through
   `frontend/src/utils/backendOriginTransport.ts`, so plugin/realtime/terminal
   callers no longer import those low-level `endpointUtils` builders directly
+- app binary-download transport now also flows through
+  `frontend/src/components/App/appTransport.ts`, so `AppRenderer` no longer
+  imports the low-level `endpointUtils` backend URL builder directly
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

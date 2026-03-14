@@ -1,4 +1,4 @@
-endpointUtils frontend/src/components/App/AppRenderer.tsx buildBackendURL
+endpointUtils frontend/src/components/App/appTransport.ts buildBackendURL
 endpointUtils frontend/src/components/Section/Layouts/MetaControlArea.tsx post
 endpointUtils frontend/src/plugins/transport.ts buildBackendURL
 endpointUtils frontend/src/utils/backendOriginTransport.ts buildBackendOriginURL
