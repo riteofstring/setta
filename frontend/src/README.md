@@ -81,8 +81,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     single-run/update reconciliation.
   - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration,
     backend request payload assembly, and the pending-surface promotion flow.
-  - `state/actions/aiChatControls.ts` owns stop/resume behavior plus external
-    agent approval/question responses.
+  - `state/actions/aiChatControls.ts` owns stop orchestration for project and
+    managed section chats.
+  - `state/actions/aiChatStopState.ts` owns local stop snapshots, optimistic
+    waiting-state interruption updates, and follow-state restoration.
+  - `state/actions/aiExternalAgentResponses.ts` owns external agent
+    approval/question response transport.
   - `state/actions/aiChatState.ts` owns chat-detail and pending-surface detail
     writes shared across submission, hydration, and controls.
   - `state/actions/aiChatSectionState.ts` owns persisted chat-section state sync
@@ -235,8 +239,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
     helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
-    `aiChatSubmission.ts`, `aiChatControls.ts`, `aiChatState.ts`,
-    `aiChatSectionState.ts`, and `aiPendingChatState.ts`.
+    `aiChatSubmission.ts`, `aiChatControls.ts`, `aiChatStopState.ts`,
+    `aiExternalAgentResponses.ts`, `aiChatState.ts`, `aiChatSectionState.ts`,
+    and `aiPendingChatState.ts`.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
     reconciliation, active-section sync, viewport updates, and project-chat
     windowing coordination for authoritative project snapshots.
@@ -372,10 +377,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/aiChatControls.ts` is now the largest authored/shared state
-  hotspot, so follow-up cleanup should separate stop/resume orchestration from
-  approval/question response flows and chat-surface sync helpers instead of
-  regrowing the already-split workflow-edge surface
+- `state/actions/websocketLifecycle.ts` is now the largest authored/shared
+  state hotspot, so follow-up cleanup should separate reconnect/auth recovery
+  from socket-open bootstrap and share-session restoration instead of
+  regrowing the already-split chat-control surface
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership

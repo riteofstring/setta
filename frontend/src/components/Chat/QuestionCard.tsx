@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { IoMdCheckmark } from "react-icons/io";
-import { respondExternalAgentQuestion } from "state/actions/aiChatControls";
+import { respondExternalAgentQuestion } from "state/actions/aiExternalAgentResponses";
 import {
   AskUserQuestionPayload,
   AskUserQuestionPrompt,

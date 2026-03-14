@@ -1,17 +1,8 @@
-import {
-  clearAIFollowToolArgumentsForChat,
-  getAIFollowToolArgumentsSnapshot,
-  restoreAIFollowToolArgumentsSnapshot,
-  type AIFollowIdsByType,
-} from "state/actions/aiFollow";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
-import { useAIStore, type ChatDetails } from "state/stores/aiStores";
+import { useAIStore } from "state/stores/aiStores";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_respond_external_agent_approval,
-  route_respond_external_agent_question,
   route_stop_external_agent_run,
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
@@ -21,151 +12,19 @@ import {
 } from "utils/generatedTypes";
 import { getRunLastUpdatedMs } from "./agentRunUtils";
 import { loadAgentRuns } from "./aiAgentRuns";
-import { getDefaultChatDetails } from "./aiChatDetails";
 import {
-  getPendingChatDetailsForSurface,
-  updateChatDetails,
-  updatePendingChatDetails,
-} from "./aiChatState";
+  applyConfirmedExternalStopInterruption,
+  reconcileStoppedLLMChatOutcome,
+  restoreStoppedChatFollowState,
+  restoreStoppedChatResponseLocally,
+  stopChatResponseLocally,
+  type StopChatResponseSnapshot,
+} from "./aiChatStopState";
 import {
   getExternalAgentChat,
   getLLMChatHydrationOutcome,
 } from "./aiHydration";
-import {
-  getInterruptedAssistantMessageIdsByChat,
-  markInterruptedAssistantMessage,
-  restoreInterruptedAssistantMessageIds,
-} from "./aiInterruptedAssistantMessages";
-import { getStopEligibleAssistantMessageId } from "./aiStopEligibleAssistantMessages";
-
-type StopChatResponseSnapshot = {
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  interruptedAssistantMessageIdsByChat: Record<string, true>;
-  stopEligibleAssistantMessageId: string | null;
-  followProjectConfigId: string | null;
-  followToolArgumentIdsByType: AIFollowIdsByType | null;
-};
-
-function getStopChatResponseSnapshot(
-  chatId: string | null | undefined,
-  pendingSurfaceId: string | null | undefined = null,
-  followProjectConfigId: string | null = null,
-): StopChatResponseSnapshot {
-  const state = useAIStore.getState();
-  const currentDetails =
-    typeof chatId === "string"
-      ? state.chatDetails[chatId] ?? getDefaultChatDetails()
-      : getPendingChatDetailsForSurface(state, pendingSurfaceId) ??
-        getDefaultChatDetails();
-  return {
-    waitingForResponse: currentDetails.waitingForResponse,
-    toolCallArguments: { ...currentDetails.toolCallArguments },
-    interruptedAssistantMessageIdsByChat:
-      typeof chatId === "string"
-        ? getInterruptedAssistantMessageIdsByChat(chatId)
-        : {},
-    stopEligibleAssistantMessageId:
-      typeof chatId === "string"
-        ? getStopEligibleAssistantMessageId(chatId)
-        : null,
-    followProjectConfigId,
-    followToolArgumentIdsByType:
-      typeof chatId === "string" && followProjectConfigId
-        ? getAIFollowToolArgumentsSnapshot(followProjectConfigId, chatId)
-        : null,
-  };
-}
-
-function restoreStoppedChatResponseLocally(
-  chatId: string | null | undefined,
-  snapshot: StopChatResponseSnapshot,
-  pendingSurfaceId: string | null | undefined = null,
-): void {
-  const restoreDetails = (details: ChatDetails): ChatDetails => ({
-    ...details,
-    waitingForResponse: snapshot.waitingForResponse,
-    toolCallArguments: { ...snapshot.toolCallArguments },
-  });
-  if (typeof chatId === "string") {
-    updateChatDetails(chatId, restoreDetails);
-    return;
-  }
-  updatePendingChatDetails(restoreDetails, pendingSurfaceId);
-}
-
-function restoreStoppedChatFollowState(
-  chatId: string | null | undefined,
-  snapshot: StopChatResponseSnapshot,
-): void {
-  if (typeof chatId !== "string" || !snapshot.followProjectConfigId) {
-    return;
-  }
-  restoreAIFollowToolArgumentsSnapshot({
-    projectConfigId: snapshot.followProjectConfigId,
-    chatId,
-    idsByType: snapshot.followToolArgumentIdsByType,
-  });
-}
-
-function stopChatResponseLocally(
-  chatId: string | null | undefined,
-  options: {
-    markInterruptedOptimistically?: boolean;
-    pendingSurfaceId?: string | null;
-    followProjectConfigId?: string | null;
-  } = {},
-): StopChatResponseSnapshot {
-  const markInterruptedOptimistically =
-    options.markInterruptedOptimistically ?? true;
-  const pendingSurfaceId = options.pendingSurfaceId ?? null;
-  const followProjectConfigId = options.followProjectConfigId ?? null;
-  const snapshot = getStopChatResponseSnapshot(
-    chatId,
-    pendingSurfaceId,
-    followProjectConfigId,
-  );
-  const stopDetails = (details: ChatDetails): ChatDetails => ({
-    ...details,
-    waitingForResponse: false,
-  });
-  if (typeof chatId === "string") {
-    updateChatDetails(chatId, stopDetails);
-    if (
-      markInterruptedOptimistically &&
-      snapshot.waitingForResponse &&
-      snapshot.stopEligibleAssistantMessageId
-    ) {
-      markInterruptedAssistantMessage(
-        chatId,
-        snapshot.stopEligibleAssistantMessageId,
-      );
-    }
-    if (followProjectConfigId) {
-      clearAIFollowToolArgumentsForChat(followProjectConfigId, chatId);
-    }
-  } else {
-    updatePendingChatDetails(stopDetails, pendingSurfaceId);
-  }
-  clearAllAppSpecPatchStreams();
-  return snapshot;
-}
-
-function applyConfirmedExternalStopInterruption(
-  chatId: string,
-  snapshot: StopChatResponseSnapshot,
-): void {
-  restoreInterruptedAssistantMessageIds(
-    chatId,
-    snapshot.interruptedAssistantMessageIdsByChat,
-  );
-  const stoppedMessageId =
-    snapshot.stopEligibleAssistantMessageId?.trim() ?? "";
-  if (!stoppedMessageId) {
-    return;
-  }
-  markInterruptedAssistantMessage(chatId, stoppedMessageId);
-}
+import { restoreInterruptedAssistantMessageIds } from "./aiInterruptedAssistantMessages";
 
 async function findLatestRunningExternalRunId(
   chatId: string,
@@ -315,58 +174,6 @@ async function stopExternalChatResponse({
   return false;
 }
 
-function reconcileStoppedLLMChatOutcome({
-  chatId,
-  localSnapshot,
-  stopOutcome,
-}: {
-  chatId: string;
-  localSnapshot: StopChatResponseSnapshot;
-  stopOutcome:
-    | {
-        alreadyStopped: boolean;
-        stoppedMessageId: string | null;
-      }
-    | null
-    | undefined;
-}): void {
-  if (!stopOutcome) {
-    return;
-  }
-  if (stopOutcome.alreadyStopped) {
-    restoreInterruptedAssistantMessageIds(
-      chatId,
-      localSnapshot.interruptedAssistantMessageIdsByChat,
-    );
-    return;
-  }
-  const stoppedMessageId = stopOutcome.stoppedMessageId?.trim() ?? "";
-  if (!stoppedMessageId) {
-    restoreInterruptedAssistantMessageIds(
-      chatId,
-      localSnapshot.interruptedAssistantMessageIdsByChat,
-    );
-    return;
-  }
-  const localStoppedMessageId =
-    localSnapshot.stopEligibleAssistantMessageId?.trim() ?? "";
-  if (!localStoppedMessageId) {
-    restoreInterruptedAssistantMessageIds(
-      chatId,
-      localSnapshot.interruptedAssistantMessageIdsByChat,
-    );
-    return;
-  }
-  if (localStoppedMessageId === stoppedMessageId) {
-    return;
-  }
-  restoreInterruptedAssistantMessageIds(
-    chatId,
-    localSnapshot.interruptedAssistantMessageIdsByChat,
-  );
-  markInterruptedAssistantMessage(chatId, stoppedMessageId);
-}
-
 export async function stopProjectChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
@@ -478,26 +285,4 @@ export async function stopManagedSectionChatResponse(
     SettaNotificationTypeEnum.warning,
   );
   return false;
-}
-
-export async function respondExternalAgentApproval(
-  approvalId: string,
-  approved: boolean,
-): Promise<boolean> {
-  const res = await route_respond_external_agent_approval({
-    approvalId,
-    approved,
-  });
-  return res200(res);
-}
-
-export async function respondExternalAgentQuestion(
-  toolCallId: string,
-  answers: Record<string, string>,
-): Promise<boolean> {
-  const res = await route_respond_external_agent_question({
-    toolCallId,
-    answers,
-  });
-  return res200(res);
 }
