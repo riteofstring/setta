@@ -12,14 +12,14 @@ import {
 } from "react-window";
 import {
   clearGitGraphSelectedCommit,
-  closeGitOverlay,
   loadMoreGitGraphCommits,
   refreshGitGraphOverlay,
   selectGitCommit,
   selectGitCommitFile,
   setGitGraphFilterText,
   toggleGitGraphAllRefs,
-} from "state/actions/git";
+} from "state/actions/gitGraph";
+import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
 import { useGitStore } from "state/git";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type {

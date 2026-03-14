@@ -80,6 +80,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/projectChatThreadStorageUndo.ts` now owns the
   local delete undo stack and restoration logic that previously lived in
   `frontend/src/state/actions/projectChatThreads.ts`.
+- `frontend/src/state/actions/gitGraph.ts` now owns git graph/log loading,
+  pagination, graph filter state, and commit/detail/file-diff selection, while
+  `frontend/src/state/actions/gitStatusAndDiff.ts` now owns git status refresh,
+  diff availability, diff overlay opening, and diff-mode switching that
+  previously lived in `frontend/src/state/actions/git.ts`.
 - `frontend/src/state/actions/aiChatStreamingTools.ts` now owns tool-call
   placeholder reconciliation, tool-preview store updates, preview cleanup, and
   app-spec/app-definition tool handling that previously lived in
@@ -116,15 +121,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 89.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/git.ts` at 805 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 718 lines
   - `frontend/src/state/actions/aiConfiguration.ts` at 700 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
+  - `frontend/src/state/actions/gitGraph.ts` at 591 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 520 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines

@@ -19,18 +19,20 @@ import {
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildGitDiffAvailabilityByPath,
   clearGitGraphSelectedCommit,
   ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
-  openGitDiffOverlay,
   openGitGraphOverlay,
   refreshGitGraphOverlay,
-  refreshGitStatus,
   selectGitCommit,
   selectGitCommitFile,
+} from "./gitGraph";
+import {
+  buildGitDiffAvailabilityByPath,
+  openGitDiffOverlay,
+  refreshGitStatus,
   setGitDiffMode,
-} from "./git";
+} from "./gitStatusAndDiff";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_git_commit_details: vi.fn(),

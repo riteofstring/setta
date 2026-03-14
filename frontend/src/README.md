@@ -10,12 +10,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1008`
-- Non-generated TS/TSX files at `1000+` lines: `43`
+- Authored TS/TSX files under `frontend/src`: `1022`
+- Non-generated TS/TSX files at `1000+` lines: `40`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4988`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3324`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4990`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2723`)
@@ -126,6 +126,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Section/Layouts/BrowserArea.tsx` owns the browser section layout.
   - `utils/fileBrowser*.ts`, `utils/browserPaths.ts`, and nearby helpers own the
     pure file-browser derivation and path utilities.
+
+- Git surfaces
+
+  - `components/Panes/Overview/Git/*` and `components/Git/*` own the git pane,
+    diff overlay, graph overlay, and embedded graph window UI.
+  - `state/actions/gitStatusAndDiff.ts` owns git status refresh, diff
+    availability, diff overlay opening, and diff-mode switching.
+  - `state/actions/gitGraph.ts` owns git graph/log loading, pagination, graph
+    filter state, and commit/detail/file-diff selection behavior.
+  - `state/actions/git.ts` is now a thin compatibility surface that re-exports
+    the git status/diff and graph owners.
 
 - App runtime
 
@@ -290,12 +301,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/git.ts` is now the largest authored state hotspot and should
-  keep splitting around repo reads, mutation commands, and branch/worktree
-  action helpers
-- `state/actions/projectChatWindowingState.ts` and
-  `state/actions/aiConfiguration.ts` are the next authored hotspots after git
-  and should keep splitting around their existing feature-local helpers
+- `state/actions/projectChatWindowingState.ts` is now the largest authored
+  state hotspot and should keep splitting around window reducers versus shared
+  normalization/selector helpers
+- `state/actions/aiConfiguration.ts` and `state/actions/windowSpaces.ts` are
+  the next authored/shared hotspots after project chat windowing state and
+  should keep splitting around their existing feature-local helpers
 - `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
   hotspot and should keep shrinking around restore orchestration versus saved
   layout mutation ownership

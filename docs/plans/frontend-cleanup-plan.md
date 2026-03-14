@@ -49,17 +49,17 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 979 authored TS/TSX files under `frontend/src`.
-- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 1022 authored TS/TSX files under `frontend/src`.
+- There are 40 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2723 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2379 lines
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3327 lines
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2445 lines
-- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4989 lines
+- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4990 lines
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2325 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
@@ -86,6 +86,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   local delete undo stack and restoration logic, reducing
   `frontend/src/state/actions/projectChatThreads.ts` to a 20-line compatibility
   surface.
+- `frontend/src/state/actions/gitGraph.ts` now owns git graph/log loading,
+  pagination, graph filter state, and commit/detail/file-diff selection, while
+  `frontend/src/state/actions/gitStatusAndDiff.ts` now owns git status refresh,
+  diff availability, diff overlay opening, and diff-mode switching, reducing
+  `frontend/src/state/actions/git.ts` to an 18-line compatibility surface.
 - `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
   project-state reconciliation, active-section sync, viewport updates, and
   project-chat windowing coordination, reducing
