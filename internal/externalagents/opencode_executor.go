@@ -475,16 +475,8 @@ func (e *OpenCodeExecutor) buildRuntimeEnv(config externalagentconfigs.Config) m
 			envMap[key] = e.processEnv[key]
 		}
 	}
-	for _, key := range config.EnvVarWhitelist {
-		trimmedKey := strings.TrimSpace(key)
-		if trimmedKey == "" {
-			continue
-		}
-		value := strings.TrimSpace(e.processEnv[trimmedKey])
-		if value == "" {
-			continue
-		}
-		envMap[trimmedKey] = e.processEnv[trimmedKey]
+	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
+		envMap[key] = value
 	}
 	return envMap
 }

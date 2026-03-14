@@ -270,8 +270,8 @@ func buildExternalAgentHealthResponse(status externalagentconfigs.Status) extern
 		BaseURL:    cloneOptionalString(status.BaseURL),
 		WorkingDir: cloneOptionalString(status.WorkingDir),
 		EnvVars: externalAgentEnvVarStatusResponse{
-			Present: []string{},
-			Missing: []string{},
+			Present: append([]string(nil), status.EnvVars.Present...),
+			Missing: append([]string(nil), status.EnvVars.Missing...),
 		},
 	}
 	if status.ToolType == externalagentconfigs.ToolTypeOpenCode {

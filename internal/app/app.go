@@ -736,6 +736,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			ProcessEnv:    llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

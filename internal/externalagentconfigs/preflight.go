@@ -6,19 +6,22 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"setta/internal/llmconfig"
 )
 
 type Status struct {
-	ConfigID    string   `json:"configId"`
-	Name        string   `json:"name"`
-	ToolType    ToolType `json:"toolType"`
-	RunMode     RunMode  `json:"runMode"`
-	Supported   bool     `json:"supported"`
-	Available   bool     `json:"available"`
-	Issues      []string `json:"issues"`
-	BaseURL     *string  `json:"baseUrl,omitempty"`
-	WorkingDir  *string  `json:"workingDir,omitempty"`
-	CommandPath *string  `json:"commandPath,omitempty"`
+	ConfigID    string       `json:"configId"`
+	Name        string       `json:"name"`
+	ToolType    ToolType     `json:"toolType"`
+	RunMode     RunMode      `json:"runMode"`
+	Supported   bool         `json:"supported"`
+	Available   bool         `json:"available"`
+	Issues      []string     `json:"issues"`
+	BaseURL     *string      `json:"baseUrl,omitempty"`
+	WorkingDir  *string      `json:"workingDir,omitempty"`
+	CommandPath *string      `json:"commandPath,omitempty"`
+	EnvVars     EnvVarStatus `json:"envVars"`
 }
 
 type Checker interface {
@@ -27,10 +30,12 @@ type Checker interface {
 
 type SystemCheckerOptions struct {
 	WorkspaceRoot string
+	ProcessEnv    map[string]string
 }
 
 type SystemChecker struct {
 	workspaceRoot string
+	processEnv    map[string]string
 }
 
 func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
@@ -38,7 +43,14 @@ func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
 	if workspaceRoot == "" {
 		return nil, ErrWorkspaceRequired
 	}
-	return &SystemChecker{workspaceRoot: workspaceRoot}, nil
+	processEnv := cloneStringMap(options.ProcessEnv)
+	if processEnv == nil {
+		processEnv = llmconfig.CurrentProcessEnv()
+	}
+	return &SystemChecker{
+		workspaceRoot: workspaceRoot,
+		processEnv:    processEnv,
+	}, nil
 }
 
 func (c *SystemChecker) Check(config Config) (Status, error) {
@@ -47,33 +59,54 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 		return Status{}, err
 	}
 	issues := []string{}
+	blockingIssueCount := 0
+	addIssue := func(issue string, blocking bool) {
+		if strings.TrimSpace(issue) == "" {
+			return
+		}
+		issues = append(issues, issue)
+		if blocking {
+			blockingIssueCount++
+		}
+	}
 	supported := isSupported(normalized.ToolType, normalized.RunMode)
 	if !supported {
-		issues = append(issues, fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType))
+		addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)
+	}
+	envVars := ResolveWhitelistedEnvVars(c.workspaceRoot, c.processEnv, normalized.EnvVarWhitelist)
+	managedStoreIssueBlocks := len(envVars.Status.Missing) > 0
+	if envVars.CorruptionIssue != "" {
+		addIssue(envVars.CorruptionIssue, managedStoreIssueBlocks)
+	}
+	if envVars.UnavailableIssue != "" {
+		addIssue(envVars.UnavailableIssue, managedStoreIssueBlocks)
+	}
+	if len(envVars.Status.Missing) > 0 {
+		addIssue(fmt.Sprintf("Missing env vars: %s", strings.Join(envVars.Status.Missing, ", ")), true)
 	}
 	workingDir, workingDirIssue := c.resolveWorkingDir(normalized)
 	if workingDirIssue != "" {
-		issues = append(issues, workingDirIssue)
+		addIssue(workingDirIssue, true)
 	}
 	baseURL, baseURLIssue := validateBaseURL(normalized)
 	if baseURLIssue != "" {
-		issues = append(issues, baseURLIssue)
+		addIssue(baseURLIssue, true)
 	}
 	commandPath, commandIssue := c.resolveCommandPath(normalized)
 	if commandIssue != "" {
-		issues = append(issues, commandIssue)
+		addIssue(commandIssue, true)
 	}
 	if normalized.ToolType == ToolTypeClaudeCode && normalized.RunMode == RunModeSDK {
 		pythonCommand, err := ResolveClaudePythonCommand()
 		if err != nil {
-			issues = append(issues, fmt.Sprintf("Claude bridge python unavailable (%v)", err))
+			addIssue(fmt.Sprintf("Claude bridge python unavailable (%v)", err), true)
 		} else if err := CheckClaudeSDKImport(pythonCommand); err != nil {
-			issues = append(issues, fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand))
+			addIssue(fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand), true)
 		}
 	}
 	if normalized.ToolType == ToolTypeOpenCode && normalized.RunMode == RunModeSDK && strings.TrimSpace(derefOptionalString(normalized.BaseURL)) == "" {
 		if _, err := exec.LookPath("opencode"); err != nil {
-			issues = append(issues, "opencode CLI not found (install opencode CLI)")
+			addIssue("opencode CLI not found (install opencode CLI)", true)
 		}
 	}
 
@@ -83,11 +116,15 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 		ToolType:    normalized.ToolType,
 		RunMode:     normalized.RunMode,
 		Supported:   supported,
-		Available:   supported && len(issues) == 0,
+		Available:   supported && blockingIssueCount == 0,
 		Issues:      append([]string(nil), issues...),
 		BaseURL:     baseURL,
 		WorkingDir:  workingDir,
 		CommandPath: commandPath,
+		EnvVars: EnvVarStatus{
+			Present: append([]string(nil), envVars.Status.Present...),
+			Missing: append([]string(nil), envVars.Status.Missing...),
+		},
 	}
 	return status, nil
 }

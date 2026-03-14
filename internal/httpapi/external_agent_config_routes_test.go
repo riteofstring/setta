@@ -155,6 +155,10 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 				BaseURL:     &baseURL,
 				WorkingDir:  &workingDir,
 				CommandPath: &nodePath,
+				EnvVars: externalagentconfigs.EnvVarStatus{
+					Present: []string{"OPENAI_API_KEY"},
+					Missing: []string{"ANTHROPIC_API_KEY"},
+				},
 			},
 			"config-2": {
 				ConfigID:   "config-2",
@@ -194,8 +198,8 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if payload[1].NodePath != nil {
 		t.Fatalf("expected non-opencode nodePath to remain nil, got %#v", payload[1])
 	}
-	if len(payload[0].EnvVars.Present) != 0 || len(payload[0].EnvVars.Missing) != 0 {
-		t.Fatalf("expected empty envVars defaults, got %#v", payload[0].EnvVars)
+	if got := payload[0].EnvVars; len(got.Present) != 1 || got.Present[0] != "OPENAI_API_KEY" || len(got.Missing) != 1 || got.Missing[0] != "ANTHROPIC_API_KEY" {
+		t.Fatalf("expected envVars mapping from checker status, got %#v", got)
 	}
 	if len(checker.seenConfigIDs) != 2 || checker.seenConfigIDs[0] != "config-1" || checker.seenConfigIDs[1] != "config-2" {
 		t.Fatalf("expected checker calls in config order, got %#v", checker.seenConfigIDs)
