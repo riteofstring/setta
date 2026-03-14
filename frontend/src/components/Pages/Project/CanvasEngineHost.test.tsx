@@ -19,11 +19,13 @@ import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import * as endpoints from "utils/generatedEndpoints";
 import {
   createCallableSectionImpl,
+  createChatSectionImpl,
   createCore,
   createProjectConfig,
   createSectionSize,
   createSettingsState,
   createUserDefaultCallableSectionImpl,
+  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -797,6 +799,109 @@ describe("CanvasEngineHost", () => {
       targetPortId: "in-b",
       type: "default",
     });
+  });
+
+  it("creates an agentic edge from rounded low-zoom handle coords", async () => {
+    const createAgenticEdgeSpy = vi
+      .spyOn(endpoints, "route_create_agentic_edge")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: null,
+      });
+    seedSectionsForAgenticEdge();
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchWheelEvent(engineHost, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -48,
+    });
+
+    for (let index = 0; index < 32; index += 1) {
+      if (readEngineHostCamera(engineHost).zoom <= 0.11) {
+        break;
+      }
+      await dispatchWheelEvent(engineHost, {
+        clientX: 320,
+        clientY: 180,
+        ctrlKey: true,
+        deltaY: 120,
+      });
+    }
+
+    const camera = readEngineHostCamera(engineHost);
+    const sourceHandleWorld = { x: 363, y: 106 };
+    const targetHandleWorld = { x: 621, y: 106 };
+    const sourceHandleClientX = Math.round(
+      (sourceHandleWorld.x - camera.x) * camera.zoom,
+    );
+    const sourceHandleClientY = Math.round(
+      (sourceHandleWorld.y - camera.y) * camera.zoom,
+    );
+    const targetHandleClientX = Math.round(
+      (targetHandleWorld.x - camera.x) * camera.zoom,
+    );
+    const targetHandleClientY = Math.round(
+      (targetHandleWorld.y - camera.y) * camera.zoom,
+    );
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: sourceHandleClientX,
+      clientY: sourceHandleClientY,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: targetHandleClientX,
+      clientY: targetHandleClientY,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineConnectionPreviewActive).toBe("true");
+    expect(engineHost.dataset.canvasEngineConnectionPreviewKind).toBe(
+      "agentic-connect",
+    );
+    expect(engineHost.dataset.canvasEngineConnectionPreviewValid).toBe("true");
+    expect(
+      engineHost.dataset.canvasEngineConnectionPreviewHasTargetHandle,
+    ).toBe("true");
+
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: targetHandleClientX,
+      clientY: targetHandleClientY,
+      pointerId: 1,
+    });
+
+    expect(createAgenticEdgeSpy).toHaveBeenCalledOnce();
+    expect(createAgenticEdgeSpy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        projectConfigId: "project-a",
+        sourceSectionId: "section-a",
+        targetSectionId: "section-b",
+        kind: "section_chat",
+        frontendOpId: expect.any(String),
+      }),
+    );
   });
 
   it("updates active ids while shift-dragging a marquee selection", async () => {
@@ -2427,6 +2532,58 @@ function seedSectionsWithDataEdge({
         y: 106,
       },
     };
+  });
+}
+
+function seedSectionsForAgenticEdge() {
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-a";
+    state.projectConfig.topLevelSections = {
+      "section-a": {
+        x: 24,
+        y: 16,
+        zIndex: 0,
+        w: 320,
+        h: 180,
+      },
+      "section-b": {
+        x: 640,
+        y: 16,
+        zIndex: 1,
+        w: 320,
+        h: 180,
+      },
+    };
+    state.projectConfig.sectionVariantMap = {
+      "section-a": "variant-a",
+      "section-b": "variant-b",
+    };
+    state.sections["section-a"] = createCore({ id: "section-a" });
+    state.sections["section-b"] = createCore({ id: "section-b" });
+    state.sectionVariants["variant-a"] = createVariant({
+      id: "variant-a",
+      impl: "impl-a",
+      nonPresetImpls: [],
+    });
+    state.sectionVariants["variant-b"] = createVariant({
+      id: "variant-b",
+      impl: "impl-b",
+      nonPresetImpls: [],
+    });
+    state.sectionImpls["impl-a"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-a",
+      },
+    );
+    state.sectionImpls["impl-b"] = createChatSectionImpl(
+      createUserDefaultChatSectionImpl(),
+      {
+        id: "impl-b",
+      },
+    );
+    state.projectConfig.edges = [];
+    state.projectConfig.agenticEdges = [];
   });
 }
 

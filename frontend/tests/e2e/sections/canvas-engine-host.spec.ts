@@ -3262,6 +3262,112 @@ test("canvas engine host creates agentic edges via handle drag", async ({
   }
 });
 
+test("canvas engine host creates agentic edges via handle drag after zooming out", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const sourcePosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.28,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const targetPosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.82,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const viewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Chat",
+      viewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(2);
+
+    for (let index = 0; index < 10; index += 1) {
+      await page.getByRole("button", { name: "zoom out" }).click();
+    }
+
+    const sourceHandle = {
+      x:
+        sourcePosition.x +
+        DEFAULT_SECTION_WIDTH_FOR_HIT_TEST +
+        AGENTIC_HANDLE_CENTER_OFFSET_WORLD,
+      y: sourcePosition.y + DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST / 2,
+    };
+    const targetHandle = {
+      x: targetPosition.x - AGENTIC_HANDLE_CENTER_OFFSET_WORLD,
+      y: targetPosition.y + DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST / 2,
+    };
+    await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointerdown", {
+      button: 0,
+      worldX: sourceHandle.x,
+      worldY: sourceHandle.y,
+      pointerId: 1,
+    });
+    await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointermove", {
+      button: 0,
+      worldX: targetHandle.x,
+      worldY: targetHandle.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "agentic-connect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointerup", {
+      button: 0,
+      worldX: targetHandle.x,
+      worldY: targetHandle.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
+    await expect
+      .poll(
+        async () =>
+          await readAgenticEdgeLinks(page, projectContext.projectConfigId),
+      )
+      .toContain(`${sourceSectionId}->${targetSectionId}:section_chat`);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host supports agentic edge click selection", async ({
   page,
 }) => {

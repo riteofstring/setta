@@ -272,7 +272,7 @@ const DOM_ISLAND_MIN_SCREEN_HEIGHT_PX = 63;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 const EDGE_HIT_TOLERANCE_PX = 8;
 const SECTION_HIT_TOLERANCE_PX = 6;
-const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
+const AGENTIC_HANDLE_HIT_TOLERANCE_PX = 12;
 const DATA_HANDLE_HIT_TOLERANCE_PX = 10;
 const DATA_EDGE_ENDPOINT_HIT_RADIUS_PX = 12;
 const SELECTION_RECT_FILL_COLOR = "rgba(0, 89, 220, 0.08)";
@@ -1162,10 +1162,13 @@ export function CanvasEngineHost() {
           return;
         }
       }
+      const agenticHandleHitToleranceWorld = resolveAgenticHandleHitToleranceWorld(
+        camera.zoom,
+      );
       const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
-        AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+        agenticHandleHitToleranceWorld,
       );
       if (
         canEditStructure &&
@@ -1614,7 +1617,7 @@ export function CanvasEngineHost() {
         const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
           worldPoint.x,
           worldPoint.y,
-          AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+          resolveAgenticHandleHitToleranceWorld(camera.zoom),
         );
         let endX = worldPoint.x;
         let endY = worldPoint.y;
@@ -1959,11 +1962,11 @@ export function CanvasEngineHost() {
       } else if (pointerSession.kind === "agentic-connect") {
         const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
         if (worldPoint) {
-          const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
-            worldPoint.x,
-            worldPoint.y,
-            AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
-          );
+              const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+                worldPoint.x,
+                worldPoint.y,
+                resolveAgenticHandleHitToleranceWorld(camera.zoom),
+              );
           if (targetHandleHit) {
             const connection = createAgenticConnection({
               sourceSectionId: pointerSession.sourceSectionId,
@@ -2699,6 +2702,10 @@ function resolveSectionHitToleranceWorld(zoom: number): number {
 
 function resolveDataEdgeEndpointHitToleranceWorld(zoom: number): number {
   return DATA_EDGE_ENDPOINT_HIT_RADIUS_PX / clampZoom(zoom);
+}
+
+function resolveAgenticHandleHitToleranceWorld(zoom: number): number {
+  return AGENTIC_HANDLE_HIT_TOLERANCE_PX / clampZoom(zoom);
 }
 
 function resolveDataHandleHitToleranceWorld(zoom: number): number {
