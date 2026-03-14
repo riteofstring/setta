@@ -151,31 +151,6 @@ log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
-prepare_current_setta_cli() {
-  if [[ -n "${SETTA_GO_CLI_BIN:-}" ]]; then
-    log "Using preconfigured Go Setta CLI binary ${SETTA_GO_CLI_BIN}."
-    if [[ -n "${SETTA_SERVER_BIN:-}" ]]; then
-      log "Using preconfigured Go Setta server binary ${SETTA_SERVER_BIN}."
-    fi
-    return
-  fi
-
-  local current_setta_go_bin="${LOG_DIR}/setta-current"
-  local current_setta_server_bin="${LOG_DIR}/setta-server-current"
-  log "Building current Go Setta CLI binary at ${current_setta_go_bin}."
-  ./scripts/go.sh build -o "${current_setta_go_bin}" ./cmd/setta \
-    >"${LOG_DIR}/go-cli-build.log" 2>&1
-  log "Building current Go Setta server binary at ${current_setta_server_bin}."
-  ./scripts/go.sh build -o "${current_setta_server_bin}" ./cmd/setta-server \
-    >>"${LOG_DIR}/go-cli-build.log" 2>&1
-  export SETTA_GO_CLI_BIN="${current_setta_go_bin}"
-  export SETTA_SERVER_BIN="${current_setta_server_bin}"
-  log "Using current Go Setta CLI binary ${SETTA_GO_CLI_BIN}."
-  log "Using current Go Setta server binary ${SETTA_SERVER_BIN}."
-}
-
-prepare_current_setta_cli
-
 if [[ -n "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:-}" ]]; then
   SHOULD_PREPARE_PLUGIN_FIXTURES="${SETTA_E2E_BUILD_PLUGIN_FIXTURES}"
 elif [[ -n "${SETTA_BUILD_PLUGIN_FIXTURES:-}" ]]; then
@@ -306,8 +281,6 @@ workspace = Path(os.environ["SETTA_WORKSPACE_ROOT"])
 setta_root = workspace / "setta_files"
 _seed_minimal_setta_files(setta_root)
 PY
-      ./scripts/go.sh run ./cmd/setta-seed-playwright-workspace \
-        --setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"
     ) >"${LOG_DIR}/seed.log" 2>&1
     seeded_workspace="1"
   fi
@@ -746,28 +719,64 @@ wait_for_url "${PLAYWRIGHT_BASE_URL}" "frontend" 60
 
 log "Minting bootstrap token."
 BOOTSTRAP_TOKEN="$(
-  "${PYTHON_BIN}" - "${LOG_DIR}/backend.log" "${SETTA_E2E_SESSION_WAIT_SECONDS:-60}" <<'PY'
-import re
-import sys
+  cd "${ROOT_DIR}"
+  source "./activate.sh"
+  "${PYTHON_BIN}" - <<'PY'
+import os
 import time
 from pathlib import Path
+from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
+from setta.sessions.constants import SESSIONS_ROOT_ENV_VAR
+from setta.sessions.registry import SessionRegistry
+from setta.sessions.utils import resolve_sessions_root
 
-log_path = Path(sys.argv[1])
-timeout = float(sys.argv[2])
+def _resolve_sessions_root() -> Path | None:
+    env_root = os.environ.get(SESSIONS_ROOT_ENV_VAR)
+    if env_root:
+        expanded = os.path.expandvars(os.path.expanduser(env_root))
+        return Path(expanded).resolve()
+    workspace_root = os.environ.get("SETTA_WORKSPACE_ROOT")
+    if not workspace_root:
+        return None
+    return resolve_sessions_root(workspace_root)
+
+timeout = float(os.environ.get("SETTA_E2E_SESSION_WAIT_SECONDS", "60"))
 deadline = time.monotonic() + timeout
-token_pattern = re.compile(r"^\s*Token:\s+(\S+)\s*$")
+last_error: Exception | None = None
 
 while time.monotonic() < deadline:
-    if log_path.exists():
-        content = log_path.read_text(encoding="utf-8", errors="replace")
-        for line in content.splitlines():
-            match = token_pattern.match(line)
-            if match:
-                print(match.group(1))
-                raise SystemExit(0)
+    try:
+        sessions_root = _resolve_sessions_root()
+        if sessions_root is None:
+            raise RuntimeError(
+                "No sessions root available. Set SETTA_WORKSPACE_ROOT or SETTA_SESSIONS_ROOT."
+            )
+        registry = SessionRegistry(sessions_root=sessions_root)
+        workspace_root = os.environ.get("SETTA_WORKSPACE_ROOT")
+        sessions = []
+        if workspace_root:
+            workspace_path = Path(
+                os.path.expandvars(os.path.expanduser(workspace_root))
+            ).resolve()
+            sessions = registry.find_sessions_by_workspace(workspace_path)
+            if not sessions:
+                sessions = registry.find_sessions_by_workspace(
+                    workspace_path, prune_stale=False
+                )
+        if not sessions:
+            sessions = registry.load_sessions(prune_stale=False)
+        if sessions:
+            latest = max(sessions, key=lambda entry: entry.startedAt)
+            secret = registry.load_secret(latest)
+            print(BOOTSTRAP_TOKEN_MANAGER.mint(latest.id, secret))
+            raise SystemExit(0)
+    except Exception as exc:
+        last_error = exc
     time.sleep(0.5)
 
-raise SystemExit(f"Timed out waiting for bootstrap token in {log_path}.")
+if last_error:
+    raise SystemExit(f"Timed out waiting for a backend session: {last_error}")
+raise SystemExit("Timed out waiting for a backend session.")
 PY
 )"
 

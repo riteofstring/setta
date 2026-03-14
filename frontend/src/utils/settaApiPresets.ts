@@ -1,7 +1,11 @@
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  createTopLevelSectionLayoutDict,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
-import { RouteEnum } from "utils/generatedRoutes";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { useProjectState } from "state/definitions";
+import { useNodeInternals } from "state/stores/activeSectionStores";
+import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type SettaApiPreset = {
   label: string;
@@ -14,12 +18,20 @@ export const SETTA_API_PRESETS: Array<SettaApiPreset> = [
     label: "Create top-level section",
     route: RouteEnum.CREATE_TOP_LEVEL_SECTION,
     buildBody: () => {
+      const projectState = useProjectState.getState();
+      const topLevelSections = createTopLevelSectionLayoutDict(
+        projectState.sections,
+        useNodeInternals.getState().x,
+        projectState.projectConfig.topLevelSections,
+      );
       return {
         projectConfigId: getCurrProjectConfigId(),
         implType: SectionTypeEnum.TextBlock,
         controlCodeObjType: null,
         implOverrides: { type: SectionTypeEnum.TextBlock, text: "Hello" },
         position: getEmptySpacePosition(),
+        topLevelSections,
+        viewportBounds: null,
       };
     },
   },
