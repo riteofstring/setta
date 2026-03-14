@@ -38,19 +38,16 @@ import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
-  type AuthRefreshStatusResponse,
   BinaryDependencyValue,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
-  type ProjectStateSingleConfigWithCompletedOpIds,
   LiteralDependencyValue,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
-  type SettaLspDiagnosticsPayload,
   UISettingRevealContent,
   UISettingRevealContentSchema,
   UISettingRevealResultStatus,
@@ -63,6 +60,10 @@ import {
   WebsocketMsgUISettingRevealResult,
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
+  type AuthRefreshStatusResponse,
+  type BinaryContentRef,
+  type ProjectStateSingleConfigWithCompletedOpIds,
+  type SettaLspDiagnosticsPayload,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -145,6 +146,7 @@ type PendingUISettingRevealMessage = {
 
 type AuthRefreshStatusRouteResponse =
   ResponseDataAndStatus<AuthRefreshStatusResponse>;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
 type LatestProjectStateRouteResponse =
   ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
 type LatestLSPDiagnosticsRouteResponse =
@@ -1009,7 +1011,7 @@ async function uploadRealtimeBinaryPayload(
   const form = new FormData();
   form.append("file", blob, "realtime.bin");
   form.append("durable", "false");
-  const res = await route_binary_upload(form);
+  const res: BinaryUploadRouteResponse = await route_binary_upload(form);
   if (!res200(res)) {
     return null;
   }
