@@ -416,6 +416,7 @@ describe("generatedEndpoints deployment surface", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/share/deployments/demo-share/v2/state`,
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 
   it("binds app deployment state path params into the GET URL", async () => {
@@ -464,6 +465,7 @@ describe("generatedEndpoints deployment surface", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/share/deployments`,
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 
   it("binds share deployment version-list path params into the GET URL", async () => {
