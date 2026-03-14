@@ -4,7 +4,6 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
     WebsocketMsgAgentProfilesUpdated,
-    WebsocketMsgAgentRunUpdated,
     WebsocketMsgAIFollowToolArgumentsUpdate,
     WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAllConnections,
@@ -66,7 +65,6 @@ WebsocketMsgUnion = (
     | WebsocketMsgExternalAgentConfigsUpdated
     | WebsocketMsgEngineConfigsUpdated
     | WebsocketMsgTranscriptionProfilesUpdated
-    | WebsocketMsgAgentRunUpdated
     | WebsocketMsgAIFollowToolArgumentsUpdate
     | WebsocketMsgAIFollowToolResultUpdate
     | WebsocketMsgUISettingReveal
@@ -115,7 +113,6 @@ WebsocketMsgTypeSet = set(
         "ExternalAgentConfigsUpdated",
         "EngineConfigsUpdated",
         "TranscriptionProfilesUpdated",
-        "AgentRunUpdated",
         "AIFollowToolArgumentsUpdate",
         "AIFollowToolResultUpdate",
         "UISettingReveal",
@@ -158,7 +155,6 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgExternalAgentConfigsUpdated
     | WebsocketMsgEngineConfigsUpdated
     | WebsocketMsgTranscriptionProfilesUpdated
-    | WebsocketMsgAgentRunUpdated
     | WebsocketMsgAIFollowToolArgumentsUpdate
     | WebsocketMsgAIFollowToolResultUpdate
     | WebsocketMsgUISettingReveal
@@ -195,7 +191,6 @@ FrontendWebsocketMsgTypeSet = set(
         "ExternalAgentConfigsUpdated",
         "EngineConfigsUpdated",
         "TranscriptionProfilesUpdated",
-        "AgentRunUpdated",
         "AIFollowToolArgumentsUpdate",
         "AIFollowToolResultUpdate",
         "UISettingReveal",

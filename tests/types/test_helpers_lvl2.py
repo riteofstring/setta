@@ -400,7 +400,7 @@ class TestPromptSection:
             projectConfig=ProjectConfig(name="test-project")
         )
 
-    def test_prompt_section_keeps_unresolved_jinja_text_for_preview(self) -> None:
+    def test_prompt_section_renders_inputs(self) -> None:
         section_id = create_top_level_section(
             self.settings,
             self.project_state,
@@ -418,9 +418,9 @@ class TestPromptSection:
             section_id,
             PromptSectionImpl,
         )
-        assert impl.renderedText == "Hello {{ name }}"
-        assert impl.missingVariables == []
-        assert impl.renderError is None
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
 
         set_prompt_section_inputs(
             self.project_state,
@@ -432,7 +432,7 @@ class TestPromptSection:
             section_id,
             PromptSectionImpl,
         )
-        assert impl.renderedText == "Hello {{ name }}"
+        assert impl.renderedText == "Hello Ada"
         assert impl.missingVariables == []
         assert impl.renderError is None
 
@@ -486,7 +486,7 @@ class TestPromptSection:
             section_id,
             PromptSectionImpl,
         )
-        assert impl.renderedText == "Hello {{ name }}"
+        assert impl.renderedText == "Hello Ada"
         assert impl.missingVariables == []
         assert impl.renderError is None
 

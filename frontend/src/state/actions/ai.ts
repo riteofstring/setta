@@ -115,9 +115,12 @@ import {
   DeletePromptTemplateRequestInput,
   DeleteTranscriptionProfileRequestInput,
   EngineConfig,
+  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
+  GetLLMChatResponse,
   LLMStreamingResponse,
+  ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -128,6 +131,7 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
+  StopLLMChatResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -171,13 +175,6 @@ const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
-type ManagedAPIKeysSnapshotPayload = {
-  apiKeys: APIKeys;
-  revision: number;
-  corrupt?: boolean;
-  errorCode?: string | null;
-  message?: string | null;
-};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -767,7 +764,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
 }
 
 export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshotPayload,
+  payload: ManagedAPIKeysSnapshot,
 ) {
   const isCorrupt =
     payload.corrupt === true ||
@@ -999,24 +996,6 @@ export async function loadAgentRuns() {
   } finally {
     agentRunsLoadPromise = null;
   }
-}
-
-export function receiveAgentRunUpdate(payload: AgentRun) {
-  useAIStore.setState((state) => {
-    const existingIndex = state.agentRuns.findIndex(
-      (candidate) => candidate.id === payload.id,
-    );
-    if (existingIndex === -1) {
-      return {
-        agentRuns: [payload, ...state.agentRuns],
-      };
-    }
-    const nextRuns = state.agentRuns.slice();
-    nextRuns[existingIndex] = payload;
-    return {
-      agentRuns: nextRuns,
-    };
-  });
 }
 
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
@@ -1900,13 +1879,7 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome:
-    | {
-        alreadyStopped: boolean;
-        stoppedMessageId: string | null;
-      }
-    | null
-    | undefined;
+  stopOutcome: StopLLMChatResponse | null | undefined;
 }): void {
   if (!stopOutcome) {
     return;
@@ -2227,11 +2200,7 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<
-  ChatHydrationProbeResult<
-    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
-  >
-> {
+): Promise<ChatHydrationProbeResult<GetLLMChatResponse>> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2250,13 +2219,7 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<
-  ChatHydrationProbeResult<
-    NonNullable<
-      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
-    >
-  >
-> {
+): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
   const response = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -2284,7 +2247,7 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
+  payload: GetLLMChatResponse;
 }): void {
   const {
     messages,
@@ -2354,9 +2317,7 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: NonNullable<
-    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
-  >;
+  payload: ExternalAgentChatResponse;
 }): void {
   const {
     messages,
@@ -2652,7 +2613,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data.chatId;
+      const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2830,7 +2791,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data.chatId;
+    const returnedChatId = res.data ?? null;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {

@@ -49,11 +49,6 @@
   overflow: visible;
 }
 
-.react-flow .react-flow__state-machine-edges {
-  pointer-events: none;
-  overflow: visible;
-}
-
 .react-flow__edge-path,
 .react-flow__connection-path {
   stroke: #b1b1b7;

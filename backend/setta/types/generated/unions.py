@@ -22,9 +22,6 @@ from setta.types.section_impls import (
     PromptSectionImpl,
     SocialSectionImpl,
     SpreadsheetSectionImpl,
-    StateMachineEndSectionImpl,
-    StateMachineGateSectionImpl,
-    StateMachineStartSectionImpl,
     TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -35,9 +32,6 @@ BaseSectionImplUnion = (
     | DictSectionImpl
     | ListRootSectionImpl
     | GroupSectionImpl
-    | StateMachineStartSectionImpl
-    | StateMachineGateSectionImpl
-    | StateMachineEndSectionImpl
     | ImageSectionImpl
     | ChartSectionImpl
     | DrawSectionImpl
@@ -70,9 +64,6 @@ BaseSectionImplTypeSet = set(
         "Dict",
         "ListRoot",
         "Group",
-        "StateMachineStart",
-        "StateMachineGate",
-        "StateMachineEnd",
         "Image",
         "Chart",
         "Draw",
@@ -350,9 +341,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     SpreadsheetSectionImplArgs,
-    StateMachineEndSectionImplArgs,
-    StateMachineGateSectionImplArgs,
-    StateMachineStartSectionImplArgs,
     TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -363,9 +351,6 @@ BaseSectionImplArgsUnion = (
     | DictSectionImplArgs
     | ListRootSectionImplArgs
     | GroupSectionImplArgs
-    | StateMachineStartSectionImplArgs
-    | StateMachineGateSectionImplArgs
-    | StateMachineEndSectionImplArgs
     | ImageSectionImplArgs
     | ChartSectionImplArgs
     | DrawSectionImplArgs
@@ -398,9 +383,6 @@ BaseSectionImplArgsTypeSet = set(
         "Dict",
         "ListRoot",
         "Group",
-        "StateMachineStart",
-        "StateMachineGate",
-        "StateMachineEnd",
         "Image",
         "Chart",
         "Draw",
