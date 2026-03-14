@@ -162,6 +162,105 @@ test("canvas engine host mounts visible top-level sections as dom islands", asyn
   }
 });
 
+test("canvas engine host opens the pane context menu and creates a section", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(1);
+
+    const panePoint = await resolvePaneScreenPoint(page, host);
+    await page.mouse.click(panePoint.x, panePoint.y, { button: "right" });
+
+    const paneFilter = page.getByRole("combobox", {
+      name: "Filter",
+      exact: true,
+    });
+    await expect(paneFilter).toBeVisible();
+    const callableMenuItem = page.getByRole("option", {
+      name: "Callable",
+      exact: true,
+    });
+    await expect(callableMenuItem).toBeVisible();
+    await callableMenuItem.click();
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host opens the selection context menu on selected sections", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    const baselineRectCount = await readNumericHostAttribute(
+      host,
+      "data-canvas-engine-rect-count",
+    );
+
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${sectionId}"]`),
+    ).toHaveCount(1);
+
+    await dispatchMountedSectionRootClick(page, sectionId);
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([sectionId]);
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBe(baselineRectCount + 1);
+
+    await dispatchMountedSectionRootContextMenu(page, sectionId);
+
+    const deleteMenuItem = page.getByRole("menuitem", {
+      name: "Delete",
+      exact: true,
+    });
+    await expect(deleteMenuItem).toBeVisible();
+    await deleteMenuItem.click();
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBe(baselineRectCount);
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${sectionId}"]`),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host mounts readable large sections below the old zoom cutoff", async ({
   page,
 }) => {
@@ -2313,6 +2412,30 @@ async function dispatchMountedSectionRootClick(
       new MouseEvent("click", {
         bubbles: true,
         cancelable: true,
+      }),
+    );
+  }, sectionId);
+}
+
+async function dispatchMountedSectionRootContextMenu(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate((nextSectionId) => {
+    const sectionRoot = document.querySelector(
+      `[data-canvas-engine-dom-island="${nextSectionId}"] [data-section-id="${nextSectionId}"]`,
+    );
+    if (!(sectionRoot instanceof HTMLElement)) {
+      throw new Error(`Missing mounted section root for ${nextSectionId}.`);
+    }
+    const bounds = sectionRoot.getBoundingClientRect();
+    sectionRoot.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+        clientX: bounds.left + Math.min(20, bounds.width / 2),
+        clientY: bounds.top + Math.min(20, bounds.height / 2),
       }),
     );
   }, sectionId);
