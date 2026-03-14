@@ -10,23 +10,25 @@ Audit/maintenance plan:
 Companion broad-coverage inventory:
 `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`.
 
-Use this checklist when the question is:
+Use this checklist to answer:
 "Does the active caller reach a Go-owned backend surface today?"
 
-This is a caller-backed rewrite inventory, not a promise of route-for-route
-Python parity.
+This is a current-caller inventory, not a route-for-route Python parity list.
+Together with the ownership checklist, this doc is the rewrite progress
+tracker. File deletion is not the tracker while Python source is being retained
+for mergeability.
 
 Status meanings:
 
-- `Complete`: Go owns the active runtime and transport for the current
-  clean-break scope.
-- `Partial`: Go owns a bounded slice, but the repo still documents explicit
-  limitations or deferred follow-up work.
+- `Complete`: the current caller reaches a registered Go transport backed by a
+  Go-owned runtime.
+- `Partial`: Go owns a bounded slice, but the current caller still hits a
+  documented limitation or follow-up boundary.
 - `Missing`: the current caller still depends on Python, or no Go-owned
   equivalent exists yet.
 
-Reading rule: internal Go capability does not count as `Complete` unless the
-current caller actually reaches that Go-owned transport/runtime today.
+Internal Go capability does not count as `Complete` unless the active caller
+actually reaches that Go-owned transport/runtime today.
 
 Primary sources used for this checklist:
 

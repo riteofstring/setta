@@ -1,25 +1,36 @@
 # Go Backend Rewrite Plan
 
+Use this file for clean-break defaults, port-vs-redesign decisions, and
+"should this become a new rewrite slice?" questions.
+
 ## Goal
 
-Rewrite the backend from Python to Go as a clean break in runtime ownership
-without bundling that work into a broad architecture redesign.
+- Go should become the owner of backend runtime, transports, state, and
+  service logic.
+- This is a clean break, not a Python compatibility program.
+- Preserve active product behavior for current callers. Do not preserve Python
+  route shapes, storage formats, or architecture by default.
+- Progress is measured in caller reachability and ownership cutover, not in how
+  aggressively Python files are deleted during the rewrite.
 
-Default stance:
+## Explicit Retained Python Boundaries
 
-- preserve active product behavior for the current caller
-- move runtime ownership to Go
-- keep the port behavior-first and architecture-conservative until tests and
-  live workflows prove the Go runtime
+These are the intended exceptions:
 
-There is no deployed-user compatibility contract for the Python backend. Do
-not preserve backward compatibility, legacy route shapes, migrations, storage
-compatibility, or Python transition layers unless a current repo workflow
-explicitly requires a bounded exception.
+- packaging/install entrypoints and wheel-facing wrappers, including
+  `python -m setta`
+- dev-only backend startup/reload
+- public Python APIs:
+  - `setta.api.SettaListener`
+  - `setta.api.ListenerHotReloader`
+  - `setta.api.chat_toolkit`
+  - share listener entrypoints that instantiate `SettaListener`
+  - `setta.api.SettaRunner`
+- Python or other sidecars intentionally executed by Go
 
-Use `CURRENT.md` for doc routing. Use this file for clean-break defaults,
-port-vs-redesign decisions, and "should this become a new rewrite slice?"
-questions.
+If a backend behavior is not in that list, the default target is Go ownership.
+That does not require immediate source deletion while `main` is still evolving
+the Python backend.
 
 ## Decision Order
 
@@ -28,75 +39,72 @@ When the right move is unclear, decide in this order:
 1. Preserve active product behavior for the current caller.
 2. Prefer clean Go ownership over Python compatibility or mixed-source
    transitional work.
-3. Avoid broad redesign during the port unless correctness, testability, or
-   active caller coverage requires it.
-4. Prefer explicit typed boundaries, deterministic source-of-truth pathways,
-   and established libraries over incidental Python behavior or heuristics.
+3. Keep the port behavior-first and architecture-conservative unless
+   correctness, testability, or active caller coverage requires redesign.
+4. Prefer explicit typed boundaries, deterministic source-of-truth paths, and
+   established libraries over incidental Python behavior or heuristics.
 
 ## Rewrite Rules
 
-- Treat the Python code, tests, and docs as reference material for behavior
-  and edge cases, not as a compatibility contract.
+- Treat Python code, tests, and docs as behavior reference, not as a
+  compatibility contract.
 - Preserve capability and user-visible behavior, not Python implementation
   details.
-- Preserve product behavior first, unless a caller, release path, or
-  documented product decision requires a behavior change.
-- Do not combine the language rewrite with broad architecture cleanup by
-  default. Land the Go-owned runtime first; reopen cleanup as a separate slice
-  only when needed.
-- The rewrite does not need to keep a partially mixed Go/Python backend
-  working at every intermediate step.
-- Prefer explicit ownership, thin transports, typed contracts, and robust
-  source-of-truth pathways over Python-era incidental behavior.
+- Move runtime ownership to Go as slices land, but keep superseded Python
+  source in-tree until the rewrite is complete when that makes merges from
+  `main` easier.
+- Retained Python source after a Go cutover is a merge buffer/reference
+  surface, not an active fallback or source of truth.
+- Do not add migrations, backward-compatibility shims, legacy route-shape
+  preservation, or mixed Go/Python transition layers unless a current repo
+  workflow explicitly needs a bounded exception.
+- The backend does not need to keep active callers on a mixed Go/Python
+  ownership path at every intermediate commit.
+- If a Go-owned boundary needs a stable frontend, SDK, or provider contract,
+  introduce an explicit boundary DTO or adapter instead of reflecting runtime
+  internals directly.
 - Prefer the Go stdlib or well-established libraries.
-- For Go-owned OpenAI API surfaces, use `github.com/openai/openai-go/v3` at
-  the provider edge rather than growing bespoke HTTP or WebSocket clients.
-- If a required OpenAI surface is not covered cleanly by `openai-go`, treat
-  that as an explicit planning decision instead of silently adding bespoke
-  transport code.
-- Do not preserve old route shapes or Python-generated frontend contract
-  artifacts merely to support a temporary mixed-source state.
+- Use official provider SDKs at the provider edge when they cover the needed
+  surface cleanly. Keep them behind Go-owned adapters.
 
 ## Port-First Guardrails
 
 Safe to defer until after the Go runtime is proven:
 
 - broad package reshaping
+- organization-only route/module splits
 - new service boundaries added mainly for elegance
-- large route/module splits done only for organization
-- non-essential performance optimization
+- non-essential performance tuning
 
-Expected during the port:
+Take during the port when they materially reduce rewrite risk:
 
 - correctness fixes
-- explicit source-of-truth boundaries that remove ambiguity
-- low-risk seam extraction that reduces lifecycle or constructor sprawl
+- explicit source-of-truth boundaries
+- low-risk seam extraction that reduces constructor, lifecycle, or ownership
+  sprawl
 - test harness work needed to prove parity
 
 Not acceptable to defer:
 
-- partial-commit or split-brain state behavior
+- split-brain or partial-commit state behavior
 - brittle heuristics where deterministic metadata or state already exists
-- hidden runtime coupling that blocks testing or safe shutdown
+- hidden runtime coupling that blocks testing, shutdown, or safe cutover
 
-If a change is behavior-preserving seam creation and meaningfully lowers future
-rewrite cost, take it. If it is a true redesign, defer it unless correctness
-or active caller coverage requires it.
+## Infrastructure Rules
 
-## Infrastructure Tracks
-
-Use these only when the task touches them:
-
-- Go-owned frontend binding generation
-  - frontend-facing backend contracts should have a Go-owned source of truth
-    wherever transport/runtime ownership is Go
-  - replace the canonical generated frontend contract files rather than
-    growing long-lived `generatedGo*` shadow outputs
-  - if a runtime type does not convert cleanly, add a Go boundary DTO or
-    converter rule instead of hand-writing TypeScript for one route
-- `openai-go` convergence for Go-owned OpenAI provider edges
-  - keep the SDK behind internal adapters so repo contracts stay Go-owned
-  - do not broaden bespoke OpenAI transport clients by default
+- Go-owned frontend bindings:
+  - canonical frontend route/type/endpoint outputs should come from Go-owned
+    specs and DTOs
+  - do not keep `generatedGo*` shadow outputs or add handwritten TypeScript
+    wrappers as steady state
+- Python listener SDK:
+  - keep the public Python authoring surface
+  - move listener websocket, bootstrap, endpoint dispatch, and mutation
+    authority to Go
+- Provider edges:
+  - use official SDKs behind internal adapters where possible
+  - do not silently grow bespoke transport clients when an explicit planning
+    decision is needed
 
 ## When To Open New Rewrite Work
 
@@ -109,4 +117,15 @@ Open a new bounded rewrite slice only when at least one of these is true:
 - a concrete rewrite infrastructure task is directly required by the work at
   hand
 
-Otherwise, do not open a new numbered phase doc.
+Otherwise, keep working inside the existing doc set and code paths.
+
+## Done Means
+
+For any rewritten subsystem, "done" means:
+
+- the active runtime and transport ownership are where the docs say they are
+- the relevant tests prove the intended behavior
+- any remaining Python/shared boundary is explicit and deliberate
+- the checklist docs reflect the current caller reachability and ownership
+  state
+- the source-of-truth docs were updated with the same change

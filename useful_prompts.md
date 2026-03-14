@@ -71,51 +71,40 @@ See the latest github actions tests on the main branch. What are the all errors 
 
 For Go backend rewrite work, start with `docs/plans/go-backend-rewrite/CURRENT.md`.
 
-Treat these as the primary current docs:
-- `docs/plans/go-backend-rewrite/CURRENT.md`
-- `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`
-- `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`
-- `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
-- `docs/plans/go-backend-rewrite/testing-strategy.md`
-- any task-specific slice doc that `CURRENT.md` points you to
+Treat `CURRENT.md` as the router and read only the docs the task needs:
+- `caller-backed-backend-surface-checklist.md` for active caller reachability
+- `backend-capability-coverage-checklist.md` for runtime/service ownership
+- `go-backend-rewrite-plan.md` for clean-break defaults and port-vs-redesign decisions
+- `testing-strategy.md` when code, behavior, or verification changes
+- `go-dependency-inventory-and-rationale.md` plus `docs/reference/dependencies/` when dependency, provider, transport, or library choices matter
+- `setta-listener-protocol-redesign-plan.md` or `go-frontend-binding-generation-plan.md` only when the task crosses those boundaries
 
+Use `docs/plans/go-backend-rewrite/README.md` only as the folder map.
+Use `docs/plans/go-backend-rewrite/*-audit-plan.md` only when editing the matching checklist.
 Treat `docs/plans/go-backend-rewrite/archive/` as secondary reference only.
 
-Read order:
-1. Read `docs/plans/go-backend-rewrite/CURRENT.md`.
-2. Read only the task-matching docs:
-   - `caller-backed-backend-surface-checklist.md` for active caller reachability
-   - `backend-capability-coverage-checklist.md` for runtime/service ownership
-   - `go-backend-rewrite-plan.md` for clean-break and port-vs-redesign decisions
-   - `testing-strategy.md` when changing code, behavior, or verification
-   - `go-dependency-inventory-and-rationale.md` plus `docs/reference/dependencies/` when dependency, provider, transport, or library choices matter
-   - `setta-listener-protocol-redesign-plan.md` or `go-frontend-binding-generation-plan.md` only when the task crosses those boundaries
-3. Use `docs/plans/go-backend-rewrite/README.md` only for the folder map.
-4. Use `docs/plans/go-backend-rewrite/*-audit-plan.md` only when editing the matching checklist.
-5. Use `archive/` only when current docs and code are not enough and you need historical rationale.
-6. If a checklist is large, jump straight to the relevant subsystem with search.
-
 Working rules:
-- If docs disagree with current code/tests, trust the code/tests for actual current behavior and update the docs.
-- This is a clean break. Do not preserve backward compatibility, legacy route shapes, migrations, storage compatibility, or Python-shaped architecture unless I explicitly ask.
-- Preserve capability and user-visible behavior, not Python implementation details.
-- Preserve active product behavior for current callers first. Use Python code, tests, and docs as reference for behavior and edge cases, not as a compatibility contract.
-- Default to a behavior-first, architecture-conservative port. Reopen redesign only when correctness, testability, or active caller coverage requires it.
-- Prefer explicit ownership, thin transports, typed boundaries, robust source-of-truth paths, and established libraries over heuristics or transitional glue.
+- This is a clean break. Move backend ownership to Go as slices land, but keep superseded Python source in-tree until the rewrite is complete when that makes merges from `main` easier.
+- Retained Python boundaries are explicit: packaging/install entrypoints, dev-only startup/reload, public Python APIs such as `SettaListener` and `SettaRunner`, and sidecars intentionally executed by Go.
+- If docs disagree with current code/tests, trust the code/tests and update the docs.
+- Preserve active product behavior and current callers, not Python implementation details or route shapes.
+- Read Go code/tests first. Read Python only as behavior reference or when touching a retained Python boundary.
+- Prefer explicit ownership, typed boundaries, thin transports, deterministic source-of-truth paths, and established libraries over heuristics or transitional glue.
 - Do not widen scope unless a concrete caller, workflow, runtime issue, or documented product decision requires it.
+- Track rewrite progress in `caller-backed-backend-surface-checklist.md` and `backend-capability-coverage-checklist.md`, not by deleting Python files during the rewrite.
 
 Execution expectations:
-1. Inspect the current Go code, tests, and transport/runtime path first. Read Python only when needed as reference.
-2. Map the task to the relevant caller-backed surface, ownership bucket, and any documented Python/shared/external boundary.
-3. In your first substantive update, summarize the relevant checklist rows, code paths, doc evidence, boundary implications, and the single highest-leverage next step.
-4. Execute that step end-to-end unless the task is itself planning or inventory work.
-5. Update the relevant source-of-truth docs in the same change when ownership, caller reachability, dependency decisions, or workflow guidance changed.
+1. Inspect the current Go code, tests, and active transport/runtime path first.
+2. Map the task to the relevant caller-backed surface, ownership bucket, and any retained Python/shared boundary.
+3. In your first substantive update, summarize the relevant checklist rows or slice doc, the active code path, the boundary implications, and the single highest-leverage next step.
+4. Execute that step end-to-end unless the task is planning or inventory work.
+5. Update the relevant source-of-truth docs in the same change when caller reachability, ownership, dependency decisions, or workflow guidance changed.
 
 While working:
-- Read the relevant current Go code, tests, and rewrite docs before touching a subsystem.
-- If the work changes caller reachability or ownership, update `caller-backed-backend-surface-checklist.md` and/or `backend-capability-coverage-checklist.md`.
-- Update `CURRENT.md` only when the doc map, clean-break defaults, or workflow guidance changed.
-- Do not create a new numbered phase or spike doc unless a concrete issue or caller opens a bounded rewrite slice.
+- Update `caller-backed-backend-surface-checklist.md` if active caller reachability changed.
+- Update `backend-capability-coverage-checklist.md` if runtime/service ownership changed.
+- Update `CURRENT.md` only when routing, retained Python boundaries, or workflow guidance changed.
+- Do not create a new numbered phase or spike doc unless a bounded new slice is actually required.
 - If the task touches Go-to-TypeScript frontend binding generation, keep the canonical generated outputs Go-owned. Prefer Go DTOs and converter rules over handwritten TypeScript or shadow outputs.
 - Run the most relevant tests for the touched area, or explicitly state why they were not run.
 - If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.

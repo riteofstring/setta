@@ -2,40 +2,40 @@
 
 ## Goal
 
-The Go test surface must match or exceed the meaningful product behavior
-covered by the current Python tests.
+The Go-owned backend surface should match or exceed the meaningful product
+behavior covered by the current Python tests.
 
-Do not do a one-for-one file port unless that is the clearest shape. Coverage
-can move. Behavioral coverage cannot shrink.
+Do not do a mechanical file-for-file test port unless that is the clearest
+shape. Coverage can move. Behavioral coverage cannot shrink.
 
 ## Core Rule
 
-Treat the current Python tests as the minimum behavioral coverage map for the
-rewrite.
+Treat the current Python tests as the minimum behavior map for the rewrite.
 
-- The Python suite is a capability inventory.
-- The Go suite should match or exceed that inventory.
-- Fewer Go test files is fine.
-- Less behavioral coverage is not fine.
+- Python tests tell us what behavior exists and what edge cases already matter.
+- Go tests should match or exceed that coverage.
 - The clean-break rule still applies: do not preserve legacy implementation
-  details just because Python does them, but do preserve or intentionally
-  replace tested product behavior.
+  details just because Python does them.
+- If behavior intentionally changes, the new behavior must be explicit in code,
+  tests, and docs.
 
-## Default Port Loop
+## Default Change Loop
 
 For any subsystem change:
 
 1. Find the matching Python tests, existing Go tests, and current callers.
-2. Decide which behavior must stay the same and which behavior is intentionally
+2. Decide which behavior stays the same and which behavior is intentionally
    changing.
 3. Add or update the Go tests that prove the intended behavior.
-4. Implement the code change.
-5. Run the narrowest relevant suites, then widen if the change crosses
-   boundaries.
+4. Add or update frontend tests too when the change alters frontend contracts,
+   caller paths, or user-visible behavior.
+5. Implement the code change.
+6. Run the narrowest relevant suites first, then widen when the change crosses
+   transport or ownership boundaries.
 
 ## Reference Inputs
 
-Use these when deciding what the Go tests must cover:
+Use these as the current behavior inventory:
 
 - `tests/auth`
 - `tests/routers`
@@ -46,11 +46,11 @@ Use these when deciding what the Go tests must cover:
 - `tests/plugins`
 - `tests/terminals`
 - `tests/server_state`
-- relevant backend reference docs under `docs/reference/`
+- relevant docs under `docs/reference/`
 
 ## Test Layers
 
-### Unit Tests
+### Go Unit Tests
 
 Use package-local Go tests for:
 
@@ -58,37 +58,44 @@ Use package-local Go tests for:
 - pure helpers
 - small state transitions
 - codecs and serializers
-- request/response shaping helpers
 - path and filesystem policy helpers
+- converter and DTO shaping logic
 
-### Integration Tests
+### Go Integration Tests
 
 Use integration tests for:
 
 - auth and session flows
-- project runtime behavior
-- persistence rules
+- project runtime behavior and persistence
 - filesystem watchers
 - subprocess supervision
 - PTY and LSP session behavior
-- plugin process lifecycle
+- plugin lifecycle and runtime refresh
 
 Prefer real temp directories, real subprocesses, and production-like wiring.
 
-### Black-Box Backend Tests
+### Black-Box Transport Tests
 
-Exercise the running Go backend over real interfaces:
+Exercise the running backend over real interfaces:
 
 - HTTP
 - websocket
 - MCP
 
 These are the highest-value tests for proving that the Go runtime still covers
-the product surface represented by the Python suite.
+the product surface.
+
+### Frontend Tests
+
+When the rewrite changes frontend-facing contracts or user-visible behavior,
+update the relevant:
+
+- Vitest tests for stores, reducers, hooks, and component behavior
+- Playwright coverage for end-to-end contract and UI flows
 
 ### Cross-Platform Smoke Tests
 
-Maintain explicit coverage for:
+Keep explicit coverage for:
 
 - macOS
 - Linux
@@ -102,7 +109,25 @@ Highest-priority cross-platform areas:
 - file locking
 - filesystem operations
 
-### Disposable-State Tests
+## Harness Expectations
+
+Maintain and extend harnesses for:
+
+- HTTP:
+  - boot the Go server with temp config/state roots
+  - issue authenticated and unauthenticated requests
+  - assert status codes, envelopes, and payloads
+- websocket:
+  - cover authenticated connection setup
+  - send and receive real messages
+  - assert sequencing, replay, and close behavior where relevant
+- MCP:
+  - support server startup, client connection, tool listing, and invocation
+- process/runtime:
+  - support temp workspaces, subprocess launch/cleanup, PTY tests, and
+    disposable git repos
+
+## Disposable-State Rule
 
 Any test involving:
 
@@ -113,29 +138,26 @@ Any test involving:
 
 must run in disposable temporary locations only.
 
-Do not use the real repo state, existing `setta_files`, or the developer's git
+Do not use the real repo state, existing `setta_files`, or developer git
 history.
 
-## Required Harnesses
+## Practical Rules
 
-- HTTP harness
-  - boot the Go server with temporary config and state roots
-  - issue authenticated and unauthenticated requests
-  - assert status codes, envelopes, and payload shape
-- WebSocket harness
-  - support authenticated connection setup
-  - cover mode-aware connection rules
-  - send and receive real messages
-  - assert sequencing and replay where relevant
-- MCP harness
-  - support server startup, client connection, tool listing, and invocation
-- Process harness
-  - support temporary workspaces, subprocess launch and cleanup, PTY tests, LSP
-    tests, and disposable git repos
+- Prefer real behavior over fake stand-ins.
+- Prefer temp directories over checked-in mutable fixtures.
+- Prefer black-box assertions for external behavior.
+- Keep transport tests at the real transport layer.
+- Fail loudly when environment assumptions are invalid.
+- Add targeted tests around lifecycle, shutdown, queueing, persistence, and
+  state-ordering hazards discovered during the port.
+- If a structural cleanup is behavior-preserving and lowers rewrite risk, take
+  it.
+- If a refactor mainly improves elegance or package layout without reducing
+  current correctness risk, defer it.
 
 ## Coverage Matrix Requirement
 
-Maintain a living coverage matrix that maps:
+Maintain a living mapping between:
 
 - Python test areas and capability groups
 - corresponding Go test coverage
@@ -143,39 +165,17 @@ Maintain a living coverage matrix that maps:
 - intentional drops or redesigns
 
 A subsystem is not done just because code exists. It is done when the code
-works, the relevant Go tests exist, and the coverage matrix shows the Python
-reference surface is matched or exceeded.
-
-## Practical Rules
-
-- The default question is "does the Go runtime preserve the intended
-  behavior?", not "is this the final architecture?"
-- If a structural cleanup is behavior-preserving and reduces rewrite risk, take
-  it.
-- If a correctness hazard is discovered, add or update tests that expose it,
-  then fix it in the smallest behavior-preserving way available.
-- If a refactor mainly improves elegance or package layout without reducing
-  current correctness risk, defer it until after the Go runtime is proven.
-- Prefer real behavior over fake stand-ins.
-- Prefer temp directories over checked-in mutable fixtures.
-- Prefer black-box assertions for external behavior.
-- Prefer direct subprocess execution for process-oriented subsystems.
-- Keep transport tests at the real transport layer.
-- Fail loudly when environment assumptions are invalid.
-- Add targeted tests around lifecycle and persistence hazards discovered during
-  the port, especially shutdown behavior, queueing, and state ordering.
+works, the relevant tests exist, and any remaining gap is explicit.
 
 ## Avoid
 
-- mechanical one-for-one porting of Python tests without reconsidering test
-  shape
+- one-for-one porting of Python tests without reconsidering test shape
 - over-mocking runtime boundaries that should be exercised for real
 - relying on local developer state
-- silently dropping Python-covered behaviors because the Go architecture is
-  different
+- silently dropping Python-covered behavior because the Go architecture differs
 
 ## Success Condition
 
-The rewrite is only complete when the Go backend has a test suite that is at
-least as behaviorally comprehensive as the Python suite it replaces, with
-stronger black-box coverage around the real runtime boundaries.
+The rewrite is complete only when the Go-owned backend has a test surface that
+is at least as behaviorally comprehensive as the Python backend it replaces,
+with stronger black-box coverage around the real runtime boundaries.

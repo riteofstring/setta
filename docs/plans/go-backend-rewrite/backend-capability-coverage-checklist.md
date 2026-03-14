@@ -10,24 +10,19 @@ Companion caller-backed checklist:
 Audit/maintenance plan:
 `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist-audit-plan.md`.
 
-Use this checklist when the question is:
+Use this checklist to answer:
 "Where does backend capability ownership live in the repo?"
 
-Use the caller-backed checklist when the question is whether the active caller
-already hits a Go-owned route or websocket today.
+Use the caller-backed checklist when the question is whether the current caller
+already reaches Go transport today.
 
-Together, these two docs define the current backend coverage view:
+This doc is about runtime/service ownership, not current-caller reachability.
+Archived dead history, vendor payloads, and third-party provider internals are
+out of scope except where they are an explicit runtime boundary.
 
-- `caller-backed-backend-surface-checklist.md`
-  - whether the active caller reaches Go today
-- `backend-capability-coverage-checklist.md`
-  - whether the capability/runtime/service ownership lives in Go, Python, a
-    shared boundary, or a deliberately deferred area
-
-Scope note: "complete" here means complete for the current repo's active
-backend/runtime surface and deliberate boundaries. Archived dead history,
-vendor payloads, and third-party provider internals are out of scope except
-where they are an explicit runtime dependency boundary.
+Together with the caller-backed checklist, this doc is the rewrite progress
+tracker. File deletion is not the tracker while Python source is being retained
+for mergeability.
 
 Status meanings:
 

@@ -1,48 +1,46 @@
 # Go Rewrite Docs
 
-This folder is the active doc set for the Go backend rewrite.
+This folder is the live doc set for the Go backend rewrite.
 Start with `CURRENT.md`.
 Use this file only as the folder map.
-
-Rules and workflow live in `CURRENT.md`, not here.
 
 ## Core Docs
 
 - `CURRENT.md`
-  - entrypoint, task loop, update rules
+  - entrypoint, read order, retained Python boundaries, task loop
 - `caller-backed-backend-surface-checklist.md`
-  - active caller reachability
+  - whether current callers already hit Go-owned transport/runtime
 - `backend-capability-coverage-checklist.md`
-  - runtime/service ownership
+  - where runtime/service ownership lives overall
 - `go-backend-rewrite-plan.md`
   - clean-break defaults and port-vs-redesign decisions
 - `testing-strategy.md`
-  - testing contract and coverage expectations
+  - rewrite testing contract and coverage expectations
 
 ## Slice Docs
 
 - `setta-listener-protocol-redesign-plan.md`
-  - listener protocol and Python `SettaListener` boundary
+  - Python listener SDK boundary and listener websocket ownership
 - `go-frontend-binding-generation-plan.md`
   - Go-owned frontend route/type/endpoint generation
 - `go-dependency-inventory-and-rationale.md`
-  - current dependency choices and `go.mod` rationale
-- `docs/reference/dependencies/`
-  - local upstream/library notes
+  - current `go.mod` choices and dependency rationale
 - `dependency-docs-local-reference.md`
-  - how to gather and maintain local dependency-reference notes
+  - how to gather and maintain local dependency notes
+- `docs/reference/dependencies/`
+  - repo-local upstream/library references
 
 ## Maintenance Docs
 
 - `caller-backed-backend-surface-checklist-audit-plan.md`
-  - how to maintain the caller-backed checklist
+  - how to update the caller-backed checklist
 - `backend-capability-coverage-checklist-audit-plan.md`
-  - how to maintain the ownership checklist
+  - how to update the ownership checklist
 
 ## History
 
 - `archive/README.md`
-  - historical slice docs, earlier recommendations, and snapshots
+  - historical slice docs and older planning snapshots
 
 ## Go Toolchain
 
