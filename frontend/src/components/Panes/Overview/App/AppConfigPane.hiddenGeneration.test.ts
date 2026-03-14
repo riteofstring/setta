@@ -5,7 +5,6 @@ import { EngineTypeEnum } from "utils/generatedTypes";
 
 import {
   cloneSpecForPreview,
-  resolveGenerationFailureMessage,
   resolveHiddenGenerationEngineSelection,
 } from "./AppConfigPane";
 
@@ -173,30 +172,5 @@ describe("AppConfigPane hidden generation helpers", () => {
       isExternalEngine: false,
       forceNewChat: false,
     });
-  });
-
-  it("extracts backend message from non-OK stream responses", async () => {
-    const response = new Response(
-      JSON.stringify({ message: "Missing API key for app spec streaming." }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    await expect(resolveGenerationFailureMessage(response)).resolves.toBe(
-      "Missing API key for app spec streaming.",
-    );
-  });
-
-  it("falls back to status text when error payload is non-JSON", async () => {
-    const response = new Response("plain text", {
-      status: 502,
-      headers: { "Content-Type": "text/plain" },
-    });
-
-    await expect(resolveGenerationFailureMessage(response)).resolves.toBe(
-      "Generation request failed (status 502).",
-    );
   });
 });

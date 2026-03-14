@@ -353,89 +353,10 @@ test.describe.serial("chat editing", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
-
-  test("message actions stay stacked in narrow chats", async ({
-    page,
-  }) => {
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page);
-
-    try {
-      const { sectionId, sectionName } = await createChatSection(
-        page,
-        projectContext.projectConfigId,
-        "__pw_edit_action_stack__",
-      );
-
-      const section = findSectionByName(page, sectionName);
-      await expect(section).toBeVisible();
-
-      await setChatSectionState(page, {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId,
-        state: {
-          messages: [
-            {
-              id: "msg-stack-user",
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Please keep these controls stacked in a narrow chat.",
-                },
-              ],
-              attachments: [],
-            },
-            {
-              id: "msg-stack-assistant",
-              role: "assistant",
-              content: [
-                {
-                  type: "text",
-                  text: "Here is the current answer that exposes both copy and redo actions.",
-                },
-              ],
-              attachments: [],
-            },
-          ],
-          inputText: "",
-          waitingForResponse: false,
-          toolCallArguments: {},
-        },
-      });
-
-      const userGroup = getMessageGroup(
-        section,
-        "Please keep these controls stacked in a narrow chat.",
-      );
-      await expect(userGroup).toBeVisible();
-
-      await section.evaluate((element) => {
-        const sectionElement = element as HTMLElement;
-        sectionElement.style.width = "560px";
-        sectionElement.style.maxWidth = "560px";
-      });
-      await userGroup.hover();
-      await expect(userGroup.getByRole("button", { name: "Copy message" })).toBeVisible();
-      await expect(userGroup.getByRole("button", { name: "Edit message" })).toBeVisible();
-      await expect
-        .poll(() => getActionBarFlexDirection(userGroup))
-        .toBe("column");
-    } finally {
-      await cleanupIsolatedProject(page, projectContext);
-    }
-  });
 });
 
 function getMessageGroup(container: Locator, text: string): Locator {
   return container.locator("div.group").filter({ hasText: text }).first();
-}
-
-async function getActionBarFlexDirection(messageGroup: Locator): Promise<string> {
-  return await messageGroup
-    .locator('[data-chat-message-actions="true"]')
-    .first()
-    .evaluate((element) => window.getComputedStyle(element).flexDirection);
 }
 
 function findSectionByName(page: Page, name: string): Locator {

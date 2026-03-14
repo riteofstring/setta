@@ -4,20 +4,26 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { C } from "utils/c";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
+  createBinaryContentRef,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
   createSettaProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { routeGetAuthRefreshStatusMock } = vi.hoisted(() => ({
+  routeGetAuthRefreshStatusMock: vi.fn(),
+}));
+
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
-  route_get_auth_refresh_status: vi.fn(),
+  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
@@ -265,6 +271,30 @@ describe("openWebSocket", () => {
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
   });
 
+  it("connects IDE mode through the Go frontend websocket route", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket?.url).toContain("/ws/frontend");
+    expect(socket?.url).not.toContain("/api/frontend");
+    expect(socket?.url).not.toContain("/share/frontend");
+  });
+
+  it("connects deployment mode through the Go frontend websocket route with a share session query", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project", "share-session-route");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket?.url).toContain("/ws/frontend");
+    expect(socket?.url).toContain("shareSessionId=share-session-route");
+    expect(socket?.url).not.toContain("/share/frontend");
+  });
+
   it("sends realtime dependency events when listener coverage is unknown", async () => {
     const { openWebSocket, sendRealtimeDependencyEvent } = await import(
       "state/actions/websocketReceive"
@@ -330,6 +360,82 @@ describe("openWebSocket", () => {
     );
 
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
+  });
+
+  it("uploads oversized realtime section binaries and sends the uploaded ref", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-1";
+    });
+    useListenerCoverage.setState((state) => {
+      state.byProjectId["project-1"] = {
+        hasRealtimeWildcard: false,
+        dependenciesByKey: {
+          "section-binary::": {
+            type: DependencyKeyTypeEnum.Section,
+            sectionId: "section-binary",
+          },
+        },
+      };
+    });
+    const { openWebSocket, sendRealtimeSectionBinary } = await import(
+      "state/actions/websocketReceive"
+    );
+    const { route_binary_upload } = await import("utils/generatedEndpoints");
+    vi.mocked(route_binary_upload).mockResolvedValue({
+      data: createBinaryContentRef({
+        contentId: "uploaded-realtime-ref",
+        byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
+        mimeType: "image/png",
+        sha256: null,
+      }),
+      status: 200,
+      hasResponse: true,
+    });
+
+    openWebSocket("/project", "share-session-realtime-binary-upload");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    const sendCountBefore = socket.send.mock.calls.length;
+
+    // Oversized section snapshots should fail over from websocket binary frames
+    // to the Go binary upload route, then emit a JSON realtime update that
+    // references the uploaded binary payload.
+    sendRealtimeSectionBinary(
+      "section-binary",
+      new ArrayBuffer(C.REALTIME_BINARY_MAX_BYTES + 1),
+      "image/png",
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(route_binary_upload).toHaveBeenCalledTimes(1);
+    const laterMessages = socket.send.mock.calls
+      .slice(sendCountBefore)
+      .map((call) => call[0])
+      .filter((payload): payload is string => typeof payload === "string")
+      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
+    const realtimeMessage = laterMessages.find(
+      (payload) => payload.messageType === "RealtimeUIChange",
+    ) as
+      | {
+          content?: {
+            dependencyKey?: { sectionId?: string };
+            value?: { type?: string; payload?: { contentId?: string } };
+          };
+        }
+      | undefined;
+
+    expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
+      "section-binary",
+    );
+    expect(realtimeMessage?.content?.value?.type).toBe(
+      DependencyValueTypeEnum.Binary,
+    );
+    expect(realtimeMessage?.content?.value?.payload?.contentId).toBe(
+      "uploaded-realtime-ref",
+    );
   });
 
   it("applies revisioned llm api-key websocket snapshots", async () => {
