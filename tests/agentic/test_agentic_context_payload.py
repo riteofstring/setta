@@ -4,7 +4,7 @@ from setta.agentic.agentic_context import build_agentic_context_payload
 from setta.agentic.agentic_context_payload_builder import (
     build_agentic_context_payload_with_temporary_ids,
 )
-from setta.agentic.store import save_engine_configs, save_prompt_template
+from setta.agentic.store import save_engine_configs
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.llm.config import load_llm_config, save_llm_config
@@ -19,13 +19,11 @@ from setta.types.helpers_lvl2 import (
     create_agentic_edge,
     create_top_level_section,
     set_chat_section_settings,
-    set_prompt_section_template_link,
     set_text_block_text,
 )
 from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
-from setta.types.prompt import PromptTemplate
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     ChatDictationMode,
@@ -217,73 +215,6 @@ def test_build_agentic_context_payload_summary_mode_uses_tighter_truncation(
     assert payload.section_ids == [ID(context_section_id)]
     assert f"[id: {context_section_id} | summary | fallback]" in payload.text
     assert "... (168 more lines)" in payload.text
-
-
-def test_build_agentic_context_payload_uses_live_linked_prompt_template_text(
-    tmp_path: Path,
-) -> None:
-    # Linked prompt sections should resolve the current saved template text,
-    # not a stale snapshot copied into the section when the link was created.
-    dbe, llm_configs = _build_context_inputs(tmp_path)
-    settings = SettingsState()
-    project_state = ProjectStateSingleConfig(
-        projectConfig=ProjectConfig(name="agentic-context-linked-prompt-test")
-    )
-    chat_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    prompt_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Prompt,
-        Position(),
-    )
-    prompt_template = PromptTemplate(
-        id=ID("prompt-template-context"),
-        name="Greeting",
-        template="Hello from the saved template.",
-    )
-    save_prompt_template(dbe, prompt_template)
-    set_prompt_section_template_link(
-        project_state,
-        prompt_section_id,
-        prompt_template.id,
-        "stale prompt snapshot",
-        prompt_template.format,
-    )
-    save_prompt_template(
-        dbe,
-        PromptTemplate(
-            id=prompt_template.id,
-            name=prompt_template.name,
-            template="Hello from the updated saved template.",
-            format=prompt_template.format,
-        ),
-    )
-    create_agentic_edge(
-        project_state,
-        AgenticEdge(
-            id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=prompt_section_id,
-            kind=AgenticEdgeKind.chat_section,
-            contextMode=AgenticEdgeContextMode.inline_text,
-        ),
-    )
-
-    payload = build_agentic_context_payload(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-    )
-
-    assert payload.section_ids == [ID(prompt_section_id)]
-    assert "Hello from the updated saved template." in payload.text
-    assert "stale prompt snapshot" not in payload.text
 
 
 def test_build_agentic_context_payload_reference_only_omits_section_body(

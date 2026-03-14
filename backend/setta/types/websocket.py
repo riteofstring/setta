@@ -11,7 +11,6 @@ from setta.project_state.project_manager_types import (
 )
 from setta.types.agentic import (
     AgentProfileList,
-    AgentRun,
     EngineConfigList,
     TranscriptionProfileList,
 )
@@ -64,7 +63,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
     UISettingReveal = "UISettingReveal"
-    AgentRunUpdated = "AgentRunUpdated"
     AgentProfilesUpdated = "AgentProfilesUpdated"
     PromptTemplatesUpdated = "PromptTemplatesUpdated"
     ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
@@ -284,13 +282,6 @@ class WebsocketMsgTranscriptionProfilesUpdated(FrontendWebsocketMsg):
     content: TranscriptionProfileList
     messageType: Literal[WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated] = (
         WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated
-    )
-
-
-class WebsocketMsgAgentRunUpdated(FrontendWebsocketMsg):
-    content: AgentRun
-    messageType: Literal[WebsocketMsgTypeForFrontend.AgentRunUpdated] = (
-        WebsocketMsgTypeForFrontend.AgentRunUpdated
     )
 
 

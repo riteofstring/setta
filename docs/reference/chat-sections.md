@@ -23,7 +23,8 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the central LLM chat manager:
+Managed mode uses the AI routes backed by `backend/setta/routers/ai.py` and
+`backend/setta/llm/agent_runner.py`:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).

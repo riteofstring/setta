@@ -49,15 +49,6 @@ let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMRespons
 let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
-function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
-}
-
 describe("submitMessage", () => {
   beforeAll(async () => {
     const storage = new Map<string, string>();
@@ -201,11 +192,10 @@ describe("submitMessage", () => {
   });
 
   it("passes app-generation mode context through to the backend request", async () => {
-    const returnedChatId = "chat-app-generation-mode";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: buildGetLLMResponseResponse(returnedChatId),
+      data: null,
     });
 
     await expect(
@@ -225,7 +215,7 @@ describe("submitMessage", () => {
           },
         },
       ),
-    ).resolves.toBe(returnedChatId);
+    ).resolves.toBeNull();
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
@@ -248,11 +238,10 @@ describe("submitMessage", () => {
     useLocalStorage.setState({
       appSpecStreamingEnabled: true,
     });
-    const returnedChatId = "chat-standard-submit";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: buildGetLLMResponseResponse(returnedChatId),
+      data: null,
     });
 
     await expect(
@@ -267,7 +256,7 @@ describe("submitMessage", () => {
           pendingSurfaceId: DRAFT_SURFACE_ID,
         },
       ),
-    ).resolves.toBe(returnedChatId);
+    ).resolves.toBeNull();
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
@@ -284,11 +273,10 @@ describe("submitMessage", () => {
     useLocalStorage.setState({
       appSpecStreamingEnabled: true,
     });
-    const returnedChatId = "chat-explicit-execution-settings";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: buildGetLLMResponseResponse(returnedChatId),
+      data: null,
     });
 
     await expect(
@@ -312,7 +300,7 @@ describe("submitMessage", () => {
           },
         },
       ),
-    ).resolves.toBe(returnedChatId);
+    ).resolves.toBeNull();
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
@@ -327,12 +315,51 @@ describe("submitMessage", () => {
     expect(payload.appSpecStreamingEnabled).toBe(true);
   });
 
+  it("forces streaming preview on json-render app generation submits", async () => {
+    useLocalStorage.setState({
+      appSpecStreamingEnabled: false,
+    });
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Generate directly in the app pane.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          appGeneration: {
+            mode: "json_render",
+            referenceImageUrl: null,
+            referenceImageNotes: null,
+          },
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appSpecStreamingEnabled: boolean;
+        appGenerationMode: string | null;
+      },
+    ];
+    expect(payload.appSpecStreamingEnabled).toBe(true);
+    expect(payload.appGenerationMode).toBe("json_render");
+  });
+
   it("refreshes agent runs after successful submit hydration", async () => {
     const returnedChatId = "chat-submit-provenance-sync";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: buildGetLLMResponseResponse(returnedChatId),
+      data: returnedChatId,
     });
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
@@ -406,11 +433,10 @@ describe("submitMessage", () => {
   });
 
   it("includes frontend websocket affinity id in llm requests", async () => {
-    const returnedChatId = "chat-affinity-id";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: buildGetLLMResponseResponse(returnedChatId),
+      data: null,
     });
 
     await expect(
@@ -425,7 +451,7 @@ describe("submitMessage", () => {
           pendingSurfaceId: DRAFT_SURFACE_ID,
         },
       ),
-    ).resolves.toBe(returnedChatId);
+    ).resolves.toBeNull();
 
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       { frontendAffinityToken: string },
@@ -445,7 +471,7 @@ describe("submitMessage", () => {
       return {
         status: 200,
         hasResponse: true,
-        data: buildGetLLMResponseResponse(chatId),
+        data: chatId,
       };
     });
     mockedRouteGetLLMChat.mockResolvedValue({
@@ -535,7 +561,7 @@ describe("submitMessage", () => {
       return {
         status: 200,
         hasResponse: true,
-        data: buildGetLLMResponseResponse(returnedChatId),
+        data: returnedChatId,
       };
     });
     mockedRouteGetLLMChat.mockResolvedValue({
