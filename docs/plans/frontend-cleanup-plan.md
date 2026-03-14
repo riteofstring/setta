@@ -37,7 +37,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - LLM config/API-key handling now lives in `frontend/src/state/actions/aiLLMConfiguration.ts`, while agent-profile, prompt-template, external-agent, external-agent-health, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfigurationCatalogs.ts`
-  - transcription session transport and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscription.ts`
+  - provider dictation orchestration now lives in `frontend/src/state/actions/aiTranscription.ts`, while session transport now lives in `frontend/src/state/actions/aiTranscriptionSessions.ts` and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscriptionProfiles.ts`
   - `RunInstructions.tsx` already delegates some state/parsing work to `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
 - Before starting a slice, re-measure the current file and check for nearby helper modules/tests.
@@ -78,7 +78,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.
 - `frontend/src/state/actions/aiLLMConfiguration.ts` now owns LLM config/API-key handling plus managed API-key conflict resolution and snapshot updates.
 - `frontend/src/state/actions/aiConfigurationCatalogs.ts` now owns the AI settings/resource catalogs for agent profiles, prompt templates, external agents, external-agent health, and engine configs, reducing `frontend/src/state/actions/aiConfiguration.ts` to a thin compatibility surface.
-- `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.
+- `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation decode, resample, chunk, and upload orchestration.
+- `frontend/src/state/actions/aiTranscriptionSessions.ts` now owns provider session transport, request-error handling, and chunk-size policy.
+- `frontend/src/state/actions/aiTranscriptionProfiles.ts` now owns transcription-profile loading, websocket/store snapshot updates, and CRUD.
 - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
   persisted project-chat thread group creation, rename, collapse, pin, reorder,
   assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`

@@ -33,7 +33,7 @@ import {
   receiveLLMApiKeysSnapshotUpdate,
   receiveLLMConfigUpdate,
 } from "./aiLLMConfiguration";
-import { receiveTranscriptionProfilesUpdate } from "./aiTranscription";
+import { receiveTranscriptionProfilesUpdate } from "./aiTranscriptionProfiles";
 import { updateArtifacts } from "./artifacts";
 import { applyListenerCoverageSnapshot } from "./listenerCoverage";
 import { updateAllProjectMetadata } from "./projectStateCommands";

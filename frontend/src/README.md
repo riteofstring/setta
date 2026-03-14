@@ -98,8 +98,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     catalog load/mutation behavior.
   - `state/actions/aiConfiguration.ts` is now a thin compatibility surface that
     re-exports the LLM/config and catalog owners.
-  - `state/actions/aiTranscription.ts` owns provider dictation, transcription
-    session transport, and transcription-profile load/CRUD behavior.
+  - `state/actions/aiTranscription.ts` owns provider dictation decode,
+    resample, chunk, and upload orchestration.
+  - `state/actions/aiTranscriptionSessions.ts` owns provider session transport,
+    request error handling, and chunk-size policy.
+  - `state/actions/aiTranscriptionProfiles.ts` owns transcription-profile load,
+    websocket/store snapshot updates, and CRUD behavior.
 
 - Project chat windowing
 
@@ -343,10 +347,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/aiTranscription.ts` is now the largest authored/shared state
-  hotspot, so follow-up cleanup should separate provider session transport and
-  transcription profile/catalog mutations from upload orchestration instead of
-  regrowing the param-move surface
+- `state/actions/projectChatWindowingWrites.ts` is now the largest
+  authored/shared state hotspot, so follow-up cleanup should keep separating
+  write coordination, authoritative publish flow, and sync helpers instead of
+  regrowing the already-split transcription surface
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership

@@ -26,7 +26,7 @@ import {
   createTranscriptionProfile,
   deleteTranscriptionProfile,
   updateTranscriptionProfile,
-} from "state/actions/aiTranscription";
+} from "state/actions/aiTranscriptionProfiles";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,

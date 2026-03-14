@@ -1,36 +1,15 @@
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
-  route_create_transcription_profile,
-  route_delete_transcription_profile,
-  route_get_transcription_profiles,
   route_start_transcription_session,
   route_stop_transcription_session,
-  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
-import {
-  SettaNotificationTypeEnum,
-  TranscriptionTransportModeEnum,
-} from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useAIStore } from "../definitions";
-import { resetProjectStores } from "../utils";
 import {
-  appendTranscriptionAudio,
-  cancelTranscriptionSession,
-  createTranscriptionProfile,
-  deleteTranscriptionProfile,
-  loadTranscriptionProfiles,
-  receiveTranscriptionProfilesUpdate,
   resampleMonoPcm16ToSampleRate,
-  resolveProviderTranscriptionChunkSampleCount,
-  startTranscriptionSession,
-  stopTranscriptionSession,
   transcribeChatAudioWithProfile,
-  updateTranscriptionProfile,
 } from "./aiTranscription";
-import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -42,16 +21,8 @@ vi.mock("utils/generatedEndpoints", async () => {
     route_append_transcription_audio: vi.fn(),
     route_stop_transcription_session: vi.fn(),
     route_cancel_transcription_session: vi.fn(),
-    route_get_transcription_profiles: vi.fn(),
-    route_create_transcription_profile: vi.fn(),
-    route_update_transcription_profile: vi.fn(),
-    route_delete_transcription_profile: vi.fn(),
   };
 });
-
-vi.mock("./notifications", () => ({
-  addTemporaryNotification: vi.fn(),
-}));
 
 const mockedRouteStartTranscriptionSession = vi.mocked(
   route_start_transcription_session,
@@ -65,184 +36,14 @@ const mockedRouteStopTranscriptionSession = vi.mocked(
 const mockedRouteCancelTranscriptionSession = vi.mocked(
   route_cancel_transcription_session,
 );
-const mockedRouteGetTranscriptionProfiles = vi.mocked(
-  route_get_transcription_profiles,
-);
-const mockedRouteCreateTranscriptionProfile = vi.mocked(
-  route_create_transcription_profile,
-);
-const mockedRouteUpdateTranscriptionProfile = vi.mocked(
-  route_update_transcription_profile,
-);
-const mockedRouteDeleteTranscriptionProfile = vi.mocked(
-  route_delete_transcription_profile,
-);
-const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
-describe("transcription session actions", () => {
+describe("aiTranscription dictation orchestration", () => {
   afterEach(() => {
     vi.clearAllMocks();
-    resetProjectStores();
-  });
-
-  it("starts a transcription session", async () => {
-    mockedRouteStartTranscriptionSession.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        sessionId: "session-1",
-        resolvedTransportMode: "file",
-        chunkMs: 1200,
-      },
-    });
-
-    const response = await startTranscriptionSession("transcription-1", "en");
-
-    expect(response).toEqual({
-      sessionId: "session-1",
-      resolvedTransportMode: "file",
-      chunkMs: 1200,
-    });
-    expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledWith({
-      transcriptionProfileId: "transcription-1",
-      language: "en",
-    });
-  });
-
-  it("encodes PCM16 chunks as base64 for append calls", async () => {
-    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        appendText: "hello",
-        fullText: "hello",
-        isFinal: false,
-      },
-    });
-
-    const sampleBytes = new Uint8Array([1, 2, 3, 4]).buffer;
-    const response = await appendTranscriptionAudio(
-      "session-1",
-      sampleBytes,
-      24_000,
-      1,
-    );
-
-    expect(response).toEqual({
-      appendText: "hello",
-      fullText: "hello",
-      isFinal: false,
-    });
-    expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteAppendTranscriptionAudio.mock.calls[0] ?? [];
-    expect(payload.sessionId).toBe("session-1");
-    expect(payload.sampleRateHz).toBe(24_000);
-    expect(payload.channels).toBe(1);
-    expect(payload.audioPcm16Base64).toBe("AQIDBA==");
-  });
-
-  it("returns a final delta when stopping session", async () => {
-    mockedRouteStopTranscriptionSession.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        appendText: " world",
-        fullText: "hello world",
-        isFinal: true,
-      },
-    });
-
-    const response = await stopTranscriptionSession("session-1");
-
-    expect(response).toEqual({
-      appendText: " world",
-      fullText: "hello world",
-      isFinal: true,
-    });
-    expect(mockedRouteStopTranscriptionSession).toHaveBeenCalledWith({
-      sessionId: "session-1",
-    });
-  });
-
-  it("returns true for successful cancellation", async () => {
-    mockedRouteCancelTranscriptionSession.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: { ok: true },
-    });
-
-    const success = await cancelTranscriptionSession("session-1");
-
-    expect(success).toBe(true);
-    expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledWith({
-      sessionId: "session-1",
-    });
-  });
-
-  it("surfaces append errors", async () => {
-    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
-      status: 502,
-      hasResponse: true,
-      data: { detail: "Provider transcription failed." },
-    });
-
-    const response = await appendTranscriptionAudio(
-      "session-1",
-      new Uint8Array([1, 2]).buffer,
-      24_000,
-      1,
-    );
-
-    expect(response).toBeNull();
-    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
-      "Provider transcription failed.",
-      SettaNotificationTypeEnum.warning,
-    );
-  });
-
-  it("suppresses start-session warnings when requested", async () => {
-    mockedRouteStartTranscriptionSession.mockResolvedValue({
-      status: 400,
-      hasResponse: true,
-      data: { detail: "Missing API key for OPENAI_API_KEY." },
-    });
-
-    const response = await startTranscriptionSession("transcription-1", null, {
-      suppressNotification: true,
-    });
-
-    expect(response).toBeNull();
-    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
-  });
-
-  it("throws a structured error when requested", async () => {
-    mockedRouteStartTranscriptionSession.mockResolvedValue({
-      status: 400,
-      hasResponse: true,
-      data: {
-        detail: {
-          message:
-            "Realtime transcription is unavailable for this provider/model.",
-          errorCode: "unsupported_model",
-        },
-      },
-    });
-
-    await expect(
-      startTranscriptionSession("transcription-1", null, {
-        suppressNotification: true,
-        throwOnError: true,
-      }),
-    ).rejects.toMatchObject<ProviderTranscriptionError>({
-      name: "ProviderTranscriptionError",
-      message: "Realtime transcription is unavailable for this provider/model.",
-      code: "unsupported_model",
-      status: 400,
-    });
-    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
   });
 
   it("resamples realtime dictation to 24kHz and appends bounded chunks", async () => {
+    // Dictation upload should normalize realtime payloads before transport sends.
     const channels = 1;
     const sourceSampleRate = 48_000;
     const sourceSampleCount = 9_600;
@@ -323,18 +124,17 @@ describe("transcription session actions", () => {
   });
 
   it("returns no_speech when provider audio payload is empty", async () => {
-    const transcript = await transcribeChatAudioWithProfile(
-      "profile-1",
-      new Blob(),
-    );
-
-    expect(transcript).toEqual({ kind: "no_speech" });
+    // Empty recordings should short-circuit before any provider session work starts.
+    await expect(
+      transcribeChatAudioWithProfile("profile-1", new Blob()),
+    ).resolves.toEqual({ kind: "no_speech" });
     expect(mockedRouteStartTranscriptionSession).not.toHaveBeenCalled();
     expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
     expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
   });
 
   it("throws a profile_not_found error when profile id is missing", async () => {
+    // The dictation entrypoint should fail loudly when no profile is configured.
     await expect(
       transcribeChatAudioWithProfile(
         "",
@@ -347,6 +147,7 @@ describe("transcription session actions", () => {
   });
 
   it("throws a typed provider failure when browser decode support is unavailable", async () => {
+    // Browser decode support is the hard prerequisite for local dictation preprocessing.
     const withAudioContext = globalThis as typeof globalThis & {
       window?: typeof window & {
         AudioContext?: typeof AudioContext;
@@ -388,6 +189,7 @@ describe("transcription session actions", () => {
   });
 
   it("throws when provider append returns no transcription delta", async () => {
+    // Missing append deltas should cancel the provider session instead of continuing.
     const channels = 1;
     const sourceSampleRate = 24_000;
     const sourceSampleCount = 2_400;
@@ -459,6 +261,7 @@ describe("transcription session actions", () => {
   });
 
   it("throws when provider stop returns no transcription delta", async () => {
+    // Missing stop deltas should also cancel the provider session and surface a typed error.
     const channels = 1;
     const sourceSampleRate = 24_000;
     const sourceSampleCount = 2_400;
@@ -536,21 +339,8 @@ describe("transcription session actions", () => {
     }
   });
 
-  it("resolves realtime chunk sample count from chunkMs and payload cap", () => {
-    const chunkSamples = resolveProviderTranscriptionChunkSampleCount({
-      session: {
-        sessionId: "session-1",
-        resolvedTransportMode: "realtime",
-        chunkMs: 125,
-      },
-      sampleRateHz: 24_000,
-      channels: 1,
-    });
-
-    expect(chunkSamples).toBe(3_000);
-  });
-
   it("resamples mono PCM16 payload length by sample-rate ratio", () => {
+    // The dictation helper should preserve waveform magnitude while normalizing sample rate.
     const input = new Int16Array(48_000);
     input.fill(1_000);
 
@@ -558,166 +348,5 @@ describe("transcription session actions", () => {
 
     expect(output.length).toBe(24_000);
     expect(output[0]).toBe(1_000);
-  });
-});
-
-describe("transcription profile actions", () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-    resetProjectStores();
-  });
-
-  it("stores received transcription profiles and clears loading state", () => {
-    receiveTranscriptionProfilesUpdate([
-      {
-        id: "profile-a",
-        name: "Realtime",
-        transcriptionLlmConfigId: "llm-a",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 250,
-        supportsRealtimeTranscription: true,
-        language: "en",
-      },
-    ]);
-
-    const state = useAIStore.getState();
-    expect(state.transcriptionProfiles).toEqual([
-      {
-        id: "profile-a",
-        name: "Realtime",
-        transcriptionLlmConfigId: "llm-a",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 250,
-        supportsRealtimeTranscription: true,
-        language: "en",
-      },
-    ]);
-    expect(state.transcriptionProfilesInitialLoadComplete).toBe(true);
-    expect(state.transcriptionProfilesLoading).toBe(false);
-    expect(state.transcriptionProfilesLoadError).toBeNull();
-  });
-
-  it("loads transcription profiles into the AI store", async () => {
-    useAIStore.setState({
-      transcriptionProfiles: [],
-      transcriptionProfilesInitialLoadComplete: false,
-      transcriptionProfilesLoading: false,
-      transcriptionProfilesLoadError: null,
-    });
-    mockedRouteGetTranscriptionProfiles.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [
-        {
-          id: "profile-a",
-          name: "Batch",
-          transcriptionLlmConfigId: "llm-a",
-          transportMode: TranscriptionTransportModeEnum.file,
-          chunkMs: 1200,
-          supportsRealtimeTranscription: false,
-          language: null,
-        },
-      ],
-    });
-
-    await loadTranscriptionProfiles();
-
-    expect(mockedRouteGetTranscriptionProfiles).toHaveBeenCalledTimes(1);
-    expect(useAIStore.getState().transcriptionProfiles).toEqual([
-      {
-        id: "profile-a",
-        name: "Batch",
-        transcriptionLlmConfigId: "llm-a",
-        transportMode: TranscriptionTransportModeEnum.file,
-        chunkMs: 1200,
-        supportsRealtimeTranscription: false,
-        language: null,
-      },
-    ]);
-  });
-
-  it("creates, updates, and deletes transcription profiles in store state", async () => {
-    useAIStore.setState({
-      transcriptionProfiles: [
-        {
-          id: "profile-a",
-          name: "Old",
-          transcriptionLlmConfigId: "llm-a",
-          transportMode: TranscriptionTransportModeEnum.file,
-          chunkMs: 1200,
-          supportsRealtimeTranscription: false,
-          language: null,
-        },
-      ],
-      projectChatTranscriptionProfileId: "profile-b",
-    });
-    mockedRouteCreateTranscriptionProfile.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        id: "profile-b",
-        name: "Realtime",
-        transcriptionLlmConfigId: "llm-b",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 250,
-        supportsRealtimeTranscription: true,
-        language: "en",
-      },
-    });
-    mockedRouteUpdateTranscriptionProfile.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        id: "profile-b",
-        name: "Realtime Updated",
-        transcriptionLlmConfigId: "llm-c",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 300,
-        supportsRealtimeTranscription: true,
-        language: "fr",
-      },
-    });
-    mockedRouteDeleteTranscriptionProfile.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: { ok: true },
-    });
-
-    const created = await createTranscriptionProfile({
-      name: "Realtime",
-      transcriptionLlmConfigId: "llm-b",
-      transportMode: TranscriptionTransportModeEnum.realtime,
-      chunkMs: 250,
-      language: "en",
-    });
-    expect(created?.id).toBe("profile-b");
-    expect(useAIStore.getState().transcriptionProfiles).toHaveLength(2);
-
-    const updated = await updateTranscriptionProfile({
-      profileId: "profile-b",
-      name: "Realtime Updated",
-      transcriptionLlmConfigId: "llm-c",
-      transportMode: TranscriptionTransportModeEnum.realtime,
-      chunkMs: 300,
-      language: "fr",
-    });
-    expect(updated?.name).toBe("Realtime Updated");
-    expect(
-      useAIStore
-        .getState()
-        .transcriptionProfiles.find((profile) => profile.id === "profile-b")
-        ?.transcriptionLlmConfigId,
-    ).toBe("llm-c");
-
-    const deleted = await deleteTranscriptionProfile({
-      profileId: "profile-b",
-    });
-    expect(deleted).toBe(true);
-    expect(
-      useAIStore
-        .getState()
-        .transcriptionProfiles.find((profile) => profile.id === "profile-b"),
-    ).toBeUndefined();
-    expect(useAIStore.getState().projectChatTranscriptionProfileId).toBeNull();
   });
 });
