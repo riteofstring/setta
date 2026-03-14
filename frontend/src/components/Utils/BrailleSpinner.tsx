@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentPropsWithoutRef } from "react";
+import { useSyncExternalStore, type ComponentPropsWithoutRef } from "react";
 import spinners from "unicode-animations";
 
 const BRAILLE_SPINNER_NAME = "braille" as const;
@@ -8,6 +8,46 @@ export const BRAILLE_SPINNER_INTERVAL_MS = BRAILLE_SPINNER.interval;
 export const BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME = "text-[13px]";
 export const BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME = "text-[11px]";
 
+let brailleSpinnerFrameIndex = 0;
+let brailleSpinnerIntervalId: number | null = null;
+const brailleSpinnerListeners = new Set<() => void>();
+
+function emitBrailleSpinnerFrame(): void {
+  brailleSpinnerFrameIndex =
+    (brailleSpinnerFrameIndex + 1) % BRAILLE_SPINNER_FRAMES.length;
+  brailleSpinnerListeners.forEach((listener) => {
+    listener();
+  });
+}
+
+function ensureBrailleSpinnerInterval(): void {
+  if (brailleSpinnerIntervalId !== null) {
+    return;
+  }
+  brailleSpinnerIntervalId = window.setInterval(
+    emitBrailleSpinnerFrame,
+    BRAILLE_SPINNER_INTERVAL_MS,
+  );
+}
+
+function subscribeToBrailleSpinner(listener: () => void): () => void {
+  brailleSpinnerListeners.add(listener);
+  ensureBrailleSpinnerInterval();
+  return () => {
+    brailleSpinnerListeners.delete(listener);
+    if (brailleSpinnerListeners.size > 0 || brailleSpinnerIntervalId === null) {
+      return;
+    }
+    window.clearInterval(brailleSpinnerIntervalId);
+    brailleSpinnerIntervalId = null;
+    brailleSpinnerFrameIndex = 0;
+  };
+}
+
+function getBrailleSpinnerSnapshot(): number {
+  return brailleSpinnerFrameIndex;
+}
+
 type BrailleSpinnerProps = Omit<ComponentPropsWithoutRef<"span">, "children">;
 
 export function BrailleSpinner({
@@ -15,19 +55,11 @@ export function BrailleSpinner({
   "aria-hidden": ariaHidden,
   ...props
 }: BrailleSpinnerProps) {
-  const [frameIndex, setFrameIndex] = useState(0);
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setFrameIndex(
-        (currentFrameIndex) =>
-          (currentFrameIndex + 1) % BRAILLE_SPINNER_FRAMES.length,
-      );
-    }, BRAILLE_SPINNER_INTERVAL_MS);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
+  const frameIndex = useSyncExternalStore(
+    subscribeToBrailleSpinner,
+    getBrailleSpinnerSnapshot,
+    () => 0,
+  );
 
   const hasAccessibleName =
     props["aria-label"] !== undefined || props["aria-labelledby"] !== undefined;

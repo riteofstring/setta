@@ -201,6 +201,90 @@ describe("chatMergeUtils", () => {
     ]);
   });
 
+  it("takes the backend assistant text verbatim for completed hydration ties", () => {
+    const reconciled = reconcileHydratedChatMessages({
+      backendMessages: [
+        {
+          id: "assistant-complete",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "dog" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      localMessages: [
+        {
+          id: "assistant-complete",
+          role: ChatRoleEnum.assistant,
+          createdAt: 1234,
+          content: [createMessageTextContent({ text: "cat" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      preserveLocalOnlyMessages: false,
+    });
+
+    expect(reconciled).toEqual([
+      {
+        id: "assistant-complete",
+        role: ChatRoleEnum.assistant,
+        createdAt: 1234,
+        content: [createMessageTextContent({ text: "dog" })],
+        attachments: [],
+        tool_calls: null,
+      },
+    ]);
+  });
+
+  it("takes backend thinking text verbatim for completed hydration ties", () => {
+    const reconciled = reconcileHydratedChatMessages({
+      backendMessages: [
+        {
+          id: "assistant-thinking-complete",
+          role: ChatRoleEnum.assistant,
+          content: [
+            createMessageThinkingContent({
+              thinking: "dog",
+            }),
+          ],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      localMessages: [
+        {
+          id: "assistant-thinking-complete",
+          role: ChatRoleEnum.assistant,
+          createdAt: 5678,
+          content: [
+            createMessageThinkingContent({
+              thinking: "cat",
+            }),
+          ],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      preserveLocalOnlyMessages: false,
+    });
+
+    expect(reconciled).toEqual([
+      {
+        id: "assistant-thinking-complete",
+        role: ChatRoleEnum.assistant,
+        createdAt: 5678,
+        content: [
+          createMessageThinkingContent({
+            thinking: "dog",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ]);
+  });
+
   it("prefers longer backend thinking text while preserving backend metadata", () => {
     const reconciled = reconcileHydratedChatMessages({
       backendMessages: [

@@ -172,4 +172,65 @@ describe("ProjectChatCore hydration while waiting", () => {
     await act(async () => {});
     expect(getLLMChatHydrationOutcome).not.toHaveBeenCalled();
   });
+
+  it("reports zero conversation matches when the filter empty state replaces the message list", async () => {
+    const onConversationSearchMatchCountChange = vi.fn();
+    useAIStore.setState({
+      chatDetails: {
+        "chat-a": {
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-visible",
+              content: [
+                createMessageTextContent({
+                  text: "Only visible content",
+                }),
+              ],
+              attachments: [],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <ProjectChatCore
+          surfaceId="surface-a"
+          chatId="chat-a"
+          draftMessage=""
+          setDraftMessage={vi.fn()}
+          placeholderText="Type a message..."
+          conversationFilterText="secret"
+          hydrationAuthority={{
+            status: "ready",
+            hydrationRunType: "llm_chat",
+            blockedErrorCode: null,
+          }}
+          hydrationMetadataRevision="revision-3"
+          thinking={false}
+          engineConfigId="engine-a"
+          engineType={EngineTypeEnum.setta_llm}
+          hasLLMConfig={true}
+          externalEngineAvailable={false}
+          noLLMConfigsAvailable={false}
+          transcriptionProfileId={null}
+          dictationMode="auto"
+          providerDictationAvailable={false}
+          providerDictationLikelySupported={false}
+          setChatId={vi.fn()}
+          onConversationSearchMatchCountChange={
+            onConversationSearchMatchCountChange
+          }
+        />,
+      );
+    });
+
+    expect(host.textContent).toContain("No messages match this filter.");
+    expect(onConversationSearchMatchCountChange).toHaveBeenCalledWith(0);
+  });
 });

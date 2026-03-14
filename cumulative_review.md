@@ -174,3 +174,158 @@ After the implementation in this worktree:
 - the dead/superseded code paths were removed instead of preserved,
 - targeted regression coverage was added where the reviews identified gaps,
 - and the resulting code in the affected areas is materially simpler and easier to reason about than the reviewed state.
+
+# 2026-03-13 21:56 PDT
+
+## Implementation Follow-Up
+
+This entry records the actual implementation pass that followed the consolidated review above.
+
+The reviewed findings were implemented directly rather than papered over with compatibility shims or fallback heuristics. The resulting changes narrowed the search surface to what the UI actually renders, made chat hydration backend-authoritative for completed messages, removed redundant Project Chat manager behavior, normalized chat-window z-order restoration, and eliminated per-instance spinner intervals.
+
+## What Changed
+
+### 1. Conversation search now uses the rendered surface as the source of truth
+
+Implemented changes:
+- `frontend/src/utils/conversationSearch.ts` now excludes hidden tool payload details and markdown-only destinations from searchable text.
+- Attachment names remain searchable.
+- Visible assistant activity labels are searchable and highlighted.
+- `frontend/src/components/Chat/ChatMessages.tsx` now derives search counts and the active target from rendered `mark` nodes instead of from a parallel raw-text occurrence model.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now treats the rendered match count as authoritative for the search counter and navigation.
+
+Behavioral result:
+- Searching for hidden tool payload text no longer reports phantom hits.
+- Searching for visible labels like attachment names or activity labels produces a real highlight target.
+- `Enter` / `Shift+Enter` step across actual visible highlights.
+
+Additional regression found during CDP verification:
+- When the conversation filter produced zero visible messages, `ProjectChatCore` swapped in the empty-state paragraph instead of `ChatMessageList`, which left a stale non-zero counter on screen.
+- Fix: `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` now explicitly reports `0` matches whenever the search empty state replaces the message list.
+- A focused regression test was added in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx`.
+
+UX before:
+- Search could show counts for content the user could not see.
+- Empty-state filtering could leave stale match counts on screen.
+
+UX after:
+- Search results map to visible highlights only.
+- Zero-result filters show `0/0` and the empty-state message consistently.
+
+DX before:
+- Search semantics were split between multiple competing models.
+
+DX after:
+- The rendered highlight list is the authoritative count/navigation model.
+
+### 2. Hydration now trusts the backend for completed messages
+
+Implemented changes:
+- `frontend/src/state/actions/chatMergeUtils.ts` now takes backend content verbatim for same-id hydration when `preserveLocalOnlyMessages=false`.
+- Local `createdAt` is only preserved if the backend omitted it.
+
+Behavioral result:
+- Equal-length or otherwise ambiguous assistant-content ties no longer preserve stale local content just because it happened to score similarly.
+
+UX before:
+- Reloaded chats could keep stale local completions instead of converging to the backend transcript.
+
+UX after:
+- Completed chats converge to backend truth.
+
+DX before:
+- Same-id hydration still relied on a completeness heuristic in cases that should have been deterministic.
+
+DX after:
+- Completed-message hydration is a direct rule, not a guess.
+
+### 3. Tool-message serialization now strips UI-only fields consistently
+
+Implemented changes:
+- `backend/setta/types/chat_messages.py` now routes `ToolChatMessage.to_openai_format()` through the shared parent formatting path so UI-only fields like `createdAt` are stripped consistently.
+
+Behavioral result:
+- Tool-message history no longer leaks UI-only keys into provider payloads.
+
+UX before:
+- Chats with tool history could fail or behave inconsistently on later turns.
+
+UX after:
+- Tool and non-tool messages cross the provider boundary through the same sanitization rule.
+
+DX before:
+- Cross-cutting field stripping depended on each subtype remembering to reimplement the same cleanup.
+
+DX after:
+- There is one authoritative sanitization boundary.
+
+### 4. Project chat windowing is simpler and more deterministic
+
+Implemented changes:
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.tsx` removed the obsolete variant branching and now exposes only the menu-backed manager.
+- Hidden/minimized rows expose `Reopen`.
+- Open rows expose `Focus`, plus `Hide` when layout editing is allowed.
+- `frontend/src/state/actions/projectChatWindowing.ts` now normalizes duplicate `zIndex` ties before focus operations.
+- `frontend/src/state/actions/windowSpaces.ts` now normalizes restored windowing layouts so restore/import does not leave tied top layers behind.
+
+Behavioral result:
+- The manager presents one state-specific action set per row.
+- Focus is deterministic after restore/import even when prior state contained tied `zIndex` values.
+
+UX before:
+- The manager had redundant branches and focus behavior could no-op in tied-layer cases.
+
+UX after:
+- The manager is easier to scan and focus behavior is predictable.
+
+DX before:
+- Window-manager behavior was spread across stale UI branches and tie-prone focus logic.
+
+DX after:
+- The code path is flatter and easier to reason about.
+
+### 5. BrailleSpinner no longer creates one timer per instance
+
+Implemented changes:
+- `frontend/src/components/Utils/BrailleSpinner.tsx` now uses a shared ticker with `useSyncExternalStore` instead of creating a new interval per spinner instance.
+
+Behavioral result:
+- Busy chat surfaces can show many spinners without multiplying timer work linearly.
+
+UX before:
+- Large waiting surfaces incurred avoidable JS churn.
+
+UX after:
+- The same visual behavior scales better.
+
+DX before:
+- Animation cost was hidden inside each mounted spinner instance.
+
+DX after:
+- Animation state is centralized and directly testable.
+
+## Verification Run
+
+Automated verification completed during this implementation pass:
+- Frontend Vitest:
+  - targeted suites covering conversation search, chat messages, multi-surface Project Chat behavior, hydration merge behavior, manager behavior, spinner behavior, and windowing restore/focus behavior
+- Backend pytest:
+  - targeted suites covering chat-message formatting and tool-message request payload sanitization
+- Playwright:
+  - targeted `project-ai-chat-threads` conversation-search coverage
+
+Manual verification completed with Chrome DevTools MCP:
+- verified hidden tool payload text shows `0/0`
+- verified attachment-label search produces a real highlight target
+- verified visible activity-label search produces a real highlight target
+- verified Project Chat manager rows show `Hide` / `Focus` for open windows and `Reopen` for minimized windows
+
+## Outcome
+
+The earlier consolidated review identified real blockers; this implementation pass closed them with direct code simplification, targeted regression coverage, and live UI verification.
+
+The remaining state in this worktree is materially better than the reviewed baseline:
+- fewer stale branches,
+- fewer heuristic pathways,
+- tighter alignment between UI behavior and internal state,
+- and broader regression coverage for the failure modes the review documents identified.

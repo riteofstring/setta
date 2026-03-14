@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act, useState, type ReactNode } from "react";
+import { act, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,12 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  buildSearchableTextForMessage,
+  countConversationSearchTextMatches,
+  matchesConversationSearchText,
+  tokenizeConversationSearchQuery,
+} from "utils/conversationSearch";
+import {
   AgentRunStatusEnum,
   EngineTypeEnum,
   createAgentRun,
@@ -24,6 +30,8 @@ import {
   createEngineConfig,
   createMessageTextContent,
   createProjectConfig,
+  createToolCall,
+  createToolCallFunction,
   createUserChatMessage,
 } from "utils/generatedTypes";
 import { ProjectChat } from "./ProjectChat";
@@ -164,12 +172,16 @@ vi.mock("./ProjectChatCore", async () => {
       engineConfigId,
       draftMessage,
       setDraftMessage,
+      conversationFilterText,
+      onConversationSearchMatchCountChange,
     }: {
       surfaceId: string;
       chatId: string | null | undefined;
       engineConfigId: string | null;
       draftMessage: string;
       setDraftMessage: (next: string) => void;
+      conversationFilterText: string;
+      onConversationSearchMatchCountChange?: (count: number) => void;
     }) => {
       const details = useAIStore((state) => {
         if (chatId === null) {
@@ -184,7 +196,28 @@ vi.mock("./ProjectChatCore", async () => {
         }
         return state.chatDetails[chatId] ?? { messages: [] };
       });
-      const renderedText = details.messages
+      const normalizedSearchTerms = tokenizeConversationSearchQuery(
+        conversationFilterText,
+      );
+      const filteredMessages = details.messages.filter((message) =>
+        matchesConversationSearchText(
+          buildSearchableTextForMessage(message),
+          normalizedSearchTerms,
+        ),
+      );
+      const matchCount = filteredMessages.reduce((total, message) => {
+        return (
+          total +
+          countConversationSearchTextMatches(
+            buildSearchableTextForMessage(message),
+            normalizedSearchTerms,
+          )
+        );
+      }, 0);
+      useEffect(() => {
+        onConversationSearchMatchCountChange?.(matchCount);
+      }, [matchCount, onConversationSearchMatchCountChange]);
+      const renderedText = filteredMessages
         .flatMap((message) =>
           message.content
             .filter((part) => part.type === "text")
@@ -204,7 +237,9 @@ vi.mock("./ProjectChatCore", async () => {
               setDraftMessage(event.currentTarget.value);
             }}
           />
-          {renderedText}
+          {normalizedSearchTerms.length > 0 && filteredMessages.length === 0
+            ? "No messages match this filter."
+            : renderedText}
         </div>
       );
     },
@@ -1046,5 +1081,74 @@ describe("ProjectChat multi-surface state ownership", () => {
     });
 
     expect(filterContainer?.textContent ?? "").toContain("2/2");
+  });
+
+  it("keeps hidden tool payload text out of the conversation search counter", async () => {
+    useAIStore.setState((state) => ({
+      chatDetails: {
+        ...state.chatDetails,
+        "chat-a": {
+          messages: [
+            createAssistantChatMessage({
+              content: [],
+              attachments: [],
+              tool_calls: [
+                createToolCall({
+                  id: "tool-1",
+                  function: createToolCallFunction({
+                    name: "file_change",
+                    arguments: {
+                      path: "notes.txt",
+                      diff: "secret payload",
+                    },
+                  }),
+                }),
+              ],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    }));
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    if (!surfaceA) {
+      throw new Error("Expected the first project chat surface.");
+    }
+
+    const filterInput = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter-input"]',
+    ) as HTMLInputElement | null;
+    if (!filterInput) {
+      throw new Error("Expected the conversation filter input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
+    }
+
+    await act(async () => {
+      inputValueSetter.call(filterInput, "secret");
+      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const filterContainer = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter"]',
+    );
+    expect(filterContainer?.textContent ?? "").toContain("0/0");
+    expect(surfaceA.textContent ?? "").toContain(
+      "No messages match this filter.",
+    );
   });
 });

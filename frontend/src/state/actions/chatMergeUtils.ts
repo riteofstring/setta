@@ -69,7 +69,7 @@ export function reconcileHydratedChatMessages({
     ) {
       return mergeStreamingAssistantMessage(backendMessage, localMessage);
     }
-    return pickMoreCompleteMessage(backendMessage, localMessage);
+    return withPreservedCreatedAt(backendMessage, localMessage);
   });
   if (!preserveLocalOnlyMessages) {
     return nextMessages;

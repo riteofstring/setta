@@ -75,7 +75,7 @@ describe("conversationSearch", () => {
     expect(findConversationSearchTextRanges("gamma", terms)).toEqual([]);
   });
 
-  it("builds searchable text from message content, thinking, and tools", () => {
+  it("builds searchable text from visible message content and activity labels", () => {
     const message = createAssistantChatMessage({
       content: [
         createMessageTextContent({ text: "Visible response text" }),
@@ -89,7 +89,7 @@ describe("conversationSearch", () => {
           id: "tool-1",
           function: createToolCallFunction({
             name: "command_execution",
-            arguments: { cmd: "ls" },
+            arguments: { command: "ls" },
           }),
         }),
       ],
@@ -97,10 +97,9 @@ describe("conversationSearch", () => {
 
     const text = buildSearchableTextForMessage(message);
     expect(text).toContain("Visible response text");
-    expect(text).toContain("planning thought");
-    expect(text).toContain("summary line");
-    expect(text).toContain("command_execution");
-    expect(text).toContain('"cmd":"ls"');
+    expect(text).toContain("ls");
+    expect(text).not.toContain("planning thought");
+    expect(text).not.toContain("summary line");
   });
 
   it("excludes inline and fenced code from searchable markdown text", () => {
@@ -139,7 +138,58 @@ describe("conversationSearch", () => {
 
     const text = buildSearchableTextForMessages(messages);
     expect(text).toContain("First prompt");
-    expect(text).toContain("tool output");
+    expect(text).not.toContain("tool output");
+  });
+
+  it("keeps attachment labels searchable", () => {
+    const message = createUserChatMessage({
+      content: [createMessageTextContent({ text: "First prompt" })],
+      attachments: [
+        {
+          id: "attachment-1",
+          name: "release-plan.md",
+        },
+      ],
+    });
+
+    const text = buildSearchableTextForMessage(message);
+
+    expect(text).toContain("release-plan.md");
+  });
+
+  it("excludes markdown link destinations from searchable text", () => {
+    const message = createAssistantChatMessage({
+      content: [
+        createMessageTextContent({
+          text: "[Docs](https://internal.example.com/spec)",
+        }),
+      ],
+    });
+
+    const text = buildSearchableTextForMessage(message);
+
+    expect(text).toContain("Docs");
+    expect(text).not.toContain("internal.example.com");
+  });
+
+  it("excludes tool-call payload details that are not highlighted in the transcript", () => {
+    const message = createAssistantChatMessage({
+      content: [],
+      tool_calls: [
+        createToolCall({
+          id: "tool-1",
+          function: createToolCallFunction({
+            name: "file_change",
+            arguments: { path: "notes.txt", diff: "secret payload" },
+          }),
+        }),
+      ],
+    });
+
+    const text = buildSearchableTextForMessage(message);
+
+    expect(text).toContain("Edit notes.txt");
+    expect(text).not.toContain("secret payload");
   });
 
   it("extracts run messages from outputs and falls back to inputs", () => {

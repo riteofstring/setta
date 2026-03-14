@@ -1038,6 +1038,132 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
   }
 });
 
+test("project ai conversation search ignores hidden tool payloads and counts visible activity labels", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 920 });
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const engineConfigsResponse = await page.request.get(
+    `${backendOrigin}/api/getEngineConfigs`,
+  );
+  expect(engineConfigsResponse.ok()).toBe(true);
+  const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+    id: string;
+    engineType: string;
+  }>;
+  const primaryConfig =
+    engineConfigs.find((config) => config.engineType === "setta_llm") ??
+    engineConfigs[0];
+  if (!primaryConfig) {
+    throw new Error("Expected at least one engine config for search test.");
+  }
+
+  try {
+    await page.route("**/api/getAgentRuns", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-tool-search-thread",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-01-12T00:00:00Z",
+            finishedAt: "2026-01-12T00:00:02Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "chat-tool-search-thread",
+              engineConfigId: primaryConfig.id,
+              messages: [],
+            },
+            outputs: {
+              name: "Tool search thread",
+              nameSource: "llm",
+            },
+            toolCalls: [],
+            cost: null,
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: "tool-search-assistant",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "tool-search-call",
+                  type: "function",
+                  function: {
+                    name: "file_change",
+                    arguments: {
+                      path: "notes.txt",
+                      diff: "secret payload",
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          waitingForResponse: false,
+          llmConfig: null,
+        }),
+      });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const searchThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Tool search thread" })
+      .first();
+    await expect(searchThreadEntry).toBeVisible();
+    await clickDom(searchThreadEntry);
+
+    const conversationFilterInput = overviewPane.getByTestId(
+      "project-chat-conversation-filter-input",
+    );
+    await conversationFilterInput.fill("secret");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("0/0");
+    await expect(
+      overviewPane.locator('mark[data-chat-search-highlight="true"]'),
+    ).toHaveCount(0);
+
+    await conversationFilterInput.fill("notes");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("1/1");
+    await expect(
+      overviewPane.locator(
+        'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
+      ),
+    ).toHaveCount(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai ignores legacy viewHistory in persisted ai store", async ({
   page,
 }) => {

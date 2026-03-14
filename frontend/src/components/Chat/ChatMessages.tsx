@@ -315,13 +315,13 @@ type ChatMessageListProps = {
   waitingForResponse: boolean;
   toolCallArguments?: Record<string, string>;
   interruptedAssistantMessageIds?: Record<string, true>;
-  activeSearchMessageId?: string | null;
-  activeSearchMatchOccurrenceIndex?: number | null;
+  activeSearchMatchIndex?: number | null;
   conversationSearchTerms?: Array<string>;
   className?: string;
   contentClassName?: string;
   scrollRef?: Ref<HTMLDivElement>;
   editDisabledReason?: string | null;
+  onConversationSearchMatchCountChange?: (count: number) => void;
   onRedoMessage?: (messageId: string) => Promise<boolean> | boolean;
   onEditMessage?: (
     messageId: string,
@@ -3427,6 +3427,7 @@ function ChatAttachmentList({
   isUser,
   attachmentUrlMap,
   requestAttachmentUrls,
+  conversationSearchTerms = [],
 }: {
   attachments: ChatFileAttachment[];
   isUser: boolean;
@@ -3435,6 +3436,7 @@ function ChatAttachmentList({
     targets: ChatFileAttachment[],
     options?: { force?: boolean },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
+  conversationSearchTerms?: Array<string>;
 }) {
   const hasAttachments = attachments.length > 0;
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -3526,7 +3528,12 @@ function ChatAttachmentList({
                 <div
                   className={`flex w-full flex-col gap-0.5 text-[10px] ${detailClassName}`}
                 >
-                  <span className="truncate">{attachment.name}</span>
+                  <span className="truncate">
+                    {renderConversationSearchHighlightedText(
+                      attachment.name,
+                      conversationSearchTerms,
+                    )}
+                  </span>
                   {sizeLabel ? (
                     <span className="opacity-70">{sizeLabel}</span>
                   ) : null}
@@ -3548,7 +3555,12 @@ function ChatAttachmentList({
               }}
               className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-xs ${pillClassName}`}
             >
-              <span className="max-w-[220px] truncate">{attachment.name}</span>
+              <span className="max-w-[220px] truncate">
+                {renderConversationSearchHighlightedText(
+                  attachment.name,
+                  conversationSearchTerms,
+                )}
+              </span>
               {sizeLabel ? (
                 <span className={`text-[10px] ${detailClassName}`}>
                   {sizeLabel}
@@ -4568,7 +4580,10 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                       data-chat-assistant-activity-primary-label="true"
                       className="min-w-0 truncate text-[11px] text-setta-300 dark:text-setta-200"
                     >
-                      {activityPrimaryLabel}
+                      {renderConversationSearchHighlightedText(
+                        activityPrimaryLabel,
+                        conversationSearchTerms,
+                      )}
                     </div>
                   </div>
                 </div>
@@ -5714,7 +5729,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
   openAllSignal = 0,
   closeAllSignal = 0,
   suppressCollapsedSummary = false,
-  conversationSearchTerms = [],
   onThinkingOpenStateChange,
 }: {
   timelineEntries: ActivityTimelineEntry[];
@@ -5725,7 +5739,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
   openAllSignal?: number;
   closeAllSignal?: number;
   suppressCollapsedSummary?: boolean;
-  conversationSearchTerms?: Array<string>;
   onThinkingOpenStateChange?: (
     activityKey: string,
     isExpanded: boolean,
@@ -5763,7 +5776,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
           suppressCollapsedSummary={suppressCollapsedSummary}
-          conversationSearchTerms={conversationSearchTerms}
           onExpansionChange={onThinkingOpenStateChange}
         />
       );
@@ -7092,7 +7104,6 @@ const ChatMessage = memo(function ChatMessage({
                       onThinkingOpenStateChange={
                         childAccordionControl.onThinkingOpenStateChange
                       }
-                      conversationSearchTerms={conversationSearchTerms}
                     />
                   </AssistantToolCallCard>
                 )}
@@ -7107,6 +7118,7 @@ const ChatMessage = memo(function ChatMessage({
               isUser={false}
               attachmentUrlMap={attachmentUrlMap}
               requestAttachmentUrls={requestAttachmentUrls}
+              conversationSearchTerms={conversationSearchTerms}
             />
             {displayItems.map(({ item, fullIndex }) => {
               return (
@@ -7178,6 +7190,7 @@ const ChatMessage = memo(function ChatMessage({
         isUser={message.role === ChatRoleEnum.user}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
+        conversationSearchTerms={conversationSearchTerms}
       />
       {content.map((item, idx) => {
         const key = `${message.id}-${idx}`;
@@ -7568,7 +7581,6 @@ function ChatMessages({
                         onThinkingOpenStateChange={
                           childAccordionControl.onThinkingOpenStateChange
                         }
-                        conversationSearchTerms={conversationSearchTerms}
                       />
                     </AssistantToolCallCard>
                   )}
@@ -7689,29 +7701,28 @@ function ChatMessages({
   return output;
 }
 
-function escapeMessageIdSelectorValue(messageId: string): string {
-  return messageId.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-}
-
 export const ChatMessageList = memo(function ChatMessageList({
   messages,
   allMessagesForToolResults,
   waitingForResponse,
   toolCallArguments,
   interruptedAssistantMessageIds,
-  activeSearchMessageId = null,
-  activeSearchMatchOccurrenceIndex = null,
+  activeSearchMatchIndex = null,
   conversationSearchTerms = [],
   className,
   contentClassName,
   scrollRef,
   editDisabledReason,
+  onConversationSearchMatchCountChange,
   onRedoMessage,
   onEditMessage,
   onBranchSwitch,
   branchInfoByMessage,
 }: ChatMessageListProps) {
   const internalScrollRef = useRef<HTMLDivElement | null>(null);
+  const [activeSearchMessageId, setActiveSearchMessageId] = useState<
+    string | null
+  >(null);
   const setScrollContainerRef = useCallback(
     (nextNode: HTMLDivElement | null) => {
       internalScrollRef.current = nextNode;
@@ -7746,40 +7757,43 @@ export const ChatMessageList = memo(function ChatMessageList({
     highlights.forEach((highlight) => {
       highlight.removeAttribute("data-chat-search-highlight-target");
     });
-    if (!activeSearchMessageId || conversationSearchTerms.length === 0) {
+    const searchMatchCount =
+      conversationSearchTerms.length === 0 ? 0 : highlights.length;
+    onConversationSearchMatchCountChange?.(searchMatchCount);
+    if (searchMatchCount === 0 || activeSearchMatchIndex === null) {
+      previousActiveSearchTargetRef.current = null;
+      setActiveSearchMessageId(null);
       return;
     }
-    const escapedMessageId = escapeMessageIdSelectorValue(
-      activeSearchMessageId,
+    const resolvedOccurrenceIndex = Math.min(
+      Math.max(0, activeSearchMatchIndex),
+      highlights.length - 1,
     );
-    const activeMessageHighlights = Array.from(
-      scrollContainer.querySelectorAll<HTMLElement>(
-        `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight="true"]`,
-      ),
-    );
-    const resolvedOccurrenceIndex =
-      activeSearchMatchOccurrenceIndex === null
-        ? 0
-        : Math.max(0, activeSearchMatchOccurrenceIndex);
-    const activeHighlight =
-      activeMessageHighlights[
-        Math.min(resolvedOccurrenceIndex, activeMessageHighlights.length - 1)
-      ] ?? null;
+    const activeHighlight = highlights[resolvedOccurrenceIndex] ?? null;
     activeHighlight?.setAttribute("data-chat-search-highlight-target", "true");
+    const nextMessageId =
+      activeHighlight
+        ?.closest<HTMLElement>("[data-message-id]")
+        ?.getAttribute("data-message-id") ?? null;
+    setActiveSearchMessageId((current) =>
+      current === nextMessageId ? current : nextMessageId,
+    );
   }, [
-    activeSearchMatchOccurrenceIndex,
-    activeSearchMessageId,
+    activeSearchMatchIndex,
     conversationSearchTerms,
+    messages,
+    onConversationSearchMatchCountChange,
   ]);
 
   useEffect(() => {
-    if (!activeSearchMessageId) {
+    if (
+      activeSearchMatchIndex === null ||
+      conversationSearchTerms.length === 0
+    ) {
       previousActiveSearchTargetRef.current = null;
       return;
     }
-    const activeSearchTargetKey = `${activeSearchMessageId}\u0000${
-      activeSearchMatchOccurrenceIndex ?? 0
-    }\u0000${conversationSearchTerms.join("\u0000")}`;
+    const activeSearchTargetKey = `${activeSearchMatchIndex}\u0000${conversationSearchTerms.join("\u0000")}`;
     if (previousActiveSearchTargetRef.current === activeSearchTargetKey) {
       return;
     }
@@ -7787,17 +7801,11 @@ export const ChatMessageList = memo(function ChatMessageList({
     if (!scrollContainer) {
       return;
     }
-    const escapedMessageId = escapeMessageIdSelectorValue(
-      activeSearchMessageId,
+    const target = scrollContainer.querySelector<HTMLElement>(
+      'mark[data-chat-search-highlight-target="true"]',
     );
-    const target =
-      scrollContainer.querySelector<HTMLElement>(
-        `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight-target="true"]`,
-      ) ??
-      scrollContainer.querySelector<HTMLElement>(
-        `[data-message-id="${escapedMessageId}"]`,
-      );
     if (!target) {
+      previousActiveSearchTargetRef.current = null;
       return;
     }
     previousActiveSearchTargetRef.current = activeSearchTargetKey;
@@ -7805,11 +7813,7 @@ export const ChatMessageList = memo(function ChatMessageList({
       block: "center",
       behavior: "smooth",
     });
-  }, [
-    activeSearchMatchOccurrenceIndex,
-    activeSearchMessageId,
-    conversationSearchTerms,
-  ]);
+  }, [activeSearchMatchIndex, conversationSearchTerms, messages]);
 
   return (
     <div

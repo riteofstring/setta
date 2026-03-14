@@ -1309,8 +1309,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation = false,
   newThreadContinuationRequiredReason = null,
   newThreadSeedChatId = null,
-  activeConversationSearchMatchMessageId = null,
-  activeConversationSearchMatchOccurrenceIndex = null,
+  activeConversationSearchMatchIndex = null,
   hydrationAuthority,
   hydrationMetadataRevision,
   thinking,
@@ -1324,6 +1323,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable,
   providerDictationLikelySupported,
   setChatId,
+  onConversationSearchMatchCountChange,
   onStartNewChat,
   onDraftThreadStart,
   onDraftThreadSettled,
@@ -1340,8 +1340,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation?: boolean;
   newThreadContinuationRequiredReason?: string | null;
   newThreadSeedChatId?: string | null;
-  activeConversationSearchMatchMessageId?: string | null;
-  activeConversationSearchMatchOccurrenceIndex?: number | null;
+  activeConversationSearchMatchIndex?: number | null;
   hydrationAuthority: ProjectChatHydrationAuthority;
   hydrationMetadataRevision: string;
   thinking: boolean;
@@ -1355,6 +1354,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
+  onConversationSearchMatchCountChange?: (count: number) => void;
   onStartNewChat?: () => void;
   onDraftThreadStart?: () => void;
   onDraftThreadSettled?: (
@@ -2300,6 +2300,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     !hasVisibleConversationMatches &&
     !waitingForResponse;
 
+  useEffect(() => {
+    if (!showEmptyState && !showConversationSearchEmptyState) {
+      return;
+    }
+    onConversationSearchMatchCountChange?.(0);
+  }, [
+    onConversationSearchMatchCountChange,
+    showConversationSearchEmptyState,
+    showEmptyState,
+  ]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
       {blockedReason ? (
@@ -2340,12 +2351,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
-          activeSearchMessageId={activeConversationSearchMatchMessageId}
-          activeSearchMatchOccurrenceIndex={
-            activeConversationSearchMatchOccurrenceIndex
-          }
+          activeSearchMatchIndex={activeConversationSearchMatchIndex}
           conversationSearchTerms={normalizedConversationSearchTerms}
           editDisabledReason={editDisabledReason}
+          onConversationSearchMatchCountChange={
+            onConversationSearchMatchCountChange
+          }
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}

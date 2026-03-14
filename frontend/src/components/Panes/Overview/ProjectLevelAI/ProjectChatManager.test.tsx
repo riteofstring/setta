@@ -90,14 +90,13 @@ describe("ProjectChatManager", () => {
 
     const markup = renderToStaticMarkup(<ProjectChatManager />);
 
-    expect(markup).not.toContain("New chat");
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
     expect(markup).not.toContain(">Hide<");
     expect(markup).toContain(">Focus<");
   });
 
-  it("shows Reopen instead of Hide for minimized windows", () => {
+  it("shows only Reopen for minimized windows", () => {
     const minimizedWindow = createProjectChatWindowInstance({
       instanceId: "project-chat-window-minimized",
       placement: ChatWindowPlacementEnum.bottom_docked,
@@ -121,10 +120,11 @@ describe("ProjectChatManager", () => {
 
     expect(markup).toContain(">Reopen<");
     expect(markup).not.toContain(">Hide<");
+    expect(markup).not.toContain(">Focus<");
     expect(markup).toContain('data-testid="project-chat-manager-reopen"');
   });
 
-  it("keeps Reopen and Focus visible for existing read-only rows", () => {
+  it("keeps Reopen visible for hidden read-only rows", () => {
     mockCanEditLayout = false;
     const minimizedWindow = createProjectChatWindowInstance({
       instanceId: "project-chat-window-minimized",
@@ -148,7 +148,7 @@ describe("ProjectChatManager", () => {
     const markup = renderToStaticMarkup(<ProjectChatManager />);
 
     expect(markup).toContain(">Reopen<");
-    expect(markup).toContain(">Focus<");
+    expect(markup).not.toContain(">Focus<");
     expect(markup).not.toContain(">Hide<");
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
@@ -168,13 +168,12 @@ describe("ProjectChatManager", () => {
     );
   });
 
-  it("supports a dock-menu presentation without a duplicate create button", () => {
-    const markup = renderToStaticMarkup(<ProjectChatManager variant="menu" />);
+  it("renders the dock-menu presentation", () => {
+    const markup = renderToStaticMarkup(<ProjectChatManager />);
 
-    expect(markup).not.toContain(
-      "Project chat windows open docked on the right",
+    expect(markup).toContain(
+      "Focus, reopen, and move chat windows from the dock.",
     );
-    expect(markup).not.toContain("New chat");
     expect(markup).toContain(
       'data-testid="project-chat-bottom-dock-menu-item"',
     );

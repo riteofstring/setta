@@ -58,6 +58,36 @@ describe("BrailleSpinner", () => {
     expect(host.textContent).toBe(BRAILLE_SPINNER_FRAMES[2]);
   });
 
+  it("shares one timer across multiple spinner instances", async () => {
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+
+    await act(async () => {
+      root.render(
+        <>
+          {Array.from({ length: 10 }, (_, index) => (
+            <BrailleSpinner key={index} />
+          ))}
+        </>,
+      );
+    });
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
+    });
+
+    const spinners = Array.from(
+      host.querySelectorAll('[data-unicode-spinner="braille"]'),
+    );
+    expect(spinners).toHaveLength(10);
+    expect(
+      spinners.every(
+        (spinner) => spinner.textContent === BRAILLE_SPINNER_FRAMES[1],
+      ),
+    ).toBe(true);
+  });
+
   it("exports the shared runtime and compact size contracts for braille loader call sites", () => {
     expect(BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME).toBe("text-[13px]");
     expect(BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME).toBe("text-[11px]");

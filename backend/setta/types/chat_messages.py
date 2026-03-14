@@ -133,8 +133,7 @@ class ToolChatMessage(BaseChatMessage):
     completed_at: datetime | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
-        output = self.model_dump(mode="json", exclude_none=True)
-        output.pop("id", None)
+        output = super().to_openai_format()
         output.pop("arguments", None)
         output.pop("result", None)
         output.pop("is_error", None)

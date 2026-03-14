@@ -1121,7 +1121,6 @@ function MinimizedPillStrip({
                 data-testid="project-chat-bottom-dock-menu-content"
               >
                 <ProjectChatManager
-                  variant="menu"
                   onAfterAction={() => {
                     setIsManagerMenuOpen(false);
                   }}

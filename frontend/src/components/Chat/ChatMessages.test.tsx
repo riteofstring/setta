@@ -981,7 +981,6 @@ describe("ChatMessages assistant reasoning layout", () => {
         waitingForResponse={false}
         toolCallArguments={{}}
         conversationSearchTerms={["queue"]}
-        activeSearchMessageId="search-assistant"
       />,
     );
 
@@ -990,11 +989,6 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
     expect(markup).toContain(">Queue</mark>");
     expect(markup).toContain(">queue</mark>");
-    const activeMatchContainer = getTagByMarker(
-      markup,
-      'data-chat-search-active-match="true"',
-    );
-    expect(activeMatchContainer).toContain("bg-amber-300/90");
   });
 
   it("skips fenced and inline code when rendering conversation search highlights", () => {
@@ -1019,7 +1013,6 @@ describe("ChatMessages assistant reasoning layout", () => {
         waitingForResponse={false}
         toolCallArguments={{}}
         conversationSearchTerms={["alpha"]}
-        activeSearchMessageId="search-markdown"
       />,
     );
 
@@ -1029,6 +1022,109 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(">alpha</mark>");
     expect(markup).not.toContain(">alpha in code</mark>");
     expect(markup).not.toContain(">alpha inline</mark>");
+  });
+
+  it("highlights attachment labels in the transcript", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "search-attachment",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [
+          {
+            id: "attachment-1",
+            name: "release-plan.md",
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={false}
+        toolCallArguments={{}}
+        conversationSearchTerms={["release"]}
+      />,
+    );
+
+    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
+      1,
+    );
+    expect(markup).toContain(">release</mark>-plan.md");
+  });
+
+  it("does not highlight hidden tool payload details", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "search-tool",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-1",
+            type: "function",
+            function: {
+              name: "file_change",
+              arguments: {
+                path: "notes.txt",
+                diff: "secret payload",
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={false}
+        toolCallArguments={{}}
+        conversationSearchTerms={["secret"]}
+      />,
+    );
+
+    expect(markup).not.toContain('data-chat-search-highlight="true"');
+  });
+
+  it("highlights visible assistant activity labels", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "search-tool-label",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-1",
+            type: "function",
+            function: {
+              name: "file_change",
+              arguments: {
+                path: "notes.txt",
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={false}
+        toolCallArguments={{}}
+        conversationSearchTerms={["notes"]}
+      />,
+    );
+
+    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
+      1,
+    );
+    expect(markup).toContain(">notes</mark>.txt");
   });
 
   it("keeps user markdown content on a wrapping width contract in narrow bubbles", () => {

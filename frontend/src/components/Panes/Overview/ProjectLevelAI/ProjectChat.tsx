@@ -65,16 +65,10 @@ import {
   type ProjectChatAuxView,
 } from "state/definitions";
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
-import {
-  buildSearchableTextForMessage,
-  countConversationSearchTextMatches,
-  matchesConversationSearchText,
-  tokenizeConversationSearchQuery,
-} from "utils/conversationSearch";
+import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   AllLLMConfigs,
   BaseChatMessageUnion,
-  ChatRoleEnum,
   EngineConfig,
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
@@ -562,6 +556,8 @@ function ProjectChatSurface({
   >(null);
   const [thinking, setThinking] = useState(true);
   const [conversationFilterText, setConversationFilterText] = useState("");
+  const [conversationSearchMatchCount, setConversationSearchMatchCount] =
+    useState(0);
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
   const [chatContainerNode, setChatContainerNode] =
@@ -1523,48 +1519,23 @@ function ProjectChatSurface({
   );
   const hasConversationSearchTerms =
     normalizedConversationSearchTerms.length > 0;
-  const conversationSearchMatches = useMemo(() => {
-    if (!hasConversationSearchTerms) {
-      return [];
-    }
-    return activeConversationMessages.flatMap((message) => {
-      if (message.role === ChatRoleEnum.tool) {
-        return [];
-      }
-      const searchableText = buildSearchableTextForMessage(message);
-      if (
-        !matchesConversationSearchText(
-          searchableText,
-          normalizedConversationSearchTerms,
-        )
-      ) {
-        return [];
-      }
-      const occurrenceCount = countConversationSearchTextMatches(
-        searchableText,
-        normalizedConversationSearchTerms,
-      );
-      return Array.from({ length: occurrenceCount }, (_, occurrenceIndex) => ({
-        messageId: message.id,
-        occurrenceIndex,
-      }));
-    });
-  }, [
-    activeConversationMessages,
-    hasConversationSearchTerms,
-    normalizedConversationSearchTerms,
-  ]);
-  const conversationSearchMatchCount = conversationSearchMatches.length;
   const conversationSearchQueryKey = useMemo(
     () => normalizedConversationSearchTerms.join("\u0000"),
     [normalizedConversationSearchTerms],
   );
   useEffect(() => {
-    if (!hasConversationSearchTerms || conversationSearchMatchCount === 0) {
+    if (!hasConversationSearchTerms) {
+      setConversationSearchMatchCount(0);
       setConversationSearchMatchIndex(null);
       return;
     }
-    setConversationSearchMatchIndex(0);
+    if (conversationSearchMatchCount === 0) {
+      setConversationSearchMatchIndex(null);
+      return;
+    }
+    setConversationSearchMatchIndex((current) =>
+      current === null ? 0 : current,
+    );
   }, [
     conversationSearchMatchCount,
     conversationSearchQueryKey,
@@ -1585,12 +1556,6 @@ function ProjectChatSurface({
       return current;
     });
   }, [conversationSearchMatchCount]);
-  const activeConversationSearchMatchMessageId = useMemo(() => {
-    if (conversationSearchMatchIndex === null) {
-      return null;
-    }
-    return conversationSearchMatches[conversationSearchMatchIndex] ?? null;
-  }, [conversationSearchMatchIndex, conversationSearchMatches]);
   const conversationSearchCounterText =
     conversationSearchMatchCount > 0 && conversationSearchMatchIndex !== null
       ? `${conversationSearchMatchIndex + 1}/${conversationSearchMatchCount}`
@@ -1612,6 +1577,14 @@ function ProjectChatSurface({
       });
     },
     [conversationSearchMatchCount],
+  );
+  const handleConversationSearchMatchCountChange = useCallback(
+    (nextCount: number) => {
+      setConversationSearchMatchCount((currentCount) =>
+        currentCount === nextCount ? currentCount : nextCount,
+      );
+    },
+    [],
   );
   const showReturnOnlyNav =
     projectChatAuxView !== "none" || showThreadsOnlyView;
@@ -2230,18 +2203,17 @@ function ProjectChatSurface({
                     providerDictationLikelySupported
                   }
                   setChatId={setChatId}
+                  onConversationSearchMatchCountChange={
+                    handleConversationSearchMatchCountChange
+                  }
                   onStartNewChat={handleNewChatStartForSubmit}
                   onDraftThreadStart={handleDraftThreadStart}
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
                   onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-                  activeConversationSearchMatchMessageId={
-                    activeConversationSearchMatchMessageId?.messageId ?? null
-                  }
-                  activeConversationSearchMatchOccurrenceIndex={
-                    activeConversationSearchMatchMessageId?.occurrenceIndex ??
-                    null
+                  activeConversationSearchMatchIndex={
+                    conversationSearchMatchIndex
                   }
                 />
               )}
@@ -2304,18 +2276,16 @@ function ProjectChatSurface({
                 providerDictationLikelySupported
               }
               setChatId={setChatId}
+              onConversationSearchMatchCountChange={
+                handleConversationSearchMatchCountChange
+              }
               onStartNewChat={handleNewChatStartForSubmit}
               onDraftThreadStart={handleDraftThreadStart}
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
               onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-              activeConversationSearchMatchMessageId={
-                activeConversationSearchMatchMessageId?.messageId ?? null
-              }
-              activeConversationSearchMatchOccurrenceIndex={
-                activeConversationSearchMatchMessageId?.occurrenceIndex ?? null
-              }
+              activeConversationSearchMatchIndex={conversationSearchMatchIndex}
             />
           </>
         )}

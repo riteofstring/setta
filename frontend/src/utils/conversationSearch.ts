@@ -14,6 +14,13 @@ type MarkdownFence = {
   length: number;
 };
 
+type SearchableToolCall = {
+  function?: {
+    name?: unknown;
+    arguments?: unknown;
+  } | null;
+} | null;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -96,35 +103,125 @@ function excludeMarkdownCodeFromSearchText(value: string): string {
   return visibleLines.join("\n");
 }
 
+function stripMarkdownLinksToVisibleText(value: string): string {
+  return value.replace(/!?\[([^\]]*)\]\((?:[^()]|\([^)]*\))*\)/gu, "$1");
+}
+
+function normalizeVisibleMarkdownSearchText(value: string): string {
+  return stripMarkdownLinksToVisibleText(
+    excludeMarkdownCodeFromSearchText(value),
+  );
+}
+
 function pushSearchableString(target: Array<string>, value: unknown): void {
   if (typeof value !== "string") {
     return;
   }
-  const trimmed = excludeMarkdownCodeFromSearchText(value).trim();
+  const trimmed = normalizeVisibleMarkdownSearchText(value).trim();
   if (trimmed.length === 0) {
     return;
   }
   target.push(trimmed);
 }
 
-function pushSerializedValue(target: Array<string>, value: unknown): void {
-  if (value === null || value === undefined) {
+function deriveThinkingSearchHeadline(
+  thinking: unknown,
+  summary: unknown,
+): string | null {
+  const summaryText = typeof summary === "string" ? summary.trim() : "";
+  if (summaryText.length > 0) {
+    return (summaryText.split(/\r?\n/u)[0] ?? "").trim() || null;
+  }
+  if (typeof thinking !== "string") {
+    return null;
+  }
+  const collapsed = thinking.replace(/\s+/gu, " ").trim();
+  if (collapsed.length === 0) {
+    return null;
+  }
+  const maxLength = 96;
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, maxLength).trimEnd()}...`;
+}
+
+function normalizeToolName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[\s-]+/gu, "_");
+}
+
+function extractNonEmptyStringArg(value: unknown, key: string): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const nextValue = value[key];
+  if (typeof nextValue !== "string") {
+    return null;
+  }
+  const trimmed = nextValue.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveActionSearchLabel(name: string, args: unknown): string {
+  const normalizedName = normalizeToolName(name);
+  if (normalizedName === "command_execution") {
+    return extractNonEmptyStringArg(args, "command") ?? "Run command";
+  }
+  if (normalizedName === "file_change") {
+    const path =
+      extractNonEmptyStringArg(args, "path") ??
+      extractNonEmptyStringArg(args, "filePath");
+    if (path) {
+      return `Edit ${path}`;
+    }
+    return "Edit file";
+  }
+  if (name.startsWith("mcp__")) {
+    return `MCP ${name.slice("mcp__".length)}`;
+  }
+  return normalizedName || "Action";
+}
+
+function pushAssistantActivityPreviewSearchText(
+  message: BaseChatMessageUnion,
+  target: Array<string>,
+): void {
+  if (message.role !== ChatRoleEnum.assistant) {
     return;
   }
-  if (typeof value === "string") {
-    pushSearchableString(target, value);
+  const toolCalls = message.tool_calls ?? [];
+  const latestToolCall = toolCalls[toolCalls.length - 1] as
+    | SearchableToolCall
+    | undefined;
+  const latestToolCallName = latestToolCall?.function?.name;
+  if (typeof latestToolCallName === "string" && latestToolCallName.trim()) {
+    target.push(
+      resolveActionSearchLabel(
+        latestToolCallName,
+        latestToolCall.function?.arguments,
+      ),
+    );
     return;
   }
-  if (typeof value === "number" || typeof value === "boolean") {
-    target.push(String(value));
+
+  if (!Array.isArray(message.content)) {
     return;
   }
-  if (Array.isArray(value) || isRecord(value)) {
-    try {
-      const serialized = JSON.stringify(value);
-      pushSearchableString(target, serialized);
-    } catch {
-      // Intentionally ignore non-serializable values.
+  for (let index = message.content.length - 1; index >= 0; index -= 1) {
+    const block = message.content[index];
+    if (!isRecord(block) || block.type !== "thinking") {
+      continue;
+    }
+    const headline = deriveThinkingSearchHeadline(
+      block.thinking,
+      block.summary,
+    );
+    if (headline) {
+      target.push(headline);
+      return;
     }
   }
 }
@@ -136,9 +233,10 @@ function collectContentBlockSearchText(
   if (!isRecord(block)) {
     return;
   }
-  pushSearchableString(target, block.text);
-  pushSearchableString(target, block.thinking);
-  pushSearchableString(target, block.summary);
+  if (block.type === "text") {
+    pushSearchableString(target, block.text);
+    return;
+  }
   pushSearchableString(target, block.title);
 }
 
@@ -159,15 +257,11 @@ export function buildSearchableTextForMessage(
     }
   }
 
-  if (message.role === ChatRoleEnum.assistant) {
-    const toolCalls = message.tool_calls ?? [];
-    for (const toolCall of toolCalls) {
-      pushSearchableString(segments, toolCall.function?.name);
-      pushSerializedValue(segments, toolCall.function?.arguments);
-    }
-  } else if (message.role === ChatRoleEnum.tool) {
-    pushSerializedValue(segments, message.result);
+  if (message.role === ChatRoleEnum.tool) {
+    return "";
   }
+
+  pushAssistantActivityPreviewSearchText(message, segments);
 
   return segments.join("\n");
 }

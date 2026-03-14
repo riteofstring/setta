@@ -406,7 +406,7 @@ describe("project chat windowing reducer helpers", () => {
     expect(focusedInstance.lastFocusedAt).toBe(1234);
   });
 
-  it("does not churn state when refocusing an already topmost window", () => {
+  it("refreshes focus time without changing z-index for the unique topmost window", () => {
     const topmost = createProjectChatWindowInstance({
       instanceId: "chat-window-top",
       zIndex: 3,
@@ -432,7 +432,43 @@ describe("project chat windowing reducer helpers", () => {
       2222,
     );
 
-    expect(focused).toBe(initial);
+    expect(focused.instancesById[topmost.instanceId]).toMatchObject({
+      zIndex: 3,
+      lastFocusedAt: 2222,
+    });
+  });
+
+  it("breaks top-layer ties before focusing a window", () => {
+    const target = createProjectChatWindowInstance({
+      instanceId: "chat-window-target",
+      zIndex: 7,
+      lastFocusedAt: 1000,
+    });
+    const currentWinner = createProjectChatWindowInstance({
+      instanceId: "chat-window-winner",
+      zIndex: 7,
+      lastFocusedAt: 2000,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [target.instanceId]: target,
+        [currentWinner.instanceId]: currentWinner,
+      },
+      order: [target.instanceId, currentWinner.instanceId],
+      nextInstanceNumber: 3,
+    });
+
+    const focused = focusProjectChatWindowInState(
+      initial,
+      target.instanceId,
+      2222,
+    );
+
+    expect(focused.instancesById[target.instanceId]).toMatchObject({
+      zIndex: 3,
+      lastFocusedAt: 2222,
+    });
+    expect(focused.instancesById[currentWinner.instanceId]?.zIndex).toBe(2);
   });
 
   it("updates multiple floating windows in a single reducer pass", () => {
