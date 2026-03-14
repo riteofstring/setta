@@ -242,6 +242,11 @@ Current status:
   instead of importing the broad `GoHTTPRoutes` constant bag directly, so the
   endpoint wrapper layer shares the same helper-owned boundary as runtime
   callers
+- the remaining intentional dynamic Setta API button path in
+  `MetaControlArea` now has focused component coverage proving both custom
+  route passthrough and preset-body merge behavior over the low-level
+  `post()` boundary, so that explicit exception stays documented and
+  behavior-backed rather than becoming an untested fallback seam
 - support-layer frontend routing now uses generated Go route helpers for the
   API prefix, launcher-origin policy map, and fixed Setta API presets, so
   non-test runtime code no longer imports the broad legacy `RouteEnum` surface
