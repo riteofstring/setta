@@ -16,10 +16,15 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import set_chat_section_state
 from setta.types.listener import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
     ListenerRouterEndpointResultContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
@@ -111,12 +116,57 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
         refreshed_state = project_state.model_copy(deep=True)
         set_chat_section_state(refreshed_state, section_id, second_state)
+        runtime_state = listener._build_runtime_state(refreshed_state)
+        dependency_entry = runtime_state.dependency_metadata.entry_for_key(
+            SectionDependencyKey(sectionId=section_id)
+        )
+        dependency_catalog = ListenerDependencyCatalog(
+            entries=[
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=dependency_entry.dependencyKey,
+                    name=dependency_entry.name,
+                    fullPathName=dependency_entry.fullPathName,
+                    dependencies=list(dependency_entry.dependencies),
+                    sectionType=dependency_entry.sectionType,
+                    codeObjType=dependency_entry.codeObjType,
+                    controlCodeObjId=dependency_entry.controlCodeObjId,
+                    controlCodeObjType=dependency_entry.controlCodeObjType,
+                    sectionRepresentation=dependency_entry.sectionRepresentation,
+                    controlValueRepresentation=dependency_entry.controlValueRepresentation,
+                    valueRepresentation=dependency_entry.valueRepresentation,
+                )
+            ]
+        )
+        refreshed_impl = get_curr_effective_section_impl_with_type_guard(
+            refreshed_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=dependency_entry.dependencyKey,
+                    renderedValue=repr(
+                        ChatSectionState(
+                            messages=refreshed_impl.messages,
+                            inputText=refreshed_impl.inputText,
+                            waitingForResponse=refreshed_impl.waitingForResponse,
+                            toolCallArguments=refreshed_impl.toolCallArguments,
+                            activeBranchId=refreshed_impl.activeBranchId,
+                            branches=refreshed_impl.branches,
+                        ).model_dump(mode="json")
+                    ),
+                )
+            ]
+        )
 
         await allow_force_refresh.wait()
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(
                 callId=message.content.callId,
                 projectState=refreshed_state,
+                dependencyCatalog=dependency_catalog,
+                dependencyValues=dependency_values,
             )
         )
 

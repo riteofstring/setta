@@ -86,6 +86,101 @@ def _attach_stub_websocket(listener: SettaListener, websocket: _StubWebsocket) -
     listener._websocket = cast("ClientConnection", websocket)
 
 
+def _build_authoritative_snapshot_payload(
+    listener: SettaListener,
+    project_state: ProjectStateSingleConfig,
+) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
+    runtime_state = listener._build_runtime_state(project_state)
+    dependency_metadata = runtime_state.dependency_metadata
+    dependency_cache = listener._build_dependency_cache_from_runtime_state(
+        runtime_state
+    )
+    catalog_entries: list[ListenerDependencyCatalogEntry] = []
+    value_entries: list[ListenerRenderedDependencyValue] = []
+    for dependency_name in dependency_metadata.names():
+        entry = dependency_metadata.entry_for_name(dependency_name)
+        catalog_entries.append(
+            ListenerDependencyCatalogEntry(
+                dependencyKey=entry.dependencyKey,
+                name=entry.name,
+                fullPathName=entry.fullPathName,
+                dependencies=list(entry.dependencies),
+                sectionType=entry.sectionType,
+                codeObjType=entry.codeObjType,
+                controlCodeObjId=entry.controlCodeObjId,
+                controlCodeObjType=entry.controlCodeObjType,
+                sectionRepresentation=entry.sectionRepresentation,
+                controlValueRepresentation=entry.controlValueRepresentation,
+                valueRepresentation=entry.valueRepresentation,
+            )
+        )
+        if dependency_name not in dependency_cache:
+            continue
+        value_entries.append(
+            ListenerRenderedDependencyValue(
+                dependencyKey=entry.dependencyKey,
+                renderedValue=repr(dependency_cache[dependency_name]),
+            )
+        )
+    return (
+        ListenerDependencyCatalog(entries=catalog_entries),
+        ListenerRenderedDependencyValues(entries=value_entries),
+    )
+
+
+async def _refresh_from_authoritative_snapshot(
+    listener: SettaListener,
+    project_state: ProjectStateSingleConfig,
+) -> None:
+    dependency_catalog, dependency_values = _build_authoritative_snapshot_payload(
+        listener,
+        project_state,
+    )
+    await listener._refresh_from_snapshot(
+        project_state,
+        dependency_catalog=dependency_catalog,
+        dependency_values=dependency_values,
+    )
+
+
+async def _process_authoritative_snapshot(
+    listener: SettaListener,
+    project_state: ProjectStateSingleConfig,
+    *,
+    refresh_kind: str,
+    share_session_id: str | None,
+) -> None:
+    dependency_catalog, dependency_values = _build_authoritative_snapshot_payload(
+        listener,
+        project_state,
+    )
+    await listener._process_snapshot(
+        project_state,
+        refresh_kind=refresh_kind,
+        dependency_catalog=dependency_catalog,
+        dependency_values=dependency_values,
+        share_session_id=share_session_id,
+    )
+
+
+def _build_force_refresh_content(
+    listener: SettaListener,
+    project_state: ProjectStateSingleConfig,
+    *,
+    share_session_id: str | None = None,
+) -> ListenerForceRefreshContent:
+    dependency_catalog, dependency_values = _build_authoritative_snapshot_payload(
+        listener,
+        project_state,
+    )
+    return ListenerForceRefreshContent(
+        projectState=project_state,
+        dependencyCatalog=dependency_catalog,
+        dependencyValues=dependency_values,
+        shareSessionId=share_session_id,
+    )
+
+
 PROJECT_TYPED_ID = ID("project-typed")
 SECTION_ONE_ID = ID("section-1")
 PARAM_SLIDER_ID = ID("param-slider")
@@ -264,7 +359,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert refresh_calls == [{"Welcome": "Hello"}]
@@ -352,7 +447,8 @@ class TestSettaListenerRealtimeIntegration:
         for _ in range(total_callbacks):
             listener.listen(deps=("Welcome",), run_on_refresh=True)(on_refresh)
 
-        await listener._process_snapshot(
+        await _process_authoritative_snapshot(
+            listener,
             project_state,
             refresh_kind="force_refresh",
             share_session_id=None,
@@ -384,7 +480,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert run_on_refresh_calls == [{"Welcome": "Hello"}]
@@ -422,7 +518,7 @@ class TestSettaListenerRealtimeIntegration:
         self._set_snapshot_section_text(refreshed_state, "Updated")
 
         await listener._handle_force_refresh(
-            ListenerForceRefreshContent(projectState=refreshed_state)
+            _build_force_refresh_content(listener, refreshed_state)
         )
         await asyncio.sleep(0)
 
@@ -449,7 +545,8 @@ class TestSettaListenerRealtimeIntegration:
         def on_realtime(_state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
-        await listener._process_snapshot(
+        await _process_authoritative_snapshot(
+            listener,
             project_state,
             refresh_kind="force_refresh",
             share_session_id="session-a",
@@ -508,7 +605,8 @@ class TestSettaListenerRealtimeIntegration:
         def on_realtime(state, ctx):
             pass
 
-        await listener._process_snapshot(
+        await _process_authoritative_snapshot(
+            listener,
             project_state,
             refresh_kind="force_refresh",
             share_session_id=None,
@@ -561,7 +659,8 @@ class TestSettaListenerRealtimeIntegration:
                 ]
             )
 
-        await listener._process_snapshot(
+        await _process_authoritative_snapshot(
+            listener,
             project_state,
             refresh_kind="force_refresh",
             share_session_id="session-a",
@@ -625,7 +724,8 @@ class TestSettaListenerRealtimeIntegration:
         def on_action(state, ctx):
             pass
 
-        await listener._process_snapshot(
+        await _process_authoritative_snapshot(
+            listener,
             project_state,
             refresh_kind="force_refresh",
             share_session_id="session-a",
@@ -668,7 +768,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert refresh_calls == [{"Welcome": "Hello"}]
@@ -716,7 +816,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert realtime_calls == []
@@ -756,7 +856,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert refresh_calls == [{}]
@@ -802,7 +902,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert realtime_calls == []
@@ -835,7 +935,7 @@ class TestSettaListenerRealtimeIntegration:
         self._set_snapshot_section_text(refreshed_state, "Updated")
 
         await listener._handle_force_refresh(
-            ListenerForceRefreshContent(projectState=refreshed_state)
+            _build_force_refresh_content(listener, refreshed_state)
         )
         await asyncio.sleep(0)
 
@@ -861,7 +961,7 @@ class TestSettaListenerRealtimeIntegration:
         websocket = _StubWebsocket()
         _attach_stub_websocket(listener, websocket)
 
-        await listener._refresh_from_snapshot(project_state)
+        await _refresh_from_authoritative_snapshot(listener, project_state)
         await asyncio.sleep(0)
 
         assert any_calls == [{}]
@@ -953,8 +1053,6 @@ class TestSettaListenerRealtimeIntegration:
             switch_key: switch_node,
         }
 
-        state = SimpleNamespace(section__slider=1, section__switch=False)
-
         dep_graph = cast(
             "DependencyGraph",
             SimpleNamespace(
@@ -970,8 +1068,8 @@ class TestSettaListenerRealtimeIntegration:
                 dep_graph
             ),
             dependency_graph=dep_graph,
-            s_instance=state,
         )
+        listener._project_config_id = PROJECT_TYPED_ID
         listener._dependency_cache = {
             "section__slider": 1,
             "section__switch": False,
@@ -1017,15 +1115,13 @@ class TestSettaListenerRealtimeIntegration:
         await listener._scheduler.flush(slider_spec.callback_id)
         await listener._scheduler.flush(switch_spec.callback_id)
 
-        assert state.section__slider == 5
-        assert isinstance(state.section__slider, int)
         assert slider_events == [(5, 5)]
         assert listener._dependency_cache["section__slider"] == 5
+        assert isinstance(listener._dependency_cache["section__slider"], int)
 
-        assert state.section__switch
-        assert isinstance(state.section__switch, bool)
         assert switch_events == [(True, True)]
         assert listener._dependency_cache["section__switch"]
+        assert isinstance(listener._dependency_cache["section__switch"], bool)
         assert listener._get_last_realtime_sequence() == 1
 
     async def test_listener_error_prints_when_logging_unconfigured(self) -> None:
@@ -1139,16 +1235,12 @@ class TestSettaListenerBootstrapFailure:
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(project_state)
         await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
         assert listener._dependency_cache == {}
         assert listener._registration_pending
         assert len(register_payloads) == 1
@@ -1195,9 +1287,6 @@ class TestSettaListenerBootstrapFailure:
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(
@@ -1208,7 +1297,6 @@ class TestSettaListenerBootstrapFailure:
         await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
         assert listener._dependency_cache["Welcome"] == "From Go snapshot"
         assert listener._registration_pending
         assert len(register_payloads) == 1
@@ -1274,7 +1362,6 @@ class TestSettaListenerBootstrapFailure:
             return_value=ListenerRuntimeState(
                 dependency_metadata=runtime_state.dependency_metadata,
                 dependency_graph=_GraphlessDependencyGraph(),
-                s_instance=None,
             )
         )
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
@@ -1287,7 +1374,6 @@ class TestSettaListenerBootstrapFailure:
         await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
         assert listener._dependency_cache[count_name] == 5
         assert listener._dependency_cache[section_name] == {"count": 5}
         assert callback_calls == [
@@ -1307,11 +1393,7 @@ class TestSettaListenerBootstrapFailure:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
         runtime_state = listener._build_runtime_state(project_state)
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_metadata=runtime_state.dependency_metadata,
-            dependency_graph=runtime_state.dependency_graph,
-            s_instance=None,
-        )
+        listener._runtime_state = runtime_state
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = {"Welcome": "Hello"}
         listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -1387,7 +1469,6 @@ class TestSettaListenerBootstrapFailure:
         listener._runtime_state = ListenerRuntimeState(
             dependency_metadata=ListenerDependencyMetadata.from_catalog(catalog),
             dependency_graph=_GraphlessDependencyGraph(),
-            s_instance=None,
         )
         listener._project_config_id = PROJECT_TYPED_ID
         listener._dependency_cache = {
@@ -1475,7 +1556,6 @@ class TestSettaListenerBootstrapFailure:
         listener._runtime_state = ListenerRuntimeState(
             dependency_metadata=runtime_state.dependency_metadata,
             dependency_graph=_GraphlessDependencyGraph(),
-            s_instance=None,
         )
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = dict(initial_cache)
@@ -1535,7 +1615,6 @@ class TestSettaListenerBootstrapFailure:
         listener._runtime_state = ListenerRuntimeState(
             dependency_metadata=runtime_state.dependency_metadata,
             dependency_graph=_GraphlessDependencyGraph(),
-            s_instance=None,
         )
         listener._project_config_id = project_state.projectConfig.id
         listener._dependency_cache = dict(initial_cache)
@@ -1689,14 +1768,10 @@ class TestSettaListenerBootstrapFailure:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
         listener._latest_persisted_snapshot = project_state
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
 
         await listener._replay_cached_snapshot()
 
         assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
         assert listener._dependency_cache == {}
         assert callback_calls == []
 
@@ -1725,14 +1800,12 @@ class TestSettaListenerBootstrapFailure:
             return_value=ListenerRuntimeState(
                 dependency_metadata=runtime_state.dependency_metadata,
                 dependency_graph=_GraphlessDependencyGraph(),
-                s_instance=None,
             )
         )
 
         await listener._replay_cached_snapshot()
 
         assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
         assert listener._dependency_cache["Welcome"] == "Replay from Go snapshot"
         assert callback_calls == [
             (

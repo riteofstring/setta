@@ -72,7 +72,6 @@ def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
             dependency_graph
         ),
         dependency_graph=dependency_graph,
-        s_instance=None,
     )
     listener._project_config_id = project_state.projectConfig.id
     listener._is_registered = True

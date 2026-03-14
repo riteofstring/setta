@@ -141,7 +141,6 @@ def test_listener_register_accepts_dep_ids() -> None:
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    assert runtime_state.s_instance is not None
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
@@ -176,32 +175,28 @@ def test_listener_context_exposes_id_helpers() -> None:
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    assert runtime_state.s_instance is not None
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
     dependency_name = spec.dependency_names[0]
-    state_value = getattr(runtime_state.s_instance, dependency_name)
+    listener._dependency_cache[dependency_name] = 3
     ctx = listener._build_callback_context(
         spec,
-        {dependency_name: state_value},
+        {dependency_name: 3},
         [],
     )
 
-    assert (
-        ctx.changed_by_id[ListenerDependencyId(section_id, param_id)]
-        == state_value
-    )
-    assert ctx.values.by_id(section_id, param_id) == state_value
+    assert ctx.changed_by_id[ListenerDependencyId(section_id, param_id)] == 3
+    assert ctx.values.by_id(section_id, param_id) == 3
     assert ctx.ids.dependency_name(section_id, param_id) == dependency_name
     assert ctx.ids.dependency_id(dependency_name) == ListenerDependencyId(
         section_id, param_id
     )
 
 
-def test_callback_state_prefers_cached_value_when_runtime_instance_exists() -> None:
+def test_callback_state_uses_cached_value() -> None:
     project_state, section_id, param_id = build_project_state("12")
     listener = SettaListener(project_name=project_state.projectConfig.name)
 
@@ -212,25 +207,21 @@ def test_callback_state_prefers_cached_value_when_runtime_instance_exists() -> N
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    assert runtime_state.s_instance is not None
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
     spec = next(iter(listener._callbacks.values()))
     dependency_name = spec.dependency_names[0]
-    runtime_value = getattr(runtime_state.s_instance, dependency_name)
     listener._dependency_cache[dependency_name] = 99
 
     state = listener._build_callback_state(runtime_state)
 
-    assert state is not runtime_state.s_instance
     assert getattr(state, dependency_name) == 99
-    assert getattr(runtime_state.s_instance, dependency_name) == runtime_value
     assert dependency_name in dir(state)
 
 
-def test_callback_state_falls_back_to_runtime_instance_when_cache_misses() -> None:
+def test_callback_state_fails_closed_when_cache_misses() -> None:
     project_state, section_id, param_id = build_project_state("13")
     listener = SettaListener(project_name=project_state.projectConfig.name)
 
@@ -241,7 +232,6 @@ def test_callback_state_falls_back_to_runtime_instance_when_cache_misses() -> No
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    assert runtime_state.s_instance is not None
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -251,11 +241,8 @@ def test_callback_state_falls_back_to_runtime_instance_when_cache_misses() -> No
 
     state = listener._build_callback_state(runtime_state)
 
-    assert state is not runtime_state.s_instance
-    assert getattr(state, dependency_name) == getattr(
-        runtime_state.s_instance,
-        dependency_name,
-    )
+    with pytest.raises(RuntimeError, match="metadata-backed callback state"):
+        _ = getattr(state, dependency_name)
 
 
 def test_listener_context_values_by_id_uses_cached_values_without_runtime_instance() -> None:
@@ -269,11 +256,7 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    listener._runtime_state = ListenerRuntimeState(
-        dependency_metadata=runtime_state.dependency_metadata,
-        dependency_graph=runtime_state.dependency_graph,
-        s_instance=None,
-    )
+    listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -296,11 +279,7 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    listener._runtime_state = ListenerRuntimeState(
-        dependency_metadata=runtime_state.dependency_metadata,
-        dependency_graph=runtime_state.dependency_graph,
-        s_instance=None,
-    )
+    listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -322,11 +301,7 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
         return None
 
     runtime_state = listener._build_runtime_state(project_state)
-    listener._runtime_state = ListenerRuntimeState(
-        dependency_metadata=runtime_state.dependency_metadata,
-        dependency_graph=runtime_state.dependency_graph,
-        s_instance=None,
-    )
+    listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
     listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
     spec = next(iter(listener._callbacks.values()))
@@ -379,6 +354,14 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
         project_state,
         refresh_kind="force_refresh",
         dependency_catalog=catalog,
+        dependency_values=ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=dependency_key,
+                    renderedValue="11",
+                )
+            ]
+        ),
         share_session_id=None,
     )
     await asyncio.sleep(0)
@@ -430,7 +413,6 @@ def test_metadata_backed_callback_state_uses_go_password_snapshot_values() -> No
     runtime_state = ListenerRuntimeState(
         dependency_metadata=dependency_metadata,
         dependency_graph=DependencyGraph(project_state),
-        s_instance=None,
     )
     listener._runtime_state = runtime_state
     listener._dependency_cache = dependency_cache

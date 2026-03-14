@@ -40,7 +40,6 @@ def _build_runtime_state(
             dependency_graph
         ),
         dependency_graph=dependency_graph,
-        s_instance=None,
     )
 
 

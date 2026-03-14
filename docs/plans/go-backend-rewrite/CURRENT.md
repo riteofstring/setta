@@ -39,7 +39,7 @@ These are intentional exceptions, not open-ended compatibility obligations:
   boundaries
 
 Everything else should default to Go ownership. That includes dev startup or
-reload wrappers and any remaining Python listener generated-runtime fallback.
+reload wrappers and any remaining listener-side dependency-graph rebuilding.
 
 ## Read Order
 

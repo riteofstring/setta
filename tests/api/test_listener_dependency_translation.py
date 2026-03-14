@@ -128,7 +128,6 @@ class TestSettaListenerDependencyTranslation:
                 self.dependency_graph
             ),
             dependency_graph=self.dependency_graph,
-            s_instance=object(),
         )
         return listener
 

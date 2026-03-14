@@ -97,8 +97,8 @@ Current state:
     `dependencyValues`, the retained Python listener now stays fail-closed
     instead of rebuilding cache state from the local dependency graph
   - listener callbacks now always receive the metadata-backed state view,
-    using authoritative cached dependency values first and only falling back to
-    the retained generated runtime internally when a value is still unresolved
+    using authoritative cached dependency values only and failing closed when a
+    required value is unresolved
   - runtime-present realtime deltas now recompute cached metadata dependents
     too, so the metadata-backed callback state does not serve stale composite
     values after child updates
@@ -116,10 +116,11 @@ Current state:
 - Python still owns:
   - share listener entrypoints as an explicit retained Python authoring/loader
     boundary over the same Go listener protocol
-  - local dependency-graph rebuilding and generated runtime fallback still
-    exist in code today for some listener values, but that duplicate ownership
-    is not retained end state; Go must become authoritative for any
-    listener-visible value needed by current callers
+  - local dependency-graph rebuilding still exists in code today for listener
+    metadata/cache construction, but generated-runtime fallback has been
+    removed; that remaining duplicate ownership is not retained end state, and
+    Go must become authoritative for any listener-visible value needed by
+    current callers
   - dormant broader built-in listener endpoint inventory/docs outside the
     active retained chat/chat-section client surface, pending a concrete
     caller before any further port
@@ -313,12 +314,12 @@ Current stop point:
   metadata-backed state/container behavior now run on the Go listener
   protocol.
 - Share listener entrypoints remain the retained Python authoring boundary.
-- Current code still contains local generated-runtime fallback for unresolved
-  computed/callable listener values, but that path is rewrite debt rather than
-  a retained boundary.
+- Current code no longer falls back to a local generated runtime for listener
+  values, but it still rebuilds dependency metadata/cache state locally in the
+  retained Python client; that duplicate ownership is still rewrite debt.
 - Current repo listener tests/callers do not show a concrete callable-section
-  listener-state dependency, so the default follow-on is to remove that Python
-  fallback rather than preserving or widening it.
+  listener-state dependency that justifies preserving any broader Python
+  listener-state runtime.
 
 ### Step 4. Finish Active Endpoint Authority Without Recreating Dormant Surface
 
