@@ -19,7 +19,11 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_create_window_space,
   route_delete_window_space,
@@ -64,6 +68,8 @@ type WindowSpaceSnapshotState = Pick<
   | "sectionImpls"
   | "sectionVariants"
 >;
+
+type CreateWindowSpaceRouteResponse = ResponseDataAndStatus<WindowSpaceConfig>;
 
 function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
@@ -1434,11 +1440,12 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   const nextWindowSpaceName = resolveNextWindowSpaceName(
     getProjectWindowSpaces(projectConfigSnapshot),
   );
-  const response = await route_create_window_space({
-    projectConfigId,
-    state: authoritativeSnapshot,
-    name: nextWindowSpaceName,
-  });
+  const response: CreateWindowSpaceRouteResponse =
+    await route_create_window_space({
+      projectConfigId,
+      state: authoritativeSnapshot,
+      name: nextWindowSpaceName,
+    });
   if (!res200(response)) {
     const detail = getErrorDetail(response.data);
     const statusSuffix =
