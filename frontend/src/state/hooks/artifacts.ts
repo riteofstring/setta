@@ -3,25 +3,32 @@ import _ from "lodash";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
+  useProjectState,
+  useShareSession,
+  ZustandProjectState,
+} from "state/definitions";
+import {
   useBrushStrokes,
   useChartData,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
   useImages,
-  useProjectState,
-  ZustandDecodedImages,
-  ZustandProjectState,
-} from "state/definitions";
+  type ZustandDecodedImages,
+} from "state/stores/artifactStores";
 import { bumpRemoteRevisions } from "state/utils/revisions";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_binary_download,
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
 } from "utils/generatedEndpoints";
-import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  ArtifactTypeEnum,
+  RouteEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
@@ -59,17 +66,24 @@ async function loadCachedImages(paths: Array<string>) {
   }
 }
 
-async function fetchBinaryBlob(
-  contentId: string,
-  mimeType: string | null,
-): Promise<Blob | null> {
-  const res = await route_binary_download({ contentId });
-  if (!res200(res) || !res.data) {
+async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
+  const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+    "{contentId}",
+    encodeURIComponent(contentId),
+  );
+  const shareSession = useShareSession.getState();
+  const headers: HeadersInit = {};
+  if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
+    headers["X-Share-Session-Id"] = shareSession.shareSessionId;
+  }
+  const res = await fetch(`${C_ADDRESSES.BACKEND}${endpoint}`, {
+    credentials: "include",
+    headers,
+  });
+  if (!res.ok) {
     return null;
   }
-  return new Blob([res.data], {
-    type: mimeType ?? "application/octet-stream",
-  });
+  return await res.blob();
 }
 
 export function useImageArtifact(sectionId: string) {
@@ -234,10 +248,7 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
       if (!rawImage) {
         return null;
       }
-      const blob = await fetchBinaryBlob(
-        rawImage.value.contentId,
-        rawImage.value.mimeType ?? null,
-      );
+      const blob = await fetchBinaryBlob(rawImage.value.contentId);
       if (!blob) {
         return null;
       }

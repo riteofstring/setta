@@ -11,9 +11,13 @@ import {
   EngineTypeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+import { buildProjectChatSubmittedMessageHistory } from "./projectChatHistoryUtils";
+import {
+  resolveProjectChatHydrationAuthority,
+  resolveProjectChatRunTypeForEngine,
+} from "./projectChatHydrationAuthority";
 import {
   buildProjectChatHydrationCacheKey,
-  buildProjectChatSubmittedMessageHistory,
   clearProjectChatHydrationCacheEntriesForChat,
   getDefaultProjectChatPermissionMode,
   getProjectChatBlockedReasonMessage,
@@ -30,11 +34,7 @@ import {
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
-} from "./ProjectChatCore";
-import {
-  resolveProjectChatHydrationAuthority,
-  resolveProjectChatRunTypeForEngine,
-} from "./projectChatHydrationAuthority";
+} from "./projectChatRuntimeUtils";
 import {
   collectAgentNativeSlashCommandTokensFromEntries,
   resolveAgentNativeSlashCommandsByEngineId,
