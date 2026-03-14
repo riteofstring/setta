@@ -163,3 +163,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `14519e018`
 - Next highest-value unblocked slice: extract the matching pure history/thread-control/polling helper logic out of `frontend/src/components/Section/Layouts/ChatArea.tsx` into feature-local modules so the section chat surface mirrors the new Project Chat ownership boundaries
+
+## 2026-03-12 13:16:40 PDT
+
+- What changed: Extracted the managed section-chat history UI and its polling/run-type helpers from `frontend/src/components/Section/Layouts/ChatArea.tsx` into `frontend/src/components/Section/Layouts/ChatAreaHistoryPanel.tsx`. `ChatArea.tsx` now treats the history panel as a feature-local dependency instead of owning its list rendering and polling internals inline, and the focused history helper test now covers both polling and engine-to-run-type mapping.
+- Key files touched: `frontend/src/components/Section/Layouts/ChatArea.tsx`, `frontend/src/components/Section/Layouts/ChatAreaHistoryPanel.tsx`, `frontend/src/components/Section/Layouts/chatAreaHistoryPolling.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Section/Layouts/chatAreaHistoryPolling.test.ts src/components/Section/Layouts/chatAreaPlanModeBadge.test.ts`; `pnpm -C frontend exec prettier --check src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/ChatAreaHistoryPanel.tsx src/components/Section/Layouts/chatAreaHistoryPolling.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `26a0d6680`
+- Next highest-value unblocked slice: continue reducing `frontend/src/components/Section/Layouts/ChatArea.tsx` by extracting the remaining section-chat thread-control and emit-action helpers, then mirror any equivalent ownership cleanup still left in the Project Chat pane surface
