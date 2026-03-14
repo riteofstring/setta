@@ -182,6 +182,9 @@ test("read-only deployments do not auto-create project chat windows or expose la
     await expect(
       page.getByTestId("project-chat-bottom-dock-create"),
     ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /new chat/i })).toHaveCount(
+      0,
+    );
     await expect(
       page.evaluate(async () => {
         const { useProjectState } = await import("/src/state/definitions.ts");
@@ -346,31 +349,18 @@ test("read-only deployments can reopen hidden project chat windows without layou
       '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="project-chat-window-1"]',
     );
     await expect(floatingWindow).toHaveCount(0);
-    const managerTrigger = page.getByTestId(
-      "project-chat-bottom-dock-menu-trigger",
-    );
-    await expect(managerTrigger).toBeVisible();
-    await managerTrigger.click();
-    const menuContent = page.getByTestId(
-      "project-chat-bottom-dock-menu-content",
-    );
-    await expect(menuContent).toBeVisible();
-    const reopenButton = menuContent.locator(
-      '[data-testid="project-chat-manager-reopen"][data-chat-window-instance-id="project-chat-window-1"]',
-    );
-    const focusButton = menuContent.locator(
-      '[data-testid="project-chat-manager-focus"][data-chat-window-instance-id="project-chat-window-1"]',
-    );
-    await expect(reopenButton).toBeVisible();
-    await expect(focusButton).toBeVisible();
     await expect(
-      menuContent.getByTestId("project-chat-manager-hide"),
-    ).toHaveCount(0);
+      page.getByTestId("project-chat-manager-reopen"),
+    ).toHaveAttribute("data-chat-window-instance-id", "project-chat-window-1");
+    await expect(
+      page.getByTestId("project-chat-manager-focus"),
+    ).toHaveAttribute("data-chat-window-instance-id", "project-chat-window-1");
+    await expect(page.getByTestId("project-chat-manager-hide")).toHaveCount(0);
     await expect(
       page.getByTestId("project-chat-window-move-to-canvas"),
     ).toHaveCount(0);
 
-    await reopenButton.click();
+    await page.getByTestId("project-chat-manager-reopen").click();
 
     await expect(floatingWindow).toBeVisible();
     await expect

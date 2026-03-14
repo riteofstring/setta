@@ -5,7 +5,6 @@ import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMir
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import { withRightPaneTitleClearance } from "components/Utils/paneTitleSpacing";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -41,7 +40,6 @@ import {
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
 import {
-  APP_CHROME_Z_INDEX_CLASS_NAME,
   buildSharePath,
   CLOSED_PANE_WIDTH,
   CODEMIRROR_TOOLTIP_PARENT_ID,
@@ -64,6 +62,7 @@ const HOME_FILE_BROWSER_META_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const HOME_FILE_BROWSER_TITLE_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
+const HOME_ICON_RAIL_Z_INDEX_CLASS = "z-[31]";
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
@@ -72,10 +71,6 @@ const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
 const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
 const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
-export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed flex w-10 flex-col items-center gap-1 bg-setta-50 py-2 dark:bg-setta-900`;
-export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
-  HOME_PANE_TITLE_CLASS,
-);
 
 export function shouldUseCompactHomeLayout(
   winWidth: number | undefined,
@@ -455,9 +450,7 @@ function HomeWorkspaceLayout({
         >
           {homeSelectedProjectPaneVis && (
             <section className={HOME_INSET_PANE_CONTENT_CLASS}>
-              <h2 className={HOME_RIGHT_PANE_TITLE_CLASS_NAME}>
-                Selected Project
-              </h2>
+              <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
               <SelectedProjectDetails
                 project={selectedDetailProject}
                 isDefault={selectedDetailProject?.id === defaultProjectConfigId}
@@ -572,7 +565,7 @@ function HomeLeftIconRail({
   return (
     <div
       data-testid="home-left-icon-rail"
-      className={`${HOME_SIDE_RAIL_CLASS_NAME} left-0 border-r border-setta-200/75 dark:border-setta-850`}
+      className={`fixed left-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
       style={{
         top: "calc(var(--setta-titlebar-height) + 36px)",
         bottom: "0px",
@@ -614,7 +607,7 @@ function HomeRightIconRail({
   return (
     <div
       data-testid="home-right-icon-rail"
-      className={`${HOME_SIDE_RAIL_CLASS_NAME} right-0 border-l border-setta-200/75 dark:border-setta-850`}
+      className={`fixed right-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
       style={{
         top: "calc(var(--setta-titlebar-height) + 36px)",
         bottom: "0px",
@@ -773,7 +766,6 @@ function HomeFileBrowserColumn() {
       <div className="min-h-[220px] min-w-0 flex-1">
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
-          showPathNavigation={false}
           includeSettaInitializedFolders
           showSettaInitializedBadgePill={false}
           allowOutsideWorkspaceRoot

@@ -31,7 +31,6 @@ import {
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
-  APP_MENU_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -55,14 +54,15 @@ import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
-import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
+import { ProjectChatManager } from "./ProjectLevelAI/ProjectChatManager";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
-export const OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME = `${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`;
+const JSON_RENDER_OVERVIEW_QUICK_INFO =
+  "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.\n\nUse Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.";
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -234,12 +234,17 @@ export function Overview() {
               <span
                 data-testid="overview-tab-more"
                 aria-label="More"
+                title={
+                  vis && effectiveTabName === OverviewTabNameEnum.App
+                    ? JSON_RENDER_OVERVIEW_QUICK_INFO
+                    : "More"
+                }
                 {...getFloatingBoxHandlers({ content: "More" })}
               >
                 <MdMoreHoriz size={20} />
               </span>
             }
-            contentClassName={OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME}
+            contentClassName="z-20 min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850"
           >
             <MenuItem
               className={moreMenuItemClasses}
@@ -260,7 +265,7 @@ export function Overview() {
                 <i className="w-3 opacity-80">
                   <TbLayoutDashboard />
                 </i>
-                <span className="ml-0.5">App Gen</span>
+                <span className="ml-0.5">JSON Render</span>
               </MenuItem>
             ) : null}
             <MenuItem
@@ -366,6 +371,10 @@ function TabsVisible({
     ? selectedPluginPaneTab.title
     : resolveOverviewTitle(selectedTabName);
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
+  const titleQuickInfo =
+    selectedTabName === OverviewTabNameEnum.App
+      ? JSON_RENDER_OVERVIEW_QUICK_INFO
+      : undefined;
   return (
     <div
       data-testid="overview-tab-content-shell"
@@ -377,12 +386,18 @@ function TabsVisible({
     >
       {isFullWidth ? (
         <div className={FILE_BROWSER_META_INSET_CLASS}>
-          <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+          <h2
+            className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500"
+            title={titleQuickInfo}
+          >
             {title}
           </h2>
         </div>
       ) : (
-        <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+        <h2
+          className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500"
+          title={titleQuickInfo}
+        >
           {title}
         </h2>
       )}
@@ -433,7 +448,7 @@ function TabContent({
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
-      return <ProjectChat />;
+      return <ProjectChatManager />;
     case OverviewTabNameEnum.ProjectAISettings:
       return <ProjectAISettings />;
     default:

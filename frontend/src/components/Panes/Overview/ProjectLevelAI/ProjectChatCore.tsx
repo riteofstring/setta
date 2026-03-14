@@ -12,6 +12,7 @@ import {
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
+  type ChatSubmitOptions,
   resolveSlashCommandRequest,
   type ChatRuntimeActivityDetails,
   type ChatSlashCommand,
@@ -1342,7 +1343,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [filteredConversationMessages],
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
       selectCustomProjectChatSlashCommands(
@@ -1824,12 +1824,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
         searchEnabled: executionSettings.searchEnabled,
         onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
-        appGenerationMode,
         onSetAppGenerationMode: handleSetAppGenerationMode,
       });
     },
     [
-      appGenerationMode,
       executionSettings.searchEnabled,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
@@ -1882,7 +1880,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleSubmit = useCallback(
-    async (message: string, attachments: ChatFileAttachment[]) => {
+    async (
+      message: string,
+      attachments: ChatFileAttachment[],
+      options?: ChatSubmitOptions,
+    ) => {
       const trimmed = message.trim();
       if (!trimmed && attachments.length === 0) {
         return false;
@@ -1917,6 +1919,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           {
             continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
             pendingSurfaceId: surfaceId,
+            appGeneration: options?.appGeneration ?? null,
             executionSettings: {
               permissionMode: executionSettings.permissionMode,
               searchEnabled: executionSettings.searchEnabled,
