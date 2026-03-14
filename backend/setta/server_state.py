@@ -252,7 +252,6 @@ class SettaFastAPIState:
             self.paths = get_setta_paths()
         else:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
-        self.plugin_manager = None
         if not self.deployment_mode and not self.launcher_mode:
             seed_llm_config_example_file(self.dbe)
             seed_agentic_config_files(self.dbe)

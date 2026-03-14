@@ -563,3 +563,11 @@ focused `tests/project_state` and broader share/server-state checks still pass.
 This narrows the remaining Python plugin blocker away from ancillary
 project-manager wiring and leaves the standalone Python plugin manager/worker
 runtime as the primary remaining backend-ownership tail in this area.
+
+An eighteenth follow-up rewrite step removed the dead `plugin_manager` field
+from the legacy Python `SettaFastAPIState`. That server-state object no longer
+pretends to expose a Python plugin runtime slot during startup, and the focused
+launcher/share-state plus Python MCP registration tests still pass. This does
+not remove the standalone Python plugin manager/worker runtime itself, but it
+does eliminate one more stale ownership hint from the deleted Python server
+stack.
