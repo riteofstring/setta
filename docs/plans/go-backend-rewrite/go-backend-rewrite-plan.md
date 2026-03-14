@@ -12,6 +12,11 @@ carry forward the backend shape that is needed to preserve behavior, then do
 larger architectural cleanup once the Go runtime is proven by tests and real
 usage.
 
+There are no deployed users and no production compatibility contract for the
+Python backend. This rewrite does not need backward compatibility, migration
+layers, legacy route preservation, or Python-transition support unless a
+current repo workflow explicitly requires a bounded exception.
+
 ## Working Source-of-Truth Docs
 
 Use these docs when evaluating rewrite rules, caller reachability, backend
@@ -32,14 +37,17 @@ Historical phase planning, reranks, closeouts, and spikes live under
 - Preserve product behavior first. Treat the rewrite as a semantics-preserving
   port of the active backend surface unless a caller, release path, or
   documented product decision requires a behavior change.
+- Treat the current Python code, tests, and docs as reference material for
+  product capabilities and edge cases, not as a compatibility contract.
 - Do not combine the language rewrite with broad architecture redesign by
   default. Prefer making the Go code work correctly with the current backend
   shape before opening a larger structural optimization pass.
 - Architecture preservation during the port is a default strategy, not a rule
   to preserve accidental debt forever. After the Go runtime is proven, we can
   deliberately reopen architecture cleanup as a separate slice.
-- No backward-compatibility work is required unless a current caller or release
-  path actually needs it.
+- Do not spend rewrite effort on backward compatibility, migrations, legacy
+  support paths, or Python compatibility shims. There are no deployed users,
+  so clean Go ownership is preferred over transitional compatibility work.
 - The rewrite does not need to keep the app continuously working while Python
   boundaries are being removed; prefer severing frontend/backend ties to Python
   over maintaining temporary mixed-source compatibility.
@@ -95,7 +103,10 @@ coverage.
 - Use `archive/` for historical phase detail, not as a replacement for the
   working docs above.
 
-## Selected Follow-On Work
+## Task-Specific Infrastructure Tracks
+
+These are bounded infrastructure docs to use when a task actually touches
+those areas. They are not a standing priority order for the whole rewrite.
 
 - Go-owned frontend binding generation for Go HTTP/websocket contracts
   - give frontend-facing backend contracts a Go-owned source of truth wherever
@@ -108,7 +119,7 @@ coverage.
   - replace the canonical generated frontend contract files instead of keeping
     long-lived `generatedGo*` shadow outputs
   - do not land handwritten TS emitters or endpoint-by-endpoint string-builder
-    wedges as the follow-on implementation
+    wedges in that slice
   - if a runtime type does not convert cleanly, add a dedicated Go contract
     type or converter rule instead of hand-writing TS for that route
 - Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
@@ -126,8 +137,8 @@ Open a new rewrite slice only when at least one of these is true:
 - a release/runtime issue exposes a real ownership gap
 - tests show the current boundary is broken
 - a product decision explicitly expands scope
-- a selected infrastructure follow-on, such as Go-owned frontend binding
-  generation or `openai-go` convergence for Go-owned OpenAI edges, is ready to
-  be executed as a bounded slice
+- a concrete rewrite infrastructure task, such as Go-owned frontend binding
+  generation or `openai-go` convergence for Go-owned OpenAI edges, is directly
+  required by the work at hand
 
 Otherwise, do not open a new numbered phase doc.

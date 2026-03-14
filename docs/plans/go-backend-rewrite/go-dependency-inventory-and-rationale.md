@@ -44,8 +44,8 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 - Some older docs still describe `github.com/creack/pty` as only a planned
   candidate. That is stale. It is a direct dependency now.
 - Some older docs still describe `github.com/openai/openai-go/v3` as only a
-  selected follow-on candidate. That is stale. It is a direct dependency now
-  for the managed-chat OpenAI provider edge.
+  planned future candidate. That is stale. It is a direct dependency now for
+  the managed-chat OpenAI provider edge.
 - `github.com/anthropics/anthropic-sdk-go` is now a normal direct dependency
   in `go.mod`; it powers the bounded Anthropic managed-chat provider edge and
   is not just incidental transitive baggage.

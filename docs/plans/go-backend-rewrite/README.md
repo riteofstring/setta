@@ -6,7 +6,7 @@ historical archive.
 ## Read Order
 
 1. `CURRENT.md`
-   - canonical doc map, selected follow-ons, and agent workflow
+   - canonical doc map, clean-break defaults, and agent workflow
 2. `caller-backed-backend-surface-checklist.md`
    - fastest answer to "does the active caller reach Go?"
 3. `backend-capability-coverage-checklist.md`
@@ -16,12 +16,12 @@ historical archive.
 5. `caller-backed-backend-surface-checklist-audit-plan.md`
    - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 6. `go-backend-rewrite-plan.md`
-   - stable rewrite charter and reopening rules
+   - stable rewrite charter, clean-break guardrails, and reopening rules
 7. `go-frontend-binding-generation-plan.md`
-   - current working slice doc for the Go-owned frontend binding-generation
-     follow-on
+   - subsystem-specific doc for Go-owned frontend binding generation; read it
+     when a task touches that boundary
 8. `testing-strategy.md`
-   - test bar for follow-on work
+   - test bar for rewrite work
 9. `go-dependency-inventory-and-rationale.md`
    - current `go.mod` explanation
 10. `docs/reference/dependencies/`
@@ -38,6 +38,8 @@ historical archive.
 ## Agent Rules
 
 - Start with `CURRENT.md`, not the archive.
+- Treat this folder as the working set for the entire Go rewrite, not as a
+  standing priority list for one narrow subsystem.
 - Treat `caller-backed-backend-surface-checklist.md` as the fastest answer to
   "does the active caller reach Go?".
 - Use `backend-capability-coverage-checklist.md` when the question is about
@@ -46,6 +48,15 @@ historical archive.
   historical rationale.
 - Do not open a new rewrite phase without a concrete active workflow, caller,
   release problem, or product decision.
+
+## Clean-Break Reminder
+
+- This rewrite has no deployed users and no production compatibility contract.
+- Do not spend rewrite effort on backward compatibility, migrations, legacy
+  route preservation, or Python transitional support unless a current repo
+  workflow explicitly requires it.
+- Preserve active product behavior and documented workflows, not Python-shaped
+  architecture or unused legacy compatibility surfaces.
 
 ## Dependency Guardrail
 

@@ -2,18 +2,21 @@
 
 ## Purpose
 
-Execute the selected follow-on from `CURRENT.md`: move frontend-facing Go
-HTTP/websocket contracts onto a Go-owned source of truth using a real
-Go-to-TypeScript conversion pipeline, not handwritten TypeScript emitters, and
-sever frontend ties to Python-generated backend bindings.
+This doc covers Go-owned frontend binding generation when work touches
+frontend-facing Go HTTP/websocket contracts. Use it for that boundary, not as
+the default driver for unrelated rewrite work.
+
+The goal here is to move frontend-facing Go HTTP/websocket contracts onto a
+Go-owned source of truth using a real Go-to-TypeScript conversion pipeline,
+not handwritten TypeScript emitters, and to sever frontend ties to
+Python-generated backend bindings.
 
 ## Why This Slice Is Open Now
 
 - The broad-coverage checklist now records frontend backend-contract binding
   generation as a shared Go-to-TypeScript boundary with canonical Go-generated
-  outputs, but the selected follow-on remains open because widened boundary
-  coverage and parity verification still need the same Go-owned source of
-  truth.
+  outputs, but this slice remains open because widened boundary coverage and
+  parity verification still need the same Go-owned source of truth.
 - The rewrite started from a Python pattern for this problem, but the active
   repo workflow now uses the Go-owned generator directly for the canonical
   frontend route/type/endpoint outputs.
@@ -45,7 +48,7 @@ state. During the rewrite, prefer cutting over frontend imports and generated
 artifacts to Go ownership even if the overall app is temporarily not in a
 working state.
 
-This follow-on does not permit:
+This slice does not permit:
 
 - handwritten TS wrappers added one route at a time
 - handwritten TS request/response type definitions added one route at a time
@@ -204,8 +207,8 @@ Current status:
 - the validation suite now also checks that the only generated frontend
   contract files under `frontend/src` are `generatedRoutes.ts`,
   `generatedTypes.ts`, and `generatedEndpoints.ts`, so shadow outputs such as
-  `generatedGo*` cannot quietly return; remaining follow-on work is about
-  widening coverage and verification, not preserving a parallel
+  `generatedGo*` cannot quietly return; remaining work here is about widening
+  coverage and verification, not preserving a parallel
   Python-generated frontend contract surface
 - the validation suite now also checks that non-test frontend source files do
   not re-import Python-owned contract artifacts such as

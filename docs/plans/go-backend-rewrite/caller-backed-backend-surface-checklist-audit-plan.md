@@ -41,7 +41,7 @@ memory or prior chat context.
   - `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`
   - `docs/plans/go-backend-rewrite/CURRENT.md`
   - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` when rewrite
-    rules, selected follow-ons, or reopening rules matter
+    rules, clean-break defaults, or reopening rules matter
 
 ## Audit invariants
 
@@ -121,7 +121,7 @@ memory or prior chat context.
    - Update `backend-capability-coverage-checklist.md` when runtime/service
      ownership changed beyond caller transport status.
    - Update `CURRENT.md` in the same change if the canonical doc list,
-     selected follow-ons, or workflow guidance changed.
+     clean-break defaults, or workflow guidance changed.
    - Refresh the `Snapshot date` / `Last verified` stamps only after a
      substantive audit pass.
 

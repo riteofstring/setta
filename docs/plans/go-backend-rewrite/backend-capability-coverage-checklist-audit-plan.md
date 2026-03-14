@@ -67,7 +67,7 @@ Use that doc for "does the active caller reach Go?" audits; use this doc for
    - Re-read the current Go package cluster for each capability.
    - Re-read the matching Python package cluster when Python ownership or a
      shared boundary is plausible.
-   - Use current docs only for rewrite rules, selected follow-ons, and
+   - Use current docs only for rewrite rules, clean-break defaults, and
      doc-level definitions, not as the sole evidence.
 
 3. Classify each capability area.
@@ -94,7 +94,7 @@ Use that doc for "does the active caller reach Go?" audits; use this doc for
    - Update `backend-capability-coverage-checklist.md`.
    - Update `caller-backed-backend-surface-checklist.md` if caller reachability
      or transport status also changed.
-   - Update `CURRENT.md` if the canonical doc list, selected follow-ons, or
+   - Update `CURRENT.md` if the canonical doc list, clean-break defaults, or
      workflow guidance changed.
 
 ## Completeness gates
