@@ -45,6 +45,7 @@ import {
   MdChevronRight,
   MdErrorOutline,
   MdKeyboardArrowDown,
+  MdOutlineSmartToy,
 } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import ReactMarkdown from "react-markdown";
@@ -218,6 +219,16 @@ const ACTIVITY_COPY_BUTTON_BASE_CLASS =
   "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] text-setta-500 transition-colors hover:bg-setta-200/80 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:text-setta-300 dark:hover:bg-setta-700 dark:hover:text-setta-100";
 const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
 const ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS = `${ACTIVITY_SECTION_COPY_BUTTON_CLASS} opacity-0 pointer-events-none transition-opacity group-hover/chat-activity-row:opacity-100 group-hover/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`;
+const CHAT_TIMESTAMP_CLASS =
+  "shrink-0 text-[10px] font-medium tabular-nums text-setta-400 dark:text-setta-500";
+const CHAT_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+const CHAT_TIMESTAMP_TOOLTIP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 const COUNT_BADGE_STEP_ANIMATION_MS = 120;
 const COUNT_BADGE_STEP_PAUSE_MS = 24;
 const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
@@ -1567,6 +1578,87 @@ function resolveDurationLabel({
     return "<1s";
   }
   return formatElapsedDuration(elapsedSeconds);
+}
+
+function resolveTimestampMs(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number | null {
+  return resolveTimestampMs((message as { createdAt?: unknown }).createdAt);
+}
+
+function resolveActivityTimestampMs(
+  startedAtMs: number | null,
+  completedAtMs: number | null,
+): number | null {
+  return resolveTimestampMs(startedAtMs) ?? resolveTimestampMs(completedAtMs);
+}
+
+function formatChatTimestamp(timestampMs: number | null): string | null {
+  if (timestampMs === null) {
+    return null;
+  }
+  return CHAT_TIMESTAMP_FORMATTER.format(timestampMs);
+}
+
+function formatChatTimestampTitle(timestampMs: number | null): string | null {
+  if (timestampMs === null) {
+    return null;
+  }
+  return CHAT_TIMESTAMP_TOOLTIP_FORMATTER.format(timestampMs);
+}
+
+function ChatTimestamp({
+  timestampMs,
+  kind,
+}: {
+  timestampMs: number | null;
+  kind: "message" | "activity-item";
+}) {
+  const label = formatChatTimestamp(timestampMs);
+  if (!label) {
+    return null;
+  }
+  const title = formatChatTimestampTitle(timestampMs) ?? undefined;
+  if (kind === "activity-item") {
+    return (
+      <span
+        data-chat-activity-item-timestamp="true"
+        className={CHAT_TIMESTAMP_CLASS}
+        title={title}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span
+      data-chat-message-timestamp="true"
+      className={CHAT_TIMESTAMP_CLASS}
+      title={title}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ChatMessageTimestampFooter({
+  timestampMs,
+}: {
+  timestampMs: number | null;
+}) {
+  if (timestampMs === null) {
+    return null;
+  }
+  return (
+    <div className="mt-0.5 flex justify-end">
+      <ChatTimestamp timestampMs={timestampMs} kind="message" />
+    </div>
+  );
 }
 
 function deriveThinkingHeadlineFromContent(content: string): string | null {
@@ -3552,7 +3644,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       data-chat-assistant-activity-thought-scroll-enabled={
         animate && hasOverflow ? "true" : "false"
       }
-      className="top-bottom-fade h-10 overflow-y-auto break-words pr-1 text-[10px] text-setta-400 dark:text-setta-400/90"
+      className="top-bottom-fade h-10 overflow-y-auto break-words pb-2 pr-1 pt-0.5 text-[10px] leading-[1.35] text-setta-400 dark:text-setta-400/90"
       style={{
         scrollbarWidth: "none",
         msOverflowStyle: "none",
@@ -3707,7 +3799,15 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 @[20rem]:flex-nowrap">
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
-                      <span>Activity</span>
+                      <span
+                        data-chat-assistant-activity-icon="robot"
+                        className="inline-flex items-center justify-center text-[12px]"
+                        title="Project AI activity"
+                        aria-label="Project AI activity"
+                      >
+                        <MdOutlineSmartToy size={13} aria-hidden />
+                        <span className="sr-only">Activity</span>
+                      </span>
                       <span
                         data-chat-assistant-activity-count-badge="true"
                         className={ACTIVITY_COUNT_BADGE_CLASS}
@@ -3742,7 +3842,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                     </div>
                   </div>
                 </div>
-                <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-start @[20rem]:self-center">
+                <div className="ml-auto inline-flex shrink-0 flex-wrap items-center justify-end gap-x-1 gap-y-0.5 self-start @[20rem]:self-center">
                   <button
                     type="button"
                     onPointerDown={handleOpenAllPointerDown}
@@ -4392,6 +4492,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
     hasKnownDuration,
     isRunning: runState === "running",
   });
+  const timestampMs = resolveActivityTimestampMs(startedAtMs, completedAtMs);
   const durationClassName =
     runState === "failed" || runState === "stopped"
       ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
@@ -4448,7 +4549,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
               <div className="min-w-0 flex-1 truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
                 {label}
               </div>
-              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
+              <div className="ml-auto inline-flex shrink-0 flex-wrap items-center justify-end gap-x-1 gap-y-0.5 self-center">
                 {onCopy ? (
                   <button
                     type="button"
@@ -4464,6 +4565,10 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
                     <FiCopy />
                   </button>
                 ) : null}
+                <ChatTimestamp
+                  timestampMs={timestampMs}
+                  kind="activity-item"
+                />
                 {durationLabel ? (
                   <span
                     data-chat-activity-item-timer="true"
@@ -5535,7 +5640,10 @@ function AssistantMessageGroup({
       className={containerClassName}
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
-      <div className={`${widthClass} relative`} data-message-id={messageId}>
+      <div
+        className={`${widthClass} @container/chat-message relative`}
+        data-message-id={messageId}
+      >
         {children}
         {actions ? (
           <div
@@ -5585,7 +5693,7 @@ function UserChatBubble({
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
       <div
-        className={`group flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
+        className={`group @container/chat-message flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
         data-message-id={messageId}
       >
         <div
@@ -5632,7 +5740,7 @@ function SystemChatBubble({
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
       <div
-        className="group flex max-w-[min(90%,800px)] flex-col items-start"
+        className="group @container/chat-message flex max-w-[min(90%,800px)] flex-col items-start"
         data-message-id={messageId}
       >
         <div
@@ -5690,7 +5798,7 @@ function ChatMessageActions({
 
   return (
     <div
-      className="pointer-events-none relative z-[1] inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
+      className="pointer-events-none relative z-[1] inline-flex flex-col items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 @[32rem]/chat-message:flex-row dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
       data-chat-message-actions="true"
     >
       <button
@@ -5986,6 +6094,7 @@ const ChatMessage = memo(function ChatMessage({
       failureMessage: "Failed to copy message.",
     });
   }, [message, toolCallArguments, toolResultsById]);
+  const messageTimestampMs = resolveMessageCreatedAtMs(message);
   const actionBar = !isEditing ? (
     <ChatMessageActions
       onCopy={handleCopy}
@@ -6140,6 +6249,7 @@ const ChatMessage = memo(function ChatMessage({
                 />
               );
             })}
+            <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
           </LLMChatBubble>
         ) : null}
         <AssistantTypingIndicator
@@ -6228,6 +6338,7 @@ const ChatMessage = memo(function ChatMessage({
         }
         return null;
       })}
+      <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
     </Wrapper>
   );
 });

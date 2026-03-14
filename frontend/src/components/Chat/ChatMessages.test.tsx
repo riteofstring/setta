@@ -92,6 +92,13 @@ function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
+function formatExpectedChatTimestamp(timestampMs: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(timestampMs);
+}
+
 describe("ChatMessageList edit gating", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -1570,6 +1577,7 @@ describe("ChatMessages assistant reasoning layout", () => {
       'data-chat-assistant-activity-thought-scroll="true"',
     );
     expect(markup).toContain("top-bottom-fade");
+    expect(markup).toContain("pb-2");
   });
 
   it("renders collapsed reasoning summaries as markdown inline", () => {
@@ -1728,6 +1736,8 @@ describe("ChatMessages assistant reasoning layout", () => {
   });
 
   it("shows activity total elapsed time and per-item elapsed time when timestamps are available", () => {
+    const firstStartedAtMs = Date.parse("2026-01-01T00:00:00Z");
+    const secondStartedAtMs = Date.parse("2026-01-01T00:00:06Z");
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-activity-timer-parent",
@@ -1788,8 +1798,13 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(
       countOccurrences(markup, 'data-chat-activity-item-timer="true"'),
     ).toBe(2);
+    expect(
+      countOccurrences(markup, 'data-chat-activity-item-timestamp="true"'),
+    ).toBe(2);
     expect(markup).toContain("00:05");
     expect(markup).toContain("00:02");
+    expect(markup).toContain(formatExpectedChatTimestamp(firstStartedAtMs));
+    expect(markup).toContain(formatExpectedChatTimestamp(secondStartedAtMs));
   });
 
   it("hides activity timers when timing data is unavailable", () => {
@@ -1816,6 +1831,7 @@ describe("ChatMessages assistant reasoning layout", () => {
       'data-chat-assistant-activity-total-timer="true"',
     );
     expect(markup).not.toContain('data-chat-activity-item-timer="true"');
+    expect(markup).not.toContain('data-chat-activity-item-timestamp="true"');
   });
 
   it("shows success state when completed timestamps round to the same second", () => {
@@ -1956,13 +1972,15 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("absolute right-full top-1/2");
     expect(markup).toContain("absolute left-full top-1/2");
     expect(markup).toContain(
-      "pointer-events-none relative z-[1] inline-flex items-center gap-1",
+      "pointer-events-none relative z-[1] inline-flex flex-col items-center gap-1 rounded-md",
     );
+    expect(markup).toContain("@[32rem]/chat-message:flex-row");
     expect(markup).toContain("group-hover:opacity-100");
     expect(markup).toContain(
       "rounded-md border border-setta-200/90 bg-setta-100/95",
     );
     expect(markup).toContain("dark:bg-setta-925/95");
+    expect(markup).toContain("@container/chat-message");
   });
 
   it("keeps assistant actions available when message only has tool-call sections", () => {
@@ -2005,6 +2023,64 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
     expect(markup).toContain('data-chat-actions-anchor="right"');
     expect(markup).toContain('data-chat-message-actions="true"');
+  });
+
+  it("renders message timestamps for chat bubbles and uses the robot icon for activity headers", () => {
+    const userCreatedAtMs = Date.parse("2026-01-01T09:15:00Z");
+    const assistantCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-user-timestamp",
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: "Can you run the checks?" })],
+        attachments: [],
+        createdAt: userCreatedAtMs,
+      },
+      {
+        id: "m-assistant-activity-icon",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: "I ran the checks and collected the results.",
+          }),
+        ],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "activity-icon-tool-call",
+            type: "function",
+            function: {
+              name: "setta__run_tests",
+              arguments: { target: "chat" },
+            },
+          },
+        ],
+        createdAt: assistantCreatedAtMs,
+      },
+      {
+        id: "m-assistant-activity-icon-result",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "activity-icon-tool-call",
+        tool_name: "setta__run_tests",
+        arguments: { target: "chat" },
+        result: { ok: true },
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T09:16:05Z",
+        completed_at: "2026-01-01T09:16:08Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(
+      countOccurrences(markup, 'data-chat-message-timestamp="true"'),
+    ).toBe(2);
+    expect(markup).toContain(formatExpectedChatTimestamp(userCreatedAtMs));
+    expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
+    expect(markup).toContain('data-chat-assistant-activity-icon="robot"');
   });
 });
 

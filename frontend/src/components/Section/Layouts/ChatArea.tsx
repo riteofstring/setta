@@ -537,6 +537,7 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content,
         attachments,
+        createdAt: timestampMs,
       };
       const currentBranch = effectiveBranches[effectiveBranchId];
       const baseMessages = currentBranch?.messages ?? effectiveMessages;
@@ -763,6 +764,7 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content,
         attachments,
+        createdAt: Date.now(),
       };
       const result = buildBranchFromEdit({
         state: effectiveState,

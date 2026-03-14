@@ -95,20 +95,52 @@ function mergeStreamingAssistantMessage(
   backendMessage: AssistantChatMessage,
   localMessage: AssistantChatMessage,
 ): AssistantChatMessage {
+  return withPreservedCreatedAt(
+    {
+      ...backendMessage,
+      content: mergeStreamingAssistantContent(
+        backendMessage.content,
+        localMessage.content,
+      ),
+      tool_calls:
+        backendMessage.tool_calls && backendMessage.tool_calls.length > 0
+          ? backendMessage.tool_calls
+          : localMessage.tool_calls,
+      attachments:
+        backendMessage.attachments && backendMessage.attachments.length > 0
+          ? backendMessage.attachments
+          : localMessage.attachments,
+    },
+    localMessage,
+  ) as AssistantChatMessage;
+}
+
+function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number {
+  const createdAt = (message as { createdAt?: unknown }).createdAt;
+  if (
+    typeof createdAt !== "number" ||
+    !Number.isFinite(createdAt) ||
+    createdAt <= 0
+  ) {
+    return 0;
+  }
+  return createdAt;
+}
+
+function withPreservedCreatedAt(
+  message: BaseChatMessageUnion,
+  fallbackMessage: BaseChatMessageUnion,
+): BaseChatMessageUnion {
+  if (resolveMessageCreatedAtMs(message) > 0) {
+    return message;
+  }
+  const fallbackCreatedAt = resolveMessageCreatedAtMs(fallbackMessage);
+  if (fallbackCreatedAt <= 0) {
+    return message;
+  }
   return {
-    ...backendMessage,
-    content: mergeStreamingAssistantContent(
-      backendMessage.content,
-      localMessage.content,
-    ),
-    tool_calls:
-      backendMessage.tool_calls && backendMessage.tool_calls.length > 0
-        ? backendMessage.tool_calls
-        : localMessage.tool_calls,
-    attachments:
-      backendMessage.attachments && backendMessage.attachments.length > 0
-        ? backendMessage.attachments
-        : localMessage.attachments,
+    ...message,
+    createdAt: fallbackCreatedAt,
   };
 }
 
@@ -204,17 +236,17 @@ function pickMoreCompleteMessage(
   incoming: BaseChatMessageUnion,
 ): BaseChatMessageUnion {
   if (existing.role !== incoming.role) {
-    return incoming;
+    return withPreservedCreatedAt(incoming, existing);
   }
   const existingScore = getMessageCompletenessScore(existing);
   const incomingScore = getMessageCompletenessScore(incoming);
   if (incomingScore > existingScore) {
-    return incoming;
+    return withPreservedCreatedAt(incoming, existing);
   }
   if (existingScore > incomingScore) {
-    return existing;
+    return withPreservedCreatedAt(existing, incoming);
   }
-  return incoming;
+  return withPreservedCreatedAt(incoming, existing);
 }
 
 function getAssistantMessageScore(message: AssistantChatMessage): number {

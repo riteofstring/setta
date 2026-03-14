@@ -2533,6 +2533,7 @@ export async function submitMessage(
     role: ChatRoleEnum.user,
     content,
     attachments,
+    createdAt: Date.now(),
   };
   const userMessageId = userMessage.id;
 
@@ -2645,6 +2646,7 @@ export async function submitEditedMessage({
     role: ChatRoleEnum.user,
     content,
     attachments,
+    createdAt: Date.now(),
   };
   const nextMessages = buildEditedMessageHistory(messages, editedMessage);
   if (!nextMessages) {
@@ -3871,11 +3873,57 @@ function upsertMessage(
   const idToUse = targetId ?? message.id;
   const existingIndex = messages.findIndex((entry) => entry.id === idToUse);
   if (existingIndex === -1) {
-    return [...messages, message];
+    return [...messages, stampMessageCreatedAtIfMissing(message)];
   }
+  const existingMessage = messages[existingIndex];
   const nextMessages = [...messages];
-  nextMessages[existingIndex] = message;
+  nextMessages[existingIndex] = mergeMessageCreatedAt(message, existingMessage);
   return nextMessages;
+}
+
+function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number {
+  const createdAt = (message as { createdAt?: unknown }).createdAt;
+  if (
+    typeof createdAt !== "number" ||
+    !Number.isFinite(createdAt) ||
+    createdAt <= 0
+  ) {
+    return 0;
+  }
+  return createdAt;
+}
+
+function mergeMessageCreatedAt(
+  message: BaseChatMessageUnion,
+  existingMessage: BaseChatMessageUnion | null,
+): BaseChatMessageUnion {
+  const nextCreatedAt = resolveMessageCreatedAtMs(message);
+  if (nextCreatedAt > 0 || existingMessage === null) {
+    return message;
+  }
+  const existingCreatedAt = resolveMessageCreatedAtMs(existingMessage);
+  if (existingCreatedAt <= 0) {
+    return message;
+  }
+  return {
+    ...message,
+    createdAt: existingCreatedAt,
+  };
+}
+
+function stampMessageCreatedAtIfMissing(
+  message: BaseChatMessageUnion,
+): BaseChatMessageUnion {
+  if (
+    message.role === ChatRoleEnum.tool ||
+    resolveMessageCreatedAtMs(message) > 0
+  ) {
+    return message;
+  }
+  return {
+    ...message,
+    createdAt: Date.now(),
+  };
 }
 
 function getChatSectionStateFromStore(
@@ -4311,6 +4359,7 @@ function ensureAssistantMessage(
     role: ChatRoleEnum.assistant,
     content: [],
     tool_calls: null,
+    createdAt: Date.now(),
   };
   return { messages: [...messages, assistant], assistant };
 }
