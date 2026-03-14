@@ -19,10 +19,7 @@ import {
   ListenerCoverageSnapshot,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaLspDiagnostic,
-  SettaProjectNameValidationErrors,
   SettingsState,
-  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -41,6 +38,17 @@ export type {
 } from "./stores/activeSectionStores";
 export { useAIStore } from "./stores/aiStore";
 export type { ChatBranchInfo, ChatDetails } from "./stores/aiStore";
+export {
+  useLspDiagnostics,
+  useNameValidationErrors,
+  useTypeErrors,
+} from "./stores/diagnosticsStores";
+export {
+  useMisc,
+  useProjectLoading,
+  useTemporaryMiscState,
+  useWebsocketConnectionList,
+} from "./stores/ephemeralUiStores";
 export { useLocalStorage } from "./stores/localStorageStore";
 export type {
   ColorModePreference,
@@ -314,109 +322,6 @@ export const useEdgeHandleRegistry = withProjectState(
 );
 
 export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
-
-type ZustandTypeErrors = {
-  userRequested: boolean;
-  errors: Record<
-    string,
-    {
-      callable: Array<string>;
-      params: Record<string, Array<string>>;
-    }
-  >;
-};
-
-export const useTypeErrors = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandTypeErrors>(() => ({
-        userRequested: false,
-        errors: {},
-      })),
-    ),
-  ),
-);
-
-type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
-};
-
-export const useLspDiagnostics = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandLspDiagnostics>(() => ({
-        codeSections: {},
-        unmappedGenCode: [],
-      })),
-    ),
-  ),
-);
-
-type ZustandNameValidationErrors = {
-  pendingByProjectId: Record<string, SettaProjectNameValidationErrors>;
-  projectErrors: Array<string>;
-  sectionErrors: Record<string, Array<string>>;
-  paramErrors: Record<string, Array<string>>;
-};
-
-export const useNameValidationErrors = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandNameValidationErrors>(() => ({
-        pendingByProjectId: {},
-        projectErrors: [],
-        sectionErrors: {},
-        paramErrors: {},
-      })),
-    ),
-  ),
-);
-
-type ZustandWebsocketConnectionList = {
-  connections: Array<WebsocketConnectionInfo>;
-};
-
-export const useWebsocketConnectionList = createWithEqualityFn(
-  withResetFn<ZustandWebsocketConnectionList>(() => ({
-    connections: [],
-  })),
-);
-
-export const useTemporaryMiscState = withProjectState(
-  createWithEqualityFn(subscribeWithSelector(withResetFn(() => ({})))),
-);
-
-export const useProjectLoading = createWithEqualityFn(
-  withResetFn(() => ({ projectIsLoading: false, projectIs404: false })),
-);
-
-export const useMisc = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      withResetFn(() => ({
-        isPanScrolling: false,
-        lastMouseDownLocation: null,
-        lastMouseUpLocation: null,
-        mouseDownDrawArea: false,
-        mouseDownDraggingSection: false,
-        lastPaneClickLocation: { x: 0, y: 0 },
-        undoOrRedoWasTriggered: false,
-        isSelectingParams: false,
-        numDisplayedCodeAreas: 0,
-        numInitializedCodeAreas: 0,
-        requestUpdateNodeDimensions: false,
-        updateAllDrawAreas: 0,
-        updateDrawArea: {}, // sectionId to number that increments every time we want to update
-        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
-        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
-          string,
-          true
-        >,
-      })),
-    ),
-  ),
-);
 
 type AIFollowState = {
   mode: AIFollowMode;

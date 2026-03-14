@@ -24,7 +24,6 @@ import {
   PendingOperation,
   useAllProjectMetadata,
   useLocalStorage,
-  useMisc,
   usePendingOperations,
   useProjectState,
   useShareSession,
@@ -36,6 +35,7 @@ import {
   useNodeInternals,
   type ZustandNodeInternalsState,
 } from "state/stores/activeSectionStores";
+import { useMisc } from "state/stores/ephemeralUiStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import {

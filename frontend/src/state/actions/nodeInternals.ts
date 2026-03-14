@@ -3,11 +3,12 @@ import { fitView } from "forks/xyflow/core/store/utils";
 import { Node, NodeDragItem } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
-import { useMisc, useProjectState, useSectionRefs } from "state/definitions";
+import { useProjectState, useSectionRefs } from "state/definitions";
 import {
   useNodeInternals,
   type ZustandNodeInternalsState,
 } from "state/stores/activeSectionStores";
+import { useMisc } from "state/stores/ephemeralUiStores";
 import { Position } from "utils/generatedTypes";
 import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {

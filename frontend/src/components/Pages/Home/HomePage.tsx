@@ -35,10 +35,10 @@ import {
   useHomeFileBrowserState,
   useHomePageSearch,
   useLocalStorage,
-  useProjectLoading,
   useShareSession,
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
+import { useProjectLoading } from "state/stores/ephemeralUiStores";
 import {
   buildSharePath,
   CLOSED_PANE_WIDTH,

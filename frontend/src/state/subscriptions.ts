@@ -4,12 +4,12 @@ import _ from "lodash";
 import {
   useDecodedImages,
   useImages,
-  useMisc,
   useProjectState,
   ZustandImages,
   ZustandProjectState,
 } from "state/definitions";
 import { useNodeInternals } from "state/stores/activeSectionStores";
+import { useMisc } from "state/stores/ephemeralUiStores";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   getNodeUpdateInformation,

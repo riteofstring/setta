@@ -34,6 +34,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - `state/definitions.ts` is the current shared store entry point. New store work should move toward domain-owned store modules instead of extending one large mixed file.
 - Persisted UI preferences now live in `state/stores/localStorageStore.ts`, and persisted AI/session chat state now lives in `state/stores/aiStore.ts`.
 - Active selection, node internals, and atomic staged project-store publication now live in `state/stores/activeSectionStores.ts`.
+- Validation and diagnostics stores now live in `state/stores/diagnosticsStores.ts`, and transient loading/connection/interaction UI state now lives in `state/stores/ephemeralUiStores.ts`.
 - Reads and writes should be easy to distinguish:
   - selectors/query helpers answer questions
   - command modules perform mutations
