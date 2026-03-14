@@ -46,6 +46,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
   effective-impl reads and local impl writes on that dedicated surface instead
   of adding them back to the remaining metadata/query file.
+- `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
+  websocket payload dispatch, project/app snapshot routing, and
+  `UISettingReveal` ACK handling that previously lived in
+  `frontend/src/state/actions/websocketReceive.ts`; future cleanup should keep
+  new incoming websocket event handlers on that dedicated module instead of
+  mixing them back into socket transport and outbound realtime send logic.
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
   and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
@@ -63,9 +69,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/websocketReceive.ts` at 1023 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
+  - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
@@ -77,6 +83,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - in-place impl mutation helpers for section/code-object writes
   - terminal attachment and section-orientation helpers that depend on
     effective impl resolution
+- `websocketIncomingMessages.ts` now owns:
+  - frontend websocket payload parsing and feature-specific dispatch
+  - project/app snapshot routing for inbound websocket updates
+  - `UISettingReveal` ACK validation and failure-status construction
+- `websocketReceive.ts` now owns:
+  - websocket transport lifecycle and reconnect/auth recovery
+  - share-session heartbeat and bootstrap fetches on socket open
+  - outbound realtime dependency and binary-send/upload helpers
 - `sectionInfos.ts` currently mixes:
   - streaming chat merge behavior
   - section metadata and layout queries

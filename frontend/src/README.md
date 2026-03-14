@@ -164,6 +164,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectStateOptimisticUpdates.ts` owns the pending-operation
     queue and optimistic project-state mutation scaffolding used by shared state
     action modules.
+  - `state/actions/websocketIncomingMessages.ts` owns frontend websocket
+    payload dispatch, project/app snapshot routing, and `UISettingReveal` ACK
+    handling.
+  - `state/actions/websocketReceive.ts` now owns socket transport lifecycle,
+    auth/share-session recovery, listener-coverage bootstrap, and outbound
+    realtime dependency sending.
   - `state/actions/sectionEffectiveImpls.ts` owns effective section/code-object
     resolution, typed current-section/code-object selectors, and in-place
     impl-mutation helpers that previously lived in `sectionInfos.ts`.
@@ -235,8 +241,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/websocketReceive.ts` protocol/event split across websocket
-  transport handling, snapshot reconciliation, and feature-specific dispatchers
+- `state/hooks/terminals/terminal.ts` terminal-lifecycle split across transport
+  wiring, terminal-session ownership, and feature-specific terminal helpers
+- `state/actions/uiSettingRevealMutations.ts` mutation-lease split across
+  snapshot capture, rollback/finalization, and per-surface mutation helpers
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,

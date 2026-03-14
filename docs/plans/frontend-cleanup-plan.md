@@ -45,8 +45,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 934 authored TS/TSX files under `frontend/src`.
-- There are 47 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 979 authored TS/TSX files under `frontend/src`.
+- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
@@ -95,6 +95,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   and in-place impl mutation helpers, reducing
   `frontend/src/state/actions/sectionInfos.ts` further to 678 lines for the
   remaining streaming merge and section metadata/layout query surface.
+- `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
+  websocket payload dispatch, project/app snapshot routing, and
+  `UISettingReveal` ACK handling, reducing
+  `frontend/src/state/actions/websocketReceive.ts` to 706 lines for the
+  remaining transport/auth bootstrap and outbound realtime send surface.
 - `frontend/src/state/actions/windowSpacePersistence.ts` and
   `frontend/src/state/actions/windowSpaceSnapshots.ts` now own saved
   window-space mutations plus floating snapshot/restore conversion, reducing
