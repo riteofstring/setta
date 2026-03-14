@@ -32,15 +32,16 @@ import {
 } from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
+  useHomeFileBrowserState,
   useHomePageSearch,
   useLocalStorage,
+  useProjectLoading,
   useShareSession,
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
-import { useProjectLoading } from "state/stores/ephemeralUiStores";
-import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
 import {
   buildSharePath,
+  CLOSED_PANE_WIDTH,
   CODEMIRROR_TOOLTIP_PARENT_ID,
   PAGE_LOAD_TYPES,
   PaneNameEnum,
@@ -48,21 +49,9 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { router_set_as_default_project } from "utils/generatedEndpoints";
+import { route_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
-import {
-  getHomeProjectConfigsSectionTitle,
-  partitionProjectsByFavoriteStatus,
-  reconcileFavoriteProjectConfigIds,
-  reconcileSelectedHomeProjectIds,
-  resolveActiveHomeProjectId,
-  resolveHomeWorkspaceChromeState,
-  resolveSelectedHomeProject,
-  shouldApplyHomeFileBrowserPath,
-  shouldOpenProjectOnListRowSpace,
-  shouldUseCompactHomeLayout,
-} from "./homeWorkspaceState";
 
 const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;
 const HOME_SELECTED_PROJECT_PANE_NAME = PaneNameEnum.homeSelectedProject;
@@ -81,6 +70,84 @@ const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
 const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
+const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
+
+export function shouldUseCompactHomeLayout(
+  winWidth: number | undefined,
+): boolean {
+  if (typeof winWidth === "number") {
+    return winWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
+  }
+  if (typeof window !== "undefined") {
+    return window.innerWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
+  }
+  return false;
+}
+
+export function shouldApplyHomeFileBrowserPath({
+  nextPath,
+  currentRootPath,
+}: {
+  nextPath: string;
+  currentRootPath: string | null;
+}): boolean {
+  if (!nextPath) {
+    return false;
+  }
+  return nextPath !== currentRootPath;
+}
+
+export function partitionProjectsByFavoriteStatus({
+  projects,
+  favoriteProjectConfigIds,
+}: {
+  projects: Array<ProjectConfig>;
+  favoriteProjectConfigIds: Set<string>;
+}): {
+  favoriteProjects: Array<ProjectConfig>;
+  nonFavoriteProjects: Array<ProjectConfig>;
+  totalProjectsCount: number;
+} {
+  const favoriteProjects: Array<ProjectConfig> = [];
+  const nonFavoriteProjects: Array<ProjectConfig> = [];
+  for (const project of projects) {
+    if (favoriteProjectConfigIds.has(project.id)) {
+      favoriteProjects.push(project);
+      continue;
+    }
+    nonFavoriteProjects.push(project);
+  }
+  return {
+    favoriteProjects,
+    nonFavoriteProjects,
+    totalProjectsCount: projects.length,
+  };
+}
+
+export function getHomeProjectConfigsSectionTitle(
+  hasFavorites: boolean,
+): string {
+  if (hasFavorites) {
+    return "Other Projects";
+  }
+  return "All Projects";
+}
+
+export function shouldOpenProjectOnListRowSpace(
+  selectionEnabled: boolean,
+): boolean {
+  return !selectionEnabled;
+}
+
+export function shouldShowCompactHomeSettingsButton({
+  isCompactLayout,
+  isDeploymentMode,
+}: {
+  isCompactLayout: boolean;
+  isDeploymentMode: boolean;
+}): boolean {
+  return isCompactLayout && !isDeploymentMode;
+}
 
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
@@ -193,26 +260,26 @@ function HomeWorkspaceLayout({
     if (!hasLoadedProjectMetadata) {
       return;
     }
+    const validProjectIds = new Set(projects.map((project) => project.id));
     const currentFavoriteIds =
       useLocalStorage.getState().favoriteProjectConfigIds;
-    const nextFavoriteIds = reconcileFavoriteProjectConfigIds({
-      projects,
-      favoriteProjectConfigIds: currentFavoriteIds,
-    });
+    const nextFavoriteIds = currentFavoriteIds.filter((id) =>
+      validProjectIds.has(id),
+    );
     if (nextFavoriteIds.length !== currentFavoriteIds.length) {
       useLocalStorage.setState({ favoriteProjectConfigIds: nextFavoriteIds });
     }
   }, [hasLoadedProjectMetadata, projects]);
 
   useEffect(() => {
+    const validProjectIds = new Set(projects.map((project) => project.id));
     setSelectedProjects((previousProjects) => {
       if (previousProjects.length === 0) {
         return previousProjects;
       }
-      const nextSelectedProjects = reconcileSelectedHomeProjectIds({
-        projects,
-        selectedProjectIds: previousProjects,
-      });
+      const nextSelectedProjects = previousProjects.filter((id) =>
+        validProjectIds.has(id),
+      );
       if (nextSelectedProjects.length === previousProjects.length) {
         return previousProjects;
       }
@@ -221,22 +288,36 @@ function HomeWorkspaceLayout({
   }, [projects]);
 
   useEffect(() => {
-    const nextActiveProjectId = resolveActiveHomeProjectId({
-      filteredProjects,
-      activeProjectId,
-    });
-    if (nextActiveProjectId !== activeProjectId) {
-      setActiveProjectId(nextActiveProjectId);
+    if (filteredProjects.length === 0) {
+      setActiveProjectId(null);
+      return;
+    }
+    const activeExists = filteredProjects.some((x) => x.id === activeProjectId);
+    if (!activeExists) {
+      setActiveProjectId(filteredProjects[0]?.id ?? null);
     }
   }, [activeProjectId, filteredProjects]);
 
   const selectedDetailProject = useMemo(() => {
-    return resolveSelectedHomeProject({
-      selectedProjectIds: selectedProjects,
-      filteredProjects,
-      projects,
-      activeProjectId,
-    });
+    if (selectedProjects.length > 0) {
+      const selected = filteredProjects.find(
+        (x) => x.id === selectedProjects[0],
+      );
+      if (selected) {
+        return selected;
+      }
+      const fallback = projects.find((x) => x.id === selectedProjects[0]);
+      if (fallback) {
+        return fallback;
+      }
+    }
+    if (activeProjectId) {
+      const active = filteredProjects.find((x) => x.id === activeProjectId);
+      if (active) {
+        return active;
+      }
+    }
+    return filteredProjects[0] ?? null;
   }, [activeProjectId, filteredProjects, projects, selectedProjects]);
 
   async function handleCreateConfig() {
@@ -289,7 +370,7 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await router_set_as_default_project({ projectConfigId });
+    await route_set_as_default_project({ projectConfigId });
   }
 
   const commonGalleryProps = {
@@ -308,30 +389,21 @@ function HomeWorkspaceLayout({
     onToggleFavoriteProjectConfig: toggleFavoriteProjectConfig,
     galleryViewMode: homeProjectGalleryViewMode,
   };
-  const {
-    showSidePanes,
-    middleInsetLeft,
-    middleInsetRight,
-    showCompactSettingsButton,
-  } = useMemo(
-    () =>
-      resolveHomeWorkspaceChromeState({
-        isCompactLayout,
-        homeWorkspacePaneVis,
-        homeWorkspacePaneWidth,
-        homeSelectedProjectPaneVis,
-        homeSelectedProjectPaneWidth,
-        isDeploymentMode,
-      }),
-    [
-      homeSelectedProjectPaneVis,
-      homeSelectedProjectPaneWidth,
-      homeWorkspacePaneVis,
-      homeWorkspacePaneWidth,
-      isCompactLayout,
-      isDeploymentMode,
-    ],
-  );
+  const showSidePanes = !isCompactLayout;
+  const middleInsetLeft = showSidePanes
+    ? homeWorkspacePaneVis
+      ? homeWorkspacePaneWidth
+      : CLOSED_PANE_WIDTH
+    : 0;
+  const middleInsetRight = showSidePanes
+    ? homeSelectedProjectPaneVis
+      ? homeSelectedProjectPaneWidth
+      : CLOSED_PANE_WIDTH
+    : 0;
+  const showCompactSettingsButton = shouldShowCompactHomeSettingsButton({
+    isCompactLayout,
+    isDeploymentMode,
+  });
 
   return (
     <>
