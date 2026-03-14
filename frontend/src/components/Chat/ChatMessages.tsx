@@ -24,6 +24,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -95,6 +96,10 @@ import {
   ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
+import {
+  findConversationSearchTextRanges,
+  type ConversationSearchTextRange,
+} from "utils/conversationSearch";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
@@ -295,6 +300,7 @@ type ChatMessageListProps = {
   toolCallArguments?: Record<string, string>;
   interruptedAssistantMessageIds?: Record<string, true>;
   activeSearchMessageId?: string | null;
+  conversationSearchTerms?: Array<string>;
   className?: string;
   contentClassName?: string;
   scrollRef?: Ref<HTMLDivElement>;
@@ -314,7 +320,160 @@ type MarkdownContentProps = {
   className: string;
   role: ChatRoleEnum;
   isStreaming: boolean;
+  highlightTerms?: Array<string>;
 };
+
+type HastNode = {
+  type: string;
+  value?: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: Array<HastNode>;
+};
+
+const CHAT_SEARCH_HIGHLIGHT_CLASS_NAME =
+  "rounded-sm bg-amber-200/80 px-[0.06rem] text-inherit dark:bg-amber-500/20";
+const CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS = new Set([
+  "code",
+  "pre",
+  "script",
+  "style",
+]);
+
+function buildConversationSearchHighlightNodes(
+  value: string,
+  ranges: Array<ConversationSearchTextRange>,
+): Array<HastNode> {
+  if (ranges.length === 0) {
+    return [{ type: "text", value }];
+  }
+  const nodes: Array<HastNode> = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      nodes.push({
+        type: "text",
+        value: value.slice(cursor, range.start),
+      });
+    }
+    nodes.push({
+      type: "element",
+      tagName: "mark",
+      properties: {
+        className: [CHAT_SEARCH_HIGHLIGHT_CLASS_NAME],
+        "data-chat-search-highlight": "true",
+      },
+      children: [
+        {
+          type: "text",
+          value: value.slice(range.start, range.end),
+        },
+      ],
+    });
+    cursor = range.end;
+  }
+  if (cursor < value.length) {
+    nodes.push({
+      type: "text",
+      value: value.slice(cursor),
+    });
+  }
+  return nodes;
+}
+
+function highlightConversationSearchTextNodes(
+  node: HastNode,
+  normalizedSearchTerms: Array<string>,
+): void {
+  const children = node.children;
+  if (!children || children.length === 0) {
+    return;
+  }
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (!child) {
+      continue;
+    }
+    if (child.type === "text" && typeof child.value === "string") {
+      const ranges = findConversationSearchTextRanges(
+        child.value,
+        normalizedSearchTerms,
+      );
+      if (ranges.length === 0) {
+        continue;
+      }
+      const replacementNodes = buildConversationSearchHighlightNodes(
+        child.value,
+        ranges,
+      );
+      children.splice(
+        index,
+        1,
+        ...replacementNodes,
+      );
+      index += replacementNodes.length - 1;
+      continue;
+    }
+    if (
+      child.type === "element" &&
+      typeof child.tagName === "string" &&
+      CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS.has(child.tagName)
+    ) {
+      continue;
+    }
+    highlightConversationSearchTextNodes(child, normalizedSearchTerms);
+  }
+}
+
+function buildConversationSearchHighlightPlugin(
+  normalizedSearchTerms: Array<string>,
+) {
+  return () => {
+    return (tree: HastNode) => {
+      highlightConversationSearchTextNodes(tree, normalizedSearchTerms);
+    };
+  };
+}
+
+function getConversationSearchRehypePlugins(
+  normalizedSearchTerms: Array<string>,
+): Array<() => (tree: HastNode) => void> | undefined {
+  if (normalizedSearchTerms.length === 0) {
+    return undefined;
+  }
+  return [buildConversationSearchHighlightPlugin(normalizedSearchTerms)];
+}
+
+function renderConversationSearchHighlightedText(
+  text: string,
+  normalizedSearchTerms: Array<string>,
+): ReactNode {
+  const ranges = findConversationSearchTextRanges(text, normalizedSearchTerms);
+  if (ranges.length === 0) {
+    return text;
+  }
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      nodes.push(text.slice(cursor, range.start));
+    }
+    nodes.push(
+      <mark
+        key={`${range.start}-${range.end}`}
+        className={CHAT_SEARCH_HIGHLIGHT_CLASS_NAME}
+        data-chat-search-highlight="true"
+      >
+        {text.slice(range.start, range.end)}
+      </mark>,
+    );
+    cursor = range.end;
+  }
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+  return nodes;
+}
 
 const CHAT_MARKDOWN_COMPONENTS: Components = {
   code: (props) => <CodeBlock {...props} wrapLines />,
@@ -342,9 +501,16 @@ function MarkdownContent({
   className,
   role,
   isStreaming,
+  highlightTerms = [],
 }: MarkdownContentProps) {
   const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
   const displayText = useTypewriterEffect(content, shouldAnimate, 5);
+  const rehypePlugins = useMemo(() => {
+    if (highlightTerms.length === 0) {
+      return [rehypeKatex];
+    }
+    return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
+  }, [highlightTerms]);
   const markdownWidthClassName =
     role === ChatRoleEnum.assistant
       ? "inline-block max-w-full align-top"
@@ -363,7 +529,7 @@ function MarkdownContent({
       >
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
+          rehypePlugins={rehypePlugins}
           className={className}
           components={CHAT_MARKDOWN_COMPONENTS}
         >
@@ -376,7 +542,7 @@ function MarkdownContent({
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
+      rehypePlugins={rehypePlugins}
       className={markdownClassName}
       components={CHAT_MARKDOWN_COMPONENTS}
     >
@@ -3081,6 +3247,7 @@ const ThinkingBox = memo(function ThinkingBox({
   expandAllSignal = 0,
   collapseAllSignal = 0,
   suppressCollapsedSummary = false,
+  conversationSearchTerms = [],
 }: {
   content: string;
   summary: string | null | undefined;
@@ -3095,6 +3262,7 @@ const ThinkingBox = memo(function ThinkingBox({
   expandAllSignal?: number;
   collapseAllSignal?: number;
   suppressCollapsedSummary?: boolean;
+  conversationSearchTerms?: Array<string>;
 }) {
   const streaming = isStreaming;
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -3255,10 +3423,18 @@ const ThinkingBox = memo(function ThinkingBox({
                   className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
                 >
                   {shouldRenderPlainSummaryWithHint ? (
-                    <span>{collapsedSummaryWithHint}</span>
+                    <span>
+                      {renderConversationSearchHighlightedText(
+                        collapsedSummaryWithHint,
+                        conversationSearchTerms,
+                      )}
+                    </span>
                   ) : (
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
+                      rehypePlugins={getConversationSearchRehypePlugins(
+                        conversationSearchTerms,
+                      )}
                       components={{
                         p: ({ children }) => <span>{children}</span>,
                         a: ({ children }) => <span>{children}</span>,
@@ -3362,6 +3538,7 @@ const ThinkingBox = memo(function ThinkingBox({
                   className={ASSISTANT_MARKDOWN_CLASS}
                   role={ChatRoleEnum.assistant}
                   isStreaming={isStreaming}
+                  highlightTerms={conversationSearchTerms}
                 />
               </div>
             ) : (
@@ -3374,6 +3551,7 @@ const ThinkingBox = memo(function ThinkingBox({
                   className={ASSISTANT_MARKDOWN_CLASS}
                   role={ChatRoleEnum.assistant}
                   isStreaming={false}
+                  highlightTerms={conversationSearchTerms}
                 />
               </div>
             )}
@@ -3415,6 +3593,7 @@ const ThinkingSection = memo(function ThinkingSection({
   sectionState,
   runKey,
   hasExpandableDetails,
+  conversationSearchTerms = [],
 }: {
   children: ReactNode;
   thoughtCount: number;
@@ -3422,6 +3601,7 @@ const ThinkingSection = memo(function ThinkingSection({
   sectionState: ToolCallSectionState;
   runKey: string;
   hasExpandableDetails: boolean;
+  conversationSearchTerms?: Array<string>;
 }) {
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
   const [isSummaryTitleTruncated, setIsSummaryTitleTruncated] = useState(false);
@@ -3521,6 +3701,9 @@ const ThinkingSection = memo(function ThinkingSection({
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={getConversationSearchRehypePlugins(
+                    conversationSearchTerms,
+                  )}
                   components={{
                     p: ({ children }) => <span>{children}</span>,
                     a: ({ children }) => <span>{children}</span>,
@@ -3561,9 +3744,11 @@ const ThinkingSection = memo(function ThinkingSection({
 const AssistantThinkingSection = memo(function AssistantThinkingSection({
   entries,
   runKey,
+  conversationSearchTerms = [],
 }: {
   entries: ThinkingRenderEntry[];
   runKey: string;
+  conversationSearchTerms?: Array<string>;
 }) {
   const thinkingItems = entries.map(({ item }) => item);
   const isStreaming = entries.some(
@@ -3592,6 +3777,7 @@ const AssistantThinkingSection = memo(function AssistantThinkingSection({
       sectionState={sectionState}
       runKey={runKey}
       hasExpandableDetails={hasExpandableDetails}
+      conversationSearchTerms={conversationSearchTerms}
     >
       {entries.map((entry) => (
         <ThinkingBox
@@ -3602,6 +3788,7 @@ const AssistantThinkingSection = memo(function AssistantThinkingSection({
           isStreaming={entry.isStreaming}
           wasInterrupted={entry.wasInterrupted}
           runKey={`${entry.messageId}-thinking-${entry.itemIndex}`}
+          conversationSearchTerms={conversationSearchTerms}
         />
       ))}
     </ThinkingSection>
@@ -3810,6 +3997,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   suppressThoughtScrollAnimation = false,
   defaultOpen = false,
   defaultChildrenOpen = false,
+  conversationSearchTerms = [],
   children,
 }: {
   preview: ActivityPreviewData;
@@ -3821,6 +4009,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   suppressThoughtScrollAnimation?: boolean;
   defaultOpen?: boolean;
   defaultChildrenOpen?: boolean;
+  conversationSearchTerms?: Array<string>;
   children: (
     showItemCopyButtons: boolean,
     childAccordionControl: AssistantActivityChildAccordionControl,
@@ -3982,10 +4171,16 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                       className="min-w-0 basis-full truncate text-[11px] text-setta-500 @[20rem]:flex-1 @[20rem]:basis-auto dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
                     >
                       {preview.shouldScrambleTitle ? (
-                        activityTitleLabel
+                        renderConversationSearchHighlightedText(
+                          activityTitleLabel,
+                          conversationSearchTerms,
+                        )
                       ) : (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
+                          rehypePlugins={getConversationSearchRehypePlugins(
+                            conversationSearchTerms,
+                          )}
                           components={{
                             p: ({ children }) => <span>{children}</span>,
                             a: ({ children }) => <span>{children}</span>,
@@ -5068,6 +5263,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
   openAllSignal = 0,
   closeAllSignal = 0,
   suppressCollapsedSummary = false,
+  conversationSearchTerms = [],
 }: {
   timelineEntries: ActivityTimelineEntry[];
   toolResultsById: Record<string, ToolChatMessage>;
@@ -5077,6 +5273,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
   openAllSignal?: number;
   closeAllSignal?: number;
   suppressCollapsedSummary?: boolean;
+  conversationSearchTerms?: Array<string>;
 }) {
   const rows = timelineEntries.map((entry) => {
     const copyText = buildCopyTextForActivityTimelineEntry({
@@ -5109,6 +5306,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
           suppressCollapsedSummary={suppressCollapsedSummary}
+          conversationSearchTerms={conversationSearchTerms}
         />
       );
     }
@@ -5677,7 +5875,13 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
   );
 });
 
-function AssistantErrorCallout({ content }: { content: string }) {
+function AssistantErrorCallout({
+  content,
+  conversationSearchTerms = [],
+}: {
+  content: string;
+  conversationSearchTerms?: Array<string>;
+}) {
   const displayText = stripAssistantErrorPrefix(content);
   return (
     <div
@@ -5694,6 +5898,7 @@ function AssistantErrorCallout({ content }: { content: string }) {
           className={ASSISTANT_ERROR_MARKDOWN_CLASS}
           role={ChatRoleEnum.assistant}
           isStreaming={false}
+          highlightTerms={conversationSearchTerms}
         />
       </div>
     </div>
@@ -5704,15 +5909,22 @@ function StreamItem({
   item,
   isStreaming,
   runKey,
+  conversationSearchTerms = [],
 }: {
   item: ChatContentItem;
   isStreaming: boolean;
   runKey: string;
+  conversationSearchTerms?: Array<string>;
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
       if (isAssistantErrorText(item.text)) {
-        return <AssistantErrorCallout content={item.text} />;
+        return (
+          <AssistantErrorCallout
+            content={item.text}
+            conversationSearchTerms={conversationSearchTerms}
+          />
+        );
       }
       return (
         <MarkdownContent
@@ -5720,6 +5932,7 @@ function StreamItem({
           className={ASSISTANT_MARKDOWN_CLASS}
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
+          highlightTerms={conversationSearchTerms}
         />
       );
     case C.LLM_THINKING:
@@ -5731,6 +5944,7 @@ function StreamItem({
           isStreaming={isStreaming}
           wasInterrupted={false}
           runKey={runKey}
+          conversationSearchTerms={conversationSearchTerms}
         />
       );
     case "image_url":
@@ -5811,7 +6025,7 @@ function AssistantMessageGroup({
 }) {
   const widthClass = `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`;
   const containerClassName = isSearchMatchActive
-    ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70 @container/chat-message"
+    ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
     : "mb-2 mt-1.5 flex justify-start @container/chat-message";
   return (
     <div
@@ -5862,7 +6076,7 @@ function UserChatBubble({
   isSearchMatchActive?: boolean;
 }) {
   const containerClassName = isSearchMatchActive
-    ? "my-2 flex justify-end rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70 @container/chat-message"
+    ? "my-2 flex justify-end rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
     : "my-2 flex justify-end @container/chat-message";
   return (
     <div
@@ -5912,7 +6126,7 @@ function SystemChatBubble({
   isSearchMatchActive?: boolean;
 }) {
   const containerClassName = isSearchMatchActive
-    ? "my-2 flex justify-center rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70 @container/chat-message"
+    ? "my-2 flex justify-center rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
     : "my-2 flex justify-center @container/chat-message";
   return (
     <div
@@ -6217,6 +6431,7 @@ const ChatMessage = memo(function ChatMessage({
   interrupted,
   activityAccordionOpenByDefault = false,
   activityChildrenOpenByDefault = false,
+  conversationSearchTerms = [],
   canEdit = false,
   editDisabledReason = null,
   onStartEdit,
@@ -6243,6 +6458,7 @@ const ChatMessage = memo(function ChatMessage({
   interrupted: boolean;
   activityAccordionOpenByDefault?: boolean;
   activityChildrenOpenByDefault?: boolean;
+  conversationSearchTerms?: Array<string>;
   canEdit?: boolean;
   editDisabledReason?: string | null;
   onStartEdit?: (bubbleWidthPx?: number) => void;
@@ -6394,6 +6610,7 @@ const ChatMessage = memo(function ChatMessage({
                 }
                 defaultOpen={activityAccordionOpenByDefault}
                 defaultChildrenOpen={activityChildrenOpenByDefault}
+                conversationSearchTerms={conversationSearchTerms}
               >
                 {(showItemCopyButtons, childAccordionControl) => (
                   <AssistantToolCallCard>
@@ -6408,6 +6625,7 @@ const ChatMessage = memo(function ChatMessage({
                       suppressCollapsedSummary={
                         childAccordionControl.suppressSummaries
                       }
+                      conversationSearchTerms={conversationSearchTerms}
                     />
                   </AssistantToolCallCard>
                 )}
@@ -6430,6 +6648,7 @@ const ChatMessage = memo(function ChatMessage({
                   item={item}
                   isStreaming={isStreaming}
                   runKey={`${message.id}-content-${fullIndex}`}
+                  conversationSearchTerms={conversationSearchTerms}
                 />
               );
             })}
@@ -6503,6 +6722,7 @@ const ChatMessage = memo(function ChatMessage({
               className={textClassName}
               role={message.role}
               isStreaming={false}
+              highlightTerms={conversationSearchTerms}
             />
           );
         }
@@ -6514,6 +6734,7 @@ const ChatMessage = memo(function ChatMessage({
               className={`${textClassName} italic`}
               role={message.role}
               isStreaming={false}
+              highlightTerms={conversationSearchTerms}
             />
           );
         }
@@ -6583,6 +6804,7 @@ function ChatMessages({
   toolCallArguments,
   interruptedAssistantMessageIds,
   activeSearchMessageId,
+  conversationSearchTerms = [],
   allMessages,
   editDisabledReason,
   onRedoMessage,
@@ -6595,6 +6817,7 @@ function ChatMessages({
   toolCallArguments: Record<string, string>;
   interruptedAssistantMessageIds?: Record<string, true>;
   activeSearchMessageId?: string | null;
+  conversationSearchTerms?: Array<string>;
   allMessages: Array<BaseChatMessageUnion>;
   editDisabledReason?: string | null;
   onRedoMessage?: (messageId: string) => Promise<boolean> | boolean;
@@ -6860,6 +7083,7 @@ function ChatMessages({
                   }
                   defaultOpen={activityAccordionOpenByDefault}
                   defaultChildrenOpen={activityChildrenOpenByDefault}
+                  conversationSearchTerms={conversationSearchTerms}
                 >
                   {(showItemCopyButtons, childAccordionControl) => (
                     <AssistantToolCallCard>
@@ -6874,6 +7098,7 @@ function ChatMessages({
                         suppressCollapsedSummary={
                           childAccordionControl.suppressSummaries
                         }
+                        conversationSearchTerms={conversationSearchTerms}
                       />
                     </AssistantToolCallCard>
                   )}
@@ -6921,6 +7146,7 @@ function ChatMessages({
         interrupted={Boolean(interruptedAssistantMessageIds?.[message.id])}
         activityAccordionOpenByDefault={activityAccordionOpenByDefault}
         activityChildrenOpenByDefault={activityChildrenOpenByDefault}
+        conversationSearchTerms={conversationSearchTerms}
         canEdit={canEdit}
         editDisabledReason={resolvedEditDisabledReason}
         onStartEdit={
@@ -7004,6 +7230,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   toolCallArguments,
   interruptedAssistantMessageIds,
   activeSearchMessageId = null,
+  conversationSearchTerms = [],
   className,
   contentClassName,
   scrollRef,
@@ -7035,14 +7262,38 @@ export const ChatMessageList = memo(function ChatMessageList({
   const toolArgs = toolCallArguments ?? {};
   const wrapperClassName =
     `flex min-h-0 min-w-0 flex-1 flex-col-reverse overflow-x-hidden overflow-y-auto pr-1 ${className ?? ""}`.trim();
-  const previousActiveSearchMessageIdRef = useRef<string | null>(null);
+  const previousActiveSearchTargetRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const scrollContainer = internalScrollRef.current;
+    if (!scrollContainer) {
+      return;
+    }
+    const highlights = scrollContainer.querySelectorAll<HTMLElement>(
+      'mark[data-chat-search-highlight="true"]',
+    );
+    highlights.forEach((highlight) => {
+      highlight.removeAttribute("data-chat-search-highlight-target");
+    });
+    if (!activeSearchMessageId || conversationSearchTerms.length === 0) {
+      return;
+    }
+    const escapedMessageId = escapeMessageIdSelectorValue(
+      activeSearchMessageId,
+    );
+    const activeHighlight = scrollContainer.querySelector<HTMLElement>(
+      `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight="true"]`,
+    );
+    activeHighlight?.setAttribute("data-chat-search-highlight-target", "true");
+  }, [activeSearchMessageId, conversationSearchTerms]);
 
   useEffect(() => {
     if (!activeSearchMessageId) {
-      previousActiveSearchMessageIdRef.current = null;
+      previousActiveSearchTargetRef.current = null;
       return;
     }
-    if (previousActiveSearchMessageIdRef.current === activeSearchMessageId) {
+    const activeSearchTargetKey = `${activeSearchMessageId}\u0000${conversationSearchTerms.join("\u0000")}`;
+    if (previousActiveSearchTargetRef.current === activeSearchTargetKey) {
       return;
     }
     const scrollContainer = internalScrollRef.current;
@@ -7052,18 +7303,22 @@ export const ChatMessageList = memo(function ChatMessageList({
     const escapedMessageId = escapeMessageIdSelectorValue(
       activeSearchMessageId,
     );
-    const target = scrollContainer.querySelector<HTMLElement>(
-      `[data-message-id="${escapedMessageId}"]`,
-    );
+    const target =
+      scrollContainer.querySelector<HTMLElement>(
+        `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight-target="true"]`,
+      ) ??
+      scrollContainer.querySelector<HTMLElement>(
+        `[data-message-id="${escapedMessageId}"]`,
+      );
     if (!target) {
       return;
     }
-    previousActiveSearchMessageIdRef.current = activeSearchMessageId;
+    previousActiveSearchTargetRef.current = activeSearchTargetKey;
     target.scrollIntoView({
       block: "center",
       behavior: "smooth",
     });
-  }, [activeSearchMessageId]);
+  }, [activeSearchMessageId, conversationSearchTerms]);
 
   return (
     <div
@@ -7078,6 +7333,7 @@ export const ChatMessageList = memo(function ChatMessageList({
           toolCallArguments={toolArgs}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           activeSearchMessageId={activeSearchMessageId}
+          conversationSearchTerms={conversationSearchTerms}
           allMessages={toolResultMessages}
           editDisabledReason={editDisabledReason}
           onRedoMessage={onRedoMessage}

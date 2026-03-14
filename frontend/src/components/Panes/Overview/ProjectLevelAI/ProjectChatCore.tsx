@@ -2210,6 +2210,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           toolCallArguments={toolCallArguments}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           activeSearchMessageId={activeConversationSearchMatchMessageId}
+          conversationSearchTerms={normalizedConversationSearchTerms}
           editDisabledReason={editDisabledReason}
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}

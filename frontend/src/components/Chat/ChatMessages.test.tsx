@@ -944,6 +944,48 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain('class="w-max max-w-full prose prose-sm');
   });
 
+  it("highlights matched conversation search terms inside rendered chat bubbles", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "search-user",
+        role: ChatRoleEnum.user,
+        createdAt: 1,
+        content: [createMessageTextContent({ text: "Queue kickoff request" })],
+        attachments: [],
+      },
+      {
+        id: "search-assistant",
+        role: ChatRoleEnum.assistant,
+        createdAt: 2,
+        content: [createMessageTextContent({ text: "Existing queue reply" })],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={messages}
+        allMessagesForToolResults={messages}
+        waitingForResponse={false}
+        toolCallArguments={{}}
+        conversationSearchTerms={["queue"]}
+        activeSearchMessageId="search-assistant"
+      />,
+    );
+
+    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
+      2,
+    );
+    expect(markup).toContain(">Queue</mark>");
+    expect(markup).toContain(">queue</mark>");
+    const activeMatchContainer = getTagByMarker(
+      markup,
+      'data-chat-search-active-match="true"',
+    );
+    expect(activeMatchContainer).toContain("bg-amber-300/90");
+  });
+
   it("keeps user markdown content on a wrapping width contract in narrow bubbles", () => {
     const messages: BaseChatMessageUnion[] = [
       {

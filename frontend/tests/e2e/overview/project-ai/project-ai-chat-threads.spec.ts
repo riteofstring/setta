@@ -1223,10 +1223,23 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     await expect(
       overviewPane.getByTestId("project-chat-conversation-filter"),
     ).toContainText("1/3");
+    const activeSearchMatch = overviewPane.locator(
+      '[data-chat-search-active-match="true"]',
+    );
+    await expect(activeSearchMatch).toContainText("Queue kickoff request");
+    await expect(
+      activeSearchMatch.locator('mark[data-chat-search-highlight="true"]'),
+    ).toContainText(/queue/i);
     await conversationFilterInput.press("Enter");
     await expect(
       overviewPane.getByTestId("project-chat-conversation-filter"),
     ).toContainText("2/3");
+    await expect(activeSearchMatch).toContainText("Existing queue thread reply");
+    await expect(
+      activeSearchMatch.locator(
+        'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
+      ),
+    ).toContainText(/queue/i);
     await conversationFilterInput.fill("");
     await clickDom(overviewPane.locator('button[aria-label="New Chat"]'));
     const draftEntry = threadsPanel.getByTestId(
