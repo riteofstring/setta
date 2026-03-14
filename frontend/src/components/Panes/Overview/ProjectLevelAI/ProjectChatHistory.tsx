@@ -2412,7 +2412,7 @@ function ThreadEntryLine({
       >
         <span
           ref={showThreadDragCursor ? sortable.setActivatorNodeRef : undefined}
-          className={`-ml-[2px] mr-px inline-flex h-4 w-3 shrink-0 items-center justify-center rounded transition-[color,opacity] ${
+          className={`-ml-px mr-px inline-flex h-4 w-3 shrink-0 items-center justify-center rounded transition-[color,opacity] ${
             showThreadDragCursor
               ? "cursor-grab touch-none text-setta-400 opacity-0 hover:text-setta-600 active:cursor-grabbing group-focus-within/thread-entry:opacity-100 group-hover/thread-entry:opacity-100 dark:text-setta-500 dark:hover:text-setta-300"
               : "text-setta-300 opacity-0 group-focus-within/thread-entry:opacity-100 group-hover/thread-entry:opacity-100 dark:text-setta-700"
