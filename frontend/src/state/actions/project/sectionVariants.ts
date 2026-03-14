@@ -1,5 +1,5 @@
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_delete_json_source_file_and_variant,
   route_delete_section_variant_or_ask,
@@ -8,12 +8,21 @@ import {
 import type {
   DeleteJSONSourceFileAndVariantRequestInput,
   DeleteSectionVariantOrAskRequestInput,
+  DeleteSectionVariantOrAskResponse,
+  ProjectStateSingleConfigWithCompletedOpIds,
 } from "utils/generatedTypes";
 
+type DeleteSectionVariantRouteResponse =
+  ResponseDataAndStatus<DeleteSectionVariantOrAskResponse | null>;
+type DeleteJSONSourceFileAndVariantRouteResponse = ResponseDataAndStatus<null>;
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+
 async function refreshProjectState(projectConfigId: string): Promise<boolean> {
-  const latestProjectStateResponse = await route_get_latest_project_state({
-    projectConfigId,
-  });
+  const latestProjectStateResponse: LatestProjectStateRouteResponse =
+    await route_get_latest_project_state({
+      projectConfigId,
+    });
   if (!res200(latestProjectStateResponse)) {
     return false;
   }
@@ -25,7 +34,8 @@ async function refreshProjectState(projectConfigId: string): Promise<boolean> {
 export async function deleteSectionVariantOrAskAndRefreshProjectState(
   payload: DeleteSectionVariantOrAskRequestInput,
 ): Promise<string | null> {
-  const response = await route_delete_section_variant_or_ask(payload);
+  const response: DeleteSectionVariantRouteResponse =
+    await route_delete_section_variant_or_ask(payload);
   if (!res200(response)) {
     return null;
   }
@@ -40,7 +50,8 @@ export async function deleteSectionVariantOrAskAndRefreshProjectState(
 export async function deleteJSONSourceFileAndVariantAndRefreshProjectState(
   payload: DeleteJSONSourceFileAndVariantRequestInput,
 ): Promise<boolean> {
-  const response = await route_delete_json_source_file_and_variant(payload);
+  const response: DeleteJSONSourceFileAndVariantRouteResponse =
+    await route_delete_json_source_file_and_variant(payload);
   if (!res200(response)) {
     return false;
   }
