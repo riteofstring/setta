@@ -968,43 +968,29 @@ func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 	}
 
 	tempDir := t.TempDir()
-	writeTestFile(t, filepath.Join(tempDir, "generatedRoutes.ts"), bindings.RoutesTS)
-	writeTestFile(t, filepath.Join(tempDir, "generatedTypes.ts"), bindings.TypesTS)
-	writeTestFile(t, filepath.Join(tempDir, "generatedEndpoints.ts"), bindings.EndpointsTS)
-	writeTestFile(t, filepath.Join(tempDir, "endpointUtils.ts"), `
-export type ResponseDataAndStatus<T> = {
-  data: T | undefined;
-  status: number | undefined;
-  hasResponse: boolean;
-};
+	repoRoot := testRepoRoot(t)
+	srcDir := filepath.Join(tempDir, "src")
 
-async function emptyResponse<T>(): Promise<ResponseDataAndStatus<T>> {
-  return { data: undefined, status: undefined, hasResponse: false };
-}
+	writeTestFile(t, filepath.Join(srcDir, "utils", "generatedRoutes.ts"), bindings.RoutesTS)
+	writeTestFile(t, filepath.Join(srcDir, "utils", "generatedTypes.ts"), bindings.TypesTS)
+	writeTestFile(t, filepath.Join(srcDir, "utils", "generatedEndpoints.ts"), bindings.EndpointsTS)
 
-export async function get<T>(
-  _address: string,
-  _params?: unknown,
-): Promise<ResponseDataAndStatus<T>> {
-  return await emptyResponse<T>();
-}
+	// Compile against the real frontend helper boundary the generated files import in production.
+	for _, repoPath := range []string{
+		"frontend/src/utils/endpointUtils.ts",
+		"frontend/src/utils/c_addresses.ts",
+		"frontend/src/utils/serverModeBoundaryPolicy.ts",
+		"frontend/src/utils/c.ts",
+		"frontend/src/utils/backendOriginOverride.ts",
+		"frontend/src/utils/launcherOrigin.ts",
+		"frontend/src/utils/origin.ts",
+		"frontend/src/utils/storage.ts",
+		"frontend/src/utils/hostnames.ts",
+	} {
+		copyFrontendSupportFile(t, repoRoot, srcDir, repoPath)
+	}
 
-export async function getBinary<T>(
-  _address: string,
-  _params?: unknown,
-): Promise<ResponseDataAndStatus<T>> {
-  return await emptyResponse<T>();
-}
-
-export async function post<T>(
-  _address: string,
-  _payload: unknown,
-  _params?: unknown,
-): Promise<ResponseDataAndStatus<T>> {
-  return await emptyResponse<T>();
-}
-`)
-	writeTestFile(t, filepath.Join(tempDir, "idNameCreation.ts"), `
+	writeTestFile(t, filepath.Join(srcDir, "utils", "idNameCreation.ts"), `
 export function createRandomName(): string {
   return "name";
 }
@@ -1025,21 +1011,46 @@ export function createFileArtifactId(_extension?: string): string {
   return "artifacts/test.bin";
 }
 `)
+	writeTestFile(t, filepath.Join(srcDir, "state", "definitions.ts"), `
+export const useServerMode = {
+  getState(): { mode: "ide" | "share" | "app" | "launcher" | null } {
+    return { mode: "ide" };
+  },
+};
+
+export const useShareSession = {
+  getState(): { isDeploymentMode: boolean; shareSessionId: string | null } {
+    return { isDeploymentMode: false, shareSessionId: null };
+  },
+};
+`)
+	writeTestFile(t, filepath.Join(srcDir, "vite-env.d.ts"), `
+interface ImportMetaEnv {
+  readonly DEV?: boolean;
+  readonly VITE_BACKEND_ORIGIN?: string;
+  readonly VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+`)
 	writeTestFile(t, filepath.Join(tempDir, "tsconfig.json"), `{
   "compilerOptions": {
     "module": "ESNext",
     "target": "ESNext",
-    "lib": ["dom", "esnext"],
+    "baseUrl": "src",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "strict": true,
     "moduleResolution": "node",
     "skipLibCheck": true,
     "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
 }`)
 
-	repoRoot := testRepoRoot(t)
 	cmd := exec.Command(
 		"pnpm",
 		"-C",
@@ -1056,6 +1067,18 @@ export function createFileArtifactId(_extension?: string): string {
 	if err != nil {
 		t.Fatalf("generated TypeScript failed to compile: %v\n%s", err, string(output))
 	}
+}
+
+func copyFrontendSupportFile(t *testing.T, repoRoot string, tempSrcDir string, repoPath string) {
+	t.Helper()
+
+	const prefix = "frontend/src/"
+	relativePath := strings.TrimPrefix(repoPath, prefix)
+	if relativePath == repoPath {
+		t.Fatalf("frontend support file %q is outside %q", repoPath, prefix)
+	}
+
+	copyRepoFile(t, filepath.Join(repoRoot, filepath.FromSlash(repoPath)), filepath.Join(tempSrcDir, filepath.FromSlash(relativePath)))
 }
 
 func TestTypeConverterRendersStringEnums(t *testing.T) {
@@ -5878,9 +5901,22 @@ func requireProperty(t *testing.T, properties []TypeProperty, name string) TypeP
 func writeTestFile(t *testing.T, path string, contents string) {
 	t.Helper()
 
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
 	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+func copyRepoFile(t *testing.T, sourcePath string, destinationPath string) {
+	t.Helper()
+
+	contents, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatalf("read %s: %v", sourcePath, err)
+	}
+	writeTestFile(t, destinationPath, string(contents))
 }
 
 func testRepoRoot(t *testing.T) string {

@@ -156,6 +156,11 @@ Current status:
   `pnpm generate` workflow still exists for mixed Python + frontend
   regeneration, but the Go-owned route/type/endpoint outputs no longer need
   to stay hidden inside that larger script
+- the validation suite now compiles generated bindings against the real
+  frontend support boundary they import in production (`endpointUtils`,
+  `c_addresses`, `serverModeBoundaryPolicy`, and related utility imports) in
+  an isolated temp project rather than proving them only against a pure local
+  stub harness
 - a current repo scan shows the only generated frontend contract files under
   `frontend/src` are `generatedRoutes.ts`, `generatedTypes.ts`, and
   `generatedEndpoints.ts`, all emitted by the Go-owned generator; remaining
