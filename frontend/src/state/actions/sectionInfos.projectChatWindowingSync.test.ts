@@ -5,10 +5,10 @@ import {
 } from "state/actions/projectChatWindowingEphemeral";
 import {
   useMisc,
+  useNodeInternals,
   usePendingOperations,
   useProjectState,
 } from "state/definitions";
-import { useNodeInternals } from "state/stores/activeSectionStores";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,

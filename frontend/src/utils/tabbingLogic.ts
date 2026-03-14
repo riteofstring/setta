@@ -1,8 +1,7 @@
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
-import { OverviewTabNameEnum } from "./constants/panes";
-import { HOME_ROUTER_PATH } from "./constants/routes";
+import { HOME_ROUTER_PATH, OverviewTabNameEnum } from "./constants";
 import { SectionTypeEnum } from "./generatedTypes";
 
 function overviewPaneOnKeyDown(e) {
