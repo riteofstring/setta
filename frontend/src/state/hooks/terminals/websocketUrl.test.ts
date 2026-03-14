@@ -1,14 +1,14 @@
-import { GoRoutePrefixes, GoWebsocketRouteHelpers } from "utils/generatedRoutes";
+import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 import { describe, expect, it } from "vitest";
 import { buildTerminalWebsocketUrl } from "./websocketUrl";
 
 describe("buildTerminalWebsocketUrl", () => {
   it("uses the Go websocket route for IDE terminal sessions", () => {
     // IDE terminal attach should hit the Go-owned websocket surface directly.
-    const expectedPath = `${GoRoutePrefixes.api}${GoWebsocketRouteHelpers.terminalBySection(
+    const expectedPath = GoWebsocketRouteHelpers.terminalBySection(
       "project-a",
       "section-a",
-    )}`;
+    );
     const url = new URL(
       buildTerminalWebsocketUrl({
         projectConfigId: "project-a",
@@ -22,10 +22,10 @@ describe("buildTerminalWebsocketUrl", () => {
   });
 
   it("uses the Go websocket route for deployment terminal sessions", () => {
-    const expectedPath = `${GoRoutePrefixes.api}${GoWebsocketRouteHelpers.terminalBySection(
+    const expectedPath = GoWebsocketRouteHelpers.terminalBySection(
       "project-a",
       "section-a",
-    )}`;
+    );
     const url = new URL(
       buildTerminalWebsocketUrl({
         projectConfigId: "project-a",

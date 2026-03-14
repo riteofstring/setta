@@ -1,4 +1,4 @@
-import { C_ADDRESSES } from "utils/c_addresses";
+import { buildBackendOriginWebsocketURL } from "utils/endpointUtils";
 import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 
 export type BuildTerminalWebsocketUrlOptions = {
@@ -12,14 +12,10 @@ export function buildTerminalWebsocketUrl({
   sectionId,
   shareSessionId,
 }: BuildTerminalWebsocketUrlOptions): string {
-  const routePath = GoWebsocketRouteHelpers.terminalBySection(
-    projectConfigId,
-    sectionId,
+  return buildBackendOriginWebsocketURL(
+    GoWebsocketRouteHelpers.terminalBySection(projectConfigId, sectionId),
+    {
+      shareSessionId: shareSessionId ?? undefined,
+    },
   );
-
-  const url = new URL(`${C_ADDRESSES.WEBSOCKET}${routePath}`);
-  if (shareSessionId) {
-    url.searchParams.set("shareSessionId", shareSessionId);
-  }
-  return url.toString();
 }
