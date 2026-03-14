@@ -28,3 +28,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `54fe6ed1e`
 - Next highest-value unblocked slice: continue shrinking `frontend/src/state/definitions.ts` by moving the persisted local-storage and AI store clusters into domain-owned store modules
+
+## 2026-03-12 10:59:35 PDT
+
+- What changed: Extracted the persisted local-storage and AI store clusters from `frontend/src/state/definitions.ts` into `frontend/src/state/stores/localStorageStore.ts` and `frontend/src/state/stores/aiStore.ts`, re-exported them through `state/definitions.ts` for compatibility, moved direct callers onto the new modules where it improved ownership clarity, and updated the module map to point future contributors at the new persisted store owners. `frontend/src/state/definitions.ts` is now down to 682 lines instead of carrying those persisted clusters inline.
+- Key files touched: `frontend/src/state/definitions.ts`, `frontend/src/state/stores/localStorageStore.ts`, `frontend/src/state/stores/aiStore.ts`, `frontend/src/state/actions/localStorage.ts`, `frontend/src/components/Pages/GlobalWrapper.tsx`, `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`, `frontend/src/state/aiStorePersistence.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm exec vitest run src/state/aiStorePersistence.test.ts src/state/definitionsProjectChatDictationMode.test.ts src/state/actions/localStorage.test.ts src/components/Pages/router.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `b8424f6d9`
+- Next highest-value unblocked slice: split the remaining active-section/node-internals publication cluster and the diagnostics/misc store cluster out of `frontend/src/state/definitions.ts`
