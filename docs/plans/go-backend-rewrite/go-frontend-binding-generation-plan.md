@@ -286,6 +286,10 @@ Current status:
 - plugin asset/backend/listener transport now also flows through a shared
   `frontend/src/plugins/transport.ts` helper, so plugin runtime callers no
   longer import low-level `endpointUtils` builders directly
+- the validation suite now also checks that direct `plugins/transport`
+  imports stay confined to the current plugin runtime and listener-endpoint
+  callers, so the narrowed plugin transport wrapper does not quietly widen
+  into a general runtime helper surface
 - backend-origin URL and websocket construction now also flows through
   `frontend/src/utils/backendOriginTransport.ts`, so plugin/realtime/terminal
   callers no longer import those low-level `endpointUtils` builders directly
@@ -302,6 +306,10 @@ Current status:
   `frontend/src/components/App/appTransport.ts` and
   `frontend/src/plugins/transport.ts` reduced to boundary re-export/adjacent
   helpers instead of importing `GoHTTPRouteHelpers` directly
+- the validation suite now also checks that direct `appTransport` imports stay
+  confined to the current app runtime caller, so the narrowed app download
+  wrapper remains a real boundary instead of turning back into a broad helper
+  surface
 - Setta API preset route selection now also flows through that same
   `backendTransport` boundary, so `frontend/src/utils/settaApiPresets.ts`
   no longer imports `GoHTTPRouteHelpers` directly
