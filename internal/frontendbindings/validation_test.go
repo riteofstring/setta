@@ -1341,9 +1341,15 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
-	allowedDirectTransportImports := map[string]struct{}{
-		"frontend/src/utils/generatedEndpoints.ts":                    {},
-		"frontend/src/components/Section/Layouts/MetaControlArea.tsx": {},
+	allowedDirectTransportImports := map[string]map[string]struct{}{
+		"frontend/src/utils/generatedEndpoints.ts": {
+			"get":       {},
+			"getBinary": {},
+			"post":      {},
+		},
+		"frontend/src/components/Section/Layouts/MetaControlArea.tsx": {
+			"post": {},
+		},
 	}
 	directTransportBindings := map[string]struct{}{
 		"get":       {},
@@ -1389,8 +1395,24 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 				if _, directTransport := directTransportBindings[bindingName]; !directTransport {
 					continue
 				}
-				if _, allowed := allowedDirectTransportImports[relativePath]; allowed {
-					continue
+				allowedBindings, allowedPath := allowedDirectTransportImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					if relativePath == "frontend/src/components/Section/Layouts/MetaControlArea.tsx" {
+						return fmt.Errorf(
+							"%s imports direct transport helper %q from endpointUtils, but the remaining intentional dynamic Setta API button boundary only permits %q",
+							relativePath,
+							bindingName,
+							"post",
+						)
+					}
+					return fmt.Errorf(
+						"%s imports direct transport helper %q from endpointUtils outside the allowed generated endpoint surface for that file",
+						relativePath,
+						bindingName,
+					)
 				}
 				return fmt.Errorf(
 					"%s imports direct transport helper %q from endpointUtils outside the generated endpoint surface",

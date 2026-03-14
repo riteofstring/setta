@@ -217,7 +217,10 @@ Current status:
   cannot silently reintroduce a handwritten contract side surface
 - the validation suite now also checks that direct `get` / `post` /
   `getBinary` helper imports stay confined to `generatedEndpoints.ts` plus
-  the current explicit dynamic Setta API request path in `MetaControlArea`
+  the remaining intentional dynamic Setta API button path in
+  `MetaControlArea`; that button action still allows arbitrary custom route
+  strings in addition to preset routes, so it is not yet representable as a
+  fail-closed generated endpoint wrapper without changing product behavior
 - `generatedRoutes.ts` now also emits canonical websocket route helpers for
   `/ws/frontend`, `/ws/listeners/{listenerID}`, and
   `/ws/terminals/{projectID}/{sectionID}`, so active websocket callers no
