@@ -43,9 +43,9 @@ const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
-let submitMessage: typeof import("state/actions/ai/chatCommands").submitMessage;
-let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/ai/chatStreaming").receiveLLMResponseChunk;
+let submitMessage: typeof import("state/actions/ai").submitMessage;
+let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
@@ -73,12 +73,10 @@ describe("submitMessage", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     useLocalStorage = definitions.useLocalStorage;
-    const chatRuntime = await import("state/actions/ai/chatRuntime");
-    const chatCommands = await import("state/actions/ai/chatCommands");
-    const chatStreaming = await import("state/actions/ai/chatStreaming");
-    submitMessage = chatCommands.submitMessage;
-    getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
-    receiveLLMResponseChunk = chatStreaming.receiveLLMResponseChunk;
+    const ai = await import("state/actions/ai");
+    submitMessage = ai.submitMessage;
+    getDefaultChatDetails = ai.getDefaultChatDetails;
+    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
@@ -315,6 +313,45 @@ describe("submitMessage", () => {
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
     expect(payload.appSpecStreamingEnabled).toBe(true);
+  });
+
+  it("forces streaming preview on json-render app generation submits", async () => {
+    useLocalStorage.setState({
+      appSpecStreamingEnabled: false,
+    });
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Generate directly in the app pane.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          appGeneration: {
+            mode: "json_render",
+            referenceImageUrl: null,
+            referenceImageNotes: null,
+          },
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appSpecStreamingEnabled: boolean;
+        appGenerationMode: string | null;
+      },
+    ];
+    expect(payload.appSpecStreamingEnabled).toBe(true);
+    expect(payload.appGenerationMode).toBe("json_render");
   });
 
   it("refreshes agent runs after successful submit hydration", async () => {

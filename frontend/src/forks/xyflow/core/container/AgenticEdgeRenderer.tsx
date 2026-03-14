@@ -6,10 +6,13 @@ import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
 } from "state/aiFollowUtils";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import {
+  useAIFollow,
+  useNodeInternals,
+  useProjectState,
+} from "state/definitions";
 import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import { useShareCapabilities } from "state/hooks/share";
-import { useAIFollow } from "state/stores/aiFollowStores";
 import {
   AgenticEdgeKindEnum,
   SectionTypeEnum,
