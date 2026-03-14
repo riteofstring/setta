@@ -64,7 +64,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
-- `frontend/src/state/actions/ai.ts` is now 1354 lines and currently mixes streaming reducers, tool preview/app-spec reconciliation, and optimistic stream update behavior.
+- `frontend/src/state/actions/aiChatStreaming.ts` is now 1352 lines and owns streaming reducers, tool preview/app-spec reconciliation, and optimistic stream update behavior after retiring `frontend/src/state/actions/ai.ts`.
 - `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
 - `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration and backend request payload assembly.
@@ -84,7 +84,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
    Each feature should have an obvious home for UI, selectors, commands, transport helpers, and tests.
 
 2. Prefer small explicit APIs over broad shared modules.
-   New code should depend on a narrow feature surface, not on mega-files like `state/actions/ai.ts`.
+   New code should depend on a narrow feature surface, not on large catch-all modules.
 
 3. Separate pure derivation from effects and rendering.
    If logic can be tested without React, move it out of the component tree.
@@ -143,7 +143,7 @@ Notes:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
-  - `frontend/src/state/actions/ai.ts`
+  - `frontend/src/state/actions/aiChatStreaming.ts`
 - Keep existing feature-local helpers in `frontend/src/components/Panes/Overview/ProjectLevelAI/` and adjacent chat directories as stable seams instead of folding behavior back into the large surface files.
 - Break `ChatMessages.tsx` into distinct modules:
   - message content rendering
@@ -158,7 +158,7 @@ Notes:
   - slash command resolution
   - dictation/transcription controls
   - presentational subcomponents
-- Split `state/actions/ai.ts` into domain commands with obvious names such as:
+- Continue splitting streaming-heavy chat action modules into domain commands with obvious names such as:
   - chat submission/editing
   - chat hydration
   - chat streaming reducers
@@ -239,7 +239,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/ai.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiChatStreaming.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the `ProjectChatBottomDock.tsx` / `projectChatWindowing.ts` split from the existing helper seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

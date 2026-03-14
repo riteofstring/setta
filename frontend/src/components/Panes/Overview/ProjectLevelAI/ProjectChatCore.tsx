@@ -38,10 +38,10 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import { getDefaultChatDetails } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { stopProjectChatResponse } from "state/actions/aiChatControls";
+import { getDefaultChatDetails } from "state/actions/aiChatDetails";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,

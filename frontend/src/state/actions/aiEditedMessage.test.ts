@@ -45,7 +45,7 @@ const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitEditedMessage: typeof import("state/actions/aiChatSubmission").submitEditedMessage;
-let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let getDefaultChatDetails: typeof import("state/actions/aiChatDetails").getDefaultChatDetails;
 let memoryStorage: Storage;
 
 const chatId = "chat-1";
@@ -84,10 +84,10 @@ describe("submitEditedMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
+    const aiChatDetails = await import("state/actions/aiChatDetails");
     const aiChatSubmission = await import("state/actions/aiChatSubmission");
-    const ai = await import("state/actions/ai");
     submitEditedMessage = aiChatSubmission.submitEditedMessage;
-    getDefaultChatDetails = ai.getDefaultChatDetails;
+    getDefaultChatDetails = aiChatDetails.getDefaultChatDetails;
   });
 
   beforeEach(() => {

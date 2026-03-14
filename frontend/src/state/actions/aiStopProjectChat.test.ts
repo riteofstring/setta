@@ -64,8 +64,8 @@ let stopProjectChatResponse: typeof import("state/actions/aiChatControls").stopP
 let stopManagedSectionChatResponse: typeof import("state/actions/aiChatControls").stopManagedSectionChatResponse;
 let getLLMChatHydrationOutcome: typeof import("state/actions/aiHydration").getLLMChatHydrationOutcome;
 let getExternalAgentChatHydrationOutcome: typeof import("state/actions/aiHydration").getExternalAgentChatHydrationOutcome;
-let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
+let getDefaultChatDetails: typeof import("state/actions/aiChatDetails").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/aiChatStreaming").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 function seedFollowToolArguments(
@@ -120,7 +120,8 @@ describe("stopProjectChatResponse", () => {
     useAIFollow = definitions.useAIFollow;
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
-    const ai = await import("state/actions/ai");
+    const aiChatDetails = await import("state/actions/aiChatDetails");
+    const aiChatStreaming = await import("state/actions/aiChatStreaming");
     const aiChatControls = await import("state/actions/aiChatControls");
     const aiHydration = await import("state/actions/aiHydration");
     stopProjectChatResponse = aiChatControls.stopProjectChatResponse;
@@ -129,8 +130,8 @@ describe("stopProjectChatResponse", () => {
     getLLMChatHydrationOutcome = aiHydration.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
       aiHydration.getExternalAgentChatHydrationOutcome;
-    getDefaultChatDetails = ai.getDefaultChatDetails;
-    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
+    getDefaultChatDetails = aiChatDetails.getDefaultChatDetails;
+    receiveLLMResponseChunk = aiChatStreaming.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {

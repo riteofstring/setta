@@ -59,8 +59,8 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { receiveLLMResponseChunk } from "./ai";
 import { loadAgentRuns, receiveAgentRunUpdate } from "./aiAgentRuns";
+import { receiveLLMResponseChunk } from "./aiChatStreaming";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,

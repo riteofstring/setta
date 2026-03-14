@@ -55,7 +55,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
-  - `state/actions/ai.ts`, `state/actions/chat*.ts`, and
+  - `state/actions/aiChatStreaming.ts`, `state/actions/chat*.ts`, and
     `state/actions/projectChatThreads.ts` currently own chat streaming, tool
     preview/app-spec reconciliation, and optimistic stream update behavior.
   - `state/actions/aiHydration.ts` owns chat history fetch/reconciliation and
@@ -172,8 +172,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/ai.ts` remaining streaming reducers, tool preview/app-spec
-  reconciliation, and stream-side optimistic update paths
 - `state/definitions.ts`
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

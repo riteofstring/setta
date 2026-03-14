@@ -58,7 +58,6 @@ import {
   ToolResultEvent,
 } from "utils/generatedTypes";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
-import { getDefaultChatDetails } from "./aiChatDetails";
 import {
   getChatSectionStateFromStore,
   persistChatSectionState,
@@ -74,8 +73,6 @@ const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
-
-export { getDefaultChatDetails };
 
 function applyStreamingChunkToSection(
   sectionId: string,
