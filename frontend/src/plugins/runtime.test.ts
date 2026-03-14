@@ -2685,11 +2685,11 @@ describe("plugin runtime helpers", () => {
     }
 
     const url = new URL(socket.url);
-    expect(url.origin).toBe(new URL(C_ADDRESSES.WEBSOCKET).origin);
+    expect(url.host).toBe(new URL(C_ADDRESSES.BACKEND_ORIGIN).host);
     expect(url.pathname).toBe(
-      `/api${replaceAddressParams(GoWebsocketRoutes.listenerById, {
+      replaceAddressParams(GoWebsocketRoutes.listenerById, {
         listenerID: "plugin-listener-transport-id",
-      })}`,
+      }),
     );
     expect(url.searchParams.get("projectId")).toBe("project-runtime-listener");
     expect(url.searchParams.get("shareSessionId")).toBe(

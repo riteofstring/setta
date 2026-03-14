@@ -72,7 +72,7 @@ describe("listenerEndpointClient", () => {
         shareSessionId: null,
       }),
     );
-    expect(ideUrl.pathname).toBe("/api/ws/listeners/listener-a");
+    expect(ideUrl.pathname).toBe("/ws/listeners/listener-a");
     expect(ideUrl.searchParams.get("projectId")).toBe("project-a");
     expect(ideUrl.searchParams.get("shareSessionId")).toBeNull();
 
@@ -83,7 +83,7 @@ describe("listenerEndpointClient", () => {
         shareSessionId: "share-b",
       }),
     );
-    expect(deploymentUrl.pathname).toBe("/api/ws/listeners/listener-b");
+    expect(deploymentUrl.pathname).toBe("/ws/listeners/listener-b");
     expect(deploymentUrl.searchParams.get("projectId")).toBe("project-b");
     expect(deploymentUrl.searchParams.get("shareSessionId")).toBe("share-b");
   });

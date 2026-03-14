@@ -46,7 +46,8 @@ export function buildListenerEndpointWebsocketUrl({
   const routePath = replaceAddressParams(GoWebsocketRoutes.listenerById, {
     listenerID: listenerId,
   });
-  const url = new URL(`${C_ADDRESSES.WEBSOCKET}${routePath}`);
+  const url = new URL(routePath, C_ADDRESSES.BACKEND_ORIGIN);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.searchParams.set("projectId", projectConfigId);
   if (shareSessionId) {
     url.searchParams.set("shareSessionId", shareSessionId);
