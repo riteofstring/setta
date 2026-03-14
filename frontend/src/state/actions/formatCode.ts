@@ -1,9 +1,6 @@
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import {
-  useLspDiagnostics,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
+import { useLspDiagnostics } from "state/stores/diagnosticsStores";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_format_code } from "utils/generatedEndpoints";
 import {
