@@ -170,6 +170,10 @@ Current status:
   listed in `internal/httpapi/route_names.go` is represented somewhere in
   `CurrentRouteGroups()`, so route-inventory widening cannot silently drift
   past the binding source of truth
+- the validation suite now also checks that every Go root route constant in
+  `internal/httpapi` whose path lives under `"/__setta__/"` is represented
+  somewhere in `CurrentRouteGroups()`, so bootstrap/tool root-route widening
+  cannot silently drift past the binding source of truth
 - the validation suite now also checks that every Go websocket route constant
   declared in `internal/wsapi/routes.go` is represented somewhere in
   `CurrentRouteGroups()`, so websocket route widening cannot silently drift

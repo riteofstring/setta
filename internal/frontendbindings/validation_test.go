@@ -1004,6 +1004,29 @@ func TestCurrentRouteGroupsCoverEveryWebsocketRouteName(t *testing.T) {
 	)
 }
 
+func TestCurrentRouteGroupsCoverEveryRootRouteName(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+
+	rootRouteNames := readRootRouteIdentifiers(
+		t,
+		filepath.Join(repoRoot, "internal", "httpapi"),
+	)
+	currentRouteGroupNames := readCurrentRouteGroupIdentifiers(
+		t,
+		filepath.Join(repoRoot, "internal", "frontendbindings", "specs.go"),
+	)
+
+	missing := differenceSortedStrings(rootRouteNames, currentRouteGroupNames)
+	if len(missing) == 0 {
+		return
+	}
+
+	t.Fatalf(
+		"CurrentRouteGroups route inventory drifted from internal/httpapi root routes: missing root routes %s",
+		strings.Join(missing, ", "),
+	)
+}
+
 func TestCurrentEndpointContractManifest(t *testing.T) {
 	t.Helper()
 
@@ -1086,6 +1109,64 @@ func readWebsocketRouteIdentifiers(t *testing.T, path string) []string {
 
 	if len(seen) == 0 {
 		t.Fatalf("did not find websocket route constants in %s", path)
+	}
+	return sortedStringKeys(seen)
+}
+
+func readRootRouteIdentifiers(t *testing.T, dir string) []string {
+	t.Helper()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+
+	constExprs := map[string]ast.Expr{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		file := parseGoTestFile(t, filepath.Join(dir, name))
+		for _, declaration := range file.Decls {
+			genDecl, ok := declaration.(*ast.GenDecl)
+			if !ok || genDecl.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range genDecl.Specs {
+				valueSpec, ok := spec.(*ast.ValueSpec)
+				if !ok || len(valueSpec.Values) == 0 {
+					continue
+				}
+				for index, ident := range valueSpec.Names {
+					valueIndex := index
+					if valueIndex >= len(valueSpec.Values) {
+						valueIndex = len(valueSpec.Values) - 1
+					}
+					constExprs[ident.Name] = valueSpec.Values[valueIndex]
+				}
+			}
+		}
+	}
+
+	seen := map[string]struct{}{}
+	for name := range constExprs {
+		if !strings.HasPrefix(name, "Route") {
+			continue
+		}
+		value, ok := resolveConstStringValue(constExprs, name, map[string]struct{}{})
+		if !ok || !strings.HasPrefix(value, "/__setta__/") {
+			continue
+		}
+		seen[name] = struct{}{}
+	}
+
+	if len(seen) == 0 {
+		t.Fatalf("did not find root route constants in %s", dir)
 	}
 	return sortedStringKeys(seen)
 }
@@ -1200,6 +1281,39 @@ func identName(expression ast.Expr) (string, bool) {
 		return "", false
 	}
 	return ident.Name, true
+}
+
+func resolveConstStringValue(
+	constExprs map[string]ast.Expr,
+	name string,
+	seen map[string]struct{},
+) (string, bool) {
+	if _, exists := seen[name]; exists {
+		return "", false
+	}
+	expression, ok := constExprs[name]
+	if !ok {
+		return "", false
+	}
+
+	seen[name] = struct{}{}
+	defer delete(seen, name)
+
+	switch typed := expression.(type) {
+	case *ast.BasicLit:
+		if typed.Kind != token.STRING {
+			return "", false
+		}
+		value, err := strconv.Unquote(typed.Value)
+		if err != nil {
+			return "", false
+		}
+		return value, true
+	case *ast.Ident:
+		return resolveConstStringValue(constExprs, typed.Name, seen)
+	default:
+		return "", false
+	}
 }
 
 func differenceSortedStrings(left []string, right []string) []string {
