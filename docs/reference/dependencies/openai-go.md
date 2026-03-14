@@ -90,6 +90,9 @@
   - the repo-owned startup path now drains immediate setup events after
     `session.update` so explicit provider rejection events fail
     `StartSession` instead of surfacing only on the first audio append
+  - the repo-owned websocket event loop now also preserves explicit non-normal
+    websocket close reasons instead of collapsing them to a generic provider
+    failure
   - the repo-owned event loop now also uses
     `input_audio_buffer.committed.previous_item_id` ordering metadata so
     late completion events still rebuild full transcripts in speech-turn order

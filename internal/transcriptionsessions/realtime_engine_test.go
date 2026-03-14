@@ -657,6 +657,63 @@ func TestServiceStartSessionFailsWhenRealtimeProviderRejectsSessionUpdate(t *tes
 	}
 }
 
+func TestServiceStartSessionFailsWhenRealtimeProviderClosesWithExplicitReason(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		// Some provider-side setup rejections arrive as a websocket close frame instead of an error event.
+		_ = conn.Close(websocket.StatusPolicyViolation, "Realtime session update rejected.")
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-start-close-reason"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	_, err = service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if !errors.Is(err, ErrProviderFailure) {
+		t.Fatalf("expected provider failure, got %v", err)
+	}
+	if err.Error() != "Realtime session update rejected." {
+		t.Fatalf("unexpected provider failure message %q", err.Error())
+	}
+	if len(service.sessions) != 0 {
+		t.Fatalf("expected no stored session after realtime close rejection, got %d sessions", len(service.sessions))
+	}
+}
+
 func readRealtimeProviderMessage(ctx context.Context, conn *websocket.Conn) (map[string]any, error) {
 	_, payload, err := conn.Read(ctx)
 	if err != nil {

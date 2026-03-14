@@ -351,16 +351,17 @@ func (e *realtimeEngine) readLoop() {
 	for {
 		_, payload, err := e.conn.Read(context.Background())
 		if err != nil {
-			if closeStatus := websocket.CloseStatus(err); closeStatus != -1 {
+			var closeErr websocket.CloseError
+			if errors.As(err, &closeErr) {
 				e.mu.Lock()
 				closed := e.closed
 				e.mu.Unlock()
 				if !closed {
-					if closeStatus == websocket.StatusNormalClosure {
+					if closeErr.Code == websocket.StatusNormalClosure {
 						e.events <- realtimeReadResult{closed: true}
 					} else {
 						e.events <- realtimeReadResult{
-							err: newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage),
+							err: realtimeProviderErrorFromCloseError(closeErr),
 						}
 					}
 				}
@@ -444,8 +445,12 @@ func realtimeProviderErrorFromReadWriteError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if closeStatus := websocket.CloseStatus(err); closeStatus != -1 {
-		return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+	var closeErr websocket.CloseError
+	if errors.As(err, &closeErr) {
+		if closeErr.Code == websocket.StatusNormalClosure {
+			return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+		}
+		return realtimeProviderErrorFromCloseError(closeErr)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
@@ -454,6 +459,14 @@ func realtimeProviderErrorFromReadWriteError(err error) error {
 		return err
 	}
 	return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+}
+
+func realtimeProviderErrorFromCloseError(closeErr websocket.CloseError) error {
+	message := strings.TrimSpace(closeErr.Reason)
+	if message == "" {
+		message = defaultRealtimeProviderErrorMessage
+	}
+	return newServiceError(ErrProviderFailure, message)
 }
 
 func derefTrimmedString(value *string) string {
