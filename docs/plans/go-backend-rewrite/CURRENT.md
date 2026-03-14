@@ -2,71 +2,102 @@
 
 Last verified: `2026-03-13`
 
-## Canonical Docs
+This is the entrypoint for Go rewrite work.
+Read this file first, then the task-matching checklist, then the rewrite plan.
+Pull in subsystem, dependency, and archive docs only when the task actually
+touches those boundaries.
+
+## Default Working Docs
 
 - `caller-backed-backend-surface-checklist.md`
-  - fastest answer to "does the active caller reach Go?"
+  - fastest answer to "does the active caller already hit Go?"
 - `backend-capability-coverage-checklist.md`
-  - broader backend runtime/service ownership coverage
-- `backend-capability-coverage-checklist-audit-plan.md`
-  - maintenance rules for keeping the broader ownership checklist accurate
-- `caller-backed-backend-surface-checklist-audit-plan.md`
-  - maintenance rules for keeping the caller-backed checklist current-caller-accurate
+  - fastest answer to "where does runtime ownership live?"
 - `go-backend-rewrite-plan.md`
-  - stable rewrite rules, clean-break guardrails, and reopening criteria
-- `setta-listener-protocol-redesign-plan.md`
-  - subsystem-specific doc for keeping the Python `SettaListener` SDK while
-    moving listener runtime/protocol ownership to Go; read it when a task
-    touches listener protocol or Python listener SDK boundaries
-- `go-frontend-binding-generation-plan.md`
-  - subsystem-specific doc for Go-owned frontend binding generation; read it
-    when a task touches frontend binding generation
+  - decision order, clean-break rules, and when to open new work
 - `testing-strategy.md`
-  - test expectations for rewrite work
+  - testing contract for rewrite work
+
+## Conditional Docs
+
+- `README.md`
+  - folder map only
+- `setta-listener-protocol-redesign-plan.md`
+  - listener protocol or Python listener SDK boundary
+- `go-frontend-binding-generation-plan.md`
+  - Go-owned frontend route/type generation
 - `go-dependency-inventory-and-rationale.md`
-  - current `go.mod` explanation and dependency decisions
+  - current `go.mod` decisions and dependency rationale
 - `docs/reference/dependencies/`
-  - local dependency reference notes and upstream doc snapshots used during
-    rewrite work
+  - upstream/library behavior notes
+- `go-backend-rewrite-stack-recommendations.md`
+  - older design guidance; not the primary source of truth
+- `dependency-docs-local-reference.md`
+  - dependency-doc acquisition/storage rules
+- `pyproject-dependency-replacement-snapshot.md`
+  - point-in-time Python dependency classification
 - `archive/README.md`
-  - historical phase docs, reranks, closeouts, and spikes
+  - historical phase docs and spikes
 
-## Clean-Break Defaults
+## Maintenance-Only Docs
 
-- This doc set is for the entire Go rewrite, not a standing priority list for
-  one narrow subsystem.
-- Start from the task's caller-backed surface, ownership bucket, and current
-  code paths; pull in subsystem docs only when the task actually touches them.
-- No backward compatibility, migrations, legacy route preservation, storage
-  migrations, or Python compatibility shims are required.
-- There are no deployed users and no production compatibility contract, so
-  prefer the clean Go-owned surface over transitional compatibility work.
-- Preserve active product behavior and documented workflows, but do not
-  preserve Python-shaped architecture just because it existed.
-- `go-frontend-binding-generation-plan.md`, dependency docs, and provider docs
-  are supporting references when their boundaries matter, not default
-  repo-wide priorities.
+- `backend-capability-coverage-checklist-audit-plan.md`
+- `caller-backed-backend-surface-checklist-audit-plan.md`
 
-## Agent Workflow
+## Task Router
 
-- Start with `caller-backed-backend-surface-checklist.md` for active-caller
-  transport questions.
-- Use `backend-capability-coverage-checklist.md` for broader backend ownership
-  questions that go beyond current caller transport reachability.
-- Use `go-backend-rewrite-plan.md` for rewrite rules, clean-break policy, and
-  reopening criteria.
-- Treat `go-backend-rewrite-plan.md` as the source of truth for the
-  port-first policy:
-  preserve product behavior and avoid broad redesign during the port by
-  default, but do not spend effort on compatibility work or defer correctness
-  hazards and cheap behavior-preserving seam creation.
-- Read subsystem-specific docs only when the task actually touches that
-  subsystem.
-- Use `testing-strategy.md` for verification expectations.
-- Use `archive/` only for historical rationale or implementation archaeology.
-- Update `CURRENT.md` if the canonical doc list, clean-break defaults, or
+- Active caller reachability, route usage, websocket usage:
+  `caller-backed-backend-surface-checklist.md`
+- Runtime or service ownership, including Go/Python/shared boundaries:
+  `backend-capability-coverage-checklist.md`
+- Clean-break policy, port-vs-redesign, or "should this become a new slice?":
+  `go-backend-rewrite-plan.md`
+- Listener protocol or Python listener SDK questions:
+  `setta-listener-protocol-redesign-plan.md`
+- Go-owned frontend binding generation:
+  `go-frontend-binding-generation-plan.md`
+- Dependency or provider decisions:
+  `go-dependency-inventory-and-rationale.md` plus
+  `docs/reference/dependencies/`
+- Testing expectations:
+  `testing-strategy.md`
+- Historical rationale:
+  `archive/`
+
+## Working Rules
+
+- Treat the non-archive top-level docs as the current source of truth.
+- Start from the active caller, ownership bucket, and current code path. Do
+  not bulk-read the whole folder by default.
+- This is a clean break. Do not preserve backward compatibility, migrations,
+  legacy route shapes, storage migrations, or Python compatibility shims
+  unless a live repo workflow explicitly requires them.
+- Preserve active product behavior and documented workflows, not Python-shaped
+  architecture or unused legacy surfaces.
+- Prefer a behavior-first, architecture-conservative port. Reopen redesign
+  only when correctness, testability, or active caller coverage requires it.
+- Prefer explicit typed boundaries and deterministic source-of-truth pathways
+  over heuristics.
+
+## Expected Task Loop
+
+1. Inspect the touched Go code, tests, and current repo state.
+2. Map the request to the relevant caller-backed surface, ownership bucket,
+   and any documented Python/shared/external boundary.
+3. Summarize the relevant checklist rows, doc evidence, code paths, and the
+   single highest-leverage next step.
+4. Execute that step end-to-end unless the task is itself planning or
+   inventory work.
+5. Update the relevant source-of-truth docs in the same change when ownership,
+   reachability, dependency decisions, or workflow guidance changed.
+
+## Update Rules
+
+- Update `CURRENT.md` only when the canonical doc map, clean-break defaults, or
   workflow guidance changes.
-- Update the relevant checklists and supporting source-of-truth docs in the
+- Update the relevant checklist and supporting source-of-truth docs in the
   same change when ownership or caller reachability changes.
+- Read the checklist audit-plan docs when you need to edit those checklists
+  accurately.
 - Do not create another numbered phase doc unless a concrete issue or task
-  opens a bounded slice.
+  opens a bounded rewrite slice.

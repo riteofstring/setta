@@ -10,11 +10,13 @@ Audit/maintenance plan:
 Companion broad-coverage inventory:
 `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`.
 
-This checklist is a caller-backed rewrite-status inventory, not a promise of
-route-for-route Python parity.
-It answers: does the active caller reach a Go-owned backend surface today?
+Use this checklist when the question is:
+"Does the active caller reach a Go-owned backend surface today?"
 
-How to read the statuses:
+This is a caller-backed rewrite inventory, not a promise of route-for-route
+Python parity.
+
+Status meanings:
 
 - `Complete`: Go owns the active runtime and transport for the current
   clean-break scope.
@@ -23,7 +25,7 @@ How to read the statuses:
 - `Missing`: the current caller still depends on Python, or no Go-owned
   equivalent exists yet.
 
-Checklist rule: internal Go capability does not count as `Complete` unless the
+Reading rule: internal Go capability does not count as `Complete` unless the
 current caller actually reaches that Go-owned transport/runtime today.
 
 Primary sources used for this checklist:
@@ -252,8 +254,8 @@ callers.
 
 ## Bottom line
 
-For the current clean-break rewrite scope, the active Go backend now owns the
-main product-facing runtime surface:
+For the current clean-break rewrite scope, the active Go backend owns most of
+the product-facing surface that current callers use:
 
 - auth/modes/settings
 - project shell and current project-state transport
@@ -272,4 +274,4 @@ frontend caller in this worktree and should be treated as dormant route-enum
 residue, not active rewrite surface.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
-dormant historical debris.
+historical noise.

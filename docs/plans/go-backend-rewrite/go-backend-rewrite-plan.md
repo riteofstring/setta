@@ -2,143 +2,125 @@
 
 ## Goal
 
-Rewrite the backend from Python to Go as a clean break in runtime ownership,
-without coupling that work to a simultaneous architecture redesign.
+Rewrite the backend from Python to Go as a clean break in runtime ownership
+without bundling that work into a broad architecture redesign.
 
-The primary rewrite objective is to make the active product-facing backend
-surface Go-owned while preserving product behavior. The default implementation
-strategy is behavior-first and architecture-conservative during the port:
-carry forward the backend shape that is needed to preserve behavior, then do
-larger architectural cleanup once the Go runtime is proven by tests and real
-usage.
+Default approach:
 
-There are no deployed users and no production compatibility contract for the
-Python backend. This rewrite does not need backward compatibility, migration
-layers, legacy route preservation, or Python-transition support unless a
-current repo workflow explicitly requires a bounded exception.
+- preserve active product behavior for the current caller
+- move runtime ownership to Go
+- keep the port behavior-first and architecture-conservative until the Go
+  runtime is proven by tests and live workflows
 
-## Working Source-of-Truth Docs
+There is no deployed-user compatibility contract for the Python backend.
+Do not preserve backward compatibility, legacy route shapes, migrations, or
+Python transition layers unless a current repo workflow explicitly requires a
+bounded exception.
 
-Use these docs when evaluating rewrite rules, caller reachability, backend
-ownership, tests, and dependency choices:
+## Source Of Truth
+
+Start with `CURRENT.md`, then read only the docs the task actually needs.
+
+Default working docs:
 
 - `CURRENT.md`
 - `caller-backed-backend-surface-checklist.md`
 - `backend-capability-coverage-checklist.md`
 - `testing-strategy.md`
+
+Conditional docs:
+
 - `go-dependency-inventory-and-rationale.md`
 - `docs/reference/dependencies/`
+- `setta-listener-protocol-redesign-plan.md`
+- `go-frontend-binding-generation-plan.md`
 
-Historical phase planning, reranks, closeouts, and spikes live under
-`archive/`.
+Use `README.md` only for the folder map.
+Use `archive/` only for historical rationale.
+
+## Decision Order
+
+When the right move is unclear, decide in this order:
+
+1. Preserve active product behavior for the current caller.
+2. Prefer clean Go ownership over Python compatibility or mixed-source
+   transitional work.
+3. Avoid broad redesign during the port unless correctness, testability, or
+   active caller coverage requires it.
+4. Prefer explicit typed boundaries and deterministic source-of-truth pathways
+   over incidental Python behavior or heuristics.
 
 ## Rewrite Rules
 
-- Preserve product behavior first. Treat the rewrite as a semantics-preserving
-  port of the active backend surface unless a caller, release path, or
+- Treat the Python code, tests, and docs as reference material for behavior
+  and edge cases, not as a compatibility contract.
+- Preserve product behavior first, unless a caller, release path, or
   documented product decision requires a behavior change.
-- Treat the current Python code, tests, and docs as reference material for
-  product capabilities and edge cases, not as a compatibility contract.
-- Do not combine the language rewrite with broad architecture redesign by
-  default. Prefer making the Go code work correctly with the current backend
-  shape before opening a larger structural optimization pass.
-- Architecture preservation during the port is a default strategy, not a rule
-  to preserve accidental debt forever. After the Go runtime is proven, we can
-  deliberately reopen architecture cleanup as a separate slice.
-- Do not spend rewrite effort on backward compatibility, migrations, legacy
-  support paths, or Python compatibility shims. There are no deployed users,
-  so clean Go ownership is preferred over transitional compatibility work.
-- The rewrite does not need to keep the app continuously working while Python
-  boundaries are being removed; prefer severing frontend/backend ties to Python
-  over maintaining temporary mixed-source compatibility.
-- Prefer explicit runtime ownership, typed boundaries, and deterministic source
-  of truth over Python-era incidental behavior where this does not introduce a
-  second source of regressions during the port.
-- Prefer robust implementations over heuristics when provider/runtime metadata
-  or explicit protocol/state exists.
+- Do not combine the language rewrite with broad architecture cleanup by
+  default. Land the Go-owned runtime first; reopen cleanup as a separate slice.
+- The rewrite does not need to keep a partially mixed Go/Python backend
+  working at every intermediate step.
+- Prefer explicit ownership, thin transports, typed contracts, and robust
+  source-of-truth pathways over Python-era incidental behavior.
 - Prefer the Go stdlib or well-established libraries.
-- For Go-owned OpenAI API interactions, use
-  `github.com/openai/openai-go/v3` at the provider edge rather than
-  hand-rolled HTTP or WebSocket clients.
+- For Go-owned OpenAI API surfaces, use `github.com/openai/openai-go/v3` at
+  the provider edge rather than growing bespoke HTTP or WebSocket clients.
 - If a required OpenAI surface is not covered cleanly by `openai-go`, treat
   that as an explicit planning decision instead of silently adding bespoke
   transport code.
-- Do not preserve old route shapes just because the Python backend had them.
-- Do not preserve Python-generated frontend contract artifacts just to keep a
-  partial mixed Go/Python frontend working during the rewrite.
+- Do not preserve old route shapes or Python-generated frontend contract
+  artifacts merely to support a temporary mixed-source state.
 
 ## Port-First Guardrails
 
-During the rewrite, classify structural work into three buckets:
+Safe to defer until after the Go runtime is proven:
 
-- Safe to defer until after the Go runtime is proven:
-  - broad package reshaping
-  - new service boundaries introduced mainly for elegance
-  - large route/module splits done only for code organization
-  - non-essential performance optimization
-- Expected during the port even if the surrounding architecture stays similar:
-  - fixes for correctness hazards
-  - explicit source-of-truth boundaries that remove ambiguity
-  - low-risk seam extraction that reduces constructor or lifecycle sprawl
-    without changing behavior
-  - test harness improvements needed to prove parity
-- Not acceptable to defer:
-  - partial-commit or split-brain state behavior
-  - brittle heuristics where deterministic metadata/state already exists
-  - hidden runtime coupling that prevents testing or safe shutdown
+- broad package reshaping
+- new service boundaries added mainly for elegance
+- large route/module splits done only for organization
+- non-essential performance optimization
 
-If a change can be isolated as behavior-preserving seam creation, take it when
-it materially reduces future rewrite cost. If a change is a true architecture
-redesign, defer it unless it is required for correctness or active-caller
-coverage.
+Expected during the port:
 
-## How To Use This Doc Set
+- correctness fixes
+- explicit source-of-truth boundaries that remove ambiguity
+- low-risk seam extraction that reduces lifecycle or constructor sprawl
+- test harness work needed to prove parity
 
-- Use `caller-backed-backend-surface-checklist.md` for "does the active caller
-  reach Go?" questions.
-- Use `backend-capability-coverage-checklist.md` for broader runtime/service
-  ownership questions.
-- Read current code and registration wiring alongside the checklists when
-  ownership is ambiguous.
-- Use `archive/` for historical phase detail, not as a replacement for the
-  working docs above.
+Not acceptable to defer:
+
+- partial-commit or split-brain state behavior
+- brittle heuristics where deterministic metadata or state already exists
+- hidden runtime coupling that blocks testing or safe shutdown
+
+If a change is behavior-preserving seam creation and meaningfully lowers future
+rewrite cost, take it. If it is a true redesign, defer it unless correctness
+or active caller coverage requires it.
 
 ## Task-Specific Infrastructure Tracks
 
-These are bounded infrastructure docs to use when a task actually touches
-those areas. They are not a standing priority order for the whole rewrite.
+Use these only when the task touches them:
 
-- Go-owned frontend binding generation for Go HTTP/websocket contracts
-  - give frontend-facing backend contracts a Go-owned source of truth wherever
-    transport/runtime ownership is Go
-  - build a converter-style pipeline analogous to the existing
-    Python-to-TypeScript generators, driven by explicit Go contract types and
-    endpoint specs
-  - sever frontend ties to Python-generated backend bindings rather than
-    maintaining a parallel mixed-source steady state
-  - replace the canonical generated frontend contract files instead of keeping
-    long-lived `generatedGo*` shadow outputs
-  - do not land handwritten TS emitters or endpoint-by-endpoint string-builder
-    wedges in that slice
-  - if a runtime type does not convert cleanly, add a dedicated Go contract
-    type or converter rule instead of hand-writing TS for that route
-- Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
-  - apply this at the provider edge for managed chat, transcription, realtime,
-    and later Go-owned OpenAI provider surfaces
-  - keep the SDK behind internal adapters so frontend/runtime contracts stay
-    Go-owned rather than SDK-owned
-  - do not broaden bespoke OpenAI HTTP/WebSocket clients further by default
+- Go-owned frontend binding generation
+  - frontend-facing backend contracts should have a Go-owned source of truth
+    wherever transport/runtime ownership is Go
+  - replace the canonical generated frontend contract files rather than
+    growing long-lived `generatedGo*` shadow outputs
+  - if a runtime type does not convert cleanly, add a Go boundary DTO or
+    converter rule instead of hand-writing TypeScript for one route
+- `openai-go` convergence for Go-owned OpenAI provider edges
+  - keep the SDK behind internal adapters so repo contracts stay Go-owned
+  - do not broaden bespoke OpenAI transport clients by default
 
 ## When To Open New Rewrite Work
 
-Open a new rewrite slice only when at least one of these is true:
+Open a new bounded rewrite slice only when at least one of these is true:
 
 - an active caller or workflow is blocked by a Python-owned boundary
-- a release/runtime issue exposes a real ownership gap
+- a release or runtime issue exposes a real ownership gap
 - tests show the current boundary is broken
 - a product decision explicitly expands scope
-- a concrete rewrite infrastructure task, such as Go-owned frontend binding
-  generation or `openai-go` convergence for Go-owned OpenAI edges, is directly
-  required by the work at hand
+- a concrete rewrite infrastructure task is directly required by the work at
+  hand
 
 Otherwise, do not open a new numbered phase doc.

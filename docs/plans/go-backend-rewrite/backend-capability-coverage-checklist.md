@@ -2,18 +2,21 @@
 
 Snapshot date: 2026-03-12.
 
+Primary agent entrypoint: `docs/plans/go-backend-rewrite/CURRENT.md`.
+
 Companion caller-backed checklist:
 `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`.
 
 Audit/maintenance plan:
 `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist-audit-plan.md`.
 
-This checklist answers a different question than the caller-backed checklist:
-where does backend capability ownership live in the repo, regardless of whether
-every current caller already reaches the Go transport?
+Use this checklist when the question is:
+"Where does backend capability ownership live in the repo?"
 
-Together, these two docs are the complete backend coverage checklist for the
-current repo scope:
+Use the caller-backed checklist when the question is whether the active caller
+already hits a Go-owned route or websocket today.
+
+Together, these two docs define the current backend coverage view:
 
 - `caller-backed-backend-surface-checklist.md`
   - whether the active caller reaches Go today
@@ -26,7 +29,7 @@ backend/runtime surface and deliberate boundaries. Archived dead history,
 vendor payloads, and third-party provider internals are out of scope except
 where they are an explicit runtime dependency boundary.
 
-How to read the statuses:
+Status meanings:
 
 - `Go-owned`: Go owns the active runtime/service implementation for this
   capability area.

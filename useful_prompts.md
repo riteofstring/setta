@@ -69,51 +69,44 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-Read the docs in `docs/plans/go-backend-rewrite/` in this order:
-- `README.md`
-- `CURRENT.md`
-- `caller-backed-backend-surface-checklist.md`
-- `backend-capability-coverage-checklist.md`
-- `go-backend-rewrite-plan.md`
-- `go-dependency-inventory-and-rationale.md` when dependency choices are relevant
-- `docs/reference/dependencies/` when dependency, provider, transport, or library decisions are relevant
-- any other top-level rewrite doc that is directly relevant to the task
-- `archive/README.md` and specific archived phase/spike docs only if you need historical rationale
+For Go backend rewrite work, use `docs/plans/go-backend-rewrite/CURRENT.md` as the entrypoint.
 
-Treat the top-level docs as the current source of truth and `archive/` as cold history, not the default working set.
+Read path:
+1. Read `docs/plans/go-backend-rewrite/CURRENT.md`.
+2. Read only the task-matching current docs:
+   - `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` for active caller reachability
+   - `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md` for runtime or service ownership
+   - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` for rewrite rules or port-vs-redesign decisions
+   - `docs/plans/go-backend-rewrite/testing-strategy.md` when changing code or verification
+   - `docs/plans/go-backend-rewrite/go-dependency-inventory-and-rationale.md` plus `docs/reference/dependencies/` when dependency, provider, transport, or library choices matter
+   - any other non-archive top-level rewrite doc only when the task actually touches that boundary
+3. Read `docs/plans/go-backend-rewrite/README.md` only if you need the folder map.
+4. Read `docs/plans/go-backend-rewrite/*-audit-plan.md` only when updating those checklists.
+5. Use `docs/plans/go-backend-rewrite/archive/README.md` and specific archived docs only when current docs are insufficient and you need historical rationale.
 
-Important constraints for this rewrite:
-- This is a clean break. Do not preserve backward compatibility, legacy route shapes, storage migrations, or Python-shaped architecture unless I explicitly ask.
-- Current Python code, tests, and docs are reference material for product capabilities and edge cases, not a compatibility contract.
-- Preserve product behavior first. Treat the rewrite as a semantics-preserving port of the active backend surface unless a caller, release path, or documented product decision requires a behavior change.
-- Do not combine the language rewrite with broad architecture redesign by default. Use a behavior-first, architecture-conservative port unless a redesign is required for correctness or active caller coverage.
-- Prefer explicit Go runtime/service boundaries over framework magic or giant stateful singletons.
-- Use libraries for transport and OS integration; keep product semantics custom.
-- Avoid broadening scope beyond the current deliberate rewrite boundary unless a concrete caller, workflow, release issue, or product decision makes it necessary.
+Treat the non-archive top-level rewrite docs as the current source of truth. Treat `archive/` as cold history. Do not bulk-read the whole folder by default.
 
-Before doing substantive work:
-1. Inspect the current repo state and recent relevant files.
-2. Determine which current caller-backed surface, ownership bucket, or selected follow-on the request touches, and whether it crosses a documented Python/shared/external boundary.
-3. Summarize:
-   - the relevant checklist rows, code paths, and doc evidence for this task
-   - the ownership and caller-reachability picture relevant to the request
-   - any documented boundary, omitted legacy surface, or selected follow-on implicated by the request
-   - the highest-leverage next step
-4. Then execute that next step end-to-end instead of stopping at a plan, unless the highest-leverage next step is clearly planning or inventory work.
+Operating rules:
+- This is a clean break. Do not preserve backward compatibility, legacy route shapes, migrations, storage compatibility, or Python-shaped architecture unless I explicitly ask.
+- Preserve active product behavior for current callers first. Use Python code, tests, and docs as reference material for behavior and edge cases, not as a compatibility contract.
+- Default to a behavior-first, architecture-conservative port. Reopen redesign only when correctness, testability, or active caller coverage requires it.
+- Prefer explicit ownership, thin transports, typed boundaries, robust source-of-truth pathways, and established libraries over heuristics or transitional glue.
+- Do not widen scope unless a concrete caller, workflow, runtime issue, or documented product decision requires it.
 
-Working rules:
-- Before touching a subsystem, read the relevant current Go code, tests, and current rewrite docs for that subsystem. Read the relevant Python code/tests/docs as reference material when needed for capability or edge-case context.
-- When dependency or provider choices matter, read `go-dependency-inventory-and-rationale.md` and the relevant files under `docs/reference/dependencies/`.
-- Use `archive/` only when the current docs are insufficient and you need historical rationale.
-- If the work changes caller reachability or feature ownership, update `caller-backed-backend-surface-checklist.md` and/or `backend-capability-coverage-checklist.md`.
-- Update `CURRENT.md` only when the canonical doc list, selected follow-ons, or workflow guidance changed.
-- Do not create a new numbered phase/spike doc unless a concrete issue or caller genuinely opens a new rewrite slice.
-- Keep transport layers thin.
-- Avoid band-aids and backward-compatibility shims.
-- Prefer robust source-of-truth pathways over heuristics.
-- If the task touches Go-to-TypeScript frontend binding generation, keep route specs, request/response contracts, and generated output Go-owned. Do not use long-lived handwritten TypeScript blobs or silent fallback output; add a Go boundary DTO or converter rule instead.
+Execution loop:
+1. Inspect the relevant repo state and current Go/Python code paths.
+2. Map the task to the current caller-backed surface, ownership bucket, and any documented Python/shared/external boundary.
+3. In your first substantive update, summarize the relevant checklist rows, code paths, doc evidence, boundary implications, and the single highest-leverage next step.
+4. Then execute that step end-to-end unless the task is itself planning or inventory work.
+
+While working:
+- Read the relevant current Go code, tests, and rewrite docs before touching a subsystem. Read Python only as reference material when needed.
+- If the work changes caller reachability or ownership, update `caller-backed-backend-surface-checklist.md` and/or `backend-capability-coverage-checklist.md`.
+- Update `CURRENT.md` only when the canonical doc map, clean-break defaults, or workflow guidance changed.
+- Do not create a new numbered phase/spike doc unless a concrete issue or caller opens a bounded rewrite slice.
+- If the task touches Go-to-TypeScript frontend binding generation, keep the canonical generated outputs Go-owned. Prefer Go DTOs/converter rules over handwritten TypeScript or shadow outputs.
 - Run the most relevant tests for the touched area, or explicitly state why they were not run.
-- At the end of any substantial chunk of work, update the relevant current source-of-truth doc if the task changed documented ownership, caller reachability, selected follow-ons, dependency decisions, or workflow guidance.
+- At the end of substantial work, update the relevant current source-of-truth doc if the task changed ownership, caller reachability, selected follow-ons, dependency decisions, or workflow guidance.
 - If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
 - Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
 
