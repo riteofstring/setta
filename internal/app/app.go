@@ -794,6 +794,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			Host:           cfg.Server.Host,
+			Port:           cfg.Server.Port,
+			ProjectState:   projectRuntime,
+			Deployment:     deploymentRuntime,
+			Sessions:       authService,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		managedLiveRuntime = managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
 			Broadcaster: websocketHub,
 		})
@@ -803,8 +815,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runs:         agentRunStore,
 			LLM:          llmRuntime,
 			Executor: managedllm.NewExecutor(managedllm.ExecutorOptions{
-				Live:  managedLiveRuntime,
-				Tools: mcpClient,
+				Live:        managedLiveRuntime,
+				Tools:       mcpClient,
+				Attachments: attachmentService,
 				ResultFollow: managedllm.NewToolResultFollowEmitter(managedllm.ToolResultFollowEmitterOptions{
 					Broadcaster:  websocketHub,
 					TemporaryIDs: temporaryIDs,
@@ -1004,18 +1017,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Codex:    codexExecutor,
 			OpenCode: openCodeExecutor,
 		})
-		attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			Host:           cfg.Server.Host,
-			Port:           cfg.Server.Port,
-			ProjectState:   projectRuntime,
-			Deployment:     deploymentRuntime,
-			Sessions:       authService,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState: projectRuntime,
 			Engines:      engineStore,

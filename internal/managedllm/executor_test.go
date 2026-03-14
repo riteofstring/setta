@@ -7,15 +7,21 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
+	"setta/internal/chatattachments"
 	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/tools"
 )
@@ -73,6 +79,17 @@ type stubToolClient struct {
 	initTools         map[string]mcpx.ToolDescriptor
 	discoverableTools map[string]mcpx.ToolDescriptor
 	call              func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error)
+}
+
+type executorTestSessionProvider struct {
+	current *auth.CurrentSession
+}
+
+func (p executorTestSessionProvider) CurrentSession() (*auth.CurrentSession, bool) {
+	if p.current == nil {
+		return nil, false
+	}
+	return p.current, true
 }
 
 func (s *stubToolClient) InitToolsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
@@ -593,6 +610,120 @@ func TestExecutorRejectsAttachments(t *testing.T) {
 	})
 	if !errors.Is(err, ErrAttachmentsUnsupported) {
 		t.Fatalf("expected attachments unsupported, got %v", err)
+	}
+}
+
+func TestExecutorInlinesManagedAttachmentTextWhenAttachmentServiceIsAvailable(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("Hello from attachment."), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	attachmentService, err := chatattachments.NewService(chatattachments.ServiceOptions{
+		SettaFilesRoot: root,
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Sessions: executorTestSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
+			t.Fatalf("unexpected auth header %q", got)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"}}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":2,\"total_tokens\":13}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	executor := NewExecutor(ExecutorOptions{
+		HTTPClient:  server.Client(),
+		Attachments: attachmentService,
+	})
+	_, err = executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gpt-4o-mini",
+			Provider:  "openai",
+			APIKeyEnv: "OPENAI_API_KEY",
+			BaseURL:   server.URL + "/v1",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the attachment."},
+					},
+					"attachments": []any{
+						map[string]any{"id": "artifacts/notes.txt", "name": "notes.txt", "mimeType": "text/plain"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed chat with attachments: %v", err)
+	}
+
+	messages, _ := seenRequest["messages"].([]any)
+	if len(messages) != 2 {
+		t.Fatalf("expected system and user messages, got %#v", seenRequest["messages"])
+	}
+	userMessage, _ := messages[1].(map[string]any)
+	content, _ := userMessage["content"].(string)
+	if !strings.Contains(content, "Use the attachment.") {
+		t.Fatalf("expected original message text, got %q", content)
+	}
+	if !strings.Contains(content, "[Attachment: notes.txt]") || !strings.Contains(content, "Hello from attachment.") {
+		t.Fatalf("expected attachment text to be inlined, got %q", content)
 	}
 }
 

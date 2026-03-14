@@ -17,6 +17,7 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 	"google.golang.org/genai"
 	"setta/internal/agentruns"
+	"setta/internal/chatattachments"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
 	"setta/internal/realtime"
@@ -46,6 +47,7 @@ type ExecutorOptions struct {
 	Live         *managedchat.LiveRuntime
 	Tools        ToolClient
 	HTTPClient   *http.Client
+	Attachments  *chatattachments.Service
 	ResultFollow *ToolResultFollowEmitter
 }
 
@@ -53,6 +55,7 @@ type Executor struct {
 	live         *managedchat.LiveRuntime
 	tools        ToolClient
 	httpClient   *http.Client
+	attachments  *chatattachments.Service
 	resultFollow *ToolResultFollowEmitter
 }
 
@@ -88,6 +91,7 @@ func NewExecutor(options ExecutorOptions) *Executor {
 		live:         options.Live,
 		tools:        options.Tools,
 		httpClient:   httpClient,
+		attachments:  options.Attachments,
 		resultFollow: options.ResultFollow,
 	}
 }
@@ -125,7 +129,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		return preparedExecution{}, err
 	}
 
-	transcript, providerMessages, err := buildMessages(provider, request)
+	transcript, providerMessages, err := e.buildMessages(provider, request)
 	if err != nil {
 		return preparedExecution{}, err
 	}
@@ -1057,11 +1061,11 @@ func providerPayloadForMessage(provider string, message map[string]any) (map[str
 	}
 }
 
-func buildMessages(provider string, request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, error) {
+func (e *Executor) buildMessages(provider string, request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, error) {
 	transcript := []map[string]any{}
 
 	if rawMessages, ok := request.Inputs["messages"]; ok {
-		messages, err := parseTranscriptMessages(rawMessages)
+		messages, err := e.parseTranscriptMessages(rawMessages, strings.TrimSpace(request.ProjectConfigID))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1095,7 +1099,7 @@ func buildMessages(provider string, request agentruns.ExecutionRequest) ([]map[s
 	return transcript, providerMessages, nil
 }
 
-func parseTranscriptMessages(raw any) ([]map[string]any, error) {
+func (e *Executor) parseTranscriptMessages(raw any, projectConfigID string) ([]map[string]any, error) {
 	rawList, ok := raw.([]any)
 	if !ok {
 		return nil, fmt.Errorf("%w: messages must be a list", agentruns.ErrInvalidRunInput)
@@ -1106,13 +1110,47 @@ func parseTranscriptMessages(raw any) ([]map[string]any, error) {
 		if !ok {
 			return nil, fmt.Errorf("%w: message %d must be an object", ErrHistoryUnsupported, index)
 		}
-		normalized, err := normalizeTranscriptMessage(message)
+		resolved, err := e.resolveMessageAttachments(message, projectConfigID)
+		if err != nil {
+			return nil, err
+		}
+		normalized, err := normalizeTranscriptMessage(resolved)
 		if err != nil {
 			return nil, err
 		}
 		transcript = append(transcript, normalized)
 	}
 	return transcript, nil
+}
+
+func (e *Executor) resolveMessageAttachments(message map[string]any, projectConfigID string) (map[string]any, error) {
+	resolved := cloneMessage(message)
+	if !hasNonEmptyAttachments(resolved["attachments"]) {
+		return resolved, nil
+	}
+	if e == nil || e.attachments == nil {
+		return nil, ErrAttachmentsUnsupported
+	}
+	attachmentPayload, err := e.attachments.BuildPayload(chatattachments.BuildPayloadRequest{
+		Messages:        []map[string]any{resolved},
+		ProjectConfigID: projectConfigID,
+		IncludeText:     true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if attachmentText := strings.TrimSpace(attachmentPayload.AttachmentText); attachmentText != "" {
+		content, _ := resolved["content"].([]any)
+		nextContent := make([]any, 0, len(content)+1)
+		nextContent = append(nextContent, content...)
+		nextContent = append(nextContent, map[string]any{
+			"type": "text",
+			"text": attachmentText,
+		})
+		resolved["content"] = nextContent
+	}
+	resolved["attachments"] = []any{}
+	return resolved, nil
 }
 
 func buildProviderMessages(provider string, systemPrompt string, transcript []map[string]any) ([]map[string]any, error) {
