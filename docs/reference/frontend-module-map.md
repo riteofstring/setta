@@ -98,6 +98,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need standalone project error-state lifecycle, runtime hooks, or chat-route navigation wiring: open `components/Pages/Project/standaloneProjectSurfaceController.ts`.
 - Need standalone project surface render branching or standalone shell/not-found UI: open `components/Pages/Project/StandaloneProjectSurfaceRenderer.tsx`.
 - Need standalone window-space hydration, local window state, or snap-resize math: open `components/Pages/Project/standaloneWindowSpaceState.ts`.
+- Need standalone window-space viewport sizing, hydration effects, or local window callback wiring: open `components/Pages/Project/useStandaloneWindowSpaceController.ts`.
 - Need standalone window-space blocked/empty UI, resize-handle overlay, or per-window canvas rendering: open `components/Pages/Project/StandaloneWindowSpaceCanvas.tsx`.
 - Need standalone window-space branching between section, git-graph, and floating project-chat windows: open `components/Pages/Project/StandaloneWindowSpaceWindowSurface.tsx`.
 - Need pane/tab behavior: open `components/Panes/`.
