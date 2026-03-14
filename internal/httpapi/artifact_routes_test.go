@@ -23,7 +23,7 @@ import (
 	"setta/internal/shareartifacts"
 )
 
-func TestRegisterArtifactRoutesRoundTripAndUnsupportedUpdate(t *testing.T) {
+func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t *testing.T) {
 	t.Parallel()
 
 	authService := newTestAuthService(t)
@@ -88,6 +88,86 @@ func TestRegisterArtifactRoutesRoundTripAndUnsupportedUpdate(t *testing.T) {
 		t.Fatalf("expected route image bytes, got %q", string(imageBytes))
 	}
 
+	fileRef, err := binaryStore.StoreBytes([]byte("route upload"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store file payload: %v", err)
+	}
+	fileValue, err := json.Marshal(fileRef)
+	if err != nil {
+		t.Fatalf("marshal file payload: %v", err)
+	}
+	fileUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"File","id":"artifacts/notes.txt","value":`+string(fileValue)+`}],"uploadScope":"generic"}`))
+	fileUpdateRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, fileUpdateRequest, authService)
+
+	fileUpdateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileUpdateResponse, fileUpdateRequest)
+	if fileUpdateResponse.Code != http.StatusOK {
+		t.Fatalf("expected file update 200, got %d with body %q", fileUpdateResponse.Code, fileUpdateResponse.Body.String())
+	}
+
+	filePath := filepath.Join(settaFilesRoot, "artifacts", "notes.txt")
+	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "route upload" {
+		t.Fatalf("expected updated file artifact payload, got %q err=%v", string(payload), err)
+	}
+
+	brushUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"BrushStroke","id":"artifacts/stroke.json","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":[[1,2],"BREAK"],"globalCompositeOperation":"source-over"}},{"type":"DrawAreaLayerItemTransform","id":"artifacts/transform.json","value":{"transform":[1,0,0,1,3,4],"eraserStrokes":[]}}],"uploadScope":"generic"}`))
+	brushUpdateRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, brushUpdateRequest, authService)
+
+	brushUpdateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(brushUpdateResponse, brushUpdateRequest)
+	if brushUpdateResponse.Code != http.StatusOK {
+		t.Fatalf("expected brush/transform update 200, got %d with body %q", brushUpdateResponse.Code, brushUpdateResponse.Body.String())
+	}
+
+	brushLoadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedBrushStrokes, strings.NewReader(`{"paths":["artifacts/stroke.json"]}`))
+	brushLoadRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, brushLoadRequest, authService)
+
+	brushLoadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(brushLoadResponse, brushLoadRequest)
+	if brushLoadResponse.Code != http.StatusOK {
+		t.Fatalf("expected brush load 200, got %d with body %q", brushLoadResponse.Code, brushLoadResponse.Body.String())
+	}
+	var brushPayload []*artifacts.JSONArtifact
+	if err := json.Unmarshal(brushLoadResponse.Body.Bytes(), &brushPayload); err != nil {
+		t.Fatalf("decode brush payload: %v", err)
+	}
+	if len(brushPayload) != 1 || brushPayload[0] == nil || !strings.Contains(string(brushPayload[0].Value), "#000000") {
+		t.Fatalf("expected cached brush payload, got %#v", brushPayload)
+	}
+
+	transformLoadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedDrawAreaLayerItemTransform, strings.NewReader(`{"paths":["artifacts/transform.json"]}`))
+	transformLoadRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, transformLoadRequest, authService)
+
+	transformLoadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(transformLoadResponse, transformLoadRequest)
+	if transformLoadResponse.Code != http.StatusOK {
+		t.Fatalf("expected transform load 200, got %d with body %q", transformLoadResponse.Code, transformLoadResponse.Body.String())
+	}
+	var transformPayload []*artifacts.JSONArtifact
+	if err := json.Unmarshal(transformLoadResponse.Body.Bytes(), &transformPayload); err != nil {
+		t.Fatalf("decode transform payload: %v", err)
+	}
+	if len(transformPayload) != 1 || transformPayload[0] == nil || !strings.Contains(string(transformPayload[0].Value), `"transform":[1,0,0,1,3,4]`) {
+		t.Fatalf("expected cached transform payload, got %#v", transformPayload)
+	}
+
+	fileDeleteRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteArtifacts, strings.NewReader(`{"artifacts":[{"id":"artifacts/notes.txt","type":"File"}]}`))
+	fileDeleteRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, fileDeleteRequest, authService)
+
+	fileDeleteResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileDeleteResponse, fileDeleteRequest)
+	if fileDeleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected file delete 200, got %d with body %q", fileDeleteResponse.Code, fileDeleteResponse.Body.String())
+	}
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Fatalf("expected file artifact to be removed, stat err=%v", err)
+	}
+
 	unsupportedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"Image","id":"artifacts/unsupported.png","value":{"contentId":"x","byteLength":1}}],"uploadScope":"generic"}`))
 	unsupportedRequest.Header.Set("Content-Type", "application/json")
 	addHTTPTestAuthCookie(t, unsupportedRequest, authService)
@@ -122,7 +202,7 @@ func TestRegisterArtifactRoutesBlocksLauncherMode(t *testing.T) {
 func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 	t.Parallel()
 
-	service, deploymentRuntime, deploymentRoot := newShareArtifactRouteService(t, true)
+	service, deploymentRuntime, deploymentRoot, binaryStore := newShareArtifactRouteService(t, true)
 	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
 		t.Fatalf("create share session: %v", err)
 	}
@@ -168,6 +248,39 @@ func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 		t.Fatalf("unexpected share overlay payload %#v", payload[0])
 	}
 
+	fileRef, err := binaryStore.StoreBytes([]byte("share upload"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store share file payload: %v", err)
+	}
+	fileValue, err := json.Marshal(fileRef)
+	if err != nil {
+		t.Fatalf("marshal share file payload: %v", err)
+	}
+	fileUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"File","id":"artifacts/notes.txt","value":`+string(fileValue)+`}],"uploadScope":"chat"}`))
+	fileUpdateRequest.Header.Set("Content-Type", "application/json")
+	fileUpdateRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	fileUpdateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileUpdateResponse, fileUpdateRequest)
+	if fileUpdateResponse.Code != http.StatusOK {
+		t.Fatalf("expected share file update 200, got %d with body %q", fileUpdateResponse.Code, fileUpdateResponse.Body.String())
+	}
+
+	fileDeleteRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteArtifacts, strings.NewReader(`{"artifacts":[{"id":"artifacts/notes.txt","type":"File"}]}`))
+	fileDeleteRequest.Header.Set("Content-Type", "application/json")
+	fileDeleteRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	fileDeleteResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileDeleteResponse, fileDeleteRequest)
+	if fileDeleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected share file delete 200, got %d with body %q", fileDeleteResponse.Code, fileDeleteResponse.Body.String())
+	}
+
+	shareFilePath := filepath.Join(deploymentRoot, "artifacts", "notes.txt")
+	if payload, err := os.ReadFile(shareFilePath); err == nil && string(payload) != "" {
+		t.Fatalf("expected share file delete to stay overlay-only, disk payload was %q", string(payload))
+	}
+
 	transformRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedDrawAreaLayerItemTransform, strings.NewReader(`{"paths":[]}`))
 	transformRequest.Header.Set("Content-Type", "application/json")
 	transformRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
@@ -182,7 +295,7 @@ func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 func TestRegisterArtifactRoutesShareModeRejectsPolicyDenied(t *testing.T) {
 	t.Parallel()
 
-	service, deploymentRuntime, deploymentRoot := newShareArtifactRouteService(t, false)
+	service, deploymentRuntime, deploymentRoot, _ := newShareArtifactRouteService(t, false)
 	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
 		t.Fatalf("create share session: %v", err)
 	}
@@ -231,7 +344,7 @@ func newArtifactRouteService(t *testing.T) (*artifacts.Service, string, string, 
 	return service, workspaceRoot, settaFilesRoot, binaryStore
 }
 
-func newShareArtifactRouteService(t *testing.T, allowParamChanges bool) (*shareartifacts.Service, *deployments.Runtime, string) {
+func newShareArtifactRouteService(t *testing.T, allowParamChanges bool) (*shareartifacts.Service, *deployments.Runtime, string, *binarypayload.Store) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -263,7 +376,7 @@ func newShareArtifactRouteService(t *testing.T, allowParamChanges bool) (*sharea
 	if err != nil {
 		t.Fatalf("new share artifact service: %v", err)
 	}
-	return service, deploymentRuntime, deploymentRoot
+	return service, deploymentRuntime, deploymentRoot, binaryStore
 }
 
 func newArtifactRouteTestHandler(t *testing.T, mode config.Mode, authService *auth.Service, service *artifacts.Service) http.Handler {
