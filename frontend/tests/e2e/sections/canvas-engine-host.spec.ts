@@ -304,6 +304,74 @@ test("canvas engine host renders a minimap and recenters from minimap clicks", a
   }
 });
 
+test("canvas engine minimap includes cached nested preview nodes", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, {
+      useCanvasEngineV1: true,
+      showMinimap: true,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const viewportBounds = await getEngineViewportBounds(page);
+    const groupId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Group",
+      viewportBounds,
+      position: { x: 420, y: 120 },
+    });
+    const childId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Code",
+      viewportBounds,
+      position: { x: 80, y: 120 },
+    });
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [childId],
+      newParentId: groupId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const minimap = page.getByTestId("rf__minimap");
+    await expect(minimap).toBeVisible();
+    // The minimap should include the nested child as its own preview node.
+    await expect(
+      minimap.locator(`[data-minimap-node-id="${childId}"]`),
+    ).toHaveCount(1);
+
+    for (let index = 0; index < 16; index += 1) {
+      await page.getByRole("button", { name: "zoom out" }).click();
+    }
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-dom-island-mounted-count",
+          ),
+      )
+      .toBe(0);
+    await expect(
+      minimap.locator(`[data-minimap-node-id="${childId}"]`),
+    ).toHaveCount(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host renders the shared background grid and updates it on zoom", async ({
   page,
 }) => {
