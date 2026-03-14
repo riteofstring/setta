@@ -3,7 +3,7 @@ import { route_update_engine_config } from "utils/generatedEndpoints";
 import { createEngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAIStore } from "../definitions";
-import { updateEngineConfig } from "./ai";
+import { updateEngineConfig } from "./aiConfiguration";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
