@@ -64,11 +64,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
-- `frontend/src/state/actions/ai.ts` is now 2082 lines and currently mixes chat submission, streaming, and optimistic update behavior.
+- `frontend/src/state/actions/ai.ts` is now 1354 lines and currently mixes streaming reducers, tool preview/app-spec reconciliation, and optimistic stream update behavior.
 - `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
+- `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration and backend request payload assembly.
 - `frontend/src/state/actions/aiChatControls.ts` now owns stop/resume behavior plus external approval/question responses.
 - `frontend/src/state/actions/aiChatState.ts` now owns chat-detail and pending-surface detail writes shared by submission, hydration, and controls.
+- `frontend/src/state/actions/aiPendingChatState.ts` now owns surface-scoped pending drafts, pending app-generation state, and promotion into materialized chats.
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.
 - `frontend/src/state/actions/aiConfiguration.ts` now owns LLM config/API-key handling plus the AI settings/resource catalogs.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.

@@ -41,16 +41,16 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import {
-  clearPendingChatDetails,
-  getDefaultChatDetails,
-  initializePendingChatDetails,
-  submitEditedMessage,
-  submitMessage,
-} from "state/actions/ai";
+import { getDefaultChatDetails } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { stopManagedSectionChatResponse } from "state/actions/aiChatControls";
+import {
+  clearPendingChatDetails,
+  initializePendingChatDetails,
+  submitEditedMessage,
+  submitMessage,
+} from "state/actions/aiChatSubmission";
 import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {

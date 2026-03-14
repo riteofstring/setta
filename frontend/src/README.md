@@ -56,12 +56,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
   - `state/actions/ai.ts`, `state/actions/chat*.ts`, and
-    `state/actions/projectChatThreads.ts` currently own chat submission,
-    streaming, and optimistic update behavior.
+    `state/actions/projectChatThreads.ts` currently own chat streaming, tool
+    preview/app-spec reconciliation, and optimistic stream update behavior.
   - `state/actions/aiHydration.ts` owns chat history fetch/reconciliation and
     hydration outcome classification for managed and external threads.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
     single-run/update reconciliation.
+  - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration,
+    backend request payload assembly, and the pending-surface promotion flow.
   - `state/actions/aiChatControls.ts` owns stop/resume behavior plus external
     agent approval/question responses.
   - `state/actions/aiChatState.ts` owns chat-detail and pending-surface detail
@@ -70,6 +72,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
     shared by hydration and section-state writes.
   - `state/actions/aiInterruptedAssistantMessages.ts` owns interrupted assistant
     message tracking and snapshot restoration.
+  - `state/actions/aiPendingChatState.ts` owns surface-scoped pending drafts,
+    pending app-generation state, and promotion into materialized chats.
   - `state/actions/aiConfiguration.ts` owns LLM config/API keys plus the AI
     settings catalogs for agent profiles, prompt templates, external agents, and
     engine configs.
@@ -118,7 +122,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
     branch.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
     helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
-    `aiChatControls.ts`, `aiChatState.ts`, and `aiChatSectionState.ts`.
+    `aiChatSubmission.ts`, `aiChatControls.ts`, `aiChatState.ts`,
+    `aiChatSectionState.ts`, and `aiPendingChatState.ts`.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -167,8 +172,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/ai.ts` remaining submission, streaming, and optimistic update
-  paths
+- `state/actions/ai.ts` remaining streaming reducers, tool preview/app-spec
+  reconciliation, and stream-side optimistic update paths
 - `state/definitions.ts`
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

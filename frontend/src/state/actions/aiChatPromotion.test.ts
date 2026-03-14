@@ -10,11 +10,8 @@ import {
   createUserChatMessage,
 } from "utils/generatedTypes";
 
-import {
-  finalizePendingChatDetails,
-  getDefaultChatDetails,
-  receiveLLMResponseChunk,
-} from "./ai";
+import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
+import { finalizePendingChatDetails } from "./aiChatSubmission";
 
 const SURFACE_A = "surface-a";
 const SURFACE_B = "surface-b";
