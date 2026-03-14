@@ -1,5 +1,8 @@
-import { useAIStore, useProjectState } from "state/definitions";
-import { useListenerCoverage } from "state/stores/authoringStores";
+import {
+  useAIStore,
+  useListenerCoverage,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   DependencyKeyTypeEnum,

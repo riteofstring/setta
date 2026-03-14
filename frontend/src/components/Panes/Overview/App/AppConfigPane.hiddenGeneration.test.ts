@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { EngineTypeEnum } from "utils/generatedTypes";
 
-import { cloneSpecForPreview } from "./appConfigDefinitionUtils";
 import {
+  cloneSpecForPreview,
   resolveGenerationFailureMessage,
   resolveHiddenGenerationEngineSelection,
-} from "./appConfigHiddenGenerationUtils";
+} from "./AppConfigPane";
 
 describe("AppConfigPane hidden generation helpers", () => {
   it("keeps preview snapshots detached from live streaming spec mutations", () => {

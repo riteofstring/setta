@@ -23,19 +23,24 @@ import {
 import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import { Link } from "react-router-dom";
-import { useLocalStorage, useShareSession } from "state/definitions";
-import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { useBackendLogEvents } from "state/stores/runtimeStores";
-import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants/dom";
 import {
+  useBackendLogEvents,
+  useLocalStorage,
+  useShareSession,
+} from "state/definitions";
+import { useHasViewModeTabs } from "state/hooks/viewModes";
+import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
+  APP_MENU_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
+  PAGE_LOAD_TYPES,
   PaneNameEnum,
   parsePluginPaneOverviewTabName,
-} from "utils/constants/panes";
-import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants/routes";
+  SETTINGS_ROUTER_PATH,
+} from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import {
   onOverviewResizeStop,
@@ -50,13 +55,14 @@ import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
-import { ProjectChatManager } from "./ProjectLevelAI/ProjectChatManager";
+import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
+export const OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME = `${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`;
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -233,7 +239,7 @@ export function Overview() {
                 <MdMoreHoriz size={20} />
               </span>
             }
-            contentClassName="z-20 min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850"
+            contentClassName={OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME}
           >
             <MenuItem
               className={moreMenuItemClasses}
@@ -427,7 +433,7 @@ function TabContent({
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
-      return <ProjectChatManager />;
+      return <ProjectChat />;
     case OverviewTabNameEnum.ProjectAISettings:
       return <ProjectAISettings />;
     default:

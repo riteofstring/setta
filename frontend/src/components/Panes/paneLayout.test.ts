@@ -1,6 +1,6 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { CLOSED_PANE_WIDTH, PaneNameEnum } from "utils/constants/panes";
+import { CLOSED_PANE_WIDTH, PaneNameEnum } from "utils/constants";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   getPaneMaxWidthForViewport,
@@ -154,7 +154,7 @@ describe("pane layout helpers", () => {
   });
 
   it("supports home pane ids with paired layout behavior", () => {
-    setViewportWidth(1200);
+    setViewportWidth(1400);
     useLocalStorage.setState({
       homeWorkspacePaneVis: true,
       homeWorkspacePaneWidth: 1040,
@@ -170,12 +170,54 @@ describe("pane layout helpers", () => {
     expect(state.homeSelectedProjectPaneVis).toBe(true);
     expect(state.homeSelectedProjectPaneTrueWidth).toBe(280);
     expect(state.homeWorkspacePaneVis).toBe(true);
-    expect(state.homeWorkspacePaneTrueWidth).toBe(920);
+    expect(state.homeWorkspacePaneTrueWidth).toBe(1040);
+  });
+
+  it("defaults home panes to full width on narrow desktop viewports", () => {
+    // In the narrow desktop band above compact mode, rail clicks should focus
+    // the chosen home pane while keeping the rails themselves available.
+    setViewportWidth(1120);
+    useLocalStorage.setState({
+      homeWorkspacePaneVis: false,
+      homeWorkspacePaneWidth: 320,
+      homeWorkspacePaneTrueWidth: CLOSED_PANE_WIDTH,
+      homeSelectedProjectPaneVis: false,
+      homeSelectedProjectPaneWidth: 280,
+      homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
+    });
+
+    togglePaneVisibility(PaneNameEnum.homeWorkspace);
+
+    const state = useLocalStorage.getState();
+    expect(state.homeWorkspacePaneVis).toBe(true);
+    expect(state.homeWorkspacePaneTrueWidth).toBe(
+      getPaneMaxWidthForViewport(1120),
+    );
+    expect(state.homeSelectedProjectPaneVis).toBe(false);
+    expect(state.homeSelectedProjectPaneTrueWidth).toBe(CLOSED_PANE_WIDTH);
+  });
+
+  it("keeps wide home viewports on the remembered split width", () => {
+    setViewportWidth(1400);
+    useLocalStorage.setState({
+      homeWorkspacePaneVis: false,
+      homeWorkspacePaneWidth: 320,
+      homeWorkspacePaneTrueWidth: CLOSED_PANE_WIDTH,
+      homeSelectedProjectPaneVis: false,
+      homeSelectedProjectPaneWidth: 280,
+      homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
+    });
+
+    togglePaneVisibility(PaneNameEnum.homeWorkspace);
+
+    const state = useLocalStorage.getState();
+    expect(state.homeWorkspacePaneVis).toBe(true);
+    expect(state.homeWorkspacePaneTrueWidth).toBe(320);
   });
 
   it("closes a full-width home pane when opening the opposite home pane", () => {
-    setViewportWidth(1200);
-    const fullWidth = getPaneMaxWidthForViewport(1200);
+    setViewportWidth(1400);
+    const fullWidth = getPaneMaxWidthForViewport(1400);
     useLocalStorage.setState({
       homeWorkspacePaneVis: true,
       homeWorkspacePaneWidth: fullWidth,
