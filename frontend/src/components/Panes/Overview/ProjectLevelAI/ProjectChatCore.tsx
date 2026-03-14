@@ -24,12 +24,7 @@ import {
   useState,
 } from "react";
 import { loadAgentRuns } from "state/actions/ai/agentRuns";
-import {
-  clearPendingChatDetails,
-  finalizePendingChatDetails,
-  getDefaultChatDetails,
-  initializePendingChatDetails,
-} from "state/actions/ai/chatRuntime";
+import { getDefaultChatDetails } from "state/actions/ai/chatRuntime";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
 import {
@@ -63,7 +58,6 @@ import { resolveProjectChatComposerDerivedState } from "./projectChatComposerSta
 import {
   buildProjectChatSubmittedMessageHistory,
   filterProjectConversationMessagesBySearch,
-  toSortedProjectHistoryEntries,
 } from "./projectChatHistoryUtils";
 import {
   resolveProjectChatRunTypeForEngine,
@@ -94,6 +88,12 @@ import {
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
+import {
+  resumeLatestProjectChat,
+  selectProjectChatThread,
+  settleProjectChatThreadStart,
+  startProjectChatThread,
+} from "./projectChatThreadController";
 import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
@@ -875,33 +875,24 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   ]);
 
   const handleNewChatStart = useCallback(() => {
-    if (onStartNewChat) {
-      onStartNewChat();
-      return;
-    }
-    onDraftThreadStart?.();
-    if (chatId === null) {
-      return;
-    }
-    initializePendingChatDetails(surfaceId);
-    setChatId(null);
+    startProjectChatThread({
+      chatId,
+      surfaceId,
+      onStartNewChat,
+      onDraftThreadStart,
+      setChatId,
+    });
   }, [chatId, onDraftThreadStart, onStartNewChat, setChatId, surfaceId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
-      onDraftThreadSettled?.(newChatId, succeeded);
-      if (!succeeded || !newChatId) {
-        clearPendingChatDetails(surfaceId);
-        setChatId((currentChatId) => {
-          if (currentChatId !== null) {
-            return currentChatId;
-          }
-          return undefined;
-        });
-        return;
-      }
-      setChatId(newChatId);
-      finalizePendingChatDetails(newChatId, surfaceId);
+      settleProjectChatThreadStart({
+        newChatId,
+        succeeded,
+        surfaceId,
+        onDraftThreadSettled,
+        setChatId,
+      });
     },
     [onDraftThreadSettled, setChatId, surfaceId],
   );
@@ -920,18 +911,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
-    await loadAgentRuns();
-    const currentChatId = typeof chatId === "string" ? chatId : null;
-    const latestEntry = toSortedProjectHistoryEntries(
-      useAIStore.getState().agentRuns,
+    return resumeLatestProjectChat({
+      chatId: typeof chatId === "string" ? chatId : null,
       projectConfigId,
       historyCompatibility,
-    ).find((entry) => entry.chatId !== currentChatId);
-    if (!latestEntry) {
-      return false;
-    }
-    setChatId(latestEntry.chatId);
-    return true;
+      agentRuns: useAIStore.getState().agentRuns,
+      setChatId,
+    });
   }, [chatId, historyCompatibility, projectConfigId, setChatId]);
 
   const resolveRefreshedSlashCommandSets = useCallback(
@@ -1137,10 +1123,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleBranchSwitch = useCallback(
     (nextChatId: string) => {
-      if (!nextChatId || nextChatId === chatId) {
-        return;
-      }
-      setChatId(nextChatId);
+      selectProjectChatThread({
+        nextChatId,
+        chatId,
+        setChatId,
+      });
     },
     [chatId, setChatId],
   );
