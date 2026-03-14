@@ -1156,6 +1156,100 @@ func TestFrontendGeneratedContractFileInventory(t *testing.T) {
 	)
 }
 
+func TestCheckedInGeneratedBindingsMatchCurrentGenerationPipeline(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	tempDir := t.TempDir()
+	pipelineOutputPaths := []struct {
+		relativePath  string
+		generatedPath string
+	}{
+		{
+			relativePath:  "frontend/src/utils/generatedRoutes.ts",
+			generatedPath: filepath.Join(tempDir, "generatedRoutes.ts"),
+		},
+		{
+			relativePath:  "frontend/src/utils/generatedTypes.ts",
+			generatedPath: filepath.Join(tempDir, "generatedTypes.ts"),
+		},
+		{
+			relativePath:  "frontend/src/utils/generatedEndpoints.ts",
+			generatedPath: filepath.Join(tempDir, "generatedEndpoints.ts"),
+		},
+	}
+
+	generateCmd := exec.Command(
+		"./scripts/go.sh",
+		"run",
+		"./cmd/setta-gen-frontend-bindings",
+		"-routes-out",
+		pipelineOutputPaths[0].generatedPath,
+		"-types-out",
+		pipelineOutputPaths[1].generatedPath,
+		"-endpoints-out",
+		pipelineOutputPaths[2].generatedPath,
+	)
+	generateCmd.Dir = repoRoot
+	generateOutput, err := generateCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run frontend binding generator: %v\n%s", err, string(generateOutput))
+	}
+
+	prettierArgs := []string{
+		"-C",
+		"frontend",
+		"exec",
+		"prettier",
+		pipelineOutputPaths[0].generatedPath,
+		pipelineOutputPaths[1].generatedPath,
+		pipelineOutputPaths[2].generatedPath,
+		"--write",
+	}
+	prettierCmd := exec.Command("pnpm", prettierArgs...)
+	prettierCmd.Dir = repoRoot
+	prettierOutput, err := prettierCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("format generated bindings with prettier: %v\n%s", err, string(prettierOutput))
+	}
+
+	expectedFiles := []struct {
+		relativePath  string
+		generatedPath string
+	}{
+		{
+			relativePath:  "frontend/src/utils/generatedRoutes.ts",
+			generatedPath: pipelineOutputPaths[0].generatedPath,
+		},
+		{
+			relativePath:  "frontend/src/utils/generatedTypes.ts",
+			generatedPath: pipelineOutputPaths[1].generatedPath,
+		},
+		{
+			relativePath:  "frontend/src/utils/generatedEndpoints.ts",
+			generatedPath: pipelineOutputPaths[2].generatedPath,
+		},
+	}
+
+	for _, file := range expectedFiles {
+		contents, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(file.relativePath)))
+		if err != nil {
+			t.Fatalf("read %s: %v", file.relativePath, err)
+		}
+		generatedContents, err := os.ReadFile(file.generatedPath)
+		if err != nil {
+			t.Fatalf("read %s: %v", file.generatedPath, err)
+		}
+		if string(contents) == string(generatedContents) {
+			continue
+		}
+		t.Fatalf(
+			"%s is out of date with current Go frontend binding generation pipeline output; run pnpm -C frontend generate-go-frontend-bindings",
+			file.relativePath,
+		)
+	}
+}
+
 func TestFrontendSourceDoesNotImportPythonBindingArtifacts(t *testing.T) {
 	t.Helper()
 

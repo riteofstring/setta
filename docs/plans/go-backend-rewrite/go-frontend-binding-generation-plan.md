@@ -212,6 +212,11 @@ Current status:
   `backend/setta/...` paths or
   `ui_settings/section_ui_editor_tab_compatibility.json`, so the canonical
   Go-owned frontend contract boundary stays cut over
+- the validation suite now also checks that the checked-in
+  `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
+  files exactly match the current Go frontend binding generation pipeline
+  output, so generation drift fails fast instead of depending on manual
+  regeneration
 - widening the converted surface should use structured declarations,
   converter-rule additions, or explicit Go boundary DTOs rather than
   reintroducing inline TypeScript escape hatches
