@@ -123,10 +123,107 @@ func buildGeminiGenerateContentConfig(
 			}
 		}
 	}
-	if request.Thinking {
-		return nil, unsupportedThinkingError(request)
+	thinkingConfig, enabled, err := resolveGeminiThinkingConfig(request)
+	if err != nil {
+		return nil, err
+	}
+	if enabled {
+		config.ThinkingConfig = thinkingConfig
 	}
 	return config, nil
+}
+
+func resolveGeminiThinkingConfig(request agentruns.ExecutionRequest) (*genai.ThinkingConfig, bool, error) {
+	if !request.Thinking {
+		return nil, false, nil
+	}
+	raw, ok := request.RequestParams["thinkingConfig"]
+	if !ok {
+		raw, ok = request.RequestParams["thinking_config"]
+	}
+	if !ok {
+		return nil, false, unsupportedThinkingError(request)
+	}
+	payload, ok := cloneJSONValue(raw).(map[string]any)
+	if !ok {
+		return nil, false, fmt.Errorf("%w: gemini thinking_config must be an object", ErrReasoningUnsupported)
+	}
+	normalized := map[string]any{}
+	for key, value := range payload {
+		normalized[normalizeGeminiThinkingConfigKey(strings.TrimSpace(key))] = normalizeGeminiThinkingConfigValue(
+			strings.TrimSpace(key),
+			value,
+		)
+	}
+	config := &genai.ThinkingConfig{}
+	rawPayload, err := json.Marshal(normalized)
+	if err != nil {
+		return nil, false, fmt.Errorf("encode gemini thinking config payload: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(rawPayload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(config); err != nil {
+		return nil, false, fmt.Errorf("%w: invalid gemini thinking_config: %v", ErrReasoningUnsupported, err)
+	}
+	if config.ThinkingBudget != nil && *config.ThinkingBudget < 1 {
+		return nil, false, fmt.Errorf("%w: gemini thinking_budget must be positive when thinking is enabled", ErrReasoningUnsupported)
+	}
+	if !isValidGeminiThinkingLevel(config.ThinkingLevel) {
+		return nil, false, fmt.Errorf("%w: invalid gemini thinking_level %q", ErrReasoningUnsupported, config.ThinkingLevel)
+	}
+	// The frontend "thinking" control expects visible reasoning output, not only
+	// hidden provider-side budgeting, so request thought blocks explicitly.
+	config.IncludeThoughts = true
+	return config, true, nil
+}
+
+func normalizeGeminiThinkingConfigKey(key string) string {
+	switch key {
+	case "include_thoughts":
+		return "includeThoughts"
+	case "thinking_budget":
+		return "thinkingBudget"
+	case "thinking_level":
+		return "thinkingLevel"
+	default:
+		return key
+	}
+}
+
+func normalizeGeminiThinkingConfigValue(key string, value any) any {
+	switch normalizeGeminiThinkingConfigKey(strings.TrimSpace(key)) {
+	case "thinkingLevel":
+		switch strings.ToLower(strings.TrimSpace(stringValue(value))) {
+		case "unspecified":
+			return string(genai.ThinkingLevelUnspecified)
+		case "low":
+			return string(genai.ThinkingLevelLow)
+		case "medium":
+			return string(genai.ThinkingLevelMedium)
+		case "high":
+			return string(genai.ThinkingLevelHigh)
+		case "minimal":
+			return string(genai.ThinkingLevelMinimal)
+		default:
+			return cloneJSONValue(value)
+		}
+	default:
+		return cloneJSONValue(value)
+	}
+}
+
+func isValidGeminiThinkingLevel(level genai.ThinkingLevel) bool {
+	switch level {
+	case "",
+		genai.ThinkingLevelUnspecified,
+		genai.ThinkingLevelLow,
+		genai.ThinkingLevelMedium,
+		genai.ThinkingLevelHigh,
+		genai.ThinkingLevelMinimal:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeGeminiConfigKey(key string) string {
@@ -479,21 +576,19 @@ func (e *Executor) processGeminiResponseChunk(
 			); err != nil {
 				return usage, err
 			}
-		case part.Text != "":
-			if part.Thought {
-				appendAssistantThinkingAtIndex(assistantMessage, 0, part.Text)
-				if len(part.ThoughtSignature) > 0 {
-					setAssistantThinkingSignatureAtIndex(
-						assistantMessage,
-						0,
-						base64.StdEncoding.EncodeToString(part.ThoughtSignature),
-					)
-				}
-				if err := e.emitGeminiThinkingDelta(ctx, prepared, assistantMessage, 0, part.Text); err != nil {
-					return usage, err
-				}
-				continue
+		case part.Thought && (part.Text != "" || len(part.ThoughtSignature) > 0):
+			signature := ""
+			if len(part.ThoughtSignature) > 0 {
+				signature = base64.StdEncoding.EncodeToString(part.ThoughtSignature)
+				setAssistantThinkingSignatureAtIndex(assistantMessage, 0, signature)
 			}
+			if part.Text != "" {
+				appendAssistantThinkingAtIndex(assistantMessage, 0, part.Text)
+			}
+			if err := e.emitGeminiThinkingDelta(ctx, prepared, assistantMessage, 0, part.Text, optionalStringPointer(signature)); err != nil {
+				return usage, err
+			}
+		case part.Text != "":
 			textIndex := 0
 			if hasMessageThinking(assistantMessage) {
 				textIndex = 1
@@ -609,8 +704,9 @@ func (e *Executor) emitGeminiThinkingDelta(
 	assistantMessage map[string]any,
 	index int,
 	thinking string,
+	signature *string,
 ) error {
-	if !prepared.emitStream || thinking == "" {
+	if !prepared.emitStream || (thinking == "" && (signature == nil || strings.TrimSpace(*signature) == "")) {
 		return nil
 	}
 	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
@@ -618,9 +714,10 @@ func (e *Executor) emitGeminiThinkingDelta(
 		MessageID: stringValue(assistantMessage["id"]),
 		Content: []any{
 			realtime.MessageThinkingDelta{
-				Type:     realtime.MessageContentTypeThinkingDelta,
-				Index:    index,
-				Thinking: thinking,
+				Type:      realtime.MessageContentTypeThinkingDelta,
+				Index:     index,
+				Thinking:  thinking,
+				Signature: signature,
 			},
 		},
 	})

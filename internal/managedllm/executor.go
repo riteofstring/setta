@@ -209,7 +209,8 @@ func validateReasoningRequest(request agentruns.ExecutionRequest) error {
 		_, _, err = resolveAnthropicThinkingConfig(request)
 		return err
 	case geminiProvider:
-		return unsupportedThinkingError(request)
+		_, _, err = resolveGeminiThinkingConfig(request)
+		return err
 	default:
 		return fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 	}

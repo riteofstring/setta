@@ -1241,6 +1241,37 @@ func TestExecutorValidateAllowsThinkingForAnthropicWithExplicitConfig(t *testing
 	}
 }
 
+func TestExecutorValidateAllowsThinkingForGeminiWithExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gemini-2.5-pro",
+			Provider:  "gemini",
+			APIKeyEnv: "GEMINI_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"model":               "gemini-2.5-pro",
+			"custom_llm_provider": "gemini",
+			"thinking_config": map[string]any{
+				"thinking_budget": 128,
+				"thinking_level":  "medium",
+			},
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected explicit gemini thinking config to validate, got %v", err)
+	}
+}
+
 func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testing.T) {
 	t.Parallel()
 
@@ -1715,6 +1746,135 @@ func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testi
 	}
 	if broadcaster.Count() != 7 {
 		t.Fatalf("expected 7 streaming broadcasts, got %d", broadcaster.Count())
+	}
+}
+
+func TestExecutorExecuteStreamsGeminiThinkingBlocksAndReturnsOutputs(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Planning\",\"thought\":true,\"thoughtSignature\":\"c2ln\"}]}}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Final answer\"}]}}],\"usageMetadata\":{\"promptTokenCount\":12,\"candidatesTokenCount\":3,\"totalTokenCount\":15,\"thoughtsTokenCount\":2}}\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:       "primary",
+			Model:    "gemini-2.5-pro",
+			Provider: "gemini",
+			BaseURL:  server.URL,
+			OtherParams: map[string]any{
+				"thinking_config": map[string]any{
+					"thinking_budget": 128,
+					"thinking_level":  "medium",
+				},
+			},
+			APIKeyEnv: "GEMINI_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"thinking_config": map[string]any{
+				"thinking_budget": 128,
+				"thinking_level":  "medium",
+			},
+		},
+		APIKeys: map[string]string{
+			"GEMINI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Think through this"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed gemini thinking stream: %v", err)
+	}
+
+	generationConfig, ok := seenRequest["generationConfig"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generationConfig payload, got %#v", seenRequest["generationConfig"])
+	}
+	thinkingConfig, ok := generationConfig["thinkingConfig"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected gemini thinkingConfig, got %#v", generationConfig["thinkingConfig"])
+	}
+	if thinkingConfig["includeThoughts"] != true {
+		t.Fatalf("expected includeThoughts=true, got %#v", thinkingConfig)
+	}
+	if thinkingConfig["thinkingBudget"] != float64(128) {
+		t.Fatalf("expected gemini thinkingBudget=128, got %#v", thinkingConfig)
+	}
+	if thinkingConfig["thinkingLevel"] != "MEDIUM" {
+		t.Fatalf("expected gemini thinkingLevel=MEDIUM, got %#v", thinkingConfig)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["type"] != "thinking" {
+		t.Fatalf("expected thinking block at content[0], got %#v", content[0])
+	}
+	if thinkingBlock["thinking"] != "Planning" {
+		t.Fatalf("unexpected thinking content %#v", thinkingBlock)
+	}
+	if thinkingBlock["signature"] != "c2ln" {
+		t.Fatalf("unexpected thinking signature %#v", thinkingBlock)
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Final answer" {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok || int(usage["reasoning_output_tokens"].(float64)) != 2 {
+		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
+	}
+	if broadcaster.Count() != 5 {
+		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
 	}
 }
 

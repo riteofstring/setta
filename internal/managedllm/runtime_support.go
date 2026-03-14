@@ -9,16 +9,21 @@ import (
 )
 
 func SupportsThinkingOutput(config llmconfig.Config) bool {
-	if strings.ToLower(strings.TrimSpace(config.Provider)) != anthropicProvider {
-		return false
-	}
 	request := agentruns.ExecutionRequest{
 		LLMConfig:     config,
 		RequestParams: buildManagedConfigRequestParams(config),
 		Thinking:      true,
 	}
-	_, enabled, err := resolveAnthropicThinkingConfig(request)
-	return err == nil && enabled
+	switch strings.ToLower(strings.TrimSpace(config.Provider)) {
+	case anthropicProvider:
+		_, enabled, err := resolveAnthropicThinkingConfig(request)
+		return err == nil && enabled
+	case geminiProvider:
+		_, enabled, err := resolveGeminiThinkingConfig(request)
+		return err == nil && enabled
+	default:
+		return false
+	}
 }
 
 func buildManagedConfigRequestParams(config llmconfig.Config) map[string]any {

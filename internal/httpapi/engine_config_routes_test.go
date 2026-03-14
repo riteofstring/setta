@@ -162,6 +162,44 @@ func TestRegisterEngineConfigRoutesGetsConfig(t *testing.T) {
 	}
 }
 
+func TestRegisterEngineConfigRoutesAdvertisesGeminiThinkingRuntimeSupport(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	settaConfigID := "gemini-thinking"
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-gemini",
+			Name:             "Gemini Thinking",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetEngineConfig,
+		strings.NewReader(`{"configId":"engine-gemini"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var configPayload agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &configPayload); err != nil {
+		t.Fatalf("decode engine config: %v", err)
+	}
+	if configPayload.RuntimeSupport == nil || !configPayload.RuntimeSupport.Thinking {
+		t.Fatalf("expected Gemini runtime support in response, got %#v", configPayload)
+	}
+}
+
 func TestRegisterEngineConfigRoutesCreatesConfig(t *testing.T) {
 	t.Parallel()
 
@@ -594,6 +632,17 @@ func newEngineConfigRouteTestHandler(t *testing.T, mode config.Mode, store *agen
 					"thinking": map[string]any{
 						"type":          "enabled",
 						"budget_tokens": 1024,
+					},
+				},
+			},
+			"gemini-thinking": {
+				ID:       "gemini-thinking",
+				Model:    "gemini-2.5-pro",
+				Provider: "gemini",
+				OtherParams: map[string]any{
+					"thinking_config": map[string]any{
+						"thinking_budget": 128,
+						"thinking_level":  "medium",
 					},
 				},
 			},
