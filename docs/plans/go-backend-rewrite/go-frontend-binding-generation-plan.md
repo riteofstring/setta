@@ -156,6 +156,11 @@ Current status:
   `pnpm generate` workflow still exists for mixed Python + frontend
   regeneration, but the Go-owned route/type/endpoint outputs no longer need
   to stay hidden inside that larger script
+- a current repo scan shows the only generated frontend contract files under
+  `frontend/src` are `generatedRoutes.ts`, `generatedTypes.ts`, and
+  `generatedEndpoints.ts`, all emitted by the Go-owned generator; remaining
+  follow-on work is about widening coverage and verification, not preserving a
+  parallel Python-generated frontend contract surface
 - widening the converted surface should use structured declarations,
   converter-rule additions, or explicit Go boundary DTOs rather than
   reintroducing inline TypeScript escape hatches

@@ -52,6 +52,9 @@ Last verified: `2026-03-12`
   - when only the canonical Go-owned route/type/endpoint outputs need
     regeneration, use `pnpm -C frontend generate-go-frontend-bindings`;
     reserve `pnpm generate` for the broader Python + frontend generation flow
+  - remaining work in this follow-on is widening converted Go boundary
+    coverage and keeping parity/workflow verification tight, not preserving a
+    parallel Python-generated frontend contract surface
   - current slice doc: `go-frontend-binding-generation-plan.md`
 - Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
   - apply this at the provider edge for managed chat, transcription, realtime,
