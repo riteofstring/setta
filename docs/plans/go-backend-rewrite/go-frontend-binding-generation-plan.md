@@ -297,6 +297,9 @@ Current status:
   `frontend/src/components/App/appTransport.ts` and
   `frontend/src/plugins/transport.ts` reduced to boundary re-export/adjacent
   helpers instead of importing `GoHTTPRouteHelpers` directly
+- Setta API preset route selection now also flows through that same
+  `backendTransport` boundary, so `frontend/src/utils/settaApiPresets.ts`
+  no longer imports `GoHTTPRouteHelpers` directly
 - shared backend URL construction for narrowed app/plugin transport callers now
   also flows through `frontend/src/utils/backendTransport.ts`, so those
   wrappers no longer import `endpointUtils` directly
@@ -317,8 +320,8 @@ Current status:
 - direct `generatedRoutes` helper-bag imports now stay confined to
   `generatedEndpoints.ts` plus the shared route/origin/policy utilities that
   actually own those transport seams (`backendOriginTransport`,
-  `backendTransport`, `c_addresses`, `serverModeBoundaryPolicy`, and
-  `settaApiPresets`) instead of widening ad hoc through runtime callers
+  `backendTransport`, `c_addresses`, and `serverModeBoundaryPolicy`) instead
+  of widening ad hoc through runtime callers
 - the validation suite now also checks that those direct generated-route helper
   imports stay inside that explicit boundary and snapshots the remaining
   nongenerated helper-bag import inventory in the focused frontend boundary

@@ -5,6 +5,7 @@ import {
   buildBackendURL,
   buildBinaryDownloadUrl,
   buildPluginBackendFetchUrl,
+  SETTA_API_PRESET_ROUTES,
 } from "./backendTransport";
 
 describe("backendTransport", () => {
@@ -42,5 +43,13 @@ describe("backendTransport", () => {
     const url = new URL(buildPluginBackendFetchUrl("acme.plugin", "/health"));
 
     expect(url.pathname).toBe(expectedPath);
+  });
+
+  it("exposes Setta API preset routes from canonical HTTP route helpers", () => {
+    expect(SETTA_API_PRESET_ROUTES).toEqual({
+      createTopLevelSection: GoHTTPRouteHelpers.createTopLevelSection(),
+      getLatestProjectState: GoHTTPRouteHelpers.getLatestProjectState(),
+      saveProject: GoHTTPRouteHelpers.saveProject(),
+    });
   });
 });

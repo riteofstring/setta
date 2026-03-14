@@ -4,5 +4,4 @@ generatedRoutes frontend/src/utils/backendTransport.ts GoHTTPRouteHelpers
 generatedRoutes frontend/src/utils/c_addresses.ts GoRoutePrefixHelpers
 generatedRoutes frontend/src/utils/serverModeBoundaryPolicy.ts GoHTTPRouteHelpers
 generatedRoutes frontend/src/utils/serverModeBoundaryPolicy.ts GoRootRouteHelpers
-generatedRoutes frontend/src/utils/settaApiPresets.ts GoHTTPRouteHelpers
 requestTransport frontend/src/components/Section/Layouts/settaApiAction.ts post

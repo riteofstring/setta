@@ -25,3 +25,9 @@ export function buildPluginBackendFetchUrl(
     GoHTTPRouteHelpers.pluginsBackendRoute(pluginId, routePath),
   );
 }
+
+export const SETTA_API_PRESET_ROUTES = Object.freeze({
+  createTopLevelSection: GoHTTPRouteHelpers.createTopLevelSection(),
+  getLatestProjectState: GoHTTPRouteHelpers.getLatestProjectState(),
+  saveProject: GoHTTPRouteHelpers.saveProject(),
+});

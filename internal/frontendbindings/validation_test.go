@@ -1631,7 +1631,6 @@ func TestFrontendGeneratedRouteHelperImportsStayWithinExplicitBoundaries(t *test
 			"frontend/src/utils/backendTransport.ts":         {},
 			"frontend/src/utils/generatedEndpoints.ts":       {},
 			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
-			"frontend/src/utils/settaApiPresets.ts":          {},
 		},
 		"GoWebsocketRouteHelpers": {
 			"frontend/src/utils/backendOriginTransport.ts": {},
