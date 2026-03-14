@@ -5,7 +5,7 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { C } from "utils/c";
-import { GoWebsocketRoutes } from "utils/generatedRoutes";
+import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -171,7 +171,7 @@ function findRevealResultPayload(
 }
 
 describe("openWebSocket", () => {
-  const expectedFrontendWebsocketPath = GoWebsocketRoutes.frontend;
+  const expectedFrontendWebsocketPath = GoWebsocketRouteHelpers.frontend();
 
   beforeEach(async () => {
     resetProjectStores();

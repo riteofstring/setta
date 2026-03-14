@@ -1411,15 +1411,8 @@ func TestFrontendWebsocketRouteHelpersStayWithinExplicitCallers(t *testing.T) {
 
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
-	allowedAddressParamImports := map[string]struct{}{
-		"frontend/src/plugins/listenerEndpointClient.ts":     {},
-		"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
-	}
-	allowedWebsocketRouteImports := map[string]struct{}{
-		"frontend/src/plugins/listenerEndpointClient.ts":     {},
-		"frontend/src/state/actions/websocketReceive.ts":     {},
-		"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
-	}
+	allowedAddressParamImports := map[string]struct{}{}
+	allowedWebsocketRouteImports := map[string]struct{}{}
 	endpointUtilsImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`)
 	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)
 
@@ -1508,11 +1501,7 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 		"GoHTTPRoutes": {
 			"frontend/src/utils/generatedEndpoints.ts": {},
 		},
-		"GoWebsocketRoutes": {
-			"frontend/src/plugins/listenerEndpointClient.ts":     {},
-			"frontend/src/state/actions/websocketReceive.ts":     {},
-			"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
-		},
+		"GoWebsocketRoutes": {},
 	}
 	disallowedWithoutCaller := map[string]struct{}{
 		"GoRootRoutes":    {},

@@ -1,6 +1,5 @@
 import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams } from "utils/endpointUtils";
-import { GoWebsocketRoutes } from "utils/generatedRoutes";
+import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 
 export type BuildTerminalWebsocketUrlOptions = {
   projectConfigId: string;
@@ -13,10 +12,10 @@ export function buildTerminalWebsocketUrl({
   sectionId,
   shareSessionId,
 }: BuildTerminalWebsocketUrlOptions): string {
-  const routePath = replaceAddressParams(GoWebsocketRoutes.terminalBySection, {
-    projectID: projectConfigId,
-    sectionID: sectionId,
-  });
+  const routePath = GoWebsocketRouteHelpers.terminalBySection(
+    projectConfigId,
+    sectionId,
+  );
 
   const url = new URL(`${C_ADDRESSES.WEBSOCKET}${routePath}`);
   if (shareSessionId) {

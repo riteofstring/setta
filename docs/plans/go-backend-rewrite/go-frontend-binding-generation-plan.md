@@ -218,11 +218,17 @@ Current status:
 - the validation suite now also checks that direct `get` / `post` /
   `getBinary` helper imports stay confined to `generatedEndpoints.ts` plus
   the current explicit dynamic Setta API request path in `MetaControlArea`
+- `generatedRoutes.ts` now also emits canonical websocket route helpers for
+  `/ws/frontend`, `/ws/listeners/{listenerID}`, and
+  `/ws/terminals/{projectID}/{sectionID}`, so active websocket callers no
+  longer need direct `replaceAddressParams` or raw `GoWebsocketRoutes`
+  imports in non-test frontend code
 - the validation suite now also checks that direct websocket route-builder
-  imports stay confined to the current explicit websocket/listener helpers
+  imports do not reappear in non-test frontend sources
 - the validation suite now also checks that direct generated route-constant
-  imports stay confined to `generatedEndpoints.ts` plus the current explicit
-  websocket/listener caller set
+  imports stay confined to `generatedEndpoints.ts`; active websocket callers
+  should use the generated websocket route helpers instead of importing
+  `GoWebsocketRoutes`
 - the validation suite now also snapshots the current explicit frontend
   boundary-exception import inventory in a focused golden manifest, so caller
   exceptions remain reviewable as the converted surface widens

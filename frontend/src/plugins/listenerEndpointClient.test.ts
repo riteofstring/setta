@@ -1,6 +1,5 @@
-import { replaceAddressParams } from "utils/endpointUtils";
-import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 import {
   buildListenerEndpointWebsocketUrl,
   callListenerEndpointOverWebsocket,
@@ -67,9 +66,7 @@ describe("listenerEndpointClient", () => {
   });
 
   it("builds the canonical Go listener websocket URL for IDE and deployment modes", () => {
-    const idePath = replaceAddressParams(GoWebsocketRoutes.listenerById, {
-      listenerID: "listener-a",
-    });
+    const idePath = GoWebsocketRouteHelpers.listenerById("listener-a");
     const ideUrl = new URL(
       buildListenerEndpointWebsocketUrl({
         listenerId: "listener-a",
@@ -81,12 +78,7 @@ describe("listenerEndpointClient", () => {
     expect(ideUrl.searchParams.get("projectId")).toBe("project-a");
     expect(ideUrl.searchParams.get("shareSessionId")).toBeNull();
 
-    const deploymentPath = replaceAddressParams(
-      GoWebsocketRoutes.listenerById,
-      {
-        listenerID: "listener-b",
-      },
-    );
+    const deploymentPath = GoWebsocketRouteHelpers.listenerById("listener-b");
     const deploymentUrl = new URL(
       buildListenerEndpointWebsocketUrl({
         listenerId: "listener-b",

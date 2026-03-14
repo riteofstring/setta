@@ -1,6 +1,5 @@
 import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams } from "utils/endpointUtils";
-import { GoWebsocketRoutes } from "utils/generatedRoutes";
+import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 
 const LISTENER_REGISTER_MESSAGE_TYPE = "ListenerRegister";
 const LISTENER_REGISTER_ACK_MESSAGE_TYPE = "ListenerRegisterAck";
@@ -43,9 +42,7 @@ export function buildListenerEndpointWebsocketUrl({
   projectConfigId,
   shareSessionId,
 }: BuildListenerEndpointWebsocketUrlOptions): string {
-  const routePath = replaceAddressParams(GoWebsocketRoutes.listenerById, {
-    listenerID: listenerId,
-  });
+  const routePath = GoWebsocketRouteHelpers.listenerById(listenerId);
   const url = new URL(routePath, C_ADDRESSES.BACKEND_ORIGIN);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.searchParams.set("projectId", projectConfigId);
