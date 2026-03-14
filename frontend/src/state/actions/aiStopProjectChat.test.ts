@@ -60,10 +60,10 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useAIFollow: typeof import("state/definitions").useAIFollow;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let useProjectState: typeof import("state/definitions").useProjectState;
-let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
-let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
-let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
-let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
+let stopProjectChatResponse: typeof import("state/actions/aiChatControls").stopProjectChatResponse;
+let stopManagedSectionChatResponse: typeof import("state/actions/aiChatControls").stopManagedSectionChatResponse;
+let getLLMChatHydrationOutcome: typeof import("state/actions/aiHydration").getLLMChatHydrationOutcome;
+let getExternalAgentChatHydrationOutcome: typeof import("state/actions/aiHydration").getExternalAgentChatHydrationOutcome;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
@@ -121,11 +121,14 @@ describe("stopProjectChatResponse", () => {
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
     const ai = await import("state/actions/ai");
-    stopProjectChatResponse = ai.stopProjectChatResponse;
-    stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
-    getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
+    const aiChatControls = await import("state/actions/aiChatControls");
+    const aiHydration = await import("state/actions/aiHydration");
+    stopProjectChatResponse = aiChatControls.stopProjectChatResponse;
+    stopManagedSectionChatResponse =
+      aiChatControls.stopManagedSectionChatResponse;
+    getLLMChatHydrationOutcome = aiHydration.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
-      ai.getExternalAgentChatHydrationOutcome;
+      aiHydration.getExternalAgentChatHydrationOutcome;
     getDefaultChatDetails = ai.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });

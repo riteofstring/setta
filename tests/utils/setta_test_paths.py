@@ -66,6 +66,6 @@ def patched_setta_paths(
         patch.object(C, "RUNTIME_MCP_FOLDER", runtime_mcp_folder),
         patch.object(C, "RUNTIME_SECRETS_FOLDER", runtime_secrets_folder),
         patch.object(C, "DETACHED_RUNS_FOLDER", detached_runs_folder),
-        patch.object(C, "SHARE_DEPLOYMENTS_FOLDER", deployments_folder),
+        patch.object(C, "DEPLOYMENTS_FOLDER", deployments_folder),
     ):
         yield setta_root

@@ -7,6 +7,8 @@ import {
 } from "utils/generatedEndpoints";
 import {
   ChatRoleEnum,
+  EngineTypeEnum,
+  createEngineConfig,
   createMessageTextContent,
   createUserChatMessage,
 } from "utils/generatedTypes";
@@ -42,7 +44,7 @@ const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
 const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let submitEditedMessage: typeof import("state/actions/ai").submitEditedMessage;
+let submitEditedMessage: typeof import("state/actions/aiChatSubmission").submitEditedMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let memoryStorage: Storage;
 
@@ -82,8 +84,9 @@ describe("submitEditedMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
+    const aiChatSubmission = await import("state/actions/aiChatSubmission");
     const ai = await import("state/actions/ai");
-    submitEditedMessage = ai.submitEditedMessage;
+    submitEditedMessage = aiChatSubmission.submitEditedMessage;
     getDefaultChatDetails = ai.getDefaultChatDetails;
   });
 
@@ -279,5 +282,64 @@ describe("submitEditedMessage", () => {
     expect(payload.appGenerationByMessageId).toEqual({
       "msg-plain": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
     });
+  });
+
+  it("falls back to the chat llm-config engine when agent runs do not provide an engine id", async () => {
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: buildGetLLMResponseResponse("branch-chat-fallback"),
+    });
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          llmConfig: {
+            id: "llm-config-1",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            base_url: null,
+            api_key_env: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+      },
+      engineConfigs: [
+        createEngineConfig({
+          id: "engine-fallback",
+          name: "Fallback engine",
+          engineType: EngineTypeEnum.setta_llm,
+          settaLlmConfigId: "llm-config-1",
+        }),
+      ],
+    });
+
+    const result = await submitEditedMessage({
+      parentChatId: chatId,
+      messages: [
+        createUserChatMessage({
+          id: "msg-1",
+          content: [createMessageTextContent({ text: "Original prompt" })],
+          attachments: [],
+        }),
+      ],
+      messageId: "msg-1",
+      message: "Edited prompt",
+      attachments: [],
+      thinking: false,
+      engineConfigId: null,
+      isExternalEngine: false,
+      agentProfileId: null,
+      sectionId: null,
+      pendingSurfaceId: TARGET_SURFACE_ID,
+    });
+
+    expect(result).toBe("branch-chat-fallback");
+    const [payload] = mockedRouteGetLLMResponse.mock.calls.at(-1) as [
+      { engineConfigId: string | null },
+    ];
+    expect(payload.engineConfigId).toBe("engine-fallback");
   });
 });

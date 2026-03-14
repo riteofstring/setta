@@ -12,7 +12,7 @@ import {
   createProjectConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadAgentRuns } from "./ai";
+import { loadAgentRuns } from "./aiAgentRuns";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -28,8 +28,9 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-vi.mock("./ai", async () => {
-  const actual = await vi.importActual<typeof import("./ai")>("./ai");
+vi.mock("./aiAgentRuns", async () => {
+  const actual =
+    await vi.importActual<typeof import("./aiAgentRuns")>("./aiAgentRuns");
   return {
     ...actual,
     loadAgentRuns: vi.fn(),
