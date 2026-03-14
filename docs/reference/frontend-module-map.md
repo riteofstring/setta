@@ -95,6 +95,8 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need streaming chunk handling or tool/app preview updates: open `state/actions/ai/chatStreaming.ts`.
 - Need agent-run authority loading or engine resolution from chat history: open `state/actions/ai/agentRuns.ts`.
 - Need pending chat state, chat hydration, or stop-response runtime behavior: open `state/actions/ai/chatRuntime.ts`.
+- Need Project Chat hydration/slash-command/runtime helper logic: open `components/Panes/Overview/ProjectLevelAI/projectChatRuntimeUtils.ts`.
+- Need Project Chat conversation filtering or submitted-history helpers: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryUtils.ts`.
 - Need LLM config or managed API-key mutations: open `state/actions/ai/llmSettings.ts`.
 - Need Project AI profiles/templates/engine/transcription resource mutations: open `state/actions/ai/projectAiResources.ts`.
 - Need shared derived state or a component-facing hook: search in `state/hooks/`.

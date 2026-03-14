@@ -17,7 +17,7 @@ import {
   getLLMChatHydrationOutcome,
   getProjectChatHydrationOutcomeWithFallback,
 } from "state/actions/ai/chatRuntime";
-import { hydrateProjectChatFromRuntime } from "./ProjectChatCore";
+import { hydrateProjectChatFromRuntime } from "./projectChatRuntimeUtils";
 
 describe("hydrateProjectChatFromRuntime", () => {
   beforeEach(() => {
