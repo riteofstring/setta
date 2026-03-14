@@ -62,6 +62,18 @@ type ManagedOpenAIResponsesProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedOpenAIChatProviderRequest = {
+  path: string;
+  authorization: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedOpenAIChatProviderServer = {
+  origin: string;
+  requests: ManagedOpenAIChatProviderRequest[];
+  close: () => Promise<void>;
+};
+
 type ManagedGeminiThinkingProviderRequest = {
   path: string;
   query: string;
@@ -1144,6 +1156,189 @@ test.describe.serial("chat composer controls", () => {
 
       await expect(
         projectChatSurface.getByText("Anthropic standard answer"),
+      ).toBeVisible();
+      await expect(
+        projectChatSurface.locator('[data-chat-thinking-section="true"]'),
+      ).toHaveCount(0);
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat submits standard managed OpenAI turns through the Go runtime", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+    const providerServer = await startManagedOpenAIChatServer();
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+
+      const openAIConfigId = `e2e-openai-standard-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [openAIConfigId]: {
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: `${providerServer.origin}/v1`,
+            other_params: {
+              temperature: 0.2,
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          OPENAI_API_KEY: "e2e-openai-standard-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "OpenAI Standard E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: openAIConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing OpenAI standard engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(false);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "OpenAI Standard E2E");
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed OpenAI standard chat");
+      await input.press("Enter");
+
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
+      expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe("/v1/chat/completions");
+      expect(providerRequest?.authorization).toBe(
+        "Bearer e2e-openai-standard-secret",
+      );
+      expect(providerRequest?.body.model).toBe("gpt-4o-mini");
+      expect(providerRequest?.body.temperature).toBe(0.2);
+      expect(providerRequest?.body.reasoning_effort).toBeUndefined();
+      expect(JSON.stringify(providerRequest?.body.messages ?? null)).toContain(
+        "Trigger managed OpenAI standard chat",
+      );
+
+      await expect(
+        projectChatSurface.getByText("OpenAI standard answer"),
       ).toBeVisible();
       await expect(
         projectChatSurface.locator('[data-chat-thinking-section="true"]'),
@@ -4167,6 +4362,75 @@ async function startManagedOpenAIResponsesThinkingServer(): Promise<ManagedOpenA
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate OpenAI thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedOpenAIChatServer(): Promise<ManagedOpenAIChatProviderServer> {
+  const requests: ManagedOpenAIChatProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            authorization: Array.isArray(request.headers.authorization)
+              ? request.headers.authorization.join(", ")
+              : request.headers.authorization ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":"OpenAI"}}]}\n\n',
+        );
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":" standard answer"},"finish_reason":"stop"}]}\n\n',
+        );
+        response.write(
+          'data: {"choices":[],"usage":{"prompt_tokens":18,"completion_tokens":3,"total_tokens":21}}\n\n',
+        );
+        response.end("data: [DONE]\n\n");
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate OpenAI standard test port.")),
         );
         return;
       }
