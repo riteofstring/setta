@@ -1,10 +1,6 @@
 import {
-  clearAIFollowToolArgumentsForChat,
-  getAIFollowToolArgumentsSnapshot,
   receiveAgenticScopeViolationEdges,
-  restoreAIFollowToolArgumentsSnapshot,
   SCOPE_VIOLATION_TIMEOUT_MS,
-  type AIFollowIdsByType,
 } from "state/actions/aiFollow";
 import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -34,12 +30,24 @@ import {
   useAIStore,
   useAppDefinition,
   useAppPreview,
-  useLocalStorage,
   useProjectState,
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
+import {
+  buildChatAppGenerationDetails,
+  collectChatAppGenerationDetailsByChatId,
+  deserializeChatAppGenerationByMessageId,
+  getDefaultChatAppGenerationDetails,
+  mergeChatAppGenerationDetails,
+  mergeChatAppGenerationDetailsByChatId,
+  normalizeChatAppGenerationContext,
+  retainChatAppGenerationDetailsForMessages,
+  serializeChatAppGenerationByMessageId,
+  setChatAppGenerationForMessage,
+  type ChatAppGenerationContext,
+  type ChatAppGenerationDetails,
+} from "state/utils/chatAppGeneration";
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -174,12 +182,6 @@ type ManagedAPIKeysSnapshotPayload = {
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
-};
-
-type ChatAppGenerationContext = {
-  mode: AppGenerationMode | null;
-  referenceImageUrl?: string | null;
-  referenceImageNotes?: string | null;
 };
 
 const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
@@ -1002,12 +1004,16 @@ export async function loadAgentRuns() {
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;
-  useAIStore.setState({
+  useAIStore.setState((state) => ({
     agentRuns: payload,
+    chatAppGenerationDetailsByChatId: mergeChatAppGenerationDetailsByChatId(
+      state.chatAppGenerationDetailsByChatId,
+      collectChatAppGenerationDetailsByChatId(payload),
+    ),
     agentRunsAuthorityState: "ready",
     agentRunsInitialLoadComplete: true,
     agentRunsLoadError: null,
-  });
+  }));
 }
 
 export async function loadPromptTemplates(force: boolean = false) {
@@ -1446,6 +1452,58 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
+function getPendingChatAppGenerationDetailsForSurface(
+  state: ReturnType<typeof useAIStore.getState>,
+  surfaceId: string | null | undefined,
+): ChatAppGenerationDetails | null {
+  return (
+    state.pendingChatAppGenerationDetailsBySurfaceId[
+      requirePendingChatSurfaceId(surfaceId)
+    ] ?? null
+  );
+}
+
+function setPendingChatAppGenerationDetailsForSurface(
+  state: ReturnType<typeof useAIStore.getState>,
+  surfaceId: string | null | undefined,
+  nextDetails: ChatAppGenerationDetails | null,
+): Partial<ReturnType<typeof useAIStore.getState>> {
+  const normalizedSurfaceId = requirePendingChatSurfaceId(surfaceId);
+  const currentDetails =
+    state.pendingChatAppGenerationDetailsBySurfaceId[normalizedSurfaceId];
+  if (currentDetails === nextDetails) {
+    return state;
+  }
+  const nextBySurfaceId = {
+    ...state.pendingChatAppGenerationDetailsBySurfaceId,
+  };
+  if (nextDetails === null) {
+    delete nextBySurfaceId[normalizedSurfaceId];
+  } else {
+    nextBySurfaceId[normalizedSurfaceId] = nextDetails;
+  }
+  return {
+    pendingChatAppGenerationDetailsBySurfaceId: nextBySurfaceId,
+  };
+}
+
+function getChatAppGenerationDetailsForTarget(
+  state: ReturnType<typeof useAIStore.getState>,
+  chatId: string | null,
+  surfaceId: string | null | undefined,
+): ChatAppGenerationDetails {
+  if (chatId === null) {
+    return (
+      getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+      getDefaultChatAppGenerationDetails()
+    );
+  }
+  return (
+    state.chatAppGenerationDetailsByChatId[chatId] ??
+    getDefaultChatAppGenerationDetails()
+  );
+}
+
 function normalizePendingChatSurfaceId(
   surfaceId: string | null | undefined,
 ): string | null {
@@ -1509,8 +1567,6 @@ type StopChatResponseSnapshot = {
   toolCallArguments: Record<string, string>;
   interruptedAssistantMessageIdsByChat: Record<string, true>;
   stopEligibleAssistantMessageId: string | null;
-  followProjectConfigId: string | null;
-  followToolArgumentIdsByType: AIFollowIdsByType | null;
 };
 
 function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
@@ -1642,7 +1698,6 @@ function restoreInterruptedAssistantMessageSnapshot(
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
   pendingSurfaceId: string | null | undefined = null,
-  followProjectConfigId: string | null = null,
 ): StopChatResponseSnapshot {
   const state = useAIStore.getState();
   const currentDetails =
@@ -1664,11 +1719,6 @@ function getStopChatResponseSnapshot(
       typeof chatId === "string"
         ? stopEligibleAssistantMessageIdByChatId.get(chatId) ?? null
         : null,
-    followProjectConfigId,
-    followToolArgumentIdsByType:
-      typeof chatId === "string" && followProjectConfigId
-        ? getAIFollowToolArgumentsSnapshot(followProjectConfigId, chatId)
-        : null,
   };
 }
 
@@ -1689,37 +1739,17 @@ function restoreStoppedChatResponseLocally(
   updatePendingChatDetails(restoreDetails, pendingSurfaceId);
 }
 
-function restoreStoppedChatFollowState(
-  chatId: string | null | undefined,
-  snapshot: StopChatResponseSnapshot,
-) {
-  if (typeof chatId !== "string" || !snapshot.followProjectConfigId) {
-    return;
-  }
-  restoreAIFollowToolArgumentsSnapshot({
-    projectConfigId: snapshot.followProjectConfigId,
-    chatId,
-    idsByType: snapshot.followToolArgumentIdsByType,
-  });
-}
-
 function stopChatResponseLocally(
   chatId: string | null | undefined,
   options: {
     markInterruptedOptimistically?: boolean;
     pendingSurfaceId?: string | null;
-    followProjectConfigId?: string | null;
   } = {},
 ): StopChatResponseSnapshot {
   const markInterruptedOptimistically =
     options.markInterruptedOptimistically ?? true;
   const pendingSurfaceId = options.pendingSurfaceId ?? null;
-  const followProjectConfigId = options.followProjectConfigId ?? null;
-  const snapshot = getStopChatResponseSnapshot(
-    chatId,
-    pendingSurfaceId,
-    followProjectConfigId,
-  );
+  const snapshot = getStopChatResponseSnapshot(chatId, pendingSurfaceId);
   const stopDetails = (details: ChatDetails): ChatDetails => ({
     ...details,
     waitingForResponse: false,
@@ -1735,9 +1765,6 @@ function stopChatResponseLocally(
         chatId,
         snapshot.stopEligibleAssistantMessageId,
       );
-    }
-    if (followProjectConfigId) {
-      clearAIFollowToolArgumentsForChat(followProjectConfigId, chatId);
     }
   } else {
     updatePendingChatDetails(stopDetails, pendingSurfaceId);
@@ -1811,7 +1838,6 @@ async function stopExternalChatResponse({
       return true;
     }
     restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-    restoreStoppedChatFollowState(chatId, localSnapshot);
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
@@ -1830,7 +1856,6 @@ async function stopExternalChatResponse({
     if (refreshState.hydrated && !refreshState.waitingForResponse) {
       return true;
     }
-    restoreStoppedChatFollowState(chatId, localSnapshot);
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
@@ -1843,7 +1868,6 @@ async function stopExternalChatResponse({
     return true;
   }
   restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-  restoreStoppedChatFollowState(chatId, localSnapshot);
   if (!refreshState.hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1896,21 +1920,19 @@ export async function stopProjectChatResponse(
   isExternalEngine: boolean,
   pendingSurfaceId: string | null | undefined = null,
 ): Promise<boolean> {
-  const followProjectConfigId =
-    typeof chatId === "string" ? getCurrProjectConfigId() : null;
   const localSnapshot = stopChatResponseLocally(chatId, {
     markInterruptedOptimistically: !isExternalEngine,
     pendingSurfaceId,
-    followProjectConfigId,
   });
   if (typeof chatId !== "string") {
     return true;
   }
 
   if (isExternalEngine) {
+    const projectConfigId = getCurrProjectConfigId();
     return stopExternalChatResponse({
       chatId,
-      projectConfigId: followProjectConfigId,
+      projectConfigId,
       failureMessage: "Failed to stop project chat.",
       localSnapshot,
     });
@@ -1925,18 +1947,10 @@ export async function stopProjectChatResponse(
     });
     return true;
   }
-  const hydrationOutcome = await getLLMChatHydrationOutcome(chatId);
-  const waitingForResponse = Boolean(
-    useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
-  );
-  const hydrated = hydrationOutcome.outcome === "success";
+  const hydrated = await getLLMChat(chatId);
   restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-  if (hydrated && waitingForResponse) {
-    restoreStoppedChatFollowState(chatId, localSnapshot);
-  }
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
-    restoreStoppedChatFollowState(chatId, localSnapshot);
   }
   addTemporaryNotification(
     "Failed to stop project chat.",
@@ -1955,7 +1969,6 @@ export async function stopManagedSectionChatResponse(
   const localSnapshot = stopChatResponseLocally(chatId, {
     markInterruptedOptimistically: !isExternalEngine,
     pendingSurfaceId,
-    followProjectConfigId: projectConfigId,
   });
   if (typeof chatId !== "string") {
     return true;
@@ -1978,18 +1991,10 @@ export async function stopManagedSectionChatResponse(
     });
     return true;
   }
-  const hydrationOutcome = await getLLMChatHydrationOutcome(chatId, sectionId);
-  const waitingForResponse = Boolean(
-    useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
-  );
-  const hydrated = hydrationOutcome.outcome === "success";
+  const hydrated = await getLLMChat(chatId, sectionId);
   restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
-  if (hydrated && waitingForResponse) {
-    restoreStoppedChatFollowState(chatId, localSnapshot);
-  }
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
-    restoreStoppedChatFollowState(chatId, localSnapshot);
   }
   addTemporaryNotification(
     "Failed to stop section chat.",
@@ -2073,36 +2078,54 @@ function applyChatDetailsToSectionState({
 }
 
 export function initializePendingChatDetails(surfaceId: string) {
-  useAIStore.setState((state) =>
-    setPendingChatDetailsForSurface(state, surfaceId, getDefaultChatDetails()),
-  );
+  useAIStore.setState((state) => ({
+    ...setPendingChatDetailsForSurface(
+      state,
+      surfaceId,
+      getDefaultChatDetails(),
+    ),
+    ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
+  }));
 }
 
 function initializePendingChatDetailsWithMessages(
   messages: Array<BaseChatMessageUnion>,
   waitingForResponse: boolean = true,
   surfaceId: string | null | undefined,
+  appGenerationDetails: ChatAppGenerationDetails | null = null,
 ) {
-  useAIStore.setState((state) =>
-    setPendingChatDetailsForSurface(state, surfaceId, {
+  useAIStore.setState((state) => ({
+    ...setPendingChatDetailsForSurface(state, surfaceId, {
       ...getDefaultChatDetails(),
       messages,
       waitingForResponse,
     }),
-  );
+    ...setPendingChatAppGenerationDetailsForSurface(
+      state,
+      surfaceId,
+      appGenerationDetails,
+    ),
+  }));
 }
 
 export function seedPendingChatDetails(
   messages: Array<BaseChatMessageUnion>,
   surfaceId: string,
+  appGenerationDetails: ChatAppGenerationDetails | null = null,
 ) {
-  initializePendingChatDetailsWithMessages(messages, false, surfaceId);
+  initializePendingChatDetailsWithMessages(
+    messages,
+    false,
+    surfaceId,
+    appGenerationDetails,
+  );
 }
 
 export function clearPendingChatDetails(surfaceId: string) {
-  useAIStore.setState((state) =>
-    setPendingChatDetailsForSurface(state, surfaceId, null),
-  );
+  useAIStore.setState((state) => ({
+    ...setPendingChatDetailsForSurface(state, surfaceId, null),
+    ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
+  }));
 }
 
 export type ChatHydrationOutcomeType =
@@ -2245,12 +2268,21 @@ function applyLLMChatHydrationSuccess({
   projectConfigId: string;
   payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
 }): void {
-  const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
-  let nextWaitingForResponse = Boolean(waitingForResponse);
+  const {
+    messages,
+    waitingForResponse,
+    llmConfig,
+    contextUsage,
+    appGenerationByMessageId,
+  } = payload;
+  const nextAppGenerationDetails = buildChatAppGenerationDetails(
+    messages,
+    deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
+  );
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
-    nextWaitingForResponse = preserveWaitingForResponse
+    const nextWaitingForResponse = preserveWaitingForResponse
       ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
       : Boolean(waitingForResponse);
     const nextMessages = reconcileHydratedChatMessages({
@@ -2270,6 +2302,10 @@ function applyLLMChatHydrationSuccess({
           contextUsage: contextUsage ?? null,
         },
       },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: nextAppGenerationDetails,
+      },
     };
   });
   if (sectionId) {
@@ -2286,9 +2322,8 @@ function applyLLMChatHydrationSuccess({
       reason: "hydrate-llm-chat",
     });
   }
-  if (!nextWaitingForResponse) {
+  if (!waitingForResponse) {
     clearStopEligibleAssistantMessageId(chatId);
-    clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
   }
 }
 
@@ -2305,13 +2340,21 @@ function applyExternalChatHydrationSuccess({
     Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
   >;
 }): void {
-  const { messages, waitingForResponse, toolCallArguments, contextUsage } =
-    payload;
-  let nextWaitingForResponse = Boolean(waitingForResponse);
+  const {
+    messages,
+    waitingForResponse,
+    toolCallArguments,
+    contextUsage,
+    appGenerationByMessageId,
+  } = payload;
+  const nextAppGenerationDetails = buildChatAppGenerationDetails(
+    messages,
+    deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
+  );
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
-    nextWaitingForResponse = preserveWaitingForResponse
+    const nextWaitingForResponse = preserveWaitingForResponse
       ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
       : Boolean(waitingForResponse);
     const nextMessages = reconcileHydratedChatMessages({
@@ -2332,6 +2375,10 @@ function applyExternalChatHydrationSuccess({
           contextUsage: contextUsage ?? null,
         },
       },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: nextAppGenerationDetails,
+      },
     };
   });
   if (sectionId) {
@@ -2349,12 +2396,8 @@ function applyExternalChatHydrationSuccess({
       reason: "hydrate-external-chat",
     });
   }
-  if (!nextWaitingForResponse) {
+  if (!waitingForResponse) {
     clearStopEligibleAssistantMessageId(chatId);
-    clearAIFollowToolArgumentsForChat(
-      projectConfigId ?? getCurrProjectConfigId(),
-      chatId,
-    );
   }
 }
 
@@ -2521,7 +2564,14 @@ export async function submitMessage(
       : options.pendingSurfaceId ?? null;
   const resolvedExecutionSettings =
     options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const appGeneration = options.appGeneration ?? null;
+  const appGeneration = normalizeChatAppGenerationContext(
+    options.appGeneration ?? null,
+  );
+  const existingAppGenerationDetails = getChatAppGenerationDetailsForTarget(
+    useAIStore.getState(),
+    chatId,
+    resolvedPendingSurfaceId,
+  );
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -2533,20 +2583,38 @@ export async function submitMessage(
     role: ChatRoleEnum.user,
     content,
     attachments,
-    createdAt: Date.now(),
   };
   const userMessageId = userMessage.id;
+  const nextMessages =
+    chatId === null
+      ? [
+          ...(useAIStore.getState().pendingChatDetailsBySurfaceId[
+            resolvedPendingSurfaceId
+          ]?.messages ?? []),
+          userMessage,
+        ]
+      : [
+          ...(useAIStore.getState().chatDetails[chatId]?.messages ?? []),
+          userMessage,
+        ];
+  const nextAppGenerationDetails = setChatAppGenerationForMessage(
+    existingAppGenerationDetails,
+    nextMessages,
+    userMessage.id,
+    appGeneration,
+  );
 
-  applyOptimisticUserMessage(chatId, userMessage, resolvedPendingSurfaceId);
+  applyOptimisticUserMessage(
+    chatId,
+    userMessage,
+    resolvedPendingSurfaceId,
+    appGeneration,
+  );
 
   try {
     const projectConfigId = getCurrProjectConfigId();
     const frontendAffinityToken = await waitForFrontendAffinityToken();
     const appGenerationMode = appGeneration?.mode ?? null;
-    const appSpecStreamingEnabledForSubmit =
-      appGenerationMode === null
-        ? false
-        : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
@@ -2554,11 +2622,10 @@ export async function submitMessage(
       continueFromChatId: options.continueFromChatId ?? null,
       engineConfigId,
       agentProfileId: options.agentProfileId ?? null,
-      appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,
-      appGenerationMode: appGenerationMode,
-      appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
-      appGenerationReferenceImageNotes:
-        appGeneration?.referenceImageNotes ?? null,
+      appGenerationMode,
+      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
+        nextAppGenerationDetails,
+      ),
       projectConfigId,
       sectionId: options.sectionId ?? null,
       frontendAffinityToken,
@@ -2616,6 +2683,7 @@ export async function submitEditedMessage({
   sectionId,
   pendingSurfaceId,
   executionSettings,
+  appGeneration,
 }: {
   parentChatId: string;
   messages: Array<BaseChatMessageUnion>;
@@ -2629,6 +2697,7 @@ export async function submitEditedMessage({
   sectionId?: string | null;
   pendingSurfaceId?: string | null;
   executionSettings?: ChatExecutionSettings | null;
+  appGeneration?: ChatAppGenerationContext | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
   if (!trimmed && attachments.length === 0) {
@@ -2636,6 +2705,9 @@ export async function submitEditedMessage({
   }
   const resolvedExecutionSettings =
     executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
+  const resolvedAppGeneration = normalizeChatAppGenerationContext(
+    appGeneration ?? null,
+  );
 
   const content = [];
   if (trimmed) {
@@ -2646,7 +2718,6 @@ export async function submitEditedMessage({
     role: ChatRoleEnum.user,
     content,
     attachments,
-    createdAt: Date.now(),
   };
   const nextMessages = buildEditedMessageHistory(messages, editedMessage);
   if (!nextMessages) {
@@ -2654,6 +2725,20 @@ export async function submitEditedMessage({
   }
   const resolvedPendingSurfaceId = requirePendingChatSurfaceId(
     pendingSurfaceId ?? null,
+  );
+  const parentAppGenerationDetails = getChatAppGenerationDetailsForTarget(
+    useAIStore.getState(),
+    parentChatId,
+    null,
+  );
+  const nextAppGenerationDetails = setChatAppGenerationForMessage(
+    retainChatAppGenerationDetailsForMessages(
+      parentAppGenerationDetails,
+      nextMessages,
+    ),
+    nextMessages,
+    messageId,
+    resolvedAppGeneration,
   );
   const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
     parentChatId,
@@ -2666,6 +2751,7 @@ export async function submitEditedMessage({
     nextMessages,
     true,
     resolvedPendingSurfaceId,
+    nextAppGenerationDetails,
   );
   const projectConfigId = getCurrProjectConfigId();
 
@@ -2706,6 +2792,10 @@ export async function submitEditedMessage({
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
+      appGenerationMode: resolvedAppGeneration?.mode ?? null,
+      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
+        nextAppGenerationDetails,
+      ),
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
@@ -2943,7 +3033,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
         handleToolResult(chatId, chunk, projectConfigId);
         return;
       case StreamingEventTypeEnum.MESSAGE_STOP:
-        handleMessageStop(chatId, projectConfigId);
+        handleMessageStop(chatId);
         return;
       case StreamingEventTypeEnum.MESSAGE_FINALIZED:
         handleMessageFinalized(chatId, chunk, projectConfigId);
@@ -3020,7 +3110,7 @@ function extractRunMessages(
   return raw as Array<BaseChatMessageUnion>;
 }
 
-export async function resolveEngineConfigIdForChat(
+async function resolveEngineConfigIdForChat(
   chatId: string,
   engineConfigId: string | null,
 ): Promise<string | null> {
@@ -3283,13 +3373,12 @@ function handleToolResult(
   maybeApplyAppDefinitionToolResult(chunk.result);
 }
 
-function handleMessageStop(chatId: string, projectConfigId: string) {
+function handleMessageStop(chatId: string) {
   clearStopEligibleAssistantMessageId(chatId);
   updateChatDetails(chatId, (details) => ({
     ...details,
     waitingForResponse: false,
   }));
-  clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
   clearAllAppSpecPatchStreams();
 }
 
@@ -3325,7 +3414,6 @@ function handleMessageFinalized(
       chunk.message.id,
     ]);
   }
-  clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
   const toolCallIds: string[] =
     chunk.message.role === "assistant"
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
@@ -3766,6 +3854,12 @@ export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
     }
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const pendingAppGeneration =
+      getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+      getDefaultChatAppGenerationDetails();
+    const existingAppGeneration =
+      state.chatAppGenerationDetailsByChatId[chatId] ??
+      getDefaultChatAppGenerationDetails();
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -3775,7 +3869,15 @@ export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
           isChatStreamActive(chatId),
         ),
       },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: mergeChatAppGenerationDetails(
+          existingAppGeneration,
+          pendingAppGeneration,
+        ),
+      },
       ...setPendingChatDetailsForSurface(state, surfaceId, null),
+      ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
     };
   });
 }
@@ -3791,6 +3893,12 @@ function commitPendingChatDetails(
     }
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const pendingAppGeneration =
+      getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+      getDefaultChatAppGenerationDetails();
+    const existingAppGeneration =
+      state.chatAppGenerationDetailsByChatId[chatId] ??
+      getDefaultChatAppGenerationDetails();
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -3800,7 +3908,15 @@ function commitPendingChatDetails(
           isChatStreamActive(chatId),
         ),
       },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: mergeChatAppGenerationDetails(
+          existingAppGeneration,
+          pendingAppGeneration,
+        ),
+      },
       ...setPendingChatDetailsForSurface(state, surfaceId, null),
+      ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
     };
   });
 }
@@ -3809,20 +3925,62 @@ function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
   surfaceId: string | null | undefined = null,
+  appGeneration: ChatAppGenerationContext | null = null,
 ) {
-  if (typeof chatId === "string") {
-    clearStopEligibleAssistantMessageId(chatId);
-  }
-  const updater = (details: ChatDetails) => ({
-    ...details,
-    messages: [...details.messages, userMessage],
-    waitingForResponse: true,
+  const resolvedAppGeneration =
+    normalizeChatAppGenerationContext(appGeneration);
+  useAIStore.setState((state) => {
+    if (typeof chatId === "string") {
+      clearStopEligibleAssistantMessageId(chatId);
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(state.chatDetails[chatId] ?? {}),
+            messages: [
+              ...(state.chatDetails[chatId]?.messages ?? []),
+              userMessage,
+            ],
+            waitingForResponse: true,
+          },
+        },
+        chatAppGenerationDetailsByChatId: {
+          ...state.chatAppGenerationDetailsByChatId,
+          [chatId]: setChatAppGenerationForMessage(
+            state.chatAppGenerationDetailsByChatId[chatId] ??
+              getDefaultChatAppGenerationDetails(),
+            [...(state.chatDetails[chatId]?.messages ?? []), userMessage],
+            userMessage.id,
+            resolvedAppGeneration,
+          ),
+        },
+      };
+    }
+    const nextDetails = {
+      ...(getPendingChatDetailsForSurface(state, surfaceId) ??
+        getDefaultChatDetails()),
+      messages: [
+        ...(getPendingChatDetailsForSurface(state, surfaceId)?.messages ?? []),
+        userMessage,
+      ],
+      waitingForResponse: true,
+    };
+    return {
+      ...setPendingChatDetailsForSurface(state, surfaceId, nextDetails),
+      ...setPendingChatAppGenerationDetailsForSurface(
+        state,
+        surfaceId,
+        setChatAppGenerationForMessage(
+          getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+            getDefaultChatAppGenerationDetails(),
+          nextDetails.messages,
+          userMessage.id,
+          resolvedAppGeneration,
+        ),
+      ),
+    };
   });
-  if (chatId === null) {
-    updatePendingChatDetails(updater, surfaceId);
-    return;
-  }
-  updateChatDetails(chatId, updater);
 }
 
 function rollbackOptimisticUserMessage(
@@ -3830,18 +3988,58 @@ function rollbackOptimisticUserMessage(
   userMessageId: string,
   surfaceId: string | null | undefined = null,
 ) {
-  const updater = (details: ChatDetails) => ({
-    ...details,
-    messages: details.messages.filter(
+  useAIStore.setState((state) => {
+    if (chatId === null) {
+      const pendingDetails =
+        getPendingChatDetailsForSurface(state, surfaceId) ??
+        getDefaultChatDetails();
+      const nextMessages = pendingDetails.messages.filter(
+        (message) => message.id !== userMessageId,
+      );
+      return {
+        ...setPendingChatDetailsForSurface(state, surfaceId, {
+          ...pendingDetails,
+          messages: nextMessages,
+          waitingForResponse: false,
+        }),
+        ...setPendingChatAppGenerationDetailsForSurface(
+          state,
+          surfaceId,
+          setChatAppGenerationForMessage(
+            getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+              getDefaultChatAppGenerationDetails(),
+            nextMessages,
+            userMessageId,
+            null,
+          ),
+        ),
+      };
+    }
+    const currentDetails = state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const nextMessages = currentDetails.messages.filter(
       (message) => message.id !== userMessageId,
-    ),
-    waitingForResponse: false,
+    );
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...currentDetails,
+          messages: nextMessages,
+          waitingForResponse: false,
+        },
+      },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: setChatAppGenerationForMessage(
+          state.chatAppGenerationDetailsByChatId[chatId] ??
+            getDefaultChatAppGenerationDetails(),
+          nextMessages,
+          userMessageId,
+          null,
+        ),
+      },
+    };
   });
-  if (chatId === null) {
-    updatePendingChatDetails(updater, surfaceId);
-    return;
-  }
-  updateChatDetails(chatId, updater);
 }
 
 function updateMessageById(
@@ -3873,57 +4071,11 @@ function upsertMessage(
   const idToUse = targetId ?? message.id;
   const existingIndex = messages.findIndex((entry) => entry.id === idToUse);
   if (existingIndex === -1) {
-    return [...messages, stampMessageCreatedAtIfMissing(message)];
+    return [...messages, message];
   }
-  const existingMessage = messages[existingIndex];
   const nextMessages = [...messages];
-  nextMessages[existingIndex] = mergeMessageCreatedAt(message, existingMessage);
+  nextMessages[existingIndex] = message;
   return nextMessages;
-}
-
-function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number {
-  const createdAt = (message as { createdAt?: unknown }).createdAt;
-  if (
-    typeof createdAt !== "number" ||
-    !Number.isFinite(createdAt) ||
-    createdAt <= 0
-  ) {
-    return 0;
-  }
-  return createdAt;
-}
-
-function mergeMessageCreatedAt(
-  message: BaseChatMessageUnion,
-  existingMessage: BaseChatMessageUnion | null,
-): BaseChatMessageUnion {
-  const nextCreatedAt = resolveMessageCreatedAtMs(message);
-  if (nextCreatedAt > 0 || existingMessage === null) {
-    return message;
-  }
-  const existingCreatedAt = resolveMessageCreatedAtMs(existingMessage);
-  if (existingCreatedAt <= 0) {
-    return message;
-  }
-  return {
-    ...message,
-    createdAt: existingCreatedAt,
-  };
-}
-
-function stampMessageCreatedAtIfMissing(
-  message: BaseChatMessageUnion,
-): BaseChatMessageUnion {
-  if (
-    message.role === ChatRoleEnum.tool ||
-    resolveMessageCreatedAtMs(message) > 0
-  ) {
-    return message;
-  }
-  return {
-    ...message,
-    createdAt: Date.now(),
-  };
 }
 
 function getChatSectionStateFromStore(
@@ -4359,7 +4511,6 @@ function ensureAssistantMessage(
     role: ChatRoleEnum.assistant,
     content: [],
     tool_calls: null,
-    createdAt: Date.now(),
   };
   return { messages: [...messages, assistant], assistant };
 }

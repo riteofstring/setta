@@ -7,7 +7,6 @@ import {
   SectionTypeEnum,
   createChatSectionImpl,
   createCore,
-  createMessageThinkingContent,
   createMessageTextContent,
   createProjectConfig,
   createUserDefaultChatSectionImpl,
@@ -155,6 +154,7 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: { "tool-1": "{}" },
+        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -220,6 +220,7 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: true,
         llmConfig,
+        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -252,112 +253,6 @@ describe("chat history sync to section state", () => {
     expect(persistedCall).toBeDefined();
   });
 
-  it("keeps local thought text while promoting hydrated summary metadata during active LLM streams", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    const llmConfig: LLMConfig = {
-      id: "llm-1",
-      model: "test-model",
-      provider: null,
-      base_url: null,
-      api_key_env: null,
-      other_params: null,
-      mcpServerIds: null,
-      temporary: false,
-    };
-    const localThinking =
-      "Reviewing grouped activity rows before final answer output.";
-    const backendSummary = "Structured summary title from backend metadata.";
-    route_get_llm_chat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          {
-            id: "msg-thinking",
-            role: ChatRoleEnum.assistant,
-            content: [
-              createMessageThinkingContent({
-                thinking: "",
-                summary: backendSummary,
-                signature: "backend-signature",
-              }),
-            ],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
-        waitingForResponse: true,
-        llmConfig,
-        contextUsage: null,
-      },
-    });
-    route_set_chat_section_state.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-
-    useProjectState.setState((state) => {
-      const impl = state.sectionImpls[implId];
-      if (!impl || impl.type !== SectionTypeEnum.Chat) {
-        return;
-      }
-      impl.messages = [
-        {
-          id: "msg-thinking",
-          role: ChatRoleEnum.assistant,
-          content: [
-            createMessageThinkingContent({
-              thinking: localThinking,
-              summary: "",
-              signature: "",
-            }),
-          ],
-          attachments: [],
-          tool_calls: null,
-        },
-      ];
-      impl.waitingForResponse = true;
-    });
-    markChatStreamActive(chatId, sectionId);
-
-    await getLLMChat(chatId, sectionId);
-
-    const impl = getCurrEffectiveSectionImplOfType(
-      useProjectState.getState(),
-      sectionId,
-      SectionTypeEnum.Chat,
-    );
-    const message = impl.messages.find(
-      (entry) => entry.id === "msg-thinking" && entry.role === ChatRoleEnum.assistant,
-    );
-    expect(message?.content).toEqual([
-      createMessageThinkingContent({
-        thinking: localThinking,
-        summary: backendSummary,
-        signature: "backend-signature",
-      }),
-    ]);
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
-      (call) => call[0]?.sectionId === sectionId,
-    );
-    expect(persistedCall).toBeDefined();
-    if (!persistedCall) {
-      throw new Error("Expected setChatSectionState call for merged thought hydrate.");
-    }
-    expect(persistedCall[0].state.messages[0].content).toEqual([
-      createMessageThinkingContent({
-        thinking: localThinking,
-        summary: backendSummary,
-        signature: "backend-signature",
-      }),
-    ]);
-  });
-
   it("merges hydrated chat history with existing section state", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")
@@ -380,6 +275,7 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: { remote: "{}" },
+        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -466,6 +362,7 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: {},
+        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -523,6 +420,7 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: { remote: "{}" },
+        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({

@@ -152,6 +152,7 @@ describe("local storage merge", () => {
         {
           command: "/ship",
           prompt: "Ship the current release.",
+          appGenerationMode: null,
         },
       ],
     });
@@ -171,46 +172,6 @@ describe("local storage merge", () => {
     ) as typeof current;
 
     expect(merged.projectChatAuxViewByProjectConfigId).toEqual({});
-  });
-
-  it("keeps persisted project chat drafts keyed by project config id", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      {
-        projectChatDraftMessageByProjectConfigId: {
-          "project-a": "Unsaved draft for project A",
-          "project-b": "Unsaved draft for project B",
-        },
-      } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.projectChatDraftMessageByProjectConfigId).toEqual({
-      "project-a": "Unsaved draft for project A",
-      "project-b": "Unsaved draft for project B",
-    });
-  });
-
-  it("sanitizes malformed persisted project chat draft mappings", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      {
-        projectChatDraftMessageByProjectConfigId: {
-          "project-a": "  Keep this draft  ",
-          "project-b": ["invalid"],
-          " ": "ignored",
-        },
-      } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.projectChatDraftMessageByProjectConfigId).toEqual({
-      "project-a": "Keep this draft",
-    });
   });
 
   it("falls back to canonical home pane defaults when persisted values are invalid", () => {
@@ -259,6 +220,24 @@ describe("local storage merge", () => {
     expect(merged.homeSelectedProjectPaneVis).toBe(false);
     expect(merged.homeSelectedProjectPaneWidth).toBe(350);
     expect(merged.homeSelectedProjectPaneTrueWidth).toBe(352);
+  });
+
+  it("does not persist removed app-generation local-storage keys", () => {
+    const partialize = useLocalStorage.persist.getOptions().partialize;
+    if (!partialize) {
+      throw new Error("Expected local-storage store to define partialize.");
+    }
+
+    const persisted = partialize(useLocalStorage.getState()) as Record<
+      string,
+      unknown
+    >;
+
+    expect("appSpecStreamingEnabled" in persisted).toBe(false);
+    expect("appGenerationMode" in persisted).toBe(false);
+    expect("appGenerationPrompt" in persisted).toBe(false);
+    expect("appGenerationReferenceImageUrl" in persisted).toBe(false);
+    expect("appGenerationReferenceImageNotes" in persisted).toBe(false);
   });
 });
 
