@@ -923,10 +923,13 @@ describe("ProjectChat multi-surface state ownership", () => {
         ...state.chatDetails,
         "chat-a": {
           messages: [
-            createUserMessage("queue alpha"),
-            createChatMessage("reply with no match"),
+            createUserMessage("nonmatching prompt"),
             createAssistantChatMessage({
-              content: [createMessageTextContent({ text: "queue beta" })],
+              content: [
+                createMessageTextContent({
+                  text: "queue beta queue gamma",
+                }),
+              ],
               attachments: [],
             }),
           ],

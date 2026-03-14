@@ -66,6 +66,7 @@ import {
 } from "state/definitions";
 import {
   buildSearchableTextForMessage,
+  countConversationSearchTextMatches,
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
@@ -1490,26 +1491,38 @@ function ProjectChatSurface({
   );
   const hasConversationSearchTerms =
     normalizedConversationSearchTerms.length > 0;
-  const conversationSearchMatchMessageIds = useMemo(() => {
+  const conversationSearchMatches = useMemo(() => {
     if (!hasConversationSearchTerms) {
       return [];
     }
-    return activeConversationMessages
-      .filter(
-        (message) =>
-          message.role !== ChatRoleEnum.tool &&
-          matchesConversationSearchText(
-            buildSearchableTextForMessage(message),
-            normalizedConversationSearchTerms,
-          ),
-      )
-      .map((message) => message.id);
+    return activeConversationMessages.flatMap((message) => {
+      if (message.role === ChatRoleEnum.tool) {
+        return [];
+      }
+      const searchableText = buildSearchableTextForMessage(message);
+      if (
+        !matchesConversationSearchText(
+          searchableText,
+          normalizedConversationSearchTerms,
+        )
+      ) {
+        return [];
+      }
+      const occurrenceCount = countConversationSearchTextMatches(
+        searchableText,
+        normalizedConversationSearchTerms,
+      );
+      return Array.from({ length: occurrenceCount }, (_, occurrenceIndex) => ({
+        messageId: message.id,
+        occurrenceIndex,
+      }));
+    });
   }, [
     activeConversationMessages,
     hasConversationSearchTerms,
     normalizedConversationSearchTerms,
   ]);
-  const conversationSearchMatchCount = conversationSearchMatchMessageIds.length;
+  const conversationSearchMatchCount = conversationSearchMatches.length;
   const conversationSearchQueryKey = useMemo(
     () => normalizedConversationSearchTerms.join("\u0000"),
     [normalizedConversationSearchTerms],
@@ -1544,10 +1557,8 @@ function ProjectChatSurface({
     if (conversationSearchMatchIndex === null) {
       return null;
     }
-    return (
-      conversationSearchMatchMessageIds[conversationSearchMatchIndex] ?? null
-    );
-  }, [conversationSearchMatchIndex, conversationSearchMatchMessageIds]);
+    return conversationSearchMatches[conversationSearchMatchIndex] ?? null;
+  }, [conversationSearchMatchIndex, conversationSearchMatches]);
   const conversationSearchCounterText =
     conversationSearchMatchCount > 0 && conversationSearchMatchIndex !== null
       ? `${conversationSearchMatchIndex + 1}/${conversationSearchMatchCount}`
@@ -2189,7 +2200,11 @@ function ProjectChatSurface({
                   onPermissionModeChange={setRuntimePermissionMode}
                   onBlockedErrorCodeChange={onBlockedErrorCodeChange}
                   activeConversationSearchMatchMessageId={
-                    activeConversationSearchMatchMessageId
+                    activeConversationSearchMatchMessageId?.messageId ?? null
+                  }
+                  activeConversationSearchMatchOccurrenceIndex={
+                    activeConversationSearchMatchMessageId?.occurrenceIndex ??
+                    null
                   }
                 />
               )}
@@ -2259,7 +2274,10 @@ function ProjectChatSurface({
               onPermissionModeChange={setRuntimePermissionMode}
               onBlockedErrorCodeChange={onBlockedErrorCodeChange}
               activeConversationSearchMatchMessageId={
-                activeConversationSearchMatchMessageId
+                activeConversationSearchMatchMessageId?.messageId ?? null
+              }
+              activeConversationSearchMatchOccurrenceIndex={
+                activeConversationSearchMatchMessageId?.occurrenceIndex ?? null
               }
             />
           </>

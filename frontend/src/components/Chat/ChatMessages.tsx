@@ -300,6 +300,7 @@ type ChatMessageListProps = {
   toolCallArguments?: Record<string, string>;
   interruptedAssistantMessageIds?: Record<string, true>;
   activeSearchMessageId?: string | null;
+  activeSearchMatchOccurrenceIndex?: number | null;
   conversationSearchTerms?: Array<string>;
   className?: string;
   contentClassName?: string;
@@ -7230,6 +7231,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   toolCallArguments,
   interruptedAssistantMessageIds,
   activeSearchMessageId = null,
+  activeSearchMatchOccurrenceIndex = null,
   conversationSearchTerms = [],
   className,
   contentClassName,
@@ -7281,18 +7283,35 @@ export const ChatMessageList = memo(function ChatMessageList({
     const escapedMessageId = escapeMessageIdSelectorValue(
       activeSearchMessageId,
     );
-    const activeHighlight = scrollContainer.querySelector<HTMLElement>(
-      `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight="true"]`,
+    const activeMessageHighlights = Array.from(
+      scrollContainer.querySelectorAll<HTMLElement>(
+        `[data-message-id="${escapedMessageId}"] mark[data-chat-search-highlight="true"]`,
+      ),
     );
+    const resolvedOccurrenceIndex =
+      activeSearchMatchOccurrenceIndex === null
+        ? 0
+        : Math.max(0, activeSearchMatchOccurrenceIndex);
+    const activeHighlight =
+      activeMessageHighlights[
+        Math.min(resolvedOccurrenceIndex, activeMessageHighlights.length - 1)
+      ] ??
+      null;
     activeHighlight?.setAttribute("data-chat-search-highlight-target", "true");
-  }, [activeSearchMessageId, conversationSearchTerms]);
+  }, [
+    activeSearchMatchOccurrenceIndex,
+    activeSearchMessageId,
+    conversationSearchTerms,
+  ]);
 
   useEffect(() => {
     if (!activeSearchMessageId) {
       previousActiveSearchTargetRef.current = null;
       return;
     }
-    const activeSearchTargetKey = `${activeSearchMessageId}\u0000${conversationSearchTerms.join("\u0000")}`;
+    const activeSearchTargetKey = `${activeSearchMessageId}\u0000${
+      activeSearchMatchOccurrenceIndex ?? 0
+    }\u0000${conversationSearchTerms.join("\u0000")}`;
     if (previousActiveSearchTargetRef.current === activeSearchTargetKey) {
       return;
     }
@@ -7318,7 +7337,11 @@ export const ChatMessageList = memo(function ChatMessageList({
       block: "center",
       behavior: "smooth",
     });
-  }, [activeSearchMessageId, conversationSearchTerms]);
+  }, [
+    activeSearchMatchOccurrenceIndex,
+    activeSearchMessageId,
+    conversationSearchTerms,
+  ]);
 
   return (
     <div

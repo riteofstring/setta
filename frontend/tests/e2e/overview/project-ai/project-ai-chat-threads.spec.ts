@@ -1000,17 +1000,17 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
           {
             id: "user-existing",
             role: "user",
-            content: [{ type: "text", text: "Queue kickoff request" }],
+            content: [{ type: "text", text: "Nonmatching kickoff request" }],
           },
           {
             id: "assistant-existing",
             role: "assistant",
-            content: [{ type: "text", text: "Existing queue thread reply" }],
-          },
-          {
-            id: "assistant-existing-follow-up",
-            role: "assistant",
-            content: [{ type: "text", text: "Queue follow up summary" }],
+            content: [
+              {
+                type: "text",
+                text: "Existing queue thread reply queue follow up",
+              },
+            ],
           },
         ],
         waitingForResponse: false,
@@ -1028,17 +1028,17 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
           {
             id: "user-existing",
             role: "user",
-            content: [{ type: "text", text: "Queue kickoff request" }],
+            content: [{ type: "text", text: "Nonmatching kickoff request" }],
           },
           {
             id: "assistant-existing",
             role: "assistant",
-            content: [{ type: "text", text: "Existing queue thread reply" }],
-          },
-          {
-            id: "assistant-existing-follow-up",
-            role: "assistant",
-            content: [{ type: "text", text: "Queue follow up summary" }],
+            content: [
+              {
+                type: "text",
+                text: "Existing queue thread reply queue follow up",
+              },
+            ],
           },
         ],
         waitingForResponse: false,
@@ -1222,24 +1222,54 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     ).toBeVisible();
     await expect(
       overviewPane.getByTestId("project-chat-conversation-filter"),
-    ).toContainText("1/3");
+    ).toContainText("1/2");
     const activeSearchMatch = overviewPane.locator(
       '[data-chat-search-active-match="true"]',
     );
-    await expect(activeSearchMatch).toContainText("Queue kickoff request");
-    await expect(
-      activeSearchMatch.locator('mark[data-chat-search-highlight="true"]'),
-    ).toContainText(/queue/i);
-    await conversationFilterInput.press("Enter");
-    await expect(
-      overviewPane.getByTestId("project-chat-conversation-filter"),
-    ).toContainText("2/3");
-    await expect(activeSearchMatch).toContainText("Existing queue thread reply");
+    await expect(activeSearchMatch).toContainText(
+      "Existing queue thread reply queue follow up",
+    );
     await expect(
       activeSearchMatch.locator(
         'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
       ),
     ).toContainText(/queue/i);
+    await expect
+      .poll(async () => {
+        return await activeSearchMatch.evaluate((element) => {
+          const marks = Array.from(
+            element.querySelectorAll('mark[data-chat-search-highlight="true"]'),
+          );
+          return marks.findIndex((mark) =>
+            mark.hasAttribute("data-chat-search-highlight-target"),
+          );
+        });
+      })
+      .toBe(0);
+    await conversationFilterInput.press("Enter");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("2/2");
+    await expect(activeSearchMatch).toContainText(
+      "Existing queue thread reply queue follow up",
+    );
+    await expect(
+      activeSearchMatch.locator(
+        'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
+      ),
+    ).toContainText(/queue/i);
+    await expect
+      .poll(async () => {
+        return await activeSearchMatch.evaluate((element) => {
+          const marks = Array.from(
+            element.querySelectorAll('mark[data-chat-search-highlight="true"]'),
+          );
+          return marks.findIndex((mark) =>
+            mark.hasAttribute("data-chat-search-highlight-target"),
+          );
+        });
+      })
+      .toBe(1);
     await conversationFilterInput.fill("");
     await clickDom(overviewPane.locator('button[aria-label="New Chat"]'));
     const draftEntry = threadsPanel.getByTestId(

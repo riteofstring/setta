@@ -957,7 +957,11 @@ describe("ChatMessages assistant reasoning layout", () => {
         id: "search-assistant",
         role: ChatRoleEnum.assistant,
         createdAt: 2,
-        content: [createMessageTextContent({ text: "Existing queue reply" })],
+        content: [
+          createMessageTextContent({
+            text: "Existing queue reply queue follow up",
+          }),
+        ],
         attachments: [],
         tool_calls: null,
       },
@@ -974,9 +978,7 @@ describe("ChatMessages assistant reasoning layout", () => {
       />,
     );
 
-    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
-      2,
-    );
+    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(3);
     expect(markup).toContain(">Queue</mark>");
     expect(markup).toContain(">queue</mark>");
     const activeMatchContainer = getTagByMarker(
