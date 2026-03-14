@@ -5,7 +5,7 @@ import pytest
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import PythonCodeGenerator
-from setta.project_state.project_manager_types import GetLatestProjectStateRequest
+from setta.project_state.project_manager_types import GetChatSectionChatIdRequest
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -89,12 +89,13 @@ class TestListenerRouterEndpointCall:
             sent_payloads.append(payload)
 
         listener._send_websocket_payload = capture
-        request = GetLatestProjectStateRequest(
-            projectConfigId=project_state.projectConfig.id
+        request = GetChatSectionChatIdRequest(
+            projectConfigId=project_state.projectConfig.id,
+            sectionId=ID("chat-section"),
         )
         call_task = asyncio.create_task(
             listener._call_router_endpoint(
-                "route_get_latest_project_state",
+                "route_get_chat_section_chat_id",
                 payload=request,
             )
         )
@@ -106,10 +107,11 @@ class TestListenerRouterEndpointCall:
             sent_payloads[0]
         )
         assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
-        assert parsed_message.content.endpointName == "route_get_latest_project_state"
+        assert parsed_message.content.endpointName == "route_get_chat_section_chat_id"
         assert parsed_message.content.payload == {
             "frontendOpId": None,
             "projectConfigId": project_state.projectConfig.id,
+            "sectionId": "chat-section",
         }
 
         listener._handle_router_endpoint_result(
@@ -137,8 +139,11 @@ class TestListenerRouterEndpointCall:
         listener._send_websocket_payload = capture
         call_task = asyncio.create_task(
             listener._call_router_endpoint(
-                "route_get_latest_project_state",
-                payload={"projectConfigId": project_state.projectConfig.id},
+                "route_get_chat_section_chat_id",
+                payload={
+                    "projectConfigId": project_state.projectConfig.id,
+                    "sectionId": "chat-section",
+                },
             )
         )
 

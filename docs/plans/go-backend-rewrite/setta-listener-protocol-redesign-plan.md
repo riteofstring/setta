@@ -58,10 +58,11 @@ Current state:
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state
-  - remaining built-in listener endpoint dispatch outside the current
-    manifest-backed `GoHTTPRoutes` subset
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
+  - dormant broader built-in listener endpoint inventory/docs outside the
+    active retained chat/chat-section client surface, pending a concrete
+    caller before any further port
 
 That split is exactly the kind of duplicate backend ownership the rewrite is
 trying to remove.
@@ -73,6 +74,8 @@ trying to remove.
 - Do not keep `/pythonScript/{id}` as a long-lived compatibility boundary.
 - Do not add FFI, embedded Go, or subprocess RPC just so Python can call Go
   functions directly.
+- Do not port dormant built-in listener endpoint inventory without a concrete
+  current caller.
 - Do not keep temporary IDs unless a current caller proves they are still
   required.
 
@@ -212,18 +215,20 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.
 
-### Step 4. Move Built-In Endpoint Dispatch And Mutation Effects To Go
+### Step 4. Finish Active Endpoint Authority Without Recreating Dormant Surface
 
-- Extend the current Go-owned built-in listener endpoint dispatch from the
-  manifest-backed `GoHTTPRoutes` subset to the remaining required listener
-  endpoint surface.
-- Unify built-in and plugin listener endpoint invocation.
+- Keep built-in and plugin listener endpoint invocation on one Go-owned
+  boundary for the active supported listener endpoint surface.
+- Extend the current Go-owned built-in listener endpoint dispatch beyond the
+  existing manifest-backed `GoHTTPRoutes` plus chat/chat-section surface only
+  if a concrete current listener workflow proves it still needs more.
 - Replace any remaining local heuristic mutation patching with authoritative Go
   patch/refresh results.
 
 Exit condition:
-built-in listener router calls no longer require Python backend dispatch or
-local heuristic updates.
+active built-in listener router calls no longer require Python backend
+dispatch or local heuristic updates, and dormant broader inventory is not
+treated as an active parity requirement without a caller.
 
 ### Step 5. Move Listener Endpoint Binding Ownership To Go
 
@@ -286,7 +291,7 @@ This slice is done when all of the following are true:
 
 - the public Python listener SDK still works for supported workflows
 - Go owns listener websocket/bootstrap/runtime authority
-- Go owns built-in listener endpoint dispatch
+- Go owns built-in listener endpoint dispatch for active supported workflows
 - authoritative Go mutation effects replaced Python local heuristics
 - share listener entrypoints use the same Go-owned listener protocol
 - the current source-of-truth docs no longer list built-in listener endpoint
