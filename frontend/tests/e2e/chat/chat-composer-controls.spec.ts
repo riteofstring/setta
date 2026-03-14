@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   createChatSection,
   ensureAppReady,
@@ -136,7 +137,9 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("/search off");
       await input.press("Enter");
       await expect(
-        section.getByText("/search is unavailable in the current context. Use /help."),
+        section.getByText(
+          "/search is unavailable in the current context. Use /help.",
+        ),
       ).toBeVisible();
       await input.fill("/permissions yolo");
       await input.press("Enter");
@@ -1295,9 +1298,9 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("Trigger managed Azure chat");
       await input.press("Enter");
 
-      await expect.poll(() => submittedPayload?.engineConfigId ?? null).toBe(
-        createdEngineConfigId,
-      );
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
       expect(submittedPayload?.thinking).toBe(false);
     } finally {
       try {
@@ -1341,6 +1344,162 @@ test.describe.serial("chat composer controls", () => {
             })
             .catch(() => {});
         }
+      }
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat rolls back optimistic drafts when a managed provider is unsupported", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const unsupportedConfigId = `e2e-unsupported-provider-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [unsupportedConfigId]: {
+            model: "mistral-large-latest",
+            provider: "mistral",
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Unsupported Provider E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: unsupportedConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing unsupported provider engine config id.");
+      }
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Unsupported Provider E2E");
+
+      allowExpectedApiError(page, {
+        path: "/api/getLLMResponse",
+        statuses: [400],
+        method: "POST",
+        count: 1,
+      });
+
+      const submittedText = "Trigger unsupported managed provider";
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill(submittedText);
+      await input.press("Enter");
+
+      await expect
+        .poll(async () => {
+          return page.evaluate(
+            async ({ expectedText, notificationText }) => {
+              const { useAIStore, useNotifications } = await import(
+                "/src/state/definitions.ts"
+              );
+
+              const pendingMessages = Object.values(
+                useAIStore.getState().pendingChatDetailsBySurfaceId,
+              ).flatMap((details) =>
+                details.messages.map((message) =>
+                  JSON.stringify(message.content),
+                ),
+              );
+              const hydratedMessages = Object.values(
+                useAIStore.getState().chatDetails,
+              ).flatMap((details) =>
+                details.messages.map((message) =>
+                  JSON.stringify(message.content),
+                ),
+              );
+              const notifications = useNotifications.getState().notifications;
+
+              return {
+                hasExpectedWarning: notifications.some(
+                  (notification) =>
+                    notification.message === notificationText &&
+                    notification.type === "warning",
+                ),
+                pendingContainsText: pendingMessages.some((content) =>
+                  content.includes(expectedText),
+                ),
+                hydratedContainsText: hydratedMessages.some((content) =>
+                  content.includes(expectedText),
+                ),
+              };
+            },
+            {
+              expectedText: submittedText,
+              notificationText:
+                'managed llm provider is not supported: "mistral"',
+            },
+          );
+        })
+        .toEqual({
+          hasExpectedWarning: true,
+          pendingContainsText: false,
+          hydratedContainsText: false,
+        });
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
       }
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
