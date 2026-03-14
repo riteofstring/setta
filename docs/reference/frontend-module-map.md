@@ -87,6 +87,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 ## Fast Navigation Tips
 
 - Need a page or route change: open `components/Pages/`.
+- Need Home page selection reconciliation, favorites partitioning, or side-pane layout math: open `components/Pages/Home/homeWorkspaceState.ts`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
