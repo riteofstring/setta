@@ -1614,6 +1614,88 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	}
 }
 
+func TestFrontendGeneratedRouteHelperImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedRouteHelperImports := map[string]map[string]struct{}{
+		"GoRoutePrefixHelpers": {
+			"frontend/src/utils/c_addresses.ts": {},
+		},
+		"GoRootRouteHelpers": {
+			"frontend/src/state/actions/websocketReceive.ts": {},
+			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
+		},
+		"GoHTTPRouteHelpers": {
+			"frontend/src/components/App/appTransport.ts":    {},
+			"frontend/src/plugins/transport.ts":              {},
+			"frontend/src/utils/generatedEndpoints.ts":       {},
+			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
+			"frontend/src/utils/settaApiPresets.ts":          {},
+		},
+		"GoWebsocketRouteHelpers": {
+			"frontend/src/plugins/transport.ts":                  {},
+			"frontend/src/state/actions/websocketReceive.ts":     {},
+			"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
+		},
+	}
+	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range generatedRoutesImportPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedPaths, tracked := allowedRouteHelperImports[bindingName]
+				if !tracked {
+					continue
+				}
+				if _, allowed := allowedPaths[relativePath]; allowed {
+					continue
+				}
+				return fmt.Errorf(
+					"%s imports %q from generatedRoutes outside the explicit generated route-helper boundary",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend route helper imports: %v", err)
+	}
+}
+
 func TestFrontendRuntimeSourceDoesNotImportRouteEnum(t *testing.T) {
 	t.Helper()
 
@@ -7430,6 +7512,12 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 			"buildBackendURL":                {},
 			"replaceAddressParams":           {},
 		},
+		"generatedRoutes": {
+			"GoHTTPRouteHelpers":      {},
+			"GoRootRouteHelpers":      {},
+			"GoRoutePrefixHelpers":    {},
+			"GoWebsocketRouteHelpers": {},
+		},
 		"requestTransport": {
 			"get":       {},
 			"getBinary": {},
@@ -7441,7 +7529,7 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 	for _, record := range readFrontendBoundaryImportRecords(t, repoRoot) {
 		// generatedEndpoints.ts is the canonical generated contract boundary and
 		// already has separate exact-output verification; this manifest is for
-		// remaining explicit nongenerated runtime exceptions.
+		// remaining explicit nongenerated runtime helper exceptions.
 		if record.Path == "frontend/src/utils/generatedEndpoints.ts" {
 			continue
 		}

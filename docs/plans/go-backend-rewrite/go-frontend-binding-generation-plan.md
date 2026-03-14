@@ -308,6 +308,17 @@ Current status:
   only the intentional dynamic Setta API helper boundary in
   `frontend/src/components/Section/Layouts/settaApiAction.ts`, through
   `requestTransport`
+- direct `generatedRoutes` helper-bag imports now stay confined to
+  `generatedEndpoints.ts` plus the shared route/origin/policy utilities that
+  actually own those transport seams (`appTransport`, `plugins/transport`,
+  `websocketReceive`, terminal websocket URL construction, `c_addresses`,
+  `serverModeBoundaryPolicy`, and `settaApiPresets`) instead of widening ad hoc
+  through runtime callers
+- the validation suite now also checks that those direct generated-route helper
+  imports stay inside that explicit boundary and snapshots the remaining
+  nongenerated helper-bag import inventory in the focused frontend boundary
+  exception manifest, so helper-boundary widening becomes a reviewed diff
+  instead of silent runtime drift
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
