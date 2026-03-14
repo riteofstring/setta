@@ -863,20 +863,18 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 		}
 		summary := joinOpenAIResponseReasoningSummary(item.Summary)
 		if strings.TrimSpace(summary) != "" {
-			if streamState != nil && strings.TrimSpace(streamState.summary) == "" {
+			if streamState != nil {
 				streamState.summary = summary
 				streamState.reasoningEmitted = true
 			}
-			if streamState == nil || strings.TrimSpace(streamState.summary) == summary {
-				setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
-			}
+			setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
 		}
 		reasoning := joinOpenAIResponseReasoningContent(item.Content)
-		if strings.TrimSpace(reasoning) != "" && !hasMessageThinkingText(assistantMessage) {
+		if strings.TrimSpace(reasoning) != "" {
 			if streamState != nil {
 				streamState.reasoningEmitted = true
 			}
-			appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
+			setAssistantThinkingTextAtIndex(assistantMessage, 0, reasoning)
 		}
 	case responses.ResponseOutputMessage:
 		text := joinOpenAIResponseOutputMessageText(item.Content)
@@ -1517,6 +1515,15 @@ func appendAssistantThinkingAtIndex(message map[string]any, index int, delta str
 	}
 	content, block := ensureAssistantContentBlock(message, index, "thinking")
 	block["thinking"] = stringValue(block["thinking"]) + delta
+	message["content"] = content
+}
+
+func setAssistantThinkingTextAtIndex(message map[string]any, index int, thinking string) {
+	if strings.TrimSpace(thinking) == "" {
+		return
+	}
+	content, block := ensureAssistantContentBlock(message, index, "thinking")
+	block["thinking"] = thinking
 	message["content"] = content
 }
 

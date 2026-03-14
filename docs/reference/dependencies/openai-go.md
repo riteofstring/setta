@@ -84,8 +84,9 @@
     events as provider failures instead of silently succeeding with truncated
     reasoning output, and still stops/finalizes any partial assistant message
     so the live waiting state clears on provider failure
-  - authoritative final message items from `response.output_item.done` and
-    `response.completed` now replace partial or missing earlier text deltas
+  - authoritative final reasoning/message items from `response.output_item.done`
+    and `response.completed` now replace partial or missing earlier
+    reasoning/text deltas
   - the completed-response fallback now also recovers final function-call
     items when the stream omits earlier tool-call delta events
 - `internal/transcriptionsessions/service.go`
