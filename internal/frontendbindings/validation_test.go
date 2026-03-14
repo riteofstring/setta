@@ -898,6 +898,52 @@ func TestCurrentEndpointsPassValidation(t *testing.T) {
 	}
 }
 
+func TestCurrentEndpointsCoverEveryRegisteredHTTPRouteMethod(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+
+	routeIdentifiersByName := readCurrentRouteGroupIdentifiersByName(
+		t,
+		filepath.Join(repoRoot, "internal", "frontendbindings", "specs.go"),
+		"GoHTTPRoutes",
+	)
+	actualMethodsByIdentifier := readHTTPRouteRegistrationMethods(
+		t,
+		filepath.Join(repoRoot, "internal", "httpapi"),
+	)
+
+	expectedMethodsByIdentifier := make(map[string]map[string]struct{}, len(routeIdentifiersByName))
+	for _, spec := range CurrentEndpoints() {
+		if spec.RouteCollection != "GoHTTPRoutes" {
+			continue
+		}
+		routeIdentifier, ok := routeIdentifiersByName[spec.RouteName]
+		if !ok {
+			t.Fatalf("CurrentEndpoints route %q is missing from GoHTTPRoutes", spec.RouteName)
+		}
+		methodsByIdentifier, ok := expectedMethodsByIdentifier[routeIdentifier]
+		if !ok {
+			methodsByIdentifier = map[string]struct{}{}
+			expectedMethodsByIdentifier[routeIdentifier] = methodsByIdentifier
+		}
+		methodsByIdentifier[spec.Method] = struct{}{}
+	}
+
+	for routeName, routeIdentifier := range routeIdentifiersByName {
+		expectedMethods := sortedStringKeys(expectedMethodsByIdentifier[routeIdentifier])
+		actualMethods := sortedStringKeys(actualMethodsByIdentifier[routeIdentifier])
+		if slices.Equal(expectedMethods, actualMethods) {
+			continue
+		}
+		t.Fatalf(
+			"CurrentEndpoints method inventory drifted from internal/httpapi registrations for %s (%s): expected methods %v, actual methods %v",
+			routeName,
+			routeIdentifier,
+			expectedMethods,
+			actualMethods,
+		)
+	}
+}
+
 func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 	expectedRouteOnly := map[string]map[string]struct{}{
 		"GoRoutePrefixes": {
@@ -1246,6 +1292,63 @@ func readCurrentRouteGroupIdentifiers(t *testing.T, path string) []string {
 	return nil
 }
 
+func readCurrentRouteGroupIdentifiersByName(t *testing.T, path string, groupConstName string) map[string]string {
+	t.Helper()
+
+	file := parseGoTestFile(t, path)
+
+	for _, declaration := range file.Decls {
+		funcDecl, ok := declaration.(*ast.FuncDecl)
+		if !ok || funcDecl.Name == nil || funcDecl.Name.Name != "CurrentRouteGroups" {
+			continue
+		}
+		for _, statement := range funcDecl.Body.List {
+			returnStmt, ok := statement.(*ast.ReturnStmt)
+			if !ok || len(returnStmt.Results) != 1 {
+				continue
+			}
+			composite, ok := returnStmt.Results[0].(*ast.CompositeLit)
+			if !ok {
+				t.Fatalf("CurrentRouteGroups return in %s is %T, want *ast.CompositeLit", path, returnStmt.Results[0])
+			}
+			for _, element := range composite.Elts {
+				groupComposite, ok := element.(*ast.CompositeLit)
+				if !ok {
+					t.Fatalf("CurrentRouteGroups element in %s is %T, want *ast.CompositeLit", path, element)
+				}
+				currentConstName, ok := routeGroupConstName(groupComposite)
+				if !ok || currentConstName != groupConstName {
+					continue
+				}
+				routesComposite := routeGroupRoutes(groupComposite)
+				if routesComposite == nil {
+					t.Fatalf("route group %s in %s is missing Routes field", groupConstName, path)
+				}
+				identifiersByName := make(map[string]string, len(routesComposite.Elts))
+				for _, routeElement := range routesComposite.Elts {
+					routeComposite, ok := routeElement.(*ast.CompositeLit)
+					if !ok {
+						t.Fatalf("route entry in %s is %T, want *ast.CompositeLit", path, routeElement)
+					}
+					routeName, ok := routeFieldStringValue(routeComposite, "Name")
+					if !ok {
+						t.Fatalf("route entry in %s is missing Name string literal", path)
+					}
+					routeIdentifier, ok := routePathIdentifier(routeComposite)
+					if !ok {
+						t.Fatalf("route entry %s in %s is missing Path route identifier", routeName, path)
+					}
+					identifiersByName[routeName] = routeIdentifier
+				}
+				return identifiersByName
+			}
+		}
+	}
+
+	t.Fatalf("did not find CurrentRouteGroups declaration for %s in %s", groupConstName, path)
+	return nil
+}
+
 func parseGoTestFile(t *testing.T, path string) *ast.File {
 	t.Helper()
 
@@ -1271,6 +1374,33 @@ func routeGroupRoutes(group *ast.CompositeLit) *ast.CompositeLit {
 		return routesComposite
 	}
 	return nil
+}
+
+func routeGroupConstName(group *ast.CompositeLit) (string, bool) {
+	return routeFieldStringValue(group, "ConstName")
+}
+
+func routeFieldStringValue(route *ast.CompositeLit, fieldName string) (string, bool) {
+	for _, element := range route.Elts {
+		keyValue, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, ok := identName(keyValue.Key)
+		if !ok || key != fieldName {
+			continue
+		}
+		literal, ok := keyValue.Value.(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			return "", false
+		}
+		value, err := strconv.Unquote(literal.Value)
+		if err != nil {
+			return "", false
+		}
+		return value, true
+	}
+	return "", false
 }
 
 func routePathIdentifier(route *ast.CompositeLit) (string, bool) {
@@ -1299,6 +1429,62 @@ func routePathIdentifier(route *ast.CompositeLit) (string, bool) {
 		return selector.Sel.Name, true
 	}
 	return "", false
+}
+
+func readHTTPRouteRegistrationMethods(t *testing.T, dir string) map[string]map[string]struct{} {
+	t.Helper()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+
+	methodsByIdentifier := map[string]map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file := parseGoTestFile(t, filepath.Join(dir, name))
+		ast.Inspect(file, func(node ast.Node) bool {
+			callExpr, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := callExpr.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			method := selector.Sel.Name
+			switch method {
+			case "Get", "Post":
+			default:
+				return true
+			}
+			if len(callExpr.Args) == 0 {
+				return true
+			}
+			routeIdentifier, ok := identName(callExpr.Args[0])
+			if !ok || !strings.HasPrefix(routeIdentifier, "Route") {
+				return true
+			}
+			methods, ok := methodsByIdentifier[routeIdentifier]
+			if !ok {
+				methods = map[string]struct{}{}
+				methodsByIdentifier[routeIdentifier] = methods
+			}
+			methods[strings.ToUpper(method)] = struct{}{}
+			return true
+		})
+	}
+
+	if len(methodsByIdentifier) == 0 {
+		t.Fatalf("did not find registered HTTP route methods in %s", dir)
+	}
+	return methodsByIdentifier
 }
 
 func identName(expression ast.Expr) (string, bool) {

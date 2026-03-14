@@ -183,6 +183,10 @@ Current status:
   declared in `internal/wsapi/routes.go` is represented somewhere in
   `CurrentRouteGroups()`, so websocket route widening cannot silently drift
   past the binding source of truth
+- the validation suite now also checks that every converted Go HTTP route's
+  registered GET/POST method set in `internal/httpapi` matches the
+  `CurrentEndpoints()` inventory, so handler-method drift cannot silently
+  leave generated endpoint wrappers on the wrong verb
 - the validation suite now also snapshots the current endpoint-contract
   inventory in a golden manifest, including request, response, and path-param
   DTO ownership, so wrapper-contract widening or reshaping becomes an explicit
