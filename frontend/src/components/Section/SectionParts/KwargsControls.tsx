@@ -38,7 +38,6 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import { getKwargsControlsContainerClassName } from "./kwargsControlsStyles";
 
 type KwargsControlsProps = {
   sectionId: string;
@@ -125,10 +124,12 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
-  const controlsContainerClassName = getKwargsControlsContainerClassName({
-    hasSectionStyleTheme,
-    isCallableSection,
-  });
+  const argsBgColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-bg)]"
+    : "";
+  const argsBorderColorClassName = hasSectionStyleTheme
+    ? "border-[color:var(--setta-section-style-border)]"
+    : "border-white dark:border-setta-700";
   const argsLabelColorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-600/70 dark:text-setta-400/30";
@@ -386,7 +387,12 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
 
   return (
     <>
-      <section className={controlsContainerClassName} ref={controlsRef}>
+      <section
+        className={`section-args z-10 ${
+          isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1"
+        } flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container ${argsBgColorClassName} ${argsBorderColorClassName}`}
+        ref={controlsRef}
+      >
         <article
           className={`flex flex-wrap items-center ${
             isCallableSection ? "py-1" : ""

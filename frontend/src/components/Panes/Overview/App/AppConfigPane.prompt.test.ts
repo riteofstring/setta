@@ -13,7 +13,7 @@ import {
   createVariant,
 } from "utils/generatedTypes";
 
-import { formatSectionsForAppPrompt } from "./AppConfigPane";
+import { formatSectionsForAppPrompt } from "./appConfigPromptUtils";
 
 describe("formatSectionsForAppPrompt", () => {
   beforeEach(() => {

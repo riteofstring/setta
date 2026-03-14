@@ -8,14 +8,13 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import {
   useBrushStrokes,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
-  useProjectState,
-  ZustandProjectState,
-} from "state/definitions";
-import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
+} from "state/stores/artifactStores";
 import { bumpLocalRevisions } from "state/utils/revisions";
 import { route_append_draw_area_layer_item } from "utils/generatedEndpoints";
 import {

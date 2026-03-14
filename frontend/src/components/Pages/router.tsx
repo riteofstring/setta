@@ -12,11 +12,9 @@ import type { ReactNode } from "react";
 import { lazy, Suspense, useEffect } from "react";
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
-import {
-  useAllProjectMetadata,
-  useServerMode,
-  useSettings,
-} from "state/definitions";
+import { useSettings } from "state/definitions";
+import { useAllProjectMetadata } from "state/stores/projectStores";
+import { useServerMode } from "state/stores/sessionStores";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
@@ -27,7 +25,7 @@ import {
   VIEW_MODE_ROUTER_PATH,
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
-} from "utils/constants";
+} from "utils/constants/routes";
 import type { ProjectConfig } from "utils/generatedTypes";
 import {
   resolveWorkspaceLaunchRouteKind,
