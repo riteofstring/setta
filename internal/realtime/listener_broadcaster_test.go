@@ -398,6 +398,14 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 				},
 			},
 		},
+		DependencyValues: &ListenerRenderedDependencyValues{
+			Entries: []ListenerRenderedDependencyValue{
+				{
+					DependencyKey: "section-a.param-a",
+					RenderedValue: "'value-a'",
+				},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("send force refresh with dependency catalog: %v", err)
@@ -422,6 +430,19 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 	}
 	if entry.CodeObjType != "TextParam" {
 		t.Fatalf("expected dependency code obj type TextParam, got %q", entry.CodeObjType)
+	}
+	if content.DependencyValues == nil {
+		t.Fatal("expected dependency values in listener force refresh")
+	}
+	if len(content.DependencyValues.Entries) != 1 {
+		t.Fatalf("expected 1 dependency value entry, got %d", len(content.DependencyValues.Entries))
+	}
+	valueEntry := content.DependencyValues.Entries[0]
+	if valueEntry.DependencyKey != "section-a.param-a" {
+		t.Fatalf("expected dependency value key section-a.param-a, got %q", valueEntry.DependencyKey)
+	}
+	if valueEntry.RenderedValue != "'value-a'" {
+		t.Fatalf("expected rendered dependency value 'value-a', got %q", valueEntry.RenderedValue)
 	}
 }
 

@@ -157,12 +157,22 @@ type ListenerDependencyCatalogEntry struct {
 	ControlCodeObjID string `json:"controlCodeObjId,omitempty"`
 }
 
+type ListenerRenderedDependencyValues struct {
+	Entries []ListenerRenderedDependencyValue `json:"entries"`
+}
+
+type ListenerRenderedDependencyValue struct {
+	DependencyKey string `json:"dependencyKey"`
+	RenderedValue string `json:"renderedValue"`
+}
+
 type ListenerForceRefreshContent struct {
-	ProjectConfigID   string                     `json:"projectConfigId"`
-	ShareSessionID    string                     `json:"shareSessionId,omitempty"`
-	CallID            string                     `json:"callId,omitempty"`
-	ProjectState      json.RawMessage            `json:"projectState,omitempty"`
-	DependencyCatalog *ListenerDependencyCatalog `json:"dependencyCatalog,omitempty"`
+	ProjectConfigID   string                            `json:"projectConfigId"`
+	ShareSessionID    string                            `json:"shareSessionId,omitempty"`
+	CallID            string                            `json:"callId,omitempty"`
+	ProjectState      json.RawMessage                   `json:"projectState,omitempty"`
+	DependencyCatalog *ListenerDependencyCatalog        `json:"dependencyCatalog,omitempty"`
+	DependencyValues  *ListenerRenderedDependencyValues `json:"dependencyValues,omitempty"`
 }
 
 type ListenerForceRefreshMessage struct {
@@ -308,6 +318,40 @@ func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 	e.SectionType = payload.SectionType
 	e.CodeObjType = payload.CodeObjType
 	e.ControlCodeObjID = payload.ControlCodeObjID
+	return nil
+}
+
+func (e ListenerRenderedDependencyValue) MarshalJSON() ([]byte, error) {
+	dependencyKey, err := structuredDependencyKeyJSON(e.DependencyKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		DependencyKey json.RawMessage `json:"dependencyKey"`
+		RenderedValue string          `json:"renderedValue"`
+	}
+	payload.DependencyKey = dependencyKey
+	payload.RenderedValue = e.RenderedValue
+	return json.Marshal(payload)
+}
+
+func (e *ListenerRenderedDependencyValue) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		DependencyKey json.RawMessage `json:"dependencyKey"`
+		RenderedValue string          `json:"renderedValue"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	dependencyKey, err := canonicalDependencyKeyFromWire(payload.DependencyKey)
+	if err != nil {
+		return err
+	}
+
+	e.DependencyKey = dependencyKey
+	e.RenderedValue = payload.RenderedValue
 	return nil
 }
 

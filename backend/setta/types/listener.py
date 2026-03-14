@@ -81,11 +81,21 @@ class ListenerDependencyCatalog(BaseModel):
     entries: list[ListenerDependencyCatalogEntry] = Field(default_factory=list)
 
 
+class ListenerRenderedDependencyValue(BaseModel):
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    renderedValue: str
+
+
+class ListenerRenderedDependencyValues(BaseModel):
+    entries: list[ListenerRenderedDependencyValue] = Field(default_factory=list)
+
+
 class ListenerForceRefreshContent(BaseModel):
     shareSessionId: str | None = None
     callId: str | None = None
     projectState: ProjectStateSingleConfig | None = None
     dependencyCatalog: ListenerDependencyCatalog | None = None
+    dependencyValues: ListenerRenderedDependencyValues | None = None
 
 
 class ListenerErrorContent(BaseModel):

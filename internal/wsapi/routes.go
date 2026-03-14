@@ -767,6 +767,7 @@ func handleListenerInit(
 		ShareSessionID:      requestInfo.ShareSessionID,
 		ProjectState:        snapshotPayload.ProjectState,
 		DependencyCatalog:   snapshotPayload.DependencyCatalog,
+		DependencyValues:    snapshotPayload.DependencyValues,
 		TargetConnectionIDs: []string{connectionID},
 	})
 	return err
@@ -1028,6 +1029,7 @@ func sendListenerEndpointForceRefresh(
 		CallID:            strings.TrimSpace(callID),
 		ProjectState:      snapshotPayload.ProjectState,
 		DependencyCatalog: snapshotPayload.DependencyCatalog,
+		DependencyValues:  snapshotPayload.DependencyValues,
 	})
 	return err
 }

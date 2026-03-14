@@ -717,6 +717,9 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 	})
 	projectRuntime := newRouteProjectRuntime(t, "project-a")
 	sectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	if _, err := projectRuntime.SetTextBlockText(context.Background(), "project-a", sectionID, "Hello from Go"); err != nil {
+		t.Fatalf("set text block text: %v", err)
+	}
 	server := newRouteServer(t, RouteDependencies{
 		Transport: Dependencies{
 			Auth:       authService,
@@ -740,6 +743,7 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 		t.Fatal("expected dependency catalog in listener bootstrap force refresh")
 	}
 	expectedName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", sectionID, "")
+	foundCatalog := false
 	for _, entry := range content.DependencyCatalog.Entries {
 		if entry.DependencyKey != sectionID {
 			continue
@@ -747,10 +751,27 @@ func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 		if entry.FullPathName != expectedName {
 			t.Fatalf("expected dependency name %q, got %q", expectedName, entry.FullPathName)
 		}
+		foundCatalog = true
+		break
+	}
+	if !foundCatalog {
+		t.Fatalf("expected dependency catalog to include section %q", sectionID)
+	}
+
+	if content.DependencyValues == nil {
+		t.Fatal("expected dependency values in listener bootstrap force refresh")
+	}
+	for _, entry := range content.DependencyValues.Entries {
+		if entry.DependencyKey != sectionID {
+			continue
+		}
+		if entry.RenderedValue != "'Hello from Go'" {
+			t.Fatalf("expected rendered dependency value %q, got %q", "'Hello from Go'", entry.RenderedValue)
+		}
 		return
 	}
 
-	t.Fatalf("expected dependency catalog to include section %q", sectionID)
+	t.Fatalf("expected dependency values to include section %q", sectionID)
 }
 
 func TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh(t *testing.T) {

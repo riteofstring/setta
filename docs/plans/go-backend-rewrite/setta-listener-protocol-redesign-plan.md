@@ -77,11 +77,16 @@ Current state:
     that catalog for callback dependency names, `ctx.ids.*`,
     `ctx.values.by_id(...)`, and `ctx.changed_by_id`, including cached
     snapshot replay
+  - Go listener bootstrap/force-refresh snapshots now also carry rendered
+    dependency values, and retained Python uses those values first for
+    metadata-backed cache rebuild and cached snapshot replay when the generated
+    runtime instance is unavailable
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state for value
-    hydration only
+    hydration for live delta application, generated-state access, and any
+    snapshot values the current Go payload still cannot render directly
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -241,6 +246,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Keep local dependency-graph/runtime generation only where current value
   hydration still requires it, and treat Go-provided dependency metadata as
   authoritative for listener bookkeeping.
+- Prefer Go-provided snapshot dependency values for metadata-backed cache
+  rebuild and replay, and keep any remaining local snapshot-value fallback
+  explicit until the payload fully covers active listener-visible value kinds.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

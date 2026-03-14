@@ -69,6 +69,7 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
+    ListenerRenderedDependencyValues,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
@@ -599,6 +600,9 @@ class SettaListener:
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
         self._latest_dependency_metadata: ListenerDependencyMetadata | None = None
+        self._latest_dependency_snapshot_values: (
+            ListenerRenderedDependencyValues | None
+        ) = None
         self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
         self._pending_router_endpoint_force_refreshes: dict[
             str, asyncio.Future[None]
@@ -1365,6 +1369,7 @@ class SettaListener:
         project_state: ProjectStateSingleConfig,
         *,
         dependency_catalog: ListenerDependencyCatalog | None = None,
+        dependency_values: ListenerRenderedDependencyValues | None = None,
         share_session_id: str | None = None,
     ) -> None:
         """Refresh listener state from a snapshot delivered over the websocket."""
@@ -1378,6 +1383,7 @@ class SettaListener:
             project_state,
             refresh_kind=refresh_kind,
             dependency_catalog=dependency_catalog,
+            dependency_values=dependency_values,
             share_session_id=share_session_id,
         )
 
@@ -1387,6 +1393,7 @@ class SettaListener:
         *,
         refresh_kind: Literal["bootstrap", "force_refresh"],
         dependency_catalog: ListenerDependencyCatalog | None = None,
+        dependency_values: ListenerRenderedDependencyValues | None = None,
         share_session_id: str | None,
     ) -> None:
         self._validate_sequence_session_id(share_session_id)
@@ -1429,13 +1436,22 @@ class SettaListener:
             dependency_catalog,
             runtime_state.dependency_graph,
         )
+        self._latest_dependency_snapshot_values = dependency_values
         snapshot_values: dict[str, Any] = {}
         previous_cache = dict(self._dependency_cache)
-        updated_cache = (
-            self._build_dependency_cache_from_runtime_state(runtime_state)
-            if runtime_state.s_instance is None
-            else dict(self._dependency_cache)
+        rendered_snapshot_values = self._build_dependency_cache_from_snapshot_values(
+            dependency_values,
+            runtime_state.dependency_metadata,
         )
+        if runtime_state.s_instance is None:
+            updated_cache = dict(rendered_snapshot_values)
+            for dependency_name, value in self._build_dependency_cache_from_runtime_state(
+                runtime_state
+            ).items():
+                updated_cache.setdefault(dependency_name, value)
+        else:
+            updated_cache = dict(self._dependency_cache)
+            updated_cache.update(rendered_snapshot_values)
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 
@@ -1604,6 +1620,48 @@ class SettaListener:
             return fallback_value
         snapshot_values[dependency] = value
         return value
+
+    def _build_dependency_cache_from_snapshot_values(
+        self,
+        dependency_values: ListenerRenderedDependencyValues | None,
+        dependency_metadata: ListenerDependencyMetadata,
+    ) -> dict[str, Any]:
+        if dependency_values is None:
+            return {}
+
+        values_by_name: dict[str, Any] = {}
+        for entry in dependency_values.entries:
+            try:
+                dependency_name = dependency_metadata.dependency_name(
+                    entry.dependencyKey
+                )
+            except KeyError:
+                logger.debug(
+                    "Listener %s ignoring snapshot value for unknown dependency key %s",
+                    self._log_identifier,
+                    entry.dependencyKey,
+                )
+                continue
+            rendered_value = entry.renderedValue.strip()
+            if not rendered_value:
+                continue
+            try:
+                values_by_name[dependency_name] = self._evaluate_expression(
+                    dependency=dependency_name,
+                    expression=rendered_value,
+                )
+            except Exception:
+                logger.debug(
+                    (
+                        "Listener %s could not evaluate Go snapshot value for %s; "
+                        "leaving dependency on fallback path"
+                    ),
+                    self._log_identifier,
+                    dependency_name,
+                    exc_info=logger.isEnabledFor(logging.DEBUG),
+                )
+                continue
+        return values_by_name
 
     def _build_dependency_cache_from_runtime_state(
         self,
@@ -2152,6 +2210,7 @@ class SettaListener:
                 await self._refresh_from_snapshot(
                     project_state,
                     dependency_catalog=content.dependencyCatalog,
+                    dependency_values=content.dependencyValues,
                     share_session_id=content.shareSessionId,
                 )
                 completed = True
@@ -2170,6 +2229,7 @@ class SettaListener:
                 project_state,
                 refresh_kind="force_refresh",
                 dependency_catalog=content.dependencyCatalog,
+                dependency_values=content.dependencyValues,
                 share_session_id=content.shareSessionId,
             )
             completed = True
@@ -2569,11 +2629,19 @@ class SettaListener:
             self._runtime_state = runtime_state
 
         snapshot_values: dict[str, Any] = {}
-        updated_cache = (
-            self._build_dependency_cache_from_runtime_state(runtime_state)
-            if runtime_state.s_instance is None
-            else dict(self._dependency_cache)
+        rendered_snapshot_values = self._build_dependency_cache_from_snapshot_values(
+            self._latest_dependency_snapshot_values,
+            runtime_state.dependency_metadata,
         )
+        if runtime_state.s_instance is None:
+            updated_cache = dict(rendered_snapshot_values)
+            for dependency_name, value in self._build_dependency_cache_from_runtime_state(
+                runtime_state
+            ).items():
+                updated_cache.setdefault(dependency_name, value)
+        else:
+            updated_cache = dict(self._dependency_cache)
+            updated_cache.update(rendered_snapshot_values)
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
 

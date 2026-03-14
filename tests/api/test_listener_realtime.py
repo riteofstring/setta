@@ -26,10 +26,14 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_g
 from setta.types.id import ID
 from setta.types.listener import (
     DependencyEvent,
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
     ListenerDependencyEventContent,
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
@@ -1032,6 +1036,66 @@ class TestSettaListenerBootstrapFailure:
         assert register_payloads[0]["messageType"] == "ListenerRegister"
         assert callback_calls == [("Hello", {"Welcome": "Hello"})]
 
+    async def test_bootstrap_uses_go_snapshot_values_when_runtime_state_is_unavailable(
+        self,
+    ) -> None:
+        listener = SettaListener(project_name="Demo Project")
+        callback_calls: list[tuple[str, dict[str, Any]]] = []
+
+        @listener.listen(deps=("Welcome",))
+        def on_change(state, ctx) -> None:
+            callback_calls.append((state.Welcome, dict(ctx.changed)))
+
+        project_state = self._build_project_state()
+        runtime_state = listener._build_runtime_state(project_state)
+        dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
+        dependency_catalog = ListenerDependencyCatalog(
+            entries=[
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=dependency_entry.dependencyKey,
+                    fullPathName=dependency_entry.fullPathName,
+                    sectionType=dependency_entry.sectionType,
+                    codeObjType=dependency_entry.codeObjType,
+                    controlCodeObjId=dependency_entry.controlCodeObjId,
+                )
+            ]
+        )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=dependency_entry.dependencyKey,
+                    renderedValue="'From Go snapshot'",
+                )
+            ]
+        )
+
+        register_payloads: list[dict[str, Any]] = []
+
+        async def capture_payload(payload: str) -> None:
+            register_payloads.append(json.loads(payload))
+
+        listener._instantiate_state = MagicMock(
+            side_effect=ValueError("math domain error")
+        )
+        listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
+
+        await listener._refresh_from_snapshot(
+            project_state,
+            dependency_catalog=dependency_catalog,
+            dependency_values=dependency_values,
+        )
+        await asyncio.sleep(0)
+
+        assert listener._runtime_state is not None
+        assert listener._runtime_state.s_instance is None
+        assert listener._dependency_cache["Welcome"] == "From Go snapshot"
+        assert listener._registration_pending
+        assert len(register_payloads) == 1
+        assert register_payloads[0]["messageType"] == "ListenerRegister"
+        assert callback_calls == [
+            ("From Go snapshot", {"Welcome": "From Go snapshot"})
+        ]
+
     async def test_realtime_updates_cache_when_runtime_state_is_unavailable(self) -> None:
         listener = SettaListener(project_name="Demo Project")
         project_state = self._build_project_state()
@@ -1095,6 +1159,43 @@ class TestSettaListenerBootstrapFailure:
         assert listener._runtime_state.s_instance is None
         assert listener._dependency_cache["Welcome"] == "Hello"
         assert callback_calls == [("Hello", {"Welcome": "Hello"})]
+
+    async def test_replay_cached_snapshot_uses_latest_go_snapshot_values(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+        project_state = self._build_project_state()
+        callback_calls: list[tuple[str, dict[str, Any]]] = []
+
+        @listener.listen(deps=("Welcome",), run_on_refresh=True)
+        def on_change(state, ctx) -> None:
+            callback_calls.append((state.Welcome, dict(ctx.changed)))
+
+        runtime_state = listener._build_runtime_state(project_state)
+        dependency_entry = runtime_state.dependency_metadata.entry_for_name("Welcome")
+        listener._latest_persisted_snapshot = project_state
+        listener._latest_dependency_metadata = runtime_state.dependency_metadata
+        listener._latest_dependency_snapshot_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=dependency_entry.dependencyKey,
+                    renderedValue="'Replay from Go snapshot'",
+                )
+            ]
+        )
+        listener._instantiate_state = MagicMock(
+            side_effect=ValueError("math domain error")
+        )
+
+        await listener._replay_cached_snapshot()
+
+        assert listener._runtime_state is not None
+        assert listener._runtime_state.s_instance is None
+        assert listener._dependency_cache["Welcome"] == "Replay from Go snapshot"
+        assert callback_calls == [
+            (
+                "Replay from Go snapshot",
+                {"Welcome": "Replay from Go snapshot"},
+            )
+        ]
 
 
 class TestSettaListenerBinaryParsing:
