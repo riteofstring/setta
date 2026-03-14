@@ -1677,3 +1677,40 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/stateMachineEdgeConnections.ts`, now the
     largest authored/shared state hotspot, by separating workflow graph reads
     and canonicalization from the remaining edge-construction helpers.
+
+## 2026-03-14 23:46:08 PDT
+
+- Slice completed: split workflow-edge handle normalization and workflow graph
+  reads or merge helpers away from workflow connection validation and edge
+  construction
+- Key files touched:
+  - `frontend/src/state/actions/stateMachineEdgeCanonicalization.ts`
+  - `frontend/src/state/actions/stateMachineEdgeGraph.ts`
+  - `frontend/src/state/actions/stateMachineEdgeConnections.ts`
+  - `frontend/src/state/actions/stateMachineEdgeCanonicalization.test.ts`
+  - `frontend/src/state/actions/stateMachineEdgeGraph.test.ts`
+  - `frontend/src/state/actions/stateMachineEdgeMutations.ts`
+  - `frontend/src/state/actions/stateMachineEdgeMutations.test.ts`
+  - `frontend/src/state/actions/stateMachineEdges.ts`
+  - `frontend/src/state/actions/stateMachineEdges.test.ts`
+  - `frontend/src/state/actions/chatSharedEdges.ts`
+  - `frontend/src/state/actions/chatSharedEdges.test.ts`
+  - `frontend/src/state/actions/agenticEdges.ts`
+  - `frontend/src/state/actions/edges.ts`
+  - `frontend/src/components/Section/Container/StateMachineEdgeHandles.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/stateMachineEdgeCanonicalization.test.ts src/state/actions/stateMachineEdgeGraph.test.ts src/state/actions/stateMachineEdges.test.ts src/state/actions/stateMachineEdgeMutations.test.ts src/state/actions/chatSharedEdges.test.ts src/forks/xyflow/core/container/StateMachineEdgeRenderer.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/stateMachineEdgeCanonicalization.ts src/state/actions/stateMachineEdgeCanonicalization.test.ts src/state/actions/stateMachineEdgeGraph.ts src/state/actions/stateMachineEdgeGraph.test.ts src/state/actions/stateMachineEdgeConnections.ts src/state/actions/stateMachineEdgeMutations.ts src/state/actions/stateMachineEdgeMutations.test.ts src/state/actions/stateMachineEdges.ts src/state/actions/stateMachineEdges.test.ts src/state/actions/chatSharedEdges.ts src/state/actions/chatSharedEdges.test.ts src/state/actions/agenticEdges.ts src/state/actions/edges.ts src/components/Section/Container/StateMachineEdgeHandles.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `4bd92e69e`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatControls.ts`, now the largest
+    authored/shared state hotspot, by separating stop/resume orchestration from
+    approval/question response flows and chat-surface sync helpers.
