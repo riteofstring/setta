@@ -189,12 +189,14 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
+    const entrypointValue =
+      trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
     const payload: PublishAppDeploymentRequestInput = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       appPolicyOverrides: policyOverrides,
-      listenerEntrypoint: trimmedEntrypoint,
-      listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
+      listenerEntrypoint: entrypointValue,
+      listenerEnabled: entrypointValue ? listenerEnabled : false,
     };
 
     const res = await route_publish_app_deployment(payload);
