@@ -143,6 +143,9 @@
     transcription session/audio config models plus the explicit
     `/realtime?intent=transcription` connection shape and
     `transcription_session.update` startup payload
+  - that startup payload now also sends explicit near-field noise reduction,
+    matching the local OpenAI default for close-talking microphone input so
+    this slice does not depend on another provider-side default
   - that startup payload now also sends `turn_detection: null` explicitly,
     because Setta owns speech-turn boundaries in this slice and always sends
     `input_audio_buffer.commit` after each append
@@ -187,6 +190,9 @@
   manual commit mode, and Setta now sends that null field on startup because
   the runtime already owns turn boundaries with explicit
   `input_audio_buffer.commit` writes
+- the local OpenAI references also document `near_field` as the default noise
+  reduction mode for close-talking microphones, and Setta now sends that value
+  explicitly on startup instead of depending on provider defaults
 - the saved local OpenAI docs are also split on the streaming event family;
   the repo-owned runtime now accepts both the older
   `conversation.item.input_audio_transcription.*` events and the current
