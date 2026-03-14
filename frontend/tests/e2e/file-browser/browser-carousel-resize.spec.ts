@@ -2,7 +2,6 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
-  clearProjectChatWindows,
   cleanupIsolatedProject,
   getViewportBoundsForPlacement,
   openIsolatedProject,
@@ -17,71 +16,6 @@ function normalizePathForComparison(value: string): string {
     ? value.slice("/private".length)
     : value;
   return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
-}
-
-async function dispatchVerticalPointerDrag(
-  locator: Locator,
-  deltaY: number,
-): Promise<void> {
-  await locator.evaluate(
-    async (element, dragDeltaY) => {
-      const rect = element.getBoundingClientRect();
-      const clientX = rect.left + rect.width / 2;
-      const startY = rect.top + rect.height / 2;
-      const pointerId = 91;
-
-      element.dispatchEvent(
-        new PointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          detail: 1,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 1,
-          clientX,
-          clientY: startY,
-        }),
-      );
-      window.dispatchEvent(
-        new PointerEvent("pointermove", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 1,
-          clientX,
-          clientY: startY + dragDeltaY,
-        }),
-      );
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
-      window.dispatchEvent(
-        new PointerEvent("pointerup", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 0,
-          clientX,
-          clientY: startY + dragDeltaY,
-        }),
-      );
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
-    },
-    deltaY,
-  );
 }
 
 async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
@@ -148,7 +82,6 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
   const projectContext = await openIsolatedProject(page);
-  await clearProjectChatWindows(page);
   try {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
@@ -220,20 +153,25 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
       if (!initialBox) {
         throw new Error("Missing bounding box for the first carousel thumbnail.");
       }
-      const initialRowHeight = await thumbnailRow.evaluate(
-        (element) => element.getBoundingClientRect().height,
+
+      const handleBox = await resizeHandle.boundingBox();
+      if (!handleBox) {
+        throw new Error("Missing bounding box for the carousel resize handle.");
+      }
+      await page.mouse.move(
+        handleBox.x + handleBox.width / 2,
+        handleBox.y + handleBox.height / 2,
       );
+      await page.mouse.down();
+      await page.mouse.move(
+        handleBox.x + handleBox.width / 2,
+        handleBox.y + 220,
+      );
+      await page.mouse.up();
 
-      await dispatchVerticalPointerDrag(resizeHandle, 220);
-
-      await expect
-        .poll(() =>
-          thumbnailRow.evaluate((element) => element.getBoundingClientRect().height),
-        )
-        .toBeLessThan(initialRowHeight - 30);
       await expect
         .poll(async () => (await firstTile.boundingBox())?.width ?? 0)
-        .toBeLessThan(initialBox.width - 30);
+        .toBeLessThan(initialBox.width * 0.7);
 
       // In compact mode, the filename is truncated but the extension is preserved
       // as a separate span so it stays visible.

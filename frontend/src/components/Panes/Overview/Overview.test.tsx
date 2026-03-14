@@ -315,7 +315,7 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain(">Overview<");
   });
 
-  it("renders project ai settings when that tab is selected", () => {
+  it("falls back to Overview when a removed project ai settings tab is selected", () => {
     useLocalStorage.setState({
       overviewTab: "ProjectAISettings" as never,
     });
@@ -327,9 +327,7 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(
-      'data-testid="project-ai-settings-scroll-region"',
-    );
+    expect(markup).toContain(">Overview<");
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 

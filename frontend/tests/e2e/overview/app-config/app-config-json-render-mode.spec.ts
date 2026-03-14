@@ -192,41 +192,6 @@ test("json-render mode does not eager-load AI chat config until chat-backed mode
     appGenerationMode: "json_render",
   });
 
-  await page.route("**/api/loadSettings", async (route) => {
-    const response = await route.fetch();
-    const settings = (await response.json()) as {
-      chatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...settings,
-        chatWindowing: {
-          ...(settings.chatWindowing ?? {}),
-          autoCreateInitialChat: false,
-        },
-      }),
-    });
-  });
-  await page.route("**/api/loadProjectConfig", async (route) => {
-    const response = await route.fetch();
-    const projectState = (await response.json()) as {
-      projectChatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...projectState,
-        projectChatWindowing: {
-          order: [],
-          instancesById: {},
-        },
-      }),
-    });
-  });
-
   let llmConfigCalls = 0;
   let apiKeyCalls = 0;
   let engineConfigCalls = 0;
