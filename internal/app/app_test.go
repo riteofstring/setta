@@ -1451,6 +1451,243 @@ func TestAppServesManagedChatSendThroughAnthropicExecutor(t *testing.T) {
 	}
 }
 
+func TestAppServesManagedChatSendThroughAnthropicThinkingExecutor(t *testing.T) {
+	// The real IDE app should run managed Anthropic thinking chat sends through
+	// the Go-owned provider executor and persist the streamed thinking block.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("ANTHROPIC_API_KEY", "secret")
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
+			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
+
+	type providerRequest struct {
+		Path   string
+		APIKey string
+		Body   map[string]any
+	}
+	providerRequests := make(chan providerRequest, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests <- providerRequest{
+			Path:   r.URL.Path,
+			APIKey: r.Header.Get("X-Api-Key"),
+			Body:   body,
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-thinking\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-5-20250929\",\"stop_reason\":null,\"stop_sequence\":null,\"container\":{\"id\":\"container-1\",\"expires_at\":\"2026-03-12T00:00:00Z\"},\"usage\":{\"input_tokens\":12,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"inference_geo\":\"us\",\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}}}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"Planning\"}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" deeply\"}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"sig-thinking\"}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Anthropic answer\"}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":12,\"output_tokens\":3,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0}}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+		flusher.Flush()
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:       "primary",
+				Model:    "claude-sonnet-4-5-20250929",
+				Provider: "anthropic",
+				BaseURL:  provider.URL,
+				OtherParams: map[string]any{
+					"max_tokens": 4096,
+					"thinking": map[string]any{
+						"type":          "enabled",
+						"budget_tokens": 1024,
+					},
+				},
+				APIKeyEnv: "ANTHROPIC_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Anthropic Thinking Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed Anthropic thinking project."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":true,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("new Anthropic thinking send request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("send Anthropic thinking managed chat: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var chatID string
+	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode Anthropic thinking chat id: %v", err)
+	}
+	if strings.TrimSpace(chatID) == "" {
+		t.Fatal("expected managed Anthropic thinking chat id")
+	}
+
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+	}
+	var hydrated hydratePayload
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed Anthropic thinking chat: %v", err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
+		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
+	})
+
+	assistantContent, ok := hydrated.Messages[1]["content"].([]any)
+	if !ok || len(assistantContent) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", hydrated.Messages[1])
+	}
+	thinkingBlock, ok := assistantContent[0].(map[string]any)
+	if !ok || thinkingBlock["type"] != "thinking" {
+		t.Fatalf("expected thinking block, got %#v", assistantContent[0])
+	}
+	if thinkingBlock["thinking"] != "Planning deeply" || thinkingBlock["signature"] != "sig-thinking" {
+		t.Fatalf("unexpected Anthropic thinking block %#v", thinkingBlock)
+	}
+	if appTestMessageText(hydrated.Messages[1]) != "Anthropic answer" {
+		t.Fatalf("unexpected assistant reply %#v", hydrated.Messages[1])
+	}
+
+	select {
+	case captured := <-providerRequests:
+		if captured.Path != "/v1/messages" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.APIKey != "secret" {
+			t.Fatalf("unexpected provider api key %q", captured.APIKey)
+		}
+		if captured.Body["model"] != "claude-sonnet-4-5-20250929" {
+			t.Fatalf("unexpected provider model %#v", captured.Body["model"])
+		}
+		if captured.Body["max_tokens"] != float64(4096) {
+			t.Fatalf("unexpected provider max_tokens %#v", captured.Body["max_tokens"])
+		}
+		thinkingConfig, ok := captured.Body["thinking"].(map[string]any)
+		if !ok || thinkingConfig["type"] != "enabled" || thinkingConfig["budget_tokens"] != float64(1024) {
+			t.Fatalf("unexpected provider thinking config %#v", captured.Body["thinking"])
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for Anthropic thinking provider request")
+	}
+}
+
 func TestAppServesManagedChatSendThroughGeminiExecutor(t *testing.T) {
 	// The real IDE app should run managed Gemini chat sends through the
 	// Go-owned provider executor and persist the streamed assistant reply.
