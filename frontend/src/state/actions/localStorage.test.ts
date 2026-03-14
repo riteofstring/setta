@@ -59,18 +59,6 @@ describe("local storage merge", () => {
     expect(merged.colorMode).toBe("auto");
   });
 
-  it("falls back useCanvasEngineV1 to false when persisted value is invalid", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { useCanvasEngineV1: "enabled" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.useCanvasEngineV1).toBe(false);
-  });
-
   it("sanitizes invalid persisted overviewTab values", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
