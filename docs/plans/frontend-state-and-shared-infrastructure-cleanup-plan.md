@@ -22,9 +22,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Unlike the later `clean-code` branch, this branch still has a shared `frontend/src/state/definitions.ts` index, but AI/chat store ownership now lives in `frontend/src/state/stores/aiStores.ts`, app runtime state now lives in `frontend/src/state/stores/appStores.ts`, session/share state now lives in `frontend/src/state/stores/sessionStores.ts`, browser state now lives in `frontend/src/state/stores/fileBrowserStores.ts`, search state now lives in `frontend/src/state/stores/searchStores.ts`, feedback state now lives in `frontend/src/state/stores/feedbackStores.ts`, project-status state now lives in `frontend/src/state/stores/projectStatusStores.ts`, layout interaction state now lives in `frontend/src/state/stores/layoutInteractionStores.ts`, UI preference/config state now lives in `frontend/src/state/stores/uiPreferenceStores.ts`, editor diagnostics state now lives in `frontend/src/state/stores/editorDiagnosticsStores.ts`, and shared persist fallback logic lives in `frontend/src/state/storePersistStorage.ts`.
 - `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiConfiguration.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, and `frontend/src/state/actions/aiChatStreaming.ts` now carry the hydration, agent-run, config/catalog, transcription, submission, chat-control, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
 - `frontend/src/state/actions/projectChatWindowing.ts` now delegates pure
-  windowing normalization, selectors, and in-state reducers to
-  `projectChatWindowingState.ts`, and still delegates write coordination to
-  `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and
+  windowing normalization and selection to `projectChatWindowingSelectors.ts`,
+  in-state reducers to `projectChatWindowingState.ts`, and still delegates
+  write coordination to `projectChatWindowingWrites.ts`,
+  `projectChatWindowingAuthoritative.ts`, and
   `projectChatWindowingEphemeral.ts`; future cleanup should keep building on
   those seams.
 - `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
@@ -62,9 +63,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
   snapshot building plus conversion back into project-chat windowing state that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
-- `frontend/src/state/actions/projectChatWindowingState.ts` now owns pure
-  windowing normalization, selectors, and in-state reducers that previously
-  lived in `frontend/src/state/actions/projectChatWindowing.ts`.
+- `frontend/src/state/actions/projectChatWindowingSelectors.ts` now owns pure
+  windowing normalization, selection, and default-bounds helpers that
+  previously lived in `frontend/src/state/actions/projectChatWindowingState.ts`.
+- `frontend/src/state/actions/projectChatWindowingState.ts` now owns in-state
+  reducers that previously lived in
+  `frontend/src/state/actions/projectChatWindowing.ts`.
 - `frontend/src/state/actions/projectChatWindowingWrites.ts` now owns layout
   write permissions, optimistic windowing mutation dispatch, authoritative
   publish flow, and sync helpers that previously lived in
@@ -96,9 +100,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   directories.
 - The largest remaining authored state surfaces are:
   - `frontend/src/state/actions/aiChatStreaming.ts` at 1349 lines
-  - `frontend/src/state/actions/projectChatWindowingState.ts` at 1105 lines
   - `frontend/src/state/actions/projectChatThreads.ts` at 895 lines
   - `frontend/src/state/actions/git.ts` at 805 lines
+  - `frontend/src/state/actions/projectChatWindowingState.ts` at 718 lines
   - `frontend/src/state/actions/aiConfiguration.ts` at 700 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/state/actions/windowSpaces.ts` at 697 lines
@@ -208,8 +212,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - layout write permissions and current-windowing store access
   - optimistic mutation dispatch, rollback, and serialized write barriers
   - authoritative publish flow and explicit sync helpers
-- `projectChatWindowingState.ts` now owns:
+- `projectChatWindowingSelectors.ts` now owns:
   - pure windowing normalization and section-binding selectors
+  - default floating and docked bounds helpers for UI readers and reducers
+- `projectChatWindowingState.ts` now owns:
   - in-state reducers for window placement, focus, bounds, titles, chat ids,
     and section/canvas transitions
 - `terminal.ts`, `terminalSessions.ts`, and `terminalFit.ts` now split into:
@@ -275,7 +281,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Continue routing new optimistic write paths through
   `projectStateOptimisticUpdates.ts` instead of rebuilding queue or rollback
   helpers inside feature query modules.
-- Reuse seams that already exist in `projectChatWindowingState.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
+- Reuse seams that already exist in `projectChatWindowingSelectors.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
 - Avoid each domain hand-rolling slightly different optimistic update scaffolding.
 
 4. Split cross-cutting interaction utilities

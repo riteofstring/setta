@@ -1,8 +1,6 @@
 import {
   PROJECT_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX,
   PROJECT_CHAT_FALLBACK_VIEWPORT_WIDTH_PX,
-  PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
-  PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
   resolveProjectChatFloatingBottomInsetPx,
   resolveProjectChatFloatingWorkspaceTopInsetPx,
 } from "components/ChatWindowing/projectChatViewport";
@@ -16,6 +14,11 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
+import {
+  getProjectChatWindowInstanceForSectionInState,
+  normalizeProjectChatWindowingState,
+  resolveDefaultFloatingChatBounds,
+} from "./projectChatWindowingSelectors";
 
 export type CreateProjectChatWindowInstanceOptions = {
   instanceId?: string;
@@ -46,136 +49,10 @@ export type UndockProjectChatWindowFromCanvasSectionOptions = {
   nowMs?: number;
 };
 
-type NormalizeResult = {
-  state: ProjectChatWindowingState;
-  changed: boolean;
-};
-
-type DefaultFloatingChatBoundsOptions = {
-  viewportWidthPx: number;
-  viewportHeightPx: number;
-  workspaceTopInsetPx: number;
-  bottomInsetPx: number;
-  widthPx?: number;
-  heightViewportFraction?: number;
-  sideRailWidthPx?: number;
-  minWidthPx?: number;
-  minHeightPx?: number;
-};
-
-type DefaultDockedChatHeightOptions = {
-  viewportHeightPx: number;
-  workspaceTopInsetPx: number;
-  bottomInsetPx: number;
-  heightViewportFraction?: number;
-  minHeightPx?: number;
-};
-
 const DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_WIDTH_PX =
   PROJECT_CHAT_FALLBACK_VIEWPORT_WIDTH_PX;
 const DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX =
   PROJECT_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX;
-const DEFAULT_FLOATING_CHAT_WIDTH_PX = 820;
-const DEFAULT_FLOATING_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
-const DEFAULT_FLOATING_CHAT_SIDE_RAIL_WIDTH_PX =
-  PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
-const DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX =
-  PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
-const DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX = 380;
-const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
-const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
-const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
-
-export function shouldSyncActiveProjectChatId(
-  window: ProjectChatWindowInstance | null | undefined,
-): boolean {
-  return (
-    window?.mode === ChatWindowModeEnum.project_ai_mode &&
-    window.sectionIdOrNull === null
-  );
-}
-
-export function resolveDefaultFloatingChatBounds({
-  viewportWidthPx,
-  viewportHeightPx,
-  workspaceTopInsetPx,
-  bottomInsetPx,
-  widthPx = DEFAULT_FLOATING_CHAT_WIDTH_PX,
-  heightViewportFraction = DEFAULT_FLOATING_CHAT_HEIGHT_VIEWPORT_FRACTION,
-  sideRailWidthPx = DEFAULT_FLOATING_CHAT_SIDE_RAIL_WIDTH_PX,
-  minWidthPx = DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX,
-  minHeightPx = DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX,
-}: DefaultFloatingChatBoundsOptions): ChatWindowBounds {
-  const safeViewportWidthPx =
-    Number.isFinite(viewportWidthPx) && viewportWidthPx > 0
-      ? viewportWidthPx
-      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_WIDTH_PX;
-  const safeViewportHeightPx =
-    Number.isFinite(viewportHeightPx) && viewportHeightPx > 0
-      ? viewportHeightPx
-      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX;
-  const safeWorkspaceTopInsetPx =
-    Number.isFinite(workspaceTopInsetPx) && workspaceTopInsetPx >= 0
-      ? workspaceTopInsetPx
-      : DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
-  const safeBottomInsetPx =
-    Number.isFinite(bottomInsetPx) && bottomInsetPx >= 0 ? bottomInsetPx : 0;
-  const availableWidthPx = Math.max(
-    minWidthPx,
-    safeViewportWidthPx - sideRailWidthPx * 2,
-  );
-  const availableHeightPx = Math.max(
-    minHeightPx,
-    safeViewportHeightPx - safeWorkspaceTopInsetPx - safeBottomInsetPx,
-  );
-  const resolvedWidthPx = Math.min(
-    Math.max(minWidthPx, widthPx),
-    availableWidthPx,
-  );
-  const desiredHeightPx = safeViewportHeightPx * heightViewportFraction;
-  const resolvedHeightPx = Math.min(
-    Math.max(minHeightPx, desiredHeightPx),
-    availableHeightPx,
-  );
-
-  return {
-    x:
-      sideRailWidthPx +
-      Math.max(0, Math.round((availableWidthPx - resolvedWidthPx) / 2)),
-    y:
-      safeWorkspaceTopInsetPx +
-      Math.max(0, Math.round((availableHeightPx - resolvedHeightPx) / 2)),
-    width: resolvedWidthPx,
-    height: resolvedHeightPx,
-  };
-}
-
-export function resolveDefaultDockedChatHeightPx({
-  viewportHeightPx,
-  workspaceTopInsetPx,
-  bottomInsetPx,
-  heightViewportFraction = DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION,
-  minHeightPx = DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX,
-}: DefaultDockedChatHeightOptions): number {
-  const safeViewportHeightPx =
-    Number.isFinite(viewportHeightPx) && viewportHeightPx > 0
-      ? viewportHeightPx
-      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX;
-  const safeWorkspaceTopInsetPx =
-    Number.isFinite(workspaceTopInsetPx) && workspaceTopInsetPx >= 0
-      ? workspaceTopInsetPx
-      : DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
-  const safeBottomInsetPx =
-    Number.isFinite(bottomInsetPx) && bottomInsetPx >= 0 ? bottomInsetPx : 0;
-  const availableHeightPx = Math.max(
-    minHeightPx,
-    safeViewportHeightPx - safeWorkspaceTopInsetPx - safeBottomInsetPx,
-  );
-  return Math.min(
-    Math.max(minHeightPx, safeViewportHeightPx * heightViewportFraction),
-    availableHeightPx,
-  );
-}
 
 function resolveFloatingWorkspaceTopInsetPx(): number {
   return resolveProjectChatFloatingWorkspaceTopInsetPx();
@@ -202,110 +79,6 @@ function resolveDefaultFloatingChatBoundsFromRuntime(): ChatWindowBounds {
   });
 }
 
-function normalizeProjectChatWindowingOrder(
-  state: ProjectChatWindowingState,
-): NormalizeResult {
-  const seen = new Set<string>();
-  const nextOrder: string[] = [];
-  for (const instanceId of state.order) {
-    if (!state.instancesById[instanceId]) {
-      continue;
-    }
-    if (seen.has(instanceId)) {
-      continue;
-    }
-    seen.add(instanceId);
-    nextOrder.push(instanceId);
-  }
-  for (const instanceId of Object.keys(state.instancesById)) {
-    if (seen.has(instanceId)) {
-      continue;
-    }
-    seen.add(instanceId);
-    nextOrder.push(instanceId);
-  }
-  const changed =
-    nextOrder.length !== state.order.length ||
-    nextOrder.some((id, index) => id !== state.order[index]);
-  if (!changed) {
-    return { state, changed: false };
-  }
-  return {
-    state: {
-      ...state,
-      order: nextOrder,
-    },
-    changed: true,
-  };
-}
-
-function normalizeProjectChatWindowingLayering(
-  state: ProjectChatWindowingState,
-): NormalizeResult {
-  const seenZIndexes = new Set<number>();
-  let hasDuplicateZIndex = false;
-  for (const instance of Object.values(state.instancesById)) {
-    if (seenZIndexes.has(instance.zIndex)) {
-      hasDuplicateZIndex = true;
-      break;
-    }
-    seenZIndexes.add(instance.zIndex);
-  }
-  if (!hasDuplicateZIndex) {
-    return { state, changed: false };
-  }
-
-  const orderIndexById = new Map(
-    state.order.map((instanceId, index) => [instanceId, index] as const),
-  );
-  const orderedInstances = Object.values(state.instancesById).sort(
-    (left, right) => {
-      if (left.zIndex !== right.zIndex) {
-        return left.zIndex - right.zIndex;
-      }
-      if (left.lastFocusedAt !== right.lastFocusedAt) {
-        return left.lastFocusedAt - right.lastFocusedAt;
-      }
-      const leftOrderIndex = orderIndexById.get(left.instanceId) ?? 0;
-      const rightOrderIndex = orderIndexById.get(right.instanceId) ?? 0;
-      if (leftOrderIndex !== rightOrderIndex) {
-        return leftOrderIndex - rightOrderIndex;
-      }
-      return left.instanceId.localeCompare(right.instanceId);
-    },
-  );
-  let changed = false;
-  const nextInstancesById = { ...state.instancesById };
-  orderedInstances.forEach((instance, index) => {
-    const nextZIndex = index + 1;
-    if (instance.zIndex === nextZIndex) {
-      return;
-    }
-    changed = true;
-    nextInstancesById[instance.instanceId] = {
-      ...instance,
-      zIndex: nextZIndex,
-    };
-  });
-  if (!changed) {
-    return { state, changed: false };
-  }
-  return {
-    state: {
-      ...state,
-      instancesById: nextInstancesById,
-    },
-    changed: true,
-  };
-}
-
-export function normalizeProjectChatWindowingState(
-  state: ProjectChatWindowingState,
-): ProjectChatWindowingState {
-  const ordered = normalizeProjectChatWindowingOrder(state).state;
-  return normalizeProjectChatWindowingLayering(ordered).state;
-}
-
 function normalizeWorkspaceProjectChatWindowInstance(
   instance: ProjectChatWindowInstance,
 ): ProjectChatWindowInstance {
@@ -319,151 +92,6 @@ function normalizeWorkspaceProjectChatWindowInstance(
     ...instance,
     chatId: null,
   };
-}
-
-function getSectionBindingPlacementPriority(
-  placement: ChatWindowPlacement,
-): number {
-  if (placement === ChatWindowPlacementEnum.canvas_section) {
-    return 4;
-  }
-  if (placement === ChatWindowPlacementEnum.floating) {
-    return 3;
-  }
-  if (placement === ChatWindowPlacementEnum.maximized) {
-    return 2;
-  }
-  return 1;
-}
-
-function isProjectChatWindowVisible(
-  instance: ProjectChatWindowInstance,
-): boolean {
-  return !instance.isClosed && !instance.isMinimized;
-}
-
-function isPreferredSectionBindingCandidate(
-  candidate: ProjectChatWindowInstance,
-  currentBest: ProjectChatWindowInstance | null,
-): boolean {
-  if (!currentBest) {
-    return true;
-  }
-  const candidatePlacementPriority = getSectionBindingPlacementPriority(
-    candidate.placement,
-  );
-  const bestPlacementPriority = getSectionBindingPlacementPriority(
-    currentBest.placement,
-  );
-  if (candidatePlacementPriority !== bestPlacementPriority) {
-    return candidatePlacementPriority > bestPlacementPriority;
-  }
-
-  const candidateVisible = isProjectChatWindowVisible(candidate);
-  const bestVisible = isProjectChatWindowVisible(currentBest);
-  if (candidateVisible !== bestVisible) {
-    return candidateVisible;
-  }
-
-  if (candidate.zIndex !== currentBest.zIndex) {
-    return candidate.zIndex > currentBest.zIndex;
-  }
-  if (candidate.lastFocusedAt !== currentBest.lastFocusedAt) {
-    return candidate.lastFocusedAt > currentBest.lastFocusedAt;
-  }
-  return candidate.instanceId > currentBest.instanceId;
-}
-
-export function getProjectChatWindowInstanceForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-): ProjectChatWindowInstance | null {
-  const normalized = normalizeProjectChatWindowingOrder(state).state;
-  let bestMatch: ProjectChatWindowInstance | null = null;
-  for (const instanceId of normalized.order) {
-    const instance = normalized.instancesById[instanceId];
-    if (!instance || instance.sectionIdOrNull !== sectionId) {
-      continue;
-    }
-    if (!isPreferredSectionBindingCandidate(instance, bestMatch)) {
-      continue;
-    }
-    bestMatch = instance;
-  }
-  return bestMatch;
-}
-
-export function getProjectChatWindowBindingForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-): ProjectChatWindowInstance | null {
-  return getProjectChatWindowInstanceForSectionInState(state, sectionId);
-}
-
-export function getProjectChatWindowModeForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-): ChatWindowMode {
-  const boundInstance = getProjectChatWindowInstanceForSectionInState(
-    state,
-    sectionId,
-  );
-  if (!boundInstance) {
-    return ChatWindowModeEnum.section_mode;
-  }
-  return boundInstance.mode;
-}
-
-export function getOpenExternalProjectChatWindowInstanceForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-): ProjectChatWindowInstance | null {
-  return getExternalProjectChatWindowInstanceForSectionInState(
-    state,
-    sectionId,
-    {
-      visibleOnly: true,
-    },
-  );
-}
-
-export function getExternalProjectChatWindowBindingForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-): ProjectChatWindowInstance | null {
-  return getExternalProjectChatWindowInstanceForSectionInState(
-    state,
-    sectionId,
-    {
-      visibleOnly: false,
-    },
-  );
-}
-
-function getExternalProjectChatWindowInstanceForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-  { visibleOnly }: { visibleOnly: boolean },
-): ProjectChatWindowInstance | null {
-  const normalized = normalizeProjectChatWindowingOrder(state).state;
-  let bestMatch: ProjectChatWindowInstance | null = null;
-  for (const instanceId of normalized.order) {
-    const instance = normalized.instancesById[instanceId];
-    if (!instance || instance.sectionIdOrNull !== sectionId) {
-      continue;
-    }
-    if (instance.placement === ChatWindowPlacementEnum.canvas_section) {
-      continue;
-    }
-    if (visibleOnly && (instance.isClosed || instance.isMinimized)) {
-      continue;
-    }
-    if (!isPreferredSectionBindingCandidate(instance, bestMatch)) {
-      continue;
-    }
-    bestMatch = instance;
-  }
-  return bestMatch;
 }
 
 function getNextWindowInstanceId(state: ProjectChatWindowingState): {
@@ -547,7 +175,7 @@ export function addProjectChatWindowInstanceInState(
   state: ProjectChatWindowingState;
   instanceId: string;
 } {
-  const normalized = normalizeProjectChatWindowingOrder(state).state;
+  const normalized = normalizeProjectChatWindowingState(state);
   const { instanceId, nextInstanceNumber } = (() => {
     if (!explicitInstanceId) {
       return getNextWindowInstanceId(normalized);
@@ -1087,19 +715,4 @@ export function setProjectChatWindowChatIdInState(
       chatId: normalizedChatId,
     };
   });
-}
-
-export function getVisibleProjectChatWindowInstances(
-  state: ProjectChatWindowingState,
-): ProjectChatWindowInstance[] {
-  const normalized = normalizeProjectChatWindowingOrder(state).state;
-  const visible: ProjectChatWindowInstance[] = [];
-  for (const instanceId of normalized.order) {
-    const instance = normalized.instancesById[instanceId];
-    if (!instance || instance.isClosed || instance.isMinimized) {
-      continue;
-    }
-    visible.push(instance);
-  }
-  return visible;
 }

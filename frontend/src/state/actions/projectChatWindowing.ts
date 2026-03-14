@@ -20,10 +20,13 @@ import {
   setTrackedGitPaneGraphWindowInstanceId,
 } from "./projectChatWindowingEphemeral";
 import {
+  getProjectChatWindowInstanceForSectionInState,
+  shouldSyncActiveProjectChatId,
+} from "./projectChatWindowingSelectors";
+import {
   addProjectChatWindowInstanceInState,
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,
-  getProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindowInState,
   minimizeProjectChatWindowInState,
   moveProjectChatWindowToCanvasSectionInState,
@@ -35,7 +38,6 @@ import {
   setProjectChatWindowModeForSectionInState,
   setProjectChatWindowPlacementInState,
   setProjectChatWindowTitleInState,
-  shouldSyncActiveProjectChatId,
   showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
   unmaximizeProjectChatWindowInState,

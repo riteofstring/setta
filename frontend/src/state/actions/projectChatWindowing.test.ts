@@ -55,20 +55,22 @@ import {
   unmaximizeProjectChatWindow,
 } from "./projectChatWindowing";
 import {
-  addProjectChatWindowInstanceInState,
-  closeProjectChatWindowInState,
-  focusProjectChatWindowInState,
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+} from "./projectChatWindowingSelectors";
+import {
+  addProjectChatWindowInstanceInState,
+  closeProjectChatWindowInState,
+  focusProjectChatWindowInState,
   maximizeProjectChatWindowInState,
   minimizeProjectChatWindowInState,
   moveProjectChatWindowToCanvasSectionInState,
   reopenProjectChatWindowInState,
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
   setProjectChatWindowBoundsByIdInState,
   setProjectChatWindowBoundsInState,
   setProjectChatWindowDockFractionsInState,

@@ -20,7 +20,7 @@ import {
 } from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/aiConfiguration";
 import { setProjectChatWindowModeForSection } from "state/actions/projectChatWindowing";
-import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowingState";
+import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,

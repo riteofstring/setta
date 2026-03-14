@@ -80,7 +80,7 @@ import {
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
-} from "state/actions/projectChatWindowingState";
+} from "state/actions/projectChatWindowingSelectors";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,

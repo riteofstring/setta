@@ -1,6 +1,6 @@
 import { setProjectChatWindowChatId } from "state/actions/projectChatWindowing";
 import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
-import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingState";
+import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingSelectors";
 import {
   flushPendingProjectChatWindowingWrites,
   replaceProjectChatWindowingState,

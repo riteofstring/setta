@@ -6,7 +6,7 @@ import { setProjectChatWindowChatId } from "state/actions/projectChatWindowing";
 import {
   getExternalProjectChatWindowBindingForSectionInState,
   getProjectChatWindowBindingForSectionInState,
-} from "state/actions/projectChatWindowingState";
+} from "state/actions/projectChatWindowingSelectors";
 import { useProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,

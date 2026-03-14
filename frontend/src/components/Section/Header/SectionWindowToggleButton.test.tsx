@@ -11,7 +11,7 @@ vi.mock("state/actions/projectChatWindowing", () => ({
   showSectionInProjectChatWindow: vi.fn(),
 }));
 
-vi.mock("state/actions/projectChatWindowingState", () => ({
+vi.mock("state/actions/projectChatWindowingSelectors", () => ({
   getOpenExternalProjectChatWindowInstanceForSectionInState: () =>
     mockExternalizedWindowInstance,
 }));

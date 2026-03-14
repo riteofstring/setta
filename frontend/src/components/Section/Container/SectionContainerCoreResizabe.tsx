@@ -7,7 +7,7 @@ import React from "react";
 import {
   getExternalProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
-} from "state/actions/projectChatWindowingState";
+} from "state/actions/projectChatWindowingSelectors";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
