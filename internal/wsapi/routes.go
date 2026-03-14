@@ -647,6 +647,13 @@ func handleListenerRegister(
 	content realtime.ListenerRegisterContent,
 	deps RouteDependencies,
 ) error {
+	requestedProjectID := strings.TrimSpace(content.ProjectConfigID)
+	if requestedProjectID != "" {
+		if bootstrap, ok := deps.ListenerBroadcaster.Registry().Bootstrap(connectionID); ok && bootstrap.ProjectID != requestedProjectID {
+			return &CloseError{Code: CloseCodeBadRequest, Reason: "project config mismatch"}
+		}
+	}
+
 	callbacks := make(map[string]realtime.ListenerCallback, len(content.Callbacks))
 	ackStatuses := make(map[string]realtime.ListenerRegisterAckStatus, len(content.Callbacks))
 	for callbackID, callback := range content.Callbacks {
@@ -657,7 +664,7 @@ func handleListenerRegister(
 		ackStatuses[callbackID] = realtime.ListenerRegisterAckStatus{Status: "accepted"}
 	}
 
-	if err := deps.ListenerBroadcaster.Registry().UpsertRegistration(connectionID, "", callbacks, ""); err != nil {
+	if err := deps.ListenerBroadcaster.Registry().UpsertRegistration(connectionID, requestedProjectID, callbacks, ""); err != nil {
 		return &CloseError{Code: CloseCodeBadRequest, Reason: err.Error()}
 	}
 

@@ -47,7 +47,8 @@ type ListenerRegisterCallbackSpec struct {
 }
 
 type ListenerRegisterContent struct {
-	Callbacks map[string]ListenerRegisterCallbackSpec `json:"callbacks"`
+	ProjectConfigID string                                  `json:"projectConfigId,omitempty"`
+	Callbacks       map[string]ListenerRegisterCallbackSpec `json:"callbacks"`
 }
 
 type ListenerRegisterMessage struct {
@@ -137,6 +138,101 @@ type ListenerForceRefreshContent struct {
 type ListenerForceRefreshMessage struct {
 	MessageType string                      `json:"messageType"`
 	Content     ListenerForceRefreshContent `json:"content"`
+}
+
+func (s *ListenerRegisterCallbackSpec) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Dependencies   []json.RawMessage      `json:"dependencies"`
+		DependencyMode ListenerDependencyMode `json:"dependencyMode"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	dependencies := make([]string, 0, len(raw.Dependencies))
+	for _, dependency := range raw.Dependencies {
+		canonical, err := canonicalDependencyKeyFromWire(dependency)
+		if err != nil {
+			return err
+		}
+		dependencies = append(dependencies, canonical)
+	}
+
+	s.Dependencies = dependencies
+	s.DependencyMode = raw.DependencyMode
+	return nil
+}
+
+func (d ListenerRealtimeDelta) MarshalJSON() ([]byte, error) {
+	dependency, err := structuredDependencyKeyJSON(d.Dependency)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Dependency json.RawMessage `json:"dependency"`
+		Value      json.RawMessage `json:"value"`
+	}
+	payload.Dependency = dependency
+	payload.Value = d.Value
+	return json.Marshal(payload)
+}
+
+func (d *ListenerRealtimeDelta) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		Dependency json.RawMessage `json:"dependency"`
+		Value      json.RawMessage `json:"value"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	dependency, err := canonicalDependencyKeyFromWire(payload.Dependency)
+	if err != nil {
+		return err
+	}
+
+	d.Dependency = dependency
+	d.Value = payload.Value
+	return nil
+}
+
+func (e ListenerDependencyEvent) MarshalJSON() ([]byte, error) {
+	dependencyKey, err := structuredDependencyKeyJSON(e.DependencyKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		DependencyKey json.RawMessage `json:"dependencyKey"`
+		Payload       json.RawMessage `json:"payload,omitempty"`
+		TimestampMS   int64           `json:"timestampMs"`
+	}
+	payload.DependencyKey = dependencyKey
+	payload.Payload = e.Payload
+	payload.TimestampMS = e.TimestampMS
+	return json.Marshal(payload)
+}
+
+func (e *ListenerDependencyEvent) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		DependencyKey json.RawMessage `json:"dependencyKey"`
+		Payload       json.RawMessage `json:"payload,omitempty"`
+		TimestampMS   int64           `json:"timestampMs"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	dependencyKey, err := canonicalDependencyKeyFromWire(payload.DependencyKey)
+	if err != nil {
+		return err
+	}
+
+	e.DependencyKey = dependencyKey
+	e.Payload = payload.Payload
+	e.TimestampMS = payload.TimestampMS
+	return nil
 }
 
 func NewListenerRealtimeEventMessage(content ListenerRealtimeEventContent) ListenerRealtimeEventMessage {

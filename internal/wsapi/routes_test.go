@@ -335,7 +335,7 @@ func TestRegisterRoutesFrontendRealtimeUIChangeBroadcastsToMatchingListener(t *t
 	}
 
 	realtimeEvent := readNextMessage(t, listener)
-	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, `{"type":"Literal","payload":"value-1"}`)
+	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, "section-a.param-a", `{"type":"Literal","payload":"value-1"}`)
 }
 
 func TestRegisterRoutesFrontendResolvesUISettingRevealResult(t *testing.T) {
@@ -555,7 +555,7 @@ func TestRegisterRoutesFrontendBinaryDependencyEventBroadcastsBinaryFrame(t *tes
 	if err := json.Unmarshal(header, &envelope); err != nil {
 		t.Fatalf("decode listener binary header: %v", err)
 	}
-	assertRouteListenerDependencyEvent(t, envelope, "project-a", "", 1, `{"type":"Binary","payload":{"contentId":"bin-1"}}`)
+	assertRouteListenerDependencyEvent(t, envelope, "project-a", "", 1, "section-action", `{"type":"Binary","payload":{"contentId":"bin-1"}}`)
 	if string(binaryPayload) != "binary-action" {
 		t.Fatalf("expected binary-action payload, got %q", string(binaryPayload))
 	}
@@ -613,7 +613,7 @@ func TestRegisterRoutesShareFrontendDependencyEventScopesToSession(t *testing.T)
 	}
 
 	dependencyEvent := readNextMessage(t, listenerA)
-	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "share-a", 1, `{"type":"Literal","payload":"clicked"}`)
+	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "share-a", 1, "section-action", `{"type":"Literal","payload":"clicked"}`)
 
 	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -911,6 +911,76 @@ func TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit(t *te
 	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-target", "")
 }
 
+func TestRegisterRoutesListenerAcceptsPythonRegisterPayloadAndEmitsStructuredDependencyKeys(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-a"}}`)); err != nil {
+		t.Fatalf("write python-style listener init: %v", err)
+	}
+	assertRouteListenerForceRefresh(t, readNextMessage(t, conn), "project-a", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-a"))
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"projectConfigId":"project-a","callbacks":{"cb-a":{"dependencies":[{"type":"SectionParam","sectionId":"section-a","codeObjId":"param-a"},{"type":"Section","sectionId":"section-action"}],"dependencyMode":"realtime_only","debounceMs":25,"throttleMs":50,"runOnRefresh":true}}}}`)); err != nil {
+		t.Fatalf("write python-style listener register: %v", err)
+	}
+
+	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
+
+	sequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), realtime.EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+		Deltas: []realtime.ListenerRealtimeDelta{
+			{
+				Dependency: "section-a.param-a",
+				Value:      json.RawMessage(`"value-1"`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit realtime deltas for python-style listener: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected realtime delivery (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+	assertRouteListenerRealtimeEvent(t, readNextMessage(t, conn), "project-a", "", 1, "section-a.param-a", `"value-1"`)
+
+	sequence, delivered, err = broadcaster.EmitDependencyEvents(context.Background(), realtime.EmitDependencyEventsParams{
+		ProjectID: "project-a",
+		DependencyEvents: []realtime.ListenerDependencyEvent{
+			{
+				DependencyKey: "section-action",
+				Payload:       json.RawMessage(`{"clicked":true}`),
+				TimestampMS:   456,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit dependency events for python-style listener: %v", err)
+	}
+	if sequence != 2 || delivered != 1 {
+		t.Fatalf("expected dependency event delivery (sequence=2 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+	assertRouteListenerDependencyEvent(t, readNextMessage(t, conn), "project-a", "", 2, "section-action", `{"clicked":true}`)
+}
+
 func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *testing.T) {
 	t.Parallel()
 
@@ -956,7 +1026,7 @@ func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *
 	}
 
 	realtimeEvent := readNextMessage(t, conn)
-	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, `"value-1"`)
+	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, "section-a.param-a", `"value-1"`)
 
 	sequence, delivered, err = broadcaster.EmitDependencyEvents(context.Background(), realtime.EmitDependencyEventsParams{
 		ProjectID: "project-a",
@@ -976,7 +1046,7 @@ func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *
 	}
 
 	dependencyEvent := readNextMessage(t, conn)
-	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "", 2, `{"clicked":true}`)
+	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "", 2, "section-action", `{"clicked":true}`)
 }
 
 func TestRegisterRoutesListenerEndpointCallRequiresRegistration(t *testing.T) {
@@ -2105,14 +2175,30 @@ func assertRouteListenerError(
 	}
 }
 
-func assertRouteListenerRealtimeEvent(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string, sequence uint64, expectedValue string) {
+func assertRouteListenerRealtimeEvent(
+	t *testing.T,
+	message routeMessageEnvelope,
+	projectID string,
+	shareSessionID string,
+	sequence uint64,
+	expectedDependency string,
+	expectedValue string,
+) {
 	t.Helper()
 
 	if message.MessageType != realtime.MessageTypeListenerRealtimeEvent {
 		t.Fatalf("expected listener realtime event, got %q", message.MessageType)
 	}
 
-	var content realtime.ListenerRealtimeEventContent
+	var content struct {
+		ProjectConfigID string `json:"projectConfigId"`
+		ShareSessionID  string `json:"shareSessionId,omitempty"`
+		Deltas          []struct {
+			Dependency json.RawMessage `json:"dependency"`
+			Value      json.RawMessage `json:"value"`
+		} `json:"deltas"`
+		Sequence uint64 `json:"sequence"`
+	}
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener realtime event: %v", err)
 	}
@@ -2128,19 +2214,37 @@ func assertRouteListenerRealtimeEvent(t *testing.T, message routeMessageEnvelope
 	if len(content.Deltas) != 1 {
 		t.Fatalf("expected 1 delta, got %d", len(content.Deltas))
 	}
+	assertStructuredDependencyKeyPayload(t, content.Deltas[0].Dependency, expectedDependency, "delta dependency")
 	if compactJSON(t, content.Deltas[0].Value) != compactJSONString(t, expectedValue) {
 		t.Fatalf("expected delta value %s, got %s", expectedValue, string(content.Deltas[0].Value))
 	}
 }
 
-func assertRouteListenerDependencyEvent(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string, sequence uint64, expectedPayload string) {
+func assertRouteListenerDependencyEvent(
+	t *testing.T,
+	message routeMessageEnvelope,
+	projectID string,
+	shareSessionID string,
+	sequence uint64,
+	expectedDependency string,
+	expectedPayload string,
+) {
 	t.Helper()
 
 	if message.MessageType != realtime.MessageTypeListenerDependencyEvent {
 		t.Fatalf("expected listener dependency event, got %q", message.MessageType)
 	}
 
-	var content realtime.ListenerDependencyEventContent
+	var content struct {
+		ProjectConfigID  string `json:"projectConfigId"`
+		ShareSessionID   string `json:"shareSessionId,omitempty"`
+		DependencyEvents []struct {
+			DependencyKey json.RawMessage `json:"dependencyKey"`
+			Payload       json.RawMessage `json:"payload,omitempty"`
+			TimestampMS   int64           `json:"timestampMs"`
+		} `json:"dependencyEvents"`
+		Sequence uint64 `json:"sequence"`
+	}
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener dependency event: %v", err)
 	}
@@ -2156,8 +2260,31 @@ func assertRouteListenerDependencyEvent(t *testing.T, message routeMessageEnvelo
 	if len(content.DependencyEvents) != 1 {
 		t.Fatalf("expected 1 dependency event, got %d", len(content.DependencyEvents))
 	}
+	assertStructuredDependencyKeyPayload(t, content.DependencyEvents[0].DependencyKey, expectedDependency, "dependency event key")
 	if canonicalJSON(t, content.DependencyEvents[0].Payload) != canonicalJSONString(t, expectedPayload) {
 		t.Fatalf("expected dependency payload %s, got %s", expectedPayload, string(content.DependencyEvents[0].Payload))
+	}
+}
+
+func assertStructuredDependencyKeyPayload(
+	t *testing.T,
+	raw json.RawMessage,
+	expectedCanonical string,
+	label string,
+) {
+	t.Helper()
+
+	trimmed := strings.TrimSpace(string(raw))
+	if strings.HasPrefix(trimmed, "\"") {
+		t.Fatalf("expected %s to be a structured dependency key object, got %s", label, trimmed)
+	}
+
+	canonical, err := realtime.CanonicalDependencyKey(raw)
+	if err != nil {
+		t.Fatalf("decode %s dependency key: %v", label, err)
+	}
+	if canonical != expectedCanonical {
+		t.Fatalf("expected %s canonical key %q, got %q", label, expectedCanonical, canonical)
 	}
 }
 

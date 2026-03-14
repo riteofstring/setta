@@ -25,6 +25,26 @@ func TestCanonicalDependencyKeyConvertsSectionAndSectionParam(t *testing.T) {
 	}
 }
 
+func TestCanonicalDependencyKeyFromWireAcceptsStringAndStructuredForms(t *testing.T) {
+	t.Parallel()
+
+	stringKey, err := canonicalDependencyKeyFromWire([]byte(`"section-a.param-a"`))
+	if err != nil {
+		t.Fatalf("canonicalize string dependency key: %v", err)
+	}
+	if stringKey != "section-a.param-a" {
+		t.Fatalf("expected section-a.param-a key from string payload, got %q", stringKey)
+	}
+
+	structuredKey, err := canonicalDependencyKeyFromWire([]byte(`{"type":"Section","sectionId":"section-b"}`))
+	if err != nil {
+		t.Fatalf("canonicalize structured dependency key: %v", err)
+	}
+	if structuredKey != "section-b" {
+		t.Fatalf("expected section-b key from structured payload, got %q", structuredKey)
+	}
+}
+
 func TestCanonicalDependencyKeyRejectsMissingRequiredFields(t *testing.T) {
 	t.Parallel()
 
@@ -74,6 +94,18 @@ func TestDecodeCanonicalDependencyKeyRejectsMissingRequiredFields(t *testing.T) 
 	_, err = DecodeCanonicalDependencyKey("section-a.")
 	if !errors.Is(err, ErrDependencyKeyCodeObjIDRequired) {
 		t.Fatalf("expected missing code object id error, got %v", err)
+	}
+}
+
+func TestStructuredDependencyKeyJSONEncodesCanonicalKeys(t *testing.T) {
+	t.Parallel()
+
+	payload, err := structuredDependencyKeyJSON("section-a.param-a")
+	if err != nil {
+		t.Fatalf("encode structured dependency key: %v", err)
+	}
+	if string(payload) != `{"type":"SectionParam","sectionId":"section-a","codeObjId":"param-a"}` {
+		t.Fatalf("unexpected structured dependency key payload %s", string(payload))
 	}
 }
 

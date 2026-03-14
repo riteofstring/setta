@@ -61,6 +61,25 @@ func CanonicalDependencyKey(raw json.RawMessage) (string, error) {
 	}
 }
 
+func canonicalDependencyKeyFromWire(raw json.RawMessage) (string, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" {
+		return "", ErrDependencyKeySectionIDRequired
+	}
+	if strings.HasPrefix(trimmed, "\"") {
+		var canonical string
+		if err := json.Unmarshal(raw, &canonical); err != nil {
+			return "", err
+		}
+		canonical = strings.TrimSpace(canonical)
+		if _, err := DecodeCanonicalDependencyKey(canonical); err != nil {
+			return "", err
+		}
+		return canonical, nil
+	}
+	return CanonicalDependencyKey(raw)
+}
+
 func DecodeCanonicalDependencyKey(value string) (dependencyKey, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -87,6 +106,18 @@ func DecodeCanonicalDependencyKey(value string) (dependencyKey, error) {
 		SectionID: sectionID,
 		CodeObjID: codeObjID,
 	}, nil
+}
+
+func structuredDependencyKeyJSON(value string) (json.RawMessage, error) {
+	key, err := DecodeCanonicalDependencyKey(value)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := json.Marshal(key)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(payload), nil
 }
 
 func DependencyValueIsBinary(raw json.RawMessage) (bool, error) {

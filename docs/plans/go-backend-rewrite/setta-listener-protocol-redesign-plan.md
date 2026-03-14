@@ -23,6 +23,10 @@ Current state:
     `projectName`, default-project fallback, and share-session scope
   - bootstrap success/error replies on that route via
     `ListenerForceRefresh` and `ListenerError`
+  - listener register parsing on that route for both plugin string
+    dependencies and Python-style structured dependency keys
+  - structured dependency-key emission on listener realtime/dependency event
+    payloads
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:

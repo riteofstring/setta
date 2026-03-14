@@ -149,6 +149,22 @@ func (r *ListenerRegistry) Registration(connectionID string) (ListenerRegistrati
 	return cloneListenerRegistration(registration), true
 }
 
+func (r *ListenerRegistry) Bootstrap(connectionID string) (ListenerBootstrap, bool) {
+	connectionID = strings.TrimSpace(connectionID)
+	if connectionID == "" {
+		return ListenerBootstrap{}, false
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	bootstrap, ok := r.bootstraps[connectionID]
+	if !ok {
+		return ListenerBootstrap{}, false
+	}
+	return bootstrap, true
+}
+
 func (r *ListenerRegistry) DropShareSession(shareSessionID string) {
 	shareSessionID = strings.TrimSpace(shareSessionID)
 	if shareSessionID == "" {

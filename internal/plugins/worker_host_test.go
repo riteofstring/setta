@@ -613,8 +613,8 @@ func TestWorkerHostEmitListenerDependencyEventsTouchesSessionAndDeliversBatch(t 
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener dependency event content: %v", err)
 	}
-	if content.ProjectID != "project-a" {
-		t.Fatalf("expected project-a content, got %q", content.ProjectID)
+	if content.ProjectConfigID != "project-a" {
+		t.Fatalf("expected project-a content, got %q", content.ProjectConfigID)
 	}
 	if content.ShareSessionID != "share-a" {
 		t.Fatalf("expected share-a content, got %q", content.ShareSessionID)

@@ -1314,8 +1314,8 @@ func TestAppServesListenerForceRefreshRoute(t *testing.T) {
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener force refresh content: %v", err)
 	}
-	if content.ProjectID != "project-alpha" {
-		t.Fatalf("expected project-alpha force refresh, got %q", content.ProjectID)
+	if content.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha force refresh, got %q", content.ProjectConfigID)
 	}
 
 	var projectState projectview.SingleConfig
@@ -1521,7 +1521,7 @@ func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
 		t.Fatalf("unexpected listener endpoint payload %#v", resultPayload)
 	}
 
-	if dependencyContent.ProjectID != "fixture-project" || dependencyContent.Sequence == 0 {
+	if dependencyContent.ProjectConfigID != "fixture-project" || dependencyContent.Sequence == 0 {
 		t.Fatalf("unexpected dependency event content %#v", dependencyContent)
 	}
 	if len(dependencyContent.DependencyEvents) != 1 {
@@ -1657,8 +1657,8 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener realtime event content: %v", err)
 	}
-	if content.ProjectID != "project-alpha" {
-		t.Fatalf("expected project-alpha event, got %q", content.ProjectID)
+	if content.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha event, got %q", content.ProjectConfigID)
 	}
 	if content.ShareSessionID != "" {
 		t.Fatalf("expected empty share session id, got %q", content.ShareSessionID)
