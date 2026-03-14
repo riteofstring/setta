@@ -7439,6 +7439,12 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 
 	lines := make([]string, 0)
 	for _, record := range readFrontendBoundaryImportRecords(t, repoRoot) {
+		// generatedEndpoints.ts is the canonical generated contract boundary and
+		// already has separate exact-output verification; this manifest is for
+		// remaining explicit nongenerated runtime exceptions.
+		if record.Path == "frontend/src/utils/generatedEndpoints.ts" {
+			continue
+		}
 		trackedBindings, ok := trackedBindingsByModule[record.Module]
 		if !ok {
 			continue

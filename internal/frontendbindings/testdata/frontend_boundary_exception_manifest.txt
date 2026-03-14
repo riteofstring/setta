@@ -1,4 +1,1 @@
 requestTransport frontend/src/components/Section/Layouts/settaApiAction.ts post
-requestTransport frontend/src/utils/generatedEndpoints.ts get
-requestTransport frontend/src/utils/generatedEndpoints.ts getBinary
-requestTransport frontend/src/utils/generatedEndpoints.ts post

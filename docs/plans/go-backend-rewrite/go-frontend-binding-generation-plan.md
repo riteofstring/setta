@@ -269,10 +269,9 @@ Current status:
   callers should use the generated plugin backend route helper instead
 - the validation suite now also snapshots the current explicit frontend
   direct-transport exception inventory in a focused golden manifest, so the
-  remaining low-level `endpointUtils` seams, including shared backend URL,
-  backend-origin URL, and backend-origin websocket construction used by the
-  narrowed plugin/app/realtime/terminal transport exceptions, stay reviewable
-  as the converted surface widens
+  remaining nongenerated runtime helper seams stay reviewable as the
+  converted surface widens without duplicating the separately-verified
+  canonical generated binding boundary
 - the validation suite now also rejects raw backend/base URL construction in
   non-test frontend runtime source, so callers must go through the shared
   `endpointUtils` helper boundary instead of reintroducing direct
@@ -303,10 +302,12 @@ Current status:
   `frontend/src/utils/requestTransport.ts`, so `generatedEndpoints.ts` and the
   intentional dynamic Setta API helper boundary no longer import
   `endpointUtils` directly
-- the remaining direct request-helper import surface is now limited to
-  `generatedEndpoints.ts` plus the intentional dynamic Setta API helper
-  boundary in `frontend/src/components/Section/Layouts/settaApiAction.ts`,
-  both through `requestTransport`
+- `generatedEndpoints.ts` remains the canonical generated request-helper
+  boundary and is separately locked by exact generation/parity tests
+- the remaining explicit nongenerated runtime request-helper exception is now
+  only the intentional dynamic Setta API helper boundary in
+  `frontend/src/components/Section/Layouts/settaApiAction.ts`, through
+  `requestTransport`
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
