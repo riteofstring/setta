@@ -33,9 +33,9 @@ import { createPortal } from "react-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   moveParamsWithBackend,
+  orderParamIdsByParent,
   selectOnlyParam,
 } from "state/actions/params/moveParams";
-import { orderParamIdsByParent } from "state/actions/params/paramMoveQueries";
 import {
   buildParamParentMap,
   buildParamTreeView,
