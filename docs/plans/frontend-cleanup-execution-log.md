@@ -847,3 +847,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/keyActivations.ts`, now the largest
     remaining shared-state hotspot, into clearer section-selection, reveal/focus
     shortcut, and pane/layout command modules.
+
+## 2026-03-14 18:42:51 PDT
+
+- Slice completed: split global key activation ownership by extracting shortcut
+  parsing/input-ignore policy and key handler logic out of
+  `frontend/src/state/actions/keyActivations.ts`
+- Key files touched:
+  - `frontend/src/state/actions/keyActivations.ts`
+  - `frontend/src/state/actions/keyActivationHandlers.ts`
+  - `frontend/src/state/actions/keyShortcutUtils.ts`
+  - `frontend/src/state/actions/keyShortcutUtils.test.ts`
+  - `frontend/src/state/actions/keyActivationHandlers.test.ts`
+  - `frontend/src/state/actions/keyActivations.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/keyShortcutUtils.test.ts src/state/actions/keyActivationHandlers.test.ts src/state/actions/keyActivations.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/keyActivations.ts src/state/actions/keyActivationHandlers.ts src/state/actions/keyShortcutUtils.ts src/state/actions/keyShortcutUtils.test.ts src/state/actions/keyActivationHandlers.test.ts src/state/actions/keyActivations.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `b266d93a6`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/utils/focusManager.ts`, now the next shared
+    infrastructure hotspot, into tab-scope registration, keyboard navigation,
+    section focus helpers, and canvas-specific pane movement modules.
