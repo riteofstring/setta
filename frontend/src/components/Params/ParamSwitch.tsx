@@ -19,11 +19,11 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useMisc,
+  useProjectSearch,
   useProjectState,
   useTypeErrors,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
-import { useProjectSearch } from "state/stores/searchStores";
 import {
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,

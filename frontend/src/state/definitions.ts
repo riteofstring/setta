@@ -1,7 +1,12 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
-import { parseAppGenerationMode } from "state/types/appGenerationMode";
+import type { AIFollowMode } from "state/types/aiFollow";
+import {
+  parseAppGenerationMode,
+  type AppGenerationMode,
+} from "state/types/appGenerationMode";
+import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -11,9 +16,24 @@ import {
   OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabNameEnum,
+  ProjectSearchMode,
+  ProjectSearchModeEnum,
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  DEFAULT_FILE_BROWSER_TYPE_FILTERS,
+  type FileBrowserSearchScope,
+  type FileBrowserTypeFilter,
+} from "utils/fileBrowserTypes";
+import {
+  AgenticEdgeKindEnum,
+  AgentProfile,
+  AgentRun,
+  AllLLMConfigs,
+  AllProjectMetadata,
+  APIKeys,
+  AppDefinition,
+  BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
@@ -21,15 +41,22 @@ import {
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
+  EngineConfig,
+  ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
+  LLMConfig,
   ProjectStateSingleConfig,
+  PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaLspDiagnostic,
   SettaNotification,
   SettaProjectNameValidationErrors,
   SettingsState,
+  SharePolicy,
+  TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
@@ -39,50 +66,42 @@ import {
   DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
   DEFAULT_GIT_GRAPH_SPLIT_PCT,
 } from "utils/gitGraphLayoutDefaults";
-import { persist, subscribeWithSelector } from "zustand/middleware";
+import {
+  createJSONStorage,
+  persist,
+  subscribeWithSelector,
+} from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import { getPersistStorage } from "./storePersistStorage";
-export {
-  useAppConfigs,
-  useAppDefinition,
-  useAppPreview,
-} from "./stores/appStores";
-export {
-  useAllProjectMetadata,
-  useServerMode,
-  useShareSession,
-} from "./stores/sessionStores";
-export {
-  useBrowserSectionFileBrowserState,
-  useDropzoneFileBrowserState,
-  useFileBrowserState,
-  useHomeFileBrowserState,
-} from "./stores/fileBrowserStores";
-export { useHomePageSearch, useProjectSearch } from "./stores/searchStores";
-import type {
-  ProjectChatAuxView,
-  ProjectChatCustomSlashCommand,
-} from "./stores/aiStores";
 import { withProjectState, withResetFn } from "./utils";
 
-export {
-  useAgenticScopeHighlights,
-  useAIFollow,
-  useAIStore,
-  useToolArgumentPreview,
-} from "./stores/aiStores";
-export type {
-  AgenticScopeViolationEdge,
-  ChatBranchInfo,
-  ChatDetails,
-  ProjectChatAuxView,
-  ProjectChatCustomSlashCommand,
-  ToolArgumentPreviewEntry,
-  ToolArgumentPreviewProjectState,
-} from "./stores/aiStores";
-export type { FileBrowserState } from "./stores/fileBrowserStores";
-export type { ZustandProjectSearch } from "./stores/searchStores";
+const createInMemoryStorage = () => {
+  const storage = new Map<string, string>();
+  return {
+    getItem: (name: string) => storage.get(name) ?? null,
+    setItem: (name: string, value: string) => {
+      storage.set(name, value);
+    },
+    removeItem: (name: string) => {
+      storage.delete(name);
+    },
+  };
+};
+
+const getPersistStorage = <S>() =>
+  createJSONStorage<S>(() => {
+    if (typeof localStorage === "undefined") {
+      return createInMemoryStorage();
+    }
+    if (
+      typeof localStorage.getItem !== "function" ||
+      typeof localStorage.setItem !== "function" ||
+      typeof localStorage.removeItem !== "function"
+    ) {
+      return createInMemoryStorage();
+    }
+    return localStorage;
+  });
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -153,6 +172,102 @@ export const useProjectState = withProjectState(
       ),
     ),
   ),
+);
+
+type AppDefinitionState = {
+  appDefinition: AppDefinition | null;
+  appSpec: unknown | null;
+};
+
+export const useAppDefinition = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppDefinitionState>(() => ({
+      appDefinition: null,
+      appSpec: null,
+    })),
+  ),
+);
+
+type AppConfigState = ZustandProjectState;
+
+type AppConfigsState = {
+  configs: Record<string, AppConfigState>;
+};
+
+export const useAppConfigs = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppConfigsState>(() => ({
+      configs: {},
+    })),
+  ),
+);
+
+type ShareSessionState = {
+  isDeploymentMode: boolean;
+  shareSessionId: string | null;
+  sessionRunCount: number;
+  sharePolicy: SharePolicy | null;
+  shareDeploymentName: string | null;
+  shareDeploymentVersion: string | null;
+  deploymentMode: "share" | "app" | null;
+};
+
+export const useShareSession = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ShareSessionState>(() => ({
+      isDeploymentMode: false,
+      shareSessionId: null,
+      sessionRunCount: 0,
+      sharePolicy: null,
+      shareDeploymentName: null,
+      shareDeploymentVersion: null,
+      deploymentMode: null,
+    })),
+  ),
+);
+
+type ServerModeState = {
+  mode: "ide" | "share" | "app" | "launcher" | null;
+  modeResolved: boolean;
+  modeError: string | null;
+};
+
+export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
+  mode: null,
+  modeResolved: false,
+  modeError: null,
+}));
+
+type AppPreviewState = {
+  isPreviewEnabled: boolean;
+  previewConfigId: string | null;
+  // Draft-only overrides used for live preview while editing App Config.
+  // `undefined` means "no override"; `null` means "explicitly cleared".
+  previewSpecOverride?: unknown | null;
+  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
+  aiPreviewSpecOverride?: unknown | null;
+  previewThemeOverride?: unknown | null;
+  previewAssetsOverride?: unknown[] | null;
+};
+
+export const useAppPreview = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppPreviewState>(() => ({
+      isPreviewEnabled: false,
+      previewConfigId: null,
+      previewSpecOverride: undefined,
+      aiPreviewSpecOverride: undefined,
+      previewThemeOverride: undefined,
+      previewAssetsOverride: undefined,
+    })),
+  ),
+);
+
+export const useAllProjectMetadata = createWithEqualityFn(
+  withResetFn<AllProjectMetadata>(() => ({
+    defaultProjectConfigId: null,
+    projectMetadata: [],
+  })),
 );
 
 export type PendingOperation = {
@@ -234,6 +349,12 @@ export const useRenameRefactors = withProjectState(
       readyOpIds: {},
     })),
   ),
+);
+
+export const useHomePageSearch = createWithEqualityFn(
+  withResetFn(() => ({
+    value: "",
+  })),
 );
 
 type ZustandWaitingForLSPResult = {
@@ -361,6 +482,69 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
+type FileBrowserState = {
+  rootPath: string | null;
+  selectedPath: string | null;
+  expandedPaths: Record<string, boolean>;
+  filterText: string;
+  pathSeparator: string;
+  ignorePatterns: string[];
+  typeFilters: Record<FileBrowserTypeFilter, boolean>;
+  searchScope: FileBrowserSearchScope;
+};
+
+export const useFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
+  })),
+);
+
+export const useHomeFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
+  })),
+);
+
+export const useBrowserSectionFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
+  })),
+);
+
+export const useDropzoneFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
+  })),
+);
+
 type RunMode = "once" | "continuous";
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
@@ -375,6 +559,19 @@ export type CustomRunItem = {
   runMode: RunMode;
   action: CustomRunAction;
 };
+
+export type ProjectChatCustomSlashCommand = {
+  command: string;
+  prompt: string;
+  appGenerationMode: AppGenerationMode | null;
+};
+
+export type ProjectChatAuxView =
+  | "none"
+  | "skills"
+  | "mcp"
+  | "slash_commands"
+  | "ai_settings";
 
 function isPersistedRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -489,9 +686,29 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
-const useArtifacts = withProjectState(
+export type ZustandProjectSearch = {
+  codeInfo: Array<{
+    sectionId: string;
+    paramInfoId: string;
+    name: string;
+  }>;
+  focused: {
+    sectionId: string;
+    paramInfoId: string;
+    name: string;
+  } | null;
+  lookup: Set<string>;
+  mode: ProjectSearchMode;
+};
+
+export const useProjectSearch = withProjectState(
   createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
+    withResetFn<ZustandProjectSearch>(() => ({
+      codeInfo: [],
+      focused: null,
+      lookup: new Set(),
+      mode: ProjectSearchModeEnum.find,
+    })),
   ),
 );
 
@@ -641,6 +858,257 @@ export const useMisc = withProjectState(
           string,
           true
         >,
+      })),
+    ),
+  ),
+);
+
+export type ChatDetails = {
+  messages: Array<BaseChatMessageUnion>;
+  toolCallArguments: Record<string, string>;
+  waitingForResponse: boolean;
+  llmConfig: LLMConfig | null;
+  contextUsage: {
+    contextWindowTokens: number | null;
+    contextUsedTokens: number | null;
+    estimated: boolean;
+  } | null;
+};
+
+export type ChatBranchInfo = {
+  chatId: string;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  branchRootChatId: string | null;
+  branchCreatedAt: number | null;
+};
+
+type ZustandAIStore = {
+  apiKeys: APIKeys;
+  apiKeysRevision: number;
+  apiKeysAuthoritative: boolean;
+  apiKeysInitialLoadComplete: boolean;
+  apiKeysLoadError: string | null;
+  activeChatId: string | null | undefined;
+  projectChatSelectedEngineId: string | null;
+  chatDetails: Record<string, ChatDetails>;
+  pendingChatDetailsBySurfaceId: Record<string, ChatDetails>;
+  chatAppGenerationDetailsByChatId: Record<string, ChatAppGenerationDetails>;
+  pendingChatAppGenerationDetailsBySurfaceId: Record<
+    string,
+    ChatAppGenerationDetails
+  >;
+  interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
+  viewThreads: boolean;
+  projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
+  projectChatActivityAccordionOpenByDefault: boolean;
+  projectChatActivityChildrenOpenByDefault: boolean;
+  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigsInitialLoadComplete: boolean;
+  allLLMConfigsLoadError: string | null;
+  agentProfiles: Array<AgentProfile>;
+  agentProfilesInitialLoadComplete: boolean;
+  agentProfilesLoadError: string | null;
+  agentProfilesLoading: boolean;
+  agentRuns: Array<AgentRun>;
+  agentRunsAuthorityState:
+    | "loading"
+    | "ready"
+    | "transient_error"
+    | "terminal_error";
+  agentRunsInitialLoadComplete: boolean;
+  agentRunsLoadError: string | null;
+  promptTemplates: Array<PromptTemplate>;
+  promptTemplatesInitialLoadComplete: boolean;
+  promptTemplatesLoadError: string | null;
+  promptTemplatesLoading: boolean;
+  externalAgentConfigs: Array<ExternalAgentConfig>;
+  externalAgentConfigsInitialLoadComplete: boolean;
+  externalAgentConfigsLoadError: string | null;
+  externalAgentConfigsLoading: boolean;
+  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
+  externalAgentHealthInitialLoadComplete: boolean;
+  externalAgentHealthLoadError: string | null;
+  externalAgentHealthLoading: boolean;
+  engineConfigs: Array<EngineConfig>;
+  engineConfigsInitialLoadComplete: boolean;
+  engineConfigsLoadError: string | null;
+  engineConfigsLoading: boolean;
+  transcriptionProfiles: Array<TranscriptionProfile>;
+  transcriptionProfilesInitialLoadComplete: boolean;
+  transcriptionProfilesLoadError: string | null;
+  transcriptionProfilesLoading: boolean;
+  pendingProjectChatPrompt: string | null;
+  projectChatDictationMode: "auto" | "browser" | "provider";
+  projectChatTranscriptionProfileId: string | null;
+};
+
+export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
+  // @ts-expect-error Zustand's persist function doesn't work well with types
+  subscribeWithSelector(
+    persist(
+      () => ({
+        // State
+        apiKeys: {},
+        apiKeysRevision: 0,
+        apiKeysAuthoritative: false,
+        apiKeysInitialLoadComplete: false,
+        apiKeysLoadError: null,
+        activeChatId: undefined,
+        projectChatSelectedEngineId: null,
+        chatDetails: {},
+        pendingChatDetailsBySurfaceId: {},
+        chatAppGenerationDetailsByChatId: {},
+        pendingChatAppGenerationDetailsBySurfaceId: {},
+        interruptedAssistantMessageIdsByChatId: {},
+        viewThreads: false,
+        projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+        projectChatActivityAccordionOpenByDefault: false,
+        projectChatActivityChildrenOpenByDefault: false,
+        allLLMConfigs: null,
+        allLLMConfigsInitialLoadComplete: false,
+        allLLMConfigsLoadError: null,
+        agentProfiles: [],
+        agentProfilesInitialLoadComplete: false,
+        agentProfilesLoadError: null,
+        agentProfilesLoading: false,
+        agentRuns: [],
+        agentRunsAuthorityState: "loading",
+        agentRunsInitialLoadComplete: false,
+        agentRunsLoadError: null,
+        promptTemplates: [],
+        promptTemplatesInitialLoadComplete: false,
+        promptTemplatesLoadError: null,
+        promptTemplatesLoading: false,
+        externalAgentConfigs: [],
+        externalAgentConfigsInitialLoadComplete: false,
+        externalAgentConfigsLoadError: null,
+        externalAgentConfigsLoading: false,
+        externalAgentHealth: [],
+        externalAgentHealthInitialLoadComplete: false,
+        externalAgentHealthLoadError: null,
+        externalAgentHealthLoading: false,
+        engineConfigs: [],
+        engineConfigsInitialLoadComplete: false,
+        engineConfigsLoadError: null,
+        engineConfigsLoading: false,
+        transcriptionProfiles: [],
+        transcriptionProfilesInitialLoadComplete: false,
+        transcriptionProfilesLoadError: null,
+        transcriptionProfilesLoading: false,
+        pendingProjectChatPrompt: null,
+        projectChatDictationMode: "auto",
+        projectChatTranscriptionProfileId: null,
+      }),
+      {
+        name: "setta_ai_data",
+        merge: (persistedState, currentState) => {
+          const persisted =
+            (persistedState as Partial<ZustandAIStore> | null) ?? {};
+          return {
+            ...currentState,
+            ...persisted,
+          };
+        },
+        partialize: (state) => ({
+          viewThreads: state.viewThreads,
+          projectChatThreadsExplicitlyClosedAtLargeWidth:
+            state.projectChatThreadsExplicitlyClosedAtLargeWidth,
+          projectChatActivityAccordionOpenByDefault:
+            state.projectChatActivityAccordionOpenByDefault,
+          projectChatActivityChildrenOpenByDefault:
+            state.projectChatActivityChildrenOpenByDefault,
+          projectChatDictationMode: state.projectChatDictationMode,
+          projectChatTranscriptionProfileId:
+            state.projectChatTranscriptionProfileId,
+          projectChatSelectedEngineId: state.projectChatSelectedEngineId,
+        }),
+        storage: getPersistStorage(),
+      },
+    ),
+  ),
+);
+
+type AIFollowState = {
+  mode: AIFollowMode;
+  isFollowTransitioning: boolean;
+  toolArgumentsIdsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
+  toolResultIdsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
+  selectedChatIdsByProjectConfigId: Record<string, Array<string>>;
+  selectedSectionIdsByProjectConfigId: Record<string, Array<string>>;
+  scopeViolationEdgesByProjectConfigId: Record<
+    string,
+    Array<AgenticScopeViolationEdge>
+  >;
+};
+
+export const useAIFollow = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AIFollowState>(() => ({
+        mode: "all",
+        isFollowTransitioning: false,
+        toolArgumentsIdsByProjectConfigId: {},
+        toolResultIdsByProjectConfigId: {},
+        selectedChatIdsByProjectConfigId: {},
+        selectedSectionIdsByProjectConfigId: {},
+        scopeViolationEdgesByProjectConfigId: {},
+      })),
+    ),
+  ),
+);
+
+export type AgenticScopeViolationEdge = {
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKindEnum;
+};
+
+type AgenticScopeHighlightsState = {
+  readSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
+  writeSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
+};
+
+export const useAgenticScopeHighlights = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AgenticScopeHighlightsState>(() => ({
+        readSectionIdsByProjectConfigId: {},
+        writeSectionIdsByProjectConfigId: {},
+      })),
+    ),
+  ),
+);
+
+export type ToolArgumentPreviewEntry = {
+  value: string;
+  toolCallId: string;
+};
+
+export type ToolArgumentPreviewProjectState = {
+  previewCodeBySectionId: Record<string, ToolArgumentPreviewEntry>;
+  previewParamValueBySectionAndParamId: Record<
+    string,
+    Record<string, ToolArgumentPreviewEntry>
+  >;
+  previewCallableNameBySectionId: Record<string, ToolArgumentPreviewEntry>;
+};
+
+type ToolArgumentPreviewState = {
+  byProjectConfigId: Record<string, ToolArgumentPreviewProjectState>;
+};
+
+export const useToolArgumentPreview = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<ToolArgumentPreviewState>(() => ({
+        byProjectConfigId: {},
       })),
     ),
   ),

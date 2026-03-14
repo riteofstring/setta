@@ -1,10 +1,10 @@
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   NULL_PROJECT_CONFIG_ID,
+  useAIStore,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { useAIStore } from "state/stores/aiStores";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_state_machine_run,
@@ -22,7 +22,7 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "./agentRunUtils";
-import { loadAgentRuns, receiveAgentRunUpdate } from "./aiAgentRuns";
+import { loadAgentRuns, receiveAgentRunUpdate } from "./ai";
 import { getCurrProjectConfigId } from "./sectionInfos";
 import { logWorkflowDebug } from "./stateMachineDebug";
 

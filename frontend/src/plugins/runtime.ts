@@ -1,13 +1,12 @@
 import throttle from "lodash/throttle";
 import { useEffect } from "react";
+import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import {
   useActiveSectionUI,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
@@ -27,11 +26,13 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
+import { callListenerEndpointOverWebsocket } from "./listenerEndpointClient";
 import {
   isPluginPaneIconName,
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
+import { buildPluginAssetUrl, buildPluginBackendFetchUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -188,6 +189,8 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
+type PluginCallListenerEndpointPayload = Record<string, unknown>;
+
 type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
@@ -221,6 +224,10 @@ type SettaPluginHost = {
     value: unknown,
     options?: PluginSectionRealtimeEmitOptions,
   ) => void;
+  callListenerEndpoint: (
+    endpointName: string,
+    payload?: PluginCallListenerEndpointPayload,
+  ) => Promise<unknown>;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
     sectionId: string,
@@ -309,6 +316,7 @@ const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
+const registerListenerEndpointCapability = "registerListenerEndpoint";
 
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
@@ -702,8 +710,8 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
-  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
-  const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
+  const styleUrl = buildPluginAssetUrl(plugin.frontend.styleUrl);
+  const entrypointUrl = buildPluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
@@ -1495,6 +1503,42 @@ function registerPluginModule({
         timestampMs,
       });
     },
+    callListenerEndpoint: async (endpointName, payload) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        registerListenerEndpointCapability,
+        "callListenerEndpoint",
+      );
+      const normalizedEndpointName = requireNonEmptyString(
+        endpointName,
+        `Plugin ${plugin.pluginId} callListenerEndpoint requires endpointName.`,
+      );
+      let normalizedPayload: Record<string, unknown> = {};
+      if (payload !== undefined) {
+        if (!isPlainRecord(payload)) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `Plugin ${plugin.pluginId} callListenerEndpoint requires an object payload.`,
+          );
+        }
+        normalizedPayload = structuredClone(payload);
+      }
+      const shareSession = useShareSession.getState();
+      return callListenerEndpointOverWebsocket({
+        listenerId: `plugin-${crypto.randomUUID()}`,
+        projectConfigId: requireNonEmptyString(
+          useProjectState.getState().projectConfig.id,
+          `Plugin ${plugin.pluginId} callListenerEndpoint requires an active projectConfigId.`,
+        ),
+        endpointName: normalizedEndpointName,
+        payload: normalizedPayload,
+        shareSessionId:
+          shareSession.isDeploymentMode && shareSession.shareSessionId
+            ? shareSession.shareSessionId
+            : null,
+      });
+    },
     readSection: (sectionId) => {
       ensureCapability(
         plugin.pluginId,
@@ -1594,7 +1638,7 @@ function registerPluginModule({
         requestHeaders.set(key, value);
       }
       return fetch(
-        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
+        buildPluginBackendFetchUrl(plugin.pluginId, normalizedPath),
         {
           ...init,
           credentials: "include",
@@ -2000,19 +2044,6 @@ function ensurePluginStyleLoaded(
 
   styleElementByPluginId.set(pluginId, link);
   styleHrefByPluginId.set(pluginId, styleUrl);
-}
-
-function resolvePluginAssetUrl(url: string | null): string | null {
-  if (!url) {
-    return null;
-  }
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  if (url.startsWith("/")) {
-    return `${C_ADDRESSES.BACKEND_ORIGIN}${url}`;
-  }
-  return url;
 }
 
 function removeInactivePluginStyles(activePluginIds: Set<string>): void {
