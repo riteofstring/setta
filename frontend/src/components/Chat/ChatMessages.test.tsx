@@ -2060,7 +2060,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain('class="chat-typing-inline"');
   });
 
-  it("shows the inline typing indicator when waiting before assistant output starts", () => {
+  it("shows the braille typing indicator when waiting before assistant output starts", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-user-pending",
@@ -2075,7 +2075,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
 
     expect(markup).toContain('data-chat-assistant-typing-indicator="true"');
-    expect(markup).toContain('class="chat-typing-inline"');
+    expect(markup).toContain('data-unicode-spinner="braille"');
+    expect(markup).not.toContain('class="chat-typing-inline"');
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
   });
 

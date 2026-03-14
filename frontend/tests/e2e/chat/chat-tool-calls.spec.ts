@@ -769,6 +769,60 @@ test.describe.serial("chat tool calls", () => {
     }
   });
 
+  test("shows the braille startup indicator before assistant output begins", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_pending_assistant_braille__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "pending-user-message",
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Run the next check and tell me what you find.",
+                },
+              ],
+              attachments: [],
+            },
+          ],
+          inputText: "",
+          waitingForResponse: true,
+          toolCallArguments: {},
+        },
+      });
+
+      const typingIndicator = section.locator(
+        '[data-chat-assistant-typing-indicator="true"]',
+      );
+      await expect(typingIndicator).toBeVisible();
+      await expect(
+        typingIndicator.locator('[data-unicode-spinner="braille"]'),
+      ).toHaveCount(1);
+      await expect(typingIndicator.locator(".chat-typing-inline")).toHaveCount(
+        0,
+      );
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("message timestamps do not collapse chat bubbles into narrow columns", async ({
     page,
   }) => {

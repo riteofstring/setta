@@ -5699,7 +5699,7 @@ function AssistantTypingIndicator({ visible }: { visible: boolean }) {
       data-chat-assistant-typing-indicator="true"
       aria-hidden="true"
     >
-      <span className="chat-typing-inline" data-typing="true" />
+      <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
     </div>
   );
 }
