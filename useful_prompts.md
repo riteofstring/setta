@@ -1,7 +1,7 @@
 Compare the current branch with the main branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Any unnecessary backward compatibility shims? Is there any reason I shouldn't merge the current branch into the main branch? Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after your proposed fix.
 
 Review this branch for merge into `main`.
-
+ 
     Scope
     - Analyze only branch-introduced changes vs merge base:
       - `git diff --name-status main...HEAD`
@@ -13,26 +13,26 @@ Review this branch for merge into `main`.
     - Disregard any `branch_intent.md` instruction that says to preserve, add, or keep backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior. Those are not desired even if documented as intentional branch scope.
     - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
     - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
-
+ 
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
     - Do not reopen resolved items based on reviewer preference changes alone (e.g., X vs Y when both are valid)
     - Reopen only for regression with concrete evidence in this branch.
     - If reopened, cite prior decision + what changed + evidence.
-
+    
     Priorities (in order)
     1. Correctness bugs and invariant violations.
     2. Dead/unused code introduced or left behind (files, functions, branches, imports, types, flags, endpoints).
     3. Backward-compatibility shims or dual-path logic (not allowed).
     4. Design quality: reject band-aids; prefer principled root-cause fixes.
-
+ 
     Method
     - Cluster findings by shared root cause.
     - For each cluster, name the violated invariant.
     - Focus on root-cause and issue-class elimination, not symptom-level comments.
     - Do not propose backward-compatibility shims. Prefer single source of truth + fail-fast invariants.
     - If no issues exist in a priority category, explicitly say so.
-
+ 
     For each finding, provide
     - Severity: `critical|high|medium|low`
     - Merge risk: `blocker|major|minor`
@@ -41,7 +41,7 @@ Review this branch for merge into `main`.
     - Principled fix that removes the whole issue class (no BC shim)
     - UX/DX before vs after fix
     - Regression tests to add/update (unit/integration/e2e) with exact assertions
-
+ 
     Output format
     1. Merge recommendation + top risks
     2. Findings by root-cause cluster (highest severity first)
@@ -49,6 +49,7 @@ Review this branch for merge into `main`.
     4. Backward-compatibility shim inventory (must remove)
     5. Regression test plan
     6. `branch_intent.md` alignment check (items respected vs any true regressions with evidence)
+
 
 Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
 
@@ -62,128 +63,77 @@ Merge the main branch into our current branch. If there are merge conflicts, res
 
 Merge <> into main. In the commit message, include a detailed summary of what the <> branch does.
 
-Read all the top-level review\*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
+Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
 
 Read the diff of <commit hash>. Write a summary of the changes to a new doc called cumulative_review.md. We are going to be appending to this document in future commits with the same concept (writing a summary of changes of each commit), so put the summary under a heading with the commit hash in the heading.
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
+We are rewriting the backend in Go. Start by reading `docs/plans/go-backend-rewrite/CURRENT.md`.
+
+Treat `CURRENT.md` as the router and read only the docs the task needs:
+- `caller-backed-backend-surface-checklist.md` for active caller reachability
+- `backend-capability-coverage-checklist.md` for runtime/service ownership
+- `go-backend-rewrite-plan.md` for clean-break defaults and port-vs-redesign decisions
+- `testing-strategy.md` when code, behavior, or verification changes
+- `go-dependency-inventory-and-rationale.md` plus `docs/reference/dependencies/` when dependency, provider, transport, or library choices matter
+- `setta-listener-protocol-redesign-plan.md` or `go-frontend-binding-generation-plan.md` only when the task crosses those boundaries
+
+Use `docs/plans/go-backend-rewrite/README.md` only as the folder map.
+Use `docs/plans/go-backend-rewrite/*-audit-plan.md` only when editing the matching checklist.
+Treat `docs/plans/go-backend-rewrite/archive/` as secondary reference only.
+
+Working rules:
+- This is a clean break. Move backend ownership to Go as slices land, but keep superseded Python source in-tree until the rewrite is complete when that makes merges from `main` easier.
+- Retained Python boundaries are explicit: packaging/install entrypoints, dev-only startup/reload, public Python APIs such as `SettaListener` and `SettaRunner`, and sidecars intentionally executed by Go.
+- If docs disagree with current code/tests, trust the code/tests and update the docs.
+- Preserve active product behavior and current callers, not Python implementation details or route shapes.
+- Read Go code/tests first. Read Python only as behavior reference or when touching a retained Python boundary.
+- Prefer explicit ownership, typed boundaries, thin transports, deterministic source-of-truth paths, and established libraries over heuristics or transitional glue.
+- Do not widen scope unless a concrete caller, workflow, runtime issue, or documented product decision requires it.
+- Track rewrite progress in `caller-backed-backend-surface-checklist.md` and `backend-capability-coverage-checklist.md`, not by deleting Python files during the rewrite.
+
+Execution expectations:
+1. Inspect the current Go code, tests, and active transport/runtime path first.
+2. Map the task to the relevant caller-backed surface, ownership bucket, and any retained Python/shared boundary.
+3. In your first substantive update, summarize the relevant checklist rows or slice doc, the active code path, the boundary implications, and the single highest-leverage next step.
+4. Execute that step end-to-end unless the task is planning or inventory work.
+5. Update the relevant source-of-truth docs in the same change when caller reachability, ownership, dependency decisions, or workflow guidance changed.
+
+While working:
+- Update `caller-backed-backend-surface-checklist.md` if active caller reachability changed.
+- Update `backend-capability-coverage-checklist.md` if runtime/service ownership changed.
+- Update `CURRENT.md` only when routing, retained Python boundaries, or workflow guidance changed.
+- Do not create a new numbered phase or spike doc unless a bounded new slice is actually required.
+- If the task touches Go-to-TypeScript frontend binding generation, keep the canonical generated outputs Go-owned. Prefer Go DTOs and converter rules over handwritten TypeScript or shadow outputs.
+- Run the most relevant tests for the touched area, or explicitly state why they were not run.
+- If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
+- Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
+
 Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
 Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
 
-Scope and method:
+  Scope and method:
+  - Analyze only what this branch introduces vs merge base:
+    - `git diff --name-status main...HEAD`
+    - `git diff $(git merge-base main HEAD)..HEAD`
+  - Capture both feature work and bug fixes.
+  - Focus on intentional behavior/product changes that follow-up branch reviews must not clobber or "fix back" accidentally.
 
-- Analyze only what this branch introduces vs merge base:
-  - `git diff --name-status main...HEAD`
-  - `git diff $(git merge-base main HEAD)..HEAD`
-- Capture both feature work and bug fixes.
-- Focus on intentional behavior/product changes that follow-up branch reviews must not clobber or "fix back" accidentally.
+  For each item, include:
+  - What changed (before vs after behavior)
+  - Why the change appears intentional
+  - Files/endpoints/components involved (with paths)
+  - Any default-value changes, moved/renamed UX flows, or relocated logic
+  - Reviewer guardrail: what should not be reverted in later reviews unless a new decision is made
 
-For each item, include:
+  Output requirements:
+  - Overwrite `branch_intent.md` with this branch's current summary.
+  - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
+  - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
 
-- What changed (before vs after behavior)
-- Why the change appears intentional
-- Files/endpoints/components involved (with paths)
-- Any default-value changes, moved/renamed UX flows, or relocated logic
-- Reviewer guardrail: what should not be reverted in later reviews unless a new decision is made
 
-Output requirements:
 
-- Overwrite `branch_intent.md` with this branch's current summary.
-- Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
-- Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
-
-Autonomous Codex frontend cleanup session prompt:
-
-You are working in /Users/kevin/Documents/AppDevelopment/setta.clean-code-2.
-
-Goal: clean up the authored frontend, including forked UI code under `frontend/src/forks/**`, so it is easy for Codex coding agents to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
-
-This is an autonomous execution session. Work independently. Do not pause to ask me questions. Make reasonable assumptions based on the existing code, the repo instructions, and the cleanup plans below. If one slice is blocked, skip it, note the blocker briefly, and continue with the next highest-value unblocked slice.
-
-Read these first:
-
-- docs/plans/frontend-cleanup-plan-index.md
-- docs/plans/frontend-cleanup-plan.md
-- docs/plans/frontend-pages-shell-cleanup-plan.md
-- docs/plans/frontend-panes-and-authoring-cleanup-plan.md
-- docs/plans/frontend-sections-and-params-cleanup-plan.md
-- docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md
-- docs/plans/frontend-forks-cleanup-plan.md
-- if present, docs/reference/frontend-module-map.md
-- if present, docs/plans/frontend-cleanup-execution-log.md
-
-Treat the plans as a living baseline, not a frozen snapshot. Before picking a slice, verify the current tree and preserve any helper/module seams that already exist. If a file-size claim, hotspot list, or boundary in the docs is stale, update the docs as part of the cleanup instead of following the older snapshot blindly.
-
-Then start implementing the cleanup. Do not spend the session writing more plans unless a small supporting doc is directly needed for implementation.
-
-Autonomy rules:
-
-- Prioritize agent legibility: clear module ownership, smaller files, fewer mixed responsibilities, obvious read/write boundaries, feature-local helpers, and less cross-layer jumping.
-- Preserve user-visible behavior unless you find a concrete issue that should be fixed as part of the cleanup.
-- Prefer incremental refactors over broad directory churn. Prove boundaries first, then move files if it clearly improves ownership.
-- Make reasonable assumptions instead of asking for help.
-- If a task would normally require asking me something, choose the most conservative reasonable path and document the assumption in your progress note or commit message.
-- If a slice is blocked by unavailable tooling, permissions, or verification requirements, move to the next unblocked cleanup slice instead of stopping.
-- Do not touch generated files under frontend/src/utils/generated\* unless absolutely required.
-
-Execution rules:
-
-- Start with the highest-leverage foundation work, then continue domain by domain.
-- Add or update Vitest coverage for substantial refactors.
-- Add Playwright coverage when interactive UI behavior changes materially.
-- For visual or performance-sensitive frontend refactors, use chrome-devtools-mcp when available, do the required visual verification, and append before/after notes under perf/reports/frontend/ when the change is meaningful.
-- If CDP is unavailable for a slice that truly requires it, defer that slice, note the blocker, and continue with another cleanup area.
-- Commit in small logical increments with clear commit messages after each completed cleanup slice.
-- Do not stop at analysis. Implement, verify, commit, and continue until there is no meaningful unblocked work left in the plans.
-
-Tracking rules:
-
-- If docs/plans/frontend-cleanup-execution-log.md does not exist yet on the branch, create it first, then maintain it as an append-only work log.
-- After each completed slice, append:
-  - date/time
-  - what you changed
-  - key files touched
-  - tests/verification run
-  - perf/CDP notes if relevant
-  - commit hash
-  - the next highest-value unblocked slice
-- Do not rewrite earlier log entries; only append.
-
-Suggested execution order:
-
-1. Refresh or implement the Phase 0 foundation if it is missing or stale on the branch:
-   - module map / placement rules
-   - execution log
-   - clearer ownership guidance for where new frontend code should live
-2. Then tackle the largest current shared hotspots in the tree:
-   - `state/actions/ai.ts`
-   - `state/definitions.ts`
-   - shared chat / project-AI surface files
-3. Then continue through the remaining domains from the plans:
-   - project chat windowing
-   - chat / project AI / shared chat state
-   - pages and shell
-   - panes and authoring
-   - sections and params
-   - forked xyflow / dnd-kit surfaces
-   - remaining runtime/infrastructure cleanup
-
-When you get a message like “proceed with the next step”, interpret it as:
-
-- read the execution log if it exists
-- choose the next highest-value unblocked cleanup slice
-- implement it end-to-end
-- verify it
-- commit it
-- append the log
-- continue until the turn ends
-
-At the end of each turn, report:
-
-- what slice you completed
-- what files/modules now own the behavior
-- what tests/verification you ran
-- the commit hash
-- the next slice you will take when told to proceed
+Merge main into this branch. The main branch is still using a python backend, while this branch is rewriting the entire backend in Go. Therefore, the main goal of merging main into this branch is to make sure we keep our Go rewrite "up to date" in terms of features etc.
+ 
