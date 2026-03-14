@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from "react";
-import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { loadAgentRuns } from "state/actions/ai";
 import {
   buildChatBranchIndex,
   ChatBranchIndex,
 } from "state/actions/aiBranches";
-import { useAIStore } from "state/stores/aiStores";
+import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 export function useChatBranchIndex(enabled: boolean): ChatBranchIndex {

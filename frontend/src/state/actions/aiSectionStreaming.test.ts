@@ -1,5 +1,7 @@
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
+import {
+  getCurrEffectiveSectionImplOfType,
+  processProjectStateUpdateFromBackend,
+} from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -34,7 +36,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-let receiveLLMResponseChunk: typeof import("./aiChatStreaming").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
 let useProjectState: typeof import("state/definitions").useProjectState;
 
 const projectConfigId = "project-1";
@@ -80,8 +82,7 @@ describe("section chat streaming updates", () => {
   beforeAll(async () => {
     const definitions = await import("state/definitions");
     useProjectState = definitions.useProjectState;
-    receiveLLMResponseChunk = (await import("./aiChatStreaming"))
-      .receiveLLMResponseChunk;
+    receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
 
   beforeEach(async () => {
