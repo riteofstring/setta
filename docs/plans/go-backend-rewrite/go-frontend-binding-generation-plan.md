@@ -297,11 +297,16 @@ Current status:
   wrappers no longer import `endpointUtils` directly
 - shared backend/backend-origin URL assembly now also flows through
   `frontend/src/utils/transportUrlCore.ts`, so `endpointUtils` is reduced to
-  thin HTTP verb helpers plus error parsing instead of remaining the URL
+  URL/origin policy helpers plus error parsing instead of remaining the URL
   source of truth for narrowed runtime wrappers
-- the remaining direct `endpointUtils` import surface is now limited to
+- shared HTTP request verbs now also flow through
+  `frontend/src/utils/requestTransport.ts`, so `generatedEndpoints.ts` and the
+  intentional dynamic Setta API helper boundary no longer import
+  `endpointUtils` directly
+- the remaining direct request-helper import surface is now limited to
   `generatedEndpoints.ts` plus the intentional dynamic Setta API helper
-  boundary in `frontend/src/components/Section/Layouts/settaApiAction.ts`
+  boundary in `frontend/src/components/Section/Layouts/settaApiAction.ts`,
+  both through `requestTransport`
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

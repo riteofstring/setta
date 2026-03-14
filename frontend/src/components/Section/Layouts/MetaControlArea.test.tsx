@@ -79,7 +79,7 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_set_param_entered_value: mocked.routeSetParamEnteredValue,
 }));
 
-vi.mock("utils/endpointUtils", () => ({
+vi.mock("utils/requestTransport", () => ({
   post: mocked.post,
 }));
 

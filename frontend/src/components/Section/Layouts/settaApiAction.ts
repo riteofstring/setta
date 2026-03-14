@@ -1,4 +1,4 @@
-import { post } from "utils/endpointUtils";
+import { post } from "utils/requestTransport";
 import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 export type SettaApiButtonRequestConfig = {

@@ -1243,6 +1243,8 @@ func TestCheckedInGeneratedBindingsMatchCurrentGenerationPipeline(t *testing.T) 
 		"frontend",
 		"exec",
 		"prettier",
+		"--config",
+		filepath.Join(repoRoot, "frontend", ".prettierrc"),
 		pipelineOutputPaths[0].generatedPath,
 		pipelineOutputPaths[1].generatedPath,
 		pipelineOutputPaths[2].generatedPath,
@@ -1376,7 +1378,7 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 		"getBinary": {},
 		"post":      {},
 	}
-	importPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`)
+	importPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./requestTransport|utils/requestTransport)["']`)
 
 	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -1422,20 +1424,20 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 					}
 					if relativePath == "frontend/src/components/Section/Layouts/settaApiAction.ts" {
 						return fmt.Errorf(
-							"%s imports direct transport helper %q from endpointUtils, but the remaining intentional dynamic Setta API button boundary only permits %q",
+							"%s imports direct transport helper %q from requestTransport, but the remaining intentional dynamic Setta API button boundary only permits %q",
 							relativePath,
 							bindingName,
 							"post",
 						)
 					}
 					return fmt.Errorf(
-						"%s imports direct transport helper %q from endpointUtils outside the allowed generated endpoint surface for that file",
+						"%s imports direct transport helper %q from requestTransport outside the allowed generated endpoint surface for that file",
 						relativePath,
 						bindingName,
 					)
 				}
 				return fmt.Errorf(
-					"%s imports direct transport helper %q from endpointUtils outside the generated endpoint surface",
+					"%s imports direct transport helper %q from requestTransport outside the generated endpoint surface",
 					relativePath,
 					bindingName,
 				)
@@ -2447,6 +2449,7 @@ func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 	// Compile against the real frontend helper boundary the generated files import in production.
 	for _, repoPath := range []string{
 		"frontend/src/utils/endpointUtils.ts",
+		"frontend/src/utils/requestTransport.ts",
 		"frontend/src/utils/transportUrlCore.ts",
 		"frontend/src/utils/c_addresses.ts",
 		"frontend/src/utils/serverModeBoundaryPolicy.ts",
@@ -7420,22 +7423,27 @@ func renderAdditionalTypeRootManifest(typeRoots []reflect.Type) string {
 func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) string {
 	t.Helper()
 
-	trackedEndpointUtilsBindings := map[string]struct{}{
-		"buildBackendOriginURL":          {},
-		"buildBackendOriginWebsocketURL": {},
-		"buildBackendURL":                {},
-		"get":                            {},
-		"getBinary":                      {},
-		"post":                           {},
-		"replaceAddressParams":           {},
+	trackedBindingsByModule := map[string]map[string]struct{}{
+		"endpointUtils": {
+			"buildBackendOriginURL":          {},
+			"buildBackendOriginWebsocketURL": {},
+			"buildBackendURL":                {},
+			"replaceAddressParams":           {},
+		},
+		"requestTransport": {
+			"get":       {},
+			"getBinary": {},
+			"post":      {},
+		},
 	}
 
 	lines := make([]string, 0)
 	for _, record := range readFrontendBoundaryImportRecords(t, repoRoot) {
-		if record.Module != "endpointUtils" {
+		trackedBindings, ok := trackedBindingsByModule[record.Module]
+		if !ok {
 			continue
 		}
-		if _, tracked := trackedEndpointUtilsBindings[record.Binding]; !tracked {
+		if _, tracked := trackedBindings[record.Binding]; !tracked {
 			continue
 		}
 		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
@@ -7517,6 +7525,10 @@ func readFrontendBoundaryImportRecords(t *testing.T, repoRoot string) []frontend
 		{
 			module:  "endpointUtils",
 			pattern: regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`),
+		},
+		{
+			module:  "requestTransport",
+			pattern: regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./requestTransport|utils/requestTransport)["']`),
 		},
 		{
 			module:  "generatedRoutes",

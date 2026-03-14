@@ -78,6 +78,8 @@ func formatGeneratedBindingsForFrontend(t *testing.T, bindings GeneratedBindings
 		"frontend",
 		"exec",
 		"prettier",
+		"--config",
+		filepath.Join(testRepoRoot(t), "frontend", ".prettierrc"),
 		routesPath,
 		typesPath,
 		endpointsPath,
