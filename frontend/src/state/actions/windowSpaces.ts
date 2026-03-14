@@ -314,13 +314,12 @@ export function snapshotFloatingWindowsForWindowSpace(
         ? WindowSpaceSurfaceKindEnum.section
         : WindowSpaceSurfaceKindEnum.project_chat,
       sectionIdOrNull: instance.sectionIdOrNull,
-      mode: resolveProjectChatWindowMode(instance),
+      mode: instance.mode,
       title: instance.sectionIdOrNull ? null : instance.title,
       chatId: resolveWindowSpaceSnapshotChatId(instance),
       embeddedGitPaneVisible:
-        resolveProjectChatWindowMode(instance) ===
-          ChatWindowModeEnum.git_graph_mode &&
-        resolveProjectChatWindowSectionId(instance) === null
+        instance.mode === ChatWindowModeEnum.git_graph_mode &&
+        instance.sectionIdOrNull === null
           ? isProjectChatGitGraphEmbeddedPaneVisible(
               state.projectConfig.id,
               instanceId,
@@ -443,54 +442,20 @@ function normalizeWindowSpaceForPersistence(
   return snapshotFloatingWindowsForWindowSpace(state, viewport);
 }
 
-function normalizeNullableString(
-  value: string | null | undefined,
-): string | null {
-  return value ?? null;
-}
-
-function resolveProjectChatWindowSectionId(
-  instance: Pick<ProjectChatWindowInstance, "sectionIdOrNull">,
-): string | null {
-  return normalizeNullableString(instance.sectionIdOrNull);
-}
-
-function resolveProjectChatWindowChatId(
-  instance: Pick<ProjectChatWindowInstance, "chatId">,
-): string | null {
-  return normalizeNullableString(instance.chatId);
-}
-
-function resolveProjectChatWindowMode(
-  instance: Pick<ProjectChatWindowInstance, "mode">,
-): NonNullable<ProjectChatWindowInstance["mode"]> {
-  return instance.mode ?? ChatWindowModeEnum.project_ai_mode;
-}
-
-function resolveWindowSpaceWindowMode(
-  window: Pick<NonNullable<WindowSpaceState["windowsById"][string]>, "mode">,
-): NonNullable<NonNullable<WindowSpaceState["windowsById"][string]>["mode"]> {
-  return window.mode ?? ChatWindowModeEnum.project_ai_mode;
-}
-
 function resolveWindowSpaceSnapshotChatId(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (
-    resolveProjectChatWindowMode(instance) !==
-    ChatWindowModeEnum.project_ai_mode
-  ) {
+  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  return resolveProjectChatWindowChatId(instance);
+  return instance.chatId ?? null;
 }
 
 function resolveRestoredWorkspaceWindowChatId(
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
 ): string | null | undefined {
-  return resolveWindowSpaceWindowMode(window) ===
-    ChatWindowModeEnum.project_ai_mode
-    ? normalizeNullableString(window.chatId)
+  return window.mode === ChatWindowModeEnum.project_ai_mode
+    ? window.chatId
     : null;
 }
 
@@ -687,7 +652,7 @@ export function createProjectChatWindowingStateFromWindowSpace(
     instancesById[instanceId] = createProjectChatWindowInstance({
       instanceId,
       placement: ChatWindowPlacementEnum.floating,
-      mode: resolveWindowSpaceWindowMode(window),
+      mode: window.mode,
       sectionIdOrNull: window.sectionIdOrNull,
       title:
         window.surfaceKind === WindowSpaceSurfaceKindEnum.section
@@ -815,14 +780,13 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   const authoritativeSectionIds = new Set(
     Object.values(currentWindowing.instancesById)
       .map((instance) => {
-        const sectionId = resolveProjectChatWindowSectionId(instance);
         if (
           instance.placement === ChatWindowPlacementEnum.floating ||
-          sectionId === null
+          instance.sectionIdOrNull === null
         ) {
           return null;
         }
-        return sectionId;
+        return instance.sectionIdOrNull;
       })
       .filter((sectionId): sectionId is string => sectionId !== null),
   );
@@ -834,12 +798,10 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   const nextOrder: string[] = [];
   for (const instanceId of restoredFloatingWindowing.order) {
     const instance = restoredFloatingWindowing.instancesById[instanceId];
-    const sectionId = instance
-      ? resolveProjectChatWindowSectionId(instance)
-      : null;
     if (
       !instance ||
-      (sectionId !== null && authoritativeSectionIds.has(sectionId))
+      (instance.sectionIdOrNull !== null &&
+        authoritativeSectionIds.has(instance.sectionIdOrNull))
     ) {
       continue;
     }
@@ -849,10 +811,10 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   for (const [instanceId, instance] of Object.entries(
     restoredFloatingWindowing.instancesById,
   )) {
-    const sectionId = resolveProjectChatWindowSectionId(instance);
     if (
       instanceId in nextInstancesById ||
-      (sectionId !== null && authoritativeSectionIds.has(sectionId))
+      (instance.sectionIdOrNull !== null &&
+        authoritativeSectionIds.has(instance.sectionIdOrNull))
     ) {
       continue;
     }
@@ -868,22 +830,17 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
 function resolveFloatingWindowRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  if (sectionId !== null) {
-    return `section:${sectionId}`;
+  if (instance.sectionIdOrNull !== null) {
+    return `section:${instance.sectionIdOrNull}`;
   }
-  if (
-    resolveProjectChatWindowMode(instance) === ChatWindowModeEnum.git_graph_mode
-  ) {
+  if (instance.mode === ChatWindowModeEnum.git_graph_mode) {
     return "git-graph";
   }
-  const chatId = resolveProjectChatWindowChatId(instance);
   if (
-    resolveProjectChatWindowMode(instance) ===
-      ChatWindowModeEnum.project_ai_mode &&
-    chatId !== null
+    instance.mode === ChatWindowModeEnum.project_ai_mode &&
+    instance.chatId !== null
   ) {
-    return `project-chat:${chatId}`;
+    return `project-chat:${instance.chatId}`;
   }
   return null;
 }
@@ -891,19 +848,14 @@ function resolveFloatingWindowRestoreOwnerKey(
 function resolveBoundWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (
-    resolveProjectChatWindowMode(instance) !==
-    ChatWindowModeEnum.project_ai_mode
-  ) {
+  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  const sectionId = resolveProjectChatWindowSectionId(instance);
-  if (sectionId !== null) {
-    return `section:${sectionId}`;
+  if (instance.sectionIdOrNull !== null) {
+    return `section:${instance.sectionIdOrNull}`;
   }
-  const chatId = resolveProjectChatWindowChatId(instance);
-  if (chatId !== null) {
-    return `project-chat:${chatId}`;
+  if (instance.chatId !== null) {
+    return `project-chat:${instance.chatId}`;
   }
   return null;
 }
@@ -1043,14 +995,10 @@ function getBlockedWindowSpaceRestoreMessage(
 function resolveProjectChatThreadBindingChatId(
   instance: ProjectChatWindowInstance | undefined,
 ): string | null {
-  if (
-    !instance ||
-    resolveProjectChatWindowMode(instance) !==
-      ChatWindowModeEnum.project_ai_mode
-  ) {
+  if (!instance || instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  return resolveProjectChatWindowChatId(instance);
+  return instance.chatId ?? null;
 }
 
 function buildWorkspaceRestoreLayoutState(
@@ -1066,10 +1014,7 @@ function buildWorkspaceRestoreLayoutState(
   for (const [instanceId, instance] of Object.entries(
     restoredWindowing.instancesById,
   )) {
-    if (
-      resolveProjectChatWindowMode(instance) !==
-      ChatWindowModeEnum.project_ai_mode
-    ) {
+    if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
       layoutInstancesById[instanceId] =
         instance.chatId === null ? instance : { ...instance, chatId: null };
       continue;
@@ -1115,9 +1060,7 @@ function isRestoredProjectChatThreadBindingTarget(
   threadBinding: RestoredProjectChatThreadBinding,
 ): boolean {
   return (
-    !!instance &&
-    resolveProjectChatWindowMode(instance) ===
-      ChatWindowModeEnum.project_ai_mode &&
+    instance?.mode === ChatWindowModeEnum.project_ai_mode &&
     (instance.sectionIdOrNull ?? null) === threadBinding.sectionIdOrNull
   );
 }
