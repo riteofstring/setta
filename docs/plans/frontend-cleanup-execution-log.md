@@ -91,3 +91,39 @@ module map and placement guide while this cleanup progresses.
     retry, and authoritative-update behavior into a dedicated module beside
     `agentRunUtils.ts`, leaving `ai.ts` focused on chat hydration, submission,
     streaming, and stop/resume paths.
+
+## 2026-03-14 14:36:45 PDT
+
+- Slice completed: extracted agent-run load/retry/reconciliation behavior out
+  of `frontend/src/state/actions/ai.ts`
+- Key files touched:
+  - `frontend/src/state/actions/aiAgentRuns.ts`
+  - `frontend/src/state/actions/aiAgentRuns.test.ts`
+  - `frontend/src/state/actions/ai.ts`
+  - `frontend/src/state/actions/aiResourceLoadGuards.test.ts`
+  - `frontend/src/state/actions/stateMachineRuns.ts`
+  - `frontend/src/state/actions/stateMachineRuns.test.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/state/hooks/useChatBranchIndex.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiAgentRuns.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/state/actions/stateMachineRuns.test.ts src/state/actions/websocketReceive.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts src/components/Section/Layouts/ChatArea.test.tsx src/components/Panes/Overview/ProjectOverview/projectOverviewPolling.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiAgentRuns.ts src/state/actions/aiAgentRuns.test.ts src/state/actions/ai.ts src/state/actions/stateMachineRuns.ts src/state/actions/stateMachineRuns.test.ts src/state/actions/websocketReceive.ts src/state/actions/aiResourceLoadGuards.test.ts src/state/hooks/useChatBranchIndex.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx src/components/Section/Layouts/ChatArea.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `c0dc8c6f6f1e`
+- Next highest-value unblocked slice:
+  - Keep shrinking `frontend/src/state/actions/ai.ts` by moving chat hydration
+    fetch/reconciliation paths into a dedicated module beside the existing
+    `ProjectLevelAI` hydration helpers, leaving `ai.ts` focused on submission,
+    streaming, and stop/resume behavior.
