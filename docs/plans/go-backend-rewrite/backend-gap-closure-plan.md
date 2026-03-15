@@ -47,12 +47,8 @@ categorize them.
 
 - Expand the differential manifest beyond the current bootstrap / websocket /
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
-  required-view-mode-repair slice
-- Dedicated `/settings` compatibility / integrity parity after the new
-  required-tab repair closes the load/writeback gap:
-  `settings_project.compatibility.ensure_settings_code_objs_backfills_new_fields_within_existing_sections`
-  and
-  `settings_project.integrity.dedicated_load_path_missing_required_sections_fail_closed`
+  required-view-mode-repair / missing-required-section / code-obj-backfill
+  slice
 - Broaden `/settings` repair proof beyond the required-tab restart slice:
   `settings_project.view_modes.reset_preserves_active_tab_name_else_falls_back_and_reprojects_active_layout`,
   `settings_project.view_modes.valid_settings_project_is_noop`, and
