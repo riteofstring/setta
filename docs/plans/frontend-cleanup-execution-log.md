@@ -5754,3 +5754,44 @@ schedule settings` button still appears on the live task row.
   - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the
     largest unresolved front-door hotspot in the README and cleanup plan after
     `frontend/src/plugins/runtime.ts` delegated its local project-state bridge.
+
+## 2026-03-15 21:11:59 PDT
+
+- Slice completed: extracted ChatInput composer meta controls
+- This was higher value than jumping straight back to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  because `frontend/src/components/Chat/ChatInput.tsx` was still the top
+  unresolved front-door hotspot in the README at turn start, and the composer
+  footer/meta row was the largest mixed UI responsibility still living inside
+  that entry surface.
+- Key files touched:
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Chat/ChatInputMetaControls.tsx`
+  - `frontend/src/components/Chat/ChatInputMetaControls.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/ChatInputMetaControls.test.tsx src/components/Chat/ChatInput.test.tsx src/components/Chat/ChatInput.submit.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts --grep "project chat shows starter controls with visible slash menu and full execution footer|managed chat section shows estimated context badge from hydrated usage and toggles display mode|managed chat section shows non-estimated context percentages for large windows|managed chat section shows context unavailable badge when usage payload is missing|managed chat section shows context unavailable badge when usage payload is partial"`
+  - `pnpm -C frontend exec vite build`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatInput.tsx src/components/Chat/ChatInputMetaControls.tsx src/components/Chat/ChatInputMetaControls.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this was a behavior-preserving local owner
+    extraction without a meaningful render-path or DOM-shape change worth
+    profiling independently.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`
+    after seeding `ProjectAIChat` into the live overview state.
+  - Verified the extracted footer still rendered the `Thinking` toggle and
+    `minimal permissions` trigger beside the empty-chat composer, confirmed the
+    permissions menu still opened with `minimal`, `yolo`, and
+    `config.toml custom`, and confirmed the `Thinking` toggle still updated its
+    pressed state on click.
+- Commit hash:
+  - `c2eafeeab3104696d4965a0ddb2d07e8b32deaae`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+    which is now the top unresolved front-door hotspot in the README and
+    cleanup plan after `ChatInput.tsx` delegated its local composer
+    meta-controls owner.
