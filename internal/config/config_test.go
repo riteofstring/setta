@@ -305,6 +305,88 @@ func TestLoadIgnoresProfileLookupHomeWithoutSelectedProfile(t *testing.T) {
 	}
 }
 
+func TestLoadProfileRejectsUnknownProfile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	settaHome := filepath.Join(tmpDir, ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	_, err := loadProfile(settaHome, "missing")
+	if err == nil {
+		t.Fatal("expected unknown profile error")
+	}
+	if got := err.Error(); !strings.Contains(got, `unknown setta profile "missing"`) {
+		t.Fatalf("expected unknown profile error, got %q", got)
+	}
+}
+
+func TestLoadProfileRejectsConflictingSettaFilesFields(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	settaHome := filepath.Join(tmpDir, ".setta")
+	if err := os.MkdirAll(filepath.Join(settaHome, "profiles"), 0o755); err != nil {
+		t.Fatalf("mkdir profiles: %v", err)
+	}
+
+	writeJSONFile(t, filepath.Join(settaHome, "profiles", "dev.json"), map[string]any{
+		"name":               "dev",
+		"settaFilesRoot":     filepath.Join(tmpDir, "state_dev"),
+		"settaFilesLocation": "global",
+	})
+
+	_, err := loadProfile(settaHome, "dev")
+	if err == nil {
+		t.Fatal("expected conflicting setta files fields error")
+	}
+	if got := err.Error(); !strings.Contains(got, "settaFilesRoot") || !strings.Contains(got, "settaFilesLocation") {
+		t.Fatalf("expected conflicting setta files fields error, got %q", got)
+	}
+}
+
+func TestLoadProfileRejectsInvalidNameInPayload(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	settaHome := filepath.Join(tmpDir, ".setta")
+	if err := os.MkdirAll(filepath.Join(settaHome, "profiles"), 0o755); err != nil {
+		t.Fatalf("mkdir profiles: %v", err)
+	}
+
+	writeJSONFile(t, filepath.Join(settaHome, "profiles", "dev.json"), map[string]any{
+		"name": "different",
+	})
+
+	_, err := loadProfile(settaHome, "dev")
+	if err == nil {
+		t.Fatal("expected profile name mismatch error")
+	}
+	if got := err.Error(); !strings.Contains(got, `profile name mismatch: expected "dev", got "different"`) {
+		t.Fatalf("expected profile name mismatch error, got %q", got)
+	}
+}
+
+func TestLoadProfileRejectsInvalidProfileName(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	settaHome := filepath.Join(tmpDir, ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	_, err := loadProfile(settaHome, "../dev")
+	if err == nil {
+		t.Fatal("expected invalid profile name error")
+	}
+	if got := err.Error(); !strings.Contains(got, `invalid profile name "../dev"`) {
+		t.Fatalf("expected invalid profile name error, got %q", got)
+	}
+}
+
 func TestResolveSettaHomeUsesTrimmedEnvOverride(t *testing.T) {
 	t.Parallel()
 
