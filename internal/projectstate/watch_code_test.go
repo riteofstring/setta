@@ -63,6 +63,86 @@ func TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetWatchCodeEnabledBaselinesBoundPythonCodeSections(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	boundFile := filepath.Join(workspaceRoot, "sections", "main.py")
+	if err := os.MkdirAll(filepath.Dir(boundFile), 0o755); err != nil {
+		t.Fatalf("mkdir bound file parent: %v", err)
+	}
+	if err := os.WriteFile(boundFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write bound file: %v", err)
+	}
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				Sections: map[string]Section{
+					"section-main": {
+						ID:               "section-main",
+						Name:             "Main",
+						VariantIDs:       []string{"variant-main"},
+						DefaultVariantID: "variant-main",
+					},
+				},
+				SectionVariants: map[string]SectionVariant{
+					"variant-main": {
+						ID:     "variant-main",
+						ImplID: "impl-main",
+					},
+				},
+				SectionVariantMap: map[string]string{
+					"section-main": "variant-main",
+				},
+				SectionImpls: map[string]SectionImpl{
+					"impl-main": {
+						ID:      "impl-main",
+						Kind:    SectionKindCode,
+						Payload: mustRawJSON(t, `{"id":"impl-main","type":"Code","codeLanguage":"python","children":[]}`),
+						Code: &CodeSectionImpl{
+							Language: CodeLanguagePython,
+							Binding:  &CodeFileBinding{Path: "sections/main.py"},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetWatchCodeEnabled(context.Background(), "project-alpha", true, workspaceRoot); err != nil {
+		t.Fatalf("enable watch code: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code enabled")
+	}
+	expectedBaselineKey := filepath.Clean(boundFile)
+	expectedIdentity := "sections.main.existing:function"
+	if !reflect.DeepEqual(project.WatchCodeBaselineByPath[expectedBaselineKey], []string{expectedIdentity}) {
+		t.Fatalf("expected bound-code baseline for %q, got %#v", expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+	if len(project.WatchCodeRegistry) != 0 {
+		t.Fatalf("expected no retro-created watch code registry entries, got %#v", project.WatchCodeRegistry)
+	}
+	if len(project.Sections) != 1 {
+		t.Fatalf("expected no new callable sections from baseline, got %#v", project.Sections)
+	}
+}
+
 func TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled(t *testing.T) {
 	t.Parallel()
 
