@@ -155,7 +155,7 @@ It covers:
 - The deployment-listener manifest/runtime slice closes publish/defaulting
   behavior, but it adds one real runtime gap (`DL-02`).
 - The chat-section persistence / stale-chat-cleanup slice mostly closes with
-  proofs, but it adds two more caller-backed transport/policy gaps, one
+  proofs, but it now only adds one more caller-backed transport gap, one
   dormant direct-HTTP read boundary row, and one proof-gap row.
 - The project-chat-windowing / window-space slice adds no new concrete gap,
   but it does add two more proof-gap rows around layout-only thread-binding
@@ -222,12 +222,6 @@ It covers:
     request bodies fail FastAPI/Pydantic validation with `422`
   - current Go trims those enum-like values after decode and returns `400`
     chat-section mutation errors instead
-  - source non-IDE share/app sessions keep chat-section settings/state routes
-    mounted behind `allowLayoutChanges` and chat-thread binding writes behind
-    `allowLLM`
-  - current Go mounts that direct HTTP chat-section route family only in IDE
-    even though the current chat surfaces still persist state/settings and
-    managed-thread resets through share-aware callers
   - source-baseline plugin routes preserve manager-provided HTTP status and
     structured code/message payloads for runtime/rescan and mutation failures
   - current Go plugin route error mapping only preserves a fixed subset of
@@ -927,7 +921,7 @@ It covers:
 | `CS-01` | `setChatSectionSettings`, `setChatSectionState`, and `setChatSectionChatId` persist chat settings/state/thread binding through latest-state hydration, and clearing `chatId` persists an explicit `null` instead of silently dropping the field. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_chat_section_settings,set_chat_section_state,set_chat_section_chat_id}`; source routes: `backend/setta/routers/project_manager.py::{route_set_chat_section_settings,route_set_chat_section_state,route_set_chat_section_chat_id}`; source helper tests: `tests/types/test_helpers_lvl2.py::{test_set_chat_section_chat_id_updates_impl,test_set_chat_section_settings_updates_agent_profile}`. | Impl: `internal/projectstate/chat_sections.go::{SetChatSectionSettings,SetChatSectionState,SetChatSectionChatID}`; proof: `internal/projectstate/chat_sections_test.go::TestRuntimeChatSectionMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_chat_routes_test.go::TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs`. | `Proved` | Current Go route proof also covers frontend-op completion tracking for the state write. |
 | `CS-02` | Invalid chat-section `permissionMode` / `dictationMode` request payloads should fail source FastAPI/Pydantic enum validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded enum values before validation. | Source request model: `backend/setta/project_state/project_manager_types.py::SetChatSectionSettingsRequest`; source route: `backend/setta/routers/project_manager.py::route_set_chat_section_settings`. | Current Go normalizes post-decode in `internal/projectstate/chat_sections.go::{normalizeChatPermissionMode,normalizeChatDictationMode}` and maps failures through `internal/httpapi/project_routes.go::writeChatSectionMutationError`; proof of current transport: `internal/httpapi/project_chat_routes_test.go::TestRegisterProjectRoutesChatSectionMutationsRejectInvalidSectionAndSettings`. | `Missing` | This is a transport-contract gap: current Go trims the enum-like values and returns `400`, while the source typed request body would reject the same payload at framework validation time with `422`. |
 | `CS-03` | `getChatSectionChatId` returns existing managed/external chat ids and clears stale missing ids instead of leaving broken chat-thread bindings in project state. | Source route: `backend/setta/routers/project_manager.py::route_get_chat_section_chat_id`; source tests: `tests/project_state/test_chat_section_chat_id.py::{test_get_chat_section_chat_id_returns_existing,test_get_chat_section_chat_id_returns_external_run,test_get_chat_section_chat_id_clears_missing}`. | Impl: `internal/chatsections/service.go::GetChatID`; proof: `internal/chatsections/service_test.go::{TestServiceGetChatIDReturnsExistingManagedAndExternalChats,TestServiceGetChatIDClearsMissingChat}`; route proof: `internal/httpapi/project_chat_routes_test.go::TestRegisterProjectRoutesGetChatSectionChatIDReturnsExistingAndClearsMissing`. | `Proved` | Current Go also treats retained scriptable-chat runs as valid chat ids, which is compatible with the retained listener/chat-toolkit boundary already covered elsewhere. |
-| `CS-04` | In share/app sessions, `setChatSectionSettings` and `setChatSectionState` stay mounted behind `allowLayoutChanges`, while `setChatSectionChatId` stays mounted behind `allowLLM`, instead of the whole direct HTTP chat-section write surface disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_chat_section_settings,route_set_chat_section_state,route_set_chat_section_chat_id}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_section_chat_thread_binding_blocked_when_llm_is_disallowed`. | Current Go mounts all three write routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues these writes from share-aware surfaces via `frontend/src/components/Section/Layouts/ChatArea.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`, and `frontend/src/components/Chat/sharePolicyChatAccess.ts`. | `Missing` | This is an active parity gap: current Go removes the direct HTTP chat-section write transport outside IDE even though the current chat surfaces still persist section state/settings and managed-thread resets in non-IDE mode. |
+| `CS-04` | In share/app sessions, `setChatSectionSettings` and `setChatSectionState` stay mounted behind `allowLayoutChanges`, while `setChatSectionChatId` stays mounted behind `allowLLM`, instead of the whole direct HTTP chat-section write surface disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_chat_section_settings,route_set_chat_section_state,route_set_chat_section_chat_id}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_section_chat_thread_binding_blocked_when_llm_is_disallowed`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,setChatSectionSettingsHandler,setChatSectionStateHandler,setChatSectionChatIDHandler}`; proof: `internal/httpapi/project_chat_routes_test.go::{TestRegisterProjectRoutesChatSectionMutationsUseDeploymentOverlayWhenPolicyAllows,TestRegisterProjectRoutesChatSectionMutationsRejectDeploymentPolicyWhenDisallowed}`. | `Proved` | Current Go now keeps the direct chat-section write routes mounted in deployment sessions, applies allowed writes to the request-scoped overlay, and returns typed `403 layout_changes_forbidden` or `403 llm_access_forbidden` responses when the corresponding deployment policy blocks the mutation. |
 | `CS-05` | Direct HTTP `getChatSectionChatId` remains mounted outside IDE and is not share-policy-gated, rather than disappearing with IDE-only route registration. | Source route: `backend/setta/routers/project_manager.py::route_get_chat_section_chat_id`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; retained listener/chat-toolkit routing for chat-id reads is covered separately by `LC-01`, and the current non-test frontend directly reads hydrated `chatId` state instead of calling this HTTP route. | `Dormant / unproven caller` | This row is scoped to the direct HTTP route family, not the retained listener endpoint transport. |
 | `CS-06` | Changing chat-section settings to make a linked chat target non-executable preserves existing `chat_chat` edges instead of deleting them eagerly during the settings write. | Source test: `tests/project_state/test_project_chat_windowing_persistence.py::test_set_chat_section_settings_preserves_linked_chat_edges_when_target_becomes_non_executable_for_real_manager`; source helper: `backend/setta/types/helpers_lvl2.py::set_chat_section_settings`. | Current Go settings writes only update chat-section payload fields in `internal/projectstate/chat_sections.go::SetChatSectionSettings`, leaving `projectConfig.agenticEdges` untouched; current linked-agent surfaces still read those edges in `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` and `frontend/src/components/Section/Layouts/ChatArea.tsx`. | `Implemented, proof incomplete` | This slice does not yet cite a dedicated Go regression test or a later runtime-admission proof for the non-executable linked-target case. |
 
@@ -1149,12 +1143,12 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains thirteen concrete source-parity gaps:
+1. The matrix now contains twelve concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `CH-03`, `BR-02`, `SD-05`,
-   `CS-02`, `CS-04`, `CB-03`, and `DL-02`.
+   `CS-02`, `CB-03`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
@@ -1239,9 +1233,9 @@ It covers:
     now only adds one real transport/runtime gap (`SD-05`) plus three
     dormant route-boundary rows (`SD-07`, `SD-08`, `SD-09`).
 32. The chat-section persistence / stale-chat-cleanup slice mostly closes
-    with proofs, but it adds two real transport/policy gaps (`CS-02`,
-    `CS-04`), one dormant direct-HTTP read boundary row (`CS-05`), and one
-    broader proof-gap row (`CS-06`).
+    with proofs, but it now only adds one real transport gap (`CS-02`), one
+    dormant direct-HTTP read boundary row (`CS-05`), and one broader
+    proof-gap row (`CS-06`).
 33. The project-chat-windowing / window-space slice adds no new real
     behavior gap, but it does add two broader proof-gap rows (`CW-02`,
     `CW-06`).
@@ -1298,7 +1292,7 @@ It covers:
       `WS-01`,
       `DP-08`,
       `TB-03`, `CH-03`, `BR-02`,
-      `SD-05`, `CS-02`, `CS-04`, `CB-03`,
+      `SD-05`, `CS-02`, `CB-03`,
       `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as

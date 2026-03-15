@@ -15,6 +15,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
+	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
 
@@ -197,6 +198,249 @@ func TestRegisterProjectRoutesChatSectionMutationsRejectInvalidSectionAndSetting
 	}
 	if invalidSettingsPayload.Error.Code != "chat_permission_mode_invalid" {
 		t.Fatalf("expected chat_permission_mode_invalid code, got %#v", invalidSettingsPayload)
+	}
+}
+
+func TestRegisterProjectRoutesChatSectionMutationsUseDeploymentOverlayWhenPolicyAllows(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("settings_and_state_use_layout_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": chatSectionRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": true,
+						"allowLLM":           false,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				for _, requestSpec := range []struct {
+					route string
+					body  string
+				}{
+					{
+						route: RouteSetChatSectionSettings,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":true,"engineConfigId":"engine-config-1","transcriptionProfileId":"transcription-profile-1","agentProfileId":"agent-profile-1","thinking":true,"permissionMode":"minimal","searchEnabled":true,"dictationMode":"browser"}`,
+					},
+					{
+						route: RouteSetChatSectionState,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","frontendOpId":"chat-op-1","state":{"messages":[{"id":"message-1","type":"user","content":"hello"}],"inputText":"Draft input","waitingForResponse":true,"toolCallArguments":{"tool-call-1":"{\"query\":\"hello\"}"},"activeBranchId":"branch-1","branches":{"branch-1":{"messages":[{"id":"message-1","type":"user"}],"createdAt":42,"parentBranchId":"root-branch","branchFromMessageId":"message-1"}}}}`,
+					},
+				} {
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusOK {
+						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayChat := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["chat-section"].SharedModifier)
+				if got := overlayChat["managed"]; got != true {
+					t.Fatalf("expected overlay managed=true, got %#v", got)
+				}
+				if got := overlayChat["permissionMode"]; got != "minimal" {
+					t.Fatalf("expected overlay permissionMode minimal, got %#v", got)
+				}
+				if got := overlayChat["dictationMode"]; got != "browser" {
+					t.Fatalf("expected overlay dictationMode browser, got %#v", got)
+				}
+				if got := overlayChat["inputText"]; got != "Draft input" {
+					t.Fatalf("expected overlay inputText Draft input, got %#v", got)
+				}
+
+				baseChat := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["chat-section"].SharedModifier)
+				if len(baseChat) != 0 {
+					t.Fatalf("expected base chat shared modifier unchanged, got %#v", baseChat)
+				}
+			})
+
+			t.Run("chat_id_uses_llm_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": chatSectionRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": false,
+						"allowLLM":           true,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RouteSetChatSectionChatID,
+					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"chat-1"}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionChatID, response.Code, response.Body.String())
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayChat := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["chat-section"].SharedModifier)
+				if got := overlayChat["chatId"]; got != "chat-1" {
+					t.Fatalf("expected overlay chatId chat-1, got %#v", got)
+				}
+
+				baseChat := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["chat-section"].SharedModifier)
+				if len(baseChat) != 0 {
+					t.Fatalf("expected base chat shared modifier unchanged, got %#v", baseChat)
+				}
+			})
+		})
+	}
+}
+
+func TestRegisterProjectRoutesChatSectionMutationsRejectDeploymentPolicyWhenDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("settings_and_state_reject_layout_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": chatSectionRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": false,
+						"allowLLM":           true,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay before rejected chat mutations: %v", err)
+				}
+				before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["chat-section"]
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				for _, requestSpec := range []struct {
+					route string
+					body  string
+				}{
+					{
+						route: RouteSetChatSectionSettings,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":true,"engineConfigId":"engine-config-1","transcriptionProfileId":"transcription-profile-1","agentProfileId":"agent-profile-1","thinking":true,"permissionMode":"minimal","searchEnabled":true,"dictationMode":"browser"}`,
+					},
+					{
+						route: RouteSetChatSectionState,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","frontendOpId":"chat-op-1","state":{"messages":[{"id":"message-1","type":"user","content":"hello"}],"inputText":"Draft input","waitingForResponse":true,"toolCallArguments":{"tool-call-1":"{\"query\":\"hello\"}"},"activeBranchId":"branch-1","branches":{"branch-1":{"messages":[{"id":"message-1","type":"user"}],"createdAt":42,"parentBranchId":"root-branch","branchFromMessageId":"message-1"}}}}`,
+					},
+				} {
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+						t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+						t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+					}
+				}
+
+				after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["chat-section"]
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("expected rejected chat settings/state mutations to leave overlay unchanged, got %#v", after)
+				}
+			})
+
+			t.Run("chat_id_rejects_llm_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": chatSectionRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": true,
+						"allowLLM":           false,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay before rejected chat id mutation: %v", err)
+				}
+				before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["chat-section"]
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RouteSetChatSectionChatID,
+					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"chat-1"}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("expected 403 for %s, got %d with body %q", RouteSetChatSectionChatID, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"llm_access_forbidden"`) {
+					t.Fatalf("expected llm_access_forbidden body, got %q", response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment policy disallows LLM access.") {
+					t.Fatalf("expected deployment LLM policy denial, got %q", response.Body.String())
+				}
+
+				after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["chat-section"]
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("expected rejected chat id mutation to leave overlay unchanged, got %#v", after)
+				}
+			})
+		})
 	}
 }
 

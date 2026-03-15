@@ -1588,6 +1588,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteSetSpreadsheetFilePath, setSpreadsheetFilePathHandler(deps))
 		router.With(shareGuard).Post(RouteSetSpreadsheetSectionSettings, setSpreadsheetSectionSettingsHandler(deps))
 		router.With(shareGuard).Post(RouteSetTaskBoardSectionState, setTaskBoardSectionStateHandler(deps))
+		router.With(shareGuard).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
+		router.With(shareGuard).Post(RouteSetChatSectionState, setChatSectionStateHandler(deps))
+		router.With(shareGuard).Post(RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
 		router.With(shareGuard).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
@@ -5892,6 +5895,9 @@ func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
 		runtime, err := projectRuntimeForRequest(deps, r)
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -5986,12 +5992,17 @@ func setChatSectionStateHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetChatSectionState(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.State); err != nil {
+		if _, err := runtime.SetChatSectionState(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.State); err != nil {
 			writeChatSectionMutationError(w, r, err)
 			return
 		}
@@ -6049,12 +6060,17 @@ func setChatSectionChatIDHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLLMMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetChatSectionChatID(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.ChatID); err != nil {
+		if _, err := runtime.SetChatSectionChatID(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.ChatID); err != nil {
 			writeChatSectionMutationError(w, r, err)
 			return
 		}
