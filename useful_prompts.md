@@ -69,50 +69,15 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-In this branch we are rewriting the backend in Go. The backend/runtime rewrite is complete for the active scope, and the current phase is deleting unused Python safely. Start by reading `docs/plans/go-backend-rewrite/CURRENT.md`.
+In this branch the Go rewrite is broad but not behaviorally closed. Start with `docs/plans/go-backend-rewrite/backend-behavior-parity-matrix.md` and treat it as the source of truth for remaining rewrite debt.
 
-Treat `CURRENT.md` as the router and read only the docs the task needs:
-- `caller-backed-backend-surface-checklist.md` for active caller reachability
-- `backend-capability-coverage-checklist.md` for runtime/service ownership
-- `unused-python-deletion-plan.md` when deleting superseded Python implementation or tests
-- `go-backend-rewrite-plan.md` for clean-break defaults and port-vs-redesign decisions
-- `testing-strategy.md` when code, behavior, or verification changes
-- `go-dependency-inventory-and-rationale.md` plus `docs/reference/dependencies/` when dependency, provider, transport, or library choices matter
-- `setta-listener-protocol-redesign-plan.md` or `go-frontend-binding-generation-plan.md` only when the task crosses those boundaries
+Work from rows marked `Missing` or `Implemented, proof incomplete`. Pick one small coherent slice of active, caller-backed gaps and close it end-to-end:
+- read the cited source-baseline evidence plus the current Go code/tests and current frontend callers
+- implement the missing behavior or, if the product should differ now, document it as an intentional divergence with proof
+- add or update the relevant Go, Python, frontend, Playwright, or doc tests
+- update the parity matrix and any touched source-of-truth docs in the same change
 
-Use `docs/plans/go-backend-rewrite/README.md` only as the folder map.
-Use `docs/plans/go-backend-rewrite/*-audit-plan.md` only when editing the matching checklist.
-Treat `docs/plans/go-backend-rewrite/archive/` as secondary reference only.
-
-Working rules:
-- This is a clean break. The backend/runtime rewrite target is already met for the active scope. Do not retain superseded Python by default; delete dead Python only in bounded evidence-gated batches.
-- During this cleanup phase, prefer the largest safe evidence-backed deletion batch over micro-cleanups. Do not inline or locally simplify dead Python first unless that is required to sever a retained boundary or unlock a larger bounded deletion.
-- Retained Python boundaries are explicit: packaging/install entrypoints, public Python APIs such as `SettaListener` and `SettaRunner`, share listener entrypoints, and sidecars or external runtimes intentionally executed by Go.
-- If docs disagree with current code/tests, trust the code/tests and update the docs.
-- Preserve active product behavior and current callers, not Python implementation details or route shapes.
-- Read Go code/tests first. Read Python only as behavior reference or when touching a retained Python boundary.
-- Prefer explicit ownership, typed boundaries, thin transports, deterministic source-of-truth paths, and established libraries over heuristics or transitional glue.
-- Do not widen scope unless a concrete caller, workflow, runtime issue, or documented product decision requires it.
-- Track caller reachability and ownership in `caller-backed-backend-surface-checklist.md` and `backend-capability-coverage-checklist.md`. Use `unused-python-deletion-plan.md` for cleanup sequencing, batch selection, and deletion proof.
-
-Execution expectations:
-1. Inspect the current Go code, tests, and active transport/runtime path first.
-2. Map the task to the relevant caller-backed surface, ownership bucket, any retained Python/shared boundary, and whether `unused-python-deletion-plan.md` applies.
-3. In your first substantive update, summarize the relevant checklist rows or slice doc, the active code path, the boundary implications, the largest safe deletion batch if cleanup is in scope, and the single highest-leverage next step.
-4. Execute that step end-to-end unless the task is planning or inventory work.
-5. Update the relevant source-of-truth docs in the same change when caller reachability, ownership, deletion guidance, dependency decisions, or workflow guidance changed.
-
-While working:
-- Update `caller-backed-backend-surface-checklist.md` if active caller reachability changed.
-- Update `backend-capability-coverage-checklist.md` if runtime/service ownership changed.
-- If deleting Python implementation/tests, follow `unused-python-deletion-plan.md` and record replacement-owner or no-replacement justification before deleting.
-- Avoid local dead-code inlining inside Python files that belong to a still-viable deletion batch; defer granular cleanup until after the major safe batches are gone unless a small edit is required to unlock the batch.
-- Update `CURRENT.md` only when routing, retained Python boundaries, or workflow guidance changed.
-- Do not create a new numbered phase or spike doc unless a bounded new slice is actually required.
-- If the task touches Go-to-TypeScript frontend binding generation, keep the canonical generated outputs Go-owned. Prefer Go DTOs and converter rules over handwritten TypeScript or shadow outputs.
-- Run the most relevant tests for the touched area, or explicitly state why they were not run.
-- If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
-- Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
+Prioritize active product/runtime gaps over dormant legacy transports. Read Go code/tests first; read Python only as behavior reference or for retained Python boundaries. Preserve current callers and documented product behavior, not incidental Python implementation details. Do not ask me to restate rewrite context unless the local state is genuinely ambiguous. Run the most relevant tests, and in your final summary tell me which matrix rows moved and what remains for the chosen slice.
 
 Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
