@@ -815,3 +815,88 @@ Append-only log for the callable DOM-first performance refactor.
   - The checkpoint does not claim the callable performance work is finished, but it does show that the render-path narrowing is now removing measurable reorder churn instead of only simplifying structure.
 - Next action:
   - Continue Phase 3 by looking for the next trace-backed callable measurement or subscription seam, then rerun the same workspace filter/reorder path instead of falling back to the idle control baseline.
+
+### 2026-03-16 38
+
+- Item: Phase 3 checkpoint 4 narrowed `KwargsControls` into a single callable render-model selector boundary.
+- Status: `done`
+- Details:
+  - The next trace-backed seam came from the same workspace `math.sqrt` scene:
+    - earlier Phase 3 traces still showed `KwargsControls` and `ParamFilter` frames on the callable filter/reorder path even after `GetParamSwitch`, `ParamDndList`, and `GroupContainer` had been narrowed.
+  - Added `frontend/src/components/Section/SectionParts/getKwargsControlsRenderModel.ts` so the callable controls cluster now subscribes through one derived selector returning:
+    - `callableMissing`
+    - `isCallableSection`
+    - `styleColor`
+    - `selectedParams`
+    - `edgeInputParams`
+    - `pinnedParams`
+    - `paramFilterValue`
+    - `deletableSelectedParamIds`
+  - Updated `frontend/src/components/Section/SectionParts/KwargsControls.tsx` so it no longer keeps:
+    - a whole-section `paramsImpl` subscription
+    - a separate broad `codeObjs` / `codeObjVariants` / `codeObjImpls` / `sectionVariants` subscription
+    - a local `useMemo` seam for deletable selected params
+  - Updated `ParamFilter` inside `KwargsControls.tsx` to receive `paramFilterValue` as a prop instead of subscribing to the full section impl again.
+  - Added focused Vitest coverage in `frontend/src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts` for:
+    - filtering deletable selected args down to editable params only
+    - callable-missing detection when the callable target is absent
+  - Re-ran focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/SectionParts/getKwargsControlsRenderModel.test.ts`
+  - Result: `1 passed`, `2 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - Saved element screenshots for that parity gate:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase3-kwargs-controls-control.png`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-kwargs-controls-control.png`
+  - Re-ran the targeted workspace filter/reorder path on `http://127.0.0.1:3011/quick_black`:
+    - first trace pair:
+      - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-filter-after-kwargs-controls.trace.json`
+      - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-reorder-after-kwargs-controls.trace.json`
+    - settled rerun trace pair:
+      - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-filter-after-kwargs-controls-rerun.trace.json`
+      - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-reorder-after-kwargs-controls-rerun.trace.json`
+  - The first trace pair was noisy and picked up unrelated websocket work, so it was not used as the acceptance signal.
+  - Repeated same-scene DOM-settle reruns on the accepted code path were cleaner:
+    - filter apply:
+      - `69.0ms`
+      - `64.8ms`
+    - filter clear:
+      - `100.2ms`
+      - `83.2ms`
+    - reorder:
+      - `117.5ms`
+      - `81.0ms`
+  - Compared with the earlier targeted workspace baseline:
+    - pre-checkpoint filter apply / clear:
+      - `93.2ms`
+      - `114.9ms`
+    - pre-checkpoint reorder:
+      - `118.1ms`
+    - post-`GroupContainer` accepted reorder rerun:
+      - `107.9ms`
+  - Settled trace interpretation:
+    - the latest filter rerun no longer surfaced a `ForcedReflow` insight
+    - the latest reorder rerun stayed near the previous accepted reorder time at `108.8ms`
+    - the remaining reorder `ForcedReflow` insight was led by:
+      - `eq` in `chunk-MB4RGFJ3.js`
+      - `ProjectChatBottomDock.tsx`
+      and not by the callable controls cluster
+    - grep comparison on the settled rerun traces:
+      - `ParamFilter` matches dropped from `2` in the earlier worktree filter trace to `1` in the settled filter rerun
+      - `KwargsControls` and `ParamFilter` no longer appeared in the settled reorder rerun trace
+      - `scheduleMeasure` stayed at `3` in the reorder rerun, matching the post-`GroupContainer` floor
+- Interpretation:
+  - This is an accepted Phase 3 render-path checkpoint because it removes another shallow callable subscription seam and the follow-up traces no longer point at the callable controls cluster as the next dominant reorder hotspot.
+  - The strongest measurable win here is the filter path:
+    - repeated DOM-settle reruns improved versus the earlier workspace baseline
+  - The reorder path is effectively flat to slightly improved:
+    - the settled rerun stayed close to the earlier `107.9ms` result
+    - the best repeated rerun dropped below that value
+  - The remaining forced reflow signal is now outside `KwargsControls` and `ParamFilter`, which is the important architectural result for this phase.
+- Next action:
+  - Continue Phase 3 by following the next trace-backed callable hot path after `KwargsControls`, with attention on remaining non-callable page-chrome work only if it is still blocking callable interaction measurements.
