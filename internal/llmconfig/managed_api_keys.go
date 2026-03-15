@@ -21,6 +21,7 @@ const (
 	ManagedAPIKeysRevisionConflictErrorCode = "managed_api_keys_revision_conflict"
 	managedAPIKeyNamesEnvVar                = "SETTA_MANAGED_LLM_API_KEY_NAMES"
 	managedAPIKeysFileMode                  = 0o600
+	managedAPIKeysLocksDirName              = "file_locks"
 )
 
 type ManagedAPIKeysWriteStatus string
@@ -81,29 +82,19 @@ func ManagedAPIKeysPath(workspaceRoot string) string {
 	return filepath.Join(workspaceRoot, ".env")
 }
 
-func BuildManagedAPIKeysSnapshot(result ManagedAPIKeysReadResult, apiKeys map[string]string) ManagedAPIKeysSnapshot {
-	resolvedAPIKeys := cloneStringMap(apiKeys)
-	if resolvedAPIKeys == nil {
-		resolvedAPIKeys = cloneStringMap(result.APIKeys)
-	}
-	if resolvedAPIKeys == nil {
-		resolvedAPIKeys = map[string]string{}
-	}
-	return ManagedAPIKeysSnapshot{
-		APIKeys:   resolvedAPIKeys,
-		Revision:  result.Revision,
-		Corrupt:   result.Corrupt,
-		ErrorCode: optionalStringPointer(result.ErrorCode),
-		Message:   optionalStringPointer(result.Error),
-	}
-}
-
-func ReadManagedAPIKeysWithStatus(path string) ManagedAPIKeysReadResult {
+func ReadManagedAPIKeysWithStatusInLockRoot(path string, lockRoot string) ManagedAPIKeysReadResult {
 	resolvedPath, err := statefs.NormalizePath(path, "")
 	if err != nil {
 		return managedAPIKeysUnavailableResult(fmt.Errorf("env path: %w", err))
 	}
-	result, err := withManagedAPIKeysLock(resolvedPath, func() (ManagedAPIKeysReadResult, error) {
+	resolvedLockRoot := ""
+	if strings.TrimSpace(lockRoot) != "" {
+		resolvedLockRoot, err = statefs.NormalizePath(lockRoot, "")
+		if err != nil {
+			return managedAPIKeysUnavailableResult(fmt.Errorf("lock root: %w", err))
+		}
+	}
+	result, err := withManagedAPIKeysLock(resolvedPath, resolvedLockRoot, func() (ManagedAPIKeysReadResult, error) {
 		envVars, err := readDotEnvPayloadFromDisk(resolvedPath)
 		if err != nil {
 			return ManagedAPIKeysReadResult{}, err
@@ -127,14 +118,42 @@ func ReadManagedAPIKeysWithStatus(path string) ManagedAPIKeysReadResult {
 	return managedAPIKeysUnavailableResult(err)
 }
 
-func WriteManagedAPIKeysWithExpectedRevision(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string) ManagedAPIKeysWriteAttempt {
+func BuildManagedAPIKeysSnapshot(result ManagedAPIKeysReadResult, apiKeys map[string]string) ManagedAPIKeysSnapshot {
+	resolvedAPIKeys := cloneStringMap(apiKeys)
+	if resolvedAPIKeys == nil {
+		resolvedAPIKeys = cloneStringMap(result.APIKeys)
+	}
+	if resolvedAPIKeys == nil {
+		resolvedAPIKeys = map[string]string{}
+	}
+	return ManagedAPIKeysSnapshot{
+		APIKeys:   resolvedAPIKeys,
+		Revision:  result.Revision,
+		Corrupt:   result.Corrupt,
+		ErrorCode: optionalStringPointer(result.ErrorCode),
+		Message:   optionalStringPointer(result.Error),
+	}
+}
+
+func ReadManagedAPIKeysWithStatus(path string) ManagedAPIKeysReadResult {
+	return ReadManagedAPIKeysWithStatusInLockRoot(path, "")
+}
+
+func WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string, lockRoot string) ManagedAPIKeysWriteAttempt {
 	resolvedPath, err := statefs.NormalizePath(path, "")
 	if err != nil {
 		return managedAPIKeysUnavailableWriteAttempt(fmt.Errorf("env path: %w", err))
 	}
+	resolvedLockRoot := ""
+	if strings.TrimSpace(lockRoot) != "" {
+		resolvedLockRoot, err = statefs.NormalizePath(lockRoot, "")
+		if err != nil {
+			return managedAPIKeysUnavailableWriteAttempt(fmt.Errorf("lock root: %w", err))
+		}
+	}
 
 	normalized := normalizeManagedAPIKeyWritePayload(payload)
-	attempt, err := withManagedAPIKeysLock(resolvedPath, func() (ManagedAPIKeysWriteAttempt, error) {
+	attempt, err := withManagedAPIKeysLock(resolvedPath, resolvedLockRoot, func() (ManagedAPIKeysWriteAttempt, error) {
 		rawDotEnvPayload, err := readDotEnvRawPayloadFromDisk(resolvedPath)
 		if err != nil {
 			return ManagedAPIKeysWriteAttempt{}, err
@@ -202,6 +221,10 @@ func WriteManagedAPIKeysWithExpectedRevision(path string, payload map[string]str
 	return managedAPIKeysUnavailableWriteAttempt(err)
 }
 
+func WriteManagedAPIKeysWithExpectedRevision(path string, payload map[string]string, expectedRevision int, configuredProviderKeyNames []string) ManagedAPIKeysWriteAttempt {
+	return WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, payload, expectedRevision, configuredProviderKeyNames, "")
+}
+
 func ResolveEffectiveAPIKeys(configs AllConfigs, managedEnv map[string]string, processEnv map[string]string) map[string]string {
 	merged := map[string]string{}
 	for key, value := range FilterEnvVarsForConfig(processEnv, configs) {
@@ -217,9 +240,14 @@ func ResolveEffectiveAPIKeys(configs AllConfigs, managedEnv map[string]string, p
 	return merged
 }
 
-func withManagedAPIKeysLock[T any](path string, fn func() (T, error)) (T, error) {
+func withManagedAPIKeysLock[T any](path string, lockRoot string, fn func() (T, error)) (T, error) {
 	var zero T
-	lockPath := path + ".lock"
+	lockPath, err := managedAPIKeysLockPath(path, lockRoot)
+	if err != nil {
+		return zero, &managedAPIKeysStoreUnavailableError{
+			message: err.Error(),
+		}
+	}
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
 		return zero, &managedAPIKeysStoreUnavailableError{
 			message: fmt.Sprintf("Failed creating .env API key store lock directory: %v", err),
@@ -233,6 +261,19 @@ func withManagedAPIKeysLock[T any](path string, fn func() (T, error)) (T, error)
 	}
 	defer fileLock.Close()
 	return fn()
+}
+
+func managedAPIKeysLockPath(path string, lockRoot string) (string, error) {
+	if strings.TrimSpace(lockRoot) == "" {
+		return path + ".lock", nil
+	}
+	resolvedLockRoot, err := statefs.NormalizePath(lockRoot, "")
+	if err != nil {
+		return "", fmt.Errorf("resolve managed api keys lock root: %w", err)
+	}
+	digest := sha256.Sum256([]byte(path))
+	lockFileName := fmt.Sprintf("%s_%x.lock", filepath.Base(path), digest[:4])
+	return filepath.Join(resolvedLockRoot, managedAPIKeysLocksDirName, lockFileName), nil
 }
 
 func normalizeManagedAPIKeyWritePayload(payload map[string]string) map[string]string {

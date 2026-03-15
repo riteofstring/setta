@@ -1,6 +1,10 @@
 package llmconfig
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestServiceSaveManagedAPIKeysUpdatesRuntimeWithConfiguredKeysOnly(t *testing.T) {
 	t.Parallel()
@@ -150,5 +154,58 @@ func TestServiceSaveConfigMergesProcessEnvKeysIntoSnapshot(t *testing.T) {
 	}
 	if got := runtime.APIKeys()["ANTHROPIC_API_KEY"]; got != "process-secret" {
 		t.Fatalf("expected runtime to include process env key, got %#v", runtime.APIKeys())
+	}
+}
+
+func TestServiceManagedAPIKeysSnapshotUsesConfiguredLockRoot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(root, "setta_files_dev", "runtime")
+	runtime, err := NewRuntime(AllConfigs{
+		Configs: map[string]Config{
+			"openai-main": {
+				ID:        "openai-main",
+				Model:     "gpt-4o",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		ConfigPath:             Path(root),
+		ManagedAPIKeysPath:     ManagedAPIKeysPath(root),
+		ManagedAPIKeysLockRoot: runtimeRoot,
+		Runtime:                runtime,
+		ProcessEnv:             func() map[string]string { return map[string]string{} },
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, status := service.SaveManagedAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "saved-secret",
+	}, 0)
+	if status != ManagedAPIKeysWriteStatusSuccess {
+		t.Fatalf("save managed api keys status: %q", status)
+	}
+
+	snapshot := service.ManagedAPIKeysSnapshot()
+	if got := snapshot.APIKeys["OPENAI_API_KEY"]; got != "saved-secret" {
+		t.Fatalf("expected managed key in snapshot, got %#v", snapshot)
+	}
+	if _, err := os.Stat(ManagedAPIKeysPath(root) + ".lock"); !os.IsNotExist(err) {
+		t.Fatalf("expected no workspace .env.lock, got err=%v", err)
+	}
+	lockEntries, err := os.ReadDir(filepath.Join(runtimeRoot, managedAPIKeysLocksDirName))
+	if err != nil {
+		t.Fatalf("read runtime file lock dir: %v", err)
+	}
+	if len(lockEntries) == 0 {
+		t.Fatal("expected runtime file lock to be created")
 	}
 }

@@ -29,13 +29,15 @@ type Checker interface {
 }
 
 type SystemCheckerOptions struct {
-	WorkspaceRoot string
-	ProcessEnv    map[string]string
+	WorkspaceRoot          string
+	ManagedAPIKeysLockRoot string
+	ProcessEnv             map[string]string
 }
 
 type SystemChecker struct {
-	workspaceRoot string
-	processEnv    map[string]string
+	workspaceRoot          string
+	managedAPIKeysLockRoot string
+	processEnv             map[string]string
 }
 
 func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
@@ -48,8 +50,9 @@ func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
 		processEnv = llmconfig.CurrentProcessEnv()
 	}
 	return &SystemChecker{
-		workspaceRoot: workspaceRoot,
-		processEnv:    processEnv,
+		workspaceRoot:          workspaceRoot,
+		managedAPIKeysLockRoot: strings.TrimSpace(options.ManagedAPIKeysLockRoot),
+		processEnv:             processEnv,
 	}, nil
 }
 
@@ -74,7 +77,7 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 	if !supported {
 		addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)
 	}
-	envVars := ResolveWhitelistedEnvVars(c.workspaceRoot, c.processEnv, effectiveEnvVarWhitelist)
+	envVars := ResolveWhitelistedEnvVars(c.workspaceRoot, c.managedAPIKeysLockRoot, c.processEnv, effectiveEnvVarWhitelist)
 	managedStoreIssueBlocks := len(envVars.Status.Missing) > 0
 	if envVars.CorruptionIssue != "" {
 		addIssue(envVars.CorruptionIssue, managedStoreIssueBlocks)

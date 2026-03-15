@@ -40,6 +40,7 @@ type OpenCodeExecutorOptions struct {
 	Runtime        *Runtime
 	WorkspaceRoot  string
 	SettaFilesRoot string
+	RuntimeRoot    string
 	ProcessEnv     map[string]string
 	SidecarPath    string
 	TimeNow        func() time.Time
@@ -50,6 +51,7 @@ type OpenCodeExecutor struct {
 	runtime        *Runtime
 	workspaceRoot  string
 	settaFilesRoot string
+	runtimeRoot    string
 	processEnv     map[string]string
 	sidecarPath    string
 	timeNow        func() time.Time
@@ -85,6 +87,7 @@ func NewOpenCodeExecutor(options OpenCodeExecutorOptions) (*OpenCodeExecutor, er
 		runtime:        options.Runtime,
 		workspaceRoot:  workspaceRoot,
 		settaFilesRoot: settaFilesRoot,
+		runtimeRoot:    strings.TrimSpace(options.RuntimeRoot),
 		processEnv:     cloneStringAnyMapToStringMap(options.ProcessEnv),
 		sidecarPath:    sidecarPath,
 		timeNow:        timeNow,
@@ -475,7 +478,7 @@ func (e *OpenCodeExecutor) buildRuntimeEnv(config externalagentconfigs.Config) m
 			envMap[key] = e.processEnv[key]
 		}
 	}
-	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
+	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.runtimeRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
 		envMap[key] = value
 	}
 	return envMap

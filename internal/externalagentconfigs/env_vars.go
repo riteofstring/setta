@@ -23,7 +23,7 @@ type EnvVarResolution struct {
 	UnavailableIssue string
 }
 
-func ResolveWhitelistedEnvVars(workspaceRoot string, processEnv map[string]string, whitelist []string) EnvVarResolution {
+func ResolveWhitelistedEnvVars(workspaceRoot string, managedAPIKeysLockRoot string, processEnv map[string]string, whitelist []string) EnvVarResolution {
 	normalized := normalizeStringList(whitelist)
 	resolution := EnvVarResolution{
 		EnvVars: map[string]string{},
@@ -36,7 +36,10 @@ func ResolveWhitelistedEnvVars(workspaceRoot string, processEnv map[string]strin
 		return resolution
 	}
 
-	managedAPIKeysResult := llmconfig.ReadManagedAPIKeysWithStatus(llmconfig.ManagedAPIKeysPath(workspaceRoot))
+	managedAPIKeysResult := llmconfig.ReadManagedAPIKeysWithStatusInLockRoot(
+		llmconfig.ManagedAPIKeysPath(workspaceRoot),
+		managedAPIKeysLockRoot,
+	)
 	for _, name := range normalized {
 		processValue := processEnv[name]
 		if strings.TrimSpace(processValue) != "" {

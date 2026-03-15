@@ -95,6 +95,7 @@ type CodexExecutorOptions struct {
 	Runtime        *Runtime
 	WorkspaceRoot  string
 	SettaFilesRoot string
+	RuntimeRoot    string
 	ProcessEnv     map[string]string
 	TimeNow        func() time.Time
 }
@@ -104,6 +105,7 @@ type CodexExecutor struct {
 	runtime        *Runtime
 	workspaceRoot  string
 	settaFilesRoot string
+	runtimeRoot    string
 	processEnv     map[string]string
 	timeNow        func() time.Time
 }
@@ -134,6 +136,7 @@ func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
 		runtime:        options.Runtime,
 		workspaceRoot:  workspaceRoot,
 		settaFilesRoot: settaFilesRoot,
+		runtimeRoot:    strings.TrimSpace(options.RuntimeRoot),
 		processEnv:     cloneStringAnyMapToStringMap(options.ProcessEnv),
 		timeNow:        timeNow,
 	}, nil
@@ -585,7 +588,7 @@ func (e *CodexExecutor) buildRuntimeEnv(config externalagentconfigs.Config) map[
 			envMap[key] = e.processEnv[key]
 		}
 	}
-	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
+	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.runtimeRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
 		envMap[key] = value
 	}
 	return envMap

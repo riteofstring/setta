@@ -730,8 +730,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			ProcessEnv:    llmconfig.CurrentProcessEnv(),
+			WorkspaceRoot:          cfg.Paths.WorkspaceRoot,
+			ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
+			ProcessEnv:             llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -764,9 +765,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			llmconfig.CurrentProcessEnv(),
 		))
 		llmService, err = llmconfig.NewService(llmconfig.ServiceOptions{
-			ConfigPath:         llmconfig.Path(cfg.Paths.SettaFilesRoot),
-			ManagedAPIKeysPath: llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
-			Runtime:            llmRuntime,
+			ConfigPath:             llmconfig.Path(cfg.Paths.SettaFilesRoot),
+			ManagedAPIKeysPath:     llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
+			ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
+			Runtime:                llmRuntime,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -982,6 +984,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runtime:        externalAgentRuntime,
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			ProcessEnv:     llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
@@ -992,6 +995,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runs:          agentRunStore,
 			Runtime:       externalAgentRuntime,
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			RuntimeRoot:   cfg.Paths.RuntimeRoot,
 			ProcessEnv:    llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
@@ -1003,6 +1007,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runtime:        externalAgentRuntime,
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			ProcessEnv:     llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {

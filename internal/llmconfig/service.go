@@ -10,17 +10,19 @@ import (
 var ErrInvalidConfig = errors.New("invalid llm config")
 
 type ServiceOptions struct {
-	ConfigPath         string
-	ManagedAPIKeysPath string
-	Runtime            *Runtime
-	ProcessEnv         func() map[string]string
+	ConfigPath             string
+	ManagedAPIKeysPath     string
+	ManagedAPIKeysLockRoot string
+	Runtime                *Runtime
+	ProcessEnv             func() map[string]string
 }
 
 type Service struct {
-	configPath         string
-	managedAPIKeysPath string
-	runtime            *Runtime
-	processEnv         func() map[string]string
+	configPath             string
+	managedAPIKeysPath     string
+	managedAPIKeysLockRoot string
+	runtime                *Runtime
+	processEnv             func() map[string]string
 }
 
 func NewService(opts ServiceOptions) (*Service, error) {
@@ -40,10 +42,11 @@ func NewService(opts ServiceOptions) (*Service, error) {
 		processEnv = CurrentProcessEnv
 	}
 	return &Service{
-		configPath:         configPath,
-		managedAPIKeysPath: managedAPIKeysPath,
-		runtime:            opts.Runtime,
-		processEnv:         processEnv,
+		configPath:             configPath,
+		managedAPIKeysPath:     managedAPIKeysPath,
+		managedAPIKeysLockRoot: opts.ManagedAPIKeysLockRoot,
+		runtime:                opts.Runtime,
+		processEnv:             processEnv,
 	}, nil
 }
 
@@ -78,7 +81,10 @@ func (s *Service) ManagedAPIKeysSnapshot() ManagedAPIKeysSnapshot {
 			map[string]string{},
 		)
 	}
-	return s.buildManagedAPIKeysSnapshot(s.Configs(), ReadManagedAPIKeysWithStatus(s.managedAPIKeysPath))
+	return s.buildManagedAPIKeysSnapshot(
+		s.Configs(),
+		ReadManagedAPIKeysWithStatusInLockRoot(s.managedAPIKeysPath, s.managedAPIKeysLockRoot),
+	)
 }
 
 func (s *Service) SaveManagedAPIKeys(payload map[string]string, expectedRevision int) (ManagedAPIKeysSnapshot, ManagedAPIKeysWriteStatus) {
@@ -88,11 +94,12 @@ func (s *Service) SaveManagedAPIKeys(payload map[string]string, expectedRevision
 	}
 
 	configs := s.runtime.Configs()
-	attempt := WriteManagedAPIKeysWithExpectedRevision(
+	attempt := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(
 		s.managedAPIKeysPath,
 		payload,
 		expectedRevision,
 		CollectAPIKeyNames(configs),
+		s.managedAPIKeysLockRoot,
 	)
 	if attempt.Status == ManagedAPIKeysWriteStatusSuccess {
 		s.runtime.UpdateAPIKeys(ResolveRuntimeAPIKeys(configs, attempt.APIKeys, s.processEnv()))
@@ -119,7 +126,7 @@ func (s *Service) SaveManagedAPIKeys(payload map[string]string, expectedRevision
 
 func (s *Service) applyConfigAndSyncManagedAPIKeys(configs AllConfigs) ManagedAPIKeysSnapshot {
 	s.runtime.UpdateConfig(configs)
-	readResult := ReadManagedAPIKeysWithStatus(s.managedAPIKeysPath)
+	readResult := ReadManagedAPIKeysWithStatusInLockRoot(s.managedAPIKeysPath, s.managedAPIKeysLockRoot)
 	s.runtime.UpdateAPIKeys(ResolveRuntimeAPIKeys(configs, readResult.APIKeys, s.processEnv()))
 	return s.buildManagedAPIKeysSnapshot(configs, readResult)
 }

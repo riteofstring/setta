@@ -218,3 +218,33 @@ func TestWriteManagedAPIKeysWithExpectedRevisionRemovesManagedKey(t *testing.T) 
 		t.Fatalf("expected managed key index updated, got %#v", parsed)
 	}
 }
+
+func TestWriteManagedAPIKeysWithExpectedRevisionInLockRootStoresLockUnderRuntimeRoot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := ManagedAPIKeysPath(root)
+	runtimeRoot := filepath.Join(root, "setta_files_dev", "runtime")
+
+	result := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, map[string]string{
+		"OPENAI_API_KEY": "saved-secret",
+	}, 0, nil, runtimeRoot)
+	if result.Status != ManagedAPIKeysWriteStatusSuccess {
+		t.Fatalf("expected write success, got %#v", result)
+	}
+
+	if _, err := os.Stat(path + ".lock"); !os.IsNotExist(err) {
+		t.Fatalf("expected no workspace .env.lock, got err=%v", err)
+	}
+
+	lockEntries, err := os.ReadDir(filepath.Join(runtimeRoot, managedAPIKeysLocksDirName))
+	if err != nil {
+		t.Fatalf("read managed api key lock dir: %v", err)
+	}
+	if len(lockEntries) != 1 {
+		t.Fatalf("expected one runtime lock file, got %#v", lockEntries)
+	}
+	if !strings.HasPrefix(lockEntries[0].Name(), ".env_") || !strings.HasSuffix(lockEntries[0].Name(), ".lock") {
+		t.Fatalf("expected hashed runtime lock file name, got %q", lockEntries[0].Name())
+	}
+}

@@ -41,6 +41,7 @@ type ClaudeExecutorOptions struct {
 	Runs          *agentruns.RunStore
 	Runtime       *Runtime
 	WorkspaceRoot string
+	RuntimeRoot   string
 	ProcessEnv    map[string]string
 	PythonCommand string
 	SidecarPath   string
@@ -51,6 +52,7 @@ type ClaudeExecutor struct {
 	runs          *agentruns.RunStore
 	runtime       *Runtime
 	workspaceRoot string
+	runtimeRoot   string
 	processEnv    map[string]string
 	pythonCommand string
 	sidecarPath   string
@@ -89,6 +91,7 @@ func NewClaudeExecutor(options ClaudeExecutorOptions) (*ClaudeExecutor, error) {
 		runs:          options.Runs,
 		runtime:       options.Runtime,
 		workspaceRoot: workspaceRoot,
+		runtimeRoot:   strings.TrimSpace(options.RuntimeRoot),
 		processEnv:    cloneStringAnyMapToStringMap(options.ProcessEnv),
 		pythonCommand: strings.TrimSpace(options.PythonCommand),
 		sidecarPath:   sidecarPath,
@@ -542,7 +545,7 @@ func (e *ClaudeExecutor) buildRuntimeEnv(config externalagentconfigs.Config) map
 			envMap[key] = e.processEnv[key]
 		}
 	}
-	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
+	for key, value := range externalagentconfigs.ResolveWhitelistedEnvVars(e.workspaceRoot, e.runtimeRoot, e.processEnv, config.EnvVarWhitelist).EnvVars {
 		envMap[key] = value
 	}
 	return envMap
