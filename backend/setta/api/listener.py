@@ -2041,9 +2041,17 @@ class SettaListener:
                 "Listener is not registered with the server; wait for registration to complete before emitting"
             )
         serialized_values = dict(dependency_values or {})
-        serialized_artifact_updates = self._serialize_listener_artifact_updates(
-            artifact_updates
-        )
+        serialized_artifact_updates: list[BaseArtifactUnionWithDiscriminator] = []
+        if artifact_updates:
+            for artifact in artifact_updates:
+                try:
+                    serialized_artifact_updates.append(
+                        BaseArtifactTypeAdapter.validate_python(artifact)
+                    )
+                except ValidationError as exc:
+                    raise ValueError(
+                        "artifact_updates entries must match the BaseArtifact schema"
+                    ) from exc
         if not serialized_values and not serialized_artifact_updates:
             raise ValueError(
                 "emit_to_frontend requires at least one dependency value or artifact update"
@@ -2120,26 +2128,6 @@ class SettaListener:
             if refresh_future is not None:
                 self._pending_router_endpoint_force_refreshes.pop(call_id, None)
         return result
-
-    def _serialize_listener_artifact_updates(
-        self,
-        artifact_updates: Sequence[
-            BaseArtifactUnionWithDiscriminator | Mapping[str, Any]
-        ]
-        | None,
-    ) -> list[BaseArtifactUnionWithDiscriminator]:
-        if not artifact_updates:
-            return []
-
-        serialized: list[BaseArtifactUnionWithDiscriminator] = []
-        for artifact in artifact_updates:
-            try:
-                serialized.append(BaseArtifactTypeAdapter.validate_python(artifact))
-            except ValidationError as exc:
-                raise ValueError(
-                    "artifact_updates entries must match the BaseArtifact schema"
-                ) from exc
-        return serialized
 
     def _new_live_value_codec(self, dependency_graph: DependencyGraph) -> PythonValueCodec:
         def unexpected_dependency_lookup(dep_key: BaseDependencyKeyUnion) -> str:

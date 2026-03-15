@@ -27,6 +27,9 @@ from setta.types.dependency_key import create_dep_key
 from setta.types.binary_content import BinaryContentRef
 from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.generated.websocket_unions import (
+    PythonScriptWebsocketMsgTypeAdapter,
+)
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.id import ID
 from setta.types.listener import (
@@ -52,6 +55,7 @@ from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
+    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.websockets.binary_frames import encode_binary_frame
@@ -336,6 +340,72 @@ class TestSettaListenerRealtimeIntegration:
         if not spec.structured_dependencies:
             raise AssertionError("Callback structured dependencies not populated")
         return spec.structured_dependencies[0]
+
+    async def test_emit_to_frontend_serializes_artifact_update_dicts(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        sent_payloads: list[str] = []
+
+        async def capture(payload: str) -> None:
+            sent_payloads.append(payload)
+
+        listener._send_websocket_payload = capture
+        listener._runtime_state = listener._build_runtime_state(project_state)
+        listener._project_config_id = project_state.projectConfig.id
+        listener._is_registered = True
+
+        # Listener emits should accept dict-shaped artifact payloads and send
+        # the validated artifact schema over the websocket.
+        await listener.emit_to_frontend(
+            artifact_updates=[
+                {
+                    "type": "Image",
+                    "id": "listener/new-image.png",
+                    "value": {
+                        "contentId": "listener-image",
+                        "byteLength": 3,
+                        "mimeType": "image/png",
+                    },
+                }
+            ]
+        )
+
+        assert len(sent_payloads) == 1
+        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            sent_payloads[0]
+        )
+        assert isinstance(parsed_message, WebsocketMsgListenerFrontendEmit)
+        assert parsed_message.content.dependencyValues == {}
+        assert len(parsed_message.content.artifactUpdates) == 1
+        assert parsed_message.content.artifactUpdates[0].id == "listener/new-image.png"
+        assert (
+            parsed_message.content.artifactUpdates[0].value.contentId
+            == "listener-image"
+        )
+
+    async def test_emit_to_frontend_rejects_invalid_artifact_update_shape(
+        self,
+    ) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        listener._runtime_state = listener._build_runtime_state(project_state)
+        listener._project_config_id = project_state.projectConfig.id
+        listener._is_registered = True
+
+        # Listener emits should fail closed when artifact payloads do not match
+        # the BaseArtifact schema expected by the backend/runtime path.
+        with pytest.raises(
+            ValueError,
+            match="artifact_updates entries must match the BaseArtifact schema",
+        ):
+            await listener.emit_to_frontend(
+                artifact_updates=[
+                    {
+                        "type": "Image",
+                        "id": "listener/invalid-image.png",
+                    }
+                ]
+            )
 
     async def test_realtime_callback_respects_debounce_scheduler(self) -> None:
         project_state = self._build_project_state()
