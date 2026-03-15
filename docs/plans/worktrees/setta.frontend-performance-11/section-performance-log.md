@@ -322,6 +322,28 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep checkpoint 1 open and return to the remaining cold CodeMirror activation trace, since the row-shell visual regression is no longer the blocker.
 
+### 2026-03-17 40
+
+- Item: Continue the checkpoint-1 cold activation trims after the row-shell parity repair.
+- Status: `needs_more_work`
+- Details:
+  - Attempted a fresh untouched-`main` vs worktree cold `mode` activation trace after the row-shell parity repair.
+  - The `main` trace saved successfully under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-post-row-parity/main-mode-click-trace.json`
+  - The worktree rerun could not be completed because `chrome-devtools-mcp` transport closed while stopping the trace, so there is still no accepted post-row-parity trace pair for checkpoint 1.
+  - Landed two additional local activation slices while keeping the same lower seam:
+    - `eb4a93a37` `Remove the extra dummy-to-real CodeMirror handoff render`
+    - `4105c6cc3` `Trim text-input CodeMirror bootstrap features and reuse language bundles`
+  - The local code changes now:
+    - remove the extra React pass that used to keep the dummy editor mounted until `onCreateEditor`
+    - slim the real text-input CodeMirror bootstrap setup
+    - reuse static language extension bundles instead of recreating them on each activation
+  - Re-ran focused automated coverage after the local activation trims:
+    - Vitest: `12` files passed, `30` tests passed
+    - Playwright: `6 passed`
+- Next action:
+  - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace before deciding whether checkpoint 1 can be accepted or whether `getExtensions.ts` still needs another bootstrap/caching pass.
+
 ### 2026-03-16 22
 
 - Item: Expand the callable minimum regression contract to match the current callable surface area.

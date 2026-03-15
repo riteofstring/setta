@@ -23,7 +23,7 @@ Current status:
 - Accepted history to preserve: `Phase S1`, `Phase S2`, and `Phase S3` through checkpoint 9
 - Active phase: `Phase S1` follow-up inside checkpoint 1 at the shared param-row grid contract below the section container cluster
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
-- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree); the row-input follow-up has restored visible underline/focus feedback parity and dummy-vs-real CodeMirror mono font parity on the touched `mode` field, and the shared callable row-shell follow-up has now restored hover/highlight parity plus resize-handle placement parity to within roughly a pixel against untouched `main`, but checkpoint 1 is still blocked because the fresh untouched-`main` vs worktree `mode` activation trace remains only mixed in the `+100ms` window instead of clearly improving the cold activation path
+- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree); the row-input follow-up has restored visible underline/focus feedback parity and dummy-vs-real CodeMirror mono font parity on the touched `mode` field, the shared callable row-shell follow-up has restored hover/highlight parity plus resize-handle placement parity to within roughly a pixel against untouched `main`, and two more local activation trims now remove the extra dummy-to-real handoff render and slim the text-input CodeMirror bootstrap, but checkpoint 1 is still blocked because the fresh untouched-`main` vs worktree `mode` activation trace remains only mixed in the `+100ms` window and the latest post-row rerun was interrupted by a DevTools transport failure before the worktree trace could be saved
 - Deferred follow-up watch items after the current structural passes: callable column resizing and section resizing are still noticeably slow, but they should be treated as post-flattening trace targets rather than immediate checkpoint drivers
 - Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
@@ -102,6 +102,8 @@ Immediate next step:
      - visible underline/focus parity on the touched `mode` field
      - dummy-vs-real CodeMirror mono font parity on the touched `mode` field
      - persistent live-editor mounting after first activation so repeated focus no longer pays a blur-triggered remount
+     - removal of the extra dummy-to-real handoff render on first activation
+     - a leaner text-input `basicSetup` plus reused language extension bundles for the real editor bootstrap
    - checkpoint 1 is still not accepted because the cold first-activation trace is only mixed against untouched `main`
    - the callable row-shell follow-up also has a hard visual gate:
      - every callable arg row must keep the same hover/highlight behavior as untouched `main` unless the user explicitly requests an additive visual treatment
@@ -113,10 +115,11 @@ Immediate next step:
      - the representative callable reorder/indent and resize Playwright suite after the shared row-shell/handle recreation
    - the next fix slice stays in the same lower seam and should target the cold activation path under the newly flattened row shell:
      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
-     - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
      - `frontend/src/components/Utils/CodeMirror/useCodeMirrorStyle.ts`
      - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
      - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+     - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+     - `frontend/src/components/Utils/CodeMirror/codeMirrorLanguages.ts`
      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
      - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
      - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
@@ -131,6 +134,8 @@ Immediate next step:
      - a clearly non-regressing cold row-activation trace on untouched `main` vs this worktree
      - the same visual/input parity across every touched section type after the activation-path changes land
      - pixel-perfect callable row recreation for hover, handle placement, and live resize behavior against untouched `main`
+   - immediate next action inside the checkpoint:
+     - recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims before taking another code slice
 
 Historical accepted checkpoint notes retained below:
 
