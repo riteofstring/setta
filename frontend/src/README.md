@@ -10,19 +10,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1459`
-- Non-generated TS/TSX files at `1000+` lines: `42`
+- Authored TS/TSX files under `frontend/src`: `1463`
+- Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2092`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2088`)
-  - `components/Git/GitGraphOverlay.tsx` (`2041`)
-  - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2024`)
-  - `components/Section/Layouts/ChatArea.tsx` (`1973`)
-  - `plugins/runtime.ts` (`1949`)
-  - `components/Chat/chatAssistantActivityCard.tsx` (`1918`)
-  - `components/Panes/Overview/RunInstructions.tsx` (`1909`)
-  - `components/App/appRegistry.tsx` (`1754`)
-  - `components/Section/Layouts/TaskBoardArea.tsx` (`1752`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
+  - `components/Git/GitGraphOverlay.tsx` (`2040`)
+  - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
+  - `components/Section/Layouts/ChatArea.tsx` (`1972`)
+  - `plugins/runtime.ts` (`1948`)
+  - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
+  - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
+  - `components/App/appRegistry.tsx` (`1753`)
+  - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
 
 ## Module Map
 
@@ -143,6 +143,24 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns workspace-root polling, python-signal probing, create-project starter
     prompt adaptation, and the project-chat empty-state shell used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts`
+    owns project-chat hydration cache keys, managed/external runtime fetches,
+    retry scheduling, and retry-cache pruning used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.ts`
+    owns default permission-mode selection, blocked-thread copy, submit
+    preflight/readiness helpers, and provider-dictation gating used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` and
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.ts`
+    owns runtime native slash-command discovery, authority gating, and
+    recognized/executable slash-command set assembly used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts`
+    owns conversation-search filtering, submitted prompt history, runtime
+    activity derivation, retained-image checks, latest-chat selection, and
+    branch-source prompt helpers used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts`
     owns custom slash-command draft reconciliation, namespace-authority
     gating, and native-command status text used by
@@ -180,9 +198,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     conversation-search state, and chat-core/history composition over those
     local engine-selection, settings-popover, and hydration owners.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` now focuses
-    on hydration retries, slash-command authority, runtime activity details,
-    message submission/edit orchestration, and chat surface composition over
-    the local empty-state owner.
+    on chat-detail selection, hydration effect orchestration, slash-command
+    dispatch, submission/edit/redo handlers, and chat surface composition over
+    the local empty-state, hydration-runtime, execution-settings, slash-command,
+    and conversation-model owners.
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` now
     focuses on accordion composition, deployment-mode gating, guardrail
     persistence, and manager routing over the local external-agent owner.

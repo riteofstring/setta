@@ -20,22 +20,21 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-15)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 2092 lines after the local settings and engine-selection extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 2088 lines after the local empty-state extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 1472 lines after the local external-agent extraction
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1659 lines after the local docked/floating/maximized surface extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 1662 lines after the local slash-command extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 2091 lines after the local settings and engine-selection extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 1661 lines after the local slash-command extraction
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1658 lines after the local docked/floating/maximized surface extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 1471 lines after the local external-agent extraction
   - `frontend/src/components/Chat/ChatInput.tsx` is now about 1606 lines after the local composer meta-controls extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a blocking top-size hotspot in this domain
   - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1237 lines after the local chat-owner extractions and is no longer a top-size hotspot
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 914 lines after the local history-panel, folder-shell, and thread-row extraction and is no longer the blocking front-door hotspot in this domain.
 - The next default work in this domain should continue from the remaining
   large chat/project-AI surfaces a contributor still opens first:
   - `ProjectChat.tsx`
-  - `ProjectChatCore.tsx`
-  - `ProjectAISettings.tsx`
   - `ProjectChatSkillsMcpViewer.tsx`
   - `ProjectChatBottomDock.tsx`
-- `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx` still
+- `ProjectAISettings.tsx` is the next project-AI settings root after those.
+- `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx` still
   matter, but they are now follow-through slices unless they directly simplify
   those entry surfaces or one of the already-extracted helper files becomes its
   own mixed-responsibility hotspot.
@@ -68,6 +67,10 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts` now owns preferred-engine selection, selected-thread engine reconciliation, engine-switch continuation guards, and LLM-unavailable messaging for `ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx` now owns the project-chat settings popover shell, dictation source options, tool quick-links, and activity-default toggles for `ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx` now owns workspace-root polling, python-signal probing, create-project starter prompt adaptation, and the empty-chat shell for `ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts` now owns project-chat hydration cache keys, managed/external runtime fetches, retry scheduling, and retry-cache pruning for `ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.ts` now owns default permission-mode selection, blocked-thread copy, submit preflight/readiness helpers, and provider-dictation gating for `ProjectChat.tsx` and `ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.ts` now owns runtime native slash-command discovery, authority gating, and recognized/executable slash-command set assembly for `ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts` now owns conversation-search filtering, submitted prompt history, runtime activity derivation, retained-image checks, latest-chat selection, and branch-source prompt helpers for `ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts` now owns custom slash-command draft reconciliation, namespace-authority gating, and native-command status text, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx` now owns slash-command engine tabs, native-command polling, custom-command draft state, and the slash-command form/list shell for `ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx` now owns external-agent config selection state, tool-type/run-mode reconciliation, Claude/OpenCode validation, and the external-agent form shell for `ProjectAISettings.tsx`
   - feature-local `ProjectLevelAI` helpers such as `projectChatHydrationAuthority.ts`, `projectChatFocusUtils.ts`, and starter/slash-command helpers
@@ -89,8 +92,8 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   queued-draft replay moved into `chatInputSubmission.ts`, dictation lifecycle
   moved into `useChatInputDictation.ts`, and the footer/meta controls moved
   into `ChatInputMetaControls.tsx`.
-- `ProjectChat.tsx` is smaller now, but it still mixes surface orchestration, layout rules, hydration authority, auxiliary-pane state, and conversation-search coordination even after engine/model/config selection moved into `projectChatEngineSelection.ts` and the project-chat settings popover moved into `projectChatSettingsPopover.tsx`; `ProjectChatCore.tsx` still carries the next large render-heavy responsibility in that path.
-- `ProjectChatCore.tsx` is smaller now, but it still combines hydration retry policy, runtime/slash-command authority, pending-submit orchestration, and the remaining chat-surface render branches even after workspace-root polling, python-signal probing, and starter-prompt adaptation moved into `projectChatEmptyState.tsx`.
+- `ProjectChat.tsx` is smaller now, but it still mixes surface orchestration, layout rules, hydration authority, auxiliary-pane state, and conversation-search coordination even after engine/model/config selection moved into `projectChatEngineSelection.ts` and the project-chat settings popover moved into `projectChatSettingsPopover.tsx`; remaining work in this path should still start there before reopening smaller follow-through files beneath it.
+- `ProjectChatCore.tsx` is much smaller now, but it still mixes store selection, hydration effect orchestration, slash-command refresh dispatch, submission/edit/redo handlers, and the final chat-surface render branches even after hydration retry policy moved into `projectChatHydrationRuntime.ts`, slash-command authority moved into `projectChatSlashCommandAuthority.ts`, execution/submit guard logic moved into `projectChatExecutionSettings.ts`, and conversation/filter/history/runtime derivation moved into `projectChatConversationModel.ts`.
 - `ProjectAISettings.tsx` is smaller now, but it still mixes accordion composition, deployment-mode gating, guardrail persistence, and manager routing even after external-agent config selection, tool-type/run-mode reconciliation, Claude/OpenCode validation, and settings-block assembly moved into `projectAISettingsExternalAgents.tsx`.
 - `ProjectChatSkillsMcpViewer.tsx` is smaller now, but it still mixes skills
   filtering or selection, skill-content loading plus markdown edit shells, and
@@ -120,7 +123,10 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 1. Simplify the main project-chat entry surfaces first
 
-- Start with `ProjectChat.tsx` and `ProjectChatCore.tsx`.
+- Start with `ProjectChat.tsx`.
+- Treat `ProjectChatCore.tsx` as adjacent follow-through work when a same-turn
+  slice directly shortens the `ProjectChat.tsx` path or when one of its new
+  local helper owners becomes the clearest remaining blocker.
 - Keep those files as the obvious entry surfaces, but move clearly named
   responsibilities out of them:
   - aux-view persistence and routing
@@ -133,8 +139,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 2. Continue into the next project-AI roots, not the follow-through coordinators
 
-- After `ProjectChat.tsx` and `ProjectChatCore.tsx`, default next to
-  `ProjectAISettings.tsx` and `ProjectChatSkillsMcpViewer.tsx`.
+- After `ProjectChat.tsx`, default next to
+  `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatBottomDock.tsx`, and
+  `ProjectAISettings.tsx`.
 - Keep pushing clearly named responsibilities out of those files:
   - deployment-mode gating and guardrail persistence
   - manager routing and accordion composition

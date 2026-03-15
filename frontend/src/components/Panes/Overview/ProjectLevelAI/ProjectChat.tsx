@@ -61,11 +61,7 @@ import {
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import { ProjectAISettings } from "./ProjectAISettings";
-import {
-  getDefaultProjectChatPermissionMode,
-  ProjectChatCore,
-  type ProjectChatBlockedErrorCode,
-} from "./ProjectChatCore";
+import { ProjectChatCore } from "./ProjectChatCore";
 import {
   findPreferredProjectChatEngineId,
   resolveProjectChatEngineConfigIdForSelectedChat,
@@ -76,6 +72,10 @@ import {
   shouldProjectChatSkipEngineSyncForContinuation,
   type ProjectChatEngineSwitchContinuation,
 } from "./projectChatEngineSelection";
+import {
+  getDefaultProjectChatPermissionMode,
+  type ProjectChatBlockedErrorCode,
+} from "./projectChatExecutionSettings";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 import {
