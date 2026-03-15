@@ -328,6 +328,111 @@ func TestSendServiceLeavesConfiguredPoliciesRuntimeOwnedForConfigTomlCustom(t *t
 	}
 }
 
+func TestSendServiceOmitsAppGenerationPromptWhenModeUnset(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Regular chat without app generation."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start plain external chat: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+
+	systemPrompt, _ := fixture.executor.last.Inputs["systemPrompt"].(string)
+	if strings.Contains(systemPrompt, "## App spec generation mode") {
+		t.Fatalf("expected plain external chat prompt to omit app-generation guidance, got %q", systemPrompt)
+	}
+}
+
+func TestSendServiceAppliesAdapterSpecificApprovalOverrides(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		toolType       externalagentconfigs.ToolType
+		permissionMode ChatPermissionMode
+		wantApproval   string
+	}{
+		{
+			name:           "claude minimal maps to default",
+			toolType:       externalagentconfigs.ToolTypeClaudeCode,
+			permissionMode: ChatPermissionModeMinimal,
+			wantApproval:   "default",
+		},
+		{
+			name:           "claude yolo maps to bypassPermissions",
+			toolType:       externalagentconfigs.ToolTypeClaudeCode,
+			permissionMode: ChatPermissionModeYolo,
+			wantApproval:   "bypassPermissions",
+		},
+		{
+			name:           "opencode minimal maps to ask",
+			toolType:       externalagentconfigs.ToolTypeOpenCode,
+			permissionMode: ChatPermissionModeMinimal,
+			wantApproval:   "ask",
+		},
+		{
+			name:           "opencode yolo maps to allow",
+			toolType:       externalagentconfigs.ToolTypeOpenCode,
+			permissionMode: ChatPermissionModeYolo,
+			wantApproval:   "allow",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			fixture := newSendServiceFixture(t, sendFixtureOptions{
+				externalToolType: testCase.toolType,
+			})
+
+			_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+				Message: map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Start adapter-specific run."},
+					},
+				},
+				EngineConfigID:  fixture.engineID,
+				Thinking:        false,
+				ProjectConfigID: "project-alpha",
+				AllowUnscoped:   true,
+				PermissionMode:  testCase.permissionMode,
+				SearchEnabled:   false,
+			})
+			if err != nil {
+				t.Fatalf("start external chat: %v", err)
+			}
+			if fixture.executor.last == nil {
+				t.Fatal("expected executor request")
+			}
+			if got := fixture.executor.last.Inputs["approvalPolicy"]; got != testCase.wantApproval {
+				t.Fatalf("expected approvalPolicy %q, got %#v", testCase.wantApproval, got)
+			}
+			if _, ok := fixture.executor.last.Inputs["sandboxPolicy"]; ok {
+				t.Fatalf("expected non-codex adapters to omit sandbox override, got %#v", fixture.executor.last.Inputs["sandboxPolicy"])
+			}
+		})
+	}
+}
+
 func TestSendServiceBuildsCodexAttachmentPayload(t *testing.T) {
 	t.Parallel()
 

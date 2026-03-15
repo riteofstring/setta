@@ -1551,9 +1551,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
-				ModePolicy: modePolicy,
-				Profiles:   agentProfileStore,
-				Deployment: deploymentRuntime,
+				ModePolicy:   modePolicy,
+				Profiles:     agentProfileStore,
+				Deployment:   deploymentRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}

@@ -391,6 +391,69 @@ func TestBuildClaudeStartPayloadPassesThroughMCPConfigPath(t *testing.T) {
 	}
 }
 
+func TestBuildClaudeStartPayloadAllowedToolsPrefersExplicitInputThenProfileAllowlist(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		inputTools []any
+		profile    *agentprofiles.Profile
+		want       []string
+	}{
+		{
+			name:       "explicit input wins",
+			inputTools: []any{"tool.explicit", " tool.trimmed "},
+			profile: &agentprofiles.Profile{
+				ToolAllowlist: []string{"tool.profile"},
+			},
+			want: []string{"tool.explicit", "tool.trimmed"},
+		},
+		{
+			name: "profile allowlist is fallback",
+			profile: &agentprofiles.Profile{
+				ToolAllowlist: []string{"tool.profile", "tool.second"},
+			},
+			want: []string{"tool.profile", "tool.second"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			inputs := map[string]any{}
+			if testCase.inputTools != nil {
+				inputs["allowedTools"] = testCase.inputTools
+			}
+			payload := buildClaudeStartPayload(StartRequest{
+				Run: agentruns.NewRun(nil, map[string]any{
+					"messages": []any{
+						map[string]any{
+							"id":   "user-1",
+							"role": "user",
+							"content": []any{
+								map[string]any{"type": "text", "text": "Hello"},
+							},
+						},
+					},
+				}, time.Date(2026, 3, 9, 13, 30, 0, 0, time.UTC)),
+				ExternalConfig: externalagentconfigs.Config{
+					ToolType: externalagentconfigs.ToolTypeClaudeCode,
+					RunMode:  externalagentconfigs.RunModeSDK,
+				},
+				Profile: testCase.profile,
+				Inputs:  inputs,
+			}, "/tmp/workspace", map[string]string{})
+
+			rawAllowedTools, ok := payload["allowedTools"].([]string)
+			if !ok {
+				t.Fatalf("expected allowedTools payload, got %#v", payload["allowedTools"])
+			}
+			if strings.Join(rawAllowedTools, ",") != strings.Join(testCase.want, ",") {
+				t.Fatalf("expected allowedTools %v, got %#v", testCase.want, rawAllowedTools)
+			}
+		})
+	}
+}
+
 func TestResolveClaudeSettingsPathUsesManagedModeSpecificFiles(t *testing.T) {
 	t.Parallel()
 

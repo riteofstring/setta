@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
@@ -1405,6 +1406,138 @@ func TestAppTranscriptionProfileMutationsBroadcastTranscriptionProfilesUpdated(t
 	}
 	if len(deletedSnapshot.Profiles) != 0 {
 		t.Fatalf("expected empty transcription profile snapshot after delete, got %#v", deletedSnapshot.Profiles)
+	}
+}
+
+func TestAppAgentProfileMutationsBroadcastAgentProfilesUpdated(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	createRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteCreateAgentProfile,
+		strings.NewReader(`{"name":"Planner","description":"Planning profile","systemPrompt":"Plan tasks","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-1","toolAllowlist":["tool.a"],"memoryScope":"workspace"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create agent profile request: %v", err)
+	}
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.AddCookie(authCookie)
+
+	createResponse, err := http.DefaultClient.Do(createRequest)
+	if err != nil {
+		t.Fatalf("post create agent profile: %v", err)
+	}
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+	var created agentprofiles.Profile
+	if err := json.NewDecoder(createResponse.Body).Decode(&created); err != nil {
+		t.Fatalf("decode create agent profile response: %v", err)
+	}
+
+	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAgentProfilesUpdated, 4)
+	var createdSnapshot realtime.AgentProfilesUpdatedContent
+	if err := json.Unmarshal(createEnvelope.Content, &createdSnapshot); err != nil {
+		t.Fatalf("decode agent profile websocket create payload: %v", err)
+	}
+	if len(createdSnapshot.Profiles) != 1 {
+		t.Fatalf("expected one agent profile after create, got %#v", createdSnapshot.Profiles)
+	}
+	if createdSnapshot.Profiles[0].ID != created.ID {
+		t.Fatalf("expected created agent profile id %q in websocket payload, got %#v", created.ID, createdSnapshot.Profiles)
+	}
+
+	updateRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteUpdateAgentProfile,
+		strings.NewReader(`{"profile":{"id":"`+created.ID+`","name":"Planner v2","description":"Updated profile","systemPrompt":"Plan better","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-2","toolAllowlist":["tool.b"],"memoryScope":"project"}}`),
+	)
+	if err != nil {
+		t.Fatalf("new update agent profile request: %v", err)
+	}
+	updateRequest.Header.Set("Content-Type", "application/json")
+	updateRequest.AddCookie(authCookie)
+
+	updateResponse, err := http.DefaultClient.Do(updateRequest)
+	if err != nil {
+		t.Fatalf("post update agent profile: %v", err)
+	}
+	defer updateResponse.Body.Close()
+	if updateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(updateResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", updateResponse.StatusCode, string(body))
+	}
+
+	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAgentProfilesUpdated, 4)
+	var updatedSnapshot realtime.AgentProfilesUpdatedContent
+	if err := json.Unmarshal(updateEnvelope.Content, &updatedSnapshot); err != nil {
+		t.Fatalf("decode agent profile websocket update payload: %v", err)
+	}
+	if len(updatedSnapshot.Profiles) != 1 {
+		t.Fatalf("expected one agent profile after update, got %#v", updatedSnapshot.Profiles)
+	}
+	if updatedSnapshot.Profiles[0].Name != "Planner v2" {
+		t.Fatalf("expected updated agent profile name, got %#v", updatedSnapshot.Profiles[0])
+	}
+
+	deleteRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteDeleteAgentProfile,
+		strings.NewReader(`{"profileId":"`+created.ID+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new delete agent profile request: %v", err)
+	}
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteRequest.AddCookie(authCookie)
+
+	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
+	if err != nil {
+		t.Fatalf("post delete agent profile: %v", err)
+	}
+	defer deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", deleteResponse.StatusCode, string(body))
+	}
+
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAgentProfilesUpdated, 4)
+	var deletedSnapshot realtime.AgentProfilesUpdatedContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deletedSnapshot); err != nil {
+		t.Fatalf("decode agent profile websocket delete payload: %v", err)
+	}
+	if len(deletedSnapshot.Profiles) != 0 {
+		t.Fatalf("expected empty agent profile snapshot after delete, got %#v", deletedSnapshot.Profiles)
 	}
 }
 

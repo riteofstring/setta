@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
@@ -212,6 +213,40 @@ func TestNewEngineConfigsUpdatedMessageJSONIncludesEmptyConfigArray(t *testing.T
 	}
 	if !strings.Contains(string(payload), `"configs":[]`) {
 		t.Fatalf("expected configs array in marshaled payload, got %s", string(payload))
+	}
+}
+
+func TestNewAgentProfilesUpdatedMessageClonesSlice(t *testing.T) {
+	t.Parallel()
+
+	profiles := []agentprofiles.Profile{
+		{
+			ID:   "profile-1",
+			Name: "Planner",
+		},
+	}
+	message := NewAgentProfilesUpdatedMessage(profiles)
+	profiles[0].Name = "mutated"
+
+	if message.MessageType != MessageTypeAgentProfilesUpdated {
+		t.Fatalf("expected agent profiles updated message type, got %q", message.MessageType)
+	}
+	if got := message.Content.Profiles[0].Name; got != "Planner" {
+		t.Fatalf("expected cloned agent profile name Planner, got %q", got)
+	}
+}
+
+func TestNewAgentProfilesUpdatedMessageJSONIncludesEmptyProfileArray(t *testing.T) {
+	t.Parallel()
+
+	message := NewAgentProfilesUpdatedMessage(nil)
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal agent profiles updated message: %v", err)
+	}
+	if !strings.Contains(string(payload), `"profiles":[]`) {
+		t.Fatalf("expected profiles array in marshaled payload, got %s", string(payload))
 	}
 }
 

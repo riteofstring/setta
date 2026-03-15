@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/deployments"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 )
 
 const RouteGetAgentProfiles = "/getAgentProfiles"
@@ -21,9 +23,10 @@ const RouteUpdateAgentProfile = "/updateAgentProfile"
 const RouteDeleteAgentProfile = "/deleteAgentProfile"
 
 type AgentProfileRouteDependencies struct {
-	ModePolicy modes.Policy
-	Profiles   *agentprofiles.Store
-	Deployment *deployments.Runtime
+	ModePolicy   modes.Policy
+	Profiles     *agentprofiles.Store
+	Deployment   *deployments.Runtime
+	WebsocketHub *realtime.WebsocketHub
 }
 
 type createAgentProfileRequest struct {
@@ -230,6 +233,10 @@ func createAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastAgentProfilesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, created)
 	}
 }
@@ -261,6 +268,10 @@ func updateAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerF
 			if writeAgentProfileStoreError(w, r, err) {
 				return
 			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if err := broadcastAgentProfilesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -297,8 +308,32 @@ func deleteAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastAgentProfilesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func broadcastAgentProfilesUpdated(
+	ctx context.Context,
+	store *agentprofiles.Store,
+	websocketHub *realtime.WebsocketHub,
+) error {
+	if websocketHub == nil || store == nil {
+		return nil
+	}
+	profiles, err := store.List()
+	if err != nil {
+		return err
+	}
+	_, err = websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewAgentProfilesUpdatedMessage(profiles),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
 }
 
 func buildCreatedAgentProfile(payload createAgentProfileRequest) (agentprofiles.Profile, *agentProfileRouteError) {

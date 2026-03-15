@@ -3,6 +3,7 @@ package realtime
 import (
 	"strings"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
@@ -31,6 +32,7 @@ const (
 	MessageTypeLLMAPIKeysUpdated            = "LLMApiKeysUpdated"
 	MessageTypeExternalAgentConfigsUpdated  = "ExternalAgentConfigsUpdated"
 	MessageTypeEngineConfigsUpdated         = "EngineConfigsUpdated"
+	MessageTypeAgentProfilesUpdated         = "AgentProfilesUpdated"
 	MessageTypeAgentRunUpdated              = "AgentRunUpdated"
 	MessageTypePromptTemplatesUpdated       = "PromptTemplatesUpdated"
 	MessageTypeTranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
@@ -295,6 +297,15 @@ type EngineConfigsUpdatedMessage struct {
 	Content     EngineConfigsUpdatedContent `json:"content"`
 }
 
+type AgentProfilesUpdatedContent struct {
+	Profiles []agentprofiles.Profile `json:"profiles"`
+}
+
+type AgentProfilesUpdatedMessage struct {
+	MessageType string                      `json:"messageType"`
+	Content     AgentProfilesUpdatedContent `json:"content"`
+}
+
 type PromptTemplatesUpdatedContent struct {
 	Templates []prompttemplates.Template `json:"templates"`
 }
@@ -504,6 +515,19 @@ func NewEngineConfigsUpdatedMessage(content []agentruns.EngineConfig) EngineConf
 		MessageType: MessageTypeEngineConfigsUpdated,
 		Content: EngineConfigsUpdatedContent{
 			Configs: configs,
+		},
+	}
+}
+
+func NewAgentProfilesUpdatedMessage(content []agentprofiles.Profile) AgentProfilesUpdatedMessage {
+	profiles := append([]agentprofiles.Profile(nil), content...)
+	if profiles == nil {
+		profiles = []agentprofiles.Profile{}
+	}
+	return AgentProfilesUpdatedMessage{
+		MessageType: MessageTypeAgentProfilesUpdated,
+		Content: AgentProfilesUpdatedContent{
+			Profiles: profiles,
 		},
 	}
 }

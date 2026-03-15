@@ -318,8 +318,8 @@ func TestServiceGetChatUsesPersistedRunMetadataWhileLiveOverlayIsActive(t *testi
 			inputMessages:   []map[string]any{userMessage("user-live", "Hello")},
 			outputMessages:  []map[string]any{userMessage("user-live", "Hello")},
 			usage: map[string]any{
-				"promptTokens":     24,
-				"completionTokens": 3,
+				"promptTokens":       24,
+				"completionTokens":   3,
 				"modelContextWindow": 128000,
 			},
 		},
@@ -669,6 +669,34 @@ func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
 	}
 	if starter.lastInputs["stateMachineRunId"] != "workflow-run-1" {
 		t.Fatalf("expected additional managed run input, got %#v", starter.lastInputs["stateMachineRunId"])
+	}
+}
+
+func TestServiceStartChatOmitsAppGenerationPromptWhenModeUnset(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:         userMessage("user-managed", "Regular chat without app generation."),
+		EngineConfigID:  "engine-managed",
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("start plain managed chat: %v", err)
+	}
+	if starter.lastProfile == nil {
+		t.Fatal("expected starter to capture profile")
+	}
+
+	systemPrompt := starter.lastProfile.SystemPrompt
+	if strings.Contains(systemPrompt, "## App spec generation mode") {
+		t.Fatalf("expected plain managed chat prompt to omit app-generation guidance, got %q", systemPrompt)
 	}
 }
 

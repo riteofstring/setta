@@ -174,6 +174,32 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 		}
 	})
+
+	t.Run("malformed JSON is rejected", func(t *testing.T) {
+		request := httptest.NewRequest(http.MethodPost, RouteMCPToolCall, strings.NewReader(`{"tool":"list_mcp_tools"`))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+
+		handler.ServeHTTP(response, request)
+
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+		}
+	})
+
+	t.Run("blank tool names are rejected", func(t *testing.T) {
+		response := postMCPToolRoute(t, handler, `{"tool":"   ","arguments":{}}`)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+		}
+	})
+
+	t.Run("unknown tools return not found", func(t *testing.T) {
+		response := postMCPToolRoute(t, handler, `{"tool":"tool_that_does_not_exist","arguments":{}}`)
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+		}
+	})
 }
 
 func TestMCPToolCallRouteReportStateMachineSignalUsesBodyRunContext(t *testing.T) {

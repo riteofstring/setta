@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -347,6 +348,60 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"])
 	if len(codeSections) != 0 {
 		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
+	}
+}
+
+func TestAppIDEMCPServerAuthenticatedSSEHandshakeEmitsEndpointEvent(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/mcp", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	response, err := mustAuthenticatedMCPHTTPClient(t, app, server.URL).Do(request)
+	if err != nil {
+		t.Fatalf("connect raw authenticated sse client: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+	if contentType := response.Header.Get("Content-Type"); !strings.Contains(contentType, "text/event-stream") {
+		t.Fatalf("expected SSE content type, got %q", contentType)
+	}
+
+	reader := bufio.NewReader(response.Body)
+	eventLine, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read endpoint event line: %v", err)
+	}
+	dataLine, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read endpoint data line: %v", err)
+	}
+	if strings.TrimSpace(eventLine) != "event: endpoint" {
+		t.Fatalf("expected first SSE event to be endpoint, got %q", eventLine)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(dataLine), "data: /mcp?sessionid=") {
+		t.Fatalf("expected endpoint data to expose /mcp?sessionid=..., got %q", dataLine)
 	}
 }
 

@@ -202,6 +202,39 @@ type openCodeFixtureOptions struct {
 	managedMCP map[string]any
 }
 
+func TestBuildOpenCodeStartPayloadRewritesMCPToolNamespaceInSystemPrompt(t *testing.T) {
+	t.Parallel()
+
+	payload := buildOpenCodeStartPayload(
+		StartRequest{
+			Run: agentruns.NewRun(nil, map[string]any{
+				"messages": []any{
+					map[string]any{
+						"id":   "user-1",
+						"role": "user",
+						"content": []any{
+							map[string]any{"type": "text", "text": "Hello from OpenCode"},
+						},
+					},
+				},
+			}, time.Date(2026, 3, 9, 15, 0, 0, 0, time.UTC)),
+			Inputs: map[string]any{
+				"systemPrompt": "MCP tool names are always namespaced as `<serverId>__<toolName>`.",
+			},
+		},
+		"/tmp/workspace",
+		externalagentconfigs.Config{},
+	)
+
+	systemPrompt := stringValue(payload["systemPrompt"])
+	if strings.Contains(systemPrompt, "<serverId>__<toolName>") {
+		t.Fatalf("expected OpenCode system prompt to rewrite canonical MCP tool namespace, got %q", systemPrompt)
+	}
+	if !strings.Contains(systemPrompt, "<serverId>_<toolName>") {
+		t.Fatalf("expected OpenCode system prompt to mention underscore namespace, got %q", systemPrompt)
+	}
+}
+
 func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
 	// Verify completed tool-part state becomes a persisted tool result plus a
 	// summarized run event through the Go-owned OpenCode executor path.
