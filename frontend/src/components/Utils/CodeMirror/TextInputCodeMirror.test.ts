@@ -3,7 +3,11 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+} from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   TextInputCodeMirror,
@@ -12,6 +16,9 @@ import {
 
 const { applyActiveSectionChangeMock } = vi.hoisted(() => ({
   applyActiveSectionChangeMock: vi.fn(),
+}));
+const { getExtensionsMock } = vi.hoisted(() => ({
+  getExtensionsMock: vi.fn(() => ["extension"]),
 }));
 
 vi.mock("state/actions/activeSectionController", () => ({
@@ -44,7 +51,7 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorTooltipParent", () => ({
 }));
 
 vi.mock("components/Utils/CodeMirror/getExtensions", () => ({
-  getExtensions: () => ["extension"],
+  getExtensions: getExtensionsMock,
 }));
 
 vi.mock("@uiw/react-codemirror", async () => {
@@ -135,6 +142,7 @@ describe("TextInputCodeMirror activation", () => {
 
   beforeEach(() => {
     applyActiveSectionChangeMock.mockClear();
+    getExtensionsMock.mockClear();
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
@@ -170,6 +178,12 @@ describe("TextInputCodeMirror activation", () => {
       '[data-testid="dummy-codemirror"]',
     );
     expect(dummyCodeMirror).not.toBeNull();
+    expect(dummyCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    );
+    expect(dummyCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ACTIVE_CSS,
+    );
     expect(host.querySelector('[data-testid="real-codemirror"]')).toBeNull();
 
     await act(async () => {
@@ -193,6 +207,15 @@ describe("TextInputCodeMirror activation", () => {
       '[data-testid="real-codemirror"]',
     );
     expect(realCodeMirror).not.toBeNull();
+    expect(realCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    );
+    expect(realCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ACTIVE_CSS,
+    );
+    expect(getExtensionsMock).toHaveBeenCalled();
+    const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
+    expect(lastCall?.completionsFn).toBeUndefined();
 
     await act(async () => {
       realCodeMirror?.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
