@@ -272,6 +272,12 @@ Current tree note:
   the project-state cleanup. Current caller-backed ownership already lives in
   Go under `internal/lsp`, `internal/lspcompletion`, `internal/lspsignature`,
   `internal/watchcode`, `internal/codeformat`, and `internal/pythonenv`.
+- `backend/setta/app/*` is also gone in the current worktree because the old
+  Python app-spec store/patch/diagnostics helpers had no remaining non-test
+  callers after the Go app-config and MCP app-definition surface landed.
+  Current ownership already lives in Go under `internal/appspec`,
+  `internal/appgenskills`, `internal/httpapi`, `internal/managedchat`,
+  `internal/mcpx`, and `internal/projectstate`.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
