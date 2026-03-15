@@ -1,15 +1,12 @@
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
 import pytest
 import setta.mcp.codex_config as codex_config_module
 from setta.database.db_objs import DBE
-from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
+from setta.llm.config import load_llm_config, save_llm_config
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
-from setta.types.chat import ChatMetadata
-from setta.types.id import ID
 from setta.types.llm_config import (
     SCRIPTABLE_LLM_CONFIG_ID,
     AllLLMConfigs,
@@ -17,21 +14,6 @@ from setta.types.llm_config import (
     MCPServerConfig,
 )
 from setta.utils import constants as constants_module
-
-DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
-
-
-def _build_chat_metadata(
-    name: str, llm_config: LLMConfig, project_config_id: ID = DEFAULT_PROJECT_CONFIG_ID
-) -> ChatMetadata:
-    return ChatMetadata(
-        id=f"chat-{name}",
-        name=name,
-        lastUpdated=datetime.now(),
-        llmConfig=llm_config,
-        projectConfigId=project_config_id,
-    )
-
 
 def _write_default_example_llm_config(dbe: DBE) -> None:
     dbe.write_llm_config_example(
@@ -57,76 +39,6 @@ def _write_default_example_llm_config(dbe: DBE) -> None:
             "default_config_id": "claude-sonnet",
         }
     )
-
-
-class TestMergeChatLLMConfigs:
-    def test_skips_configs_already_in_persisted_set(self) -> None:
-        base_config = LLMConfig(
-            id="primary",
-            model="gpt-5.1",
-            provider="openai",
-            base_url="https://api.openai.com/v1",
-            other_params={"timeout": 12},
-        )
-        all_configs = AllLLMConfigs(configs={"primary": base_config})
-        metadata = [
-            _build_chat_metadata(
-                f"chat-{idx}",
-                base_config.model_copy(deep=True),
-            )
-            for idx in range(3)
-        ]
-
-        merged = merge_chat_llm_configs(all_configs, metadata)
-
-        assert set(merged.configs.keys()) == {"primary"}
-        assert not merged.configs["primary"].temporary
-
-    def test_collapses_duplicate_chat_configs(self) -> None:
-        chat_config = LLMConfig(
-            id="primary",
-            model="gpt-5.1",
-            provider="openai",
-        )
-        metadata = [
-            _build_chat_metadata("chat-a", chat_config.model_copy(deep=True)),
-            _build_chat_metadata("chat-b", chat_config.model_copy(deep=True)),
-        ]
-
-        merged = merge_chat_llm_configs(AllLLMConfigs(), metadata)
-
-        assert len(merged.configs) == 1
-        merged_config = next(iter(merged.configs.values()))
-        assert merged_config.temporary
-        assert merged_config.model == "gpt-5.1"
-
-    def test_preserves_distinct_chat_configs(self) -> None:
-        persisted = AllLLMConfigs(
-            configs={
-                "primary": LLMConfig(
-                    id="primary",
-                    model="gpt-5.1",
-                    provider="openai",
-                )
-            }
-        )
-        chat_metadata = [
-            _build_chat_metadata(
-                "chat-old",
-                LLMConfig(
-                    id="primary",
-                    model="claude-3",
-                    provider="anthropic",
-                ),
-            )
-        ]
-
-        merged = merge_chat_llm_configs(persisted, chat_metadata)
-
-        assert len(merged.configs) == 2
-        temporary_configs = [cfg for cfg in merged.configs.values() if cfg.temporary]
-        assert len(temporary_configs) == 1
-        assert temporary_configs[0].model == "claude-3"
 
 
 class TestAllLLMConfigsValidation:
@@ -1307,19 +1219,4 @@ command = "beta"
                 "'mcpServers' is not supported. Use 'mcp_servers'."
                 in message
                 for message in warning_messages
-            )
-
-    def test_validate_codex_mcp_servers_payload_rejects_camel_case_root_key(
-        self,
-    ) -> None:
-        with pytest.raises(
-            ValueError,
-            match="'mcpServers' is not supported. Use 'mcp_servers'.",
-        ):
-            codex_config_module.validate_codex_mcp_servers_payload(
-                {
-                    "mcpServers": {
-                        "alpha": {"command": "alpha"},
-                    }
-                }
             )
