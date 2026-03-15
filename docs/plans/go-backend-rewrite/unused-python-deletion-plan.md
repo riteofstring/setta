@@ -434,13 +434,17 @@ Current tree note:
   `internal/statemachineruns`, and related HTTP/MCP/frontend-binding paths, so
   the old file-backed Python prompt lookup and project/env helper tests were
   dead-path coverage rather than retained-boundary proof.
-- The dead generated Python clipboard union shim is also gone in the current
-  worktree: `backend/setta/types/generated/clipboard_data_unions.py` is no
-  longer generated because clipboard copy/paste transport and contract
-  ownership already live on the Go side under `internal/projectstate`,
-  `internal/httpapi`, and `internal/frontendbindings`, while the retained
-  Python code and tests only use `setta.types.clipboard` directly rather than
-  the unused generated union wrapper.
+- The dead Python clipboard/runtime-status/app-validation contract leaf batch
+  is also gone in the current worktree:
+  `backend/setta/types/generated/clipboard_data_unions.py`,
+  `backend/setta/types/clipboard.py`,
+  `backend/setta/types/mcp_runtime_status.py`, and
+  `backend/setta/types/app_validation.py` are gone because clipboard
+  copy/paste payloads, MCP runtime-status payloads, and app-validation
+  payloads now live entirely on the Go/frontend-binding side under
+  `internal/projectstate`, `internal/httpapi`, `internal/mcpx`,
+  `internal/appspec`, and `internal/frontendbindings`, with no surviving
+  retained Python caller importing those Python DTO leaves.
 - The dead generated Python type-definition tail is also smaller in the current
   worktree: `backend/scripts/prune_generated_types.py` pruned repo-unreferenced
   adapters, type-set constants, and the unused `ProjectConfigArgs` typed dict
