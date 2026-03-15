@@ -209,15 +209,20 @@ feature-local adapters around them when the consuming surface is non-trivial.
     compatibility facade over those normalization helpers.
   - `state/actions/projectChatWindowingSelectors.ts` owns section-binding and
     visible-window selector reads.
-  - `state/actions/projectChatWindowingInstanceState.ts` owns window-instance
-    creation, next-instance-id allocation, and per-window update helpers.
+  - `state/actions/projectChatWindowingInstanceCreation.ts` owns window-instance
+    creation, next-instance-id allocation, and runtime floating-bounds
+    resolution.
+  - `state/actions/projectChatWindowingInstanceUpdates.ts` owns shared
+    per-window normalization, z-index lookup, and update helpers.
+  - `state/actions/projectChatWindowingInstanceState.ts` is now the thin
+    compatibility facade over those instance owners.
   - `state/actions/projectChatWindowingPlacementState.ts` owns placement,
     maximize/unmaximize, close/minimize/reopen, and focus reducers.
   - `state/actions/projectChatWindowingBoundsState.ts` owns dock-fraction and
     floating-bounds reducers.
   - `state/actions/projectChatWindowingLayoutState.ts` is now a thin
-    compatibility surface that re-exports the instance, placement, and bounds
-    owners.
+    compatibility surface that re-exports the instance creation/update,
+    placement, and bounds owners.
   - `state/actions/projectChatWindowingSectionState.ts` owns section exposure,
     section binding, and section/window mode transition reducers.
   - `state/actions/projectChatWindowingMetadataState.ts` owns title and

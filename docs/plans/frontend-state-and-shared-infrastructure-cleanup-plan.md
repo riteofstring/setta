@@ -27,7 +27,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `projectChatWindowingStateNormalization.ts`, compatibility re-exports to
   `projectChatWindowingNormalization.ts`, selection reads to
   `projectChatWindowingSelectors.ts`,
-  instance lifecycle to `projectChatWindowingInstanceState.ts`,
+  instance creation plus runtime floating-bounds resolution to
+  `projectChatWindowingInstanceCreation.ts`, shared per-window normalization,
+  z-index lookup, and update helpers to
+  `projectChatWindowingInstanceUpdates.ts`, compatibility re-exports to
+  `projectChatWindowingInstanceState.ts`,
   placement/focus reducers to `projectChatWindowingPlacementState.ts`,
   dock-fraction/bounds reducers to `projectChatWindowingBoundsState.ts`,
   compatibility re-exports to `projectChatWindowingLayoutState.ts`,
@@ -232,15 +236,19 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   thin compatibility facade, while
   `frontend/src/state/actions/projectChatWindowingSelectors.ts` now owns
   section-binding and visible-window selector reads.
-- `frontend/src/state/actions/projectChatWindowingInstanceState.ts` now owns
-  window-instance creation, next-instance-id allocation, and shared per-window
-  update helpers, `frontend/src/state/actions/projectChatWindowingPlacementState.ts`
+- `frontend/src/state/actions/projectChatWindowingInstanceCreation.ts` now
+  owns window-instance creation, next-instance-id allocation, and runtime
+  floating-bounds resolution, `frontend/src/state/actions/projectChatWindowingInstanceUpdates.ts`
+  now owns shared per-window normalization, z-index lookup, and update
+  helpers, `frontend/src/state/actions/projectChatWindowingInstanceState.ts`
+  is now the thin compatibility facade, `frontend/src/state/actions/projectChatWindowingPlacementState.ts`
   now owns placement/focus reducers, and
   `frontend/src/state/actions/projectChatWindowingBoundsState.ts` now owns
   dock-fraction/bounds reducers that previously lived in
   `frontend/src/state/actions/projectChatWindowingState.ts`, while
   `frontend/src/state/actions/projectChatWindowingLayoutState.ts` is now the
-  compatibility surface that re-exports those owners.
+  compatibility surface that re-exports the instance creation/update,
+  placement, and bounds owners.
 - `frontend/src/state/actions/projectChatWindowingSectionState.ts` now owns
   section exposure/binding plus section/window mode transition reducers that
   previously lived in `frontend/src/state/actions/projectChatWindowing.ts`,
@@ -455,7 +463,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 213 lines
   - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
@@ -466,6 +473,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/stateMachineEdgeMutations.ts` at 206 lines
   - `frontend/src/state/actions/keyShortcutMatching.ts` at 206 lines
   - `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` at 205 lines
+  - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` at 205 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -1038,9 +1046,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - the thin compatibility re-export surface over those normalization helpers
 - `projectChatWindowingSelectors.ts` now owns:
   - section-binding and visible-window selector reads
-- `projectChatWindowingInstanceState.ts` now owns:
+- `projectChatWindowingInstanceCreation.ts` now owns:
   - window-instance creation and next-instance-id allocation
-  - shared per-window update helpers plus floating-bounds runtime defaults
+  - runtime floating-bounds defaults used by new or re-shown floating windows
+- `projectChatWindowingInstanceUpdates.ts` now owns:
+  - shared per-window normalization and update helpers
+  - shared z-index lookup across current window instances
+- `projectChatWindowingInstanceState.ts` is now:
+  - the thin compatibility re-export surface over the instance creation and update owners
 - `projectChatWindowingPlacementState.ts` now owns:
   - placement, maximize/unmaximize, close/minimize/reopen, and focus reducers
 - `projectChatWindowingBoundsState.ts` now owns:
@@ -1162,7 +1175,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Continue routing new optimistic write paths through
   `projectStateOptimisticUpdates.ts` instead of rebuilding queue or rollback
   helpers inside feature query modules.
-- Reuse seams that already exist in `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
+- Reuse seams that already exist in `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
 - Avoid each domain hand-rolling slightly different optimistic update scaffolding.
 
 4. Split cross-cutting interaction utilities

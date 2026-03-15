@@ -7,7 +7,7 @@ import {
 import {
   getHighestProjectChatWindowZIndex,
   withUpdatedProjectChatWindowInState,
-} from "./projectChatWindowingInstanceState";
+} from "./projectChatWindowingInstanceUpdates";
 import { normalizeProjectChatWindowingState } from "./projectChatWindowingStateNormalization";
 
 export function setProjectChatWindowPlacementInState(

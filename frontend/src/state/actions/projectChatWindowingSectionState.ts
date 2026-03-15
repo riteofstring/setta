@@ -8,8 +8,8 @@ import {
 import {
   addProjectChatWindowInstanceInState,
   resolveDefaultFloatingChatBoundsFromRuntime,
-  withUpdatedProjectChatWindowInState,
-} from "./projectChatWindowingInstanceState";
+} from "./projectChatWindowingInstanceCreation";
+import { withUpdatedProjectChatWindowInState } from "./projectChatWindowingInstanceUpdates";
 import {
   focusProjectChatWindowInState,
   setProjectChatWindowPlacementInState,

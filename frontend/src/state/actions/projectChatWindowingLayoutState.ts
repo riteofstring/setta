@@ -10,11 +10,13 @@ export type {
 } from "./projectChatWindowingBoundsState";
 export {
   addProjectChatWindowInstanceInState,
-  getHighestProjectChatWindowZIndex,
   resolveDefaultFloatingChatBoundsFromRuntime,
+} from "./projectChatWindowingInstanceCreation";
+export type { CreateProjectChatWindowInstanceOptions } from "./projectChatWindowingInstanceCreation";
+export {
+  getHighestProjectChatWindowZIndex,
   withUpdatedProjectChatWindowInState,
-} from "./projectChatWindowingInstanceState";
-export type { CreateProjectChatWindowInstanceOptions } from "./projectChatWindowingInstanceState";
+} from "./projectChatWindowingInstanceUpdates";
 export {
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,

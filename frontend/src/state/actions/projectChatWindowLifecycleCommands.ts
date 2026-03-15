@@ -3,7 +3,7 @@ import { useSettings } from "state/stores/uiPreferenceStores";
 import {
   addProjectChatWindowInstanceInState,
   type CreateProjectChatWindowInstanceOptions,
-} from "./projectChatWindowingInstanceState";
+} from "./projectChatWindowingInstanceCreation";
 import {
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,

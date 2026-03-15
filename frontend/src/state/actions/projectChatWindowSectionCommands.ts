@@ -5,7 +5,7 @@ import {
   type ChatWindowMode,
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
-import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
+import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceCreation";
 import {
   setProjectChatWindowModeForSectionInState,
   showSectionInProjectChatWindowInState,

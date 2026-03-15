@@ -3,7 +3,7 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { withUpdatedProjectChatWindowInState } from "./projectChatWindowingInstanceState";
+import { withUpdatedProjectChatWindowInState } from "./projectChatWindowingInstanceUpdates";
 
 export type SetDockFractionsOptions = {
   widthFractionsByInstanceId: Record<string, number>;

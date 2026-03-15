@@ -2,7 +2,7 @@ import {
   ChatWindowModeEnum,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { withUpdatedProjectChatWindowInState } from "./projectChatWindowingInstanceState";
+import { withUpdatedProjectChatWindowInState } from "./projectChatWindowingInstanceUpdates";
 
 export function setProjectChatWindowTitleInState(
   state: ProjectChatWindowingState,

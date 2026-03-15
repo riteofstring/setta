@@ -58,7 +58,7 @@ import {
   setProjectChatWindowDockFractionsInState,
 } from "./projectChatWindowingBoundsState";
 import { bootProjectChatWindowToCanvasSection } from "./projectChatWindowingCanvasBoot";
-import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
+import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceCreation";
 import { setProjectChatWindowTitleInState } from "./projectChatWindowingMetadataState";
 import {
   resolveDefaultDockedChatHeightPx,

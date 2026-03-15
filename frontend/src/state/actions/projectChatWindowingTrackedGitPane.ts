@@ -3,7 +3,7 @@ import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
 } from "utils/generatedTypes";
-import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
+import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceCreation";
 import { setProjectChatWindowTitleInState } from "./projectChatWindowingMetadataState";
 import {
   focusProjectChatWindowInState,
