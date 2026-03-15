@@ -1,4 +1,4 @@
-import { buildParamParentMap } from "state/actions/params/paramTreeStructure";
+import { buildParamParentMap } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
 import {

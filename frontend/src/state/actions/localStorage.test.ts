@@ -1,4 +1,4 @@
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   OverviewNotificationsPaneTabEnum,
