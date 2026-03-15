@@ -1296,6 +1296,48 @@ func ensureProjectParamMutationsAllowed(
 	return false
 }
 
+func ensureProjectParamValueMutationAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ProjectRouteDependencies,
+	runtime *projectstate.Runtime,
+	projectID string,
+	sectionID string,
+	paramInfoID string,
+) bool {
+	if !deps.ModePolicy.IsDeployment() {
+		return true
+	}
+
+	project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+	if err != nil {
+		writeParamValueMutationError(w, r, err)
+		return false
+	}
+	payload, _, _, impl, err := project.ResolveSectionCodeObject(sectionID, paramInfoID)
+	if err != nil {
+		writeParamValueMutationError(w, r, err)
+		return false
+	}
+
+	codeObjType := strings.TrimSpace(impl.Type)
+	if payloadType, ok := payload["type"].(string); ok && strings.TrimSpace(payloadType) != "" {
+		codeObjType = strings.TrimSpace(payloadType)
+	}
+	if codeObjType != "CodeParam" {
+		return true
+	}
+
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"code_param_edits_forbidden",
+		"Deployment mode disallows CodeParam edits.",
+	)
+	return false
+}
+
 func ensureProjectVariantMutationsAllowed(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -1520,6 +1562,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionStyleColor, setSectionStyleColorHandler(deps))
@@ -1798,12 +1841,20 @@ func setParamEnteredValueHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, "param_info_id_required", "Param info id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionCodeObjectValue(
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if !ensureProjectParamValueMutationAllowed(w, r, deps, runtime, projectID, sectionID, paramInfoID) {
+			return
+		}
+
+		if _, err := runtime.SetSectionCodeObjectValue(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
