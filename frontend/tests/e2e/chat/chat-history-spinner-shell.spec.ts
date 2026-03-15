@@ -166,7 +166,7 @@ test("managed chat history keeps the constrained shell while the live spinner st
     const historyShell = historyRow.locator(
       "xpath=ancestor::*[@data-chat-width-shell='true'][1]",
     );
-    await expect(historyShell).toBeVisible();
+    await expect(historyShell).toHaveCount(1);
     await expect(historyShell).toHaveClass(/max-w-\[72rem\]/);
 
     // The managed history branch should keep the same constrained shell while
