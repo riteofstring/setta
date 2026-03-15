@@ -3018,6 +3018,134 @@ func TestRegisterProjectRoutesMoveSectionsRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesMoveSectionsUsesDeploymentOverlayWhenLayoutChangesAllowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": moveSectionsRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowLayoutChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteMoveSections,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionIds":["top-a","top-b"],"newParentId":"group-parent","newIndex":0}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if parent := overlayProject.Sections["top-a"].ParentSectionID; parent != "group-parent" {
+				t.Fatalf("expected overlay top-a parent group-parent, got %q", parent)
+			}
+			if parent := overlayProject.Sections["top-b"].ParentSectionID; parent != "group-parent" {
+				t.Fatalf("expected overlay top-b parent group-parent, got %q", parent)
+			}
+			if _, ok := overlayProject.TopLevelSections["top-a"]; ok {
+				t.Fatal("expected overlay top-a to leave top-level layouts")
+			}
+			if _, ok := overlayProject.TopLevelSections["top-b"]; ok {
+				t.Fatal("expected overlay top-b to leave top-level layouts")
+			}
+
+			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+			if parent := baseProject.Sections["top-a"].ParentSectionID; parent != "" {
+				t.Fatalf("expected base top-a parent to remain empty, got %q", parent)
+			}
+			if parent := baseProject.Sections["top-b"].ParentSectionID; parent != "" {
+				t.Fatalf("expected base top-b parent to remain empty, got %q", parent)
+			}
+			if _, ok := baseProject.TopLevelSections["top-a"]; !ok {
+				t.Fatal("expected base top-a layout to remain present")
+			}
+			if _, ok := baseProject.TopLevelSections["top-b"]; !ok {
+				t.Fatal("expected base top-b layout to remain present")
+			}
+		})
+	}
+}
+
+func TestRegisterProjectRoutesMoveSectionsRejectsDeploymentPolicyWhenLayoutChangesDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": moveSectionsRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowLayoutChanges": false,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteMoveSections,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionIds":["top-a","top-b"],"newParentId":"group-parent","newIndex":0}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+				t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+				t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if parent := overlayProject.Sections["top-a"].ParentSectionID; parent != "" {
+				t.Fatalf("expected rejected mutation to keep top-a parent empty, got %q", parent)
+			}
+			if parent := overlayProject.Sections["top-b"].ParentSectionID; parent != "" {
+				t.Fatalf("expected rejected mutation to keep top-b parent empty, got %q", parent)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testing.T) {
 	t.Parallel()
 

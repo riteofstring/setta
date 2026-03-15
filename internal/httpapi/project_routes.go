@@ -1498,6 +1498,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteMoveSections, moveSectionsHandler(deps))
 		router.With(shareGuard).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
 		router.With(shareGuard).Post(RouteUndo, undoHandler(deps))
 		router.With(shareGuard).Post(RouteRedo, redoHandler(deps))
@@ -3028,7 +3029,16 @@ func moveSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil || deps.SettingsState == nil {
+		if deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -3038,7 +3048,7 @@ func moveSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeMoveSectionsError(w, r, err)
 			return
 		}
-		if _, err := deps.ProjectState.MoveSections(
+		if _, err := runtime.MoveSections(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.MoveSectionsInput{

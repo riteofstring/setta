@@ -176,9 +176,9 @@ It covers:
   one more dormant delete-route boundary row.
 - The view-mode route slice closes its caller-backed active-switch gap and
   retains one more dormant edit-family boundary row.
-- The section-movement / grouping / param-reorder slice mostly closes with
-  proofs, but it adds one more caller-backed layout-policy gap plus two more
-  dormant structure/param route-boundary rows.
+- The section-movement / grouping / param-reorder slice closes its
+  caller-backed layout-policy gap and retains two more dormant
+  structure/param route-boundary rows.
 - The code-section attached-terminal slice mostly closes with proofs, but it
   adds one more caller-backed attached-terminal transport gap outside IDE.
 - The section-creation / structural-deletion slice mostly closes with proofs,
@@ -191,7 +191,7 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Twenty-seven concrete parity gaps are already visible:
+- Twenty-six concrete parity gaps are already visible:
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
@@ -1038,7 +1038,7 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `MV-01` | `moveSections` preserves pane/top-level moves, sibling reorders, and attached-terminal reparenting: moving selected top-level sections into a parent removes stale layout entries, same-parent moves keep the requested sibling order, moving a terminal into or out of a code section updates the attached-terminal state, and descendant reparenting is rejected. | Source helpers: `backend/setta/types/helpers_lvl2.py::{move_section_to_pane,move_sections_to_parent_section}`; source manager method: `backend/setta/project_state/base_project_manager.py::move_sections`; source tests: `tests/project_state/test_move_sections.py::{test_move_sections_within_parent_keeps_contiguous_block,test_move_sections_from_top_level_removes_layout_entries,test_move_sections_rejects_descendant_parent,test_move_section_to_pane_sets_z_index_after_existing,test_move_section_to_pane_increments_z_index_for_multiple_moves}`; source attached-terminal tests: `tests/project_state/test_code_section_attached_terminal.py::{test_move_sections_attach_and_detach_round_trip,test_move_sections_rejects_non_terminal_child}`. | Impl: `internal/projectstate/move_sections.go::MoveSections`; proof: `internal/projectstate/move_sections_test.go::{TestRuntimeMoveSectionsMovesTopLevelSectionsIntoParentAndRemovesLayouts,TestRuntimeMoveSectionsReordersSiblingsWithinTheSameParent,TestRuntimeMoveSectionsAttachesAndDetachesTerminalThroughTheMoveRoute,TestRuntimeMoveSectionsRejectsDescendantParent}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesMoveSectionsPersistsLatestState,TestRegisterProjectRoutesMoveSectionsRejectsInvalidInputs}`. | `Proved` | Current Go route proof also covers the surviving typed transport mapping for invalid pane positions, invalid descendant reparenting, and negative indices. |
-| `MV-02` | In share/app sessions, `moveSections` stays mounted behind `allowLayoutChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source route: `backend/setta/routers/project_manager.py::route_move_sections`. | Current Go mounts `RouteMoveSections` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues ordinary section moves through `frontend/src/state/actions/sections/moveSections.ts::moveSectionsWithBackend` and `frontend/src/forks/dnd-kit/useMoveSection.ts`, while the DnD sensor gate tracks `canEditLayout` in `frontend/src/forks/dnd-kit/useDNDSensors.ts`. | `Missing` | This is an active parity gap: the source/current docs keep direct section moves on the layout-policy boundary, but current Go removes the route outside IDE while shared layout drag still uses it. |
+| `MV-02` | In share/app sessions, `moveSections` stays mounted behind `allowLayoutChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source route: `backend/setta/routers/project_manager.py::route_move_sections`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,moveSectionsHandler}`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesMoveSectionsUsesDeploymentOverlayWhenLayoutChangesAllowed,TestRegisterProjectRoutesMoveSectionsRejectsDeploymentPolicyWhenLayoutChangesDisallowed}`; current frontend callers remain share-aware via `frontend/src/state/actions/sections/moveSections.ts::moveSectionsWithBackend` and `frontend/src/forks/dnd-kit/useMoveSection.ts`. | `Proved` | Current Go now keeps `moveSections` transport-visible in share/app sessions, applies the documented `allowLayoutChanges` gate with typed `403`, and mutates only the active deployment overlay instead of the base deployment document. |
 | `SG-01` | `groupSections` creates a new sibling/top-level group at the correct parent or minimum top-level position and reparents the selected sections, while `ungroupGroups` restores child sections to the original parent/top-level order and removes the temporary group section. | Source helpers: `backend/setta/types/helpers_lvl2.py::{group_sections,ungroup_groups}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{group_sections,ungroup_groups}`. | Impl: `internal/projectstate/section_structure_selection.go::{GroupSections,UngroupGroups}`; proof: `internal/projectstate/section_structure_selection_test.go::{TestRuntimeGroupSectionsCreatesTopLevelGroupAndReparentsSelectedSections,TestRuntimeUngroupGroupsMovesChildrenBackToTopLevelAndParentOrder}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState`. | `Proved` | The current Go proofs are stronger than the pinned source slice here because they directly assert top-level layout placement, z-index refresh, and parent-child ordering after ungroup. |
 | `SG-02` | In share/app sessions, `groupSections` and `ungroupGroups` stay transport-visible and fail closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source routes: `backend/setta/routers/project_manager.py::{route_group_sections,route_ungroup_groups}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked_when_layout_changes_allowed`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current callers in `frontend/src/components/Utils/ContextMenus/SelectionContextMenu.tsx`, `frontend/src/components/Section/Header/MenuButton/UngroupButton.tsx`, and `frontend/src/state/actions/sectionInfos.ts::{groupActiveSections,ungroupActiveGroups}` all disable or short-circuit on deployment mode before any non-IDE transport call. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active Go-era non-IDE caller still depends on the direct group/ungroup route contract. |
 | `PM-01` | `moveParams`, `moveParamGroups`, `indentParams`, and `unindentParams` reorder or reparent param trees, apply batched moves sequentially, convert nested/code-param shapes as needed, preserve `GlobalVariables` behavior, and keep the surviving typed `400` / `404` / `422` transport mapping for invalid indexes, missing parents, and invalid move batches. | Source helpers: `backend/setta/types/helpers_lvl2.py::{move_params_within_parent,move_params_to_parent,indent_params,unindent_params}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{move_params,move_param_groups,indent_params,unindent_params}`; source tests: `tests/types/test_helpers_lvl2.py::{test_move_params_within_parent_reorders,test_indent_converts_previous_sibling,test_unindent_converts_empty_nested,test_move_params_to_parent_reparents}`. | Impl: `internal/projectstate/param_moves.go::{MoveParams,MoveParamGroups,IndentParams,UnindentParams}`; proof: `internal/projectstate/param_moves_test.go::{TestProjectMoveParamsReordersWithinParent,TestProjectMoveParamGroupsAppliesMovesSequentially,TestProjectIndentParamsConvertsPreviousSiblingAndMovesGroup,TestProjectUnindentParamsRestoresEmptyNestedParentToCodeParam,TestProjectMoveParamsSupportsGlobalVariables}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesParamMoveMutationsPersistLatestState,TestRegisterProjectRoutesParamMoveMutationsRejectInvalidInputs}`. | `Proved` | The current Go proof is slightly broader than the pinned source tests because it also covers sequential batched move-group application and explicit typed route-error mapping. |
@@ -1170,13 +1170,13 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains twenty-seven concrete source-parity gaps:
+1. The matrix now contains twenty-six concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, `SV-05`, `MV-02`, `CT-02`, `SC-05`, `SC-06`, and `DL-02`.
+   `PV-05`, `SV-05`, `CT-02`, `SC-05`, `SC-06`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
@@ -1287,9 +1287,9 @@ It covers:
     (`SV-02`), and one dormant delete-route boundary row (`SV-06`).
 39. The view-mode route slice now closes its real active-view-mode policy gap
     and retains one dormant edit-family boundary row (`VM-04`).
-40. The section-movement / grouping / param-reorder slice mostly closes with
-    proofs, but it adds one real layout-policy gap (`MV-02`) plus two dormant
-    route-boundary rows (`SG-02`, `PM-02`).
+40. The section-movement / grouping / param-reorder slice now closes its real
+    layout-policy gap and retains two dormant route-boundary rows (`SG-02`,
+    `PM-02`).
 41. The code-section attached-terminal slice mostly closes with proofs, but it
     adds one real non-IDE transport gap (`CT-02`).
 42. The section-creation / structural-deletion slice mostly closes with
@@ -1325,7 +1325,7 @@ It covers:
       `DP-08`,
       `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
-      `SP-03`, `PA-02`, `PV-05`, `SV-05`, `MV-02`, `CT-02`,
+      `SP-03`, `PA-02`, `PV-05`, `SV-05`, `CT-02`,
       `SC-05`, `SC-06`, and `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
