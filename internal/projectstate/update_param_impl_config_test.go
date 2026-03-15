@@ -102,6 +102,87 @@ func TestProjectUpdateParamImplConfigForcesSingleDateSelectionWhenIncludingTime(
 	}
 }
 
+// Text/date/time param families should keep their documented default and
+// accepted control settings on the live param-config mutation surface.
+func TestProjectUpdateParamImplConfigSupportsTextDateAndTimeControlFamilies(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+
+	if err := project.ChangeParamImpl("meta-section", "meta-param", "TextParam"); err != nil {
+		t.Fatalf("change meta control impl to text: %v", err)
+	}
+	textPayload, _, _, _, err := project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve text param: %v", err)
+	}
+	if got := payloadStringField(textPayload, "uiType"); got != "plain" {
+		t.Fatalf("expected text uiType plain, got %q", got)
+	}
+	if _, ok := textPayload["dateControlMode"]; ok {
+		t.Fatalf("expected text param to omit dateControlMode, got %#v", textPayload)
+	}
+	if _, ok := textPayload["timeControlMode"]; ok {
+		t.Fatalf("expected text param to omit timeControlMode, got %#v", textPayload)
+	}
+
+	if err := project.ChangeParamImpl("meta-section", "meta-param", "DateParam"); err != nil {
+		t.Fatalf("change meta control impl to date: %v", err)
+	}
+	datePayload, _, _, _, err := project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve default date param: %v", err)
+	}
+	if got := payloadStringField(datePayload, "dateControlMode"); got != "input" {
+		t.Fatalf("expected default dateControlMode input, got %q", got)
+	}
+	if got := payloadStringField(datePayload, "dateSelectionMode"); got != "single" {
+		t.Fatalf("expected default dateSelectionMode single, got %q", got)
+	}
+	if got := payloadStringField(datePayload, "dateCalendarWeekStart"); got != "sunday" {
+		t.Fatalf("expected default dateCalendarWeekStart sunday, got %q", got)
+	}
+	if payloadBoolField(datePayload, "dateIncludesTime") {
+		t.Fatalf("expected default dateIncludesTime false, got %#v", datePayload)
+	}
+	if err := project.UpdateParamImplConfig("meta-section", "meta-param", map[string]any{
+		"dateControlMode":       "calendar",
+		"dateSelectionMode":     "multiple",
+		"dateCalendarWeekStart": "monday",
+	}); err != nil {
+		t.Fatalf("update date control config: %v", err)
+	}
+	datePayload, _, _, _, err = project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve updated date param: %v", err)
+	}
+	if got := payloadStringField(datePayload, "dateControlMode"); got != "calendar" {
+		t.Fatalf("expected updated dateControlMode calendar, got %q", got)
+	}
+	if got := payloadStringField(datePayload, "dateSelectionMode"); got != "multiple" {
+		t.Fatalf("expected updated dateSelectionMode multiple, got %q", got)
+	}
+	if got := payloadStringField(datePayload, "dateCalendarWeekStart"); got != "monday" {
+		t.Fatalf("expected updated dateCalendarWeekStart monday, got %q", got)
+	}
+
+	if err := project.ChangeParamImpl("meta-section", "meta-param", "TimeParam"); err != nil {
+		t.Fatalf("change meta control impl to time: %v", err)
+	}
+	if err := project.UpdateParamImplConfig("meta-section", "meta-param", map[string]any{
+		"timeControlMode": "display",
+	}); err != nil {
+		t.Fatalf("update time control config: %v", err)
+	}
+	timePayload, _, _, _, err := project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve time param: %v", err)
+	}
+	if got := payloadStringField(timePayload, "timeControlMode"); got != "display" {
+		t.Fatalf("expected updated timeControlMode display, got %q", got)
+	}
+}
+
 // Unknown fields should fail loudly instead of being silently persisted into
 // arbitrary impl payloads.
 func TestProjectUpdateParamImplConfigRejectsUnsupportedField(t *testing.T) {

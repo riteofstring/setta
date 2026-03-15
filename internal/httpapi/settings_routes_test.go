@@ -139,6 +139,87 @@ func TestRegisterSettingsRoutesSavePersistsSnapshot(t *testing.T) {
 	}
 }
 
+func TestRegisterSettingsRoutesSaveAndLoadPreserveMetaControlSizingOverrides(t *testing.T) {
+	t.Parallel()
+
+	// Valid meta-control sizing overrides should round-trip through the direct
+	// Go-owned settings save/load surface without being normalized away.
+	runtime, settingsPath := newSettingsRouteTestRuntime(t)
+	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
+
+	document := runtime.Snapshot().Document
+	sectionSizingPolicy := document["sectionSizingPolicy"].(map[string]any)
+	metaControlByType := sectionSizingPolicy["metaControlByType"].(map[string]any)
+	dropzone := metaControlByType["DropzoneParam"].(map[string]any)
+	dropzone["minHeight"] = 120
+	dropzone["minWidth"] = 300
+	dropzone["sizeModeHeight"] = "auto_only"
+	dropzone["sizeModeWidth"] = "any"
+
+	requestBody, err := json.Marshal(SaveSettingsRequest{Settings: document})
+	if err != nil {
+		t.Fatalf("marshal save settings payload: %v", err)
+	}
+	saveRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSaveSettings,
+		strings.NewReader(string(requestBody)),
+	)
+	saveRequest.Header.Set("Content-Type", "application/json")
+	saveResponse := httptest.NewRecorder()
+	handler.ServeHTTP(saveResponse, saveRequest)
+	if saveResponse.Code != http.StatusOK {
+		t.Fatalf("expected save settings 200, got %d with body %q", saveResponse.Code, saveResponse.Body.String())
+	}
+
+	loadResponse := httptest.NewRecorder()
+	loadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadSettings, nil)
+	handler.ServeHTTP(loadResponse, loadRequest)
+	if loadResponse.Code != http.StatusOK {
+		t.Fatalf("expected load settings 200, got %d with body %q", loadResponse.Code, loadResponse.Body.String())
+	}
+
+	var loaded settingsstate.Document
+	if err := json.Unmarshal(loadResponse.Body.Bytes(), &loaded); err != nil {
+		t.Fatalf("decode load settings payload: %v", err)
+	}
+	loadedDropzone := loaded["sectionSizingPolicy"].(map[string]any)["metaControlByType"].(map[string]any)["DropzoneParam"].(map[string]any)
+	if got := loadedDropzone["minHeight"]; got != float64(120) {
+		t.Fatalf("expected load minHeight 120, got %#v", got)
+	}
+	if got := loadedDropzone["minWidth"]; got != float64(300) {
+		t.Fatalf("expected load minWidth 300, got %#v", got)
+	}
+	if got := loadedDropzone["sizeModeHeight"]; got != "auto_only" {
+		t.Fatalf("expected load sizeModeHeight auto_only, got %#v", got)
+	}
+	if got := loadedDropzone["sizeModeWidth"]; got != "any" {
+		t.Fatalf("expected load sizeModeWidth any, got %#v", got)
+	}
+
+	content, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("read saved settings file: %v", err)
+	}
+	var persisted settingsstate.Document
+	if err := json.Unmarshal(content, &persisted); err != nil {
+		t.Fatalf("decode saved settings file: %v", err)
+	}
+	persistedDropzone := persisted["sectionSizingPolicy"].(map[string]any)["metaControlByType"].(map[string]any)["DropzoneParam"].(map[string]any)
+	if got := persistedDropzone["minHeight"]; got != float64(120) {
+		t.Fatalf("expected persisted minHeight 120, got %#v", got)
+	}
+	if got := persistedDropzone["minWidth"]; got != float64(300) {
+		t.Fatalf("expected persisted minWidth 300, got %#v", got)
+	}
+	if got := persistedDropzone["sizeModeHeight"]; got != "auto_only" {
+		t.Fatalf("expected persisted sizeModeHeight auto_only, got %#v", got)
+	}
+	if got := persistedDropzone["sizeModeWidth"]; got != "any" {
+		t.Fatalf("expected persisted sizeModeWidth any, got %#v", got)
+	}
+}
+
 func TestRegisterSettingsRoutesBlocksSaveOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 
