@@ -672,6 +672,30 @@ func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
 	}
 }
 
+func TestServiceStartChatRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:               userMessage("user-managed", "Create a new project."),
+		EngineConfigID:        "engine-managed",
+		Thinking:              false,
+		ProjectConfigID:       "project-alpha",
+		AllowUnscoped:         true,
+		FrontendAffinityToken: stringPtr("   "),
+		PermissionMode:        ChatPermissionModeMinimal,
+		SearchEnabled:         false,
+	})
+	if !errors.Is(err, ErrFrontendAffinityTokenInvalid) {
+		t.Fatalf("expected ErrFrontendAffinityTokenInvalid, got %v", err)
+	}
+	if starter.lastInputs != nil {
+		t.Fatalf("expected starter not to be invoked, got %#v", starter.lastInputs)
+	}
+}
+
 func TestServiceStartChatOmitsAppGenerationPromptWhenModeUnset(t *testing.T) {
 	t.Parallel()
 
