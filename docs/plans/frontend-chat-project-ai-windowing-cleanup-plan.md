@@ -20,20 +20,20 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-16)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/Chat/ChatInput.tsx` is now about 1605 lines after the local composer meta-controls extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 1183 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a blocking top-size hotspot in this domain
   - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot
+- `frontend/src/components/Chat/ChatInput.tsx` is now about 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and is no longer a blocking top-size hotspot in this domain.
 - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer the blocking top hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer the blocking top hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 914 lines after the local history-panel, folder-shell, and thread-row extraction and is no longer the blocking front-door hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 64 lines after delegating accordion section routing and settings-manager ownership into sharp local owners, so it is no longer a blocking front-door hotspot in this domain.
 - The next default work in this domain should continue from the remaining
   large chat/project-AI surfaces a contributor still opens first:
-  - `ChatInput.tsx`
+  - `ChatMessages.tsx`
   - `ProjectChat.tsx`
 - `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
-  `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, `ChatMessages.tsx`, and
+  `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, and
   the extracted `ProjectAISettings` manager owners still matter, but they are
   now follow-through slices unless they directly simplify those entry surfaces
   or one of the already-extracted helper files becomes its own
@@ -52,6 +52,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
     behavior, runtime activity counter/dropdown shells, and
     permission/thinking/search controls for `ChatInput.tsx`
   - `frontend/src/components/Chat/chatInputSubmission.ts` now owns slash-command parsing, queued-draft replay snapshots, queued-draft replay signatures, and the submit or replay state machine for `ChatInput.tsx`
+  - `frontend/src/components/Chat/chatInputDraftSession.ts` now owns queued-draft session state, submitted-history selection, escape clear/restore state, and queued replay continuity for `ChatInput.tsx`, while `frontend/src/components/Chat/ChatInputQueuedDraftStack.tsx` now owns the queued-draft rail shell plus row-level restore and keyboard selection behavior
   - `frontend/src/components/Chat/useChatInputDictation.ts` now owns browser/provider dictation availability, recorder lifecycle, provider fallback policy, transcript insertion, and dictation state for `ChatInput.tsx`
   - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations for `ProjectChatBottomDock.tsx`
@@ -105,12 +106,14 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Current Problems
 
 - `ChatMessages.tsx` is much smaller now, but it still mixes assistant/user/system bubble shells, grouped activity-only row iteration, and message-level action wiring even after assistant activity/timeline derivation moved into `chatAssistantActivity.ts`, the activity card moved into `chatAssistantActivityCard.tsx`, structured-output/tool-call rendering moved into `chatStructuredOutput.tsx`, attachment/media preview handling moved into `chatAttachmentPreviewUrls.ts` plus `chatAttachmentPreviews.tsx`, markdown/search-highlight rendering moved into `chatMessageContent.tsx`, and timers/streaming runtime wiring moved into `chatMessageRuntime.tsx`.
-- `ChatInput.tsx` is smaller now, but it still mixes composer state, slash
-  suggestion layout, attachment handling, queued draft/history restore, and
-  the remaining composer render shells even after slash-command parsing plus
-  queued-draft replay moved into `chatInputSubmission.ts`, dictation lifecycle
-  moved into `useChatInputDictation.ts`, and the footer/meta controls moved
-  into `ChatInputMetaControls.tsx`.
+- `ChatInput.tsx` is smaller now, but it still mixes slash suggestion layout,
+  attachment handling, and the remaining composer render shell even after
+  slash-command parsing plus queued-draft replay moved into
+  `chatInputSubmission.ts`, queued-draft or submitted-history session state
+  plus escape clear/restore moved into `chatInputDraftSession.ts`, the
+  queued-draft rail shell moved into `ChatInputQueuedDraftStack.tsx`,
+  dictation lifecycle moved into `useChatInputDictation.ts`, and the
+  footer/meta controls moved into `ChatInputMetaControls.tsx`.
 - `ProjectChat.tsx` is smaller now, but it still mixes surface orchestration,
   controlled/global chat-id resolution, hydration authority, engine sync, and
   notification side effects even after engine/model/config selection moved into
@@ -181,9 +184,11 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 - `ProjectChat.tsx` has already had its large surface-shell and thread-session
   extraction.
-- Default next in this domain to `ChatInput.tsx` unless a same-turn
-  follow-through cut clearly shortens one of the smaller
-  skills/history/windowing/chat follow-through surfaces.
+- `ChatInput.tsx` has already had its composer meta-controls, draft-session,
+  and queued-draft-stack extraction.
+- Default next in this domain to `ProjectChat.tsx` or `ChatMessages.tsx`,
+  whichever same-turn slice shortens the first-hop read path more directly than
+  the remaining windowing or aux-view follow-through coordinators.
 - Treat `ProjectChatCore.tsx` as adjacent follow-through work when a same-turn
   slice directly shortens the remaining `ProjectChat.tsx` hydration/engine-sync
   path or when one of its new
@@ -200,13 +205,14 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 2. Continue into the next chat or project-AI roots, not the follow-through coordinators
 
-- After `ProjectChat.tsx`, default next to `ChatInput.tsx`; treat
-  `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`, and the
+- After `ProjectChat.tsx`, default next to `ChatMessages.tsx`; treat
+  `ChatInput.tsx`, `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`, and the
   extracted `ProjectAISettings` manager owners as follow-through unless a
   same-turn cut directly shortens one of those remaining coordination paths.
 - Keep pushing clearly named responsibilities out of those files:
-  - slash-suggestion layout and attachment handling
-  - queued draft/history restore
+  - assistant or user/system bubble shells and message-level action wiring
+  - slash-suggestion layout and attachment handling when a same-turn cut still
+    shortens `ChatInput.tsx`
   - tracked window focus/placement lifecycle
   - floating-bounds or snap/viewport orchestration
   - remaining skills/MCP route coordination only when it shortens the
@@ -229,11 +235,11 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   `projectChatFloatingInteractions.ts`, split that helper only when it reduces
   the number of files a contributor must traverse from `ProjectChatBottomDock.tsx`.
 
-4. Treat `ChatInput.tsx` and `ChatMessages.tsx` as follow-through cleanup, not default starting points
+4. Treat `ChatInput.tsx` and the remaining smaller chat coordinators as follow-through cleanup, not default starting points
 
 - Keep the existing chat-local owners for activity derivation, structured
-  output, attachments, markdown rendering, runtime hooks, submission, and
-  dictation.
+  output, attachments, markdown rendering, runtime hooks, submission, draft
+  session, queued-draft stack, and dictation.
 - Only continue splitting these files when:
   - a remaining responsibility is still broad enough to deserve a named owner,
     or

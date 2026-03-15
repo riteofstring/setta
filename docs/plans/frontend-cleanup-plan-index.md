@@ -41,10 +41,11 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
@@ -84,6 +85,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   delegating draft-thread lifecycle, group selection, engine-switch
   continuation state, and pending-chat continuity to
   `projectChatThreadSession.ts`; chat/project-AI follow-through should now
+  start from the larger remaining front doors in
+  [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- `ChatInput.tsx` is no longer a top hotspot after delegating queued-draft,
+  submitted-history, and escape clear/restore session ownership to
+  `chatInputDraftSession.ts` plus the queued-draft rail shell to
+  `ChatInputQueuedDraftStack.tsx`; chat/project-AI follow-through should now
   start from the larger remaining front doors in
   [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
 - `ProjectAISettings.tsx` is no longer a top hotspot after delegating
