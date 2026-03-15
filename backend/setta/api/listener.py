@@ -2338,10 +2338,26 @@ class SettaListener:
                 "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
             )
         ids = ListenerDependencyIds(runtime_state.dependency_metadata)
+
+        def dependency_metadata_resolver() -> ListenerDependencyMetadata | None:
+            current_runtime_state = self._runtime_state
+            if current_runtime_state is None:
+                return None
+            return current_runtime_state.dependency_metadata
+
+        def state_resolver() -> Any:
+            current_runtime_state = self._runtime_state
+            if current_runtime_state is None:
+                return None
+            return self._build_callback_state(current_runtime_state)
+
+        def value_resolver(dependency_name: str) -> Any:
+            return self._dependency_cache.get(dependency_name, _MISSING)
+
         values = ListenerDependencyValues(
-            dependency_metadata_resolver=self._current_runtime_state_dependency_metadata,
-            value_resolver=self._current_dependency_value_by_name,
-            state_resolver=self._current_callback_state,
+            dependency_metadata_resolver=dependency_metadata_resolver,
+            value_resolver=value_resolver,
+            state_resolver=state_resolver,
         )
         return ListenerCallbackContext(
             changed=changed,
@@ -2357,23 +2373,6 @@ class SettaListener:
             values=values,
         )
 
-    def _current_runtime_state_dependency_metadata(
-        self,
-    ) -> ListenerDependencyMetadata | None:
-        runtime_state = self._runtime_state
-        if runtime_state is None:
-            return None
-        return runtime_state.dependency_metadata
-
-    def _current_callback_state(self) -> Any:
-        runtime_state = self._runtime_state
-        if runtime_state is None:
-            return None
-        return self._build_callback_state(runtime_state)
-
-    def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
-        return self._dependency_cache.get(dependency_name, _MISSING)
-
     def _build_callback_state(
         self,
         runtime_state: ListenerRuntimeState,
@@ -2385,10 +2384,13 @@ class SettaListener:
         | None = None,
     ) -> Any:
         if dependency_metadata_resolver is None:
+
             def dependency_metadata_resolver() -> ListenerDependencyMetadata:
                 return runtime_state.dependency_metadata
         if value_resolver is None:
-            value_resolver = self._current_dependency_value_by_name
+
+            def value_resolver(dependency_name: str) -> Any:
+                return self._dependency_cache.get(dependency_name, _MISSING)
         return _ListenerCallbackStateView(
             dependency_metadata_resolver=dependency_metadata_resolver,
             value_resolver=value_resolver,
