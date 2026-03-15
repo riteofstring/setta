@@ -24,6 +24,7 @@ Current status:
 - Active phase: fresh expanded-scope boundary read from the section container cluster downward across all section types
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
 - Current state: the earlier section-shell closure is superseded by explicit scope expansion; the next serious step is to identify the deepest remaining container-down `grid` or wrapper seam, remove it on one narrow checkpoint, and re-measure before moving upward
+- Deferred follow-up watch items after the current structural passes: callable column resizing and section resizing are still noticeably slow, but they should be treated as post-flattening trace targets rather than immediate checkpoint drivers
 - Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
 Non-negotiable constraints:
@@ -38,6 +39,7 @@ Non-negotiable constraints:
 - Use Chrome DevTools performance testing and compare untouched `main` vs this worktree.
 - Check every touched section type, not only the earlier representative controls.
 - For every touched text/code input path, explicitly verify underline/focus feedback, dummy-vs-real CodeMirror font and spacing parity, and activation responsiveness.
+- Do not promote callable column resize or section resize work above the active structural simplification passes unless a fresh untouched-`main` vs worktree trace shows they are blocking the current checkpoint.
 - For any performance test that touches panning, zooming, resizing, or another section-shell interaction path, capture a Chrome DevTools `Performance` trace on that path. Playwright metrics or ad hoc timings can support the read, but they do not replace the DevTools profile.
 - If a target truly cannot be achieved without `grid`, stop and report the blocker instead of introducing `grid`.
 - Do not edit the settings page as part of this plan. Treat it as an observation-only perf control surface.
@@ -58,6 +60,7 @@ Immediate next step:
 5. For every candidate checkpoint, compare untouched `main` vs this branch on the exact touched interaction path in Chrome DevTools and pair the trace with fresh DOM audits for the touched section types.
 6. After each accepted checkpoint, re-read from the section container level downward again; move upward only when the lower section stack no longer contains a stronger removable `grid` or wrapper seam.
 7. Keep the previously accepted `Phase S3` route/window checkpoints as preserved history, but do not treat the earlier section-shell closure as active direction for this expanded scope.
+8. Keep callable column resize and section resize as explicit deferred follow-up checks after the active flattening passes, then compare untouched `main` vs this branch on those resize paths once the structural work is otherwise complete.
 
 Historical accepted checkpoint notes retained below:
 
@@ -246,6 +249,10 @@ Historical callable-only phases below remain valid as an append-only record of t
   - text-input underlines must still light up on focus
   - dummy CodeMirror must visually match the real editor path closely enough that activation does not cause a font/spacing jump
   - activating a CodeMirror-backed text input must stay responsive enough that the handoff does not feel delayed
+- Resize performance is also a tracked follow-up surface, but not the current driver:
+  - callable column resizing is still noticeably slow
+  - section resizing is still noticeably slow
+  - both should be measured after the active flattening passes are otherwise complete, unless new traces show they block the current structural checkpoint selection
 - We should not reopen previously rejected paths unless the product assumption changes:
   - backend-only fixes as the primary answer
   - subscription partitioning
@@ -896,8 +903,12 @@ Tasks:
 
 1. Re-run Chrome DevTools traces on `main` vs this worktree.
 2. Continue only where the next hotspot is proven by measurement.
-3. Do not keep refactoring by aesthetics alone once the structural work is done.
-4. If the previous pass materially changed the shell shape, start this phase with another DOM/ownership audit before deciding what the next pass should be.
+3. Include the deferred resize follow-up checks once the active structural work is otherwise complete:
+   - callable column resize
+   - section resize
+4. For those deferred resize checks, compare untouched `main` vs this branch on the exact resize path before deciding whether they become new checkpoints.
+5. Do not keep refactoring by aesthetics alone once the structural work is done.
+6. If the previous pass materially changed the shell shape, start this phase with another DOM/ownership audit before deciding what the next pass should be.
 
 Exit criteria:
 

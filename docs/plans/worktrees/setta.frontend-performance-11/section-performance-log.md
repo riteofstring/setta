@@ -2827,3 +2827,17 @@ Append-only log for the section performance refactor.
   - The earlier closure entry remains historical and is now superseded by explicit scope expansion, not by a regression in the accepted checkpoint history.
 - Next action:
   - Run a fresh section-container-down boundary read across the section container cluster and all section-type entry paths to choose the next narrow checkpoint.
+
+### 2026-03-17 80
+
+- Item: Record deferred resize follow-up targets under the reopened plan.
+- Status: `done`
+- Details:
+  - Keep two user-reported resize issues visible in the tracker:
+    - callable column resizing is still noticeably slow
+    - section resizing is still noticeably slow
+  - Do not treat those resize paths as the next checkpoint drivers while the container-down flattening and upward simplification passes are still open.
+  - Revisit both resize paths only after the active structural passes are otherwise complete, unless a fresh untouched-`main` vs worktree trace shows one of them is blocking the current checkpoint selection.
+  - When those follow-up checks run, measure untouched `main` vs this branch on the exact resize interaction path before deciding whether either issue becomes a new checkpoint.
+- Next action:
+  - Continue the active section-container-down boundary read and leave callable column resize plus section resize as deferred follow-up trace targets.
