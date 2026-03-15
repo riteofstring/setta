@@ -33,6 +33,7 @@ import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
+import { getNonNestedParamRowClassName } from "./paramRowClassNames";
 
 type ParamSwitchProps = {
   sectionId: string;
@@ -156,7 +157,11 @@ function TempParamSwitch({
   );
   return (
     <article
-      className={`section-key-value section-param-row section-min-rows relative grid min-w-0 items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40 ${isNestedChildInTree ? "ml-[0.9rem] before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20" : ""}`}
+      className={getNonNestedParamRowClassName({
+        isNestedChildInTree,
+        justifyBetween: true,
+        extraClassName: "bg-blue-500/40 dark:bg-blue-600/40",
+      })}
       style={dndStyle}
       data-param-row="true"
       ref={dndRef}

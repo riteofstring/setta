@@ -9,10 +9,11 @@ import { useProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
+import {
+  getNestedChildRowClassName,
+  getNonNestedParamRowClassName,
+} from "./paramRowClassNames";
 import { ResizeHandle } from "./ResizeHandle";
-
-const NESTED_CHILD_ROW_CLASS_NAME =
-  "ml-[0.9rem] before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
 
 function _ParamContainer({
   sectionId,
@@ -94,15 +95,19 @@ function _ParamContainer({
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
   const floatingBoxHandlers = getFloatingBoxHandlers(...tooltipContentArray);
-  const nestedChildRowClassName = isNestedChildInTree
-    ? NESTED_CHILD_ROW_CLASS_NAME
-    : "";
+  const nestedChildRowClassName =
+    getNestedChildRowClassName(isNestedChildInTree);
 
   if (!isNestedParam) {
     return (
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${nestedChildRowClassName} ${shouldRenderNestedChildSubtrees ? "justify-between gap-y-1" : ""} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+        className={getNonNestedParamRowClassName({
+          isNestedChildInTree,
+          justifyBetween: shouldRenderNestedChildSubtrees,
+          gapY: shouldRenderNestedChildSubtrees,
+          extraClassName: `group/arg-group ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`,
+        })}
         style={dndStyle}
         data-param-row="true"
         {...floatingBoxHandlers}

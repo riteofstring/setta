@@ -573,3 +573,33 @@ Append-only log for the callable DOM-first performance refactor.
     - visible param rows: `7` on both `main` and the worktree
 - Next action:
   - Continue Phase 2 only if the next step removes another real row-tree shell distinction instead of just moving code around. The remaining candidate is the dedicated temp placeholder article shell in `ParamSwitch`.
+
+### 2026-03-16 33
+
+- Item: Phase 2 checkpoint 7 shared non-nested row shell contract for temp and steady-state rows.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Params/paramRowClassNames.ts` to centralize the non-nested row shell contract and the nested-child branch-line classes.
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` to build its non-nested steady-state row shell from the shared utility instead of keeping its own open-coded shell string.
+  - Updated `frontend/src/components/Params/ParamSwitch.tsx` so the temp placeholder row now uses the same shared non-nested row shell utility instead of maintaining a parallel literal class contract.
+  - Added `frontend/src/components/Params/paramRowClassNames.test.ts` to keep the shared shell contract covered by a focused unit test.
+  - Re-ran the focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts`
+  - Result: `1 passed`, `3 passed`
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the shared shell-contract move.
+  - Live control-scene read:
+    - callable subtree nodes:
+      - `main`: `125`
+      - worktree: `100`
+    - visible param rows: `7` on both `main` and the worktree
+- Next action:
+  - Reassess whether any remaining Phase 2 work removes a real row-tree boundary. If not, stop Phase 2 here and treat the next meaningful step as a phase-boundary decision rather than more shell churn.

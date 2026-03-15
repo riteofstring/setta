@@ -504,3 +504,33 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this checkpoint deepens the row-tree implementation without changing the callable DOM shape
   - the temp and real row paths now share one sortable contract instead of maintaining duplicated DnD wiring in parallel
+
+### Phase 2 checkpoint 7: shared non-nested row shell contract for temp and steady-state rows
+
+- Date/time: 2026-03-16
+- Scope:
+  - added `frontend/src/components/Params/paramRowClassNames.ts` to centralize the shared non-nested row shell contract and nested-child branch-line classes
+  - updated `frontend/src/components/Params/ParamContainer.tsx` to build its non-nested steady-state row shell from that shared utility
+  - updated `frontend/src/components/Params/ParamSwitch.tsx` so the temp placeholder row now uses the same shared non-nested shell utility instead of its own literal class contract
+  - added `frontend/src/components/Params/paramRowClassNames.test.ts` as a focused unit guardrail for the shared shell contract
+- Automated verification:
+  - reran `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts`
+  - result: `1 passed`, `3 passed`
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable surface remained visually aligned after the shared shell-contract move
+- Live control-scene read:
+  - callable subtree nodes:
+    - `main`: `125`
+    - worktree: `100`
+  - visible param rows: `7` on both `main` and the worktree
+- Interpretation:
+  - this checkpoint removes the last obvious literal duplication in the temp-vs-steady-state non-nested row shell contract
+  - the remaining Phase 2 opportunities now look more like phase-boundary decisions than clearly valuable row-tree reductions
