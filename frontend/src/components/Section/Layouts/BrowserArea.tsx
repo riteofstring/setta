@@ -273,40 +273,52 @@ function BrowserThumbnailContent({
   thumbnailUrl,
   badgeText,
   label,
+  overlay,
 }: {
   previewKind: BrowserPreviewKind;
   thumbnailUrl?: string | null;
   badgeText?: string | null;
   label: string;
+  overlay?: ReactNode;
 }) {
-  if (previewKind === "image" && thumbnailUrl) {
-    return (
-      <>
-        <img
-          src={thumbnailUrl}
-          className="single-cell-child z-10 h-full w-full object-cover"
-          alt={label}
-        />
-        <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
-      </>
-    );
-  }
   const Icon = PREVIEW_KIND_ICON_MAP[previewKind];
   const iconClassName = PREVIEW_KIND_ICON_CLASS_MAP[previewKind];
   const badgeClassName = PREVIEW_KIND_BADGE_CLASS_MAP[previewKind];
   return (
-    <>
-      <div className="single-cell-child flex flex-col items-center justify-center gap-2">
-        <Icon size={26} className={iconClassName} />
-      </div>
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
+      {previewKind === "image" && thumbnailUrl ? (
+        <>
+          <img
+            src={thumbnailUrl}
+            className="absolute inset-0 z-10 h-full w-full object-cover"
+            alt={label}
+          />
+          <IoImageOutline className="absolute inset-0 z-0 m-auto text-setta-200 dark:text-setta-600" />
+        </>
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+          <Icon size={26} className={iconClassName} />
+        </div>
+      )}
       {badgeText ? (
         <span
-          className={`single-cell-child mb-1 mr-1 self-end justify-self-end rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] ${badgeClassName}`}
+          className={`pointer-events-none absolute bottom-1 right-1 z-20 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] ${badgeClassName}`}
         >
           {badgeText}
         </span>
       ) : null}
-    </>
+      {overlay}
+    </div>
+  );
+}
+
+function BrowserThumbnailSelectionControl() {
+  return (
+    <input
+      className="absolute left-1 top-1 z-20 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
+      type="checkbox"
+      onClick={(event) => event.stopPropagation()}
+    />
   );
 }
 
@@ -378,7 +390,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
 
   return (
     <div
-      className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
+      className="section-main -mr-3 mb-2 mt-2 flex min-h-0 min-w-0 flex-col gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
       ref={containerRef}
     >
       {!hideColumn && (
@@ -642,7 +654,7 @@ function ThumbnailItem({
       onDragStart={onDragStart}
     >
       <div
-        className="single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
+        className="relative overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
         style={{ width: size, height: size }}
       >
         <BrowserThumbnailContent
@@ -650,12 +662,8 @@ function ThumbnailItem({
           thumbnailUrl={thumbnailUrl}
           badgeText={badgeText}
           label={label}
+          overlay={<BrowserThumbnailSelectionControl />}
         />
-        <input
-          className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
-          type="checkbox"
-          onClick={(event) => event.stopPropagation()}
-        ></input>
       </div>
       <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
         {children}
@@ -927,7 +935,7 @@ function ViewSwitch({
           ref={ref}
           role="region"
           aria-label="File explorer"
-          className={`nodrag flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden ${isScrollable ? "nowheel" : ""}`}
+          className={`nodrag flex h-0 min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden ${isScrollable ? "nowheel" : ""}`}
         >
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
             {items.map((item) => {
@@ -1080,16 +1088,10 @@ function ViewSwitch({
                   thumbnailUrl={thumbnailUrl}
                   badgeText={badgeText}
                   label={item.label}
+                  overlay={<BrowserThumbnailSelectionControl />}
                 />
               );
             }}
-            renderThumbnailOverlay={() => (
-              <input
-                className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
-                type="checkbox"
-                onClick={(event) => event.stopPropagation()}
-              />
-            )}
             showNavButtons={items.length > 1}
             thumbnailRowResizable
           />
