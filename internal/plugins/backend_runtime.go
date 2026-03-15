@@ -19,6 +19,7 @@ const (
 	backendRuntimeSchemaVersion = 1
 	backendRuntimeKindHTTP      = "http"
 	backendRuntimeKindListener  = "listener_endpoint"
+	backendRuntimeKindCodegen   = "codegen_target"
 )
 
 type BackendRequestContext struct {
@@ -50,11 +51,24 @@ type BackendListenerEndpointRequest struct {
 	Payload      map[string]any        `json:"payload"`
 }
 
+type BackendCodegenTargetRequest struct {
+	Language      string         `json:"language"`
+	TargetID      string         `json:"targetId"`
+	ProjectState  map[string]any `json:"projectState"`
+	TargetOptions map[string]any `json:"targetOptions"`
+}
+
+type GeneratedCodegenFile struct {
+	RelativePath string
+	Content      string
+}
+
 type backendRuntimeRequest struct {
 	SchemaVersion int                             `json:"schemaVersion"`
 	Kind          string                          `json:"kind"`
 	HTTP          *backendRuntimeHTTPRequest      `json:"http,omitempty"`
 	Listener      *BackendListenerEndpointRequest `json:"listenerEndpoint,omitempty"`
+	Codegen       *BackendCodegenTargetRequest    `json:"codegenTarget,omitempty"`
 }
 
 type backendRuntimeHTTPRequest struct {
@@ -70,6 +84,7 @@ type backendRuntimeResponse struct {
 	SchemaVersion int                             `json:"schemaVersion"`
 	HTTP          *backendRuntimeHTTPResponse     `json:"http,omitempty"`
 	Listener      *backendRuntimeListenerResponse `json:"listenerEndpoint,omitempty"`
+	Codegen       *backendRuntimeCodegenResponse  `json:"codegenTarget,omitempty"`
 }
 
 type backendRuntimeHTTPResponse struct {
@@ -81,6 +96,15 @@ type backendRuntimeHTTPResponse struct {
 type backendRuntimeListenerResponse struct {
 	Result any                          `json:"result"`
 	Error  *backendRuntimeResponseError `json:"error,omitempty"`
+}
+
+type backendRuntimeCodegenResponse struct {
+	Files []backendRuntimeCodegenFile `json:"files"`
+}
+
+type backendRuntimeCodegenFile struct {
+	RelativePath *string `json:"relativePath,omitempty"`
+	Content      *string `json:"content"`
 }
 
 type backendRuntimeResponseError struct {
@@ -410,6 +434,40 @@ func invokeGoBackendListenerEndpoint(
 	return response.Listener.Result, nil
 }
 
+func invokeGoBackendCodegenTarget(
+	ctx context.Context,
+	pluginRoot string,
+	manifest PluginManifest,
+	buildRoot string,
+	target PluginRegisteredCodegenTarget,
+	projectState map[string]any,
+	targetOptions map[string]any,
+) ([]GeneratedCodegenFile, error) {
+	runtimeRequest := backendRuntimeRequest{
+		SchemaVersion: backendRuntimeSchemaVersion,
+		Kind:          backendRuntimeKindCodegen,
+		Codegen: &BackendCodegenTargetRequest{
+			Language:      target.Language,
+			TargetID:      target.TargetID,
+			ProjectState:  cloneBackendPayload(projectState),
+			TargetOptions: cloneBackendPayload(targetOptions),
+		},
+	}
+
+	response, err := invokeGoBackendRuntime(ctx, pluginRoot, manifest, buildRoot, runtimeRequest)
+	if err != nil {
+		return nil, err
+	}
+	if response.Codegen == nil {
+		return nil, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Invalid backend runtime response for plugin %s: missing codegen target response payload",
+			manifest.ID,
+		)
+	}
+	return normalizeGeneratedCodegenFiles(target, response.Codegen.Files)
+}
+
 func invokeGoBackendRuntime(
 	ctx context.Context,
 	pluginRoot string,
@@ -483,6 +541,9 @@ func decodeBackendRuntimeResponse(output []byte) (backendRuntimeResponse, error)
 	}
 	if response.HTTP != nil && response.HTTP.Headers == nil {
 		response.HTTP.Headers = map[string][]string{}
+	}
+	if response.Codegen != nil && response.Codegen.Files == nil {
+		response.Codegen.Files = []backendRuntimeCodegenFile{}
 	}
 	return response, nil
 }

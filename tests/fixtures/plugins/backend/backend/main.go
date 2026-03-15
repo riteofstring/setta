@@ -14,6 +14,7 @@ import (
 const (
 	backendProbeArg           = "--setta-plugin-backend-probe"
 	backendRuntimeArg         = "--setta-plugin-backend-runtime"
+	backendRuntimeKindCodegen = "codegen_target"
 	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
 	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
 	pluginFixtureLanguageName = "setta-fixture-backend:fixturedsl"
@@ -34,6 +35,7 @@ type backendRuntimeRequest struct {
 	Kind          string                  `json:"kind"`
 	HTTP          *backendHTTPRequest     `json:"http,omitempty"`
 	Listener      *backendListenerRequest `json:"listenerEndpoint,omitempty"`
+	Codegen       *backendCodegenRequest  `json:"codegenTarget,omitempty"`
 }
 
 type backendHTTPRequest struct {
@@ -51,10 +53,18 @@ type backendListenerRequest struct {
 	Payload      map[string]any        `json:"payload"`
 }
 
+type backendCodegenRequest struct {
+	Language      string         `json:"language"`
+	TargetID      string         `json:"targetId"`
+	ProjectState  map[string]any `json:"projectState"`
+	TargetOptions map[string]any `json:"targetOptions"`
+}
+
 type backendRuntimeResponse struct {
 	SchemaVersion int                      `json:"schemaVersion"`
 	HTTP          *backendHTTPResponse     `json:"http,omitempty"`
 	Listener      *backendListenerResponse `json:"listenerEndpoint,omitempty"`
+	Codegen       *backendCodegenResponse  `json:"codegenTarget,omitempty"`
 }
 
 type backendHTTPResponse struct {
@@ -66,6 +76,15 @@ type backendHTTPResponse struct {
 type backendListenerResponse struct {
 	Result any                  `json:"result"`
 	Error  *backendRuntimeError `json:"error,omitempty"`
+}
+
+type backendCodegenResponse struct {
+	Files []backendCodegenFile `json:"files"`
+}
+
+type backendCodegenFile struct {
+	RelativePath string `json:"relativePath,omitempty"`
+	Content      string `json:"content"`
 }
 
 type backendRuntimeError struct {
@@ -188,6 +207,11 @@ func handleRuntime() {
 			fail("listener runtime payload is required")
 		}
 		handleListener(*request.Listener)
+	case backendRuntimeKindCodegen:
+		if request.Codegen == nil {
+			fail("codegen runtime payload is required")
+		}
+		handleCodegen(*request.Codegen)
 	default:
 		fail("unsupported backend runtime kind %q", request.Kind)
 	}
@@ -290,6 +314,34 @@ func handleListener(request backendListenerRequest) {
 				"hasAuth":         request.Context.HasAuth,
 				"payload":         request.Payload,
 			},
+		},
+	})
+}
+
+func handleCodegen(request backendCodegenRequest) {
+	projectName, ok := request.ProjectState["name"].(string)
+	if !ok || strings.TrimSpace(projectName) == "" {
+		fail("projectState.name missing in codegen runtime payload")
+	}
+
+	className := "SettaState"
+	if rawClassName, ok := request.TargetOptions["className"].(string); ok && strings.TrimSpace(rawClassName) != "" {
+		className = strings.TrimSpace(rawClassName)
+	}
+
+	file := backendCodegenFile{
+		Content: "export class " + className + " {\n" +
+			"  readonly projectName = " + fmt.Sprintf("%q", projectName) + ";\n" +
+			"}\n",
+	}
+	if rawOutputPath, ok := request.TargetOptions["outputPath"].(string); ok && strings.TrimSpace(rawOutputPath) != "" {
+		file.RelativePath = rawOutputPath
+	}
+
+	writeJSON(backendRuntimeResponse{
+		SchemaVersion: 1,
+		Codegen: &backendCodegenResponse{
+			Files: []backendCodegenFile{file},
 		},
 	})
 }
