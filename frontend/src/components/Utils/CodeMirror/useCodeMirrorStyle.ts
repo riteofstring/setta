@@ -6,7 +6,7 @@ import {
   githubLightInit,
 } from "@uiw/codemirror-theme-github";
 import { createTheme } from "@uiw/codemirror-themes";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 
 const commonSettings = {
   background: "#ffffff00",
