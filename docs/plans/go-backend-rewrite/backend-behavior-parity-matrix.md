@@ -686,7 +686,7 @@ It covers:
 | `AT-02` | Plural attachment download URL responses skip missing or invalid entries instead of failing the whole request. | `tests/routers/test_attachment_routes.py::test_get_attachment_download_urls_skips_invalid_entries`. | Impl/proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesSkipsMissingEntriesInPluralResponse`. | `Proved` | |
 | `AT-03` | Attachment payload shaping dedups repeated attachments, inlines text attachments, keeps image placeholders out of `attachmentTextNoImages`, and requires a current session to mint URLs. | `tests/utils/test_chat_attachments.py::test_build_attachment_content_blocks_handles_images_text_and_binary`; `tests/utils/test_chat_attachments.py::test_build_attachments_prompt_text_skips_images_when_disabled`; `docs/reference/external-agents.md` attachments section. | Impl/proof: `internal/chatattachments/service_test.go::TestBuildPayloadShapesAdapterAttachmentInputs`; `internal/chatattachments/service_test.go::TestBuildPayloadRequiresCurrentSessionForDownloadURLs`. | `Proved` | |
 | `AT-04` | Deployment attachment URLs/downloads include share-session context and enforce `allowFileDownloads`. | `tests/routers/test_attachment_routes.py::test_download_urls_blocked_when_policy_disallows`; `docs/reference/share-policy-flags.md` download-url section. | Impl/proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesIncludesShareSessionForDeployment`; `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesRejectsDeploymentDownloadsWhenPolicyDisabled`; `internal/chatattachments/service_test.go::TestDownloadForShareSessionServesDeploymentArtifacts`. | `Proved` | |
-| `AT-05` | Expired tokens, injected share-session ids in IDE mode, unknown `projectConfigId` values, and unicode filenames preserve the source attachment edge contract. | `tests/routers/test_attachment_routes.py::test_download_attachment_returns_403_when_token_expired`; `tests/routers/test_attachment_routes.py::test_download_attachment_rejects_share_session_id_in_ide_mode`; `tests/routers/test_attachment_routes.py::test_download_attachment_validates_project_config_id`; `tests/routers/test_attachment_routes.py::test_download_attachment_handles_unicode_filename`. | Impl: `internal/httpapi/attachment_routes.go::writeAttachmentDownloadError`; `internal/chatattachments/service.go::{DownloadForShareSession,BuildContentDisposition}`; current proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRootRoutesRejectsInvalidToken`; `internal/chatattachments/service_test.go::TestDownloadRejectsInvalidToken`. | `Implemented, proof incomplete` | Current Go code has the remaining token/project-config/unicode branches, but this slice only directly proves the invalid-token path. |
+| `AT-05` | Expired tokens, injected share-session ids in IDE mode, unknown `projectConfigId` values, and unicode filenames preserve the source attachment edge contract. | `tests/routers/test_attachment_routes.py::test_download_attachment_returns_403_when_token_expired`; `tests/routers/test_attachment_routes.py::test_download_attachment_rejects_share_session_id_in_ide_mode`; `tests/routers/test_attachment_routes.py::test_download_attachment_validates_project_config_id`; `tests/routers/test_attachment_routes.py::test_download_attachment_handles_unicode_filename`. | Impl: `internal/httpapi/attachment_routes.go::writeAttachmentDownloadError`; `internal/chatattachments/service.go::{DownloadForShareSession,BuildContentDisposition}`; proof: `internal/httpapi/attachment_routes_test.go::{TestRegisterAttachmentRootRoutesRejectsInvalidToken,TestRegisterAttachmentRootRoutesRejectsExpiredToken,TestRegisterAttachmentRootRoutesRejectsShareSessionTokenInIDEMode,TestRegisterAttachmentRootRoutesRejectsUnknownProjectConfig,TestRegisterAttachmentRootRoutesServeUnicodeFilenameWithEncodedDisposition}`; `internal/chatattachments/service_test.go::{TestDownloadRejectsInvalidToken,TestBuildContentDispositionEncodesUnicodeFilename}`. | `Proved` | Current Go now has direct proof for the remaining attachment download edge branches, including IDE-mode share-session mismatch and RFC 5987 unicode filename headers. |
 
 ## File Browser
 
@@ -1270,7 +1270,7 @@ It covers:
     proofs, and it adds:
     - one new dormant share/runtime question around binary downloads
       (`BP-03`)
-    - three more under-proved proof clusters (`BP-02`, `AR-04`, `AT-05`)
+    - two more under-proved proof clusters (`BP-02`, `AR-04`)
 11. The UI-settings and app-definition/app-spec slice mostly closes with
     proofs, but it adds one real behavior gap around share-session-scoped
     reveal routing (`US-05`) plus one more dormant transport row around the
@@ -1420,8 +1420,8 @@ It covers:
       `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
       code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
       `WC-02`), the new docstring/completion proof gap (`CP-02`), the new
-      binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
-      `AT-05`), the new Project-AI tooling proof gaps (`SK-01`,
+      binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`),
+      the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
       (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),

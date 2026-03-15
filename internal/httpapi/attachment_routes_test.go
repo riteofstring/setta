@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -163,6 +166,181 @@ func TestRegisterAttachmentRootRoutesRejectsInvalidToken(t *testing.T) {
 	}
 	if payload.Error.Code != "invalid_attachment_token" {
 		t.Fatalf("expected invalid_attachment_token, got %#v", payload)
+	}
+}
+
+func TestRegisterAttachmentRootRoutesRejectsExpiredToken(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	service := newAttachmentRouteTestService(t, root, nil)
+
+	router := chi.NewRouter()
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    service,
+	}); err != nil {
+		t.Fatalf("register attachment routes: %v", err)
+	}
+	token := mintAttachmentRouteTestToken(t, attachmentRouteTestTokenPayload{
+		ArtifactID: "artifacts/missing.txt",
+		Exp:        time.Date(2026, 3, 10, 11, 59, 0, 0, time.UTC).Unix(),
+	})
+	request := httptest.NewRequest(http.MethodGet, "/api/attachments/"+token, nil)
+	request = request.WithContext(modes.ContextWithRequestInfo(request.Context(), modes.RequestInfo{
+		Policy: modes.NewPolicy(config.ModeIDE),
+	}))
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_attachment_token" {
+		t.Fatalf("expected invalid_attachment_token, got %#v", payload)
+	}
+}
+
+func TestRegisterAttachmentRootRoutesRejectsShareSessionTokenInIDEMode(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	service := newAttachmentRouteTestService(t, root, nil)
+
+	router := chi.NewRouter()
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    service,
+	}); err != nil {
+		t.Fatalf("register attachment routes: %v", err)
+	}
+	token := mintAttachmentRouteTestToken(t, attachmentRouteTestTokenPayload{
+		ArtifactID:     "artifacts/missing.txt",
+		Exp:            time.Date(2026, 3, 10, 12, 10, 0, 0, time.UTC).Unix(),
+		ShareSessionID: "share-session",
+	})
+	request := httptest.NewRequest(http.MethodGet, "/api/attachments/"+token, nil)
+	request = request.WithContext(modes.ContextWithRequestInfo(request.Context(), modes.RequestInfo{
+		Policy: modes.NewPolicy(config.ModeIDE),
+	}))
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "attachment_session_mismatch" {
+		t.Fatalf("expected attachment_session_mismatch, got %#v", payload)
+	}
+}
+
+func TestRegisterAttachmentRootRoutesRejectsUnknownProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("attachment body"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+	service := newAttachmentRouteTestService(t, root, nil)
+
+	router := chi.NewRouter()
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    service,
+	}); err != nil {
+		t.Fatalf("register attachment routes: %v", err)
+	}
+	token := mintAttachmentRouteTestToken(t, attachmentRouteTestTokenPayload{
+		ArtifactID:      "artifacts/notes.txt",
+		Exp:             time.Date(2026, 3, 10, 12, 10, 0, 0, time.UTC).Unix(),
+		ProjectConfigID: "missing-project",
+	})
+	request := httptest.NewRequest(http.MethodGet, "/api/attachments/"+token, nil)
+	request = request.WithContext(modes.ContextWithRequestInfo(request.Context(), modes.RequestInfo{
+		Policy: modes.NewPolicy(config.ModeIDE),
+	}))
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "project_config_not_found" {
+		t.Fatalf("expected project_config_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterAttachmentRootRoutesServeUnicodeFilenameWithEncodedDisposition(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	filename := "Screenshot 2026-01-30 8.59.34\u202fAM.png"
+	if err := os.WriteFile(filepath.Join(artifactsRoot, filename), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, root, nil)
+	handler := newAttachmentRouteTestHandler(t, config.ModeIDE, authService, service, nil)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURL, strings.NewReader(`{"artifactId":"artifacts/`+filename+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload GetAttachmentDownloadURLResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode attachment url payload: %v", err)
+	}
+
+	fileRequest := httptest.NewRequest(http.MethodGet, strings.TrimPrefix(payload.URL, "http://example.com"), nil)
+	fileResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileResponse, fileRequest)
+	if fileResponse.Code != http.StatusOK {
+		t.Fatalf("expected download 200, got %d with body %q", fileResponse.Code, fileResponse.Body.String())
+	}
+	if body := fileResponse.Body.String(); body != "hello" {
+		t.Fatalf("expected attachment body %q, got %q", "hello", body)
+	}
+	contentDisposition := fileResponse.Header().Get("Content-Disposition")
+	if !strings.Contains(contentDisposition, "filename*=") {
+		t.Fatalf("expected RFC 5987 content disposition, got %q", contentDisposition)
+	}
+	if strings.Contains(contentDisposition, "\u202f") {
+		t.Fatalf("expected unicode separator to be encoded out of content disposition, got %q", contentDisposition)
+	}
+	for _, r := range contentDisposition {
+		if r > 127 {
+			t.Fatalf("expected ascii-only content disposition header, got %q", contentDisposition)
+		}
 	}
 }
 
@@ -432,4 +610,25 @@ func newAttachmentRouteTestHandler(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+type attachmentRouteTestTokenPayload struct {
+	ArtifactID      string `json:"artifactId"`
+	Exp             int64  `json:"exp"`
+	ProjectConfigID string `json:"projectConfigId,omitempty"`
+	ShareSessionID  string `json:"shareSessionId,omitempty"`
+}
+
+func mintAttachmentRouteTestToken(t *testing.T, payload attachmentRouteTestTokenPayload) string {
+	t.Helper()
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal token payload: %v", err)
+	}
+	digest := hmac.New(sha256.New, []byte("secret"))
+	if _, err := digest.Write(payloadBytes); err != nil {
+		t.Fatalf("sign token payload: %v", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(payloadBytes) + "." + base64.RawURLEncoding.EncodeToString(digest.Sum(nil))
 }

@@ -258,6 +258,23 @@ func TestDownloadRejectsInvalidToken(t *testing.T) {
 	}
 }
 
+func TestBuildContentDispositionEncodesUnicodeFilename(t *testing.T) {
+	t.Parallel()
+
+	disposition := BuildContentDisposition("Screenshot 2026-01-30 8.59.34\u202fAM.png")
+	if !strings.Contains(disposition, "filename*=") {
+		t.Fatalf("expected RFC 5987 filename encoding, got %q", disposition)
+	}
+	if strings.Contains(disposition, "\u202f") {
+		t.Fatalf("expected unicode separator to be escaped out of content disposition, got %q", disposition)
+	}
+	for _, r := range disposition {
+		if r > 127 {
+			t.Fatalf("expected ascii-only content disposition header, got %q", disposition)
+		}
+	}
+}
+
 func TestBuildDownloadURLNormalizesArtifactID(t *testing.T) {
 	t.Parallel()
 
