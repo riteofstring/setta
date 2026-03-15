@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/terminals"
+	"setta/internal/watchcode"
 	"setta/internal/wsapi"
 )
 
@@ -803,6 +806,96 @@ func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *t
 	}
 	if notificationPayload.Timestamp == "" {
 		t.Fatalf("expected save notification timestamp, got %#v", notificationPayload)
+	}
+}
+
+func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/alpha.py"},
+			},
+			"project-beta": {
+				ID:               "project-beta",
+				Name:             "Beta",
+				WatchCodeEnabled: true,
+				WatchCodeFolders: []projectstate.WatchCodeFolder{
+					{Path: "pkg/beta", Recursive: true},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	expectedBefore := map[string]watchcode.ConfigSnapshot{
+		"project-alpha": {
+			Enabled: true,
+			Files: []string{
+				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "alpha.py"),
+			},
+		},
+		"project-beta": {
+			Enabled: true,
+			Folders: []watchcode.FolderInput{
+				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "beta"), Recursive: true},
+			},
+		},
+	}
+	if got := app.watchCode.ConfigSnapshots(); !reflect.DeepEqual(got, expectedBefore) {
+		t.Fatalf("expected initial watch code configs %#v, got %#v", expectedBefore, got)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	deleteRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteProjectConfigs, strings.NewReader(`{"ids":["project-beta"]}`))
+	if err != nil {
+		t.Fatalf("new delete request: %v", err)
+	}
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteRequest.AddCookie(authCookie)
+
+	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
+	if err != nil {
+		t.Fatalf("delete project configs: %v", err)
+	}
+	defer deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteResponse.Body)
+		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.StatusCode, string(body))
+	}
+
+	expectedAfter := map[string]watchcode.ConfigSnapshot{
+		"project-alpha": {
+			Enabled: true,
+			Files: []string{
+				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "alpha.py"),
+			},
+		},
+	}
+	if got := app.watchCode.ConfigSnapshots(); !reflect.DeepEqual(got, expectedAfter) {
+		t.Fatalf("expected watch code configs after delete %#v, got %#v", expectedAfter, got)
 	}
 }
 

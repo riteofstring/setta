@@ -158,12 +158,18 @@ func (p *Project) SetCallable(
 		if err := p.setCurrentSectionField(trimmedSectionID, "callable", nil); err != nil {
 			return SetCallableResponse{}, err
 		}
+		if err := p.syncWatchCodeRegistrySectionMembership(trimmedSectionID); err != nil {
+			return SetCallableResponse{}, err
+		}
 		return p.buildSetCallableResponse(trimmedSectionID, "", SignatureHelpStatusSkipped)
 	}
 
 	prevSelectedID := p.findCallableIDByName(sectionPayload, trimmedCallableName)
 	if prevSelectedID != "" && !refetchParams {
 		if err := p.setCurrentSectionField(trimmedSectionID, "callable", prevSelectedID); err != nil {
+			return SetCallableResponse{}, err
+		}
+		if err := p.syncWatchCodeRegistrySectionMembership(trimmedSectionID); err != nil {
 			return SetCallableResponse{}, err
 		}
 		return p.buildSetCallableResponse(trimmedSectionID, prevSelectedID, SignatureHelpStatusSkipped)
@@ -203,6 +209,9 @@ func (p *Project) SetCallable(
 	}
 
 	if err := p.setCurrentSectionField(trimmedSectionID, "callable", callableID); err != nil {
+		return SetCallableResponse{}, err
+	}
+	if err := p.syncWatchCodeRegistrySectionMembership(trimmedSectionID); err != nil {
 		return SetCallableResponse{}, err
 	}
 	return p.buildSetCallableResponse(trimmedSectionID, callableID, signatureResult.Status)

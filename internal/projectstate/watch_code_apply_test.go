@@ -830,6 +830,563 @@ func TestRuntimeApplyWatchCodeFileDeleteRemovesCallableSectionAndCodeObjects(t *
 	}
 }
 
+func TestRuntimeApplyWatchCodeFileDeleteKeepsSectionWithOtherVariants(t *testing.T) {
+	t.Parallel()
+
+	fixture := seedMixedWatchCodeVariantFixture(t)
+	project := fixture.Runtime.Snapshot().Document.Projects["project-alpha"]
+	betaEntry := project.WatchCodeRegistry["pkg.watched.beta:function"]
+	if len(betaEntry.SectionIDs) != 2 ||
+		!containsString(betaEntry.SectionIDs, fixture.AlphaSectionID) ||
+		!containsString(betaEntry.SectionIDs, fixture.BetaSectionID) {
+		t.Fatalf("expected beta registry to include both callable sections, got %#v", betaEntry)
+	}
+
+	snapshot, didUpdate, err := fixture.Runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		fixture.SourcePath,
+		"def beta(value):\n    return value + 1\n",
+		false,
+		"",
+		fixture.WorkspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code delete update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected callable removal update to change project state")
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	if _, ok := project.WatchCodeRegistry["pkg.watched.alpha:function"]; ok {
+		t.Fatalf("did not expect alpha registry entry to remain, got %#v", project.WatchCodeRegistry)
+	}
+	if _, ok := project.Sections[fixture.AlphaSectionID]; !ok {
+		t.Fatalf("expected alpha section to remain because another variant still targets beta, got %#v", project.Sections)
+	}
+	section := project.Sections[fixture.AlphaSectionID]
+	if !reflect.DeepEqual(section.VariantIDs, []string{fixture.NewVariantID}) {
+		t.Fatalf("expected only the surviving variant to remain, got %#v", section.VariantIDs)
+	}
+	if project.SectionVariantMap[fixture.AlphaSectionID] != fixture.NewVariantID {
+		t.Fatalf(
+			"expected active variant to switch to surviving variant %q, got %q",
+			fixture.NewVariantID,
+			project.SectionVariantMap[fixture.AlphaSectionID],
+		)
+	}
+	payload, err := currentCallablePayloadForWatchCodeTest(project, fixture.AlphaSectionID)
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID == "" {
+		t.Fatalf("expected surviving variant callable binding, got %#v", payload)
+	}
+	if got := project.CodeObjs[callableID].Name; got != betaEntry.CallableName {
+		t.Fatalf("expected surviving callable name %q, got %q", betaEntry.CallableName, got)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesInactiveMatchingVariant(t *testing.T) {
+	t.Parallel()
+
+	fixture := seedMixedWatchCodeVariantFixture(t)
+	resolver := &stubCallableSignatureResolver{
+		ok: true,
+		result: CallableSignatureResult{
+			Status:        SignatureHelpStatusMatched,
+			Documentation: "Updated beta docs.",
+			Params: []CallableParamProposal{
+				{
+					Name:           "value",
+					PassingStyle:   "POSITIONAL_ONLY",
+					TypeAnnotation: "int",
+				},
+				{
+					Name:         "reverse",
+					DefaultValue: "False",
+					PassingStyle: "KEYWORD_ONLY",
+				},
+			},
+		},
+	}
+
+	snapshot, didUpdate, err := fixture.Runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		fixture.SourcePath,
+		"def alpha(value):\n    return value\n\n\ndef beta(value, reverse=False):\n    return value + 1\n",
+		false,
+		"",
+		fixture.WorkspaceRoot,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("apply mixed-variant signature update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected mixed-variant signature update to change project state")
+	}
+	if resolver.callCount != 2 {
+		t.Fatalf("expected resolver calls for both beta-bound sections, got %d", resolver.callCount)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap[fixture.AlphaSectionID]; got != fixture.OriginalVariantID {
+		t.Fatalf("expected active alpha variant to remain %q, got %q", fixture.OriginalVariantID, got)
+	}
+
+	newVariantPayload, err := effectiveSectionPayload(project, fixture.AlphaSectionID, fixture.NewVariantID)
+	if err != nil {
+		t.Fatalf("resolve new variant payload: %v", err)
+	}
+	newVariantCallableID := payloadStringField(newVariantPayload, "callable")
+	if newVariantCallableID == "" {
+		t.Fatalf("expected beta callable to stay selected on mixed variant, got %#v", newVariantPayload)
+	}
+	codeObjPayload, _, _, _, err := effectiveCodeObjectPayload(
+		project,
+		payloadStringMapField(newVariantPayload, "codeObjVariantMap"),
+		newVariantCallableID,
+	)
+	if err != nil {
+		t.Fatalf("resolve new variant callable payload: %v", err)
+	}
+	children := payloadStringArrayField(codeObjPayload, "children")
+	if len(children) != 2 {
+		t.Fatalf("expected refetched beta params on inactive variant, got %#v", children)
+	}
+	secondParamPayload, _, _, _, err := effectiveCodeObjectPayload(
+		project,
+		payloadStringMapField(newVariantPayload, "codeObjVariantMap"),
+		children[1],
+	)
+	if err != nil {
+		t.Fatalf("resolve new variant added param payload: %v", err)
+	}
+	if got := payloadStringField(secondParamPayload, "defaultVal"); got != "False" {
+		t.Fatalf("expected inactive beta variant to gain reverse default False, got %q", got)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateRenameUpdatesInactiveMatchingVariant(t *testing.T) {
+	t.Parallel()
+
+	fixture := seedMixedWatchCodeVariantFixture(t)
+
+	snapshot, didUpdate, err := fixture.Runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		fixture.SourcePath,
+		"def alpha(value):\n    return value\n\n\ndef renamed(value):\n    return value + 1\n",
+		false,
+		"",
+		fixture.WorkspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply mixed-variant rename update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected mixed-variant rename update to change project state")
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap[fixture.AlphaSectionID]; got != fixture.OriginalVariantID {
+		t.Fatalf("expected active alpha variant to remain %q, got %q", fixture.OriginalVariantID, got)
+	}
+	if _, ok := project.WatchCodeRegistry["pkg.watched.beta:function"]; ok {
+		t.Fatalf("did not expect beta identity to remain after rename, got %#v", project.WatchCodeRegistry)
+	}
+	renamedEntry, ok := project.WatchCodeRegistry["pkg.watched.renamed:function"]
+	if !ok {
+		t.Fatalf("expected renamed registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if len(renamedEntry.SectionIDs) != 2 ||
+		!containsString(renamedEntry.SectionIDs, fixture.AlphaSectionID) ||
+		!containsString(renamedEntry.SectionIDs, fixture.BetaSectionID) {
+		t.Fatalf("expected renamed entry to track both callable sections, got %#v", renamedEntry)
+	}
+
+	newVariantPayload, err := effectiveSectionPayload(project, fixture.AlphaSectionID, fixture.NewVariantID)
+	if err != nil {
+		t.Fatalf("resolve renamed mixed variant payload: %v", err)
+	}
+	callableID := payloadStringField(newVariantPayload, "callable")
+	if callableID == "" {
+		t.Fatalf("expected renamed callable to stay selected on mixed variant, got %#v", newVariantPayload)
+	}
+	if got := project.CodeObjs[callableID].Name; got != "renamed" {
+		t.Fatalf("expected inactive beta-bound variant callable name renamed, got %q", got)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedCreatesCallableSection(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "untracked", "incoming.py")
+	destinationPath := filepath.Join(workspaceRoot, "pkg", "incoming.py")
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFolders: []WatchCodeFolder{{Path: "pkg", Recursive: false}},
+				CodegenTargets: []ProjectCodegenTarget{
+					{
+						Language: string(CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		destinationPath,
+		"def incoming(value):\n    return value\n",
+		false,
+		sourcePath,
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code move-in update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected move-in update to create tracked destination state")
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if _, ok := project.WatchCodeBaselineByPath[sourcePath]; ok {
+		t.Fatalf("did not expect untracked source baseline entry, got %#v", project.WatchCodeBaselineByPath)
+	}
+	entry, ok := project.WatchCodeRegistry["pkg.incoming.incoming:function"]
+	if !ok {
+		t.Fatalf("expected destination registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if entry.SourcePath != destinationPath {
+		t.Fatalf("expected destination source path %q, got %q", destinationPath, entry.SourcePath)
+	}
+	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+		t.Fatalf("expected one callable section for moved-in destination, got %#v", entry)
+	}
+	if _, ok := project.WatchCodeBaselineByPath[destinationPath]; ok {
+		t.Fatalf("did not expect move-in creation to seed destination baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDestinationState(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "source.py")
+	destinationPath := filepath.Join(workspaceRoot, "pkg", "dest.py")
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/source.py", "pkg/dest.py"},
+				CodegenTargets: []ProjectCodegenTarget{
+					{
+						Language: string(CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		sourcePath,
+		"def moved(value):\n    return value\n",
+		false,
+		"",
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("seed source watch code file: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected source watch code seed update")
+	}
+
+	snapshot, didUpdate, err = runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		destinationPath,
+		"def stale(value):\n    return value + 1\n",
+		false,
+		"",
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("seed destination watch code file: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected destination watch code seed update")
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	sourceEntry := project.WatchCodeRegistry["pkg.source.moved:function"]
+	destinationEntry := project.WatchCodeRegistry["pkg.dest.stale:function"]
+	sourceSectionID := sourceEntry.SectionIDs[0]
+	destinationSectionID := destinationEntry.SectionIDs[0]
+
+	if _, didUpdate, err := runtime.ApplyWatchCodeFileDelete(
+		context.Background(),
+		"project-alpha",
+		destinationPath,
+		workspaceRoot,
+	); err != nil {
+		t.Fatalf("delete overwritten destination state: %v", err)
+	} else if !didUpdate {
+		t.Fatal("expected destination delete before overwrite move to change state")
+	}
+
+	snapshot, didUpdate, err = runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		destinationPath,
+		"def moved(value):\n    return value\n",
+		false,
+		sourcePath,
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply overwrite move update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected overwrite move update to change project state")
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	if _, ok := project.WatchCodeRegistry["pkg.source.moved:function"]; ok {
+		t.Fatalf("did not expect source identity to remain after overwrite move, got %#v", project.WatchCodeRegistry)
+	}
+	if _, ok := project.WatchCodeRegistry["pkg.dest.stale:function"]; ok {
+		t.Fatalf("did not expect stale destination identity to remain after overwrite move, got %#v", project.WatchCodeRegistry)
+	}
+	entry, ok := project.WatchCodeRegistry["pkg.dest.moved:function"]
+	if !ok {
+		t.Fatalf("expected moved destination identity, got %#v", project.WatchCodeRegistry)
+	}
+	if entry.SourcePath != destinationPath {
+		t.Fatalf("expected moved destination source path %q, got %q", destinationPath, entry.SourcePath)
+	}
+	if !reflect.DeepEqual(entry.SectionIDs, []string{sourceSectionID}) {
+		t.Fatalf("expected moved callable to reuse source section %q, got %#v", sourceSectionID, entry.SectionIDs)
+	}
+	if _, ok := project.Sections[destinationSectionID]; ok {
+		t.Fatalf("did not expect overwritten destination section %q to remain, got %#v", destinationSectionID, project.Sections)
+	}
+	if got := project.WatchCodeBaselineByPath[destinationPath]; !reflect.DeepEqual(got, []string{"pkg.dest.moved:function"}) {
+		t.Fatalf("expected moved destination baseline %#v, got %#v", []string{"pkg.dest.moved:function"}, got)
+	}
+	if _, ok := project.WatchCodeBaselineByPath[sourcePath]; ok {
+		t.Fatalf("did not expect source baseline after overwrite move, got %#v", project.WatchCodeBaselineByPath)
+	}
+	target, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target")
+	}
+	if target.GenCodePrefix != "from pkg.dest import moved\n" {
+		t.Fatalf("expected moved destination import prefix, got %q", target.GenCodePrefix)
+	}
+}
+
+type mixedWatchCodeVariantFixture struct {
+	Runtime           *Runtime
+	WorkspaceRoot     string
+	SourcePath        string
+	AlphaSectionID    string
+	BetaSectionID     string
+	OriginalVariantID string
+	NewVariantID      string
+}
+
+func seedMixedWatchCodeVariantFixture(t *testing.T) mixedWatchCodeVariantFixture {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/watched.py"},
+				CodegenTargets: []ProjectCodegenTarget{
+					{
+						Language: string(CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		sourcePath,
+		"def alpha(value):\n    return value\n\n\ndef beta(value):\n    return value + 1\n",
+		false,
+		"",
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply initial watch code update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected initial watch code update to create callable sections")
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	alphaEntry, ok := project.WatchCodeRegistry["pkg.watched.alpha:function"]
+	if !ok {
+		t.Fatalf("expected alpha registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	betaEntry, ok := project.WatchCodeRegistry["pkg.watched.beta:function"]
+	if !ok {
+		t.Fatalf("expected beta registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	alphaSectionID := alphaEntry.SectionIDs[0]
+	betaSectionID := betaEntry.SectionIDs[0]
+	originalVariantID := project.SectionVariantMap[alphaSectionID]
+
+	_, createResult, err := runtime.CreateNewSectionVariant(
+		context.Background(),
+		"project-alpha",
+		CreateNewSectionVariantInput{SectionID: alphaSectionID},
+	)
+	if err != nil {
+		t.Fatalf("create new section variant: %v", err)
+	}
+	newVariantID := createResult.VariantID
+
+	if _, err := runtime.SetSectionVariant(
+		context.Background(),
+		"project-alpha",
+		alphaSectionID,
+		newVariantID,
+	); err != nil {
+		t.Fatalf("set active variant to new variant: %v", err)
+	}
+
+	resolver := &stubCallableSignatureResolver{
+		ok: true,
+		result: CallableSignatureResult{
+			Status: SignatureHelpStatusMatched,
+			Params: []CallableParamProposal{
+				{
+					Name:           "value",
+					PassingStyle:   "POSITIONAL_ONLY",
+					TypeAnnotation: "int",
+				},
+			},
+		},
+	}
+	snapshot, setCallableResponse, err := runtime.SetCallable(
+		context.Background(),
+		"project-alpha",
+		alphaSectionID,
+		betaEntry.CallableName,
+		false,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("set beta callable on new variant: %v", err)
+	}
+	if setCallableResponse.CallableID == nil {
+		t.Fatal("expected beta callable to be selected on the new variant")
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	newVariantPayload, err := effectiveSectionPayload(project, alphaSectionID, newVariantID)
+	if err != nil {
+		t.Fatalf("resolve new mixed variant payload: %v", err)
+	}
+	callableID := payloadStringField(newVariantPayload, "callable")
+	if callableID == "" {
+		t.Fatalf("expected beta callable binding on mixed variant, got %#v", newVariantPayload)
+	}
+	if got := project.CodeObjs[callableID].Name; got != betaEntry.CallableName {
+		t.Fatalf("expected mixed variant callable name %q, got %q", betaEntry.CallableName, got)
+	}
+
+	if _, err := runtime.SetSectionVariant(
+		context.Background(),
+		"project-alpha",
+		alphaSectionID,
+		originalVariantID,
+	); err != nil {
+		t.Fatalf("restore original active variant: %v", err)
+	}
+
+	return mixedWatchCodeVariantFixture{
+		Runtime:           runtime,
+		WorkspaceRoot:     workspaceRoot,
+		SourcePath:        sourcePath,
+		AlphaSectionID:    alphaSectionID,
+		BetaSectionID:     betaSectionID,
+		OriginalVariantID: originalVariantID,
+		NewVariantID:      newVariantID,
+	}
+}
+
 func currentCallablePayloadForWatchCodeTest(project Project, sectionID string) (map[string]any, error) {
 	return project.currentCallableSectionPayload(sectionID)
 }

@@ -233,7 +233,11 @@ func (p *Project) ensureWatchCodeCallableSection(
 	}
 
 	if !createdSection && previousReferenceName != "" && previousReferenceName != referenceName {
-		renamed, err := p.renameWatchCodeCallableSections(entry.SectionIDs, referenceName)
+		renamed, err := p.renameWatchCodeCallableSections(
+			entry.SectionIDs,
+			previousReferenceName,
+			referenceName,
+		)
 		if err != nil {
 			return false, err
 		}
@@ -279,18 +283,22 @@ func (p *Project) refetchWatchCodeCallableSections(
 		if _, ok := p.Sections[sectionID]; !ok {
 			continue
 		}
-		if _, err := p.currentCallableSectionPayload(sectionID); err != nil {
-			if errors.Is(err, ErrCallableSectionRequired) {
-				continue
-			}
-			return false, err
-		}
-		response, err := p.SetCallable(ctx, sectionID, callableName, true, resolver)
+		variantIDs, err := p.watchCodeCallableVariantsForName(sectionID, callableName)
 		if err != nil {
 			return false, err
 		}
-		if response.LSPStatus != SignatureHelpStatusSkipped {
-			didUpdate = true
+		for _, variantID := range variantIDs {
+			var response SetCallableResponse
+			if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
+				var setCallableErr error
+				response, setCallableErr = p.SetCallable(ctx, sectionID, callableName, true, resolver)
+				return setCallableErr
+			}); err != nil {
+				return false, err
+			}
+			if response.LSPStatus != SignatureHelpStatusSkipped {
+				didUpdate = true
+			}
 		}
 	}
 
@@ -346,7 +354,11 @@ func (p *Project) applyWatchCodeRename(plan watchcode.RenamePlan, sourcePath str
 		didUpdate = true
 	}
 
-	renamedSections, err := p.renameWatchCodeCallableSections(entry.SectionIDs, referenceName)
+	renamedSections, err := p.renameWatchCodeCallableSections(
+		entry.SectionIDs,
+		previousReferenceName,
+		referenceName,
+	)
 	if err != nil {
 		return false, false, err
 	}
@@ -489,7 +501,10 @@ func (p *Project) deleteWatchCodeSectionVariant(sectionID string, variantID stri
 	p.Sections[sectionID] = section
 	delete(p.SectionVariants, variantID)
 
-	return p.pruneUnusedCodeObjects()
+	if err := p.pruneUnusedCodeObjects(); err != nil {
+		return err
+	}
+	return p.syncWatchCodeRegistrySectionMembership(sectionID)
 }
 
 func (p *Project) pruneUnusedCodeObjects() error {
@@ -652,33 +667,54 @@ func (p *Project) ensureWatchCodeCallableSelection(sectionID string, callableNam
 	return true, nil
 }
 
-func (p *Project) renameWatchCodeCallableSections(sectionIDs []string, callableName string) (bool, error) {
+func (p *Project) renameWatchCodeCallableSections(
+	sectionIDs []string,
+	previousCallableName string,
+	callableName string,
+) (bool, error) {
+	trimmedPreviousCallableName := strings.TrimSpace(previousCallableName)
+	trimmedCallableName := strings.TrimSpace(callableName)
+	if trimmedPreviousCallableName == "" || trimmedPreviousCallableName == trimmedCallableName {
+		return false, nil
+	}
+
 	didUpdate := false
 	for _, sectionID := range uniqueSortedTrimmedStrings(sectionIDs) {
 		if _, ok := p.Sections[sectionID]; !ok {
 			continue
 		}
-		sectionPayload, err := p.currentCallableSectionPayload(sectionID)
+		variantIDs, err := p.watchCodeCallableVariantsForName(sectionID, trimmedPreviousCallableName)
 		if err != nil {
-			if errors.Is(err, ErrCallableSectionRequired) {
-				continue
-			}
 			return false, err
 		}
-		callableID := payloadStringField(sectionPayload, "callable")
-		if callableID == "" {
-			continue
+		for _, variantID := range variantIDs {
+			if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
+				sectionPayload, err := p.currentCallableSectionPayload(sectionID)
+				if err != nil {
+					if errors.Is(err, ErrCallableSectionRequired) {
+						return nil
+					}
+					return err
+				}
+				callableID := payloadStringField(sectionPayload, "callable")
+				if callableID == "" {
+					return nil
+				}
+				codeObj, ok := p.CodeObjs[callableID]
+				if !ok {
+					return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
+				}
+				if codeObj.Name == trimmedCallableName {
+					return nil
+				}
+				codeObj.Name = trimmedCallableName
+				p.CodeObjs[callableID] = codeObj
+				didUpdate = true
+				return nil
+			}); err != nil {
+				return false, err
+			}
 		}
-		codeObj, ok := p.CodeObjs[callableID]
-		if !ok {
-			return false, fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
-		}
-		if codeObj.Name == callableName {
-			continue
-		}
-		codeObj.Name = callableName
-		p.CodeObjs[callableID] = codeObj
-		didUpdate = true
 	}
 	return didUpdate, nil
 }
@@ -928,6 +964,104 @@ func (p *Project) pruneWatchCodeSectionIDs(entry WatchCodeRegistryEntry) []strin
 		}
 	}
 	return valid
+}
+
+func (p *Project) syncWatchCodeRegistrySectionMembership(sectionID string) error {
+	if p == nil || len(p.WatchCodeRegistry) == 0 {
+		return nil
+	}
+
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	if trimmedSectionID == "" {
+		return nil
+	}
+
+	callableNamesBySection := map[string]struct{}{}
+	if section, ok := p.Sections[trimmedSectionID]; ok {
+		for _, variantID := range collectSectionVariantIDs(*p, section) {
+			if _, ok := p.SectionVariants[variantID]; !ok {
+				continue
+			}
+			payload, err := effectiveSectionPayload(*p, trimmedSectionID, variantID)
+			if err != nil {
+				return err
+			}
+			sectionType := payloadStringField(payload, "type")
+			if sectionType == "" {
+				implID := strings.TrimSpace(p.SectionVariants[variantID].ImplID)
+				if impl, ok := p.SectionImpls[implID]; ok {
+					sectionType = fallbackSectionType(impl)
+				}
+			}
+			if sectionType != "Callable" {
+				continue
+			}
+			callableID := payloadStringField(payload, "callable")
+			if callableID == "" {
+				continue
+			}
+			codeObj, ok := p.CodeObjs[callableID]
+			if !ok {
+				return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
+			}
+			callableName := strings.TrimSpace(codeObj.Name)
+			if callableName == "" {
+				continue
+			}
+			callableNamesBySection[callableName] = struct{}{}
+		}
+	}
+
+	identities := make([]string, 0, len(p.WatchCodeRegistry))
+	for identity := range p.WatchCodeRegistry {
+		identities = append(identities, identity)
+	}
+	sort.Strings(identities)
+
+	for _, identity := range identities {
+		entry := p.WatchCodeRegistry[identity]
+		nextSectionIDs := filterStringSlice(
+			uniqueSortedTrimmedStrings(p.pruneWatchCodeSectionIDs(entry)),
+			map[string]struct{}{trimmedSectionID: {}},
+		)
+		if _, ok := callableNamesBySection[strings.TrimSpace(entry.CallableName)]; ok {
+			nextSectionIDs = uniqueSortedTrimmedStrings(append(nextSectionIDs, trimmedSectionID))
+		}
+		if stringSlicesEqual(entry.SectionIDs, nextSectionIDs) && entry.SectionsCount == len(nextSectionIDs) {
+			continue
+		}
+		entry.SectionIDs = nextSectionIDs
+		entry.SectionsCount = len(nextSectionIDs)
+		p.WatchCodeRegistry[identity] = entry
+	}
+
+	return nil
+}
+
+func (p *Project) withSectionVariantSelected(
+	sectionID string,
+	variantID string,
+	run func() error,
+) error {
+	if run == nil {
+		return nil
+	}
+
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	trimmedVariantID := strings.TrimSpace(variantID)
+	if p.SectionVariantMap == nil {
+		p.SectionVariantMap = map[string]string{}
+	}
+	originalVariantID, hadOriginal := p.SectionVariantMap[trimmedSectionID]
+	p.SectionVariantMap[trimmedSectionID] = trimmedVariantID
+	defer func() {
+		if hadOriginal {
+			p.SectionVariantMap[trimmedSectionID] = originalVariantID
+			return
+		}
+		delete(p.SectionVariantMap, trimmedSectionID)
+	}()
+	return run()
 }
 
 func stringSlicesEqual(left []string, right []string) bool {
