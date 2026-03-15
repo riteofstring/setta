@@ -18,7 +18,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { requirePendingChatSurfaceId } from "./aiChatState";
 import { resolveEngineConfigIdForChat } from "./aiChatSubmissionEngineResolution";
-import { getChatAppGenerationDetailsForTarget } from "./aiPendingChatState";
+import { getChatAppGenerationDetailsForTarget } from "./aiPendingChatAppGenerationState";
 import { buildEditedMessageHistory } from "./chatBranches";
 
 export type ChatExecutionSettings = {

@@ -30,7 +30,7 @@ import {
   initializePendingChatDetailsWithMessages,
   rollbackOptimisticUserMessage,
   seedPendingChatDetails,
-} from "./aiPendingChatState";
+} from "./aiPendingChatMessageState";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
 
 export {

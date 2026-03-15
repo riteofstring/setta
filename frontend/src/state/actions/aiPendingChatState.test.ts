@@ -15,7 +15,7 @@ import {
   finalizePendingChatDetails,
   initializePendingChatDetails,
   seedPendingChatDetails,
-} from "./aiChatSubmission";
+} from "./aiPendingChatMessageState";
 
 describe("aiPendingChatState", () => {
   const surfaceId = "surface-a";

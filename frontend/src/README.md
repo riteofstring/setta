@@ -124,8 +124,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     shared by hydration and section-state writes.
   - `state/actions/aiInterruptedAssistantMessages.ts` owns interrupted assistant
     message tracking and snapshot restoration.
-  - `state/actions/aiPendingChatState.ts` owns surface-scoped pending drafts,
-    pending app-generation state, and promotion into materialized chats.
+  - `state/actions/aiPendingChatAppGenerationState.ts` owns pending-surface
+    app-generation detail reads and writes.
+  - `state/actions/aiPendingChatMessageState.ts` owns pending draft
+    initialization, promotion, and optimistic message apply or rollback flows.
+  - `state/actions/aiPendingChatState.ts` is now a thin compatibility facade
+    over those narrower pending-chat owners.
   - `state/actions/aiLLMConfiguration.ts` owns LLM config loading/saving plus
     managed API-key snapshot, conflict, and persistence behavior.
   - `state/actions/aiConfigurationCatalogLoads.ts` owns agent-profile,
@@ -354,7 +358,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `aiHydrationOutcome.ts`, `aiAgentRuns.ts`,
     `aiChatSubmission.ts`, `aiChatControls.ts`, `aiExternalAgentStop.ts`,
     `aiChatStopState.ts`, `aiExternalAgentResponses.ts`, `aiChatState.ts`,
-    `aiChatSectionState.ts`, and `aiPendingChatState.ts`.
+    `aiChatSectionState.ts`, `aiPendingChatAppGenerationState.ts`,
+    `aiPendingChatMessageState.ts`, and `aiPendingChatState.ts`.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
     reconciliation, active-section sync, viewport updates, and project-chat
     windowing coordination for authoritative project snapshots.
