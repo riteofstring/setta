@@ -292,6 +292,33 @@ func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 	}
 }
 
+func TestRegisterArtifactRoutesShareModeRejectsCachedLoadsOutsideAllowedRoots(t *testing.T) {
+	t.Parallel()
+
+	service, deploymentRuntime, _, _ := newShareArtifactRouteService(t, true)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler := newShareArtifactRouteHandler(t, service, deploymentRuntime)
+
+	loadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedBrushStrokes, strings.NewReader(`{"paths":["manifest.json"]}`))
+	loadRequest.Header.Set("Content-Type", "application/json")
+	loadRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	loadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(loadResponse, loadRequest)
+	if loadResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected share load 403, got %d with body %q", loadResponse.Code, loadResponse.Body.String())
+	}
+	if !strings.Contains(loadResponse.Body.String(), "artifact_path_forbidden") {
+		t.Fatalf("expected artifact_path_forbidden code, got %q", loadResponse.Body.String())
+	}
+	if !strings.Contains(loadResponse.Body.String(), "deployment artifacts, json_sources, or code roots") {
+		t.Fatalf("expected allowed-root error detail, got %q", loadResponse.Body.String())
+	}
+}
+
 func TestRegisterArtifactRoutesShareModeRejectsPolicyDenied(t *testing.T) {
 	t.Parallel()
 
@@ -554,13 +581,15 @@ func newShareArtifactRouteHandler(t *testing.T, service *shareartifacts.Service,
 func writeShareArtifactRouteFixture(t *testing.T, deploymentRoot string, allowParamChanges bool) {
 	t.Helper()
 
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
+				ID:                   "project-alpha",
+				Name:                 "Alpha",
+				ProjectChatWindowing: &defaultWindowing,
 			},
 		},
 	}

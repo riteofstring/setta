@@ -298,13 +298,15 @@ func newShareArtifactTestServiceWithPolicies(t *testing.T, allowParamChanges boo
 func writeShareArtifactDeploymentFixture(t *testing.T, deploymentRoot string, allowParamChanges bool) {
 	t.Helper()
 
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
+				ID:                   "project-alpha",
+				Name:                 "Alpha",
+				ProjectChatWindowing: &defaultWindowing,
 			},
 		},
 	}
