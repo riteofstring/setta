@@ -2088,7 +2088,14 @@ class SettaListener:
             refresh_future = loop.create_future()
             self._pending_router_endpoint_force_refreshes[call_id] = refresh_future
         project_config_id = self._require_project_id()
-        serialized_payload = self._serialize_router_endpoint_payload(payload)
+        if payload is None:
+            serialized_payload: dict[str, object] = {}
+        elif isinstance(payload, BaseModel):
+            serialized_payload = payload.model_dump()
+        elif isinstance(payload, dict):
+            serialized_payload = dict(payload)
+        else:
+            raise ValueError("router endpoint payload must be a dict or pydantic model")
         message = WebsocketMsgListenerRouterEndpointCall(
             content=ListenerRouterEndpointCallContent(
                 projectConfigId=project_config_id,
@@ -2133,18 +2140,6 @@ class SettaListener:
                     "artifact_updates entries must match the BaseArtifact schema"
                 ) from exc
         return serialized
-
-    def _serialize_router_endpoint_payload(
-        self,
-        payload: BaseModel | dict[str, object] | None,
-    ) -> dict[str, object]:
-        if payload is None:
-            return {}
-        if isinstance(payload, BaseModel):
-            return payload.model_dump()
-        if isinstance(payload, dict):
-            return dict(payload)
-        raise ValueError("router endpoint payload must be a dict or pydantic model")
 
     def _new_live_value_codec(self, dependency_graph: DependencyGraph) -> PythonValueCodec:
         def unexpected_dependency_lookup(dep_key: BaseDependencyKeyUnion) -> str:
