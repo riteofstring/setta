@@ -43,6 +43,7 @@ test("dict kwargs render after add_kwarg", async ({ page }) => {
     );
     const firstParam = paramContainer.first();
     await expect(firstParam).toBeVisible({ timeout: 20000 });
+    await expect(firstParam).toContainText("Add Key");
     const box = await firstParam.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThan(10);
   } finally {
