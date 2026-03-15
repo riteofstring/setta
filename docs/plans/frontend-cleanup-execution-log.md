@@ -4303,3 +4303,37 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/params/paramTree.ts` so
     param ancestry/path reads stop living beside sibling ordering, visible-tree
     traversal, and selection-navigation helpers.
+
+## 2026-03-15 11:35:26 PDT
+
+- Slice completed: split param tree structure from selection helpers
+- Key files touched:
+  - `frontend/src/state/actions/params/paramTreeStructure.ts`
+  - `frontend/src/state/actions/params/paramTreeSelection.ts`
+  - `frontend/src/state/actions/params/paramTree.ts`
+  - `frontend/src/state/actions/params/paramTreeStructure.test.ts`
+  - `frontend/src/state/actions/params/paramTreeSelection.test.ts`
+  - `frontend/src/state/actions/params/paramMoveQueries.ts`
+  - `frontend/src/state/actions/params/paramMoveMutations.ts`
+  - `frontend/src/state/actions/params/paramMoveKeyboardCommands.ts`
+  - `frontend/src/state/actions/params/paramDuplicateIndex.ts`
+  - `frontend/src/components/Params/ParamDndContext.tsx`
+  - `frontend/src/components/Params/ParamDndList.tsx`
+  - `frontend/src/components/Params/ParamDndMonitor.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/params/paramTreeStructure.test.ts src/state/actions/params/paramTreeSelection.test.ts src/state/actions/params/moveParams.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/params/paramTree.ts src/state/actions/params/paramTreeStructure.ts src/state/actions/params/paramTreeSelection.ts src/state/actions/params/paramTreeStructure.test.ts src/state/actions/params/paramTreeSelection.test.ts src/state/actions/params/paramMoveQueries.ts src/state/actions/params/paramMoveMutations.ts src/state/actions/params/paramDuplicateIndex.ts src/state/actions/params/paramMoveKeyboardCommands.ts src/components/Params/ParamDndContext.tsx src/components/Params/ParamDndList.tsx src/components/Params/ParamDndMonitor.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `20a39e59e21d7a84185d4a70c8e211400b252d19`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/appSessionState.ts` so
+    app-session bootstrap and recovery no longer live beside persistent
+    run-count state updates.
