@@ -6239,3 +6239,44 @@ schedule settings` button still appears on the live task row.
     `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` dropped to
     about 614 lines and delegated task-board mutations, DnD math, toolbar
     chrome, and list/kanban surface rendering into feature-local modules.
+
+## 2026-03-16 03:59:08 PDT
+
+- Slice completed: localized the Home page front door into gallery and side-pane owners
+- This was higher value than immediately jumping back into the larger
+  project-chat hotspots because `frontend/src/components/Pages/Home/HomePage.tsx`
+  was still a real first-hop page surface mixing bootstrap, favorites/search,
+  project gallery rendering, and workspace/selected-project pane shells, while
+  the home domain already had direct Vitest plus Playwright coverage that made
+  the ownership cut easy to verify end-to-end in one turn.
+- Key files touched:
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Pages/Home/homeProjectGallery.tsx`
+  - `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`
+  - `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`
+  - `frontend/src/components/Pages/Home/homeProjectNavigation.ts`
+  - `frontend/src/components/Pages/Home/HomePage.test.tsx`
+  - `frontend/src/components/Pages/Home/homeProjectGallery.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-pages-shell-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Home/HomePage.test.tsx src/components/Pages/Home/homeProjectGallery.test.tsx`
+  - `./scripts/run-playwright-e2e.sh tests/e2e/home/home-file-manager.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Home/HomePage.tsx src/components/Pages/Home/HomePage.test.tsx src/components/Pages/Home/homeProjectGallery.tsx src/components/Pages/Home/homeProjectGallery.test.tsx src/components/Pages/Home/homeProjectNavigation.ts src/components/Pages/Home/homeSelectedProjectDetails.tsx src/components/Pages/Home/homeWorkspaceSidePanes.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-pages-shell-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - CDP visual verification was run on `http://127.0.0.1:3002/home` at both
+    desktop (`1440x900`) and compact (`960x900`) widths. Desktop kept the
+    workspace browser rail, file-browser pane, selected-project pane, and main
+    gallery structure intact; compact width correctly collapsed to the single
+    main surface with the compact settings action visible.
+  - Existing Playwright home coverage also re-verified pane toggles, compact
+    layout, and pane-width persistence after the ownership split.
+- Commit hash:
+  - `d1ab380dc54775ff028bd2b1054345fc9ac7e481`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`,
+    which remains the largest unresolved first-hop surface after the home page
+    dropped to about 451 lines and delegated gallery rendering, side-pane
+    shells, and selected-project details into local page-domain modules.
