@@ -29,7 +29,6 @@ import {
 } from "state/actions/agentRunUtils";
 import { updateEngineConfig } from "state/actions/aiConfigurationCatalogMutations";
 import { saveLLMConfig } from "state/actions/aiLLMConfiguration";
-import { seedPendingChatDetails } from "state/actions/aiPendingChatMessageState";
 import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import {
   buildChatProvenanceByChatId,
@@ -37,7 +36,6 @@ import {
 } from "state/actions/chatHistoryProvenance";
 import type { ChatHistoryCompatibility } from "state/actions/chatHistoryTypes";
 import { addPersistentNotification } from "state/actions/notifications";
-import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreadGroupAssignments";
 import {
   useAIStore,
   useProjectState,
@@ -55,12 +53,10 @@ import { ProjectChatAuxViewContent } from "./projectChatAuxViewContent";
 import {
   findPreferredProjectChatEngineId,
   resolveProjectChatEngineConfigIdForSelectedChat,
-  resolveProjectChatEngineSwitchContinuationAfterContextChange,
   resolveProjectChatEngineSwitchContinuationOnEngineChange,
   resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
   resolveProjectChatSelectedLLMUnavailableReason,
   shouldProjectChatSkipEngineSyncForContinuation,
-  type ProjectChatEngineSwitchContinuation,
 } from "./projectChatEngineSelection";
 import {
   getDefaultProjectChatPermissionMode,
@@ -70,18 +66,13 @@ import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuth
 import { type ProjectDictationMode } from "./projectChatSettingsPopover";
 import { ProjectChatSurfaceBody } from "./projectChatSurfaceBody";
 import { ProjectChatSurfaceChrome } from "./projectChatSurfaceChrome";
+import { useProjectChatThreadSession } from "./projectChatThreadSession";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 import { useProjectChatConversationSearch } from "./useProjectChatConversationSearch";
 import { useProjectChatInlineThreadsLayout } from "./useProjectChatInlineThreadsLayout";
 
 export { resolveProjectChatThreadBlockedErrorCodeForSelectedChat } from "./projectChatHydrationAuthority";
-
-type DraftProjectThreadState =
-  | { phase: "none" }
-  | { phase: "idle" }
-  | { phase: "pending_chat_id" }
-  | { phase: "awaiting_title"; chatId: string };
 
 type ResolveProjectChatAuxViewByProjectConfigIdUpdateInput = {
   projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
@@ -250,6 +241,8 @@ export function ProjectChat({
   );
 }
 
+// Owns project-chat store selection, hydration authority, engine sync, and surface wiring.
+// Draft-thread lifecycle and pending-chat continuity now live in projectChatThreadSession.ts.
 function ProjectChatSurface({
   resolvedSurfaceId,
   controlledChatId,
@@ -281,13 +274,6 @@ function ProjectChatSurface({
   const chatId =
     controlledSetChatId !== undefined ? controlledChatId : globalChatId;
   const setChatId = controlledSetChatId ?? setGlobalChatId;
-  const [draftThreadState, setDraftThreadState] =
-    useState<DraftProjectThreadState>({
-      phase: "none",
-    });
-  const [draftThreadTargetGroupId, setDraftThreadTargetGroupId] = useState<
-    string | null
-  >(null);
   const [thinking, setThinking] = useState(true);
   const {
     conversationFilterText,
@@ -451,15 +437,6 @@ function ProjectChatSurface({
   );
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
-  const [selectedThreadGroupId, setSelectedThreadGroupId] = useState<
-    string | null
-  >(null);
-  const [engineSwitchContinuation, setEngineSwitchContinuation] =
-    useState<ProjectChatEngineSwitchContinuation | null>(null);
-  const [
-    draftThreadContinuationSourceChatId,
-    setDraftThreadContinuationSourceChatId,
-  ] = useState<string | null>(null);
   const notifiedExternalEngineIssueRef = useRef<string | null>(null);
   const {
     handleChatContainerRef,
@@ -644,23 +621,6 @@ function ProjectChatSurface({
     approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
     permissionMode: runtimePermissionMode,
   });
-  const engineSwitchContinuationBannerText = useMemo(() => {
-    if (!engineSwitchContinuation) {
-      return null;
-    }
-    const sourceEngineName =
-      engineConfigById.get(engineSwitchContinuation.sourceEngineConfigId)
-        ?.name ?? "the previous engine";
-    const targetEngineName = engineSwitchContinuation.targetEngineConfigId
-      ? engineConfigById.get(engineSwitchContinuation.targetEngineConfigId)
-          ?.name ?? "the selected engine"
-      : "the selected engine";
-    return `Engine changed from ${sourceEngineName} to ${targetEngineName}. Continue in a new thread to keep engine provenance consistent.`;
-  }, [engineConfigById, engineSwitchContinuation]);
-  const requiresNewThreadForEngineSwitch = engineSwitchContinuation !== null;
-  const newThreadContinuationRequiredReason = requiresNewThreadForEngineSwitch
-    ? "Switching engines on an existing thread requires continuing in a new thread."
-    : null;
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(effectiveEngineConfig),
@@ -820,74 +780,53 @@ function ProjectChatSurface({
     () => new Set(engineConfigs.map((config) => config.id)),
     [engineConfigs],
   );
-  const draftThreadHint = useMemo(() => {
-    if (draftThreadState.phase === "none") {
+  const {
+    clearThreadSession,
+    draftThreadContinuationSourceChatId,
+    draftThreadHint,
+    engineSwitchContinuation,
+    handleContinueInNewThread,
+    handleDraftThreadSettled,
+    handleDraftThreadStart,
+    handleNewChatClick,
+    handleNewChatInThreadGroup,
+    handleNewChatStartForSubmit,
+    selectedThreadGroupId,
+    setEngineSwitchContinuation,
+    setSelectedThreadGroupId,
+  } = useProjectChatThreadSession({
+    activeConversationAppGenerationDetails,
+    activeConversationMessages,
+    chatHistoryEntriesById,
+    chatId,
+    effectiveEngineId,
+    projectConfigId,
+    resolvedSurfaceId,
+    setChatId,
+    setProjectChatAuxView,
+    setViewThreads,
+    showInlineThreads,
+    threadAssignments,
+    threadGroups,
+  });
+  const engineSwitchContinuationBannerText = useMemo(() => {
+    if (!engineSwitchContinuation) {
       return null;
     }
-    if (draftThreadState.phase === "awaiting_title") {
-      return {
-        chatId: draftThreadState.chatId,
-        groupId: draftThreadTargetGroupId,
-      };
-    }
-    return { chatId: null, groupId: draftThreadTargetGroupId };
-  }, [draftThreadState, draftThreadTargetGroupId]);
+    const sourceEngineName =
+      engineConfigById.get(engineSwitchContinuation.sourceEngineConfigId)
+        ?.name ?? "the previous engine";
+    const targetEngineName = engineSwitchContinuation.targetEngineConfigId
+      ? engineConfigById.get(engineSwitchContinuation.targetEngineConfigId)
+          ?.name ?? "the selected engine"
+      : "the selected engine";
+    return `Engine changed from ${sourceEngineName} to ${targetEngineName}. Continue in a new thread to keep engine provenance consistent.`;
+  }, [engineConfigById, engineSwitchContinuation]);
+  const requiresNewThreadForEngineSwitch = engineSwitchContinuation !== null;
+  const newThreadContinuationRequiredReason = requiresNewThreadForEngineSwitch
+    ? "Switching engines on an existing thread requires continuing in a new thread."
+    : null;
 
-  useEffect(() => {
-    setDraftThreadState((current) => {
-      if (current.phase === "none") {
-        return current;
-      }
-      if (current.phase === "idle") {
-        if (typeof chatId === "string") {
-          return { phase: "none" };
-        }
-        return current;
-      }
-      if (current.phase === "pending_chat_id") {
-        if (typeof chatId === "string") {
-          return { phase: "awaiting_title", chatId };
-        }
-        if (chatId === undefined) {
-          return { phase: "idle" };
-        }
-        return current;
-      }
-      if (typeof chatId === "string" && chatId !== current.chatId) {
-        return { phase: "none" };
-      }
-      const historyEntry = chatHistoryEntriesById.get(current.chatId);
-      if (historyEntry && historyEntry.nameSource !== null) {
-        return { phase: "none" };
-      }
-      return current;
-    });
-  }, [chatHistoryEntriesById, chatId]);
-  useEffect(() => {
-    if (draftThreadState.phase !== "none") {
-      return;
-    }
-    if (draftThreadTargetGroupId === null) {
-      return;
-    }
-    setDraftThreadTargetGroupId(null);
-  }, [draftThreadState.phase, draftThreadTargetGroupId]);
-
-  useEffect(() => {
-    if (typeof chatId !== "string" || chatId.trim() === "") {
-      return;
-    }
-    setSelectedThreadGroupId(threadAssignments[chatId] ?? null);
-  }, [chatId, threadAssignments]);
-  useEffect(() => {
-    setEngineSwitchContinuation((current) =>
-      resolveProjectChatEngineSwitchContinuationAfterContextChange({
-        continuation: current,
-        chatId,
-        selectedEngineId: effectiveEngineId,
-      }),
-    );
-  }, [chatId, effectiveEngineId]);
   useEffect(() => {
     if (
       shouldProjectChatSkipEngineSyncForContinuation({
@@ -915,18 +854,6 @@ function ProjectChatSurface({
     selectedEngineId,
     setSelectedEngineId,
   ]);
-
-  useEffect(() => {
-    if (selectedThreadGroupId === null) {
-      return;
-    }
-    const exists = threadGroups.some(
-      (group) => group.id === selectedThreadGroupId,
-    );
-    if (!exists) {
-      setSelectedThreadGroupId(null);
-    }
-  }, [selectedThreadGroupId, threadGroups]);
 
   useEffect(() => {
     if (!externalEngineIssueMessage) {
@@ -962,16 +889,13 @@ function ProjectChatSurface({
       if (nextContinuation) {
         return;
       }
-      setChatId(undefined);
-      setDraftThreadState({ phase: "none" });
-      setDraftThreadTargetGroupId(null);
-      setSelectedThreadGroupId(null);
+      clearThreadSession();
     },
     [
+      clearThreadSession,
       chatEngineConfigByChatId,
       chatId,
       selectedEngineId,
-      setChatId,
       setProjectChatAuxView,
       setSelectedEngineId,
     ],
@@ -1113,119 +1037,6 @@ function ProjectChatSurface({
   const handleOpenSlashCommandsAuxView = useCallback(() => {
     setProjectChatAuxView("slash_commands");
   }, [setProjectChatAuxView]);
-  const startNewChatDraft = useCallback(
-    ({
-      targetGroupId,
-      clearContinuationSource,
-    }: {
-      targetGroupId: string | null;
-      clearContinuationSource: boolean;
-    }) => {
-      setChatId(undefined);
-      setDraftThreadState({ phase: "idle" });
-      setDraftThreadTargetGroupId(targetGroupId);
-      if (clearContinuationSource) {
-        setDraftThreadContinuationSourceChatId(null);
-      }
-      setEngineSwitchContinuation(null);
-      if (!showInlineThreads) {
-        setViewThreads(false);
-      }
-      setProjectChatAuxView("none");
-    },
-    [setChatId, showInlineThreads],
-  );
-  const handleNewChatClick = useCallback(() => {
-    startNewChatDraft({
-      targetGroupId: selectedThreadGroupId,
-      clearContinuationSource: true,
-    });
-  }, [selectedThreadGroupId, startNewChatDraft]);
-  const handleNewChatStartForSubmit = useCallback(() => {
-    startNewChatDraft({
-      targetGroupId: selectedThreadGroupId,
-      clearContinuationSource: false,
-    });
-  }, [selectedThreadGroupId, startNewChatDraft]);
-  const handleNewChatInThreadGroup = useCallback(
-    (groupId: string) => {
-      startNewChatDraft({
-        targetGroupId: groupId,
-        clearContinuationSource: true,
-      });
-      setSelectedThreadGroupId(groupId);
-    },
-    [startNewChatDraft],
-  );
-  const handleContinueInNewThread = useCallback(() => {
-    if (!engineSwitchContinuation) {
-      return;
-    }
-    seedPendingChatDetails(
-      activeConversationMessages,
-      resolvedSurfaceId,
-      activeConversationAppGenerationDetails,
-    );
-    setChatId(null);
-    setDraftThreadState({ phase: "idle" });
-    setDraftThreadTargetGroupId(selectedThreadGroupId);
-    setDraftThreadContinuationSourceChatId(
-      engineSwitchContinuation.sourceChatId,
-    );
-    setEngineSwitchContinuation(null);
-    if (!showInlineThreads) {
-      setViewThreads(false);
-    }
-    setProjectChatAuxView("none");
-  }, [
-    activeConversationAppGenerationDetails,
-    activeConversationMessages,
-    engineSwitchContinuation,
-    resolvedSurfaceId,
-    selectedThreadGroupId,
-    setChatId,
-    showInlineThreads,
-  ]);
-  const handleDraftThreadStart = useCallback(() => {
-    setDraftThreadState((current) => {
-      if (current.phase === "none") {
-        return current;
-      }
-      return { phase: "pending_chat_id" };
-    });
-  }, []);
-  const handleDraftThreadSettled = useCallback(
-    (nextChatId: string | null, succeeded: boolean) => {
-      if (succeeded && nextChatId && draftThreadTargetGroupId) {
-        setProjectChatThreadGroupAssignment(
-          projectConfigId,
-          nextChatId,
-          draftThreadTargetGroupId,
-        );
-      }
-      if (succeeded && nextChatId) {
-        setDraftThreadContinuationSourceChatId(null);
-      }
-      setDraftThreadState((current) => {
-        if (current.phase === "none") {
-          return current;
-        }
-        if (!succeeded || !nextChatId) {
-          return { phase: "idle" };
-        }
-        return { phase: "awaiting_title", chatId: nextChatId };
-      });
-    },
-    [draftThreadTargetGroupId, projectConfigId],
-  );
-  useEffect(() => {
-    if (
-      draftThreadState.phase === "none" &&
-      draftThreadContinuationSourceChatId !== null
-    ) {
-      setDraftThreadContinuationSourceChatId(null);
-    }
-  }, [draftThreadContinuationSourceChatId, draftThreadState.phase]);
   const auxViewContent =
     projectChatAuxView === "none" ? null : (
       <ProjectChatAuxViewContent
@@ -1288,10 +1099,7 @@ function ProjectChatSurface({
     conversationFilterText,
     requiresNewThreadContinuation: requiresNewThreadForEngineSwitch,
     newThreadContinuationRequiredReason,
-    newThreadSeedChatId:
-      draftThreadState.phase === "none"
-        ? null
-        : draftThreadContinuationSourceChatId,
+    newThreadSeedChatId: draftThreadContinuationSourceChatId,
     hydrationAuthority: selectedChatHydrationAuthority,
     hydrationMetadataRevision: selectedChatHydrationMetadataRevision,
     thinking,
