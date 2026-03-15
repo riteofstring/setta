@@ -1,8 +1,5 @@
 import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
-import {
-  closeGitOverlay,
-  setGitDiffMode,
-} from "state/actions/gitStatusAndDiff";
+import { closeGitOverlay, setGitDiffMode } from "state/actions/git";
 import { useGitStore } from "state/git";
 
 export function GitDiffOverlay() {
