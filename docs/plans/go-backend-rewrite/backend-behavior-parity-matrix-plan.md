@@ -1,6 +1,6 @@
 # Backend Behavior Parity Matrix Plan
 
-Last updated: `2026-03-15`
+Last updated: `2026-03-17`
 
 Purpose: build a behavior-level parity matrix between the Python-backed
 behavior on `main` and the Go-backed behavior on the rewrite branch, so the
@@ -45,6 +45,29 @@ This future matrix should become the source of truth for:
 
 If the matrix becomes large, keep it as one file unless size clearly harms
 usability. Prefer a single searchable ledger over many partial shards.
+
+## Document Organization Rules
+
+Default:
+
+- keep one canonical searchable ledger in
+  `backend-behavior-parity-matrix.md`
+
+If size or reviewability becomes a real problem:
+
+- keep `backend-behavior-parity-matrix.md` as the canonical index and status
+  summary
+- move detailed row tables into linked appendices by behavior area or audit
+  slice, not by Python package or backend subfolder
+- keep the same row schema, status semantics, and stable behavior ids across
+  every appendix
+- keep cross-cutting families together even when their evidence spans routes,
+  types, helper/runtime code, tests, and frontend callers
+
+Do not split primarily by source-tree folder such as `backend/setta/routers`,
+`backend/setta/types`, or `backend/setta/project_state`. Those boundaries are
+implementation structure, not behavior structure, and they make cross-cutting
+omissions easier to hide.
 
 ## Non-Goals
 
@@ -191,6 +214,44 @@ Use tests as the minimum behavior map, but do not stop at tests alone.
 Reference docs and explicit contracts often describe behavior that needs its
 own matrix rows even when a Python test does not isolate it cleanly.
 
+## Enumerated Family Coverage Rules
+
+Treat any accepted discriminator family as a first-class audit target.
+
+Examples:
+
+- section impl types
+- code-object / param impl types
+- route payload `kind` or `type` fields
+- view modes and other mode-specific literals
+- configuration field families with per-field validation
+- policy-flag and environment-mode branches when they change behavior
+
+For each such family, build an explicit family inventory from deterministic
+source evidence. Record:
+
+- the authoritative source definition location
+- the full accepted value set on the pinned source baseline
+- per-value defaults, seeded state, side effects, and singleton rules
+- per-value error contracts for unsupported or invalid inputs
+- mode or policy gates that change which values are accepted
+
+During the audit, a family is not fully covered by:
+
+- one representative test case
+- one broad "create X" row
+- one route-level proof that does not enumerate the accepted values
+
+Acceptable coverage patterns are:
+
+- explicit matrix rows for each value-specific behavior or invariant
+- a linked family-coverage appendix/table that enumerates every source value
+  and points to the exact matrix row(s), Go implementation evidence, and Go
+  proof for that value
+
+If the source accepts a value and the Go side does not, or if no proof exists
+for that value-specific behavior, the family is not yet fully proved.
+
 ## Codex Multi-Pass Workflow
 
 Do not try to produce the final matrix in one giant pass.
@@ -211,12 +272,14 @@ Tasks:
 - enumerate Python test areas and concrete tested behaviors
 - enumerate backend reference-doc behavior contracts
 - enumerate public transport and SDK surfaces
+- enumerate accepted discriminator families and their full source value sets
 - break broad features into row-level behaviors
 - mark the source evidence for every row
 
 Output:
 
 - an initial matrix with source-side rows populated
+- family inventories for discriminator-driven behavior surfaces
 - Go-side columns intentionally left blank or marked `unmapped`
 
 ### Pass 2: Map each row to Go implementation and proof
@@ -250,6 +313,7 @@ Tasks:
 - find reference-doc sections with no matrix row
 - find validation/error/realtime/default-generation behavior hidden inside
   helper code with no matrix row
+- compare family inventories against matrix coverage and Go acceptance tables
 - find rows marked `Proved` whose cited proof does not actually prove the full
   behavior
 - find broad rows that should have been split into smaller behaviors
@@ -258,6 +322,9 @@ Rules:
 
 - assume rows are insufficient until proven otherwise
 - prefer false negatives over false positives
+- do not treat one family member as proof of the whole family
+- if a live product check finds a parity miss, reopen the affected family rows
+  instead of preserving the prior completeness claim
 
 ### Pass 4: Gap triage and rewrite-work creation
 
@@ -314,6 +381,8 @@ Do not treat the matrix as ready until all of the following are true:
 - every `Dormant / unproven caller` row explains why the behavior is not yet
   classified as active
 - no broad subsystem row hides multiple smaller rules
+- every accepted discriminator family is covered either by explicit matrix rows
+  or by a linked family-coverage appendix/table with per-value proof
 - high-risk behavior classes have explicit rows:
   - validation rules
   - normalization
@@ -341,6 +410,9 @@ unless there is an explicit product decision to accept the gap.
 - "No one mentioned this in a checklist, so it must not matter."
 - "The current caller does not obviously use it, so it can be omitted without a
   classification."
+- "One enum member or section type worked, so the entire family is proved."
+- "A source-tree folder has been reviewed, so every behavior defined across
+  that area is covered."
 
 ## Maintenance Rule
 
@@ -350,6 +422,10 @@ Once the first matrix lands:
   changes
 - do not mark a rewrite slice done based only on the two broader checklist docs
   if the matrix still shows unresolved in-scope gaps
+- if manual product use, backend logs, or a newly added test reveals a parity
+  miss inside an audited surface, immediately reopen the affected matrix rows
+  and family inventory instead of treating it as an isolated bug outside the
+  audit
 - if the matrix becomes stable and important enough, add a dedicated
   `backend-behavior-parity-matrix-audit-plan.md` for ongoing maintenance
 
