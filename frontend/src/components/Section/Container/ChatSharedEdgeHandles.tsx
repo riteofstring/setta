@@ -9,8 +9,9 @@ import {
   isValidSharedChatEdgeConnection,
 } from "state/actions/chatSharedEdges";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
