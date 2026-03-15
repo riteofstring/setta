@@ -315,6 +315,86 @@ func TestServiceReadWriteAndDownloadFlow(t *testing.T) {
 	}
 }
 
+func TestServiceBuildDownloadURLsSkipsInvalidPaths(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	validPath := filepath.Join(workspaceRoot, "notes.txt")
+	if err := os.WriteFile(validPath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write valid download file: %v", err)
+	}
+	directoryPath := filepath.Join(workspaceRoot, "folder")
+	if err := os.MkdirAll(directoryPath, 0o755); err != nil {
+		t.Fatalf("mkdir directory path: %v", err)
+	}
+	outsidePath := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(outsidePath, []byte("outside"), 0o644); err != nil {
+		t.Fatalf("write outside path: %v", err)
+	}
+
+	urls, err := service.BuildDownloadURLs(context.Background(), FileBrowserDownloadURLRequest{
+		Paths: []string{
+			validPath,
+			filepath.Join(workspaceRoot, "missing.txt"),
+			directoryPath,
+			outsidePath,
+			"   ",
+		},
+	}, func(token string) string {
+		return "http://example.com/api/fileBrowser/" + token
+	})
+	if err != nil {
+		t.Fatalf("build download urls: %v", err)
+	}
+	if len(urls) != 1 {
+		t.Fatalf("expected only one download url for the valid path, got %#v", urls)
+	}
+	if urls[0].Path != validPath {
+		t.Fatalf("expected surviving download path %q, got %q", validPath, urls[0].Path)
+	}
+}
+
+func TestServiceListFolderExplicitEmptyIgnorePatternsOverridesDefaultIgnoreSet(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+	nodeModulesPath := filepath.Join(workspaceRoot, "node_modules")
+	if err := os.MkdirAll(nodeModulesPath, 0o755); err != nil {
+		t.Fatalf("mkdir node_modules: %v", err)
+	}
+
+	defaultItems, err := service.ListFolder(context.Background(), ListFolderRequest{
+		FolderPath: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("list folder with default ignore patterns: %v", err)
+	}
+	for _, item := range defaultItems {
+		if item.Name == "node_modules" {
+			t.Fatalf("expected default ignore patterns to hide node_modules, got %#v", defaultItems)
+		}
+	}
+
+	overrideItems, err := service.ListFolder(context.Background(), ListFolderRequest{
+		FolderPath:     workspaceRoot,
+		IgnorePatterns: []string{},
+	})
+	if err != nil {
+		t.Fatalf("list folder with explicit empty ignore patterns: %v", err)
+	}
+	foundNodeModules := false
+	for _, item := range overrideItems {
+		if item.Name == "node_modules" {
+			foundNodeModules = true
+			break
+		}
+	}
+	if !foundNodeModules {
+		t.Fatalf("expected explicit empty ignore patterns to re-expose node_modules, got %#v", overrideItems)
+	}
+}
+
 func TestServiceReadFileContentRejectsOversizeAndConcurrentChange(t *testing.T) {
 	t.Parallel()
 
