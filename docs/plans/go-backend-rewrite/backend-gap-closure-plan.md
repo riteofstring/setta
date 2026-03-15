@@ -217,6 +217,10 @@ categorize them.
   proof-only owners such as right-pane reveal precedence, managed-chat
   whitespace frontend-affinity rejection, or the remote `stop` CLI forwarding
   and conflicting-flag rows
+- That right-pane reveal precedence row is now proved too, so the next cheap
+  queue should likely come from the managed-chat whitespace-affinity branch or
+  the remote `stop` CLI forwarding/conflicting-flag pair before switching to
+  heavier missing surfaces
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
