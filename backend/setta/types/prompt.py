@@ -2,7 +2,9 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
-from setta.types.id import ID, create_new_id
+
+from setta.database.utils import create_new_id
+from setta.types.id import ID
 
 
 class PromptFormat(str, Enum):
@@ -17,3 +19,7 @@ class PromptTemplate(BaseModel, extra="forbid"):
     format: PromptFormat = PromptFormat.Jinja
     inputSchema: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PromptTemplateList(BaseModel, extra="forbid"):
+    templates: list[PromptTemplate]

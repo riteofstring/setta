@@ -14,16 +14,16 @@ import {
 } from "state/actions/localStorage";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { loadShareProjectConfig } from "state/actions/share";
+import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   useAllProjectMetadata,
-  useLocalStorage,
-  useProjectState,
   useShareSession,
-} from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
+} from "state/stores/sessionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { dedupeStringIds } from "utils/dedupeStringIds";
-import { ProjectConfig } from "utils/generatedTypes";
+import type { ProjectConfig } from "utils/generatedTypes";
 
 const TOGGLE_ROOT_CLASSES =
   "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";

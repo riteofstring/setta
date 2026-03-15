@@ -1,13 +1,13 @@
 import throttle from "lodash/throttle";
 import { useEffect } from "react";
-import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketRealtimeDispatch";
 import {
   useActiveSectionUI,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { buildPluginPaneOverviewTabName } from "utils/constants";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
 import {
@@ -17,7 +17,6 @@ import {
   DependencyValueTypeEnum,
   PluginBlockedCapability,
   PluginListEntry,
-  PluginListResponse,
   PluginRestartCapability,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
@@ -27,25 +26,42 @@ import {
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 import {
-	isPluginPaneIconName,
-	PluginPaneIconNameEnum,
-	type PluginPaneIconName,
+  isPluginPaneIconName,
+  PluginPaneIconNameEnum,
+  type PluginPaneIconName,
 } from "./paneIcons";
-import { buildPluginAssetUrl } from "./transport";
+import {
+  deriveSortedRuntimeViews,
+  mapPluginListById,
+  mapPrimaryStatusByPluginId,
+  mapStatusEntries,
+  type PluginPaneTabEntry,
+} from "./runtimeDerivedViews";
+import {
+  cloneProjectStateSnapshot,
+  getRawSelectedProjectState,
+  normalizeProjectStateSelector,
+  projectStateSubscriptionEquality,
+  toProjectStateReadValue,
+  toProjectStateSectionSnapshot,
+  toProjectStateSubscriptionValue,
+  type PluginProjectStateSelector,
+  type PluginProjectStateSubscriptionOptions,
+} from "./runtimeProjectStateBridge";
+import {
+  isPlainRecord,
+  isPromiseLike,
+  PluginFrontendErrorCodeEnum,
+  PluginRuntimeError,
+  requireNonEmptyString,
+  type PluginFrontendErrorCode,
+} from "./runtimeValidation";
 
 export { type PluginPaneIconName } from "./paneIcons";
+export type { PluginPaneTabEntry } from "./runtimeDerivedViews";
+export { PluginFrontendErrorCodeEnum } from "./runtimeValidation";
 
 const PLUGIN_FRONTEND_API_VERSION = 1;
-
-export const PluginFrontendErrorCodeEnum = {
-  RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",
-  ApiVersionMismatch: "PLUGIN_FRONTEND_API_VERSION_MISMATCH",
-  CapabilityDenied: "PLUGIN_CAPABILITY_DENIED",
-  FrontendLoadFailed: "PLUGIN_FRONTEND_LOAD_FAILED",
-} as const;
-
-type PluginFrontendErrorCode =
-  (typeof PluginFrontendErrorCodeEnum)[keyof typeof PluginFrontendErrorCodeEnum];
 
 export const PluginSectionFallbackReasonEnum = {
   plugin_disabled: "plugin_disabled",
@@ -146,15 +162,6 @@ type RegisteredPluginTopNavBarItem = PluginTopNavBarItemDefinition & {
   pluginId: string;
 };
 
-export type PluginPaneTabEntry = {
-  tabKey: string;
-  pluginId: string;
-  paneId: string;
-  title: string;
-  description?: string;
-  icon?: PluginPaneIconName;
-};
-
 type PluginFrontendError = {
   code: PluginFrontendErrorCode;
   message: string;
@@ -163,18 +170,6 @@ type PluginFrontendError = {
 type PluginProjectContext = {
   projectConfigId: string;
   serverMode: PluginServerMode;
-};
-
-type PluginProjectStateSelector =
-  | { kind: "projectConfig" }
-  | { kind: "activeSectionIds" }
-  | { kind: "section"; sectionId: string }
-  | { kind: "sections"; sectionIds: string[] }
-  | { kind: "singletonSections" };
-
-type PluginProjectStateSubscriptionOptions = {
-  fireImmediately?: boolean;
-  throttleMs?: number;
 };
 
 type PluginRealtimeDependencyEvent = {
@@ -234,6 +229,7 @@ type SettaPluginHost = {
   createArtifact: (
     payload: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>;
+  apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 type PluginFrontendModule = {
@@ -246,14 +242,6 @@ type PluginRegistryAccumulator = {
   panes: Record<string, RegisteredPluginPane[]>;
   commands: Record<string, RegisteredPluginCommand[]>;
   topNavBarItems: Record<string, RegisteredPluginTopNavBarItem[]>;
-};
-
-type SortedRuntimeViews = {
-  sortedPluginListEntries: PluginListEntry[];
-  sortedSectionKinds: RegisteredPluginSectionKind[];
-  sortedPaneTabs: PluginPaneTabEntry[];
-  sortedCommands: RegisteredPluginCommand[];
-  sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
 };
 
 type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
@@ -382,7 +370,7 @@ async function loadPluginRuntime(): Promise<void> {
   const statusData = runtimeResponse.data.status;
 
   const pluginListById = mapPluginListById(
-    listData,
+    listData.plugins,
     previousState.pluginListById,
   );
   const statusEntries = mapStatusEntries(
@@ -701,8 +689,8 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
-  const styleUrl = buildPluginAssetUrl(plugin.frontend.styleUrl);
-  const entrypointUrl = buildPluginAssetUrl(plugin.frontend.entrypointUrl);
+  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
+  const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
@@ -820,253 +808,6 @@ function clearPluginRuntimeSideEffects(): void {
   frontendSignatureByPluginId.clear();
   styleElementByPluginId.clear();
   styleHrefByPluginId.clear();
-}
-
-function normalizeProjectStateSelector(
-  pluginId: string,
-  selector: PluginProjectStateSelector,
-): PluginProjectStateSelector {
-  if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} provided an invalid project state selector.`,
-    );
-  }
-  const rawKind = (selector as { kind?: unknown }).kind;
-  if (typeof rawKind !== "string" || rawKind.trim() === "") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} project state selector is missing kind.`,
-    );
-  }
-  const kind = rawKind.trim();
-  if (kind === "projectConfig" || kind === "activeSectionIds") {
-    return { kind };
-  }
-  if (kind === "singletonSections") {
-    return { kind };
-  }
-  if (kind === "section") {
-    const sectionId = requireNonEmptyString(
-      (selector as { sectionId?: unknown }).sectionId,
-      `Plugin ${pluginId} section selector missing sectionId.`,
-    );
-    return {
-      kind,
-      sectionId,
-    };
-  }
-  if (kind === "sections") {
-    const sectionIdsRaw = (selector as { sectionIds?: unknown }).sectionIds;
-    if (!Array.isArray(sectionIdsRaw)) {
-      throw new PluginRuntimeError(
-        PluginFrontendErrorCodeEnum.RegistrationInvalid,
-        `Plugin ${pluginId} sections selector must provide sectionIds array.`,
-      );
-    }
-    const sectionIds: string[] = [];
-    for (const rawSectionId of sectionIdsRaw) {
-      sectionIds.push(
-        requireNonEmptyString(
-          rawSectionId,
-          `Plugin ${pluginId} sections selector contains invalid sectionId.`,
-        ),
-      );
-    }
-    return {
-      kind,
-      sectionIds,
-    };
-  }
-  throw new PluginRuntimeError(
-    PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    `Plugin ${pluginId} project state selector kind ${kind} is unsupported.`,
-  );
-}
-
-function getRawSelectedProjectState(
-  state: ReturnType<typeof useProjectState.getState>,
-  selector: PluginProjectStateSelector,
-): unknown {
-  if (selector.kind === "projectConfig") {
-    return state.projectConfig;
-  }
-  if (selector.kind === "activeSectionIds") {
-    return useActiveSectionUI.getState().activeIds;
-  }
-  if (selector.kind === "singletonSections") {
-    return state.singletonSections;
-  }
-  if (selector.kind === "section") {
-    const sectionId = selector.sectionId;
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    return impl;
-  }
-  return selector.sectionIds.map((sectionId) => {
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    return impl;
-  });
-}
-
-function projectStateSubscriptionEquality(
-  selector: PluginProjectStateSelector,
-): ((left: unknown, right: unknown) => boolean) | undefined {
-  if (selector.kind === "activeSectionIds") {
-    return (left, right) => {
-      if (!Array.isArray(left) || !Array.isArray(right)) {
-        return false;
-      }
-      if (left.length !== right.length) {
-        return false;
-      }
-      for (let index = 0; index < left.length; index += 1) {
-        if (left[index] !== right[index]) {
-          return false;
-        }
-      }
-      return true;
-    };
-  }
-  if (selector.kind !== "sections") {
-    return undefined;
-  }
-  return (left, right) => {
-    if (!Array.isArray(left) || !Array.isArray(right)) {
-      return false;
-    }
-    if (left.length !== right.length) {
-      return false;
-    }
-    for (let index = 0; index < left.length; index += 1) {
-      if (left[index] !== right[index]) {
-        return false;
-      }
-    }
-    return true;
-  };
-}
-
-function toProjectStateReadValue(
-  selector: PluginProjectStateSelector,
-  rawValue: unknown,
-): unknown {
-  if (selector.kind !== "sections") {
-    return cloneProjectStateSnapshot(rawValue);
-  }
-  return toProjectStateSectionSnapshot(selector.sectionIds, rawValue);
-}
-
-function toProjectStateSubscriptionValue(
-  selector: PluginProjectStateSelector,
-  rawValue: unknown,
-  previousRawValue?: unknown,
-  previousSnapshot?: unknown,
-): unknown {
-  if (selector.kind !== "sections") {
-    if (rawValue === undefined) {
-      return null;
-    }
-    return cloneProjectStateSnapshot(rawValue);
-  }
-  return toProjectStateSectionSnapshot(
-    selector.sectionIds,
-    rawValue,
-    previousRawValue,
-    previousSnapshot,
-  );
-}
-
-function toProjectStateSectionSnapshot(
-  sectionIds: string[],
-  rawValue: unknown,
-  previousRawValue?: unknown,
-  previousSnapshot?: unknown,
-): Record<string, unknown> {
-  if (!Array.isArray(rawValue)) {
-    return {};
-  }
-  const previousValues = Array.isArray(previousRawValue)
-    ? previousRawValue
-    : null;
-  const previousBySection =
-    isRecordProjectStateValue(previousSnapshot) &&
-    !Array.isArray(previousSnapshot)
-      ? previousSnapshot
-      : null;
-  const snapshot: Record<string, unknown> = {};
-  for (let index = 0; index < sectionIds.length; index += 1) {
-    const sectionId = sectionIds[index];
-    const value = rawValue[index] ?? null;
-    if (
-      previousValues &&
-      previousBySection &&
-      previousValues[index] === value &&
-      sectionId in previousBySection
-    ) {
-      snapshot[sectionId] = previousBySection[sectionId];
-      continue;
-    }
-    snapshot[sectionId] = cloneProjectStateSnapshot(value);
-  }
-  return snapshot;
-}
-
-function cloneProjectStateSnapshot(rawValue: unknown): unknown {
-  if (rawValue === null || rawValue === undefined) {
-    return rawValue;
-  }
-  if (Array.isArray(rawValue)) {
-    let hasOnlyScalars = true;
-    for (const item of rawValue) {
-      if (!isScalarProjectStateValue(item)) {
-        hasOnlyScalars = false;
-        break;
-      }
-    }
-    if (hasOnlyScalars) {
-      return rawValue.slice();
-    }
-  }
-  if (typeof rawValue !== "object") {
-    return rawValue;
-  }
-  return structuredClone(rawValue);
-}
-
-function isScalarProjectStateValue(value: unknown): boolean {
-  if (value === null) {
-    return true;
-  }
-  const valueType = typeof value;
-  return valueType !== "object" && valueType !== "function";
-}
-
-function isRecordProjectStateValue(
-  value: unknown,
-): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function toLiteralRealtimePayload(value: unknown): string {
@@ -1581,6 +1322,26 @@ function registerPluginModule({
         "createArtifact is not implemented in this host yet.",
       );
     },
+    apiFetch: async (path, init) => {
+      const normalizedPath = normalizePluginPath(path);
+      const shareSession = useShareSession.getState();
+      const shareHeaders: Record<string, string> = {};
+      if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
+        shareHeaders["X-Share-Session-Id"] = shareSession.shareSessionId;
+      }
+      const requestHeaders = new Headers(init?.headers ?? undefined);
+      for (const [key, value] of Object.entries(shareHeaders)) {
+        requestHeaders.set(key, value);
+      }
+      return fetch(
+        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
+        {
+          ...init,
+          credentials: "include",
+          headers: requestHeaders,
+        },
+      );
+    },
   };
 
   const registerResult = (registerFn as (host: SettaPluginHost) => unknown)(
@@ -1615,6 +1376,43 @@ function registerPluginModule({
   }
 
   return registryDelta;
+}
+
+function normalizePluginPath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  const normalizedInput = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const queryStart = normalizedInput.search(/[?#]/);
+  const pathPart =
+    queryStart >= 0 ? normalizedInput.slice(0, queryStart) : normalizedInput;
+  const suffix = queryStart >= 0 ? normalizedInput.slice(queryStart) : "";
+  const segments = pathPart.split("/").filter((segment) => segment.length > 0);
+  let decodedPathPart = pathPart;
+  try {
+    decodedPathPart = decodeURIComponent(pathPart);
+  } catch {
+    decodedPathPart = pathPart;
+  }
+  const decodedSegments = decodedPathPart
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  if (decodedSegments.some((segment) => segment === "." || segment === "..")) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `apiFetch path cannot include relative traversal segments: ${path}`,
+    );
+  }
+  const hasTrailingSlash = pathPart.endsWith("/") && pathPart !== "/";
+  let canonicalPath = "/";
+  if (segments.length > 0) {
+    canonicalPath = `/${segments.join("/")}`;
+    if (hasTrailingSlash) {
+      canonicalPath = `${canonicalPath}/`;
+    }
+  }
+  return `${canonicalPath}${suffix}`;
 }
 
 function ensureCapability(
@@ -1848,46 +1646,6 @@ function validateTopNavBarItemDefinition(
   return topNavBarItem;
 }
 
-function requireNonEmptyString(value: unknown, errorMessage: string): string {
-  if (typeof value !== "string") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      errorMessage,
-    );
-  }
-  const trimmed = value.trim();
-  if (trimmed === "") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      errorMessage,
-    );
-  }
-  return trimmed;
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  return Object.getPrototypeOf(value) === Object.prototype;
-}
-
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  return typeof (value as PromiseLike<unknown>).then === "function";
-}
-
-class PluginRuntimeError extends Error {
-  code: PluginFrontendErrorCode;
-
-  constructor(code: PluginFrontendErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
 function toPluginFrontendLoadError(
   pluginId: string,
   error: unknown,
@@ -1944,6 +1702,19 @@ function ensurePluginStyleLoaded(
   styleHrefByPluginId.set(pluginId, styleUrl);
 }
 
+function resolvePluginAssetUrl(url: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  if (url.startsWith("/")) {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${url}`;
+  }
+  return url;
+}
+
 function removeInactivePluginStyles(activePluginIds: Set<string>): void {
   for (const [pluginId, styleElement] of styleElementByPluginId.entries()) {
     if (activePluginIds.has(pluginId)) {
@@ -1953,488 +1724,6 @@ function removeInactivePluginStyles(activePluginIds: Set<string>): void {
     styleElementByPluginId.delete(pluginId);
     styleHrefByPluginId.delete(pluginId);
   }
-}
-
-function mapPluginListById(
-  response: PluginListResponse,
-  previousPluginListById: Record<string, PluginListEntry>,
-): Record<string, PluginListEntry> {
-  const pluginListById: Record<string, PluginListEntry> = {};
-  for (const plugin of response.plugins) {
-    const previousEntry = previousPluginListById[plugin.pluginId];
-    const nextEffectiveCapabilities = stableCapabilitiesReference(
-      plugin.effectiveCapabilities,
-      previousEntry?.effectiveCapabilities,
-    );
-    if (
-      previousEntry &&
-      canReusePluginListEntry(plugin, previousEntry, nextEffectiveCapabilities)
-    ) {
-      pluginListById[plugin.pluginId] = previousEntry;
-      continue;
-    }
-    const nextEntry = {
-      ...plugin,
-      effectiveCapabilities: nextEffectiveCapabilities,
-    };
-    pluginListById[plugin.pluginId] = nextEntry;
-  }
-  return pluginListById;
-}
-
-function canReusePluginListEntry(
-  plugin: PluginListEntry,
-  previousEntry: PluginListEntry,
-  effectiveCapabilities: string[],
-): boolean {
-  if (effectiveCapabilities !== previousEntry.effectiveCapabilities) {
-    return false;
-  }
-  if (
-    plugin.pluginId !== previousEntry.pluginId ||
-    plugin.name !== previousEntry.name ||
-    plugin.version !== previousEntry.version ||
-    plugin.sourceScope !== previousEntry.sourceScope ||
-    plugin.sourceScopeLabel !== previousEntry.sourceScopeLabel ||
-    plugin.sourceManager !== previousEntry.sourceManager ||
-    plugin.sourceManagerHint !== previousEntry.sourceManagerHint ||
-    plugin.canonicalSourceKey !== previousEntry.canonicalSourceKey ||
-    plugin.sourceDigestSha256 !== previousEntry.sourceDigestSha256 ||
-    plugin.enablementSource !== previousEntry.enablementSource ||
-    plugin.restartRequired !== previousEntry.restartRequired
-  ) {
-    return false;
-  }
-  if (
-    plugin.frontend.entrypointUrl !== previousEntry.frontend.entrypointUrl ||
-    plugin.frontend.styleUrl !== previousEntry.frontend.styleUrl
-  ) {
-    return false;
-  }
-  if (
-    plugin.content.hasBlueprints !== previousEntry.content.hasBlueprints ||
-    plugin.content.hasProjectTemplates !==
-      previousEntry.content.hasProjectTemplates ||
-    plugin.content.hasPrompts !== previousEntry.content.hasPrompts
-  ) {
-    return false;
-  }
-  if (plugin.config.hasSchema !== previousEntry.config.hasSchema) {
-    return false;
-  }
-  if (
-    !hasSameJsonValueWithDigest({
-      nextValue: plugin.config.schemaJson,
-      previousValue: previousEntry.config.schemaJson,
-      nextDigest: getPluginConfigSchemaDigest(plugin),
-      previousDigest: getPluginConfigSchemaDigest(previousEntry),
-    }) ||
-    !hasSameJsonValueWithDigest({
-      nextValue: plugin.config.currentConfig,
-      previousValue: previousEntry.config.currentConfig,
-      nextDigest: getPluginConfigCurrentConfigDigest(plugin),
-      previousDigest: getPluginConfigCurrentConfigDigest(previousEntry),
-    })
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function getPluginConfigSchemaDigest(entry: PluginListEntry): string | null {
-  const configWithDigest = entry.config as {
-    schemaJsonDigestSha256?: string | null;
-  };
-  return normalizeDigest(configWithDigest.schemaJsonDigestSha256);
-}
-
-function getPluginConfigCurrentConfigDigest(
-  entry: PluginListEntry,
-): string | null {
-  const configWithDigest = entry.config as {
-    currentConfigDigestSha256?: string | null;
-  };
-  return normalizeDigest(configWithDigest.currentConfigDigestSha256);
-}
-
-function normalizeDigest(value: string | null | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function hasSameJsonValueWithDigest({
-  nextValue,
-  previousValue,
-  nextDigest,
-  previousDigest,
-}: {
-  nextValue: unknown;
-  previousValue: unknown;
-  nextDigest: string | null;
-  previousDigest: string | null;
-}): boolean {
-  if (nextDigest !== null && previousDigest !== null) {
-    return nextDigest === previousDigest;
-  }
-  return hasSameJsonValue(nextValue, previousValue);
-}
-
-function stableCapabilitiesReference(
-  capabilities: string[],
-  previousCapabilities: string[] | undefined,
-): string[] {
-  if (
-    !previousCapabilities ||
-    capabilities.length !== previousCapabilities.length
-  ) {
-    return capabilities;
-  }
-  for (let index = 0; index < capabilities.length; index += 1) {
-    if (capabilities[index] !== previousCapabilities[index]) {
-      return capabilities;
-    }
-  }
-  return previousCapabilities;
-}
-
-function hasSameJsonValue(left: unknown, right: unknown): boolean {
-  if (left === right) {
-    return true;
-  }
-  if (left === null || right === null) {
-    return false;
-  }
-  const leftType = typeof left;
-  const rightType = typeof right;
-  if (leftType !== rightType) {
-    return false;
-  }
-  if (leftType !== "object") {
-    return false;
-  }
-  if (Array.isArray(left)) {
-    if (!Array.isArray(right) || left.length !== right.length) {
-      return false;
-    }
-    for (let index = 0; index < left.length; index += 1) {
-      if (!hasSameJsonValue(left[index], right[index])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (Array.isArray(right)) {
-    return false;
-  }
-  const leftObject = left as Record<string, unknown>;
-  const rightObject = right as Record<string, unknown>;
-  const leftKeys = Object.keys(leftObject);
-  const rightKeys = Object.keys(rightObject);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (!(key in rightObject)) {
-      return false;
-    }
-    if (!hasSameJsonValue(leftObject[key], rightObject[key])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function mapStatusEntries(
-  statusEntries: PluginStatusEntry[],
-  previousStatusEntries: PluginStatusEntry[],
-): PluginStatusEntry[] {
-  if (statusEntries.length === 0) {
-    return previousStatusEntries.length === 0 ? previousStatusEntries : [];
-  }
-  const previousEntriesByKey = new Map<string, PluginStatusEntry>();
-  for (const entry of previousStatusEntries) {
-    previousEntriesByKey.set(buildPluginStatusEntryStableKey(entry), entry);
-  }
-  const mappedEntries: PluginStatusEntry[] = [];
-  let canReusePreviousArray =
-    previousStatusEntries.length === statusEntries.length;
-  for (let index = 0; index < statusEntries.length; index += 1) {
-    const nextEntry = statusEntries[index];
-    const previousEntry = previousEntriesByKey.get(
-      buildPluginStatusEntryStableKey(nextEntry),
-    );
-    if (previousEntry && canReusePluginStatusEntry(nextEntry, previousEntry)) {
-      mappedEntries.push(previousEntry);
-      if (previousStatusEntries[index] !== previousEntry) {
-        canReusePreviousArray = false;
-      }
-      continue;
-    }
-    mappedEntries.push(nextEntry);
-    canReusePreviousArray = false;
-  }
-  return canReusePreviousArray ? previousStatusEntries : mappedEntries;
-}
-
-function buildPluginStatusEntryStableKey(entry: PluginStatusEntry): string {
-  return `${entry.pluginId}\u0000${entry.sourceScope}\u0000${entry.sourcePath}`;
-}
-
-function canReusePluginStatusEntry(
-  statusEntry: PluginStatusEntry,
-  previousStatusEntry: PluginStatusEntry,
-): boolean {
-  if (
-    statusEntry.pluginId !== previousStatusEntry.pluginId ||
-    statusEntry.name !== previousStatusEntry.name ||
-    statusEntry.version !== previousStatusEntry.version ||
-    statusEntry.state !== previousStatusEntry.state ||
-    statusEntry.sourceScope !== previousStatusEntry.sourceScope ||
-    statusEntry.sourceScopeLabel !== previousStatusEntry.sourceScopeLabel ||
-    statusEntry.sourceManager !== previousStatusEntry.sourceManager ||
-    statusEntry.sourceManagerHint !== previousStatusEntry.sourceManagerHint ||
-    statusEntry.sourcePath !== previousStatusEntry.sourcePath ||
-    statusEntry.canonicalSourceKey !== previousStatusEntry.canonicalSourceKey ||
-    statusEntry.sourceDigestSha256 !== previousStatusEntry.sourceDigestSha256 ||
-    statusEntry.shadowedBySourcePath !==
-      previousStatusEntry.shadowedBySourcePath ||
-    statusEntry.enablementSource !== previousStatusEntry.enablementSource ||
-    statusEntry.restartRequired !== previousStatusEntry.restartRequired
-  ) {
-    return false;
-  }
-  const statusEntryDigest = getPluginStatusRuntimePayloadDigest(statusEntry);
-  const previousStatusEntryDigest =
-    getPluginStatusRuntimePayloadDigest(previousStatusEntry);
-  return statusEntryDigest === previousStatusEntryDigest;
-}
-
-function getPluginStatusRuntimePayloadDigest(
-  statusEntry: PluginStatusEntry,
-): string {
-  const normalizedDigest = normalizeDigest(
-    statusEntry.runtimePayloadDigestSha256,
-  );
-  return normalizedDigest ?? "";
-}
-
-function mapPrimaryStatusByPluginId(
-  statusEntries: PluginStatusEntry[],
-  previousPluginStatusById: Record<string, PluginStatusEntry>,
-): Record<string, PluginStatusEntry> {
-  const pluginStatusById: Record<string, PluginStatusEntry> = {};
-  for (const entry of statusEntries) {
-    const existing = pluginStatusById[entry.pluginId];
-    if (!existing) {
-      pluginStatusById[entry.pluginId] = entry;
-      continue;
-    }
-    if (existing.shadowedBySourcePath && !entry.shadowedBySourcePath) {
-      pluginStatusById[entry.pluginId] = entry;
-      continue;
-    }
-  }
-  return hasSameRecordValueReferences(
-    pluginStatusById,
-    previousPluginStatusById,
-  )
-    ? previousPluginStatusById
-    : pluginStatusById;
-}
-
-function deriveSortedRuntimeViews({
-  previousState,
-  orderedPlugins,
-  pluginListById,
-  registryAccumulator,
-}: {
-  previousState: PluginRuntimeStore;
-  orderedPlugins: PluginListEntry[];
-  pluginListById: Record<string, PluginListEntry>;
-  registryAccumulator: PluginRegistryAccumulator;
-}): SortedRuntimeViews {
-  const nextSortedPluginListEntries = toOrderedPluginListEntries(
-    orderedPlugins,
-    pluginListById,
-  );
-  const sortedPluginListEntries = hasSameOrderedReferences(
-    nextSortedPluginListEntries,
-    previousState.sortedPluginListEntries,
-  )
-    ? previousState.sortedPluginListEntries
-    : nextSortedPluginListEntries;
-  const sectionKindsUnchanged = hasSameRecordValueReferences(
-    registryAccumulator.sectionKinds,
-    previousState.sectionKindsByKey,
-  );
-  const panesUnchanged = hasSameRecordValueReferences(
-    registryAccumulator.panes,
-    previousState.panesByPluginId,
-  );
-  const commandsUnchanged = hasSameRecordValueReferences(
-    registryAccumulator.commands,
-    previousState.commandsByPluginId,
-  );
-  const topNavBarItemsUnchanged = hasSameRecordValueReferences(
-    registryAccumulator.topNavBarItems,
-    previousState.topNavBarItemsByPluginId,
-  );
-  return {
-    sortedPluginListEntries,
-    sortedSectionKinds: sectionKindsUnchanged
-      ? previousState.sortedSectionKinds
-      : toSortedSectionKinds(registryAccumulator.sectionKinds),
-    sortedPaneTabs: panesUnchanged
-      ? previousState.sortedPaneTabs
-      : toSortedPluginPaneTabs(registryAccumulator.panes),
-    sortedCommands: commandsUnchanged
-      ? previousState.sortedCommands
-      : toSortedPluginCommands(registryAccumulator.commands),
-    sortedTopNavBarItems: topNavBarItemsUnchanged
-      ? previousState.sortedTopNavBarItems
-      : toSortedPluginTopNavBarItems(registryAccumulator.topNavBarItems),
-  };
-}
-
-function hasSameRecordValueReferences<TValue>(
-  left: Record<string, TValue>,
-  right: Record<string, TValue>,
-): boolean {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (!(key in right)) {
-      return false;
-    }
-    if (left[key] !== right[key]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function hasSameOrderedReferences<T>(left: T[], right: T[]): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function toOrderedPluginListEntries(
-  orderedPlugins: PluginListEntry[],
-  pluginListById: Record<string, PluginListEntry>,
-): PluginListEntry[] {
-  const entries: PluginListEntry[] = [];
-  for (const plugin of orderedPlugins) {
-    const mapped = pluginListById[plugin.pluginId];
-    if (mapped) {
-      entries.push(mapped);
-    }
-  }
-  return entries;
-}
-
-function toSortedSectionKinds(
-  sectionKindsByKey: Record<string, RegisteredPluginSectionKind>,
-): RegisteredPluginSectionKind[] {
-  return Object.values(sectionKindsByKey).sort((a, b) => {
-    const byTitle = a.title.localeCompare(b.title);
-    if (byTitle !== 0) {
-      return byTitle;
-    }
-    const byPluginId = a.pluginId.localeCompare(b.pluginId);
-    if (byPluginId !== 0) {
-      return byPluginId;
-    }
-    return a.kind.localeCompare(b.kind);
-  });
-}
-
-function toSortedPluginPaneTabs(
-  panesByPluginId: Record<string, RegisteredPluginPane[]>,
-): PluginPaneTabEntry[] {
-  const values: PluginPaneTabEntry[] = [];
-  for (const [pluginId, paneEntries] of Object.entries(panesByPluginId)) {
-    for (const pane of paneEntries) {
-      values.push({
-        tabKey: buildPluginPaneOverviewTabName(pluginId, pane.id),
-        pluginId,
-        paneId: pane.id,
-        title: pane.title,
-        description: pane.description,
-        icon: pane.icon,
-      });
-    }
-  }
-  values.sort((a, b) => {
-    const byTitle = a.title.localeCompare(b.title);
-    if (byTitle !== 0) {
-      return byTitle;
-    }
-    const byPlugin = a.pluginId.localeCompare(b.pluginId);
-    if (byPlugin !== 0) {
-      return byPlugin;
-    }
-    return a.paneId.localeCompare(b.paneId);
-  });
-  return values;
-}
-
-function toSortedPluginCommands(
-  commandsByPluginId: Record<string, RegisteredPluginCommand[]>,
-): RegisteredPluginCommand[] {
-  const values: RegisteredPluginCommand[] = [];
-  for (const commandEntries of Object.values(commandsByPluginId)) {
-    values.push(...commandEntries);
-  }
-  values.sort((a, b) => {
-    const byTitle = a.title.localeCompare(b.title);
-    if (byTitle !== 0) {
-      return byTitle;
-    }
-    const byPlugin = a.pluginId.localeCompare(b.pluginId);
-    if (byPlugin !== 0) {
-      return byPlugin;
-    }
-    return a.id.localeCompare(b.id);
-  });
-  return values;
-}
-
-function toSortedPluginTopNavBarItems(
-  topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>,
-): RegisteredPluginTopNavBarItem[] {
-  const values: RegisteredPluginTopNavBarItem[] = [];
-  for (const topNavBarItemEntries of Object.values(topNavBarItemsByPluginId)) {
-    values.push(...topNavBarItemEntries);
-  }
-  values.sort((a, b) => {
-    const orderDelta = (a.order ?? 0) - (b.order ?? 0);
-    if (orderDelta !== 0) {
-      return orderDelta;
-    }
-    const byLabel = a.label.localeCompare(b.label);
-    if (byLabel !== 0) {
-      return byLabel;
-    }
-    const byPlugin = a.pluginId.localeCompare(b.pluginId);
-    if (byPlugin !== 0) {
-      return byPlugin;
-    }
-    return a.id.localeCompare(b.id);
-  });
-  return values;
 }
 
 function buildPluginRequestErrorMessage(
@@ -2652,6 +1941,7 @@ export const pluginRuntimeTestApi = {
   indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
   registerPluginSettingRevealHandler,
+  normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
   toProjectStateSectionSnapshot,
