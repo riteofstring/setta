@@ -10,19 +10,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1457`
-- Non-generated TS/TSX files at `1000+` lines: `43`
+- Authored TS/TSX files under `frontend/src`: `1459`
+- Non-generated TS/TSX files at `1000+` lines: `42`
 - Biggest current production hotspots:
-  - `components/Chat/ChatInput.tsx` (`2117`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
-  - `components/Git/GitGraphOverlay.tsx` (`2040`)
-  - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
-  - `components/Section/Layouts/ChatArea.tsx` (`1972`)
-  - `plugins/runtime.ts` (`1948`)
-  - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
-  - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
-  - `components/App/appRegistry.tsx` (`1753`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2092`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2088`)
+  - `components/Git/GitGraphOverlay.tsx` (`2041`)
+  - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2024`)
+  - `components/Section/Layouts/ChatArea.tsx` (`1973`)
+  - `plugins/runtime.ts` (`1949`)
+  - `components/Chat/chatAssistantActivityCard.tsx` (`1918`)
+  - `components/Panes/Overview/RunInstructions.tsx` (`1909`)
+  - `components/App/appRegistry.tsx` (`1754`)
+  - `components/Section/Layouts/TaskBoardArea.tsx` (`1752`)
 
 ## Module Map
 
@@ -90,16 +90,20 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Chat/chatCopyText.ts` owns the shared clipboard-notification
     helper used by `components/Chat/ChatMessages.tsx` and
     `components/Chat/chatAssistantActivityCard.tsx`.
+  - `components/Chat/ChatInputMetaControls.tsx` owns the composer footer/meta
+    row controls, context-left badge formatting and toggle behavior, runtime
+    activity counter/dropdown shells, and permission/thinking/search controls
+    used by `components/Chat/ChatInput.tsx`.
   - `components/Chat/chatInputSubmission.ts` owns slash-command parsing,
     queued-draft replay snapshots, queued-draft replay signatures, and the
     submit or replay state machine used by `components/Chat/ChatInput.tsx`.
   - `components/Chat/useChatInputDictation.ts` owns browser/provider dictation
     availability, recorder lifecycle, provider fallback policy, transcript
     insertion, and dictation state used by `components/Chat/ChatInput.tsx`.
-  - `components/Chat/ChatInput.tsx` now focuses on composer state, attachment
-    manager wiring, draft restore or history selection, execution settings,
-    and the composer render shells over the local submission and dictation
-    owners.
+  - `components/Chat/ChatInput.tsx` now focuses on composer state, slash
+    suggestion layout, attachment manager wiring, queued draft/history restore,
+    and the composer render shells over the local submission, dictation, and
+    meta-controls owners.
   - `components/Chat/ChatMessages.tsx` now focuses on list assembly, grouped
     activity-only message stitching, assistant/user/system bubble shells, and
     message-level interaction wiring across those local chat owners.

@@ -54,17 +54,17 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1457 authored TS/TSX files under `frontend/src`.
-- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 1459 authored TS/TSX files under `frontend/src`.
+- There are 42 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
-  - `frontend/src/components/Chat/ChatInput.tsx` at 2117 lines
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2091 lines after the local settings and engine-selection extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2087 lines after the local empty-state extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1661 lines after the local slash-command extraction
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1658 lines after the local docked/floating/maximized surface extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
-- `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2092 lines after the local settings and engine-selection extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2088 lines after the local empty-state extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1662 lines after the local slash-command extraction
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1659 lines after the local docked/floating/maximized surface extraction
+  - `frontend/src/components/Chat/ChatInput.tsx` at 1606 lines after the local composer meta-controls extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1472 lines after the local external-agent extraction
+- `frontend/src/components/Chat/ChatMessages.tsx` is now 1237 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data transport/view-model extraction
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines after the local preview-surface and preview-state extraction
@@ -145,6 +145,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   so the next default work in that domain should continue from the remaining
   frontend-load, registry registration, and realtime or section host API
   clusters instead of re-cutting those new local runtime owners.
+- `frontend/src/components/Chat/ChatInput.tsx` now delegates the composer
+  footer/meta row, context-left badge formatting/toggle behavior, runtime
+  activity counters/dropdowns, and permission/thinking/search controls to
+  `frontend/src/components/Chat/ChatInputMetaControls.tsx`, so the next
+  default work in that domain should continue from the remaining higher-value
+  front-door surfaces unless a same-turn slice directly shortens one of those
+  paths through `ChatInput.tsx`.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` now delegates
   task due or recurrence summary formatting, recurrence-order normalization, and
   schedule value helpers to
@@ -159,7 +166,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
@@ -167,11 +173,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Chat/chatAssistantActivityCard.tsx`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Chat/ChatInput.tsx`
 - Do not pick a smaller `state/actions` or `state/hooks` split while a
   same-domain 2000+ line UI file remains, unless the lower-level extraction is
   a direct prerequisite for simplifying that larger file.
@@ -203,6 +211,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Chat/chatMessageRuntime.tsx` now owns idle-spinner timing, run-duration persistence, timestamps, count-badge animation, activity-label scrambling, ISO timestamp parsing, and activity thought-preview scroll behavior used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatAssistantActivityCard.tsx` now owns the assistant activity card shell, timeline row rendering, open-all coordination, and activity-item copy wiring used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatCopyText.ts` now owns the shared clipboard-notification helper used by `frontend/src/components/Chat/ChatMessages.tsx` and `frontend/src/components/Chat/chatAssistantActivityCard.tsx`.
+- `frontend/src/components/Chat/ChatInputMetaControls.tsx` now owns the
+  composer footer/meta row controls, context-left badge formatting and toggle
+  behavior, runtime activity counter/dropdown shells, and
+  permission/thinking/search controls used by
+  `frontend/src/components/Chat/ChatInput.tsx`.
 - `frontend/src/components/Chat/chatInputSubmission.ts` now owns slash-command parsing, queued-draft replay snapshots, queued-draft replay signatures, and the submit or replay state machine used by `frontend/src/components/Chat/ChatInput.tsx`.
 - `frontend/src/components/Chat/useChatInputDictation.ts` now owns browser/provider dictation availability, recorder lifecycle, provider fallback policy, transcript insertion, and dictation state used by `frontend/src/components/Chat/ChatInput.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts` now owns grouped history derivation, master-search filtering/counts, thread ordering, agent badge labels, and placeholder text used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
