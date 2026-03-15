@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`3488f37183986a5d7e99062aa740cedfd0a94cde`
+`37ecd3a1b5a43fc0ab5382ef88b98eee4cbbcc37`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -67,6 +67,7 @@ It currently covers:
 - chat-section settings/state persistence and stale-chat cleanup behavior
 - project-chat windowing and window-space CRUD behavior
 - project history undo/redo and section clipboard route behavior
+- view-mode layout, viewport/layout-presentation, and layout share-policy behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -127,7 +128,9 @@ Rows outside these slices are still pending.
 - The history/clipboard slice mostly closes with proofs, but it adds two more
   clipboard parity gaps plus one more dormant deployment-mode route-boundary
   row.
-- Thirty-seven concrete parity gaps are already visible:
+- The view-mode layout / layout-presentation slice mostly closes with proofs,
+  but it adds one more caller-backed deployment-policy gap.
+- Thirty-eight concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -969,14 +972,26 @@ Rows outside these slices are still pending.
 | `CB-04` | In share/app sessions, `prepareSectionsForCopy` stays mounted and callable instead of disappearing with IDE-only route registration. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_prepare_sections_for_copy`. | Current Go mounts the route only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still calls the direct route without a deployment/share guard via `frontend/src/state/actions/copyPaste.ts::copy` and `frontend/src/state/actions/keyActivations.ts`. | `Missing` | This is an active parity gap: deployment/share copy remains wired in the current frontend, but the Go backend removed the route outside IDE instead of preserving the source clipboard read surface. |
 | `CB-05` | In share/app sessions, `pasteSections` stays mounted but fails closed with deployment-mode `403` for structural writes instead of disappearing entirely. | Source route: `backend/setta/routers/project_manager.py::route_paste_sections`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_paste_sections_blocked`. | Current Go mounts the route only in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend short-circuits deployment paste before reading the clipboard in `frontend/src/state/actions/copyPaste.ts::paste`, with proof in `frontend/src/state/actions/copyPaste.test.ts::it(\"blocks paste in deployment mode before touching clipboard state\")`. | `Dormant / unproven caller` | The direct HTTP transport delta is real (`403` versus route absence), but this slice does not yet cite an active non-frontend deployment caller that still requires the source route-presence contract. |
 
+## View-Mode Layout And Layout-Presentation Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `VL-01` | `setTopLevelSectionLayout` prunes stale deleted/reparented section ids, accepts valid top-level sections that are temporarily missing from stored layout state, and keeps the active view mode's `topLevelSections` in sync with the project layout. | Source tests: `tests/project_state/test_project_config_view_modes.py::{test_set_top_level_section_layout_ignores_deleted_sections,test_set_top_level_section_layout_ignores_reparented_sections,test_set_top_level_section_layout_accepts_valid_missing_top_level_section}`; source route: `backend/setta/routers/project_manager.py::route_set_top_level_section_layout`; source manager method: `backend/setta/project_state/base_project_manager.py::set_top_level_section_layout`. | Impl: `internal/projectstate/view_modes.go::SetTopLevelSectionLayout`; proof: `internal/projectstate/view_modes_test.go::TestRuntimeSetTopLevelSectionLayoutFiltersInvalidSectionsAndRestoresMissingValidSection`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestState`. | `Proved` | This row is about authoritative stored layout state, not the separate move/group structural mutations that can make a layout entry stale. |
+| `VL-02` | Creating, switching, and deleting view modes clones and swaps per-view-mode layout/viewport state, and deleting the active view mode falls back using sorted-order precedence rather than map iteration order. | Source docs: `docs/reference/view-modes.md`; source tests: `tests/project_state/test_project_config_view_modes.py::{test_switching_view_modes_swaps_layout_and_viewport,test_delete_active_view_mode_uses_sorted_order_fallback}`. | Impl: `internal/projectstate/view_modes.go::{CreateViewMode,SetActiveViewMode,DeleteViewMode}`; proof: `internal/projectstate/view_modes_test.go::{TestRuntimeCreateAndSwitchViewModesSwapLayoutAndViewportState,TestRuntimeDeleteActiveViewModeUsesSortedOrderFallback}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestState`. | `Proved` | The view-mode naming and sort-order validation details remain covered in the earlier naming slice; this row is limited to stored layout/viewport state behavior. |
+| `VL-03` | `setViewport` persists project viewport and the active view mode viewport together, supports clearing both values, and the route still fails with an internal error if the active view mode is missing. | Source test: `tests/project_state/test_project_config_view_modes.py::test_view_modes_store_layout_and_viewport`; source route: `backend/setta/routers/project_manager.py::route_set_viewport`; source manager method: `backend/setta/project_state/base_project_manager.py::set_viewport`. | Impl: `internal/projectstate/layout_presentation.go::SetViewport`; proof: `internal/projectstate/layout_presentation_test.go::TestRuntimeSetViewportSyncsActiveViewMode`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState,TestRegisterProjectRoutesSetViewportReturnsInternalErrorWithoutActiveViewMode}`. | `Proved` | The source baseline does not isolate the clear-to-`null` case in a dedicated Python test, but it follows directly from the same manager/view-mode storage pathway. |
+| `VL-04` | `autoLayoutTopLevelSections` uses the section-sizing policy and auto-size fallbacks to rewrite top-level layouts without overlap while preserving the layout origin, syncing the active view mode, and rejecting invalid margin or dimensions. | Source tests: `tests/types/test_section_sizing_normalization.py::test_auto_layout_falls_back_for_auto_sizes`; source helper: `backend/setta/types/helpers_lvl2.py::auto_layout_top_level_sections`; source route: `backend/setta/routers/project_manager.py::route_auto_layout_top_level_sections`. | Impl: `internal/projectstate/auto_layout.go::AutoLayoutTopLevelSections`; proof: `internal/projectstate/auto_layout_test.go::{TestRuntimeAutoLayoutTopLevelSectionsRewritesLayoutsWithoutOverlapAndPreservesOrigin,TestRuntimeAutoLayoutTopLevelSectionsRejectsNegativeMargin,TestRuntimeAutoLayoutTopLevelSectionsRejectsNonPositiveDimensions}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesAutoLayoutTopLevelSectionsPersistsLatestState,TestRegisterProjectRoutesAutoLayoutTopLevelSectionsReturns422ForInvalidMargin,TestRegisterProjectRoutesAutoLayoutTopLevelSectionsReturns404ForMissingProject}`. | `Proved` | The current Go runtime proof is stronger than the isolated source Python test because it directly checks origin preservation, overlap avoidance, and active-view-mode sync. |
+| `VL-05` | `setSectionSizes` clamps values to sizing policy bounds, preserves explicit `auto`, keeps embedded code and attached terminal widths in lockstep, and rejects conflicting or non-finite inputs with the typed auto-layout failure path. | Source tests: `tests/types/test_section_sizing_normalization.py::{test_normalize_section_size_clamps_to_policy_bounds,test_normalize_section_size_clamps_negative_values,test_normalize_section_size_preserves_auto,test_normalize_section_size_rejects_non_finite,test_set_section_sizes_normalizes_payload}`; source helper: `backend/setta/types/helpers_lvl2.py::set_section_sizes`; source route: `backend/setta/routers/project_manager.py::route_set_section_sizes`. | Impl: `internal/projectstate/section_size_writes.go::SetSectionSizes`; proof: `internal/projectstate/section_size_writes_test.go::{TestRuntimeSetSectionSizesNormalizesPolicyBounds,TestRuntimeSetSectionSizesPreservesAutoAndRejectsNonFiniteValues,TestRuntimeSetSectionSizesKeepsEmbeddedCodeAndTerminalWidthsInLockstep,TestRuntimeSetSectionSizesRejectsConflictingEmbeddedWidths}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSetSectionSizesPersistsLatestState,TestRegisterProjectRoutesSetSectionSizesRejectsConflictingEmbeddedWidths}`. | `Proved` | Current Go preserves the source embedded-width coupling between code sections and attached terminals and keeps the same typed `invalid_auto_layout` route family for conflicts. |
+| `VL-06` | `setActiveIDs`, `toggleMinimized`, and `togglePositionLocks` persist project/effective-payload presentation state, and `togglePositionLocks` validates all section ids before applying any mutation. | Source routes: `backend/setta/routers/project_manager.py::{route_set_active_ids,route_toggle_minimized,route_toggle_position_locks}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{set_active_ids,toggle_minimized,toggle_position_locks}`; source helper: `backend/setta/types/helpers_lvl2.py::{toggle_minimized,toggle_position_locks}`. | Impl: `internal/projectstate/layout_presentation.go::{SetActiveIDs,ToggleMinimized,TogglePositionLocks}`; proof: `internal/projectstate/layout_presentation_test.go::{TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload,TestRuntimeTogglePositionLocksValidatesBeforeApplying}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState,TestRegisterProjectRoutesTogglePositionLocksReturnsNotFoundForUnknownSection}`. | `Proved` | The current route proof covers the typed `404 section_not_found` branch for failed lock toggles as well as the persisted active-id/minimized state updates. |
+| `VL-07` | In share/app sessions, the layout-presentation route family stays mounted behind `allowLayoutChanges`: `setTopLevelSectionLayout`, `autoLayoutTopLevelSections`, `setSectionSizes`, `togglePositionLocks`, `toggleMinimized`, and `setViewport` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_top_level_section_layout,route_auto_layout_top_level_sections,route_set_section_sizes,route_toggle_position_locks,route_toggle_minimized,route_set_viewport}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues those writes from share-aware layout callers via `frontend/src/state/actions/sectionInfos.ts`, `frontend/src/state/actions/sections/sectionPositions.ts`, `frontend/src/components/Utils/Resizable/CustomResizable.tsx`, `frontend/src/components/Section/Header/{LockPositionButton,MinimizeButton}.tsx`, `frontend/src/components/Params/ResizeHandle.tsx`, and `frontend/src/components/AppHeader/EditMenu.tsx`. | `Missing` | This is an active parity gap: the source/current docs keep these writes policy-gated under `allowLayoutChanges`, but current Go removes the entire direct route family outside IDE even though current layout callers still drive it in share-aware flows. |
+
 ## Current Findings
 
-1. The matrix now contains thirty-seven concrete source-parity gaps:
+1. The matrix now contains thirty-eight concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `CB-04`.
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, and `VL-07`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1083,18 +1098,20 @@ Rows outside these slices are still pending.
 34. The history/clipboard slice mostly closes with proofs, but it adds two
     real clipboard-route/payload gaps (`CB-03`, `CB-04`) plus one dormant
     deployment-mode route-boundary row (`CB-05`).
-35. Git route behavior is now largely proved, including literal pathspec
+35. The view-mode layout / layout-presentation slice mostly closes with
+    proofs, but it adds one real deployment-policy gap (`VL-07`).
+36. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-36. The remaining issues in the naming slice are still mostly proof gaps rather
+37. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-37. The next high-value steps are:
+38. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
-      `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `CB-04`
-      should be restored or documented as intentional divergences
+      `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, and
+      `VL-07` should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
