@@ -837,6 +837,49 @@ func TestRunAPIRejectsRouteNameTool(t *testing.T) {
 	}
 }
 
+func TestRunAPIRejectsNamespacedAndPathToolNames(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	testCases := []struct {
+		name    string
+		toolArg string
+	}{
+		{
+			name:    "namespaced_tool_name",
+			toolArg: "setta__getLatestProjectState",
+		},
+		{
+			name:    "path_style_tool_name",
+			toolArg: "/getLatestProjectState",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			// These branches must fail before auth/session lookup so packaged callers
+			// get the same deterministic bare-tool-name validation contract as source.
+			stdout, stderr, err := fixture.run("api", testCase.toolArg, "--json-output")
+			if err == nil {
+				t.Fatal("expected tool-name rejection")
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+			payload := decodeJSONPayload(t, stdout)
+			if payload["error"] != "InputError" {
+				t.Fatalf("unexpected error payload %#v", payload)
+			}
+			message, ok := payload["message"].(string)
+			if !ok || !strings.Contains(message, "bare MCP tool name") {
+				t.Fatalf("unexpected message %#v", payload["message"])
+			}
+		})
+	}
+}
+
 func TestRunAPIRejectsUnknownToolWithoutExplicitAuth(t *testing.T) {
 	t.Parallel()
 
