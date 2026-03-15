@@ -70,7 +70,6 @@ def construct_unions(
 def generate_unions(output_file):
     import setta.types.artifact
     import setta.types.code_obj_impls
-    import setta.types.generated.impl_args_as_typed_dicts
     import setta.types.section_impls
 
     section_imports, section_code = construct_unions(
