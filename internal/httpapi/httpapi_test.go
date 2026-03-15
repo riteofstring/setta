@@ -391,6 +391,135 @@ func TestHandlerLauncherPreflightPreservesCredentialedCORSHeadersForAllowedLoopb
 	}
 }
 
+func TestHandlerLauncherPreflightRejectsUnconfiguredLoopbackOriginWithoutCORSHeaders(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "launcher", info: RuntimeInfo{Mode: "launcher"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodOptions, "http://127.0.0.1:8000/api/serverMode", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:3999")
+	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	request.Header.Set("Access-Control-Request-Headers", "content-type,x-share-session-id")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code == http.StatusNoContent {
+		t.Fatalf("expected unconfigured launcher loopback preflight to avoid CORS short-circuit, got %d with body %q", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("expected no reflected CORS origin, got %q", got)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("expected no credentialed CORS header, got %q", got)
+	}
+}
+
+func TestHandlerLauncherCredentialedRequestBlocksNonAllowlistedLoopbackOrigin(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "launcher", info: RuntimeInfo{Mode: "launcher"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/api/serverMode", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:3999")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized launcher request, got %d with body %q", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("expected no reflected CORS origin, got %q", got)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("expected no credentialed CORS header, got %q", got)
+	}
+}
+
+func TestHandlerLauncherCORSFailsClosedWhenTrustedOriginStoreReadFails(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	runtimeRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "trusted_frontend_origins.json"), []byte("{"), 0o600); err != nil {
+		t.Fatalf("write invalid trusted origins store: %v", err)
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "launcher", info: RuntimeInfo{Mode: "launcher"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/api/serverMode", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:9001")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized launcher request when trusted-origin read fails, got %d with body %q", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("expected no reflected CORS origin after trusted-origin read failure, got %q", got)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("expected no credentialed CORS header after trusted-origin read failure, got %q", got)
+	}
+	if currentSession.Metadata.ID == "" {
+		t.Fatal("expected current session id to remain available")
+	}
+}
+
 func TestHandlerReturnsJSONNotFoundEnvelope(t *testing.T) {
 	t.Parallel()
 
