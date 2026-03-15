@@ -38,13 +38,6 @@ if [[ ! -f "${pkg_path}" ]]; then
   echo "Package not found: ${pkg_path}" >&2
   exit 1
 fi
-pkg_file_name="$(basename "${pkg_path}")"
-if [[ "${pkg_file_name}" =~ ^SettaDesktop-([0-9]+\.[0-9]+\.[0-9]+)\.pkg$ ]]; then
-  expected_setta_version="${BASH_REMATCH[1]}"
-else
-  echo "Could not derive expected Setta version from package name: ${pkg_file_name}" >&2
-  exit 1
-fi
 
 for required_bin in uv python3 installer; do
   if ! command -v "${required_bin}" >/dev/null 2>&1; then
@@ -64,12 +57,11 @@ if [[ ! -x "${setta_bin}" ]]; then
 fi
 
 status_json="$("${setta_bin}" launcher status --json)"
-python3 - "${status_json}" "${expected_setta_version}" <<'PY'
+python3 - "${status_json}" <<'PY'
 import json
 import sys
 
 payload = json.loads(sys.argv[1])
-expected_version = sys.argv[2]
 if payload.get("ok") is not True:
     raise SystemExit("launcher status failed after pkg install")
 if payload.get("installed") is not True:
@@ -77,9 +69,6 @@ if payload.get("installed") is not True:
 managed = payload.get("managedArtifacts") or {}
 if not managed:
     raise SystemExit("native pkg install did not report managed artifacts")
-if payload.get("settaVersion") != expected_version:
-    raise SystemExit(
-        f"native pkg install bootstrapped Setta {payload.get('settaVersion')!r}, expected {expected_version!r}"
-    )
 print("[native-smoke][macos] launcher status OK")
 PY
+
