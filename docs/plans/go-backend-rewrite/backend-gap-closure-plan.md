@@ -73,7 +73,7 @@ categorize them.
   the source FastAPI validation envelope as a retained Python boundary and
   compares the caller-visible rejection detail text instead of Python's raw
   stringified validator internals
-- After those write-validation rows, the next queue is still the remaining
-  duplicate-`sortIndex` load-normalization gap plus the broader
-  project/window-space load-normalization backlog
-- More corpus-driven latest-state hydration / projection scenarios
+- The duplicate-`sortIndex` saved-window-space load-normalization row is now
+  proved too; the next queue is the broader remaining
+  project/window-space load-normalization backlog plus more corpus-driven
+  latest-state hydration / projection scenarios
