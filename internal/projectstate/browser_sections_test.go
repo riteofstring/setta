@@ -30,8 +30,29 @@ func TestRuntimeBrowserSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	if _, err := runtime.SetBrowserColumnWidths(context.Background(), "project-alpha", "browser-section", &columnWidth, &typesColumnWidth); err != nil {
 		t.Fatalf("SetBrowserColumnWidths returned error: %v", err)
 	}
-	if _, err := runtime.SetBrowserAreaViewMode(context.Background(), "project-alpha", "browser-section", BrowserAreaViewModeThumbnail); err != nil {
-		t.Fatalf("SetBrowserAreaViewMode returned error: %v", err)
+
+	browserPayload := func() map[string]any {
+		t.Helper()
+
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, "browser-section", "browser-variant")
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload browser-section: %v", err)
+		}
+		return payload
+	}
+
+	for _, viewMode := range []BrowserAreaViewMode{
+		BrowserAreaViewModeList,
+		BrowserAreaViewModeThumbnail,
+		BrowserAreaViewModeCarousel,
+	} {
+		if _, err := runtime.SetBrowserAreaViewMode(context.Background(), "project-alpha", "browser-section", viewMode); err != nil {
+			t.Fatalf("SetBrowserAreaViewMode(%s) returned error: %v", viewMode, err)
+		}
+		if got := payloadRawStringField(browserPayload(), "viewMode"); got != string(viewMode) {
+			t.Fatalf("expected viewMode %q, got %q", viewMode, got)
+		}
 	}
 	if _, err := runtime.SetBrowserHideColumn(context.Background(), "project-alpha", "browser-section", true); err != nil {
 		t.Fatalf("SetBrowserHideColumn returned error: %v", err)
@@ -57,31 +78,33 @@ func TestRuntimeBrowserSectionMutationsUpdateEffectivePayload(t *testing.T) {
 			Name:  "Defaulted",
 			Query: "todo",
 		},
+		{
+			ID:          "search-recursive",
+			Name:        "Recursive",
+			Query:       "notes",
+			SearchScope: BrowserSearchScopeRecursive,
+		},
 	}); err != nil {
 		t.Fatalf("SetBrowserSavedSearches returned error: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	payload, err := effectiveSectionPayload(project, "browser-section", "browser-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload browser-section: %v", err)
-	}
+	payload := browserPayload()
 	if got, ok := payload["columnWidth"].(float64); !ok || got != 240.5 {
 		t.Fatalf("expected columnWidth 240.5, got %#v", payload["columnWidth"])
 	}
 	if got, ok := payload["typesColumnWidth"].(float64); !ok || got != 160.0 {
 		t.Fatalf("expected typesColumnWidth 160.0, got %#v", payload["typesColumnWidth"])
 	}
-	if got := payloadRawStringField(payload, "viewMode"); got != string(BrowserAreaViewModeThumbnail) {
-		t.Fatalf("expected viewMode %q, got %q", BrowserAreaViewModeThumbnail, got)
+	if got := payloadRawStringField(payload, "viewMode"); got != string(BrowserAreaViewModeCarousel) {
+		t.Fatalf("expected final viewMode %q, got %q", BrowserAreaViewModeCarousel, got)
 	}
 	if !payloadBoolField(payload, "hideColumn") {
 		t.Fatal("expected hideColumn=true")
 	}
 
 	rawSavedSearches, ok := payload["savedSearches"].([]any)
-	if !ok || len(rawSavedSearches) != 2 {
-		t.Fatalf("expected two saved searches, got %#v", payload["savedSearches"])
+	if !ok || len(rawSavedSearches) != 3 {
+		t.Fatalf("expected three saved searches, got %#v", payload["savedSearches"])
 	}
 
 	firstSavedSearch, ok := rawSavedSearches[0].(map[string]any)
@@ -117,6 +140,14 @@ func TestRuntimeBrowserSectionMutationsUpdateEffectivePayload(t *testing.T) {
 		if secondTypeFilters[key] != true {
 			t.Fatalf("expected default type filter %s=true, got %#v", key, secondTypeFilters[key])
 		}
+	}
+
+	thirdSavedSearch, ok := rawSavedSearches[2].(map[string]any)
+	if !ok {
+		t.Fatalf("expected third saved search object, got %#v", rawSavedSearches[2])
+	}
+	if thirdSavedSearch["searchScope"] != string(BrowserSearchScopeRecursive) {
+		t.Fatalf("expected explicit recursive search scope, got %#v", thirdSavedSearch["searchScope"])
 	}
 }
 

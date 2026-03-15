@@ -6179,61 +6179,63 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState(t *test
 		return response
 	}
 
-	for _, requestSpec := range []struct {
-		route string
-		body  string
-	}{
-		{
-			route: RouteSetBrowserColumnWidths,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","columnWidth":240.5,"typesColumnWidth":160}`,
-		},
-		{
-			route: RouteSetBrowserAreaViewMode,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"thumbnail"}`,
-		},
-		{
-			route: RouteSetBrowserHideColumn,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","hideColumn":true}`,
-		},
-		{
-			route: RouteSetBrowserSavedSearches,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"images","name":"Images","query":"png","searchScope":"local","typeFilters":{"image":true,"video":false,"audio":false,"text":false,"data":false},"color":"#ef4444","quickInfo":"Only images"},{"id":"defaults","name":"Defaults","query":"todo","color":"#3b82f6","quickInfo":""}]}`,
-		},
-	} {
-		response := post(requestSpec.route, requestSpec.body)
+	latestBrowserModifier := func() map[string]any {
+		t.Helper()
+
+		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+		if latestResponse.Code != http.StatusOK {
+			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+		}
+
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload: %v", err)
+		}
+		return decodeProjectRouteRawObject(t, payload.ProjectState.Sections["browser-section"].SharedModifier)
+	}
+
+	response := post(RouteSetBrowserColumnWidths, `{"projectConfigId":"project-alpha","sectionId":"browser-section","columnWidth":240.5,"typesColumnWidth":160}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetBrowserColumnWidths, response.Code, response.Body.String())
+	}
+	for _, viewMode := range []string{"list", "thumbnail", "carousel"} {
+		response = post(RouteSetBrowserAreaViewMode, `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"`+viewMode+`"}`)
 		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetBrowserAreaViewMode, viewMode, response.Code, response.Body.String())
+		}
+		if got := latestBrowserModifier()["viewMode"]; got != viewMode {
+			t.Fatalf("expected viewMode %s, got %#v", viewMode, got)
 		}
 	}
-
-	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	response = post(RouteSetBrowserHideColumn, `{"projectConfigId":"project-alpha","sectionId":"browser-section","hideColumn":true}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetBrowserHideColumn, response.Code, response.Body.String())
+	}
+	response = post(
+		RouteSetBrowserSavedSearches,
+		`{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"images","name":"Images","query":"png","searchScope":"local","typeFilters":{"image":true,"video":false,"audio":false,"text":false,"data":false},"color":"#ef4444","quickInfo":"Only images"},{"id":"defaults","name":"Defaults","query":"todo","color":"#3b82f6","quickInfo":""},{"id":"recursive","name":"Recursive","query":"notes","searchScope":"recursive","color":"#10b981","quickInfo":""}]}`,
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetBrowserSavedSearches, response.Code, response.Body.String())
 	}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
-
-	browserSection := payload.ProjectState.Sections["browser-section"]
-	browserSharedModifier := decodeProjectRouteRawObject(t, browserSection.SharedModifier)
+	browserSharedModifier := latestBrowserModifier()
 	if browserSharedModifier["columnWidth"] != 240.5 {
 		t.Fatalf("expected columnWidth 240.5, got %#v", browserSharedModifier["columnWidth"])
 	}
 	if browserSharedModifier["typesColumnWidth"] != 160.0 {
 		t.Fatalf("expected typesColumnWidth 160.0, got %#v", browserSharedModifier["typesColumnWidth"])
 	}
-	if browserSharedModifier["viewMode"] != "thumbnail" {
-		t.Fatalf("expected viewMode thumbnail, got %#v", browserSharedModifier["viewMode"])
+	if browserSharedModifier["viewMode"] != "carousel" {
+		t.Fatalf("expected final viewMode carousel, got %#v", browserSharedModifier["viewMode"])
 	}
 	if browserSharedModifier["hideColumn"] != true {
 		t.Fatalf("expected hideColumn=true, got %#v", browserSharedModifier["hideColumn"])
 	}
 
 	savedSearches, ok := browserSharedModifier["savedSearches"].([]any)
-	if !ok || len(savedSearches) != 2 {
-		t.Fatalf("expected two saved searches, got %#v", browserSharedModifier["savedSearches"])
+	if !ok || len(savedSearches) != 3 {
+		t.Fatalf("expected three saved searches, got %#v", browserSharedModifier["savedSearches"])
 	}
 	secondSavedSearch, ok := savedSearches[1].(map[string]any)
 	if !ok {
@@ -6250,6 +6252,13 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState(t *test
 		if secondTypeFilters[key] != true {
 			t.Fatalf("expected default type filter %s=true, got %#v", key, secondTypeFilters[key])
 		}
+	}
+	thirdSavedSearch, ok := savedSearches[2].(map[string]any)
+	if !ok {
+		t.Fatalf("expected third saved search object, got %#v", savedSearches[2])
+	}
+	if thirdSavedSearch["searchScope"] != "recursive" {
+		t.Fatalf("expected explicit recursive searchScope, got %#v", thirdSavedSearch["searchScope"])
 	}
 }
 
@@ -6725,51 +6734,65 @@ func TestRegisterProjectRoutesSectionDataMutationsPersistLatestState(t *testing.
 		return response
 	}
 
-	for _, requestSpec := range []struct {
-		route string
-		body  string
-	}{
-		{
-			route: RouteToggleGroupOrientation,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"group-section"}`,
-		},
-		{
-			route: RouteSetSpreadsheetFilePath,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`,
-		},
-		{
-			route: RouteSetSpreadsheetSectionSettings,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"comfortable","autoReloadOnExternalChange":true}`,
-		},
-		{
-			route: RouteSetTaskBoardSectionState,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"task_list","columns":[{"id":"todo","name":"Todo","color":"#3b82f6","sortIndex":0},{"id":"todo","name":"Duplicate","color":"#ef4444","sortIndex":1},{"id":"done","name":"Done","color":"#10b981","sortIndex":2}],"tasks":[{"id":"task-1","title":"Task One","description":"","completed":false,"columnId":"todo","dueDateIso":"","recurrence":"none","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":0},{"id":"task-2","title":"Task Two","description":"","completed":true,"columnId":"missing","dueDateIso":"","recurrence":"daily","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":1}]}`,
-		},
-		{
-			route: RouteSetImageAreaImagePath,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"/tmp/updated.png"}`,
-		},
-		{
-			route: RouteSetSocialURL,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"social-section","url":"https://example.com/watch?v=123"}`,
-		},
-	} {
-		response := post(requestSpec.route, requestSpec.body)
+	latestPayload := func() ProjectStateSingleConfigWithCompletedOpIDs {
+		t.Helper()
+
+		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+		if latestResponse.Code != http.StatusOK {
+			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+		}
+
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload: %v", err)
+		}
+		return payload
+	}
+
+	response := post(RouteToggleGroupOrientation, `{"projectConfigId":"project-alpha","sectionId":"group-section"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteToggleGroupOrientation, response.Code, response.Body.String())
+	}
+	response = post(RouteSetSpreadsheetFilePath, `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSpreadsheetFilePath, response.Code, response.Body.String())
+	}
+	for _, density := range []string{"comfortable", "compact"} {
+		response = post(
+			RouteSetSpreadsheetSectionSettings,
+			`{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"`+density+`","autoReloadOnExternalChange":true}`,
+		)
 		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetSpreadsheetSectionSettings, density, response.Code, response.Body.String())
+		}
+		spreadsheetModifier := decodeProjectRouteRawObject(t, latestPayload().ProjectState.Sections["spreadsheet-section"].SharedModifier)
+		if spreadsheetModifier["density"] != density {
+			t.Fatalf("expected spreadsheet density %s, got %#v", density, spreadsheetModifier["density"])
 		}
 	}
-
-	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	for _, viewMode := range []string{"task_list", "kanban"} {
+		response = post(
+			RouteSetTaskBoardSectionState,
+			`{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"`+viewMode+`","columns":[{"id":"todo","name":"Todo","color":"#3b82f6","sortIndex":0},{"id":"todo","name":"Duplicate","color":"#ef4444","sortIndex":1},{"id":"done","name":"Done","color":"#10b981","sortIndex":2}],"tasks":[{"id":"task-1","title":"Task One","description":"","completed":false,"columnId":"todo","dueDateIso":"","recurrence":"none","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":0},{"id":"task-2","title":"Task Two","description":"","completed":true,"columnId":"missing","dueDateIso":"","recurrence":"daily","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":1}]}`,
+		)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetTaskBoardSectionState, viewMode, response.Code, response.Body.String())
+		}
+		taskBoardModifier := decodeProjectRouteRawObject(t, latestPayload().ProjectState.Sections["task-board-section"].SharedModifier)
+		if taskBoardModifier["viewMode"] != viewMode {
+			t.Fatalf("expected task board viewMode %s, got %#v", viewMode, taskBoardModifier["viewMode"])
+		}
+	}
+	response = post(RouteSetImageAreaImagePath, `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"/tmp/updated.png"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetImageAreaImagePath, response.Code, response.Body.String())
+	}
+	response = post(RouteSetSocialURL, `{"projectConfigId":"project-alpha","sectionId":"social-section","url":"https://example.com/watch?v=123"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSocialURL, response.Code, response.Body.String())
 	}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
-
+	payload := latestPayload()
 	groupModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["group-section"].SharedModifier)
 	if groupModifier["isHorizontalOrientation"] != true {
 		t.Fatalf("expected group orientation toggle to persist, got %#v", groupModifier["isHorizontalOrientation"])
@@ -6788,16 +6811,16 @@ func TestRegisterProjectRoutesSectionDataMutationsPersistLatestState(t *testing.
 	if spreadsheetModifier["showRowNumbers"] != false {
 		t.Fatalf("expected spreadsheet showRowNumbers=false, got %#v", spreadsheetModifier["showRowNumbers"])
 	}
-	if spreadsheetModifier["density"] != "comfortable" {
-		t.Fatalf("expected spreadsheet density comfortable, got %#v", spreadsheetModifier["density"])
+	if spreadsheetModifier["density"] != "compact" {
+		t.Fatalf("expected final spreadsheet density compact, got %#v", spreadsheetModifier["density"])
 	}
 	if spreadsheetModifier["autoReloadOnExternalChange"] != true {
 		t.Fatalf("expected spreadsheet autoReloadOnExternalChange=true, got %#v", spreadsheetModifier["autoReloadOnExternalChange"])
 	}
 
 	taskBoardModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["task-board-section"].SharedModifier)
-	if taskBoardModifier["viewMode"] != "task_list" {
-		t.Fatalf("expected task board viewMode task_list, got %#v", taskBoardModifier["viewMode"])
+	if taskBoardModifier["viewMode"] != "kanban" {
+		t.Fatalf("expected final task board viewMode kanban, got %#v", taskBoardModifier["viewMode"])
 	}
 	rawColumns, ok := taskBoardModifier["columns"].([]any)
 	if !ok || len(rawColumns) != 2 {
@@ -7555,57 +7578,65 @@ func TestRegisterProjectRoutesTextBlockMutationsPersistLatestState(t *testing.T)
 		return response
 	}
 
-	for _, requestSpec := range []struct {
-		route string
-		body  string
-	}{
-		{
-			route: RouteSetTextBlockFormat,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"Markdown"}`,
-		},
-		{
-			route: RouteSetTextBlockHeadingAsSectionName,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","headingAsSectionName":true}`,
-		},
-		{
-			route: RouteSetTextBlockText,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Updated Heading\n\nBody"}`,
-		},
-		{
-			route: RouteSetTextBlockDisplayMode,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Edit"}`,
-		},
-		{
-			route: RouteSetTextBlockMetaControlStyle,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","metaControlStyle":true}`,
-		},
-		{
-			route: RouteSetTextBlockMasterFontSize,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`,
-		},
-	} {
-		response := post(requestSpec.route, requestSpec.body)
+	latestTextModifier := func() (ProjectStateSingleConfigWithCompletedOpIDs, map[string]any) {
+		t.Helper()
+
+		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+		if latestResponse.Code != http.StatusOK {
+			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+		}
+
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload: %v", err)
+		}
+		return payload, decodeProjectRouteRawObject(t, payload.ProjectState.Sections["text-section"].SharedModifier)
+	}
+
+	for _, format := range []string{"Plaintext", "Markdown"} {
+		response := post(RouteSetTextBlockFormat, `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"`+format+`"}`)
 		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetTextBlockFormat, format, response.Code, response.Body.String())
+		}
+		_, modifier := latestTextModifier()
+		if got := modifier["format"]; got != format {
+			t.Fatalf("expected format %s, got %#v", format, got)
 		}
 	}
-
-	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	response := post(RouteSetTextBlockHeadingAsSectionName, `{"projectConfigId":"project-alpha","sectionId":"text-section","headingAsSectionName":true}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockHeadingAsSectionName, response.Code, response.Body.String())
+	}
+	response = post(RouteSetTextBlockText, `{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Updated Heading\n\nBody"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
+	}
+	for _, displayMode := range []string{"Render", "Edit"} {
+		response = post(RouteSetTextBlockDisplayMode, `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"`+displayMode+`"}`)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetTextBlockDisplayMode, displayMode, response.Code, response.Body.String())
+		}
+		_, modifier := latestTextModifier()
+		if got := modifier["textDisplayMode"]; got != displayMode {
+			t.Fatalf("expected textDisplayMode %s, got %#v", displayMode, got)
+		}
+	}
+	response = post(RouteSetTextBlockMetaControlStyle, `{"projectConfigId":"project-alpha","sectionId":"text-section","metaControlStyle":true}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockMetaControlStyle, response.Code, response.Body.String())
+	}
+	response = post(RouteSetTextBlockMasterFontSize, `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockMasterFontSize, response.Code, response.Body.String())
 	}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
+	payload, textSharedModifier := latestTextModifier()
 
 	textSection := payload.ProjectState.Sections["text-section"]
 	if textSection.Name != "Updated Heading" {
 		t.Fatalf("expected section name Updated Heading, got %q", textSection.Name)
 	}
 
-	textSharedModifier := decodeProjectRouteRawObject(t, textSection.SharedModifier)
 	if got := textSharedModifier["format"]; got != "Markdown" {
 		t.Fatalf("expected format Markdown, got %#v", got)
 	}

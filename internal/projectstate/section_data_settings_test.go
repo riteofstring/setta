@@ -35,60 +35,88 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	); err != nil {
 		t.Fatalf("SetSpreadsheetFilePath returned error: %v", err)
 	}
-	if _, err := runtime.SetSpreadsheetSectionSettings(
-		context.Background(),
-		"project-alpha",
-		"spreadsheet-section",
-		true,
-		false,
+
+	projectPayload := func(sectionID string, variantID string) map[string]any {
+		t.Helper()
+
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, sectionID, variantID)
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload %s: %v", sectionID, err)
+		}
+		return payload
+	}
+
+	for _, density := range []SpreadsheetGridDensity{
 		SpreadsheetGridDensityComfortable,
-		true,
-	); err != nil {
-		t.Fatalf("SetSpreadsheetSectionSettings returned error: %v", err)
+		SpreadsheetGridDensityCompact,
+	} {
+		if _, err := runtime.SetSpreadsheetSectionSettings(
+			context.Background(),
+			"project-alpha",
+			"spreadsheet-section",
+			true,
+			false,
+			density,
+			true,
+		); err != nil {
+			t.Fatalf("SetSpreadsheetSectionSettings(%s) returned error: %v", density, err)
+		}
+		if got := payloadRawStringField(projectPayload("spreadsheet-section", "spreadsheet-variant"), "density"); got != string(density) {
+			t.Fatalf("expected density %q, got %q", density, got)
+		}
 	}
 
 	todoColumnID := "todo"
 	missingColumnID := "missing"
-	if _, err := runtime.SetTaskBoardSectionState(
-		context.Background(),
-		"project-alpha",
-		"task-board-section",
+	for _, viewMode := range []TaskBoardViewMode{
 		TaskBoardViewModeTaskList,
-		[]TaskBoardColumn{
-			{ID: todoColumnID, Name: "Todo", Color: "#3b82f6", SortIndex: 0},
-			{ID: todoColumnID, Name: "Duplicate", Color: "#ef4444", SortIndex: 1},
-			{ID: "done", Name: "Done", Color: "#10b981", SortIndex: 2},
-		},
-		[]TaskBoardTask{
-			{
-				ID:               "task-1",
-				Title:            "Task One",
-				Description:      "",
-				Completed:        false,
-				ColumnID:         &todoColumnID,
-				DueDateISO:       "",
-				Recurrence:       "none",
-				RecurrenceDays:   []string{},
-				RecurrenceMonths: []string{},
-				RecurrenceYears:  []int{},
-				SortIndex:        0,
+		TaskBoardViewModeKanban,
+	} {
+		if _, err := runtime.SetTaskBoardSectionState(
+			context.Background(),
+			"project-alpha",
+			"task-board-section",
+			viewMode,
+			[]TaskBoardColumn{
+				{ID: todoColumnID, Name: "Todo", Color: "#3b82f6", SortIndex: 0},
+				{ID: todoColumnID, Name: "Duplicate", Color: "#ef4444", SortIndex: 1},
+				{ID: "done", Name: "Done", Color: "#10b981", SortIndex: 2},
 			},
-			{
-				ID:               "task-2",
-				Title:            "Task Two",
-				Description:      "",
-				Completed:        true,
-				ColumnID:         &missingColumnID,
-				DueDateISO:       "",
-				Recurrence:       "daily",
-				RecurrenceDays:   []string{},
-				RecurrenceMonths: []string{},
-				RecurrenceYears:  []int{},
-				SortIndex:        1,
+			[]TaskBoardTask{
+				{
+					ID:               "task-1",
+					Title:            "Task One",
+					Description:      "",
+					Completed:        false,
+					ColumnID:         &todoColumnID,
+					DueDateISO:       "",
+					Recurrence:       "none",
+					RecurrenceDays:   []string{},
+					RecurrenceMonths: []string{},
+					RecurrenceYears:  []int{},
+					SortIndex:        0,
+				},
+				{
+					ID:               "task-2",
+					Title:            "Task Two",
+					Description:      "",
+					Completed:        true,
+					ColumnID:         &missingColumnID,
+					DueDateISO:       "",
+					Recurrence:       "daily",
+					RecurrenceDays:   []string{},
+					RecurrenceMonths: []string{},
+					RecurrenceYears:  []int{},
+					SortIndex:        1,
+				},
 			},
-		},
-	); err != nil {
-		t.Fatalf("SetTaskBoardSectionState returned error: %v", err)
+		); err != nil {
+			t.Fatalf("SetTaskBoardSectionState(%s) returned error: %v", viewMode, err)
+		}
+		if got := payloadRawStringField(projectPayload("task-board-section", "task-board-variant"), "viewMode"); got != string(viewMode) {
+			t.Fatalf("expected task board viewMode %q, got %q", viewMode, got)
+		}
 	}
 
 	if _, err := runtime.SetImageAreaImagePath(context.Background(), "project-alpha", "image-section", "/tmp/new-image.png"); err != nil {
@@ -98,12 +126,7 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 		t.Fatalf("SetSocialURL returned error: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-
-	spreadsheetPayload, err := effectiveSectionPayload(project, "spreadsheet-section", "spreadsheet-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload spreadsheet-section: %v", err)
-	}
+	spreadsheetPayload := projectPayload("spreadsheet-section", "spreadsheet-variant")
 	if got := payloadRawStringField(spreadsheetPayload, "filePath"); got != "reports/quarterly.xlsx" {
 		t.Fatalf("expected trimmed spreadsheet filePath, got %q", got)
 	}
@@ -116,19 +139,16 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	if payloadBoolField(spreadsheetPayload, "showRowNumbers") {
 		t.Fatal("expected showRowNumbers=false")
 	}
-	if got := payloadRawStringField(spreadsheetPayload, "density"); got != string(SpreadsheetGridDensityComfortable) {
-		t.Fatalf("expected density %q, got %q", SpreadsheetGridDensityComfortable, got)
+	if got := payloadRawStringField(spreadsheetPayload, "density"); got != string(SpreadsheetGridDensityCompact) {
+		t.Fatalf("expected final density %q, got %q", SpreadsheetGridDensityCompact, got)
 	}
 	if !payloadBoolField(spreadsheetPayload, "autoReloadOnExternalChange") {
 		t.Fatal("expected autoReloadOnExternalChange=true")
 	}
 
-	taskBoardPayload, err := effectiveSectionPayload(project, "task-board-section", "task-board-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload task-board-section: %v", err)
-	}
-	if got := payloadRawStringField(taskBoardPayload, "viewMode"); got != string(TaskBoardViewModeTaskList) {
-		t.Fatalf("expected task board viewMode %q, got %q", TaskBoardViewModeTaskList, got)
+	taskBoardPayload := projectPayload("task-board-section", "task-board-variant")
+	if got := payloadRawStringField(taskBoardPayload, "viewMode"); got != string(TaskBoardViewModeKanban) {
+		t.Fatalf("expected final task board viewMode %q, got %q", TaskBoardViewModeKanban, got)
 	}
 	rawColumns, ok := taskBoardPayload["columns"].([]any)
 	if !ok || len(rawColumns) != 2 {
@@ -154,18 +174,12 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 		t.Fatalf("expected unknown task columnId to normalize to nil, got %#v", secondTask["columnId"])
 	}
 
-	imagePayload, err := effectiveSectionPayload(project, "image-section", "image-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload image-section: %v", err)
-	}
+	imagePayload := projectPayload("image-section", "image-variant")
 	if got := payloadRawStringField(imagePayload, "imagePath"); got != "/tmp/new-image.png" {
 		t.Fatalf("expected imagePath /tmp/new-image.png, got %q", got)
 	}
 
-	socialPayload, err := effectiveSectionPayload(project, "social-section", "social-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload social-section: %v", err)
-	}
+	socialPayload := projectPayload("social-section", "social-variant")
 	if got := payloadRawStringField(socialPayload, "url"); got != "https://example.com/watch?v=123" {
 		t.Fatalf("expected social url to persist, got %q", got)
 	}
