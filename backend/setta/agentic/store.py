@@ -141,42 +141,38 @@ def _load_agent_run_index(dbe: DBE) -> dict[str, dict[str, Any]]:
     if isinstance(runs, dict) and runs:
         return runs
     if dbe.list_agent_run_paths():
-        return _rebuild_agent_run_index(dbe)
+        rebuilt_runs: dict[str, dict[str, Any]] = {}
+        for path in dbe.list_agent_run_paths():
+            payload = dbe.read_json(path)
+            if not payload or not isinstance(payload, dict):
+                continue
+            raw_run_id = payload.get("id")
+            if not isinstance(raw_run_id, str) or not raw_run_id:
+                continue
+            inputs = payload.get("inputs")
+            if not isinstance(inputs, dict):
+                inputs = {}
+            run_type = inputs.get("runType")
+            if not isinstance(run_type, str):
+                run_type = None
+            chat_id = inputs.get("chatId")
+            if not isinstance(chat_id, str):
+                chat_id = None
+            project_config_id = inputs.get("projectConfigId")
+            if not isinstance(project_config_id, str):
+                project_config_id = None
+            rebuilt_runs[raw_run_id] = {
+                "runType": run_type,
+                "chatId": chat_id,
+                "projectConfigId": project_config_id,
+            }
+        _write_agent_run_index(dbe, rebuilt_runs)
+        return rebuilt_runs
     return {}
 
 
 def _write_agent_run_index(dbe: DBE, runs: dict[str, dict[str, Any]]) -> None:
     dbe.write_agent_run_index({"version": 1, "runs": runs})
-
-
-def _rebuild_agent_run_index(dbe: DBE) -> dict[str, dict[str, Any]]:
-    runs: dict[str, dict[str, Any]] = {}
-    for path in dbe.list_agent_run_paths():
-        payload = dbe.read_json(path)
-        if not payload or not isinstance(payload, dict):
-            continue
-        raw_run_id = payload.get("id")
-        if not isinstance(raw_run_id, str) or not raw_run_id:
-            continue
-        inputs = payload.get("inputs")
-        if not isinstance(inputs, dict):
-            inputs = {}
-        run_type = inputs.get("runType")
-        if not isinstance(run_type, str):
-            run_type = None
-        chat_id = inputs.get("chatId")
-        if not isinstance(chat_id, str):
-            chat_id = None
-        project_config_id = inputs.get("projectConfigId")
-        if not isinstance(project_config_id, str):
-            project_config_id = None
-        runs[raw_run_id] = {
-            "runType": run_type,
-            "chatId": chat_id,
-            "projectConfigId": project_config_id,
-        }
-    _write_agent_run_index(dbe, runs)
-    return runs
 
 
 def load_prompt_template(dbe: DBE, prompt_id: ID) -> PromptTemplate | None:
