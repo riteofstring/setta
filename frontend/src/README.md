@@ -10,19 +10,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1454`
+- Authored TS/TSX files under `frontend/src`: `1457`
 - Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
-  - `plugins/runtime.ts` (`2237`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
   - `components/Git/GitGraphOverlay.tsx` (`2040`)
   - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
+  - `plugins/runtime.ts` (`1948`)
   - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
+  - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
   - `components/App/appRegistry.tsx` (`1753`)
-  - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
 
 ## Module Map
 
@@ -605,12 +605,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - Plugin runtime
 
+  - `plugins/runtimeValidation.ts` owns shared plugin-runtime error codes,
+    runtime error typing, string/record validation helpers, and promise-shape
+    checks used by the runtime local owners.
+  - `plugins/runtimeProjectStateBridge.ts` owns plugin project-state selector
+    normalization, raw project-state selection, subscription equality, and
+    cloned snapshot shaping used by `plugins/runtime.ts`.
   - `plugins/runtimeDerivedViews.ts` owns stable plugin-list or status entry
     reuse plus sorted section-kind, pane-tab, command, and top-nav view
     derivation used by `plugins/runtime.ts`.
   - `plugins/runtime.ts` now focuses on runtime refresh transport, plugin
-    frontend load/reuse, registry merge, capability gating, and host APIs over
-    that local derived-view owner.
+    frontend load/reuse, registry merge, capability gating, and host API
+    assembly over those local runtime owners.
   - `components/Section/Layouts/PluginArea.tsx` and
     `components/Panes/Overview/Plugins/*` render plugin-backed surfaces.
 

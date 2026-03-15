@@ -54,8 +54,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1448 authored TS/TSX files under `frontend/src`.
-- There are 42 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 1457 authored TS/TSX files under `frontend/src`.
+- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Chat/ChatInput.tsx` at 2117 lines
@@ -71,7 +71,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - App and plugin runtime remain cleanup hotspots:
-  - `frontend/src/plugins/runtime.ts` at 2237 lines after the local derived-view extraction
+  - `frontend/src/plugins/runtime.ts` at 1948 lines after the local project-state bridge extraction
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
 
 ## Current Pivot (2026-03-15)
@@ -137,6 +137,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   default work in that domain should continue from the remaining runtime
   transport, frontend-load, host API, and project-state subscription clusters
   instead of re-cutting that new pure owner.
+- `frontend/src/plugins/runtime.ts` now also delegates plugin project-state
+  selector normalization, raw state selection, subscription equality, and
+  cloned snapshot shaping to
+  `frontend/src/plugins/runtimeProjectStateBridge.ts`, with shared runtime
+  error/validation primitives in `frontend/src/plugins/runtimeValidation.ts`,
+  so the next default work in that domain should continue from the remaining
+  frontend-load, registry registration, and realtime or section host API
+  clusters instead of re-cutting those new local runtime owners.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` now delegates
   task due or recurrence summary formatting, recurrence-order normalization, and
   schedule value helpers to
@@ -151,13 +159,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
 - In practice that means the next default priority order is:
-  - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Chat/chatAssistantActivityCard.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
@@ -907,7 +915,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `plugins/runtime.ts`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Git/GitGraphOverlay.tsx`, `components/Panes/Overview/Plugins/PluginsPane.tsx`, `components/Section/Layouts/ChatArea.tsx`, `components/Chat/chatAssistantActivityCard.tsx`, `components/App/appRegistry.tsx`, `components/Section/Layouts/TaskBoardArea.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Git/GitGraphOverlay.tsx`, `components/Panes/Overview/Plugins/PluginsPane.tsx`, `components/Section/Layouts/ChatArea.tsx`, `plugins/runtime.ts`, `components/Chat/chatAssistantActivityCard.tsx`, `components/App/appRegistry.tsx`, `components/Section/Layouts/TaskBoardArea.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or `components/ChatWindowing/ProjectChatBottomDock.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a direct prerequisite for simplifying one of those larger hotspots or when it deletes a now-unnecessary compatibility surface after callers have converged.
 4. Continue project chat windowing, file browser, section layout, page, pane, and runtime cleanup from the companion plans once the highest current hotspot in that area is clear.
 5. Add feature READMEs as each area stabilizes.
