@@ -126,6 +126,35 @@ func TestBuildPythonOutputAccessorSnapshotRequestUsesGeneratedStatePath(t *testi
 	}
 }
 
+// Output-accessor completion should normalize the default base label "value"
+// to the bare generated state path so callers do not duplicate ".value".
+func TestBuildPythonOutputAccessorSnapshotRequestNormalizesValueBaseLabel(t *testing.T) {
+	t.Parallel()
+
+	project := completionTestProject(t)
+	request, ok, err := BuildPythonOutputAccessorSnapshotRequest(
+		project,
+		map[string]string{},
+		"callable-section",
+		"value",
+		len("value"),
+	)
+	if err != nil {
+		t.Fatalf("build output accessor completion request: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected generated output accessor completion request")
+	}
+	expectedSuffix := "\nstate.CallSection"
+	if len(request.Content) < len(expectedSuffix) || request.Content[len(request.Content)-len(expectedSuffix):] != expectedSuffix {
+		t.Fatalf("expected normalized accessor suffix %q, got tail %q", expectedSuffix, request.Content[maxInt(0, len(request.Content)-len(expectedSuffix)):])
+	}
+	absolutePosition := lineColToPosition(request.Content, request.Line, request.Character)
+	if absolutePosition != len(request.Content) {
+		t.Fatalf("expected normalized accessor cursor at end of snapshot, got %d of %d", absolutePosition, len(request.Content))
+	}
+}
+
 // Prefix completion should rebuild the generated file with the edited prefix
 // and keep the cursor in prefix space.
 func TestBuildPythonGenCodePrefixSnapshotRequestUsesEditedPrefix(t *testing.T) {
@@ -173,6 +202,55 @@ func TestBuildPythonGenCodeSuffixSnapshotRequestUsesEditedSuffix(t *testing.T) {
 	start := absolutePosition - len(fullText)
 	if start < 0 || request.Content[start:absolutePosition] != fullText {
 		t.Fatalf("expected edited suffix before cursor, got content around cursor %q", request.Content[maxInt(0, start):absolutePosition])
+	}
+}
+
+// Generated snapshot builders should fail closed with ok=false when Python
+// codegen context is unavailable so completion routes can return empty results.
+func TestBuildGeneratedSnapshotRequestsReturnFalseWithoutPythonCodegenContext(t *testing.T) {
+	t.Parallel()
+
+	project := completionTestProject(t)
+	project.CodegenTargets = nil
+
+	for _, testCase := range []struct {
+		name  string
+		build func() (SnapshotRequest, bool, error)
+	}{
+		{
+			name: "text field",
+			build: func() (SnapshotRequest, bool, error) {
+				return BuildPythonTextFieldSnapshotRequest(project, nil, "callable-section", "param-1", "value", len("value"))
+			},
+		},
+		{
+			name: "output accessor",
+			build: func() (SnapshotRequest, bool, error) {
+				return BuildPythonOutputAccessorSnapshotRequest(project, nil, "callable-section", ".branch", len(".branch"))
+			},
+		},
+		{
+			name: "gen prefix",
+			build: func() (SnapshotRequest, bool, error) {
+				return BuildPythonGenCodePrefixSnapshotRequest(project, nil, "import math\n", len("import math\n"))
+			},
+		},
+		{
+			name: "gen suffix",
+			build: func() (SnapshotRequest, bool, error) {
+				return BuildPythonGenCodeSuffixSnapshotRequest(project, nil, "\nprint(state)", len("\nprint(state)"))
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, ok, err := testCase.build()
+			if err != nil {
+				t.Fatalf("expected unavailable generated context to return no snapshot, got error %v", err)
+			}
+			if ok {
+				t.Fatal("expected unavailable generated context to return ok=false")
+			}
+		})
 	}
 }
 
