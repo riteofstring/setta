@@ -10,10 +10,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1387`
+- Authored TS/TSX files under `frontend/src`: `1389`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
-  - `components/Chat/ChatMessages.tsx` (`6864`)
+  - `components/Chat/ChatMessages.tsx` (`6132`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4996`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3330`)
   - `components/Chat/ChatInput.tsx` (`3121`)
@@ -55,6 +55,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Chat/chatAssistantActivity.ts` owns assistant activity or
     timeline derivation, thought-summary labels, activity-only message
     grouping checks, and assistant tool-copy text assembly used by
+    `components/Chat/ChatMessages.tsx`.
+  - `components/Chat/chatStructuredOutput.tsx` owns structured output payload
+    inference, diff classification, formatted tool-result text extraction, and
+    the resizable structured-output render surface used by
     `components/Chat/ChatMessages.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
