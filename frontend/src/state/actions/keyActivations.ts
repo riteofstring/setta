@@ -1,64 +1,27 @@
 import { useSettings } from "state/stores/uiPreferenceStores";
 import { isMacOs } from "utils/utils";
 import {
-  getIgnoreWhenInInputField,
-  getIsInput,
-} from "./keyShortcutInputPolicy";
+  clearPressedModShortcut,
+  getPressedKeys,
+  handlePressedKeyRelease,
+  hasPressedModShortcut,
+  noteModShortcutPressed,
+  recordPressedKey,
+  resetPressedKeyState,
+  startKeyDownCycle,
+} from "./keyActivationPressedKeys";
+import {
+  createKeyActivationShortcutInfo,
+  getModShortcutInfo,
+  runShortcutKeyUpActions,
+  type ShortcutInfo,
+} from "./keyActivationShortcutInfo";
+import { getIsInput } from "./keyShortcutInputPolicy";
 import {
   getNormalizedEventCode,
-  getShouldPreventDefault,
   isShortcutPressed,
   modifierKeyCodes,
-  parseShortcut,
-  type ParsedShortcut,
 } from "./keyShortcutMatching";
-import {
-  createShortcutRegistrations,
-  type KeyAction,
-  type KeyActionEvent,
-  type KeyUpAction,
-  type ShortcutRegistration,
-  type ShortcutTrackingName,
-} from "./keyShortcutRegistrations";
-
-type ShortcutInfo = {
-  parsedShortcut: ParsedShortcut;
-  wasPressed: boolean;
-  shouldPreventDefault: boolean;
-  keyDownAction: KeyAction;
-  keyUpAction: KeyUpAction | null;
-  allowRepeat: boolean;
-  ignoreWhenInInputField: boolean;
-  keepKeyDownCondition?: (event: KeyActionEvent) => boolean;
-};
-
-let keysPressed = new Set<string>();
-let keysPressedTimeStamps = new Map<string, number>();
-let aModShortcutWasPressed = false;
-
-function resetKeysPressed() {
-  keysPressed = new Set<string>();
-  keysPressedTimeStamps = new Map<string, number>();
-}
-
-function deleteKeyPressed(key: string) {
-  keysPressed.delete(key);
-  keysPressedTimeStamps.delete(key);
-}
-
-function addKeyPressed(key: string) {
-  keysPressed.add(key);
-  keysPressedTimeStamps.set(key, Date.now());
-}
-
-function clearStaleKeys() {
-  const now = Date.now();
-  for (const [key, timestamp] of keysPressedTimeStamps) {
-    if (now - timestamp > 100) {
-      deleteKeyPressed(key);
-    }
-  }
-}
 
 function attachEventListenerAndReturnCleanup(
   attachTo: Document | Window,
@@ -79,128 +42,34 @@ function attachKeyUpListener(action: (event: KeyboardEvent) => void) {
   return attachEventListenerAndReturnCleanup(document, "keyup", action);
 }
 
-function keyUpLoop(event: KeyActionEvent, shortcutInfo: Array<ShortcutInfo>) {
-  for (const info of shortcutInfo) {
-    if (info.wasPressed && !info.keepKeyDownCondition?.(event)) {
-      info.wasPressed = false;
-      info.keyUpAction?.(event);
-    }
-  }
-}
-
-function addKeepKeyDownConditions(
-  shortcutInfoByName: Record<ShortcutTrackingName, ShortcutInfo | undefined>,
-  isMacOsHost: boolean,
-) {
-  const showTooltipShortcut = shortcutInfoByName.showTooltipShortcut;
-  const incrementTooltipPageShortcut =
-    shortcutInfoByName.incrementTooltipPageShortcut;
-  const decrementTooltipPageShortcut =
-    shortcutInfoByName.decrementTooltipPageShortcut;
-  const copyTooltipTextShortcut = shortcutInfoByName.copyTooltipTextShortcut;
-
-  if (
-    !showTooltipShortcut ||
-    !incrementTooltipPageShortcut ||
-    !decrementTooltipPageShortcut ||
-    !copyTooltipTextShortcut
-  ) {
-    return;
-  }
-
-  showTooltipShortcut.keepKeyDownCondition = (event) =>
-    event instanceof KeyboardEvent &&
-    (isShortcutPressed(
-      event,
-      showTooltipShortcut.parsedShortcut,
-      isMacOsHost,
-      keysPressed,
-    ) ||
-      isShortcutPressed(
-        event,
-        incrementTooltipPageShortcut.parsedShortcut,
-        isMacOsHost,
-        keysPressed,
-      ) ||
-      isShortcutPressed(
-        event,
-        decrementTooltipPageShortcut.parsedShortcut,
-        isMacOsHost,
-        keysPressed,
-      ) ||
-      isShortcutPressed(
-        event,
-        copyTooltipTextShortcut.parsedShortcut,
-        isMacOsHost,
-        keysPressed,
-      ));
-}
-
 export function attachKeyEventListeners() {
   const shortcuts = useSettings.getState().shortcuts;
-  const shortcutInfoByName: Record<
-    ShortcutTrackingName,
-    ShortcutInfo | undefined
-  > = {
-    copyTooltipTextShortcut: undefined,
-    decrementTooltipPageShortcut: undefined,
-    incrementTooltipPageShortcut: undefined,
-    showTooltipShortcut: undefined,
-  };
-
   const cleanupFunctions: Array<() => void> = [];
-  const shortcutInfo: Array<ShortcutInfo> = [];
   const isMacOsHost = isMacOs();
-
-  for (const registration of createShortcutRegistrations(shortcuts)) {
-    const {
-      keyCombo,
-      keyDownAction,
-      keyUpAction,
-      allowRepeat,
-      trackingName,
-    }: ShortcutRegistration = registration;
-    if (!keyCombo) {
-      continue;
-    }
-
-    const parsedShortcut = parseShortcut(keyCombo.toLowerCase());
-    const info: ShortcutInfo = {
-      parsedShortcut,
-      wasPressed: false,
-      shouldPreventDefault: getShouldPreventDefault(parsedShortcut),
-      keyDownAction,
-      keyUpAction,
-      allowRepeat,
-      ignoreWhenInInputField: getIgnoreWhenInInputField(
-        parsedShortcut,
-        isMacOsHost,
-      ),
-    };
-    shortcutInfo.push(info);
-    if (trackingName) {
-      shortcutInfoByName[trackingName] = info;
-    }
-  }
-
-  addKeepKeyDownConditions(shortcutInfoByName, isMacOsHost);
+  const shortcutInfo = createKeyActivationShortcutInfo({
+    shortcuts,
+    isMacOsHost,
+    getPressedKeys,
+  });
 
   let cleanup = attachKeyDownListener((event) => {
-    if (aModShortcutWasPressed) {
-      clearStaleKeys();
-    }
-    aModShortcutWasPressed = false;
+    startKeyDownCycle();
 
     const eventCode = getNormalizedEventCode(event);
     if (eventCode && !modifierKeyCodes.has(eventCode)) {
-      addKeyPressed(eventCode);
+      recordPressedKey(eventCode);
     }
 
     const isInput = getIsInput(event);
 
     for (const info of shortcutInfo) {
       if (
-        isShortcutPressed(event, info.parsedShortcut, isMacOsHost, keysPressed)
+        isShortcutPressed(
+          event,
+          info.parsedShortcut,
+          isMacOsHost,
+          getPressedKeys(),
+        )
       ) {
         if (info.ignoreWhenInInputField && isInput) {
           continue;
@@ -214,7 +83,7 @@ export function attachKeyEventListeners() {
         info.keyDownAction(event);
         info.wasPressed = true;
         if (info.parsedShortcut.mod) {
-          aModShortcutWasPressed = true;
+          noteModShortcutPressed();
         }
       } else if (info.wasPressed && !info.keepKeyDownCondition?.(event)) {
         info.keyUpAction?.(event);
@@ -225,21 +94,18 @@ export function attachKeyEventListeners() {
   cleanupFunctions.push(cleanup);
 
   cleanup = attachKeyUpListener((event) => {
-    if (isMacOsHost && event.key === "Meta") {
-      resetKeysPressed();
-    } else {
-      const eventCode = getNormalizedEventCode(event);
-      if (eventCode) {
-        deleteKeyPressed(eventCode);
-      }
-    }
-    keyUpLoop(event, shortcutInfo);
+    handlePressedKeyRelease({
+      eventCode: getNormalizedEventCode(event),
+      eventKey: event.key,
+      isMacOsHost,
+    });
+    runShortcutKeyUpActions(event, shortcutInfo);
   });
   cleanupFunctions.push(cleanup);
 
   cleanup = attachEventListenerAndReturnCleanup(window, "blur", (event) => {
-    resetKeysPressed();
-    keyUpLoop(event, shortcutInfo);
+    resetPressedKeyState();
+    runShortcutKeyUpActions(event, shortcutInfo);
   });
   cleanupFunctions.push(cleanup);
 
@@ -264,7 +130,7 @@ export function attachKeyEventListeners() {
 // If the user doesn't move the mouse, then they'll probably press a key, in which case
 // the keyup action will be called in the keydown listener (since wasPressed is true).
 function specialModTabCase(shortcutInfo: Array<ShortcutInfo>) {
-  const modShortcuts = shortcutInfo.filter((info) => info.parsedShortcut.mod);
+  const modShortcuts = getModShortcutInfo(shortcutInfo);
   if (modShortcuts.length === 0) {
     return null;
   }
@@ -273,14 +139,14 @@ function specialModTabCase(shortcutInfo: Array<ShortcutInfo>) {
     if (!(event instanceof MouseEvent)) {
       return;
     }
-    if (aModShortcutWasPressed && !event.metaKey) {
+    if (hasPressedModShortcut() && !event.metaKey) {
       modShortcuts.forEach((info) => {
         if (info.wasPressed) {
           info.keyUpAction?.(event);
           info.wasPressed = false;
         }
       });
-      aModShortcutWasPressed = false;
+      clearPressedModShortcut();
     }
   });
 }

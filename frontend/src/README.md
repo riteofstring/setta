@@ -512,7 +512,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/windowSpaces.ts` now owns thin workspace-restore
     orchestration for saved window spaces.
   - `state/actions/keyActivations.ts` now just owns global key-listener
-    orchestration and pressed-key bookkeeping;
+    orchestration, `state/actions/keyActivationPressedKeys.ts` owns
+    pressed-key bookkeeping and stale-key cleanup,
+    `state/actions/keyActivationShortcutInfo.ts` owns shortcut-info
+    normalization plus keep-key-down coordination,
     `state/actions/keyActivationCommands.ts` owns the shortcut command
     registry plus React Flow key-mode toggles,
     `state/actions/keyShortcutNavigationRegistrations.ts` owns focus and

@@ -289,7 +289,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `uiSettingRevealDom.ts` owns anchor lookup and highlighting, and
   `uiSettingRevealShared.ts` owns execution-context/status helpers.
 - `frontend/src/state/actions/keyActivations.ts` is now a listener
-  orchestration entrypoint; `keyActivationCommands.ts` owns the shortcut
+  orchestration entrypoint; `keyActivationPressedKeys.ts` owns pressed-key
+  bookkeeping plus stale-key cleanup,
+  `keyActivationShortcutInfo.ts` owns shortcut-info normalization plus
+  keep-key-down coordination, `keyActivationCommands.ts` owns the shortcut
   command registry plus React Flow key-mode toggles,
   `keyShortcutNavigationRegistrations.ts` owns focus plus pane-navigation
   registrations, `keyShortcutTooltipRegistrations.ts` owns tooltip
@@ -323,12 +326,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/keyActivations.ts` at 286 lines
   - `frontend/src/state/actions/aiChatStreamingRouting.ts` at 278 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 268 lines
   - `frontend/src/state/actions/gitGraphPaginationState.ts` at 204 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 187 lines
   - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts` at 186 lines
+  - `frontend/src/state/actions/keyActivationShortcutInfo.ts` at 156 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -598,14 +601,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `stateMachineRunSelection.ts` for workflow run filtering, latest-run selection, and browser polling/subscription behavior
   - `stateMachineRunMutations.ts` for optimistic workflow start/stop/reset commands plus refresh-after-mutation behavior
   - `stateMachineRuns.ts` as the thin compatibility facade
-- `keyActivations.ts`, `keyActivationCommands.ts`,
+- `keyActivations.ts`, `keyActivationPressedKeys.ts`,
+  `keyActivationShortcutInfo.ts`, `keyActivationCommands.ts`,
   `keyShortcutNavigationRegistrations.ts`,
   `keyShortcutTooltipRegistrations.ts`,
   `keyShortcutWorkspaceRegistrations.ts`,
   `keyShortcutRegistrationGroups.ts`, `keyShortcutRegistrations.ts`,
   `keyShortcutMatching.ts`, `keyShortcutInputPolicy.ts`,
   `keyShortcutUtils.ts`, and `keyActivationHandlers.ts` now split into:
-  - `keyActivations.ts` for global key-listener wiring and pressed-key bookkeeping
+  - `keyActivations.ts` for global key-listener wiring
+  - `keyActivationPressedKeys.ts` for pressed-key bookkeeping and stale-key cleanup
+  - `keyActivationShortcutInfo.ts` for shortcut-info normalization and keep-key-down coordination
   - `keyActivationCommands.ts` for the shortcut command registry and React Flow key-mode toggles
   - `keyShortcutNavigationRegistrations.ts` for focus and pane-navigation shortcut registrations
   - `keyShortcutTooltipRegistrations.ts` for tooltip shortcut registrations
