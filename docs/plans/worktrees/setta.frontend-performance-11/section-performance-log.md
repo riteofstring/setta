@@ -278,6 +278,9 @@ Append-only log for the section performance refactor.
     - edge inputs `a` through `d` appeared
     - the row body reintroduced `x`
     - the node screenshot showed a red validation/error row instead of the expected pinned and unpinned stacks
+- Next action:
+  - Because the required `main` vs worktree screenshot parity check failed on the minimum regression scene, this checkpoint is not accepted yet.
+  - Investigate why untouched `main` cannot hold the required `math.sqrt` `a` through `k` scene cleanly before making more callable layout edits or checkpoint commits.
 
 ### 2026-03-17 38
 
@@ -298,9 +301,26 @@ Append-only log for the section performance refactor.
     - `frontend/index.css`
 - Next action:
   - Fix the callable row/resize-handle regression under the tighter pixel-perfect parity gate, then rerun CDP and automated verification before resuming the cold-activation checkpoint read.
-  - Because the required `main` vs worktree screenshot parity check failed on the minimum regression scene, this checkpoint is not accepted yet.
+
+### 2026-03-17 39
+
+- Item: Restore shared callable row-shell hover and resize-handle parity under the flattened row contract.
+- Status: `done`
+- Details:
+  - Recreated the shared row inset under the flex row shell so the callable arg rows line back up with untouched `main`.
+  - Anchored the shared resize handle back to the label/value boundary instead of letting the handle box drift through flex flow.
+  - Updated the callable reorder/indent Playwright guardrail to the recreated nested-row margin contract.
+  - Verified the representative callable compare in CDP on untouched `main` vs this worktree:
+    - `busy_tide` -> `zinc_blade`
+    - static section compare
+    - hovered `mode` row compare
+    - measured `file`, `mode`, and nested `errors` row geometry
+  - The recreated worktree geometry is now within roughly a pixel of untouched `main` on the sampled rows, and the hovered row/handle screenshots visually align.
+  - Re-ran focused automated coverage:
+    - Vitest: `12` files passed, `30` tests passed
+    - Playwright: `6 passed`
 - Next action:
-  - Investigate why untouched `main` cannot hold the required `math.sqrt` `a` through `k` scene cleanly before making more callable layout edits or checkpoint commits.
+  - Keep checkpoint 1 open and return to the remaining cold CodeMirror activation trace, since the row-shell visual regression is no longer the blocker.
 
 ### 2026-03-16 22
 
