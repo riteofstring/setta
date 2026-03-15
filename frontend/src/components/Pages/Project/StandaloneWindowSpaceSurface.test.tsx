@@ -37,6 +37,44 @@ let mockProjectState: MockProjectState = {
 
 const hoisted = vi.hoisted(() => ({
   blockedErrorCode: null as string | null,
+  projectChatWindowSurfaceRender: vi.fn(
+    ({ title, children }: { title: string; children: ReactNode }) => (
+      <div data-testid="mock-project-chat-window-surface">
+        <span>{title}</span>
+        {children}
+      </div>
+    ),
+  ),
+  sectionWindowSurfaceRender: vi.fn(
+    ({
+      sectionId,
+      chatModeOverride,
+      projectChatSurfaceId,
+      projectChatId,
+      setProjectChatId,
+    }: {
+      sectionId: string;
+      chatModeOverride?: string;
+      projectChatSurfaceId?: string;
+      projectChatId?: string | null;
+      setProjectChatId?: (next: string | null) => void;
+    }) => {
+      const liveSectionChatId =
+        mockProjectState.sections[sectionId]?.chatId ?? "";
+      return (
+        <div
+          data-testid="mock-section-window-surface"
+          data-section-id={sectionId}
+          data-chat-mode-override={chatModeOverride ?? ""}
+          data-project-chat-surface-id={projectChatSurfaceId ?? ""}
+          data-project-chat-id={projectChatId ?? liveSectionChatId}
+          data-project-chat-controlled={setProjectChatId ? "true" : "false"}
+        >
+          {sectionId}
+        </div>
+      );
+    },
+  ),
 }));
 
 const EMPTY_MANAGED_CHAT_AUTHORITY_STATE = {
@@ -122,18 +160,7 @@ vi.mock("state/definitions", () => ({
 }));
 
 vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
-  ProjectChatWindowSurface: ({
-    title,
-    children,
-  }: {
-    title: string;
-    children: ReactNode;
-  }) => (
-    <div data-testid="mock-project-chat-window-surface">
-      <span>{title}</span>
-      {children}
-    </div>
-  ),
+  ProjectChatWindowSurface: hoisted.projectChatWindowSurfaceRender,
 }));
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
@@ -202,39 +229,14 @@ vi.mock("components/Git/GitGraphWindowContent", () => ({
 }));
 
 vi.mock("components/Section/Container/SectionWindowSurface", () => ({
-  SectionWindowSurface: ({
-    sectionId,
-    chatModeOverride,
-    projectChatSurfaceId,
-    projectChatId,
-    setProjectChatId,
-  }: {
-    sectionId: string;
-    chatModeOverride?: string;
-    projectChatSurfaceId?: string;
-    projectChatId?: string | null;
-    setProjectChatId?: (next: string | null) => void;
-  }) => {
-    const liveSectionChatId =
-      mockProjectState.sections[sectionId]?.chatId ?? "";
-    return (
-      <div
-        data-testid="mock-section-window-surface"
-        data-section-id={sectionId}
-        data-chat-mode-override={chatModeOverride ?? ""}
-        data-project-chat-surface-id={projectChatSurfaceId ?? ""}
-        data-project-chat-id={projectChatId ?? liveSectionChatId}
-        data-project-chat-controlled={setProjectChatId ? "true" : "false"}
-      >
-        {sectionId}
-      </div>
-    );
-  },
+  SectionWindowSurface: hoisted.sectionWindowSurfaceRender,
 }));
 
 describe("StandaloneWindowSpaceSurface", () => {
   beforeEach(() => {
     hoisted.blockedErrorCode = null;
+    hoisted.projectChatWindowSurfaceRender.mockClear();
+    hoisted.sectionWindowSurfaceRender.mockClear();
     mockProjectState = {
       projectConfig: {
         id: "project-1",
@@ -708,7 +710,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     );
   });
 
-  it("clears window-local managed-chat denial state when the owning project changes", () => {
+  it("clears window-local managed-chat denial state when the owning project changes", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
@@ -736,7 +738,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     });
 
     try {
-      act(() => {
+      await act(async () => {
         root.render(
           <StandaloneWindowSpaceSurface
             windowSpace={sourceWindowSpace}
@@ -745,10 +747,11 @@ describe("StandaloneWindowSpaceSurface", () => {
           />,
         );
       });
-
-      expect(
-        host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
-      ).not.toBeNull();
+      await vi.waitFor(() => {
+        expect(
+          host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+        ).not.toBeNull();
+      });
 
       hoisted.blockedErrorCode = null;
       mockProjectState = {
@@ -758,7 +761,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         sections: {},
       };
 
-      act(() => {
+      await act(async () => {
         root.render(
           <StandaloneWindowSpaceSurface
             windowSpace={sourceWindowSpace}
@@ -767,10 +770,11 @@ describe("StandaloneWindowSpaceSurface", () => {
           />,
         );
       });
-
-      expect(
-        host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
-      ).toBeNull();
+      await vi.waitFor(() => {
+        expect(
+          host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+        ).toBeNull();
+      });
       expect(
         host.querySelector('[data-testid="mock-unified-chat-surface"]'),
       ).not.toBeNull();
@@ -1225,6 +1229,161 @@ describe("StandaloneWindowSpaceSurface", () => {
           .querySelector('[data-testid="mock-section-window-surface"]')
           ?.getAttribute("data-project-chat-id"),
       ).toBe("saved-section-chat");
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps unrelated standalone window surfaces stable when focusing a different window", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    try {
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+            windowSpace={createWindowSpaceConfig({
+              id: "space-id",
+              name: "Research Board",
+              windowsById: {
+                "chat-window": {
+                  surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                  sectionIdOrNull: null,
+                  mode: ChatWindowModeEnum.project_ai_mode,
+                  title: "Research Chat",
+                  chatId: "chat-window-1",
+                  zIndex: 2,
+                  normalizedBounds: {
+                    x: 0,
+                    y: 0,
+                    width: 0.5,
+                    height: 0.5,
+                  },
+                },
+                "section-window": {
+                  surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                  sectionIdOrNull: "section-1",
+                  mode: ChatWindowModeEnum.project_ai_mode,
+                  title: null,
+                  chatId: "chat-section-1",
+                  zIndex: 1,
+                  normalizedBounds: {
+                    x: 0.5,
+                    y: 0,
+                    width: 0.5,
+                    height: 0.75,
+                  },
+                },
+              },
+              order: ["chat-window", "section-window"],
+            })}
+          />,
+        );
+      });
+
+      hoisted.projectChatWindowSurfaceRender.mockClear();
+      hoisted.sectionWindowSurfaceRender.mockClear();
+
+      const sectionWindow = host.querySelector(
+        '[data-testid="standalone-window-space-window"][data-chat-window-instance-id="section-window"]',
+      );
+      if (!sectionWindow) {
+        throw new Error("Expected standalone section window frame.");
+      }
+
+      act(() => {
+        sectionWindow.dispatchEvent(
+          new Event("pointerdown", { bubbles: true }),
+        );
+      });
+
+      expect(hoisted.projectChatWindowSurfaceRender).not.toHaveBeenCalled();
+      expect(hoisted.sectionWindowSurfaceRender).toHaveBeenCalledTimes(1);
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("keeps unrelated standalone window surfaces stable when a chat window updates its local thread", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    try {
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+            windowSpace={createWindowSpaceConfig({
+              id: "space-id",
+              name: "Research Board",
+              windowsById: {
+                "chat-window": {
+                  surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                  sectionIdOrNull: null,
+                  mode: ChatWindowModeEnum.project_ai_mode,
+                  title: "Research Chat",
+                  chatId: "chat-window-1",
+                  zIndex: 2,
+                  normalizedBounds: {
+                    x: 0,
+                    y: 0,
+                    width: 0.5,
+                    height: 0.5,
+                  },
+                },
+                "section-window": {
+                  surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                  sectionIdOrNull: "section-1",
+                  mode: ChatWindowModeEnum.project_ai_mode,
+                  title: null,
+                  chatId: "chat-section-1",
+                  zIndex: 1,
+                  normalizedBounds: {
+                    x: 0.5,
+                    y: 0,
+                    width: 0.5,
+                    height: 0.75,
+                  },
+                },
+              },
+              order: ["chat-window", "section-window"],
+            })}
+          />,
+        );
+      });
+
+      hoisted.projectChatWindowSurfaceRender.mockClear();
+      hoisted.sectionWindowSurfaceRender.mockClear();
+
+      const overrideButton = host.querySelector(
+        '[data-testid="mock-set-project-chat-id"]',
+      ) as HTMLButtonElement | null;
+      if (!overrideButton) {
+        throw new Error("Expected mocked standalone project chat control.");
+      }
+
+      act(() => {
+        overrideButton.click();
+      });
+
+      expect(
+        host
+          .querySelector('[data-testid="mock-unified-chat-surface"]')
+          ?.getAttribute("data-project-chat-id"),
+      ).toBe("chat-local-override");
+      expect(hoisted.projectChatWindowSurfaceRender).toHaveBeenCalledTimes(1);
+      expect(hoisted.sectionWindowSurfaceRender).not.toHaveBeenCalled();
     } finally {
       act(() => {
         root.unmount();
