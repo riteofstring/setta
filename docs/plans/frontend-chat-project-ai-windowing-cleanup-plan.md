@@ -20,8 +20,8 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-15)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/Chat/ChatMessages.tsx` at about 5412 lines
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at about 4996 lines
+  - `frontend/src/components/Chat/ChatMessages.tsx` at about 4848 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at about 3328 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at about 3121 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at about 2721 lines
@@ -33,6 +33,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/Chat/chatStructuredOutput.tsx` now owns structured output payload inference, diff classification, formatted tool-result text extraction, and the resizable structured-output surface for `ChatMessages.tsx`
   - `frontend/src/components/Chat/chatAttachmentPreviewUrls.ts` now owns message attachment collection, attachment URL lookup, stale refresh policy, and preview URL caching for `ChatMessages.tsx`
   - `frontend/src/components/Chat/chatAttachmentPreviews.tsx` now owns attachment list rendering, preview dialog/media-carousel branching, and attachment text-preview fetch state for `ChatMessages.tsx`
+  - `frontend/src/components/Chat/chatMessageContent.tsx` now owns markdown/code rendering, inline markdown labels, streaming markdown animation wrappers, and conversation-search highlight helpers for `ChatMessages.tsx`
   - feature-local `ProjectLevelAI` helpers such as `projectChatHydrationAuthority.ts`, `projectChatFocusUtils.ts`, and starter/slash-command helpers
   - chat action families such as `aiHydration*.ts`, `aiChatSubmission*.ts`, `aiChatStreaming*.ts`, `chatHistory*.ts`, and `chatBranch*.ts`
   - project chat windowing modules such as `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingWrite*.ts`, and related command modules
@@ -40,7 +41,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 ## Current Problems
 
-- `ChatMessages.tsx` still mixes markdown/media rendering, timers, and keyboard/pointer behavior even after assistant activity/timeline derivation moved into `chatAssistantActivity.ts`, structured-output/tool-call rendering moved into `chatStructuredOutput.tsx`, and attachment/media preview handling moved into `chatAttachmentPreviewUrls.ts` plus `chatAttachmentPreviews.tsx`.
+- `ChatMessages.tsx` still mixes message-row composition, timers or streaming animation wiring, and keyboard or pointer behavior even after assistant activity/timeline derivation moved into `chatAssistantActivity.ts`, structured-output/tool-call rendering moved into `chatStructuredOutput.tsx`, attachment/media preview handling moved into `chatAttachmentPreviewUrls.ts` plus `chatAttachmentPreviews.tsx`, and markdown/search-highlight rendering moved into `chatMessageContent.tsx`.
 - `ChatInput.tsx` mixes composer state, attachment handling, slash commands, dictation/transcription, execution settings, and presentational controls.
 - `ProjectChat.tsx`, `ProjectChatCore.tsx`, and `ProjectChatHistory.tsx` mix surface orchestration, layout rules, chat-history derivation, hydration authority, and auxiliary-pane state.
 - `ProjectChatBottomDock.tsx` still combines layout math, pointer resize/drag state, snap logic, animation state, tracked git-pane behavior, and render shells.
@@ -56,14 +57,16 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 ## Plan
 
-1. Split `ChatMessages.tsx` by rendering responsibility
+1. Continue splitting `ChatMessages.tsx` by rendering responsibility
 
-- Extract feature-local modules for:
-  - assistant activity/timeline derivation
+- Keep the extracted local owners for:
+  - assistant activity or timeline derivation
   - structured output and tool-call rendering
   - attachment/media preview handling
   - markdown/code rendering wrappers
+- Extract the next feature-local seams for:
   - timers and animation hooks
+  - message-row composition helpers and interaction shells
 - Keep the top-level component focused on list assembly and row composition.
 
 2. Split `ChatInput.tsx` by composer responsibility
