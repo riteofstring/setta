@@ -10,7 +10,7 @@ from setta.utils.utils import try_json
 
 
 @dataclass
-class TraversalOptions:  # setta-convert-pydantic-to-js: skip
+class TraversalOptions:
     # Filters
     collect_filter: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
     traverse_filter: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
@@ -34,7 +34,7 @@ class TraversalOptions:  # setta-convert-pydantic-to-js: skip
 
 
 @dataclass
-class HierarchyTraversalResult:  # setta-convert-pydantic-to-js: skip
+class HierarchyTraversalResult:
     """Result of hierarchy traversal."""
 
     collected_ids: list[ID] = field(default_factory=list)
