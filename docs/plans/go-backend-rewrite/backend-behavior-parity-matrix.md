@@ -4,14 +4,14 @@ Last updated: `2026-03-15`
 
 Source baseline branch: `main`
 
-Source baseline commit for this audit slice:
+Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
 `9aae6c25c91c521ef616e10f82dd52cf63310b24`
 
-This is the first executed slice of the matrix plan, not the finished matrix.
-It covers:
+This is a partial matrix, not the finished matrix.
+It currently covers:
 
 - project names
 - view mode names
@@ -21,8 +21,11 @@ It covers:
 - generated/default naming in this cluster
 - related rename/create route contracts
 - related name-validation websocket behavior
+- project shell read/lifecycle/default-project routes
+- project shell metadata broadcasts and save notifications
+- project notification read/delete flows
 
-Rows outside this slice are still pending.
+Rows outside these slices are still pending.
 
 ## Status Meanings
 
@@ -35,17 +38,25 @@ Rows outside this slice are still pending.
 - `Missing`
   - the source-baseline behavior does not currently have an equivalent Go
     behavior.
+- `Dormant / unproven caller`
+  - the source-baseline behavior exists, but this matrix slice does not yet
+    prove that a direct Go equivalent is still required by active callers or
+    by the current Go architecture.
 
 ## Current Read
 
 - The first audited slice already shows why the broader rewrite checklists were
   not enough.
-- Most lifecycle, route, and websocket behaviors in this slice are now proved.
+- Most audited lifecycle, route, metadata, and websocket behaviors are now
+  proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- One concrete parity gap is already visible:
+- Two concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
+  - source-baseline `saveAsNewProjectConfig` changes behavior based on
+    `withRefs`
+  - current Go ignores `withRefs` and always performs the same clone path
 
 ## Project Names
 
@@ -112,14 +123,38 @@ Rows outside this slice are still pending.
 | `GB-04` | Saving project state rebroadcasts the current name-validation payload. | Source websocket behavior in `backend/setta/project_state/base_project_manager.py`; source docs: `docs/reference/name-validation.md`. | Proof: `internal/app/websocket_test.go::TestAppSaveBroadcastsNameValidationErrors`. | `Proved` | |
 | `GB-05` | View-mode names are validated on rename but are not included in the websocket name-validation payload. | `docs/reference/name-validation.md` project-state updates section. | Current payload shape: `internal/projectstate/name_validation.go::NameValidationErrors`; websocket proofs: `internal/app/websocket_test.go` initial/save payload coverage. | `Implemented, proof incomplete` | Current Go payload shape matches the source doc, but this slice has no direct Go test asserting the absence of view-mode validation errors from the broadcast content. |
 
-## First-Slice Findings
+## Project Shell, Persistence, And Notifications
 
-1. The first audited slice already contains one concrete source-parity gap:
-   `CN-07`.
-2. The remaining issues in this slice are mostly proof gaps, not immediately
-   obvious implementation gaps.
-3. The next high-value step is narrow:
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `PS-01` | `loadAllProjectMetadata` returns the default project id plus the current project metadata list over the project-shell route. | `backend/setta/routers/projects.py::route_load_all_project_metadata`; `backend/setta/project_state/base_project_manager.py::get_all_project_metadata`; `backend/setta/project_state/base_project_manager.py::broadcast_all_project_metadata`. | Impl: `internal/projectshell/service.go::LoadAllProjectMetadata`; proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesReturnsAllProjectMetadata`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellReadRoutes`. | `Proved` | Current Go also sorts metadata deterministically; this row only claims parity for the payload contents, not a source-baseline sort contract. |
+| `PS-02` | `loadProjectConfig` resolves by project name and returns the single-project payload, including window-space and project-chat-windowing state. | `backend/setta/routers/projects.py::route_load_project_config`; `backend/setta/project_state/base_project_manager.py::load_project_config`. | Impl: `internal/projectshell/service.go::LoadProjectConfig`; proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesLoadsProjectConfigByName`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellReadRoutes`. | `Proved` | |
+| `PS-03` | Missing project names on `loadProjectConfig` return `404`. | `backend/setta/routers/projects.py::route_load_project_config` catches `ProjectNotFound` and raises `404`. | Proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesReturnsNotFoundForMissingProjectConfig`. | `Proved` | |
+| `PS-04` | Project-shell routes are blocked in launcher mode before runtime access. | `tests/routers/test_projects_mode_guard.py::test_load_all_project_metadata_is_blocked_in_launcher_mode`. | Proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesBlocksLauncherMode`. | `Proved` | |
+| `PS-05` | `saveProject` persists the latest in-memory project state. | `backend/setta/routers/projects.py::route_save_project`; `backend/setta/project_state/session_project_manager.py::save`; `tests/project_state/test_manual_save_queue.py::test_project_manual_save_waits_for_pending_ops`. | Impl: `internal/projectshell/service.go::SaveProject`; proof: `internal/projectshell/service_test.go::TestServiceSaveProjectPersistsCurrentRuntimeAndRunsHook`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesSavesProject`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellLifecycleRoutes`. | `Proved` | This row only claims the persisted-save result. The Python queue/autosave coordination is tracked separately. |
+| `PS-06` | Manual save drains pending writes and cancels pending autosave before persistence. | `backend/setta/routers/projects.py::route_save_project` awaits `finish_pending_operations()` before `perform_manual_save()`; `tests/project_state/test_manual_save_queue.py::test_project_manual_save_waits_for_pending_ops`; `tests/project_state/test_manual_save_autosave.py::test_manual_save_cancels_pending_autosave`. | Current Go path: `internal/httpapi/project_shell_routes.go::saveProjectHandler`; `internal/projectshell/service.go::SaveProject`. | `Dormant / unproven caller` | The source behavior guarded the Python async queue/autosave model. Current Go has no direct project-shell queue/debouncer layer, and this matrix slice does not yet prove whether a distinct equivalent is still required for active callers. |
+| `PS-07` | `createProjectConfig` persists the created project and follows with an all-project-metadata broadcast. | `backend/setta/routers/projects.py::route_create_project_config`; `backend/setta/project_state/base_project_manager.py::create_project_config`; `backend/setta/project_state/base_project_manager.py::broadcast_all_project_metadata`. | Impl: `internal/projectshell/service.go::CreateProjectConfig`; app hook: `internal/app/app.go::broadcastAllProjectMetadata`; proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesCreatesProjectConfig`; app proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | The project-name/default-view-mode invariants for creation are tracked in `PN-06`; this row covers the project-shell persistence/broadcast contract. |
+| `PS-08` | `saveAsNewProjectConfig` changes clone behavior based on `withRefs`: `withRefs=true` seeds empty project chat windowing and clears copied chat ids, while `withRefs=false` copies windowing layout and remaps copied section ids. | `backend/setta/project_state/session_project_manager.py::save_as_new_project_config`; `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_with_refs_seeds_windowing_and_clears_chat_ids`; `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_without_refs_copies_windowing_layout_and_remaps_sections`. | Current Go path: `internal/projectshell/service.go::SaveAsNewProjectConfig` ignores `withRefs` and always calls `CloneProject`; proof of divergence: `internal/projectshell/service_test.go::TestServiceSaveAsNewProjectConfigAlwaysCreatesIndependentClone`. | `Missing` | This is the second concrete parity gap found in the matrix. The current Go shell route accepts `withRefs` but discards it. |
+| `PS-09` | Invalid save-as names return `422` with validation detail. | `backend/setta/routers/projects.py::route_save_as_new_project_config` catches `InvalidProjectName` and returns `422`. | Proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail`. | `Proved` | |
+| `PS-10` | `deleteProjectConfigs` removes the selected projects, reconciles the default-project pointer, and rebroadcasts all-project metadata. | `backend/setta/project_state/base_project_manager.py::delete_project_configs`; `backend/setta/project_state/base_project_manager.py::broadcast_all_project_metadata`. | Impl: `internal/projectshell/service.go::DeleteProjectConfigs`; proof: `internal/projectshell/service_test.go::TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesDeletesProjectConfigs`; app proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | |
+| `PS-11` | Deleting projects also reclaims terminal sessions attached to the deleted project ids. | `backend/setta/routers/projects.py::route_delete_project_configs` explicitly deletes matching PTYs after project deletion. | Impl: `internal/app/app.go::deleteProjectTerminals`; proof: `internal/app/project_shell_test.go::TestAppServesProjectShellLifecycleRoutes`. | `Proved` | This is an app-level side effect, not a pure projectstate behavior. |
+| `PS-12` | `setAsDefaultProject` persists the new default project and broadcasts all-project metadata without a project-state payload update. | `backend/setta/routers/projects.py::router_set_as_default_project`; `backend/setta/project_state/base_project_manager.py::set_as_default_project`; `backend/setta/project_state/base_project_manager.py::broadcast_all_project_metadata`. | Impl: `internal/projectshell/service.go::SetDefaultProjectConfig`; proof: `internal/projectshell/service_test.go::TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesSetsDefaultProjectConfig`; app proof: `internal/app/project_shell_test.go::TestAppSetDefaultProjectRouteBroadcastsMetadataUpdate`. | `Proved` | |
+| `PS-13` | `getNotifications` returns only notifications for the requested project config. | `backend/setta/routers/projects.py::route_get_notifications`; `backend/setta/database/db_objs.py::read_notifications`. | Impl: `internal/notifications/store.go::ListByProject`; `internal/notifications/service.go::GetNotifications`; proof: `internal/notifications/store_test.go::TestStoreListByProjectAndDelete`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesReturnsProjectNotifications`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellRenameAndNotificationRoutes`. | `Proved` | |
+| `PS-14` | `deleteNotification` removes the targeted persisted notification entry. | `backend/setta/routers/projects.py::route_delete_notification`; `backend/setta/database/db_objs.py::delete_notification`. | Impl: `internal/notifications/store.go::Delete`; `internal/notifications/service.go::DeleteNotification`; proof: `internal/notifications/store_test.go::TestStoreListByProjectAndDelete`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesDeletesNotification`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellRenameAndNotificationRoutes`. | `Proved` | |
+| `PS-15` | Manual save emits a non-temporary `save` notification with id, project id, message, and timestamp on the frontend websocket. | `docs/reference/logging-and-error-handling.md` user-notifications guidance; `backend/setta/routers/projects.py::route_save_project`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_notification`. | Impl: `internal/app/app.go::broadcastSavedProjectNotification`; proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | The source baseline evidence proves a websocket notification contract, not persistence into `notifications.json`. |
+
+## Current Findings
+
+1. The matrix now contains two concrete source-parity gaps:
+   `CN-07` and `PS-08`.
+2. The project-shell slice also surfaced one source behavior that is still
+   unproven on the current Go architecture:
+   `PS-06`.
+3. The remaining issues in the naming slice are still mostly proof gaps rather
+   than obvious implementation gaps.
+4. The next high-value steps are:
+   - decide whether `CN-07` and `PS-08` should be restored or documented as
+     intentional divergences
    - close proof gaps for project/view-mode/window-space/section format-rule
      variants
-   - decide whether `CN-07` is a bug to fix or an intentional behavior change
-     that must be documented
+   - continue the matrix into the listener/websocket/runtime payload slice
