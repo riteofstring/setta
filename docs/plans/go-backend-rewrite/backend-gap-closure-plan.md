@@ -92,3 +92,7 @@ categorize them.
 - The trimmed/env-expanded `SETTA_HOME` resolution row is now proved by direct
   helper coverage too; keep harvesting these shared config rows when they can
   be closed with focused tests faster than a new harness slice
+- The Setta-home leaf-name validation row is now proved too; the remaining
+  config backlog is the harder profile-validation and platform-default-path
+  rows, so keep preferring small, direct tests where the shared owner is
+  already implemented and the branch can be isolated cleanly
