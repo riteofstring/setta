@@ -80,9 +80,9 @@ func RegisterAgentProfileRoutes(router chi.Router, deps AgentProfileRouteDepende
 
 	router.Get(RouteGetAgentProfiles, getAgentProfilesHandler(deps))
 	router.Post(RouteGetAgentProfile, getAgentProfileHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateAgentProfile, createAgentProfileHandler(deps.Profiles))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateAgentProfile, updateAgentProfileHandler(deps.Profiles))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteAgentProfile, deleteAgentProfileHandler(deps.Profiles))
+	router.Post(RouteCreateAgentProfile, createAgentProfileHandler(deps))
+	router.Post(RouteUpdateAgentProfile, updateAgentProfileHandler(deps))
+	router.Post(RouteDeleteAgentProfile, deleteAgentProfileHandler(deps))
 	return nil
 }
 
@@ -120,6 +120,32 @@ func ensureAgentProfileReadsAllowed(
 		"llm_access_forbidden",
 		"Deployment policy disallows LLM access.",
 	)
+	return false
+}
+
+func ensureAgentProfileMutationAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AgentProfileRouteDependencies,
+	detail string,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		requestInfo = modes.RequestInfo{Policy: modes.NewPolicy(deps.ModePolicy.Mode())}
+	}
+	if err := requestInfo.Policy.RequireNotLauncher(); err != nil {
+		var violation *modes.Violation
+		if errors.As(err, &violation) {
+			writeDetail(w, violation.StatusCode, violation.Message)
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if requestInfo.Policy.IsIDE() {
+		return true
+	}
+	writeDetail(w, http.StatusForbidden, detail)
 	return false
 }
 
@@ -174,8 +200,12 @@ func getAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerFunc
 	}
 }
 
-func createAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
+func createAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAgentProfileMutationAllowed(w, r, deps, "Share mode does not allow creating agent profiles.") {
+			return
+		}
+		store := deps.Profiles
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -204,8 +234,12 @@ func createAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
 	}
 }
 
-func updateAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
+func updateAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAgentProfileMutationAllowed(w, r, deps, "Share mode does not allow updating agent profiles.") {
+			return
+		}
+		store := deps.Profiles
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -234,8 +268,12 @@ func updateAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
 	}
 }
 
-func deleteAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
+func deleteAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAgentProfileMutationAllowed(w, r, deps, "Share mode does not allow deleting agent profiles.") {
+			return
+		}
+		store := deps.Profiles
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -357,7 +395,7 @@ func writeAgentProfileStoreError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusBadRequest, "invalid_agent_profile", err.Error())
 		return true
 	case errors.Is(err, agentprofiles.ErrProfileNotFound):
-		writeError(w, r, http.StatusNotFound, "agent_profile_not_found", "Agent profile not found.")
+		writeDetail(w, http.StatusNotFound, "Agent profile not found")
 		return true
 	default:
 		return false

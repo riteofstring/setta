@@ -237,12 +237,14 @@ func TestRegisterAgentProfileRoutesReturnsNotFoundForMissingProfile(t *testing.T
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload struct {
+		Detail string `json:"detail"`
+	}
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "agent_profile_not_found" {
-		t.Fatalf("expected agent_profile_not_found, got %#v", payload)
+	if payload.Detail != "Agent profile not found" {
+		t.Fatalf("expected agent profile detail, got %#v", payload)
 	}
 }
 
@@ -263,12 +265,14 @@ func TestRegisterAgentProfileRoutesReturnsNotFoundForGettingMissingProfile(t *te
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload struct {
+		Detail string `json:"detail"`
+	}
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "agent_profile_not_found" {
-		t.Fatalf("expected agent_profile_not_found, got %#v", payload)
+	if payload.Detail != "Agent profile not found" {
+		t.Fatalf("expected agent profile detail, got %#v", payload)
 	}
 }
 
@@ -289,12 +293,14 @@ func TestRegisterAgentProfileRoutesReturnsNotFoundForDeletingMissingProfile(t *t
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload struct {
+		Detail string `json:"detail"`
+	}
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "agent_profile_not_found" {
-		t.Fatalf("expected agent_profile_not_found, got %#v", payload)
+	if payload.Detail != "Agent profile not found" {
+		t.Fatalf("expected agent profile detail, got %#v", payload)
 	}
 }
 
@@ -534,12 +540,25 @@ func TestRegisterAgentProfileRoutesBlocksShareModeMutations(t *testing.T) {
 	})
 	handler := newAgentProfileRouteTestHandler(t, config.ModeShare, store, deploymentRuntime)
 	testCases := []struct {
-		path string
-		body string
+		path           string
+		body           string
+		expectedDetail string
 	}{
-		{path: RouteCreateAgentProfile, body: `{"name":"Planner"}`},
-		{path: RouteUpdateAgentProfile, body: `{"profile":{"id":"profile-1","name":"Planner"}}`},
-		{path: RouteDeleteAgentProfile, body: `{"profileId":"profile-1"}`},
+		{
+			path:           RouteCreateAgentProfile,
+			body:           `{"name":"Planner"}`,
+			expectedDetail: "Share mode does not allow creating agent profiles.",
+		},
+		{
+			path:           RouteUpdateAgentProfile,
+			body:           `{"profile":{"id":"profile-1","name":"Planner"}}`,
+			expectedDetail: "Share mode does not allow updating agent profiles.",
+		},
+		{
+			path:           RouteDeleteAgentProfile,
+			body:           `{"profileId":"profile-1"}`,
+			expectedDetail: "Share mode does not allow deleting agent profiles.",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -551,12 +570,14 @@ func TestRegisterAgentProfileRoutesBlocksShareModeMutations(t *testing.T) {
 		if response.Code != http.StatusForbidden {
 			t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
 		}
-		var payload errorResponse
+		var payload struct {
+			Detail string `json:"detail"`
+		}
 		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 			t.Fatalf("decode error payload: %v", err)
 		}
-		if payload.Error.Code != "mode_forbidden" {
-			t.Fatalf("expected mode_forbidden, got %#v", payload)
+		if payload.Detail != testCase.expectedDetail {
+			t.Fatalf("expected detail %q, got %#v", testCase.expectedDetail, payload)
 		}
 	}
 }
