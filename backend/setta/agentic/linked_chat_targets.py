@@ -1,10 +1,7 @@
 from dataclasses import dataclass
 
-from setta.agentic.store import (
-    require_agent_profile,
-    require_engine_config,
-    require_external_agent_config,
-)
+from setta.agentic.engine_resolver import resolve_engine_config
+from setta.agentic.store import require_agent_profile, require_engine_config
 from setta.database.db_objs import DBE
 from setta.types.agentic import AgentProfile, EngineType
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -71,20 +68,11 @@ def resolve_executable_linked_chat_target(
         raise LinkedChatTargetResolutionError("missing_external_config")
 
     try:
-        if engine_config.engineType == EngineType.setta_llm:
-            llm_config_id = engine_config.settaLlmConfigId
-            if not llm_config_id:
-                if llm_configs.default_config_id:
-                    llm_config_id = llm_configs.default_config_id
-                elif llm_configs.configs:
-                    llm_config_id = next(iter(llm_configs.configs.keys()))
-                else:
-                    raise ValueError("No LLM config available for engine")
-            llm_configs.resolve_config(llm_config_id)
-        elif engine_config.engineType == EngineType.external_agent:
-            require_external_agent_config(dbe, engine_config.externalAgentConfigId)
-        else:
-            raise ValueError(f"Unsupported engine type: {engine_config.engineType}")
+        resolve_engine_config(
+            dbe,
+            llm_configs,
+            effective_engine_config_id,
+        )
     except KeyError as exc:
         reason = (
             "missing_external_config"
@@ -100,3 +88,22 @@ def resolve_executable_linked_chat_target(
         selected_profile=selected_profile,
         effective_engine_config_id=effective_engine_config_id,
     )
+
+
+def is_executable_linked_chat_target(
+    project_state: ProjectStateSingleConfig,
+    target_section_id: ID,
+    *,
+    dbe: DBE,
+    llm_configs: AllLLMConfigs,
+) -> bool:
+    try:
+        resolve_executable_linked_chat_target(
+            project_state,
+            target_section_id,
+            dbe=dbe,
+            llm_configs=llm_configs,
+        )
+    except LinkedChatTargetResolutionError:
+        return False
+    return True

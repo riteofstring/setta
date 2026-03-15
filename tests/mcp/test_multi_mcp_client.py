@@ -1,21 +1,12 @@
-import asyncio
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from typing import Any
 
 import anyio
-import httpx
-import mcp.types as mcp_types
 import pytest
-from mcp.shared.message import SessionMessage
 from mcp.types import Tool, ToolAnnotations
 
-import setta.mcp.client as client_mod
-from setta.auth.cookies import auth_cookie_name
-from setta.mcp.client import BridgeConfig, MissingMCPEnvVarError, MultiMCPClient
+from setta.mcp.client import MissingMCPEnvVarError, MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.sessions.registry import SessionMetadata
 from setta.types.llm_config import MCPServerConfig
 from setta.types.mcp_runtime_status import MCPServerRuntimeState
 from setta.utils.constants import C
@@ -58,45 +49,6 @@ class _RecordingSession:
     ) -> Any:
         self.calls.append((tool_name, tool_args, meta))
         return self.result
-
-
-@dataclass
-class _BridgeStreams:
-    stdio_input_send: Any
-    stdio_read: Any
-    stdio_write: Any
-    stdio_output_read: Any
-    backend_input_send: Any
-    backend_read: Any
-    backend_write: Any
-    backend_output_read: Any
-
-
-def _create_bridge_streams() -> _BridgeStreams:
-    stdio_input_send, stdio_read = anyio.create_memory_object_stream(1)
-    stdio_write, stdio_output_read = anyio.create_memory_object_stream(1)
-    backend_input_send, backend_read = anyio.create_memory_object_stream(1)
-    backend_write, backend_output_read = anyio.create_memory_object_stream(1)
-    return _BridgeStreams(
-        stdio_input_send=stdio_input_send,
-        stdio_read=stdio_read,
-        stdio_write=stdio_write,
-        stdio_output_read=stdio_output_read,
-        backend_input_send=backend_input_send,
-        backend_read=backend_read,
-        backend_write=backend_write,
-        backend_output_read=backend_output_read,
-    )
-
-
-def _build_session_message(method: str, message_id: int) -> SessionMessage:
-    return SessionMessage(
-        mcp_types.JSONRPCRequest(
-            jsonrpc="2.0",
-            id=message_id,
-            method=method,
-        )
-    )
 
 
 class TestMultiMCPClientToolCache:
@@ -171,199 +123,6 @@ class TestMultiMCPClientToolCache:
             f"{SETTA_MCP_SERVER_ID}__search_mcp_tools"
             in client.init_tool_definitions
         )
-
-
-class TestRunStdioBridge:
-    @pytest.mark.asyncio
-    async def test_uses_current_session_cookie_when_available(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        session_metadata = SessionMetadata(
-            id="sess-1",
-            workspacePath="/tmp/workspace",
-            workspacePathCanonical="/tmp/workspace",
-            host="127.0.0.1",
-            port=8000,
-            pid=123,
-            secretPath="/tmp/secret",
-            serverMode="ide",
-        )
-        streams = _create_bridge_streams()
-        sse_calls: list[tuple[str, dict[str, str]]] = []
-        streams.stdio_input_send.close()
-        streams.backend_input_send.close()
-
-        @asynccontextmanager
-        async def _stdio_server():
-            yield streams.stdio_read, streams.stdio_write
-
-        @asynccontextmanager
-        async def _sse_client(*, url: str, headers: dict[str, str]):
-            sse_calls.append((url, headers))
-            yield streams.backend_read, streams.backend_write
-
-        monkeypatch.setattr(client_mod, "load_current_session_secret", lambda: (session_metadata, b"secret"))
-        monkeypatch.setattr(
-            client_mod.AUTH_COOKIE_MANAGER,
-            "mint",
-            lambda _session_id, _secret: "cookie-value",
-        )
-        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
-        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
-
-        await client_mod.run_stdio_bridge(
-            BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
-        )
-
-        assert sse_calls == [
-            (
-                "http://127.0.0.1:8000/mcp",
-                {
-                    "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value"
-                },
-            )
-        ]
-
-    @pytest.mark.asyncio
-    async def test_prefers_trimmed_bootstrap_token_over_session_secret(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        streams = _create_bridge_streams()
-        sse_calls: list[tuple[str, dict[str, str]]] = []
-        http_calls: list[tuple[str, dict[str, str]]] = []
-        streams.stdio_input_send.close()
-        streams.backend_input_send.close()
-
-        @asynccontextmanager
-        async def _stdio_server():
-            yield streams.stdio_read, streams.stdio_write
-
-        @asynccontextmanager
-        async def _sse_client(*, url: str, headers: dict[str, str]):
-            sse_calls.append((url, headers))
-            yield streams.backend_read, streams.backend_write
-
-        class _RecordingHTTPClient:
-            async def post(self, url: str, json: dict[str, str]) -> httpx.Response:
-                http_calls.append((url, json))
-                return httpx.Response(
-                    200,
-                    headers={
-                        "set-cookie": (
-                            f"{auth_cookie_name('sess-bridge')}=bootstrap-cookie; Path=/"
-                        )
-                    },
-                    request=httpx.Request("POST", url),
-                )
-
-        @asynccontextmanager
-        async def _create_mcp_http_client():
-            yield _RecordingHTTPClient()
-
-        def _unexpected_session_lookup() -> None:
-            raise AssertionError("bootstrap token flow should not read session auth")
-
-        monkeypatch.setattr(client_mod, "load_current_session_secret", _unexpected_session_lookup)
-        monkeypatch.setattr(client_mod, "create_mcp_http_client", _create_mcp_http_client)
-        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
-        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
-
-        await client_mod.run_stdio_bridge(
-            BridgeConfig(
-                backend_url="http://127.0.0.1:8000/mcp",
-                verbose=False,
-                bootstrap_token="  bridge-token  ",
-            )
-        )
-
-        assert http_calls == [
-            (
-                "http://127.0.0.1:8000"
-                f"{client_mod.Route.BOOTSTRAP_CONSUME.value}",
-                {"token": "bridge-token"},
-            )
-        ]
-        assert sse_calls == [
-            (
-                "http://127.0.0.1:8000/mcp",
-                {
-                    "Cookie": (
-                        f"{auth_cookie_name('sess-bridge')}=bootstrap-cookie"
-                    )
-                },
-            )
-        ]
-
-    @pytest.mark.asyncio
-    async def test_raises_when_no_bridge_auth_is_available(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(client_mod, "load_current_session_secret", lambda: None)
-
-        with pytest.raises(ValueError, match="Missing MCP auth"):
-            await client_mod.run_stdio_bridge(
-                BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
-            )
-
-    @pytest.mark.asyncio
-    async def test_forwards_messages_between_stdio_and_backend(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        session_metadata = SessionMetadata(
-            id="sess-forward",
-            workspacePath="/tmp/workspace",
-            workspacePathCanonical="/tmp/workspace",
-            host="127.0.0.1",
-            port=8000,
-            pid=123,
-            secretPath="/tmp/secret",
-            serverMode="ide",
-        )
-        streams = _create_bridge_streams()
-
-        @asynccontextmanager
-        async def _stdio_server():
-            yield streams.stdio_read, streams.stdio_write
-
-        @asynccontextmanager
-        async def _sse_client(*, url: str, headers: dict[str, str]):
-            del url, headers
-            yield streams.backend_read, streams.backend_write
-
-        monkeypatch.setattr(
-            client_mod,
-            "load_current_session_secret",
-            lambda: (session_metadata, b"secret"),
-        )
-        monkeypatch.setattr(
-            client_mod.AUTH_COOKIE_MANAGER,
-            "mint",
-            lambda _session_id, _secret: "cookie-value",
-        )
-        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
-        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
-
-        bridge_task = asyncio.create_task(
-            client_mod.run_stdio_bridge(
-                BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
-            )
-        )
-        await asyncio.sleep(0)
-
-        stdio_message = _build_session_message("stdio.method", 1)
-        backend_message = _build_session_message("backend.method", 2)
-        await streams.stdio_input_send.send(stdio_message)
-        await streams.backend_input_send.send(backend_message)
-
-        forwarded_to_backend = await streams.backend_output_read.receive()
-        forwarded_to_stdio = await streams.stdio_output_read.receive()
-
-        assert forwarded_to_backend is stdio_message
-        assert forwarded_to_stdio is backend_message
-
-        streams.stdio_input_send.close()
-        streams.backend_input_send.close()
-        await bridge_task
 
 
 class TestMultiMCPClientCallTool:
@@ -656,16 +415,6 @@ class TestMultiMCPClientHTTPHeaders:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        session_metadata = SessionMetadata(
-            id="sess-http",
-            workspacePath="/tmp/workspace",
-            workspacePathCanonical="/tmp/workspace",
-            host="127.0.0.1",
-            port=8000,
-            pid=123,
-            secretPath="/tmp/secret",
-            serverMode="ide",
-        )
         client = MultiMCPClient(
             {
                 SETTA_MCP_SERVER_ID: MCPServerConfig(
@@ -677,21 +426,16 @@ class TestMultiMCPClientHTTPHeaders:
         )
         config = client.server_configs[SETTA_MCP_SERVER_ID]
         monkeypatch.setattr(
-            client_mod,
-            "load_current_session_secret",
-            lambda: (session_metadata, b"secret"),
-        )
-        monkeypatch.setattr(
-            client_mod.AUTH_COOKIE_MANAGER,
-            "mint",
-            lambda _session_id, _secret: "cookie-value",
+            client,
+            "_build_setta_auth_headers",
+            lambda _server_id: {"Cookie": "setta_session=cookie-value"},
         )
 
         headers = client._build_http_headers(SETTA_MCP_SERVER_ID, config)
 
         assert headers == {
             "Authorization": "Bearer custom-token",
-            "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value",
+            "Cookie": "setta_session=cookie-value",
         }
 
     def test_build_http_headers_excludes_setta_auth_for_non_setta_server(
@@ -708,14 +452,14 @@ class TestMultiMCPClientHTTPHeaders:
             }
         )
         config = client.server_configs["github"]
-
-        def _unexpected_session_lookup() -> None:
-            raise AssertionError("non-Setta server should not read Setta session auth")
-
         monkeypatch.setattr(
-            client_mod,
-            "load_current_session_secret",
-            _unexpected_session_lookup,
+            client,
+            "_build_setta_auth_headers",
+            lambda server_id: (
+                {"Cookie": "should-not-apply"}
+                if server_id == SETTA_MCP_SERVER_ID
+                else None
+            ),
         )
 
         headers = client._build_http_headers("github", config)
