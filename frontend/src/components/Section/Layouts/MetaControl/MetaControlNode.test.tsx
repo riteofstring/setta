@@ -165,4 +165,47 @@ describe("MetaControlContent rendering", () => {
     expect(markup).not.toContain("single-cell-child");
     expect(markup).not.toContain("col-span-2");
   });
+
+  it("renders text area meta controls without the single-cell grid shell", () => {
+    const markup = renderToStaticMarkup(
+      <MetaControlContent
+        sectionId="section-1"
+        controlParamId="param-1"
+        sectionName="Notes"
+        paramDisplayName="Notes"
+        codeObjType={CodeObjTypeEnum.TextAreaParam}
+        value={"alpha\nbeta\ngamma"}
+        defaultVal=""
+        showSectionTitle={false}
+        onValueChange={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("alpha");
+    expect(markup).toContain("beta");
+    expect(markup).toContain("gamma");
+    expect(markup).toContain("min-h-24");
+    expect(markup).not.toContain("single-cell-container");
+    expect(markup).not.toContain("single-cell-child");
+  });
+
+  it("renders code meta controls without the single-cell grid shell", () => {
+    const markup = renderToStaticMarkup(
+      <MetaControlContent
+        sectionId="section-1"
+        controlParamId="param-1"
+        sectionName="Script"
+        paramDisplayName="Script"
+        codeObjType={CodeObjTypeEnum.CodeParam}
+        value={"alpha\nbeta\ngamma"}
+        defaultVal=""
+        showSectionTitle={false}
+        onValueChange={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("alpha");
+    expect(markup).not.toContain("single-cell-container");
+    expect(markup).not.toContain("single-cell-child");
+  });
 });

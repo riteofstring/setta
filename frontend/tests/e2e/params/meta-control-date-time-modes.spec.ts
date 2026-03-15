@@ -370,3 +370,85 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
     await cleanupIsolatedProject(page, context);
   }
 });
+
+test("meta control text area keeps the editor within the compact section shell", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const context = await openIsolatedProject(page);
+  const sectionIds: Array<string> = [];
+
+  try {
+    const sectionId = await createMetaControlSection(
+      page,
+      context.projectConfigId,
+    );
+    sectionIds.push(sectionId);
+    const paramInfoId = await waitForMetaControlParamId(
+      page,
+      context.projectConfigId,
+      sectionId,
+    );
+
+    await postBackend(page, "/changeParamImpl", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      selectedId: "TextAreaParam",
+    });
+
+    await postBackend(page, "/setParamEnteredValue", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      value: "alpha\nbeta\ngamma",
+    });
+
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    const editorShell = sectionNode.locator(
+      `[id="${sectionId}-${paramInfoId}-MetaControl"]`,
+    );
+
+    await expect(sectionNode).toBeVisible();
+    await expect(editorShell).toContainText("alpha");
+    await expect(editorShell).toContainText("beta");
+    await expect(editorShell).toContainText("gamma");
+
+    const classRead = await sectionNode.evaluate((node) => {
+      const shell = node.querySelector(
+        'div[class*="rounded-lg border"]',
+      ) as HTMLDivElement | null;
+      const editor = node.querySelector(
+        '[id$="-MetaControl"]',
+      ) as HTMLElement | null;
+      return {
+        shellClassName: shell?.className ?? null,
+        editorClassName: editor?.className ?? null,
+      };
+    });
+
+    expect(classRead.shellClassName).not.toContain("single-cell-container");
+    expect(classRead.editorClassName).not.toContain("single-cell-child");
+
+    const sectionBox = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "text area meta control section",
+    );
+    const editorBox = requireBoundingBox(
+      await editorShell.boundingBox(),
+      "text area editor shell",
+    );
+    expectBoxWithinSection(sectionBox, editorBox);
+    expect(editorBox.height).toBeGreaterThan(80);
+  } finally {
+    if (sectionIds.length > 0) {
+      await postBackend(page, "/deleteSections", {
+        projectConfigId: context.projectConfigId,
+        sectionIds,
+      });
+    }
+    await cleanupIsolatedProject(page, context);
+  }
+});
