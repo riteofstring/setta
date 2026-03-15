@@ -365,9 +365,9 @@ packaged/runtime path is predominantly Go-owned.
 No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
 explicit retained boundary list, most notably the still-active Python plugin
-worker implementation/runtime path in `backend/setta/plugins/worker.py`, the
-Python plugin-management path in `backend/setta/plugins/manager.py`. The old
-top-level Python FastAPI app, the old
+worker implementation/runtime path in `backend/setta/plugins/worker.py`. The
+deleted Python plugin-management path in `backend/setta/plugins/manager.py`,
+the old top-level Python FastAPI app, the old
 `setta.dev_start` shim, the old source-only Python startup/CLI helper
 surfaces, the legacy Python server-state startup path, and the legacy Python
 project-state plugin-codegen owner are no longer part of that blocker set, and
@@ -604,3 +604,11 @@ the dead Python `PluginManager` -> external-agent-runner path were removed.
 The surrounding external-agent runner, preflight, and route suites still pass,
 which confirms the retained Python agentic surface does not depend on that
 plugin-manager export.
+
+A twenty-third follow-up rewrite step deleted the dead Python plugin-manager
+implementation itself. `backend/setta/plugins/manager.py`,
+`backend/setta/plugins/errors.py`, and the dedicated
+`tests/plugins/test_plugin_manager.py` suite are gone, and the remaining plugin
+worker plus surrounding agentic suites still pass. This removes the standalone
+Python plugin manager from the blocker set and leaves the Python plugin worker
+implementation as the primary remaining backend-ownership tail in this area.
