@@ -2090,3 +2090,42 @@ module map and placement guide while this cleanup progresses.
     the largest authored/shared state hotspot, by separating typed
     current-section/current-code-object selectors from the remaining
     managed-chat and param display-name helpers.
+
+## 2026-03-15 02:14:26 PDT
+
+- Slice completed: split managed-chat authority and param display-name helpers
+  away from typed effective-impl selectors
+- Key files touched:
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts`
+  - `frontend/src/state/actions/sectionFeatureSelectors.ts`
+  - `frontend/src/state/actions/sectionFeatureSelectors.test.ts`
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.test.ts`
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts`
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/sections/sectionContents.ts`
+  - `frontend/src/state/hooks/search.ts`
+  - `frontend/src/components/Chat/sharePolicyChatAccess.ts`
+  - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/MetaControlSettings.tsx`
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx`
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/GetParamSwitch.tsx`
+  - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionEffectiveImplSelectors.test.ts src/state/actions/sectionFeatureSelectors.test.ts src/components/Chat/sharePolicyChatAccess.test.ts src/components/Params/GroupContainer.test.tsx src/components/App/AppRenderer.policy.test.tsx src/state/actions/aiSectionStreaming.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionEffectiveImplSelectors.ts src/state/actions/sectionFeatureSelectors.ts src/state/actions/sectionFeatureSelectors.test.ts src/state/actions/sectionEffectiveImplSelectors.test.ts src/state/actions/sectionEffectiveImpls.ts src/state/actions/aiChatStreaming.ts src/state/actions/sections/sectionContents.ts src/state/hooks/search.ts src/components/Chat/sharePolicyChatAccess.ts src/components/Section/Layouts/MetaControlArea.tsx src/components/App/appRegistry.tsx src/components/Panes/UiEditor/SectionConfig/MetaControlSettings.tsx src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx src/components/Params/GroupContainer.tsx src/components/Params/GetParamSwitch.tsx src/components/Params/ParamItems/ParamTextLabel.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `baafde35c`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowCommands.ts`, now the
+    largest authored/shared state hotspot, by separating public window
+    lifecycle/focus commands from the remaining bounds and tracked git-pane
+    coordination helpers.
