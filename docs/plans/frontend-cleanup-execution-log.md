@@ -5032,3 +5032,33 @@ in `frontend/src/README.md` and the cleanup plans.
   - `d84c33f8a3d973e9c47c50e24a99b3d609a85494`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/Chat/ChatMessages.tsx`, which is now back to the top unresolved hotspot at about `3920` lines now that `ProjectChatBottomDock.tsx` has dropped to about `3414` lines.
+
+## 2026-03-15 16:04:39 PDT
+
+- Slice completed: extracted the assistant activity card shell and timeline row rendering out of `ChatMessages.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/Chat/ChatMessages.tsx` was still the top-ranked unresolved hotspot in `frontend/src/README.md`, and the duplicated assistant-activity card shell was the clearest remaining local render seam.
+  - This was higher value than switching back to `ProjectChatBottomDock.tsx` one slice earlier because finishing the active chat render surface removed duplicated activity-card composition, moved most of the activity-row render stack into a local owner, and materially changed the hotspot ranking for the next turn.
+- Key files touched:
+  - `frontend/src/components/Chat/chatAssistantActivityCard.tsx`
+  - `frontend/src/components/Chat/chatAssistantActivityCard.test.tsx`
+  - `frontend/src/components/Chat/chatCopyText.ts`
+  - `frontend/src/components/Chat/chatMessageContent.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-assistant-activity-card-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatAssistantActivityCard.test.tsx src/components/Chat/chatAssistantActivity.test.ts src/components/Chat/chatMessageContent.test.tsx src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "groups consecutive thoughts, actions, and tool calls under one parent activity accordion"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/chatAssistantActivityCard.tsx src/components/Chat/chatAssistantActivityCard.test.tsx src/components/Chat/chatCopyText.ts src/components/Chat/chatMessageContent.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-assistant-activity-card-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-assistant-activity-card-2026-03-15.md` with same-origin harness before/after notes.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that the grouped activity-only run still merged with the trailing assistant bubble, and that the expanded harness kept the same structural footprint before and after the extraction (`130` total DOM nodes and `46` activity-subtree nodes).
+- Commit hash:
+  - `b2aa7e4f3f0d16ea4fd57a0e744ebc8730258c2f`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is now back to the top unresolved hotspot at about `3414` lines after `ChatMessages.tsx` dropped to about `1236` lines.
