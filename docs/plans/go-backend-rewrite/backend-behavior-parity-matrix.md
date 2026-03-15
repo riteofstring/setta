@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`f7b7c7111a1d36a4cefa85c1fdaeaebdf17441bf`
+`3488f37183986a5d7e99062aa740cedfd0a94cde`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -66,6 +66,7 @@ It currently covers:
   mutation and deployment-policy behavior
 - chat-section settings/state persistence and stale-chat cleanup behavior
 - project-chat windowing and window-space CRUD behavior
+- project history undo/redo and section clipboard route behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -123,7 +124,10 @@ Rows outside these slices are still pending.
 - The project-chat-windowing / window-space slice adds no new concrete gap,
   but it does add two more proof-gap rows around layout-only thread-binding
   invariants and remaining window-space transport mapping.
-- Thirty-five concrete parity gaps are already visible:
+- The history/clipboard slice mostly closes with proofs, but it adds two more
+  clipboard parity gaps plus one more dormant deployment-mode route-boundary
+  row.
+- Thirty-seven concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -953,14 +957,26 @@ Rows outside these slices are still pending.
 | `CW-05` | In share/app sessions, layout/window-space writes follow `allowLayoutChanges`, while `setProjectChatWindowChatId` is separately gated by `allowLLM` and can still succeed when layout changes are blocked. | Source docs: `docs/reference/project-chat-windowing.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_project_chat_windowing_state,route_create_window_space,route_set_window_space_name,route_set_window_space_sort_order,route_delete_window_space,route_set_project_chat_window_chat_id}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::{test_window_space_routes_blocked_when_layout_changes_disallowed,test_window_space_routes_allowed_when_layout_changes_allowed,test_project_chat_window_thread_binding_allowed_when_llm_allowed_and_layout_blocked,test_project_chat_window_thread_binding_blocked_when_llm_is_disallowed}`. | Current Go mounts layout/window-space routes behind the deployment `shareGuard` and `setProjectChatWindowChatId` behind the same direct route family with separate runtime LLM policy enforcement in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; route proof: `internal/httpapi/project_chat_windowing_routes_test.go::{TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy,TestRegisterProjectRoutesProjectChatWindowChatIDRespectsDeploymentLLMPolicy}`; current caller evidence: `frontend/src/state/actions/projectChatWindowing.ts`, `frontend/src/state/actions/windowSpaces.ts`, and `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`. | `Proved` | This slice confirms that the current Go deployment boundary matches the source layout-vs-LLM split for active callers. |
 | `CW-06` | Missing window-space ids and the remaining window-space name/sort validation branches preserve typed `404` / `422` transport mappings on the direct route family. | Source tests: `tests/routers/test_share_policy_routes.py::test_window_space_routes_return_404_for_missing_window_space_ids`; source docs: `docs/reference/name-validation.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_window_space_name,route_set_window_space_sort_order,route_delete_window_space}`. | Current Go route mapper has the typed branches in `internal/httpapi/project_routes.go::writeWindowSpaceMutationError`; current runtime proof covers invalid-name and invalid-sort errors in `internal/projectstate/project_chat_windowing_writes_test.go::TestRuntimeWindowSpaceNameSortAndDeleteMutations`. | `Implemented, proof incomplete` | This slice does not yet cite direct Go route tests for the missing-window-space-id `404` mapping or the invalid-name / invalid-sort transport branches. |
 
+## Project History And Section Clipboard Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `UR-01` | `undo` / `redo` remain available in share/deployment sessions without layout/LLM policy gates, operate on the active session overlay, and deliver the latest project state back to the active caller flow. | Source docs: `docs/reference/keyboard-shortcuts.md`; source routes: `backend/setta/routers/project_manager.py::{route_undo,route_redo}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{undo,redo}`; source deployment-session model: `docs/reference/sharing-mode-vs-ide-mode.md`. | Current Go mounts both routes in IDE and behind deployment `shareGuard` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; impl: `internal/projectstate/runtime_history.go::{UndoAndSave,RedoAndSave}`; proof: `internal/httpapi/project_history_routes_test.go::{TestRegisterProjectRoutesUndoAndRedoReturnLatestProjectState,TestRegisterProjectRoutesUndoAndRedoUseDeploymentOverlayWithoutPolicyGate}`; current callers: `frontend/src/state/actions/undo.ts`, `frontend/src/state/actions/keyActivations.ts`, `frontend/src/components/Utils/CodeMirror/getExtensions.ts`, and `frontend/src/components/AppHeader/EditMenu.tsx`. | `Proved` | Current Go returns the updated project snapshot directly instead of relying on a later websocket broadcast, but the caller-visible undo/redo behavior remains intact for the active frontend flow. |
+| `UR-02` | History undo/redo clamps oversized step counts, treats zero or negative steps as a no-op, and truncates the redo branch after a divergent post-undo mutation. | Source history helper: `backend/setta/project_state/history.py::{add,undo,redo}`; source test: `tests/project_state/test_history_coalescing.py::test_coalesce_resets_after_undo`. | Impl: `internal/projectstate/runtime_history.go::{recordRuntimeHistoryState,undoRuntimeState,redoRuntimeState}`; proof: `internal/projectstate/runtime_history_test.go::{TestRuntimeUndoAndRedoClampAndPersistHistory,TestRuntimeUndoAndSaveTruncatesRedoAfterNewMutation}`. | `Proved` | The source evidence for clamp/no-op behavior is helper-code-defined rather than isolated by a dedicated route test, but the pinned baseline behavior is explicit in the Python history implementation. |
+| `CB-01` | `prepareSectionsForCopy` returns a section-subtree clipboard payload containing the selected roots plus descendants and the section/code-object state needed to reconstruct that subtree on paste. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_prepare_sections_for_copy`; source manager method: `backend/setta/project_state/base_project_manager.py::prepare_sections_for_copy`; source helper: `backend/setta/types/helpers_lvl3.py::prepare_sections_for_copy`. | Impl: `internal/projectstate/clipboard_sections.go::{PrepareSectionsForCopy,prepareSectionsForCopy,prepareClipboardCoreWithVariants}`; proof: `internal/projectstate/clipboard_sections_test.go::TestProjectPrepareSectionsForCopyIncludesDescendantsAndActiveVariantMap`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState`. | `Proved` | The current Go proof also covers descendant active-variant preservation, which is tracked separately as a source-parity gap in `CB-03`. |
+| `CB-02` | Non-reference `pasteSections` clones nested section/code-object ids, preserves child hierarchy, positions pasted roots at the requested top-level coordinates, and clears copied password secrets/defaults while remapping nested references. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_paste_sections`; source manager method: `backend/setta/project_state/base_project_manager.py::paste_sections`; source helpers: `backend/setta/types/helpers_lvl3.py::{copy_sections_and_other_info,clear_copied_password_secrets,paste_sections}`. | Impl: `internal/projectstate/clipboard_sections.go::{PasteSections,cloneClipboardProjectState,mergeClipboardSections,remapCodeObjectImpls}`; proof: `internal/projectstate/clipboard_sections_test.go::TestDocumentPasteSectionsClonesNestedIDsAndClearsPasswordSecrets`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState`. | `Proved` | Current Go also preserves top-level layout z-order by assigning fresh creation indexes, which is compatible with the source helper contract for pasted roots. |
+| `CB-03` | The source clipboard payload only preserves explicit `sectionVariantMap` entries for the directly requested section ids, not every descendant copied into the subtree. | Source manager method: `backend/setta/project_state/base_project_manager.py::prepare_sections_for_copy`; source paste helper: `backend/setta/types/helpers_lvl3.py::paste_sections`. | Current Go builds `SectionVariantMap` for every copied section in `internal/projectstate/clipboard_sections.go::prepareClipboardCoreWithVariants`; proof: `internal/projectstate/clipboard_sections_test.go::TestProjectPrepareSectionsForCopyIncludesDescendantsAndActiveVariantMap`. | `Missing` | This is a real source-parity delta: descendant sections pasted from the current Go clipboard preserve non-default active variants that the pinned Python baseline would drop unless those descendants were explicitly selected roots. |
+| `CB-04` | In share/app sessions, `prepareSectionsForCopy` stays mounted and callable instead of disappearing with IDE-only route registration. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_prepare_sections_for_copy`. | Current Go mounts the route only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still calls the direct route without a deployment/share guard via `frontend/src/state/actions/copyPaste.ts::copy` and `frontend/src/state/actions/keyActivations.ts`. | `Missing` | This is an active parity gap: deployment/share copy remains wired in the current frontend, but the Go backend removed the route outside IDE instead of preserving the source clipboard read surface. |
+| `CB-05` | In share/app sessions, `pasteSections` stays mounted but fails closed with deployment-mode `403` for structural writes instead of disappearing entirely. | Source route: `backend/setta/routers/project_manager.py::route_paste_sections`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_paste_sections_blocked`. | Current Go mounts the route only in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend short-circuits deployment paste before reading the clipboard in `frontend/src/state/actions/copyPaste.ts::paste`, with proof in `frontend/src/state/actions/copyPaste.test.ts::it(\"blocks paste in deployment mode before touching clipboard state\")`. | `Dormant / unproven caller` | The direct HTTP transport delta is real (`403` versus route absence), but this slice does not yet cite an active non-frontend deployment caller that still requires the source route-presence contract. |
+
 ## Current Findings
 
-1. The matrix now contains thirty-five concrete source-parity gaps:
+1. The matrix now contains thirty-seven concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, and `CS-04`.
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `CB-04`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1064,26 +1080,30 @@ Rows outside these slices are still pending.
 33. The project-chat-windowing / window-space slice adds no new real
     behavior gap, but it does add two broader proof-gap rows (`CW-02`,
     `CW-06`).
-34. Git route behavior is now largely proved, including literal pathspec
+34. The history/clipboard slice mostly closes with proofs, but it adds two
+    real clipboard-route/payload gaps (`CB-03`, `CB-04`) plus one dormant
+    deployment-mode route-boundary row (`CB-05`).
+35. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-35. The remaining issues in the naming slice are still mostly proof gaps rather
+36. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-36. The next high-value steps are:
+37. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
-      `BR-03`, `SD-05`, `SD-06`, `CS-02`, and `CS-04` should be restored or
-      documented as intentional divergences
+      `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `CB-04`
+      should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
       `LH-04`, `WL-05`, `AS-02`, `SM-04`, `CH-04`, `SD-07`, `SD-08`,
-      `SD-09`, and `CS-05` can be treated as fully dead legacy or share-only
-      transports, or still need explicit retained-boundary decisions
+      `SD-09`, `CS-05`, and `CB-05` can be treated as fully dead legacy or
+      share-only transports, or still need explicit retained-boundary
+      decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
