@@ -87,7 +87,16 @@ class AgentRunChatStore(ChatStore):
             if name is None:
                 messages = _parse_run_messages(run)
                 name = derive_chat_name(messages)
-            last_updated = _parse_last_updated(run)
+            if run.outputs:
+                raw_last_updated = run.outputs.get("lastUpdated")
+                if isinstance(raw_last_updated, datetime):
+                    last_updated = raw_last_updated
+                elif isinstance(raw_last_updated, str):
+                    last_updated = parse_timestamp_str(raw_last_updated)
+                else:
+                    last_updated = get_run_last_updated(run)
+            else:
+                last_updated = get_run_last_updated(run)
             raw_project_config_id = run.inputs.get("projectConfigId")
             project_config_id = (
                 ID(raw_project_config_id)
@@ -208,7 +217,16 @@ def _build_chat_from_run(run: AgentRun) -> Chat | None:
     messages = _parse_run_messages(run)
     raw_name = run.outputs.get("name") if run.outputs else None
     name = raw_name if isinstance(raw_name, str) else derive_chat_name(messages)
-    last_updated = _parse_last_updated(run)
+    if run.outputs:
+        raw_last_updated = run.outputs.get("lastUpdated")
+        if isinstance(raw_last_updated, datetime):
+            last_updated = raw_last_updated
+        elif isinstance(raw_last_updated, str):
+            last_updated = parse_timestamp_str(raw_last_updated)
+        else:
+            last_updated = get_run_last_updated(run)
+    else:
+        last_updated = get_run_last_updated(run)
     raw_project_config_id = run.inputs.get("projectConfigId")
     project_config_id = (
         ID(raw_project_config_id)
@@ -226,16 +244,6 @@ def _build_chat_from_run(run: AgentRun) -> Chat | None:
         messages=messages,
         systemPrompt=system_prompt,
     )
-
-
-def _parse_last_updated(run: AgentRun) -> datetime:
-    if run.outputs:
-        raw = run.outputs.get("lastUpdated")
-        if isinstance(raw, datetime):
-            return raw
-        if isinstance(raw, str):
-            return parse_timestamp_str(raw)
-    return get_run_last_updated(run)
 
 
 def _parse_run_messages(run: AgentRun) -> list[BaseChatMessageUnion]:
