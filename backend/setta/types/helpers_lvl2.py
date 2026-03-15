@@ -10,7 +10,6 @@ from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.artifact import (
-    ChartType,
     DrawAreaLayer,
 )
 from setta.types.code_obj_impls import (
@@ -35,10 +34,6 @@ from setta.types.core import (
 )
 from setta.types.dropzone import normalize_dropzone_value
 from setta.types.edges import Edge, EdgePort
-from setta.types.generated.chart_settings_unions import (
-    BaseChartSettingsTypeAdapter,
-    BaseChartSettingsUnion,
-)
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -54,20 +49,15 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgs,
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
-    BrowserSectionImplArgsWithCallable,
-    CallableSectionImplArgsWithCallable,
-    ChartSectionImplArgsWithCallable,
     ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgs,
-    CodeSectionImplArgsWithCallable,
     CoreArgs,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     ListRootSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
     PromptSectionImplArgsWithCallable,
-    SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -115,17 +105,12 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
-    BrowserAreaViewMode,
-    BrowserSavedSearch,
-    BrowserSectionImpl,
     CallableSectionImpl,
     ChatDictationMode,
     ChatPermissionMode,
     ChatSectionImpl,
     ChatSectionState,
     CodeFileBinding,
-    CodeSectionDiagnosticsIgnoreState,
-    CodeSectionImpl,
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
@@ -192,10 +177,6 @@ if TYPE_CHECKING:
         ProjectStateCore,
         ProjectStateSingleConfig,
     )
-
-
-class ProjectNotFound(Exception):
-    pass
 
 
 DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES = frozenset(
@@ -2018,31 +1999,6 @@ def delete_kwarg_from_dict_section(
     return removed_param_id
 
 
-def delete_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID):
-    core = p.sections[sectionId]
-    if len(core.variants) < 2:
-        return  # can't delete variant if there's only 1
-    remaining_edges: list[Edge] = []
-    removed_edges: list[Edge] = []
-    for edge in p.projectConfig.edges:
-        if (
-            edge.sourceSectionId == sectionId and edge.sourceVariantId == variantId
-        ) or (edge.targetSectionId == sectionId and edge.targetVariantId == variantId):
-            removed_edges.append(edge)
-        else:
-            remaining_edges.append(edge)
-    p.projectConfig.edges = remaining_edges
-    for edge in removed_edges:
-        _maybe_clear_edge_target_value(p, edge)
-    core.variants = [v for v in core.variants if v != variantId]
-    if core.defaultVariant == variantId:
-        core.defaultVariant = core.variants[0]
-    if get_curr_section_variant(p, sectionId).id == variantId:
-        p.projectConfig.sectionVariantMap[sectionId] = core.variants[0]
-
-    del p.sectionVariants[variantId]
-
-
 def compute_initial_default_variant(variant: Variant):
     return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
 
@@ -3150,109 +3106,6 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     p._section_slug_cache = None
 
 
-def set_callable_hide_params(
-    p: "ProjectStateSingleConfig", sectionId: ID, hideParams: bool
-):
-    set_curr_effective_section_impl_value(
-        p, sectionId, CallableSectionImplArgsWithCallable(hideParams=hideParams)
-    )
-
-
-def set_section_hide_unpinned_params(
-    p: "ProjectStateSingleConfig", sectionId: ID, hideUnpinnedParams: bool
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(
-            hideUnpinnedParams=hideUnpinnedParams
-        ),
-    )
-
-
-def set_section_pinned_params(
-    p: "ProjectStateSingleConfig", sectionId: ID, pinnedParams: list[ID]
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(pinnedParams=pinnedParams),
-    )
-
-
-def set_section_column_width(
-    p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
-):
-    impl = get_curr_effective_section_impl(p, sectionId)
-    if not isinstance(impl, BaseSectionWithParamsImpl):
-        raise TypeError(f"Section {sectionId} does not support params columnWidth")
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(columnWidth=columnWidth),
-    )
-
-
-def set_browser_column_widths(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    columnWidth: float | None,
-    typesColumnWidth: float | None,
-):
-    impl = get_curr_effective_section_impl(p, sectionId)
-    if not isinstance(impl, BrowserSectionImpl):
-        raise TypeError(f"Section {sectionId} does not support browser column widths")
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BrowserSectionImplArgsWithCallable(
-            columnWidth=columnWidth,
-            typesColumnWidth=typesColumnWidth,
-        ),
-    )
-
-
-def set_browser_area_view_mode(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    viewMode: BrowserAreaViewMode,
-):
-    set_curr_effective_section_impl_value(
-        p, sectionId, BrowserSectionImplArgsWithCallable(viewMode=viewMode)
-    )
-
-
-def set_browser_hide_column(
-    p: "ProjectStateSingleConfig", sectionId: ID, hideColumn: bool
-):
-    set_curr_effective_section_impl_value(
-        p, sectionId, BrowserSectionImplArgsWithCallable(hideColumn=hideColumn)
-    )
-
-
-def set_browser_saved_searches(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    savedSearches: list[BrowserSavedSearch],
-):
-    impl = get_curr_effective_section_impl(p, sectionId)
-    if not isinstance(impl, BrowserSectionImpl):
-        raise TypeError(f"Section {sectionId} does not support browser saved searches")
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BrowserSectionImplArgsWithCallable(savedSearches=savedSearches),
-    )
-
-
-def set_text_block_format(
-    p: "ProjectStateSingleConfig", sectionId: ID, format: TextBlockFormat
-):
-    set_curr_effective_section_impl_value(
-        p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
-    )
-
-
 def set_prompt_section_template(
     p: "ProjectStateSingleConfig", sectionId: ID, template: str
 ):
@@ -3266,29 +3119,6 @@ def set_prompt_section_template(
         PromptSectionImplArgsWithCallable(
             promptTemplateId=None,
             template=template,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
-        ),
-    )
-
-
-def set_prompt_section_template_link(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    promptTemplateId: ID | None,
-    template: str,
-    format: PromptFormat,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, PromptSectionImpl)
-    result = build_prompt_section_preview(template, format)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            promptTemplateId=promptTemplateId,
-            template=template,
-            format=format,
             renderedText=result.rendered_text,
             missingVariables=result.missing_variables,
             renderError=result.render_error,
@@ -3407,54 +3237,11 @@ def set_chat_section_state(
     )
 
 
-def set_social_url(p: "ProjectStateSingleConfig", sectionId: ID, url: str):
-    set_curr_effective_section_impl_value(
-        p, sectionId, SocialSectionImplArgsWithCallable(url=url)
-    )
-
-
 def set_image_area_image_path(
     p: "ProjectStateSingleConfig", sectionId: ID, imagePath: str
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, ImageSectionImplArgsWithCallable(imagePath=imagePath)
-    )
-
-
-def set_chart_area_data_path(
-    p: "ProjectStateSingleConfig", sectionId: ID, dataPath: str
-):
-    set_curr_effective_section_impl_value(
-        p, sectionId, ChartSectionImplArgsWithCallable(dataPath=dataPath)
-    )
-
-
-def set_chart_type(p: "ProjectStateSingleConfig", sectionId: ID, chartType: ChartType):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChartSectionImplArgsWithCallable(
-            chartSettings=lambda currChartSettings: BaseChartSettingsTypeAdapter.validate_python(
-                {**currChartSettings.model_dump(), "type": chartType}
-            )
-        ),
-    )
-
-
-def set_chart_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    chartSettings: BaseChartSettingsUnion,
-    changedSettings: list[str],
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ChartSectionImplArgsWithCallable(
-            chartSettings=lambda currChartSettings: currChartSettings.model_copy(
-                update={k: getattr(chartSettings, k) for k in changedSettings}
-            )
-        ),
     )
 
 
@@ -3707,46 +3494,6 @@ def move_sections_to_parent_section(
         _set_code_section_attached_terminal(p, newParentId, sectionIds[0])
 
 
-def group_sections(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionIds: list[ID],
-):
-    currParentIds: set[ID | None] = set()
-    for s in sectionIds:
-        currParentIds.add(p.parentSectionMap[s])
-    if len(currParentIds) != 1:
-        # for now, we only allow siblings to be grouped
-        return False
-
-    parentId = list(currParentIds)[0]
-    if not parentId:
-        # create group at min(x), min(y)
-        x = min(p.projectConfig.topLevelSections[s].x for s in sectionIds)
-        y = min(p.projectConfig.topLevelSections[s].y for s in sectionIds)
-        groupId = create_top_level_section(
-            settings, p, SectionType.Group, Position(x=x, y=y)
-        )
-    else:
-        # create group in parent, at index min(idx)
-        children = get_curr_section_children_ids(p, parentId)
-        idx = min(children.index(s) for s in sectionIds)
-        groupId = create_child_sections(
-            settings, p, parentId, SectionType.Group, 1, idx
-        )
-        groupId = groupId[0]
-
-    for i, s in enumerate(sectionIds):
-        move_section_to_parent_section(p, groupId, s, i)
-
-    return True
-
-
-def ungroup_groups(p: "ProjectStateSingleConfig", groupIds: list[ID]):
-    for g in groupIds:
-        ungroup_group(p, g)
-
-
 def ungroup_group(p: "ProjectStateSingleConfig", groupId: ID):
     impl = get_curr_effective_section_impl_with_type_guard(p, groupId, GroupSectionImpl)
 
@@ -3761,108 +3508,6 @@ def ungroup_group(p: "ProjectStateSingleConfig", groupId: ID):
             move_section_to_parent_section(p, parentId, c, groupIdx + i)
 
     delete_sections(p, [groupId])
-
-
-def toggle_param_selected(
-    p: "ProjectStateSingleConfig", sectionId: ID, paramInfoId: ID
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(
-            selectedParams=lambda curr: [x for x in curr if x != paramInfoId]
-            if paramInfoId in curr
-            else [*curr, paramInfoId]
-        ),
-    )
-
-
-def set_type_error_ignore(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    paramInfoId: ID | None,
-    ignoreTypeErrors: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-
-    def update(curr: TypeErrorIgnoreState):
-        next_params = dict(curr.params)
-        if paramInfoId is None:
-            return TypeErrorIgnoreState(
-                callable=ignoreTypeErrors,
-                params=next_params,
-            )
-        if ignoreTypeErrors:
-            next_params[paramInfoId] = True
-        elif paramInfoId in next_params:
-            del next_params[paramInfoId]
-        return TypeErrorIgnoreState(callable=curr.callable, params=next_params)
-
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(ignoreTypeErrors=update),
-    )
-
-
-def set_code_section_diagnostics_mute(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    mute: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, CodeSectionImpl)
-
-    def update(curr: CodeSectionDiagnosticsIgnoreState):
-        return CodeSectionDiagnosticsIgnoreState(
-            muted=mute,
-            suppressedCodes=list(curr.suppressedCodes),
-        )
-
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        CodeSectionImplArgsWithCallable(diagnosticsIgnoreState=update),
-    )
-
-
-def set_code_section_diagnostic_code_suppression(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    code: str | int,
-    suppress: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, CodeSectionImpl)
-
-    def update(curr: CodeSectionDiagnosticsIgnoreState):
-        next_codes = list(curr.suppressedCodes)
-        if suppress:
-            if code not in next_codes:
-                next_codes.append(code)
-        elif code in next_codes:
-            next_codes.remove(code)
-        return CodeSectionDiagnosticsIgnoreState(
-            muted=curr.muted,
-            suppressedCodes=next_codes,
-        )
-
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        CodeSectionImplArgsWithCallable(diagnosticsIgnoreState=update),
-    )
-
-
-def unselect_all_params(p: "ProjectStateSingleConfig"):
-    for s in p.sections.keys():
-        impl = get_curr_effective_section_impl(p, s)
-        if isinstance(impl, BaseSectionWithParamsImpl):
-            set_curr_effective_section_impl_value(
-                p,
-                s,
-                BaseSectionWithParamsImplArgsWithCallable(selectedParams=[]),
-            )
 
 
 def _get_section_param_root_id(
