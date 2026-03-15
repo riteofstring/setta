@@ -54,10 +54,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1389 authored TS/TSX files under `frontend/src`.
+- There are 1393 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/Chat/ChatMessages.tsx` at 6132 lines
+  - `frontend/src/components/Chat/ChatMessages.tsx` at 5412 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2721 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2379 lines
@@ -108,6 +108,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/chatMessageMerge.ts` now owns generic message completeness scoring plus message merge normalization, `frontend/src/state/actions/chatHydrationMerge.ts` now owns hydration-time local-vs-backend chat reconciliation for in-flight overlays, and `frontend/src/state/actions/chatMergeUtils.ts` is now the thin compatibility facade.
 - `frontend/src/components/Chat/chatAssistantActivity.ts` now owns assistant activity and timeline derivation, thought-summary labels, activity-only grouping checks, and assistant or tool copy-text builders used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatStructuredOutput.tsx` now owns structured output payload inference, diff classification, formatted tool-result text extraction, and the resizable structured-output render surface used by `frontend/src/components/Chat/ChatMessages.tsx`.
+- `frontend/src/components/Chat/chatAttachmentPreviewUrls.ts` now owns message attachment collection, attachment URL lookup, stale refresh policy, and preview URL caching used by `frontend/src/components/Chat/ChatMessages.tsx`.
+- `frontend/src/components/Chat/chatAttachmentPreviews.tsx` now owns attachment list rendering, preview dialog/media-carousel branching, and attachment text-preview fetch state used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/state/actions/chatBranchState.ts` now owns branch bootstrap, active-branch fallback, and incoming-message sync, `frontend/src/state/actions/chatBranchEditing.ts` now owns edited-message history truncation plus child-branch creation, `frontend/src/state/actions/chatBranchIndexState.ts` now owns branch-index derivation from section branch records, and `frontend/src/state/actions/chatBranches.ts` is now the thin compatibility facade.
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external hydration route probes plus outcome classification, `frontend/src/state/actions/aiHydrationChatState.ts` now owns managed/external chat-detail reconciliation plus app-generation hydration, `frontend/src/state/actions/aiHydrationSectionState.ts` now owns managed/external chat-section reconciliation plus persistence sync, `frontend/src/state/actions/aiHydrationApply.ts` is now the thin apply-orchestration facade, and `frontend/src/state/actions/aiHydration.ts` is now the thin public hydration facade.
 - `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry derivation and chat label normalization, `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical plus scoped chat provenance resolution, `frontend/src/state/actions/chatHistoryShared.ts` now owns shared run filtering/grouping helpers, `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history filter/provenance types, and `frontend/src/state/actions/chatHistory.ts` is now a thin compatibility facade.

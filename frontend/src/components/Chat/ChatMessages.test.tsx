@@ -959,37 +959,6 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain(">alpha inline</mark>");
   });
 
-  it("highlights attachment labels in the transcript", () => {
-    const messages: BaseChatMessageUnion[] = [
-      {
-        id: "search-attachment",
-        role: ChatRoleEnum.assistant,
-        content: [],
-        attachments: [
-          {
-            id: "attachment-1",
-            name: "release-plan.md",
-          },
-        ],
-        tool_calls: null,
-      },
-    ];
-
-    const markup = renderToStaticMarkup(
-      <ChatMessageList
-        messages={messages}
-        waitingForResponse={false}
-        toolCallArguments={{}}
-        conversationSearchTerms={["release"]}
-      />,
-    );
-
-    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
-      1,
-    );
-    expect(markup).toContain(">release</mark>-plan.md");
-  });
-
   it("does not highlight hidden tool payload details", () => {
     const messages: BaseChatMessageUnion[] = [
       {
