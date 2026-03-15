@@ -1979,12 +1979,12 @@ func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalid
 		expectedCode int
 		expectedBody string
 	}{
-			{
-				route:        RouteSetCodeObjName,
-				body:         `{"projectConfigId":"project-alpha","codeObjId":"shared-child","name":"secret"}`,
-				expectedCode: http.StatusUnprocessableEntity,
-				expectedBody: `"detail":"Param name \"secret\" already exists under this parent."`,
-			},
+		{
+			route:        RouteSetCodeObjName,
+			body:         `{"projectConfigId":"project-alpha","codeObjId":"shared-child","name":"secret"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"detail":"Param name \"secret\" already exists under this parent."`,
+		},
 		{
 			route:        RouteSetCodeObjName,
 			body:         `{"projectConfigId":"project-alpha","codeObjId":"missing-code-obj","name":"renamed_key"}`,
@@ -9117,6 +9117,85 @@ func TestRegisterProjectRoutesSetActiveViewModeReturnsNotFoundForUnknownViewMode
 	}
 	if !strings.Contains(response.Body.String(), `"code":"view_mode_not_found"`) {
 		t.Fatalf("expected view_mode_not_found body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesSetActiveViewModeSwapsLayoutAndViewportInIDE(t *testing.T) {
+	t.Parallel()
+
+	document, alternateViewModeID := viewModesDeploymentRouteTestDocument(t)
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	response := post(
+		RouteSetActiveViewMode,
+		fmt.Sprintf(`{"projectConfigId":"project-alpha","activeViewModeId":"%s"}`, alternateViewModeID),
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if project.ActiveViewModeID != alternateViewModeID {
+		t.Fatalf("expected active view mode %q, got %q", alternateViewModeID, project.ActiveViewModeID)
+	}
+	if got := project.TopLevelSections["standalone-section"]; got.X != 460 || got.Y != 310 || got.ZIndex != 9 {
+		t.Fatalf("expected runtime to switch to alternate layout, got %#v", got)
+	}
+	if project.Viewport == nil || project.Viewport.X != 42 || project.Viewport.Y != 24 || project.Viewport.Zoom != 1.1 {
+		t.Fatalf("expected runtime to switch to alternate viewport, got %#v", project.Viewport)
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	if got := derefString(payload.ProjectState.ProjectConfig.ActiveViewModeID); got != alternateViewModeID {
+		t.Fatalf("expected latest-state active view mode %q, got %q", alternateViewModeID, got)
+	}
+	if got := payload.ProjectState.ProjectConfig.TopLevelSections["standalone-section"]; got.X != 460 || got.Y != 310 || got.ZIndex != 9 {
+		t.Fatalf("expected latest-state active layout to match alternate view mode, got %#v", got)
+	}
+	if payload.ProjectState.ProjectConfig.Viewport == nil ||
+		payload.ProjectState.ProjectConfig.Viewport.X != 42 ||
+		payload.ProjectState.ProjectConfig.Viewport.Y != 24 ||
+		payload.ProjectState.ProjectConfig.Viewport.Zoom != 1.1 {
+		t.Fatalf("expected latest-state active viewport to match alternate view mode, got %#v", payload.ProjectState.ProjectConfig.Viewport)
+	}
+
+	viewMode := payload.ProjectState.ProjectConfig.ViewModes[alternateViewModeID]
+	if !viewMode.ViewportInitialized {
+		t.Fatal("expected alternate view mode viewport to remain initialized")
+	}
+	if viewMode.Viewport == nil || viewMode.Viewport.X != 42 || viewMode.Viewport.Y != 24 || viewMode.Viewport.Zoom != 1.1 {
+		t.Fatalf("expected alternate view mode viewport to stay intact, got %#v", viewMode.Viewport)
 	}
 }
 
