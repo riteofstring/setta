@@ -173,16 +173,14 @@ func mapModesError(err error) error {
 	var missingShareSession *modes.MissingShareSessionError
 	if errors.As(err, &missingShareSession) {
 		return &CloseError{
-			Code:   CloseCodeBadRequest,
-			Reason: missingShareSession.Error(),
+			Code: CloseCodeBadRequest,
 		}
 	}
 
 	var unknownShareSession *modes.UnknownShareSessionError
 	if errors.As(err, &unknownShareSession) {
 		return &CloseError{
-			Code:   CloseCodeNotFound,
-			Reason: unknownShareSession.Error(),
+			Code: CloseCodeNotFound,
 		}
 	}
 

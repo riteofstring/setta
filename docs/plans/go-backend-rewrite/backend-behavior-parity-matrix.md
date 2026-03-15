@@ -57,9 +57,9 @@ Last audited: `2026-03-17`
   dirty `dependencyValues` closure delivery, and retained listener
   share-session validation
 - plus the targeted terminal / run-code / detached-run / agent-profile
-  follow-up slice: read-only terminal input-ignore parity, `runCode` and
-  `runDetached` detail-body transport, and agent-profile share-mode /
-  missing-profile detail behavior
+  follow-up slice: read-only terminal input-ignore parity, terminal websocket
+  close-contract parity, `runCode` and `runDetached` detail-body transport,
+  and agent-profile share-mode / missing-profile detail behavior
 - plus the targeted file-browser follow-up slice: `createFile`
   workspace-relative path guards, `checkIfFileExists`
   workspace-relative / blank-path behavior and share-mode deployment-path
@@ -86,9 +86,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `312`
+- Rows audited in this pass: `314`
 - Status counts:
-  - `Proved`: `281`
+  - `Proved`: `283`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `3`
   - `Retained Python boundary`: `8`
@@ -141,6 +141,10 @@ Last audited: `2026-03-17`
   - `internal/wsapi/routes.go`: deployment terminal websocket writes now
     ignore blocked input and keep the read-only terminal session attached
     instead of closing the socket on `ErrInputDisabled`
+  - `internal/wsapi/wsapi.go` and `internal/wsapi/routes.go`: terminal
+    share-session and deployment-policy websocket failures now close with the
+    source code-only contracts again, omitting the Go-only reason strings on
+    `4400`, `4404`, and `4403` terminal close paths
   - `internal/wsapi/routes_test.go`: listener websocket route coverage now
     locks live realtime `dependencyValues` transport, dependency-closure
     delivery, and temporary-id translation for retained listener clients
@@ -391,6 +395,10 @@ Last audited: `2026-03-17`
 - The legacy direct `updateAppDefinition` HTTP route now has explicit
   `Dormant / unproven caller` transport/detail rows instead of staying folded
   into the broader dormant-surface note.
+- `terminal.ws.invalid_share_session_close_contract` and
+  `terminal.ws.deployment_policy_denial_close_contract` are now explicit
+  proved rows instead of hiding the websocket close-reason drift inside
+  broader terminal websocket coverage.
 - Retained Python boundaries are now recorded explicitly for
   `setta.api.SettaListener`, `setta.api.chat_toolkit`,
   `setta.api.SettaRunner`, the share listener runtime, and the packaged
@@ -484,7 +492,9 @@ Last audited: `2026-03-17`
 | `terminal.ws.prompt_ready_gate_before_ready_marker` | `backend/setta/terminals/terminals.py::connect`; `tests/terminals/test_terminal_connect_race.py::test_connect_does_not_crash_if_disconnected_during_prompt_wait` | `internal/wsapi/routes.go::serveTerminalConnection` writes ready immediately after attach | `TestRegisterRoutesTerminalReconnectReplaysBufferedHistoryAfterDisconnect` explicitly documents the changed lifecycle | `internal/app/websocket_test.go::TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory` exercises the active replacement behavior | `Intentional divergence` | Python waited for prompt readiness and guarded the disconnect-during-wait race; Go intentionally removed the prompt-ready gate and audits reconnect/history replay instead. |
 | `terminal.ws.reconnect_replays_buffered_history_after_disconnect` | `backend/setta/terminals/terminals.py::connect`; `get_terminal_history`; buffered history management in `read_from_terminal` | `internal/wsapi/routes.go`; `internal/terminals/service.go` | `TestRegisterRoutesTerminalReconnectReplaysBufferedHistoryAfterDisconnect`; `TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory`; `TestServiceAttachWriteHistoryAndReattach` | frontend terminal caller still depends on reconnect replay rather than refetching terminal history separately | `Proved` | Buffered PTY output written while no websocket is attached still replays on the next terminal attach. |
 | `terminal.ws.resize_updates_cached_dimensions_and_pty` | `tests/terminals/test_terminal_resize_updates_winsize.py::test_terminal_resize_message_updates_winsize_and_cached_rows_cols` | `internal/wsapi/routes.go`; `internal/terminals/service.go` | `TestRegisterRoutesTerminalResizeMessageResizesPTY`; `TestAppServesTerminalWebsocketResizeUpdatesStoredSessionDimensions`; `TestServiceResizeUpdatesSessionAndPTY` | retained terminal websocket control messages still use `{"messageType":"terminalResize","rows":...,"cols":...}` | `Proved` | Terminal resize frames still update both the live PTY size and the cached rows/cols stored on the session. |
+| `terminal.ws.invalid_share_session_close_contract` | `backend/setta/routers/dependencies.py::get_share_session_or_error_ws`; `backend/setta/routers/terminals.py::terminal_websocket_endpoint` | `internal/wsapi/wsapi.go::mapModesError`; authenticated websocket route registration in `internal/wsapi/routes.go` | `TestAuthenticatedHandlerClosesMissingAndUnknownShareSession` | deployment/share terminal websocket callers still connect through the same authenticated websocket transport with share-session query validation | `Proved` | Missing and unknown share-session terminal websocket requests now once again close with source-style code-only contracts: `4400`/`4404` and an empty close reason. |
 | `terminal.ws.deployment_policy_denies_when_run_disabled` | `backend/setta/routers/terminals.py::terminal_websocket_endpoint` calls `ctx.enforce_run_allowed_ws`; `backend/setta/share/policy.py::ensure_share_run_allowed_ws`; `tests/routers/test_share_policy_routes.py::test_run_routes_blocked` | `internal/wsapi/routes.go::requireTerminalRouteAccess` | `TestRegisterRoutesTerminalRejectsDeploymentWhenRunPolicyDisabled` | deployment/share callers still reach the same terminal websocket path with a share-session context | `Proved` | Deployment terminal sockets still fail closed when the share policy disallows run access. |
+| `terminal.ws.deployment_policy_denial_close_contract` | `backend/setta/routers/terminals.py::terminal_websocket_endpoint`; `backend/setta/share/policy.py::ensure_share_run_allowed_ws`; `tests/routers/test_share_policy_routes.py::test_run_routes_blocked` | `internal/wsapi/routes.go::requireTerminalRouteAccess` | `TestRegisterRoutesTerminalRejectsDeploymentWhenRunPolicyDisabled` | deployment/share callers still reach the same terminal websocket path with a share-session context | `Proved` | Deployment terminal websocket denial now once again closes with `4403` and no close reason, matching the Python/source code-only close contract. |
 | `terminal.ws.deployment_connects_read_only_session` | `backend/setta/routers/terminals.py::terminal_websocket_endpoint` passes `allow_input=not ctx.deployment_mode` into `write_to_terminal` | `internal/wsapi/routes.go::serveTerminalConnection`; `internal/terminals/service.go` | `TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession`; `TestServiceRejectsWritesWhenInputDisabled` | deployment terminal websocket clients still attach on the same read-only terminal surface and continue receiving output | `Proved` | Deployment terminal attachments remain read-only even when the PTY session is already present. |
 | `terminal.ws.deployment_blocked_input_ignored_without_close` | `backend/setta/terminals/terminals.py::write_to_terminal` only writes when `allow_input` is true; `backend/setta/routers/terminals.py::terminal_websocket_endpoint` passes `allow_input=not ctx.deployment_mode` | `internal/wsapi/routes.go::serveTerminalConnection`; `internal/terminals/service.go::Write` | `TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession`; `TestServiceRejectsWritesWhenInputDisabled` | deployment terminal websocket clients still use the same attached socket after a blocked write attempt | `Proved` | Deployment terminal input attempts are ignored without closing the websocket, so the session stays read-only instead of failing the connection. |
 | `terminal.ws.deployment_auto_opens_read_only_session` | `backend/setta/routers/terminals.py::terminal_websocket_endpoint` calls `ctx.state.terminals.new_terminal(...)` before connect | `internal/wsapi/routes.go::serveTerminalConnection` | `TestRegisterRoutesDeploymentTerminalAutoOpensReadOnlySession` | share-mode terminal callers can still attach before any explicit run has created the terminal session | `Proved` | Missing deployment terminal sessions are still auto-created on websocket attach with session scoping and input disabled. |

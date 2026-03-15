@@ -3,6 +3,7 @@ package wsapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -238,6 +239,7 @@ func TestAuthenticatedHandlerClosesMissingAndUnknownShareSession(t *testing.T) {
 	if status := websocket.CloseStatus(err); status != CloseCodeBadRequest {
 		t.Fatalf("expected missing-share close code %d, got %d", CloseCodeBadRequest, status)
 	}
+	assertWebsocketCloseReasonEmpty(t, err)
 
 	unknownConn, _, err := websocket.Dial(
 		context.Background(),
@@ -252,6 +254,7 @@ func TestAuthenticatedHandlerClosesMissingAndUnknownShareSession(t *testing.T) {
 	if status := websocket.CloseStatus(err); status != CloseCodeNotFound {
 		t.Fatalf("expected unknown-share close code %d, got %d", CloseCodeNotFound, status)
 	}
+	assertWebsocketCloseReasonEmpty(t, err)
 }
 
 func newWebsocketServer(t *testing.T, deps Dependencies, handler Handler) *httptest.Server {
@@ -260,6 +263,18 @@ func newWebsocketServer(t *testing.T, deps Dependencies, handler Handler) *httpt
 	mux := http.NewServeMux()
 	mux.Handle("/ws", AuthenticatedHandler(deps, handler))
 	return httptest.NewServer(mux)
+}
+
+func assertWebsocketCloseReasonEmpty(t *testing.T, err error) {
+	t.Helper()
+
+	var closeErr websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		t.Fatalf("expected websocket close error, got %v", err)
+	}
+	if closeErr.Reason != "" {
+		t.Fatalf("expected empty close reason, got %q", closeErr.Reason)
+	}
 }
 
 func websocketURL(serverURL string, path string) string {

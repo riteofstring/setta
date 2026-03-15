@@ -632,8 +632,7 @@ func requireTerminalRouteAccess(info modes.RequestInfo, deployment *deployments.
 		return nil
 	}
 	return &CloseError{
-		Code:   CloseCodeForbidden,
-		Reason: "Deployment policy disallows run and terminal access.",
+		Code: CloseCodeForbidden,
 	}
 }
 

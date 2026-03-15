@@ -2895,6 +2895,7 @@ func TestRegisterRoutesTerminalRejectsDeploymentWhenRunPolicyDisabled(t *testing
 	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
 		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
 	}
+	assertWebsocketCloseReasonEmpty(t, err)
 }
 
 func TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession(t *testing.T) {
