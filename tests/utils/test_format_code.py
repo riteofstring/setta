@@ -1,16 +1,16 @@
 import pytest
 
-from setta.utils.format_code import ruff_format_with_error
+from setta.utils.format_code import ruff_format
 
 
-def test_ruff_format_with_error_uses_utf8_encoding(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LC_ALL", "C")
-    monkeypatch.setenv("LANG", "C")
-    monkeypatch.setenv("PYTHONUTF8", "0")
+def test_ruff_format_sorts_imports_and_formats_python() -> None:
+    source = "import sys\nimport os\n\nprint( 1 + 2 )\n"
 
-    code = "def greet():\n    return '🍕'\n"
-    formatted, error = ruff_format_with_error(code, include_lint=False)
+    formatted = ruff_format(source)
 
-    assert error is None
-    assert formatted is not None
-    assert "🍕" in formatted
+    assert formatted == "import os\nimport sys\n\nprint(1 + 2)\n"
+
+
+def test_ruff_format_surfaces_ruff_error_text() -> None:
+    with pytest.raises(RuntimeError, match="invalid-syntax"):
+        ruff_format("def broken(:\n    pass\n")
