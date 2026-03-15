@@ -164,3 +164,7 @@ categorize them.
   is less about tiny helper proofs and more about the broader remote
   connect/stop forwarding surface plus the still-missing stricter bootstrap
   cookie-selection contract
+- The external-agent env-var-whitelist normalization row is now proved too;
+  that keeps the quick-win path open on `internal/externalagentconfigs`, but
+  the remaining external-agent backlog is now more about runtime/config-file
+  behavior than simple normalization helpers
