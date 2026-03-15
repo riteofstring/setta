@@ -140,6 +140,41 @@ func TestRegisterProjectRoutesPromptSectionMutationsRejectInvalidPayloads(t *tes
 		t.Fatalf("expected prompt_section_required, got %#v", templateError)
 	}
 
+	workspaceRoot := t.TempDir()
+	templateStore, err := prompttemplates.NewStore(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+	if err := templateStore.Save(prompttemplates.Template{
+		ID:       "template-alpha",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+		Format:   prompttemplates.FormatJinja,
+	}); err != nil {
+		t.Fatalf("save prompt template: %v", err)
+	}
+	handler = newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+
+	linkRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetPromptTemplateLink,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"plain-section","promptTemplateId":"template-alpha"}`),
+	)
+	linkRequest.Header.Set("Content-Type", "application/json")
+	linkResponse := httptest.NewRecorder()
+	handler.ServeHTTP(linkResponse, linkRequest)
+	if linkResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 link response, got %d with body %q", linkResponse.Code, linkResponse.Body.String())
+	}
+
+	var linkError map[string]any
+	if err := json.Unmarshal(linkResponse.Body.Bytes(), &linkError); err != nil {
+		t.Fatalf("decode link error: %v", err)
+	}
+	if got := linkError["detail"]; got != "Section plain-section failed type guard" {
+		t.Fatalf("expected failed type guard detail from link, got %#v", linkError)
+	}
+
 	// Format validation should reject unsupported prompt engines instead of falling back heuristically.
 	formatRequest := httptest.NewRequest(
 		http.MethodPost,

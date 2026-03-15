@@ -55,6 +55,10 @@ scenarios:
     kind: window_space_create_invalid_owner_mode_write_contract
     seed: none
     description: Saved window-space writes should reject the documented invalid owner/mode combinations instead of normalizing impossible windows.
+  - name: prompt_template_link_rejects_non_prompt_sections
+    kind: prompt_template_link_rejects_non_prompt_sections
+    seed: none
+    description: Linking a prompt template onto a non-prompt section should fail closed with the source transport contract.
   - name: window_spaces_duplicate_sort_indices_on_load
     kind: window_spaces_duplicate_sort_indices_on_load
     seed: none

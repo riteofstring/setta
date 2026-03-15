@@ -50,6 +50,8 @@ ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
 ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE = "/api/setProjectChatWindowingState"
 ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID = "/api/setProjectChatWindowChatId"
 ROUTE_CREATE_WINDOW_SPACE = "/api/createWindowSpace"
+ROUTE_CREATE_PROMPT_TEMPLATE = "/api/createPromptTemplate"
+ROUTE_SET_PROMPT_TEMPLATE_LINK = "/api/setPromptTemplateLink"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_SAVE_PROJECT = "/api/saveProject"
@@ -820,6 +822,8 @@ def execute_scenario(
         )
     if scenario.kind == "window_space_create_invalid_owner_mode_write_contract":
         return execute_window_space_create_invalid_owner_mode_write_contract(backend)
+    if scenario.kind == "prompt_template_link_rejects_non_prompt_sections":
+        return execute_prompt_template_link_rejects_non_prompt_sections(backend)
     if scenario.kind == "window_spaces_duplicate_sort_indices_on_load":
         return execute_window_spaces_duplicate_sort_indices_on_load(backend)
     if scenario.kind == "settings_project_shell":
@@ -1765,6 +1769,63 @@ def execute_window_space_create_invalid_owner_mode_write_contract(
         "projectChatSectionModePayload": project_chat_section_mode_payload,
         "nonProjectAIChatIDStatus": non_project_ai_chat_id_status,
         "nonProjectAIChatIDPayload": non_project_ai_chat_id_payload,
+    }
+
+
+def execute_prompt_template_link_rejects_non_prompt_sections(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    project_config = object_field(loaded, "projectConfig")
+    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    if not top_level_sections:
+        raise ParityHarnessError(
+            f"Expected created project {project_id!r} to have at least one top-level section."
+        )
+    non_prompt_section_id = next(iter(top_level_sections))
+
+    create_template_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_CREATE_PROMPT_TEMPLATE,
+        payload={
+            "name": "Greeting",
+            "template": "Hello {{ name }}",
+        },
+    )
+    create_template_payload = normalize_response_json(create_template_response)
+    created_template = expect_object(create_template_payload, "createPromptTemplate")
+    template_id = normalized_string(created_template.get("id"))
+    if not template_id:
+        raise ParityHarnessError(
+            f"createPromptTemplate returned unexpected payload: {create_template_payload!r}"
+        )
+
+    link_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROMPT_TEMPLATE_LINK,
+        payload={
+            "projectConfigId": project_id,
+            "sectionId": non_prompt_section_id,
+            "promptTemplateId": template_id,
+        },
+    )
+    link_payload = normalize_response_json_allow_status(link_response)
+
+    summary = summarize_prompt_template_link_rejects_non_prompt_sections(
+        link_http_status=link_response.status_code,
+        link_payload=link_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "nonPromptSectionID": non_prompt_section_id,
+        "createdPromptTemplate": create_template_payload,
+        "linkStatus": link_response.status_code,
+        "linkPayload": link_payload,
     }
 
 
@@ -3365,6 +3426,23 @@ def summarize_window_space_create_invalid_owner_mode_write_contract(
         "nonProjectAIChatIDErrorSummary": normalize_error_summary(
             non_project_ai_chat_id_payload
         ),
+    }
+
+
+def summarize_prompt_template_link_rejects_non_prompt_sections(
+    link_http_status: int,
+    link_payload: Any,
+) -> dict[str, Any]:
+    error_code = normalize_prompt_template_link_non_prompt_error(
+        normalize_error_code(link_payload)
+    )
+    error_summary = normalize_prompt_template_link_non_prompt_error(
+        normalize_error_summary(link_payload)
+    )
+    return {
+        "linkHttpStatus": link_http_status,
+        "linkErrorCode": error_code,
+        "linkErrorSummary": error_summary,
     }
 
 
@@ -6145,6 +6223,14 @@ def normalize_error_summary(payload: Any) -> str:
         raw_text = normalized_string(payload.get("_rawText"))
         if raw_text:
             return raw_text
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            if isinstance(message, str):
+                return message.strip()
+            code = error.get("code")
+            if isinstance(code, str):
+                return code.strip()
         message = payload.get("message")
         if isinstance(message, str):
             normalized_validation_message = normalize_python_validation_message(
@@ -6180,6 +6266,13 @@ def normalize_error_code(payload: Any) -> str:
         if normalized_validation_message:
             return normalized_validation_message
     return normalize_error_summary(payload)
+
+
+def normalize_prompt_template_link_non_prompt_error(value: Any) -> str:
+    normalized = normalized_string(value)
+    if "failed type guard" in normalized.lower():
+        return "failed type guard"
+    return normalized
 
 
 PYTHON_VALUE_ERROR_RE = re.compile(r"ValueError\((?P<quoted>'(?:[^'\\\\]|\\\\.)*')\)")

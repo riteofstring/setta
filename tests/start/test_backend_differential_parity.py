@@ -2478,6 +2478,27 @@ class Route:
             },
         )
 
+    def test_summarize_prompt_template_link_rejects_non_prompt_sections(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "detail": "Section section-123 failed type guard",
+        }
+
+        self.assertEqual(
+            harness.summarize_prompt_template_link_rejects_non_prompt_sections(
+                link_http_status=422,
+                link_payload=payload,
+            ),
+            {
+                "linkHttpStatus": 422,
+                "linkErrorCode": "failed type guard",
+                "linkErrorSummary": "failed type guard",
+            },
+        )
+
     def test_normalize_python_validation_message_extracts_value_error_detail(
         self,
     ) -> None:

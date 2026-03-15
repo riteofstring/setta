@@ -6156,7 +6156,7 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 			snapshot := runtime.Snapshot()
 			source, err := snapshot.Document.PromptSectionSource(projectID, sectionID)
 			if err != nil {
-				writePromptSectionMutationError(w, r, err)
+				writePromptTemplateLinkMutationError(w, r, err, sectionID)
 				return
 			}
 			if source.PromptTemplateID != nil {
@@ -6190,7 +6190,7 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 			nextFormat,
 		)
 		if err != nil {
-			writePromptSectionMutationError(w, r, err)
+			writePromptTemplateLinkMutationError(w, r, err, sectionID)
 			return
 		}
 		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
@@ -7627,6 +7627,23 @@ func writePromptSectionMutationError(w http.ResponseWriter, r *http.Request, err
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}
+}
+
+func writePromptTemplateLinkMutationError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+	sectionID string,
+) {
+	if errors.Is(err, projectstate.ErrPromptSectionRequired) {
+		writeDetail(
+			w,
+			http.StatusBadRequest,
+			fmt.Sprintf("Section %s failed type guard", strings.TrimSpace(sectionID)),
+		)
+		return
+	}
+	writePromptSectionMutationError(w, r, err)
 }
 
 func writeChatSectionMutationError(w http.ResponseWriter, r *http.Request, err error) {

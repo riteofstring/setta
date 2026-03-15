@@ -198,6 +198,16 @@ func TestRuntimePromptSectionMutationsRejectInvalidTargetsAndFormats(t *testing.
 	if _, err := runtime.SetPromptTemplate(context.Background(), "project-alpha", "plain-section", "Hello"); !errors.Is(err, ErrPromptSectionRequired) {
 		t.Fatalf("expected ErrPromptSectionRequired from SetPromptTemplate, got %v", err)
 	}
+	if _, err := runtime.SetPromptTemplateLink(
+		context.Background(),
+		"project-alpha",
+		"plain-section",
+		stringPointer("template-alpha"),
+		"Hello {{ name }}",
+		PromptFormatJinja,
+	); !errors.Is(err, ErrPromptSectionRequired) {
+		t.Fatalf("expected ErrPromptSectionRequired from SetPromptTemplateLink, got %v", err)
+	}
 	if _, err := runtime.SetPromptInputs(context.Background(), "project-alpha", "plain-section", map[string]string{"name": "Ada"}); !errors.Is(err, ErrPromptSectionRequired) {
 		t.Fatalf("expected ErrPromptSectionRequired from SetPromptInputs, got %v", err)
 	}
