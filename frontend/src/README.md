@@ -384,6 +384,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     load/retry transport plus post-load hydration side effects.
   - `state/actions/share.ts` is now the thin compatibility facade over those
     narrower share-mode owners.
+  - `state/actions/activeSectionSync.ts` owns durable active-section selection
+    scheduling, flush, backend send, and authoritative restore behavior.
+  - `state/actions/activeSectionCommands.ts` owns higher-level active-section
+    commands such as clear, prune-for-view-mode, select-all, and top-level
+    non-group selection.
+  - `state/actions/activeSections.ts` is now the thin compatibility facade
+    over those active-section owners.
   - `state/actions/appDeploymentState.ts` owns app deployment load or reset flow
     plus app-config cache hydration.
   - `state/actions/app.ts` is now the thin compatibility facade over those

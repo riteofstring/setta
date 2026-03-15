@@ -149,6 +149,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/shareProjectConfig.ts` now owns share
   project-config load/retry transport plus post-load hydration side effects;
   `frontend/src/state/actions/share.ts` is now the thin compatibility facade.
+- `frontend/src/state/actions/activeSectionSync.ts` now owns durable
+  active-section selection scheduling, flush, backend send, and authoritative
+  restore behavior that previously lived in
+  `frontend/src/state/actions/activeSections.ts`, while
+  `frontend/src/state/actions/activeSectionCommands.ts` now owns higher-level
+  active-section commands such as clear, prune-for-view-mode, select-all, and
+  top-level non-group selection; `frontend/src/state/actions/activeSections.ts`
+  is now the thin compatibility facade.
 - `frontend/src/state/actions/projectChatWindowingNormalization.ts` now owns
   pure windowing normalization and default-bounds helpers that previously
   lived in `frontend/src/state/actions/projectChatWindowingState.ts`, while
@@ -348,11 +356,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   directories.
 - The largest remaining authored state surfaces are:
   - `frontend/src/state/actions/aiPendingChatMessageState.ts` at 264 lines
-  - `frontend/src/state/actions/activeSections.ts` at 264 lines
   - `frontend/src/state/actions/aiManagedApiKeys.ts` at 258 lines
   - `frontend/src/state/actions/sections/moveSectionState.ts` at 254 lines
   - `frontend/src/state/actions/aiHydrationApply.ts` at 253 lines
   - `frontend/src/state/actions/agenticEdgeMutations.ts` at 253 lines
+  - `frontend/src/state/actions/params/moveParams.ts` at 250 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
