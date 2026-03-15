@@ -296,6 +296,61 @@ func TestRegisterGitRoutesSetsIsCappedAndStopsPaginationAtHistoryCap(t *testing.
 	}
 }
 
+func TestRegisterGitRoutesSetTruncationFlagsForLargeDiffAndCommitFileDiff(t *testing.T) {
+	repoRoot := initGitRouteTestRepo(t)
+	largePath := filepath.Join(repoRoot, "large.txt")
+	originalContent := strings.Repeat("one\n", 350000)
+	updatedContent := strings.Repeat("two\n", 350000)
+	writeGitRouteFile(t, largePath, originalContent)
+	runGitRouteCommand(t, repoRoot, "add", "large.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add large file")
+	writeGitRouteFile(t, largePath, updatedContent)
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	diffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":"large.txt","mode":"unstaged"}`))
+	diffRequest.Header.Set("Content-Type", "application/json")
+	diffResponse := httptest.NewRecorder()
+	handler.ServeHTTP(diffResponse, diffRequest)
+	if diffResponse.Code != http.StatusOK {
+		t.Fatalf("expected large diff 200, got %d with body %q", diffResponse.Code, diffResponse.Body.String())
+	}
+
+	var diffPayload gitread.DiffResponse
+	if err := json.Unmarshal(diffResponse.Body.Bytes(), &diffPayload); err != nil {
+		t.Fatalf("decode large diff payload: %v", err)
+	}
+	if !diffPayload.IsTruncated {
+		t.Fatalf("expected truncated diff payload, got %#v", diffPayload)
+	}
+	if !strings.Contains(diffPayload.Diff, "diff --git a/large.txt b/large.txt") {
+		t.Fatalf("expected diff header in truncated route diff, got %q", diffPayload.Diff)
+	}
+
+	runGitRouteCommand(t, repoRoot, "add", "large.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "update large file")
+	commitHash := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	commitDiffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"`+commitHash+`","path":"large.txt"}`))
+	commitDiffRequest.Header.Set("Content-Type", "application/json")
+	commitDiffResponse := httptest.NewRecorder()
+	handler.ServeHTTP(commitDiffResponse, commitDiffRequest)
+	if commitDiffResponse.Code != http.StatusOK {
+		t.Fatalf("expected large commit diff 200, got %d with body %q", commitDiffResponse.Code, commitDiffResponse.Body.String())
+	}
+
+	var commitDiffPayload gitread.CommitFileDiffResponse
+	if err := json.Unmarshal(commitDiffResponse.Body.Bytes(), &commitDiffPayload); err != nil {
+		t.Fatalf("decode large commit diff payload: %v", err)
+	}
+	if !commitDiffPayload.IsTruncated {
+		t.Fatalf("expected truncated commit diff payload, got %#v", commitDiffPayload)
+	}
+	if !strings.Contains(commitDiffPayload.Diff, "diff --git a/large.txt b/large.txt") {
+		t.Fatalf("expected diff header in truncated commit diff payload, got %q", commitDiffPayload.Diff)
+	}
+}
+
 func TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff(t *testing.T) {
 	t.Parallel()
 

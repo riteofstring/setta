@@ -292,6 +292,54 @@ func TestServiceLogSetsIsCappedAndStopsPaginationAtHistoryCap(t *testing.T) {
 	}
 }
 
+func TestServiceDiffAndCommitFileDiffSetTruncationFlagsForLargeOutput(t *testing.T) {
+	repoRoot := initGitReadTestRepo(t)
+	largePath := filepath.Join(repoRoot, "large.txt")
+	originalContent := strings.Repeat("one\n", 350000)
+	updatedContent := strings.Repeat("two\n", 350000)
+	writeFile(t, largePath, originalContent)
+	runGitReadCommand(t, repoRoot, "add", "large.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add large file")
+	writeFile(t, largePath, updatedContent)
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	diff, err := service.Diff(context.Background(), DiffRequest{
+		Path: "large.txt",
+		Mode: DiffModeUnstaged,
+	})
+	if err != nil {
+		t.Fatalf("diff large file: %v", err)
+	}
+	if !diff.IsTruncated {
+		t.Fatalf("expected truncated diff response, got %#v", diff)
+	}
+	if !strings.Contains(diff.Diff, "diff --git a/large.txt b/large.txt") {
+		t.Fatalf("expected diff header in truncated diff, got %q", diff.Diff)
+	}
+
+	runGitReadCommand(t, repoRoot, "add", "large.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "update large file")
+	commitHash := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	fileDiff, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: commitHash,
+		Path:       "large.txt",
+	})
+	if err != nil {
+		t.Fatalf("commit file diff for large file: %v", err)
+	}
+	if !fileDiff.IsTruncated {
+		t.Fatalf("expected truncated commit file diff, got %#v", fileDiff)
+	}
+	if !strings.Contains(fileDiff.Diff, "diff --git a/large.txt b/large.txt") {
+		t.Fatalf("expected diff header in truncated commit file diff, got %q", fileDiff.Diff)
+	}
+}
+
 func TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) {
 	t.Parallel()
 
