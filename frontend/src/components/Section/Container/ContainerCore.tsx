@@ -6,7 +6,7 @@ import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useIsScrollable } from "state/hooks/sectionScrollability";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
