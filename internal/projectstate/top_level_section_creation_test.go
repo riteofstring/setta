@@ -147,6 +147,75 @@ func TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults(t *testing.
 	}
 }
 
+func TestProjectCreateTopLevelSectionSeedsStateMachineDefaults(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		implType     string
+		wantLabel    string
+		wantGateType string
+		wantHeight   float64
+	}{
+		{
+			implType:   "StateMachineStart",
+			wantLabel:  "Start",
+			wantHeight: 96,
+		},
+		{
+			implType:     "StateMachineGate",
+			wantGateType: string(StateMachineGateTypeAND),
+			wantHeight:   120,
+		},
+		{
+			implType:   "StateMachineEnd",
+			wantLabel:  "End",
+			wantHeight: 96,
+		},
+	}
+
+	for _, tc := range cases {
+		project := testCreateTopLevelSectionProject(t)
+
+		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+			ImplType: tc.implType,
+		}, defaultAutoLayoutSectionSizingPolicy())
+		if err != nil {
+			t.Fatalf("create %s top level section: %v", tc.implType, err)
+		}
+
+		payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+		if err != nil {
+			t.Fatalf("effective %s payload: %v", tc.implType, err)
+		}
+		if got := payloadStringField(payload, "type"); got != tc.implType {
+			t.Fatalf("expected created type %q, got %q", tc.implType, got)
+		}
+		if got := payloadStringField(payload, "machineGroupId"); got == "" {
+			t.Fatalf("expected created %s machineGroupId, got empty payload %#v", tc.implType, payload)
+		}
+		if tc.wantLabel != "" {
+			if got := payloadStringField(payload, "label"); got != tc.wantLabel {
+				t.Fatalf("expected created %s label %q, got %q", tc.implType, tc.wantLabel, got)
+			}
+		}
+		if tc.wantGateType != "" {
+			if got := payloadStringField(payload, "gateType"); got != tc.wantGateType {
+				t.Fatalf("expected created %s gateType %q, got %q", tc.implType, tc.wantGateType, got)
+			}
+		}
+		size, ok := payloadObjectField(payload, "size")
+		if !ok {
+			t.Fatalf("expected created %s size payload, got %#v", tc.implType, payload)
+		}
+		if width, ok := size["width"].(float64); !ok || width != 240 {
+			t.Fatalf("expected %s width 240, got %#v", tc.implType, size["width"])
+		}
+		if height, ok := size["height"].(float64); !ok || height != tc.wantHeight {
+			t.Fatalf("expected %s height %.0f, got %#v", tc.implType, tc.wantHeight, size["height"])
+		}
+	}
+}
+
 func TestProjectCreateTopLevelSectionAppliesLayoutSnapshotViewportPlacementAndInitialName(t *testing.T) {
 	t.Parallel()
 

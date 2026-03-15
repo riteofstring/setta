@@ -280,6 +280,65 @@ func TestRegisterProjectRoutesStateMachineMutationsRejectInvalidPayloads(t *test
 	stateMachineRouteErrorCode(t, missingDeleteResponse, "state_machine_edge_not_found")
 }
 
+func TestRegisterProjectRoutesStateMachineCreateEdgeMergesMachineGroups(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": stateMachineRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	stateMachineRouteRequest(t, handler, RouteSetStateMachineSectionSettings, SetStateMachineSectionSettingsRequest{
+		ProjectID:      "project-alpha",
+		SectionID:      "gate-section",
+		MachineGroupID: "workflow-b",
+		Label:          "Gate",
+		GateType:       stateMachineRouteGateTypePointer(projectstate.StateMachineGateTypeAND),
+	}, http.StatusOK, "")
+
+	stateMachineRouteRequest(t, handler, RouteCreateStateMachineEdge, CreateStateMachineEdgeRequest{
+		ProjectID:       "project-alpha",
+		ID:              stringPointer("edge-start-gate"),
+		MachineGroupID:  "workflow-a",
+		SourceSectionID: "start-section",
+		SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+		TargetSectionID: "gate-section",
+		TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+	}, http.StatusOK, "")
+
+	latestResponse := stateMachineRouteRequest(t, handler, RouteGetLatestProjectState, GetLatestProjectStateRequest{
+		ProjectID: "project-alpha",
+	}, http.StatusOK, "")
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	gatePayload := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["gate-section"].SharedModifier)
+	if got := gatePayload["machineGroupId"]; got != "workflow-a" {
+		t.Fatalf("expected gate machineGroupId workflow-a after merge, got %#v", got)
+	}
+
+	mergedEdge := stateMachineRouteEdgeByID(t, payload.ProjectState.ProjectConfig.StateMachineEdges, "edge-start-gate")
+	if mergedEdge.MachineGroupID != "workflow-a" {
+		t.Fatalf("expected merged edge machineGroupId workflow-a, got %#v", mergedEdge)
+	}
+}
+
 func stateMachineRouteTestProject(t *testing.T) projectstate.Project {
 	t.Helper()
 

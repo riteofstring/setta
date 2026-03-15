@@ -1659,6 +1659,103 @@ func TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection(t *testing.T)
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionSeedsWorkflowDefaults(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		implType     string
+		wantLabel    string
+		wantGateType string
+	}{
+		{
+			implType:  "StateMachineStart",
+			wantLabel: "Start",
+		},
+		{
+			implType:     "StateMachineGate",
+			wantGateType: string(projectstate.StateMachineGateTypeAND),
+		},
+		{
+			implType:  "StateMachineEnd",
+			wantLabel: "End",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.implType, func(t *testing.T) {
+			t.Parallel()
+
+			projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+				SchemaVersion:    projectstate.CurrentSchemaVersion,
+				DefaultProjectID: "project-alpha",
+				Projects: map[string]projectstate.Project{
+					"project-alpha": {
+						ID:   "project-alpha",
+						Name: "Alpha",
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("open overlay runtime: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := projectRuntime.Close(); err != nil {
+					t.Fatalf("close overlay runtime: %v", err)
+				}
+			})
+
+			handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteCreateTopLevelSection,
+				strings.NewReader(fmt.Sprintf(`{"projectConfigId":"project-alpha","implType":"%s"}`, tc.implType)),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload projectstate.CreateTopLevelSectionResult
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode createTopLevelSection response: %v", err)
+			}
+			if strings.TrimSpace(payload.SectionID) == "" {
+				t.Fatalf("expected created section id, got %#v", payload)
+			}
+
+			project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+			if err != nil {
+				t.Fatalf("project snapshot: %v", err)
+			}
+			_, _, impl, err := project.ResolveSection(payload.SectionID)
+			if err != nil {
+				t.Fatalf("resolve created section: %v", err)
+			}
+			implPayload := decodeProjectRouteRawObject(t, impl.Payload)
+			if got, _ := implPayload["type"].(string); got != tc.implType {
+				t.Fatalf("expected created type %q, got %#v", tc.implType, implPayload["type"])
+			}
+			if got, _ := implPayload["machineGroupId"].(string); strings.TrimSpace(got) == "" {
+				t.Fatalf("expected created machineGroupId for %s, got %#v", tc.implType, implPayload)
+			}
+			if tc.wantLabel != "" {
+				if got := implPayload["label"]; got != tc.wantLabel {
+					t.Fatalf("expected created label %q, got %#v", tc.wantLabel, got)
+				}
+			}
+			if tc.wantGateType != "" {
+				if got := implPayload["gateType"]; got != tc.wantGateType {
+					t.Fatalf("expected created gateType %q, got %#v", tc.wantGateType, got)
+				}
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesCreateTopLevelSectionAppliesSnapshotViewportAndName(t *testing.T) {
 	t.Parallel()
 
