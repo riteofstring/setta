@@ -53,7 +53,6 @@ class Route(str, Enum):
     CREATE_WORKSPACE_LAUNCH_INTENT = "/createWorkspaceLaunchIntent"
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
     LOAD_SETTINGS_PROJECT = "/loadSettingsProject"
-    TERMINAL = "/{projectConfigId}/{sectionId}/{id}"
     DELETE_TERMINALS = "/deleteTerminals"
     WEBSOCKET_FRONTEND = "/frontend"
     WEBSOCKET_LISTENER = "/ws/listeners/{id}"

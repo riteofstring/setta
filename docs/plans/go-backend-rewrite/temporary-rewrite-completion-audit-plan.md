@@ -366,6 +366,15 @@ This verdict holds under both of the only reasonable definitions:
   - the legacy Python listener websocket route constant and websocket
     connection kind were removed from `backend/setta/types/routes.py` and
     `backend/setta/types/websocket.py`
+- The dead Python terminal websocket route is gone:
+  - `backend/setta/routers/terminals.py` no longer exposes a websocket route
+    at `Route.TERMINAL`
+  - `backend/setta/routers/dependencies.py` no longer carries websocket-only
+    app-state/runtime-context helpers for that deleted route family
+  - `backend/setta/routers/setta_api_router.py` no longer exports the
+    websocket-only `SettaNonLauncherAPIRouter`
+  - the dedicated websocket guard coverage for that deleted Python route was
+    removed from `tests/routers/test_non_launcher_router_websocket_guards.py`
 
 ### Verified retained Python boundaries
 
@@ -411,7 +420,8 @@ server-side listener realtime stack are no longer part of that blocker set.
 What still remains is the broader Python runtime tail around
 `backend/setta/server_state.py`, `backend/setta/share/listener_runtime.py`,
 and the Python project-state/share support that still exists behind retained
-listener/share behavior.
+listener/share behavior. The deleted Python terminal websocket route and its
+websocket-only dependency helpers are no longer part of that blocker set.
 
 ### Test and smoke evidence executed
 
@@ -897,3 +907,14 @@ pytest slice (`124 passed`) still passes after that deletion. After this step,
 the remaining Python rewrite blocker is no longer the deleted websocket
 sender/registry/event-hub path; it is the broader legacy Python runtime/state
 support that still exists behind retained listener/share behavior.
+
+A later follow-up cleanup slice removed the dead Python terminal websocket
+transport as well. `backend/setta/routers/terminals.py` no longer exposes the
+old websocket route, the websocket-only helpers and aliases were deleted from
+`backend/setta/routers/dependencies.py`, `SettaNonLauncherAPIRouter` was
+removed from `backend/setta/routers/setta_api_router.py`, the old
+`Route.TERMINAL` enum entry was dropped, and the dedicated websocket guard
+tests for that deleted Python transport were removed. The focused
+router/share/server pytest slice (`60 passed`) still passes after that
+cleanup. After this step, the remaining Python rewrite blocker is narrower
+again: it no longer includes the old Python terminal websocket transport.
