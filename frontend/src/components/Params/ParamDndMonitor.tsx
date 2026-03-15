@@ -31,11 +31,9 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  moveParamsWithBackend,
-  orderParamIdsByParent,
-  selectOnlyParam,
-} from "state/actions/params/moveParams";
+import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
+import { orderParamIdsByParent } from "state/actions/params/paramMoveQueries";
+import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
 import {
   buildParamParentMap,
   buildParamTreeView,
@@ -48,8 +46,8 @@ import {
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
 } from "state/actions/sectionInfos";
+import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import {
   useMisc,
   useProjectState,
