@@ -746,17 +746,6 @@ type PluginConfigDescriptor struct {
 	CurrentConfigDigestSHA256 *string        `json:"currentConfigDigestSha256"`
 }
 
-type PluginRegisteredExternalAgentAdapter struct {
-	AdapterID       string   `json:"adapterId"`
-	PluginID        string   `json:"pluginId"`
-	Name            string   `json:"name"`
-	RunModes        []string `json:"runModes"`
-	Command         string   `json:"command"`
-	Args            []string `json:"args"`
-	EnvVarWhitelist []string `json:"envVarWhitelist"`
-	DefaultModel    *string  `json:"defaultModel"`
-}
-
 type PluginRegisteredCodegenTarget struct {
 	TargetID        string `json:"targetId"`
 	PluginID        string `json:"pluginId"`
@@ -797,27 +786,26 @@ type PluginListResponse struct {
 }
 
 type PluginStatusEntry struct {
-	PluginID                        string                                 `json:"pluginId"`
-	Name                            string                                 `json:"name"`
-	Version                         string                                 `json:"version"`
-	State                           PluginRuntimeState                     `json:"state"`
-	SourceScope                     PluginScope                            `json:"sourceScope"`
-	SourceScopeLabel                string                                 `json:"sourceScopeLabel"`
-	SourceManager                   PluginSourceManager                    `json:"sourceManager"`
-	SourceManagerHint               *string                                `json:"sourceManagerHint"`
-	SourcePath                      string                                 `json:"sourcePath"`
-	CanonicalSourceKey              string                                 `json:"canonicalSourceKey"`
-	SourceDigestSHA256              *string                                `json:"sourceDigestSha256"`
-	ShadowedBySourcePath            *string                                `json:"shadowedBySourcePath"`
-	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
-	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
-	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
-	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
-	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
-	EnablementSource                *PluginEnablementSource                `json:"enablementSource"`
-	RestartRequired                 bool                                   `json:"restartRequired"`
-	RuntimePayloadDigestSHA256      string                                 `json:"runtimePayloadDigestSha256"`
-	Errors                          []PluginErrorInfo                      `json:"errors"`
+	PluginID                   string                          `json:"pluginId"`
+	Name                       string                          `json:"name"`
+	Version                    string                          `json:"version"`
+	State                      PluginRuntimeState              `json:"state"`
+	SourceScope                PluginScope                     `json:"sourceScope"`
+	SourceScopeLabel           string                          `json:"sourceScopeLabel"`
+	SourceManager              PluginSourceManager             `json:"sourceManager"`
+	SourceManagerHint          *string                         `json:"sourceManagerHint"`
+	SourcePath                 string                          `json:"sourcePath"`
+	CanonicalSourceKey         string                          `json:"canonicalSourceKey"`
+	SourceDigestSHA256         *string                         `json:"sourceDigestSha256"`
+	ShadowedBySourcePath       *string                         `json:"shadowedBySourcePath"`
+	RequestedCapabilities      []string                        `json:"requestedCapabilities"`
+	EffectiveCapabilities      []string                        `json:"effectiveCapabilities"`
+	BlockedCapabilities        []PluginBlockedCapability       `json:"blockedCapabilities"`
+	RegisteredCodegenTargets   []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
+	EnablementSource           *PluginEnablementSource         `json:"enablementSource"`
+	RestartRequired            bool                            `json:"restartRequired"`
+	RuntimePayloadDigestSHA256 string                          `json:"runtimePayloadDigestSha256"`
+	Errors                     []PluginErrorInfo               `json:"errors"`
 }
 
 type PluginStatusResponse struct {

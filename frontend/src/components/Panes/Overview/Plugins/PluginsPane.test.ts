@@ -9,7 +9,6 @@ import {
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
   getPluginCapabilityStatus,
-  getRegisteredExternalAgentAdapters,
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
   validateInstallSourceSpec,
@@ -40,7 +39,6 @@ const pluginsPaneTestApi = {
   buildCapabilityUnavailableMessage,
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
-  getRegisteredExternalAgentAdapters,
   getPluginCapabilityStatus,
   getRestartRequiredPluginIds,
   parsePluginConfigDraft,
@@ -103,7 +101,6 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
-    registeredExternalAgentAdapters: [],
     enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
@@ -390,81 +387,6 @@ describe("plugins pane helpers", () => {
         serverMode: "ide",
       }),
     ).toBe("registerContextMenu is blocked (host_policy).");
-  });
-
-  it("reuses cached sorted registration arrays for unchanged plugin status objects", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredExternalAgentAdapters: [
-        {
-          adapterId: "plugin:alpha",
-          pluginId: "plugin",
-          name: "Alpha Adapter",
-          runModes: ["sdk"],
-          command: "alpha",
-          args: [],
-          envVarWhitelist: [],
-          defaultModel: null,
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const firstAdapters =
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-    const secondAdapters =
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-
-    expect(firstAdapters).toBe(secondAdapters);
-  });
-
-  it("extracts and sorts registered external agent adapters from plugin status", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredExternalAgentAdapters: [
-        {
-          adapterId: "plugin:beta",
-          pluginId: "plugin",
-          name: "Beta Adapter",
-          runModes: ["sdk"],
-          command: "beta",
-          args: [],
-          envVarWhitelist: [],
-          defaultModel: null,
-        },
-        {
-          adapterId: "plugin:alpha",
-          pluginId: "plugin",
-          name: "Alpha Adapter",
-          runModes: ["sdk", "server"],
-          command: "alpha",
-          args: ["--stdio"],
-          envVarWhitelist: ["OPENHANDS_API_KEY"],
-          defaultModel: "openhands/default",
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const registrations =
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-
-    expect(registrations.map((entry) => entry.name)).toEqual([
-      "Alpha Adapter",
-      "Beta Adapter",
-    ]);
-    expect(registrations[0].defaultModel).toBe("openhands/default");
-  });
-
-  it("returns no external agent adapters when status payload omits registrations", () => {
-    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
-    delete (
-      statusEntry as PluginStatusEntry & {
-        registeredExternalAgentAdapters?: unknown;
-      }
-    ).registeredExternalAgentAdapters;
-
-    expect(
-      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry),
-    ).toEqual([]);
   });
 
   it("parses plugin config drafts as JSON objects", () => {

@@ -15,16 +15,15 @@ var (
 
 var (
 	resolverKnownPluginCapabilities = map[string]struct{}{
-		"registerSectionKinds":         {},
-		"registerPane":                 {},
-		"registerCommand":              {},
-		"registerTopNavBarItem":        {},
-		"registerContextMenu":          {},
-		"readProjectState":             {},
-		"subscribeProjectState":        {},
-		"emitListenerEvents":           {},
-		"registerExternalAgentAdapter": {},
-		"writeWorkspacePlugins":        {},
+		"registerSectionKinds":  {},
+		"registerPane":          {},
+		"registerCommand":       {},
+		"registerTopNavBarItem": {},
+		"registerContextMenu":   {},
+		"readProjectState":      {},
+		"subscribeProjectState": {},
+		"emitListenerEvents":    {},
+		"writeWorkspacePlugins": {},
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu": {},

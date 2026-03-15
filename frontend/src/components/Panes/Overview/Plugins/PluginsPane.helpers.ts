@@ -5,14 +5,6 @@ import type {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 
-type PluginRegisteredExternalAgentAdapter =
-  PluginStatusEntry["registeredExternalAgentAdapters"][number];
-
-const cachedExternalAgentAdaptersByStatus = new WeakMap<
-  PluginStatusEntry,
-  PluginRegisteredExternalAgentAdapter[]
->();
-
 type PluginCapabilityStatus =
   | "effective"
   | "blocked"
@@ -67,23 +59,6 @@ export function buildCapabilityStatusIndex({
     capabilityStatusByCapability,
     blockedReasonByCapability,
   };
-}
-
-export function getRegisteredExternalAgentAdapters(
-  pluginStatus: PluginStatusEntry | null,
-): PluginRegisteredExternalAgentAdapter[] {
-  return getCachedSortedRegistrations(
-    pluginStatus,
-    cachedExternalAgentAdaptersByStatus,
-    (entry) => entry.registeredExternalAgentAdapters,
-    (a, b) => {
-      const byName = a.name.localeCompare(b.name);
-      if (byName !== 0) {
-        return byName;
-      }
-      return a.adapterId.localeCompare(b.adapterId);
-    },
-  );
 }
 
 function getCachedSortedRegistrations<TRegistration>(

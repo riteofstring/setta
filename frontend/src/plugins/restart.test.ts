@@ -87,7 +87,6 @@ describe("plugin restart helpers", () => {
           requestedCapabilities: [],
           effectiveCapabilities: [],
           blockedCapabilities: [],
-          registeredExternalAgentAdapters: [],
           registeredCodegenTargets: [],
           enablementSource: null,
           runtimePayloadDigestSha256: "digest-setta-fixture-backend",

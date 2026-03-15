@@ -122,7 +122,6 @@ func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *
 		"requestedCapabilities",
 		"effectiveCapabilities",
 		"blockedCapabilities",
-		"registeredExternalAgentAdapters",
 		"registeredCodegenTargets",
 		"errors",
 	} {

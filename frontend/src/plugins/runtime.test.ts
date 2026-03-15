@@ -71,7 +71,6 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
-    registeredExternalAgentAdapters: [],
     registeredCodegenTargets: [],
     enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
@@ -1434,9 +1433,6 @@ describe("plugin runtime helpers", () => {
               requestedCapabilities: [...status.requestedCapabilities],
               effectiveCapabilities: [...status.effectiveCapabilities],
               blockedCapabilities: [...status.blockedCapabilities],
-              registeredExternalAgentAdapters: [
-                ...status.registeredExternalAgentAdapters,
-              ],
               registeredCodegenTargets: [...status.registeredCodegenTargets],
               errors: [...status.errors],
             },

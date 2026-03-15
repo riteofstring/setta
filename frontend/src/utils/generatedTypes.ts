@@ -922,22 +922,6 @@ export function createPluginConfigDescriptor(
   return options as PluginConfigDescriptor;
 }
 
-export type PluginRegisteredExternalAgentAdapter = {
-  adapterId: string;
-  pluginId: string;
-  name: string;
-  runModes: Array<string>;
-  command: string;
-  args: Array<string>;
-  envVarWhitelist: Array<string>;
-  defaultModel: string | null;
-};
-export function createPluginRegisteredExternalAgentAdapter(
-  options: Partial<PluginRegisteredExternalAgentAdapter> = {},
-): PluginRegisteredExternalAgentAdapter {
-  return options as PluginRegisteredExternalAgentAdapter;
-}
-
 export type PluginRegisteredCodegenTarget = {
   targetId: string;
   pluginId: string;
@@ -10254,7 +10238,6 @@ export type PluginStatusEntry = {
   requestedCapabilities: Array<string>;
   effectiveCapabilities: Array<string>;
   blockedCapabilities: Array<PluginBlockedCapability>;
-  registeredExternalAgentAdapters: Array<PluginRegisteredExternalAgentAdapter>;
   registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
   enablementSource: PluginEnablementSource | null;
   restartRequired: boolean;

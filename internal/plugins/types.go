@@ -79,17 +79,6 @@ type PluginBlockedCapability struct {
 	Reason     PluginBlockedCapabilityReason `json:"reason"`
 }
 
-type PluginRegisteredExternalAgentAdapter struct {
-	AdapterID       string   `json:"adapterId"`
-	PluginID        string   `json:"pluginId"`
-	Name            string   `json:"name"`
-	RunModes        []string `json:"runModes"`
-	Command         string   `json:"command"`
-	Args            []string `json:"args"`
-	EnvVarWhitelist []string `json:"envVarWhitelist"`
-	DefaultModel    *string  `json:"defaultModel"`
-}
-
 type PluginRegisteredCodegenTarget struct {
 	TargetID        string `json:"targetId"`
 	PluginID        string `json:"pluginId"`

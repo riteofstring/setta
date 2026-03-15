@@ -156,7 +156,6 @@ PluginErrorInfo
 PluginFrontendDescriptor
 PluginInstallerBackend
 PluginRegisteredCodegenTarget
-PluginRegisteredExternalAgentAdapter
 PluginRestartCapability
 PluginRestartCapabilityMode
 PluginRuntimeState

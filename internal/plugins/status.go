@@ -26,27 +26,26 @@ type RestartCapability struct {
 }
 
 type StatusEntry struct {
-	PluginID                        string                                 `json:"pluginId"`
-	Name                            string                                 `json:"name"`
-	Version                         string                                 `json:"version"`
-	State                           PluginRuntimeState                     `json:"state"`
-	SourceScope                     PluginScope                            `json:"sourceScope"`
-	SourceScopeLabel                string                                 `json:"sourceScopeLabel"`
-	SourceManager                   PluginSourceManager                    `json:"sourceManager"`
-	SourceManagerHint               *string                                `json:"sourceManagerHint"`
-	SourcePath                      string                                 `json:"sourcePath"`
-	CanonicalSourceKey              string                                 `json:"canonicalSourceKey"`
-	SourceDigestSHA256              *string                                `json:"sourceDigestSha256"`
-	ShadowedBySourcePath            *string                                `json:"shadowedBySourcePath"`
-	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
-	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
-	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
-	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
-	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
-	EnablementSource                *PluginEnablementSource                `json:"enablementSource"`
-	RestartRequired                 bool                                   `json:"restartRequired"`
-	RuntimePayloadDigestSHA256      string                                 `json:"runtimePayloadDigestSha256"`
-	Errors                          []PluginErrorInfo                      `json:"errors"`
+	PluginID                   string                          `json:"pluginId"`
+	Name                       string                          `json:"name"`
+	Version                    string                          `json:"version"`
+	State                      PluginRuntimeState              `json:"state"`
+	SourceScope                PluginScope                     `json:"sourceScope"`
+	SourceScopeLabel           string                          `json:"sourceScopeLabel"`
+	SourceManager              PluginSourceManager             `json:"sourceManager"`
+	SourceManagerHint          *string                         `json:"sourceManagerHint"`
+	SourcePath                 string                          `json:"sourcePath"`
+	CanonicalSourceKey         string                          `json:"canonicalSourceKey"`
+	SourceDigestSHA256         *string                         `json:"sourceDigestSha256"`
+	ShadowedBySourcePath       *string                         `json:"shadowedBySourcePath"`
+	RequestedCapabilities      []string                        `json:"requestedCapabilities"`
+	EffectiveCapabilities      []string                        `json:"effectiveCapabilities"`
+	BlockedCapabilities        []PluginBlockedCapability       `json:"blockedCapabilities"`
+	RegisteredCodegenTargets   []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
+	EnablementSource           *PluginEnablementSource         `json:"enablementSource"`
+	RestartRequired            bool                            `json:"restartRequired"`
+	RuntimePayloadDigestSHA256 string                          `json:"runtimePayloadDigestSha256"`
+	Errors                     []PluginErrorInfo               `json:"errors"`
 }
 
 type StatusResponse struct {
@@ -71,12 +70,11 @@ type PluginRestartResult struct {
 }
 
 type statusEntryRuntimeDigestPayload struct {
-	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
-	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
-	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
-	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
-	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
-	Errors                          []PluginErrorInfo                      `json:"errors"`
+	RequestedCapabilities    []string                        `json:"requestedCapabilities"`
+	EffectiveCapabilities    []string                        `json:"effectiveCapabilities"`
+	BlockedCapabilities      []PluginBlockedCapability       `json:"blockedCapabilities"`
+	RegisteredCodegenTargets []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
+	Errors                   []PluginErrorInfo               `json:"errors"`
 }
 
 func (s *Service) Status() (StatusResponse, error) {
@@ -197,38 +195,36 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCa
 func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
 	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry)
 	return StatusEntry{
-		PluginID:                        entry.PluginID,
-		Name:                            entry.Name,
-		Version:                         entry.Version,
-		State:                           entry.State,
-		SourceScope:                     entry.Scope,
-		SourceScopeLabel:                string(entry.Scope),
-		SourceManager:                   entry.SourceManager,
-		SourceManagerHint:               optionalStringPointer(entry.SourceManagerHint),
-		SourcePath:                      entry.SourcePath,
-		CanonicalSourceKey:              entry.CanonicalSourceKey,
-		SourceDigestSHA256:              cloneOptionalString(entry.SourceDigestSHA256),
-		ShadowedBySourcePath:            optionalStringPointer(entry.ShadowedBySourcePath),
-		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
-		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
-		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
-		RegisteredCodegenTargets:        []PluginRegisteredCodegenTarget{},
-		EnablementSource:                cloneOptionalEnablementSource(entry.EnablementSource),
-		RestartRequired:                 entry.RestartRequired,
-		RuntimePayloadDigestSHA256:      runtimeDigest,
-		Errors:                          clonePluginErrorsOrEmpty(entry.Errors),
+		PluginID:                   entry.PluginID,
+		Name:                       entry.Name,
+		Version:                    entry.Version,
+		State:                      entry.State,
+		SourceScope:                entry.Scope,
+		SourceScopeLabel:           string(entry.Scope),
+		SourceManager:              entry.SourceManager,
+		SourceManagerHint:          optionalStringPointer(entry.SourceManagerHint),
+		SourcePath:                 entry.SourcePath,
+		CanonicalSourceKey:         entry.CanonicalSourceKey,
+		SourceDigestSHA256:         cloneOptionalString(entry.SourceDigestSHA256),
+		ShadowedBySourcePath:       optionalStringPointer(entry.ShadowedBySourcePath),
+		RequestedCapabilities:      cloneStringSliceOrEmpty(entry.RequestedCapabilities),
+		EffectiveCapabilities:      cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
+		BlockedCapabilities:        cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		RegisteredCodegenTargets:   []PluginRegisteredCodegenTarget{},
+		EnablementSource:           cloneOptionalEnablementSource(entry.EnablementSource),
+		RestartRequired:            entry.RestartRequired,
+		RuntimePayloadDigestSHA256: runtimeDigest,
+		Errors:                     clonePluginErrorsOrEmpty(entry.Errors),
 	}
 }
 
 func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 	payload := statusEntryRuntimeDigestPayload{
-		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
-		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
-		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
-		RegisteredCodegenTargets:        []PluginRegisteredCodegenTarget{},
-		Errors:                          clonePluginErrorsOrEmpty(entry.Errors),
+		RequestedCapabilities:    cloneStringSliceOrEmpty(entry.RequestedCapabilities),
+		EffectiveCapabilities:    cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
+		BlockedCapabilities:      cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		RegisteredCodegenTargets: []PluginRegisteredCodegenTarget{},
+		Errors:                   clonePluginErrorsOrEmpty(entry.Errors),
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -250,13 +246,6 @@ func cloneBlockedCapabilitiesOrEmpty(values []PluginBlockedCapability) []PluginB
 		return []PluginBlockedCapability{}
 	}
 	return append([]PluginBlockedCapability{}, values...)
-}
-
-func cloneRegisteredExternalAgentAdaptersOrEmpty(values []PluginRegisteredExternalAgentAdapter) []PluginRegisteredExternalAgentAdapter {
-	if len(values) == 0 {
-		return []PluginRegisteredExternalAgentAdapter{}
-	}
-	return append([]PluginRegisteredExternalAgentAdapter{}, values...)
 }
 
 func cloneRegisteredCodegenTargetsOrEmpty(values []PluginRegisteredCodegenTarget) []PluginRegisteredCodegenTarget {

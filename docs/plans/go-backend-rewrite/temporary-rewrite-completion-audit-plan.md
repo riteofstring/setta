@@ -799,3 +799,13 @@ schemas/models and the Go capability normalization path no longer advertise
 either one, and the stale fixture-linking example no longer points at the
 already-removed backend static-router path. The remaining dead backend-plugin
 tail is now centered on the old plugin external-agent adapter surface.
+
+A later follow-up cleanup slice removed the last active plugin-runtime/status
+advertising for that deleted external-agent path. The Go capability
+normalization path no longer accepts `registerExternalAgentAdapter`, the
+plugin runtime/status transport and generated frontend bindings no longer carry
+`registeredExternalAgentAdapters`, and the `PluginsPane` no longer renders or
+tests an external-agent registration block for plugins. After that slice, the
+remaining rewrite tail in this area is no longer the active Go/frontend
+contract; it is the legacy Python external-agent adapter runtime and tests
+that still exist in-tree.
