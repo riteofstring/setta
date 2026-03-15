@@ -7,12 +7,12 @@ import {
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,
 } from "./projectChatWindowingEphemeral";
+import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
 import {
-  addProjectChatWindowInstanceInState,
   focusProjectChatWindowInState,
   maximizeProjectChatWindowInState,
   reopenProjectChatWindowInState,
-} from "./projectChatWindowingLayoutState";
+} from "./projectChatWindowingPlacementState";
 import { setProjectChatWindowTitleInState } from "./projectChatWindowingState";
 import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {

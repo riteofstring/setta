@@ -7,11 +7,13 @@ import {
 } from "utils/generatedTypes";
 import {
   addProjectChatWindowInstanceInState,
-  focusProjectChatWindowInState,
   resolveDefaultFloatingChatBoundsFromRuntime,
-  setProjectChatWindowPlacementInState,
   withUpdatedProjectChatWindowInState,
-} from "./projectChatWindowingLayoutState";
+} from "./projectChatWindowingInstanceState";
+import {
+  focusProjectChatWindowInState,
+  setProjectChatWindowPlacementInState,
+} from "./projectChatWindowingPlacementState";
 import { getProjectChatWindowInstanceForSectionInState } from "./projectChatWindowingSelectors";
 
 export type MoveProjectChatWindowToCanvasSectionOptions = {

@@ -52,20 +52,22 @@ import {
   setProjectChatWindowChatId,
   unmaximizeProjectChatWindow,
 } from "./projectChatWindowing";
-import { bootProjectChatWindowToCanvasSection } from "./projectChatWindowingCanvasBoot";
 import {
-  addProjectChatWindowInstanceInState,
+  setProjectChatWindowBoundsByIdInState,
+  setProjectChatWindowBoundsInState,
+  setProjectChatWindowDockFractionsInState,
+} from "./projectChatWindowingBoundsState";
+import { bootProjectChatWindowToCanvasSection } from "./projectChatWindowingCanvasBoot";
+import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
+import {
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,
   maximizeProjectChatWindowInState,
   minimizeProjectChatWindowInState,
   reopenProjectChatWindowInState,
-  setProjectChatWindowBoundsByIdInState,
-  setProjectChatWindowBoundsInState,
-  setProjectChatWindowDockFractionsInState,
   setProjectChatWindowPlacementInState,
   unmaximizeProjectChatWindowInState,
-} from "./projectChatWindowingLayoutState";
+} from "./projectChatWindowingPlacementState";
 import {
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,

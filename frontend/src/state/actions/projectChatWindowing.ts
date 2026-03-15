@@ -7,24 +7,28 @@ import {
   type ChatWindowMode,
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
+import {
+  setProjectChatWindowBoundsByIdInState,
+  setProjectChatWindowBoundsInState,
+  setProjectChatWindowDockFractionsInState,
+  type SetBoundsByInstanceIdOptions,
+  type SetBoundsOptions,
+  type SetDockFractionsOptions,
+} from "./projectChatWindowingBoundsState";
 import { clearTrackedGitPaneGraphWindowIfMatches } from "./projectChatWindowingEphemeral";
 import {
   addProjectChatWindowInstanceInState,
+  type CreateProjectChatWindowInstanceOptions,
+} from "./projectChatWindowingInstanceState";
+import {
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,
   maximizeProjectChatWindowInState,
   minimizeProjectChatWindowInState,
   reopenProjectChatWindowInState,
-  setProjectChatWindowBoundsByIdInState,
-  setProjectChatWindowBoundsInState,
-  setProjectChatWindowDockFractionsInState,
   setProjectChatWindowPlacementInState,
   unmaximizeProjectChatWindowInState,
-  type CreateProjectChatWindowInstanceOptions,
-  type SetBoundsByInstanceIdOptions,
-  type SetBoundsOptions,
-  type SetDockFractionsOptions,
-} from "./projectChatWindowingLayoutState";
+} from "./projectChatWindowingPlacementState";
 import {
   getProjectChatWindowInstanceForSectionInState,
   shouldSyncActiveProjectChatId,
