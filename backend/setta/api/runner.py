@@ -334,16 +334,7 @@ class SettaRunner:
             session_metadata, secret = session_info
             cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
             return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
-        cookie_header = self._load_cookie_from_sessions()
-        if cookie_header is not None:
-            return {"Cookie": cookie_header}
-        raise ValueError(
-            "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
-            "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
-            "workspace)."
-        )
 
-    def _load_cookie_from_sessions(self) -> str | None:
         def normalize_host(host: str | None) -> str | None:
             if host is None:
                 return None
@@ -358,36 +349,48 @@ class SettaRunner:
 
         sessions_root = resolve_sessions_root(self._workspace_root)
         if sessions_root is None:
-            return None
-        registry = SessionRegistry(sessions_root=sessions_root)
-        sessions = registry.find_sessions_by_workspace(self._workspace_root)
-        if not sessions:
-            return None
-        parsed_base_url = urlparse(self._base_url)
-        base_host = normalize_host(parsed_base_url.hostname)
-        base_port = parsed_base_url.port
-        if base_host is not None or base_port is not None:
-            matching = [
-                session
-                for session in sessions
-                if (
-                    (base_port is None or session.port == base_port)
-                    and (
-                        base_host is None
-                        or normalize_host(session.host) == base_host
+            cookie_header = None
+        else:
+            registry = SessionRegistry(sessions_root=sessions_root)
+            sessions = registry.find_sessions_by_workspace(self._workspace_root)
+            if not sessions:
+                cookie_header = None
+            else:
+                parsed_base_url = urlparse(self._base_url)
+                base_host = normalize_host(parsed_base_url.hostname)
+                base_port = parsed_base_url.port
+                if base_host is not None or base_port is not None:
+                    matching = [
+                        session
+                        for session in sessions
+                        if (
+                            (base_port is None or session.port == base_port)
+                            and (
+                                base_host is None
+                                or normalize_host(session.host) == base_host
+                            )
+                        )
+                    ]
+                    if matching:
+                        sessions = matching
+                sessions.sort(key=lambda session: session.startedAt, reverse=True)
+                selected = sessions[0]
+                secret_path = registry.resolve_secret_path(selected)
+                if not secret_path.exists():
+                    cookie_header = None
+                else:
+                    secret = secret_path.read_bytes()
+                    token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
+                    cookie_header = (
+                        f"{auth_cookie_name(selected.id)}={token}"
                     )
-                )
-            ]
-            if matching:
-                sessions = matching
-        sessions.sort(key=lambda session: session.startedAt, reverse=True)
-        selected = sessions[0]
-        secret_path = registry.resolve_secret_path(selected)
-        if not secret_path.exists():
-            return None
-        secret = secret_path.read_bytes()
-        token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
-        return f"{auth_cookie_name(selected.id)}={token}"
+        if cookie_header is not None:
+            return {"Cookie": cookie_header}
+        raise ValueError(
+            "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
+            "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
+            "workspace)."
+        )
 
     def _resolve_project_config_id(self, ref: str | None) -> ID:
         project_name = ref or self._project_name
