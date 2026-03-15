@@ -2,14 +2,11 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  useActiveSectionUI,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { useActiveSectionUI, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
 import { createSettingsState } from "utils/generatedTypes";

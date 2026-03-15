@@ -11,7 +11,7 @@ import {
 } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React, { createContext, useContext, useMemo } from "react";
-import type { ParamTreeView } from "state/actions/params/paramTree";
+import type { ParamTreeView } from "state/actions/params/paramTreeStructure";
 
 type ParamDndContextValue = {
   enabled: boolean;
