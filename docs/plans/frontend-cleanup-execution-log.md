@@ -3762,3 +3762,29 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/activeSections.ts` so backend sync
     scheduling/flush transport stops living beside high-level selection
     commands such as clear, prune, select-all, and top-level activation.
+
+## 2026-03-15 09:55:11 PDT
+
+- Slice completed: split active-section durable sync from high-level selection
+  commands
+- Key files touched:
+  - `frontend/src/state/actions/activeSections.ts`
+  - `frontend/src/state/actions/activeSectionSync.ts`
+  - `frontend/src/state/actions/activeSectionCommands.ts`
+  - `frontend/src/state/actions/activeSectionCommands.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/activeSections.test.ts src/state/actions/activeSectionCommands.test.ts src/state/actions/activeSectionController.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/uiSettingReveal.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/activeSections.ts src/state/actions/activeSectionSync.ts src/state/actions/activeSectionCommands.ts src/state/actions/activeSectionCommands.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `49cfe3c1e592294d29b0ac05ab5fb3a186ab8668`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiPendingChatMessageState.ts` so pending
+    chat initialization/clear flows stop living beside optimistic
+    apply/commit/rollback message mutations and app-generation detail merges.
