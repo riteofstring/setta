@@ -335,12 +335,27 @@ func TestRegisterRoutesFrontendRealtimeUIChangeBroadcastsToMatchingListener(t *t
 	ack := readNextMessage(t, listener)
 	assertListenerRegisterAck(t, ack, "project-a", "")
 
+	nonMatchingListener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-b"))
+	defer nonMatchingListener.CloseNow()
+	if err := nonMatchingListener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-b.param-b"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write non-matching listener register message: %v", err)
+	}
+	nonMatchingAck := readNextMessage(t, nonMatchingListener)
+	assertListenerRegisterAck(t, nonMatchingAck, "project-a", "")
+
 	if err := frontend.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"RealtimeUIChange","content":{"projectConfigId":"project-a","dependencyKey":{"type":"SectionParam","sectionId":"section-a","codeObjId":"param-a"},"value":{"type":"Literal","payload":"value-1"}}}`)); err != nil {
 		t.Fatalf("write realtime UI change: %v", err)
 	}
 
 	realtimeEvent := readNextMessage(t, listener)
 	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, "section-a.param-a", `{"type":"Literal","payload":"value-1"}`)
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err := nonMatchingListener.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected no realtime event for non-matching listener, got %v", err)
+	}
 }
 
 func TestRegisterRoutesFrontendResolvesUISettingRevealResult(t *testing.T) {
@@ -563,6 +578,62 @@ func TestRegisterRoutesFrontendBinaryDependencyEventBroadcastsBinaryFrame(t *tes
 	assertRouteListenerDependencyEvent(t, envelope, "project-a", "", 1, "section-action", `{"type":"Binary","payload":{"contentId":"bin-1"}}`)
 	if string(binaryPayload) != "binary-action" {
 		t.Fatalf("expected binary-action payload, got %q", string(binaryPayload))
+	}
+}
+
+func TestRegisterRoutesFrontendDependencyEventBroadcastsOnlyToMatchingListener(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster:  broadcaster,
+			ProjectState: projectRuntime,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	matchingListener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer matchingListener.CloseNow()
+	if err := matchingListener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-action"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write matching listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, matchingListener), "project-a", "")
+
+	nonMatchingListener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-b"))
+	defer nonMatchingListener.CloseNow()
+	if err := nonMatchingListener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-other"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write non-matching listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, nonMatchingListener), "project-a", "")
+
+	if err := frontend.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"RealtimeDependencyEvent","content":{"projectConfigId":"project-a","dependencyEvent":{"dependencyKey":{"type":"Section","sectionId":"section-action"},"payload":{"type":"Literal","payload":"clicked"},"timestampMs":123}}}`)); err != nil {
+		t.Fatalf("write dependency event: %v", err)
+	}
+
+	dependencyEvent := readNextMessage(t, matchingListener)
+	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "", 1, "section-action", `{"type":"Literal","payload":"clicked"}`)
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err := nonMatchingListener.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected no dependency event for non-matching listener, got %v", err)
 	}
 }
 

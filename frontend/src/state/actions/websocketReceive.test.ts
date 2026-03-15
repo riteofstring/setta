@@ -403,6 +403,108 @@ describe("openWebSocket", () => {
     });
   });
 
+  it("does not send realtime ui changes when listener coverage is unknown", async () => {
+    const { openWebSocket, sendRealtimeSectionLiteral } = await import(
+      "state/actions/websocketReceive"
+    );
+    openWebSocket("/project", "share-session-ui-coverage-unknown");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    const sendCallCountBefore = socket.send.mock.calls.length;
+
+    sendRealtimeSectionLiteral(
+      "section-unknown-coverage",
+      "hello",
+      "project-ui-coverage-unknown",
+    );
+
+    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
+  });
+
+  it("sends realtime ui changes when listener coverage includes the dependency", async () => {
+    const { openWebSocket, sendRealtimeSectionLiteral } = await import(
+      "state/actions/websocketReceive"
+    );
+    openWebSocket("/project", "share-session-ui-coverage-known");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    useListenerCoverage.setState((state) => {
+      state.byProjectId["project-ui-covered"] = {
+        hasRealtimeWildcard: false,
+        dependenciesByKey: {
+          "section-covered::": {
+            type: DependencyKeyTypeEnum.Section,
+            sectionId: "section-covered",
+          },
+        },
+      };
+    });
+    const sendCallCountBefore = socket.send.mock.calls.length;
+
+    sendRealtimeSectionLiteral(
+      "section-covered",
+      "hello",
+      "project-ui-covered",
+    );
+
+    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore + 1);
+    const laterMessages = socket.send.mock.calls
+      .slice(sendCallCountBefore)
+      .map((call) => call[0])
+      .filter((payload): payload is string => typeof payload === "string")
+      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
+    const realtimeMessage = laterMessages.find(
+      (payload) => payload.messageType === "RealtimeUIChange",
+    ) as
+      | {
+          content?: {
+            dependencyKey?: { sectionId?: string };
+            projectConfigId?: string;
+          };
+        }
+      | undefined;
+
+    expect(realtimeMessage?.content?.projectConfigId).toBe("project-ui-covered");
+    expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
+      "section-covered",
+    );
+  });
+
+  it("does not send realtime ui changes excluded by known coverage", async () => {
+    const { openWebSocket, sendRealtimeSectionLiteral } = await import(
+      "state/actions/websocketReceive"
+    );
+    openWebSocket("/project", "share-session-ui-coverage-excluded");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    useListenerCoverage.setState((state) => {
+      state.byProjectId["project-ui-excluded"] = {
+        hasRealtimeWildcard: false,
+        dependenciesByKey: {
+          "different-section::": {
+            type: DependencyKeyTypeEnum.Section,
+            sectionId: "different-section",
+          },
+        },
+      };
+    });
+    const sendCallCountBefore = socket.send.mock.calls.length;
+
+    sendRealtimeSectionLiteral(
+      "section-not-covered",
+      "hello",
+      "project-ui-excluded",
+    );
+
+    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
+  });
+
   it("sends realtime dependency events when listener coverage is unknown", async () => {
     const { openWebSocket, sendRealtimeDependencyEvent } = await import(
       "state/actions/websocketReceive"
