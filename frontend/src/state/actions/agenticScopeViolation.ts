@@ -1,4 +1,4 @@
-import type { AgenticScopeViolationEdge } from "state/definitions";
+import type { AgenticScopeViolationEdge } from "state/stores/aiStores";
 import { AgenticEdgeKindEnum, ToolResultEvent } from "utils/generatedTypes";
 
 const scopeViolationEdgeKinds = new Set(Object.values(AgenticEdgeKindEnum));
