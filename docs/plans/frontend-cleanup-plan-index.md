@@ -41,14 +41,14 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
-  `ProjectChat.tsx`, `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and
+  `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and
   `appRegistry.tsx` are now second-order work unless the same slice directly
   shortens one of the entry surfaces above.
 - Once a root surface stabilizes, prefer domain subfolders in oversized flat
@@ -71,6 +71,13 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.ts`; if
   section-layout follow-through returns here, it should shorten one of those
   sharp local owners instead of rebuilding a larger browser coordinator.
+- `ProjectChatCore.tsx` is no longer a top hotspot after delegating
+  selected-thread hydration retry state, timer cleanup, and blocked-code
+  orchestration to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.ts`;
+  chat/project-AI follow-through should now return to the larger remaining
+  front doors in
+  [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
 - `ProjectChatSkillsMcpViewer.tsx` is no longer a top hotspot after delegating
   the skills browser/filter shell to
   `projectChatSkillsBrowser.tsx`, the markdown preview/edit shell to

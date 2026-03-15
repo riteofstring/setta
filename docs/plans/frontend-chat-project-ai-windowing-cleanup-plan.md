@@ -20,9 +20,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-16)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 1183 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a blocking top-size hotspot in this domain
-  - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot
+  - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1236 lines after the local chat-owner extractions and remains one of the largest chat rendering front doors
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 1185 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 1019 lines after the local hydration-runtime, slash-command-authority, execution-settings, conversation-model, and hydration-session extractions and is now a follow-through coordinator in this domain
 - `frontend/src/components/Chat/ChatInput.tsx` is now about 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and is no longer a blocking top-size hotspot in this domain.
 - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer the blocking top hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer the blocking top hotspot in this domain.
@@ -78,6 +78,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.ts` now owns per-surface draft-thread lifecycle, selected thread-group reconciliation, engine-switch continuation state, and pending-chat continuity for `ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx` now owns workspace-root polling, python-signal probing, create-project starter prompt adaptation, and the empty-chat shell for `ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts` now owns project-chat hydration cache keys, managed/external runtime fetches, retry scheduling, and retry-cache pruning for `ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.ts` now owns selected-thread hydration retry state, timer cleanup, and blocked-code orchestration for `ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.ts` now owns default permission-mode selection, blocked-thread copy, submit preflight/readiness helpers, and provider-dictation gating for `ProjectChat.tsx` and `ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.ts` now owns runtime native slash-command discovery, authority gating, and recognized/executable slash-command set assembly for `ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts` now owns conversation-search filtering, submitted prompt history, runtime activity derivation, retained-image checks, latest-chat selection, and branch-source prompt helpers for `ProjectChatCore.tsx`
@@ -126,7 +127,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   `projectChatSurfaceChrome.tsx` plus `projectChatSurfaceBody.tsx`, and
   thread-session plus pending-chat continuity moved into
   `projectChatThreadSession.ts`.
-- `ProjectChatCore.tsx` is much smaller now, but it still mixes store selection, hydration effect orchestration, slash-command refresh dispatch, submission/edit/redo handlers, and the final chat-surface render branches even after hydration retry policy moved into `projectChatHydrationRuntime.ts`, slash-command authority moved into `projectChatSlashCommandAuthority.ts`, execution/submit guard logic moved into `projectChatExecutionSettings.ts`, and conversation/filter/history/runtime derivation moved into `projectChatConversationModel.ts`.
+- `ProjectChatCore.tsx` is much smaller now, but it still mixes store selection, slash-command refresh dispatch, submission/edit/redo handlers, and the final chat-surface render branches even after hydration retry policy moved into `projectChatHydrationRuntime.ts`, selected-thread hydration retry state plus blocked-code orchestration moved into `useProjectChatCoreHydrationSession.ts`, slash-command authority moved into `projectChatSlashCommandAuthority.ts`, execution/submit guard logic moved into `projectChatExecutionSettings.ts`, and conversation/filter/history/runtime derivation moved into `projectChatConversationModel.ts`.
 - `ProjectAISettings` follow-through now lives mostly in
   `projectAISettingsSections.tsx`, `projectAISettingsGuardrails.tsx`,
   `projectAISettingsAgentProfiles.tsx`,
