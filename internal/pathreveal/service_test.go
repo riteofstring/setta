@@ -30,7 +30,7 @@ func TestRevealUsesPlatformRevealCommandForWorkspaceFiles(t *testing.T) {
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: pathRevealTestCommandContext(logPath, 0, "", ""),
+		CommandContext: pathRevealTestCommandContext(logPath, 0, 0, "", ""),
 		GOOS:           "darwin",
 		Timeout:        time.Second,
 	})
@@ -63,7 +63,7 @@ func TestRevealRejectsPathsOutsideAllowedRoots(t *testing.T) {
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: pathRevealTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		CommandContext: pathRevealTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, 0, "", ""),
 		GOOS:           "darwin",
 		Timeout:        time.Second,
 	})
@@ -96,7 +96,7 @@ func TestRevealRejectsMissingPathsOutsideAllowedRootsWithoutLeakingExistence(t *
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: pathRevealTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		CommandContext: pathRevealTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, 0, "", ""),
 		GOOS:           "darwin",
 		Timeout:        time.Second,
 	})
@@ -152,7 +152,7 @@ func TestRevealAllowsSkillRoots(t *testing.T) {
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: pathRevealTestCommandContext(logPath, 0, "", ""),
+		CommandContext: pathRevealTestCommandContext(logPath, 0, 0, "", ""),
 		GOOS:           "linux",
 		Timeout:        time.Second,
 	})
@@ -169,6 +169,40 @@ func TestRevealAllowsSkillRoots(t *testing.T) {
 	}
 }
 
+func TestRevealAllowsSettaFilesRootPaths(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	targetPath := filepath.Join(settaFilesRoot, "llm_config.json")
+	if err := os.WriteFile(targetPath, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write setta files target: %v", err)
+	}
+	logPath := filepath.Join(t.TempDir(), "command.json")
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: pathRevealTestCommandContext(logPath, 0, 0, "", ""),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+
+	if err := service.Reveal(context.Background(), targetPath); err != nil {
+		t.Fatalf("reveal setta_files path: %v", err)
+	}
+
+	command := readPathRevealCommandLog(t, logPath)
+	if want := []string{"open", "-R", resolvePathRevealTestPath(t, targetPath)}; !reflect.DeepEqual(command, want) {
+		t.Fatalf("expected reveal command %#v, got %#v", want, command)
+	}
+}
+
 func TestPathRevealHelperProcess(t *testing.T) {
 	if os.Getenv("SETTA_PATH_REVEAL_HELPER") != "1" {
 		return
@@ -182,7 +216,7 @@ func TestPathRevealHelperProcess(t *testing.T) {
 			break
 		}
 	}
-	if separator == -1 || len(args) < separator+6 {
+	if separator == -1 || len(args) < separator+7 {
 		os.Exit(2)
 	}
 
@@ -191,12 +225,19 @@ func TestPathRevealHelperProcess(t *testing.T) {
 	if err != nil {
 		os.Exit(2)
 	}
-	stdoutText := args[separator+3]
-	stderrText := args[separator+4]
-	command := args[separator+5:]
+	sleepMillis, err := strconv.Atoi(args[separator+3])
+	if err != nil {
+		os.Exit(2)
+	}
+	stdoutText := args[separator+4]
+	stderrText := args[separator+5]
+	command := args[separator+6:]
 	payload, err := json.Marshal(command)
 	if err != nil {
 		os.Exit(2)
+	}
+	if sleepMillis > 0 {
+		time.Sleep(time.Duration(sleepMillis) * time.Millisecond)
 	}
 	if err := os.WriteFile(logPath, payload, 0o644); err != nil {
 		os.Exit(2)
@@ -213,6 +254,7 @@ func TestPathRevealHelperProcess(t *testing.T) {
 func pathRevealTestCommandContext(
 	logPath string,
 	exitCode int,
+	sleepMillis int,
 	stdoutText string,
 	stderrText string,
 ) func(context.Context, string, ...string) *exec.Cmd {
@@ -222,6 +264,7 @@ func pathRevealTestCommandContext(
 			"--",
 			logPath,
 			strconv.Itoa(exitCode),
+			strconv.Itoa(sleepMillis),
 			stdoutText,
 			stderrText,
 			name,

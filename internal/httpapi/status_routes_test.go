@@ -163,7 +163,7 @@ func TestRegisterStatusRoutesRevealsPathsInIDEMode(t *testing.T) {
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: statusRouteTestCommandContext(logPath, 0, "", ""),
+		CommandContext: statusRouteTestCommandContext(logPath, 0, 0, "", ""),
 		GOOS:           "darwin",
 		Timeout:        time.Second,
 	})
@@ -207,7 +207,7 @@ func TestRegisterStatusRoutesRejectsRevealPathOutsideAllowedRoots(t *testing.T) 
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, 0, "", ""),
 		GOOS:           "darwin",
 		Timeout:        time.Second,
 	})
@@ -243,7 +243,7 @@ func TestRegisterStatusRoutesRejectsMissingRevealPathOutsideAllowedRoots(t *test
 		LookPath: func(name string) (string, error) {
 			return name, nil
 		},
-		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, 0, "", ""),
 		GOOS:           "darwin",
 		Timeout:        time.Second,
 	})
@@ -267,6 +267,90 @@ func TestRegisterStatusRoutesRejectsMissingRevealPathOutsideAllowedRoots(t *test
 	}
 	if strings.Contains(response.Body.String(), "path_not_found") {
 		t.Fatalf("expected missing outside-root path to avoid path_not_found leak, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterStatusRoutesMapsRevealCommandFailure(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	targetPath := filepath.Join(workspaceRoot, "skill.md")
+	if err := os.WriteFile(targetPath, []byte("# Skill"), 0o644); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+	revealService, err := pathreveal.NewService(pathreveal.ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "command.json"), 2, 0, "", "permission denied"),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RevealPath: revealService,
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRevealPathInOSFileExplorer, strings.NewReader(`{"path":"`+targetPath+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("expected reveal path 500, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"path_reveal_failed"`) {
+		t.Fatalf("expected path_reveal_failed envelope, got %q", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Failed to reveal path in file explorer: permission denied") {
+		t.Fatalf("expected command failure detail, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterStatusRoutesMapsRevealCommandTimeout(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	targetPath := filepath.Join(workspaceRoot, "skill.md")
+	if err := os.WriteFile(targetPath, []byte("# Skill"), 0o644); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+	revealService, err := pathreveal.NewService(pathreveal.ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "command.json"), 0, 1500, "", ""),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RevealPath: revealService,
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRevealPathInOSFileExplorer, strings.NewReader(`{"path":"`+targetPath+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("expected reveal path 500, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"path_reveal_failed"`) {
+		t.Fatalf("expected path_reveal_failed envelope, got %q", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "timed out after 1s") {
+		t.Fatalf("expected timeout detail, got %q", response.Body.String())
 	}
 }
 
@@ -308,7 +392,7 @@ func TestStatusRouteHelperProcess(t *testing.T) {
 			break
 		}
 	}
-	if separator == -1 || len(args) < separator+6 {
+	if separator == -1 || len(args) < separator+7 {
 		os.Exit(2)
 	}
 
@@ -317,12 +401,19 @@ func TestStatusRouteHelperProcess(t *testing.T) {
 	if err != nil {
 		os.Exit(2)
 	}
-	stdoutText := args[separator+3]
-	stderrText := args[separator+4]
-	command := args[separator+5:]
+	sleepMillis, err := strconv.Atoi(args[separator+3])
+	if err != nil {
+		os.Exit(2)
+	}
+	stdoutText := args[separator+4]
+	stderrText := args[separator+5]
+	command := args[separator+6:]
 	payload, err := json.Marshal(command)
 	if err != nil {
 		os.Exit(2)
+	}
+	if sleepMillis > 0 {
+		time.Sleep(time.Duration(sleepMillis) * time.Millisecond)
 	}
 	if err := os.WriteFile(logPath, payload, 0o644); err != nil {
 		os.Exit(2)
@@ -339,6 +430,7 @@ func TestStatusRouteHelperProcess(t *testing.T) {
 func statusRouteTestCommandContext(
 	logPath string,
 	exitCode int,
+	sleepMillis int,
 	stdoutText string,
 	stderrText string,
 ) func(context.Context, string, ...string) *exec.Cmd {
@@ -348,6 +440,7 @@ func statusRouteTestCommandContext(
 			"--",
 			logPath,
 			strconv.Itoa(exitCode),
+			strconv.Itoa(sleepMillis),
 			stdoutText,
 			stderrText,
 			name,
