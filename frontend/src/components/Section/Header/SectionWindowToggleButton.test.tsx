@@ -7,10 +7,16 @@ let mockCanEditLayout = true;
 let mockExternalizedWindowInstance: { instanceId: string } | null = null;
 
 vi.mock("state/actions/projectChatWindowing", () => ({
+  showSectionInProjectChatWindow: vi.fn(),
+}));
+
+vi.mock("state/actions/projectChatWindowingCanvasBoot", () => ({
   bootProjectChatWindowToCanvasSection: vi.fn(),
+}));
+
+vi.mock("state/actions/projectChatWindowingSelectors", () => ({
   getOpenExternalProjectChatWindowInstanceForSectionInState: () =>
     mockExternalizedWindowInstance,
-  showSectionInProjectChatWindow: vi.fn(),
 }));
 
 vi.mock("state/definitions", () => ({
