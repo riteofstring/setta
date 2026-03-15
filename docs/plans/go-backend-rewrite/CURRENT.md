@@ -14,6 +14,9 @@ Read this file first for active Go backend rewrite work.
   unless a current repo workflow explicitly requires a bounded exception.
 - Progress is tracked in the two checklist docs, not by how much Python source
   has been deleted from this branch.
+- The rewrite is in late-stage cleanup. Once a Python surface is provably dead
+  or behaviorally replaced by Go, delete the Python code/tests instead of
+  keeping them around as rewrite history.
 
 ## Explicit Retained Python Boundaries
 
@@ -73,6 +76,9 @@ rather than a retained authoring surface.
   the docs.
 - Preserve active product behavior and current callers, not Python
   implementation details.
+- Test parity is behavioral, not implementation-level. Before deleting Python
+  tests, either prove they only covered a dead path or point to the Go tests
+  that now cover the surviving behavior.
 - Managed-chat provider scope is currently the landed OpenAI, Azure OpenAI,
   Anthropic, and Gemini set. Do not widen the rewrite target to additional
   providers such as Mistral unless a concrete current caller or explicit
@@ -140,5 +146,7 @@ rather than a retained authoring surface.
 - Update `CURRENT.md` only when doc routing, retained Python boundaries, or
   rewrite workflow guidance changed.
 - Read the matching audit-plan doc before editing either checklist.
+- Keep audit-plan docs concise. Use them for current verdict/evidence summaries
+  and maintenance rules, not chronological cleanup logs.
 - Do not create a new numbered phase or spike doc unless a bounded new rewrite
   slice is actually required.

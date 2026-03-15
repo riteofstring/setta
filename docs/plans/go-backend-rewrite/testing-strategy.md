@@ -6,7 +6,8 @@ The Go-owned backend surface should match or exceed the meaningful product
 behavior covered by the current Python tests.
 
 Do not do a mechanical file-for-file test port unless that is the clearest
-shape. Coverage can move. Behavioral coverage cannot shrink.
+shape. Coverage can move. Behavioral coverage cannot shrink. Implementation
+parity is not the goal.
 
 ## Core Rule
 
@@ -18,19 +19,27 @@ Treat the current Python tests as the minimum behavior map for the rewrite.
   details just because Python does them.
 - If behavior intentionally changes, the new behavior must be explicit in code,
   tests, and docs.
+- Before deleting a Python test, classify it:
+  - `dead-path coverage`: the test only covered a Python path that no longer
+    has a supported caller/runtime owner
+  - `replacement coverage`: the behavior still matters and Go tests prove it
+- If a test falls into `replacement coverage` and no Go test proves that
+  behavior yet, add the Go test first.
 
 ## Default Change Loop
 
 For any subsystem change:
 
 1. Find the matching Python tests, existing Go tests, and current callers.
-2. Decide which behavior stays the same and which behavior is intentionally
+2. Classify each Python-covered behavior as retained product behavior or dead
+   path.
+3. Decide which behavior stays the same and which behavior is intentionally
    changing.
-3. Add or update the Go tests that prove the intended behavior.
-4. Add or update frontend tests too when the change alters frontend contracts,
+4. Add or update the Go tests that prove the intended behavior.
+5. Add or update frontend tests too when the change alters frontend contracts,
    caller paths, or user-visible behavior.
-5. Implement the code change.
-6. Run the narrowest relevant suites first, then widen when the change crosses
+6. Implement the code change.
+7. Run the narrowest relevant suites first, then widen when the change crosses
    transport or ownership boundaries.
 
 ## Reference Inputs
@@ -163,6 +172,10 @@ Maintain a living mapping between:
 - corresponding Go test coverage
 - uncovered gaps
 - intentional drops or redesigns
+
+A deleted Python test does not require a one-for-one Go test by filename or
+shape. It does require either a dead-path justification or Go-side behavioral
+proof for the surviving product behavior.
 
 A subsystem is not done just because code exists. It is done when the code
 works, the relevant tests exist, and any remaining gap is explicit.

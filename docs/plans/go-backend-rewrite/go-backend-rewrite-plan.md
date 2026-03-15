@@ -54,9 +54,15 @@ When the right move is unclear, decide in this order:
   compatibility contract.
 - Preserve capability and user-visible behavior, not Python implementation
   details.
+- Test parity is behavior-only. Do not chase implementation-level symmetry
+  between Python and Go.
 - Move runtime ownership to Go as slices land, but keep superseded Python
   source in-tree until the rewrite is complete when that makes merges from
   `main` easier.
+- In the final cleanup stage, delete dead Python code/tests once the caller and
+  runtime path are proven gone or behaviorally replaced by Go. Git history is
+  the rewrite log; the repo does not need to preserve dead Python files as
+  historical breadcrumbs.
 - Retained Python source after a Go cutover is a merge buffer/reference
   surface, not an active fallback or source of truth.
 - Do not preserve Python dev startup/reload wrappers or Python plugin backend
@@ -66,6 +72,10 @@ When the right move is unclear, decide in this order:
   workflow explicitly needs a bounded exception.
 - The backend does not need to keep active callers on a mixed Go/Python
   ownership path at every intermediate commit.
+- Before deleting Python tests for a still-relevant behavior, add or identify
+  the Go tests that prove that behavior. If the deleted Python test only covers
+  a dead path, document that classification and delete it without forcing a
+  fake one-for-one replacement.
 - If a Go-owned boundary needs a stable frontend, SDK, or provider contract,
   introduce an explicit boundary DTO or adapter instead of reflecting runtime
   internals directly.
