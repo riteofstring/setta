@@ -110,6 +110,45 @@ func TestRuntimeSetListRootViewModeUpdatesEffectivePayload(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetListRootViewModeSupportsDocumentedModes(t *testing.T) {
+	t.Parallel()
+
+	for _, viewMode := range []ListRootViewMode{
+		ListRootViewModeDefault,
+		ListRootViewModeTaskList,
+		ListRootViewModeKanban,
+	} {
+		runtime, err := OpenOverlayRuntime(Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]Project{
+				"project-alpha": childDefaultsTestProject(t),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime for %s: %v", viewMode, err)
+		}
+
+		if _, err := runtime.SetListRootViewMode(context.Background(), "project-alpha", "list-root-section", viewMode); err != nil {
+			_ = runtime.Close()
+			t.Fatalf("SetListRootViewMode(%s) returned error: %v", viewMode, err)
+		}
+
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		listRootPayload, err := effectiveSectionPayload(project, "list-root-section", "list-root-variant")
+		closeErr := runtime.Close()
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload list-root-section for %s: %v", viewMode, err)
+		}
+		if closeErr != nil {
+			t.Fatalf("close runtime for %s: %v", viewMode, closeErr)
+		}
+		if got := payloadStringField(listRootPayload, "viewMode"); got != string(viewMode) {
+			t.Fatalf("expected list root view mode %q, got %q", viewMode, got)
+		}
+	}
+}
+
 func TestRuntimeSetListRootViewModeRejectsInvalidInputs(t *testing.T) {
 	t.Parallel()
 

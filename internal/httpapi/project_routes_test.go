@@ -8546,6 +8546,138 @@ func TestRegisterProjectRoutesGraphEdgeMutationsRejectInvalidInputs(t *testing.T
 	}
 }
 
+func TestRegisterProjectRoutesAgenticEdgesSupportDocumentedKindsAndContextModes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		sourceID    string
+		targetID    string
+		kind        string
+		contextMode string
+	}{
+		{
+			name:        "chat chat reference only",
+			sourceID:    "chat-source",
+			targetID:    "chat-target",
+			kind:        "chat_chat",
+			contextMode: "reference_only",
+		},
+		{
+			name:        "section chat summary",
+			sourceID:    "source-section",
+			targetID:    "chat-target",
+			kind:        "section_chat",
+			contextMode: "summary",
+		},
+		{
+			name:        "chat section inline text",
+			sourceID:    "chat-source",
+			targetID:    "source-section",
+			kind:        "chat_section",
+			contextMode: "inline_text",
+		},
+	}
+
+	for _, tc := range testCases {
+		projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+			SchemaVersion:    projectstate.CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]projectstate.Project{
+				"project-alpha": graphEdgeRouteTestProject(t),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime for %s: %v", tc.name, err)
+		}
+
+		handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteCreateAgenticEdge,
+			strings.NewReader(fmt.Sprintf(`{"projectConfigId":"project-alpha","sourceSectionId":"%s","targetSectionId":"%s","kind":"%s","contextMode":"%s"}`, tc.sourceID, tc.targetID, tc.kind, tc.contextMode)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			_ = projectRuntime.Close()
+			t.Fatalf("expected 200 for %s agentic edge create, got %d with body %q", tc.name, response.Code, response.Body.String())
+		}
+
+		project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+		closeErr := projectRuntime.Close()
+		if closeErr != nil {
+			t.Fatalf("close overlay runtime for %s: %v", tc.name, closeErr)
+		}
+		if len(project.AgenticEdges) != 1 {
+			t.Fatalf("expected one persisted %s agentic edge, got %#v", tc.name, project.AgenticEdges)
+		}
+		created := project.AgenticEdges[0]
+		if created.Kind != tc.kind {
+			t.Fatalf("expected %s kind %q, got %q", tc.name, tc.kind, created.Kind)
+		}
+		if created.ContextMode != tc.contextMode {
+			t.Fatalf("expected %s context mode %q, got %q", tc.name, tc.contextMode, created.ContextMode)
+		}
+	}
+}
+
+func TestRegisterProjectRoutesAgenticEdgesRejectInvalidKindsAndMissingIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": graphEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	for _, requestSpec := range []struct {
+		name         string
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			name:         "invalid kind",
+			route:        RouteCreateAgenticEdge,
+			body:         `{"projectConfigId":"project-alpha","sourceSectionId":"chat-source","targetSectionId":"chat-target","kind":"chat_plain"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"agentic_edge_invalid"`,
+		},
+		{
+			name:         "missing id",
+			route:        RouteDeleteAgenticEdges,
+			body:         `{"projectConfigId":"project-alpha","edgeIds":["missing-agentic-edge"]}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"agentic_edge_not_found"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.name, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected %s body to contain %s, got %q", requestSpec.name, requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestSectionSizeValueRequestUnmarshalJSONSupportsAutoAndNumbers(t *testing.T) {
 	t.Parallel()
 
@@ -8763,6 +8895,47 @@ func TestRegisterProjectRoutesChildDefaultsMutationsPersistLatestState(t *testin
 	}
 	if got := listRootSharedModifier["viewMode"]; got != "task_list" {
 		t.Fatalf("expected list root view mode task_list, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesSetListRootViewModeSupportsDocumentedModes(t *testing.T) {
+	t.Parallel()
+
+	for _, viewMode := range []string{"default", "task_list", "kanban"} {
+		projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+			SchemaVersion:    projectstate.CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]projectstate.Project{
+				"project-alpha": childDefaultsRouteTestProject(t),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime for %s: %v", viewMode, err)
+		}
+
+		handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetListRootViewMode,
+			strings.NewReader(fmt.Sprintf(`{"projectConfigId":"project-alpha","sectionId":"list-root-section","viewMode":"%s"}`, viewMode)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			_ = projectRuntime.Close()
+			t.Fatalf("expected 200 for list root view mode %s, got %d with body %q", viewMode, response.Code, response.Body.String())
+		}
+
+		project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+		listRootSharedModifier := decodeProjectRouteRawObject(t, project.Sections["list-root-section"].SharedModifier)
+		closeErr := projectRuntime.Close()
+		if closeErr != nil {
+			t.Fatalf("close overlay runtime for %s: %v", viewMode, closeErr)
+		}
+		if got := listRootSharedModifier["viewMode"]; got != viewMode {
+			t.Fatalf("expected list root shared modifier viewMode %q, got %#v", viewMode, got)
+		}
 	}
 }
 

@@ -187,6 +187,67 @@ func TestProjectCreateAgenticEdgeDefaultsContextMode(t *testing.T) {
 	}
 }
 
+func TestProjectCreateAgenticEdgeSupportsDocumentedKindsAndExplicitContextModes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		sourceID    string
+		targetID    string
+		kind        string
+		contextMode string
+	}{
+		{
+			name:        "chat chat reference only",
+			sourceID:    "chat-source",
+			targetID:    "chat-target",
+			kind:        "chat_chat",
+			contextMode: "reference_only",
+		},
+		{
+			name:        "section chat summary",
+			sourceID:    "source-section",
+			targetID:    "chat-target",
+			kind:        "section_chat",
+			contextMode: "summary",
+		},
+		{
+			name:        "chat section inline text",
+			sourceID:    "chat-source",
+			targetID:    "source-section",
+			kind:        "chat_section",
+			contextMode: "inline_text",
+		},
+	}
+
+	for _, tc := range testCases {
+		project := graphEdgeMutationTestProject(t)
+
+		created, err := project.CreateAgenticEdge(AgenticEdge{
+			SourceSectionID: tc.sourceID,
+			TargetSectionID: tc.targetID,
+			Kind:            tc.kind,
+			ContextMode:     tc.contextMode,
+		})
+		if err != nil {
+			t.Fatalf("CreateAgenticEdge %s returned error: %v", tc.name, err)
+		}
+		if created.Kind != tc.kind {
+			t.Fatalf("expected %s kind %q, got %q", tc.name, tc.kind, created.Kind)
+		}
+		if created.ContextMode != tc.contextMode {
+			t.Fatalf("expected %s context mode %q, got %q", tc.name, tc.contextMode, created.ContextMode)
+		}
+		if len(project.AgenticEdges) != 1 {
+			t.Fatalf("expected one persisted %s agentic edge, got %#v", tc.name, project.AgenticEdges)
+		}
+		persisted := project.AgenticEdges[0]
+		if persisted.Kind != tc.kind || persisted.ContextMode != tc.contextMode {
+			t.Fatalf("expected persisted %s edge %#v to match kind/context", tc.name, persisted)
+		}
+	}
+}
+
 func TestProjectCreateAgenticEdgeRejectsInvalidSectionTypes(t *testing.T) {
 	t.Parallel()
 
