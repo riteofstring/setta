@@ -1555,9 +1555,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterEngineConfigRoutes(r, httpapi.EngineConfigRouteDependencies{
-				ModePolicy: modePolicy,
-				Engines:    engineStore,
-				LLM:        llmRuntime,
+				ModePolicy:   modePolicy,
+				Engines:      engineStore,
+				LLM:          llmRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}

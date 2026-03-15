@@ -144,6 +144,41 @@ func TestNewAgentRunUpdatedMessageJSONIncludesEmptySlices(t *testing.T) {
 	}
 }
 
+func TestNewEngineConfigsUpdatedMessageClonesSlice(t *testing.T) {
+	t.Parallel()
+
+	configs := []agentruns.EngineConfig{
+		{
+			ID:         "engine-1",
+			Name:       "Codex",
+			EngineType: agentruns.EngineTypeExternalAgent,
+		},
+	}
+	message := NewEngineConfigsUpdatedMessage(configs)
+	configs[0].Name = "mutated"
+
+	if message.MessageType != MessageTypeEngineConfigsUpdated {
+		t.Fatalf("expected engine configs updated message type, got %q", message.MessageType)
+	}
+	if got := message.Content.Configs[0].Name; got != "Codex" {
+		t.Fatalf("expected cloned engine config name Codex, got %q", got)
+	}
+}
+
+func TestNewEngineConfigsUpdatedMessageJSONIncludesEmptyConfigArray(t *testing.T) {
+	t.Parallel()
+
+	message := NewEngineConfigsUpdatedMessage(nil)
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal engine configs updated message: %v", err)
+	}
+	if !strings.Contains(string(payload), `"configs":[]`) {
+		t.Fatalf("expected configs array in marshaled payload, got %s", string(payload))
+	}
+}
+
 func stringPtr(value string) *string {
 	return &value
 }

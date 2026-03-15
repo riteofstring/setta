@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/managedllm"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 )
 
 const RouteGetEngineConfigs = "/getEngineConfigs"
@@ -22,9 +24,10 @@ const RouteUpdateEngineConfig = "/updateEngineConfig"
 const RouteDeleteEngineConfig = "/deleteEngineConfig"
 
 type EngineConfigRouteDependencies struct {
-	ModePolicy modes.Policy
-	Engines    *agentruns.EngineStore
-	LLM        *llmconfig.Runtime
+	ModePolicy   modes.Policy
+	Engines      *agentruns.EngineStore
+	LLM          *llmconfig.Runtime
+	WebsocketHub *realtime.WebsocketHub
 }
 
 type getEngineConfigRequest struct {
@@ -70,12 +73,15 @@ func RegisterEngineConfigRoutes(router chi.Router, deps EngineConfigRouteDepende
 	if deps.ModePolicy.IsIDE() && deps.Engines == nil {
 		return fmt.Errorf("engine config store is required in ide mode")
 	}
+	if deps.ModePolicy.IsIDE() && deps.WebsocketHub == nil {
+		return fmt.Errorf("websocket hub is required in ide mode")
+	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetEngineConfigs, getEngineConfigsHandler(deps.Engines, deps.LLM))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetEngineConfig, getEngineConfigHandler(deps.Engines, deps.LLM))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEngineConfig, createEngineConfigHandler(deps.Engines, deps.LLM))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEngineConfig, updateEngineConfigHandler(deps.Engines, deps.LLM))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEngineConfig, deleteEngineConfigHandler(deps.Engines))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEngineConfig, createEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEngineConfig, updateEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEngineConfig, deleteEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub))
 	return nil
 }
 
@@ -125,9 +131,9 @@ func getEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime
 	}
 }
 
-func createEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime) http.HandlerFunc {
+func createEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime, websocketHub *realtime.WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if store == nil || websocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -151,14 +157,18 @@ func createEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastEngineConfigsUpdated(r.Context(), store, llm, websocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		writeJSON(w, http.StatusOK, enrichEngineConfig(created, llm))
 	}
 }
 
-func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime) http.HandlerFunc {
+func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime, websocketHub *realtime.WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if store == nil || websocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -185,14 +195,18 @@ func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			}
 			return
 		}
+		if err := broadcastEngineConfigsUpdated(r.Context(), store, llm, websocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		writeJSON(w, http.StatusOK, enrichEngineConfig(updated, llm))
 	}
 }
 
-func deleteEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
+func deleteEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime, websocketHub *realtime.WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if store == nil || websocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -214,9 +228,26 @@ func deleteEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
 			}
 			return
 		}
+		if err := broadcastEngineConfigsUpdated(r.Context(), store, llm, websocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func broadcastEngineConfigsUpdated(ctx context.Context, store *agentruns.EngineStore, llm *llmconfig.Runtime, websocketHub *realtime.WebsocketHub) error {
+	configs, err := store.List()
+	if err != nil {
+		return err
+	}
+	_, err = websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewEngineConfigsUpdatedMessage(enrichEngineConfigs(configs, llm)),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
 }
 
 func buildCreatedEngineConfig(payload createEngineConfigRequest) (agentruns.EngineConfig, *engineConfigRouteError) {

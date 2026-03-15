@@ -26,6 +26,7 @@ const (
 	MessageTypeNameValidationErrors        = "NameValidationErrors"
 	MessageTypeLLMConfigUpdated            = "LLMConfigUpdated"
 	MessageTypeLLMAPIKeysUpdated           = "LLMApiKeysUpdated"
+	MessageTypeEngineConfigsUpdated        = "EngineConfigsUpdated"
 	MessageTypeAgentRunUpdated             = "AgentRunUpdated"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
 	MessageTypeUpdateSettings              = "UpdateSettings"
@@ -270,6 +271,15 @@ type LLMAPIKeysUpdatedMessage struct {
 	Content     llmconfig.ManagedAPIKeysSnapshot `json:"content"`
 }
 
+type EngineConfigsUpdatedContent struct {
+	Configs []agentruns.EngineConfig `json:"configs"`
+}
+
+type EngineConfigsUpdatedMessage struct {
+	MessageType string                      `json:"messageType"`
+	Content     EngineConfigsUpdatedContent `json:"content"`
+}
+
 type AgentRunUpdatedMessage struct {
 	ID          *string       `json:"id"`
 	MessageType string        `json:"messageType"`
@@ -436,6 +446,19 @@ func NewLLMAPIKeysUpdatedMessage(content llmconfig.ManagedAPIKeysSnapshot) LLMAP
 	return LLMAPIKeysUpdatedMessage{
 		MessageType: MessageTypeLLMAPIKeysUpdated,
 		Content:     content,
+	}
+}
+
+func NewEngineConfigsUpdatedMessage(content []agentruns.EngineConfig) EngineConfigsUpdatedMessage {
+	configs := append([]agentruns.EngineConfig(nil), content...)
+	if configs == nil {
+		configs = []agentruns.EngineConfig{}
+	}
+	return EngineConfigsUpdatedMessage{
+		MessageType: MessageTypeEngineConfigsUpdated,
+		Content: EngineConfigsUpdatedContent{
+			Configs: configs,
+		},
 	}
 }
 

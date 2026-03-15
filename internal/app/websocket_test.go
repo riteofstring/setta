@@ -629,6 +629,147 @@ func TestAppSetLLMAPIKeysBroadcastsRevisionedSnapshot(t *testing.T) {
 	}
 }
 
+func TestAppEngineConfigMutationsBroadcastSnapshotUpdates(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	createRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteCreateEngineConfig,
+		strings.NewReader(`{"name":"Codex","engineType":"external_agent","externalAgentConfigId":"external-codex"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create engine config request: %v", err)
+	}
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.AddCookie(authCookie)
+
+	createResponse, err := http.DefaultClient.Do(createRequest)
+	if err != nil {
+		t.Fatalf("post create engine config: %v", err)
+	}
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+	var created agentruns.EngineConfig
+	if err := json.NewDecoder(createResponse.Body).Decode(&created); err != nil {
+		t.Fatalf("decode create engine config response: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatalf("expected created engine config id, got %#v", created)
+	}
+
+	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeEngineConfigsUpdated, 4)
+	var createdSnapshot realtime.EngineConfigsUpdatedContent
+	if err := json.Unmarshal(createEnvelope.Content, &createdSnapshot); err != nil {
+		t.Fatalf("decode engine config websocket create payload: %v", err)
+	}
+	if len(createdSnapshot.Configs) != 1 {
+		t.Fatalf("expected one engine config after create, got %#v", createdSnapshot.Configs)
+	}
+	if createdSnapshot.Configs[0].ID != created.ID {
+		t.Fatalf("expected created engine config id %q in websocket payload, got %#v", created.ID, createdSnapshot.Configs)
+	}
+	if createdSnapshot.Configs[0].RuntimeSupport == nil || !createdSnapshot.Configs[0].RuntimeSupport.Thinking {
+		t.Fatalf("expected external-agent runtime support in websocket payload, got %#v", createdSnapshot.Configs[0])
+	}
+
+	updateRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteUpdateEngineConfig,
+		strings.NewReader(`{"config":{"id":"`+created.ID+`","name":"Codex Updated","engineType":"external_agent","externalAgentConfigId":"external-codex-updated"}}`),
+	)
+	if err != nil {
+		t.Fatalf("new update engine config request: %v", err)
+	}
+	updateRequest.Header.Set("Content-Type", "application/json")
+	updateRequest.AddCookie(authCookie)
+
+	updateResponse, err := http.DefaultClient.Do(updateRequest)
+	if err != nil {
+		t.Fatalf("post update engine config: %v", err)
+	}
+	defer updateResponse.Body.Close()
+	if updateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(updateResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", updateResponse.StatusCode, string(body))
+	}
+
+	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeEngineConfigsUpdated, 4)
+	var updatedSnapshot realtime.EngineConfigsUpdatedContent
+	if err := json.Unmarshal(updateEnvelope.Content, &updatedSnapshot); err != nil {
+		t.Fatalf("decode engine config websocket update payload: %v", err)
+	}
+	if len(updatedSnapshot.Configs) != 1 {
+		t.Fatalf("expected one engine config after update, got %#v", updatedSnapshot.Configs)
+	}
+	if updatedSnapshot.Configs[0].Name != "Codex Updated" {
+		t.Fatalf("expected updated engine config name, got %#v", updatedSnapshot.Configs[0])
+	}
+	if updatedSnapshot.Configs[0].ExternalAgentConfigID == nil || *updatedSnapshot.Configs[0].ExternalAgentConfigID != "external-codex-updated" {
+		t.Fatalf("expected updated external agent config id, got %#v", updatedSnapshot.Configs[0])
+	}
+
+	deleteRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteDeleteEngineConfig,
+		strings.NewReader(`{"configId":"`+created.ID+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new delete engine config request: %v", err)
+	}
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteRequest.AddCookie(authCookie)
+
+	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
+	if err != nil {
+		t.Fatalf("post delete engine config: %v", err)
+	}
+	defer deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", deleteResponse.StatusCode, string(body))
+	}
+
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeEngineConfigsUpdated, 4)
+	var deletedSnapshot realtime.EngineConfigsUpdatedContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deletedSnapshot); err != nil {
+		t.Fatalf("decode engine config websocket delete payload: %v", err)
+	}
+	if len(deletedSnapshot.Configs) != 0 {
+		t.Fatalf("expected empty engine config list after delete, got %#v", deletedSnapshot.Configs)
+	}
+}
+
 func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

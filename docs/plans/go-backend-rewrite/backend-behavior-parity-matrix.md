@@ -89,7 +89,7 @@ Last audited: `2026-03-17`
   `contentId` download transport for preview and render callers
 - plus the targeted engine-config follow-up slice:
   engine-config read/update route parity, thinking runtime-support
-  annotations for current managed-chat callers, and the still-missing
+  annotations for current managed-chat callers, and
   `EngineConfigsUpdated` websocket snapshot fan-out
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
@@ -109,9 +109,9 @@ Last audited: `2026-03-17`
 
 - Rows audited in this pass: `343`
 - Status counts:
-  - `Proved`: `314`
+  - `Proved`: `315`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `1`
+  - `Missing`: `0`
   - `Retained Python boundary`: `8`
   - `Intentional divergence`: `6`
   - `Dormant / unproven caller`: `14`
@@ -161,6 +161,11 @@ Last audited: `2026-03-17`
     `chunkMs` profile payloads now return the Python-style
     `422 {"status_code":10422,"message":...,"data":null}` validation
     envelope
+  - `internal/httpapi/engine_config_routes.go`,
+    `internal/realtime/messages.go`, and `internal/app/app.go`:
+    engine-config create/update/delete now broadcast source-style
+    `EngineConfigsUpdated` full snapshots, including enriched
+    `runtimeSupport`, to frontend websocket consumers after each mutation
   - `internal/app/app.go`, `internal/httpapi/ai_routes.go`, and
     `internal/httpapi/ai_transcription_routes.go`: transcription-session
     routes are no longer incorrectly IDE- or launcher-gated, now follow
@@ -350,8 +355,8 @@ Last audited: `2026-03-17`
   outside-workspace opt-in.
 - This pass also extends the matrix into the targeted engine-config
   follow-up slice: engine-config read/update route parity, thinking
-  runtime-support annotations for current managed-chat callers, and the still
-  missing `EngineConfigsUpdated` websocket snapshot fan-out.
+  runtime-support annotations for current managed-chat callers, and
+  `EngineConfigsUpdated` websocket snapshot fan-out.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -417,10 +422,7 @@ Last audited: `2026-03-17`
     external-agent-config mutation-detail AI surface rows
 ## Current Gaps
 
-- `engine_configs.websocket.broadcasts_full_snapshot_after_mutations` is
-  still `Missing`: the source engine-config mutation routes broadcast
-  `EngineConfigsUpdated`, the current frontend websocket reducer still
-  consumes that snapshot shape, and the Go backend still does not emit it.
+- No explicit `Missing` rows remain in the currently audited set.
 - The remaining settings-schema caveat is narrower than a live transport gap:
   the checkout still does not carry a full generated Go mirror of every legacy
   historical settings branch, so save-time validation is now proved for the
@@ -811,7 +813,7 @@ Last audited: `2026-03-17`
 | `engine_configs.read.runtime_support_thinking_annotations_gate_current_callers` | `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` records that the current Project AI caller enables managed thinking only when engine-config runtime metadata advertises provider support and that Azure thinking stays intentionally fail-closed; `backend/setta/types/websocket.py::EngineConfig` defines the base engine-config payload callers extend | `internal/httpapi/engine_config_routes.go::{enrichEngineConfigs,enrichEngineConfig,engineConfigSupportsThinking}` | `TestRegisterEngineConfigRoutesAdvertisesGeminiThinkingRuntimeSupport`; `TestRegisterEngineConfigRoutesAdvertisesOpenAIThinkingRuntimeSupport`; `TestRegisterEngineConfigRoutesKeepsAzureThinkingRuntimeSupportDisabled` | `frontend/src/components/Chat/engineUtils.ts::{supportsThinkingExecutionControl,resolveEffectiveThinking}` still gate thinking UI from `engineConfig.runtimeSupport?.thinking`; `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` still threads the selected engine-config capability into managed-chat controls | `Proved` | Engine-config reads still annotate thinking support for the current caller surface: external-agent configs stay enabled, supported OpenAI/Gemini managed configs advertise thinking, and Azure managed configs stay fail-closed. |
 | `engine_configs.update.roundtrip_preserves_exact_name_and_binding_fields` | `backend/setta/types/websocket.py::EngineConfig` defines the updated payload shape; `docs/reference/chat-sections.md` says managed chat surfaces persist `engineConfigId` selection and use the resolved engine-config binding to choose runtime behavior | `internal/httpapi/engine_config_routes.go::{updateEngineConfigHandler,buildUpdatedEngineConfig,enrichEngineConfig}` | `TestRegisterEngineConfigRoutesUpdatesConfig`; `TestRegisterEngineConfigRoutesUpdateAllowsBlankName` | `frontend/src/state/actions/ai.ts::updateEngineConfig` still upserts the route response into the AI store; `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` and `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` still mutate the selected engine config through `updateEngineConfig` when users switch managed bindings | `Proved` | Updating an engine config still round-trips the exact saved name, engine type, and selected managed/external binding fields instead of trimming blank names or dropping the active binding. |
 | `engine_configs.routes.invalid_payloads_not_found_and_ide_mode_fail_closed` | `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-update-transport.md` and `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-create-delete-transport.md` record the source engine-config route family as IDE-only with explicit invalid-payload and not-found handling over the persisted engine-config store | `internal/httpapi/engine_config_routes.go::{RegisterEngineConfigRoutes,buildCreatedEngineConfig,buildUpdatedEngineConfig,writeEngineConfigStoreError}` | `TestRegisterEngineConfigRoutesReturnsNotFoundForMissingConfig`; `TestRegisterEngineConfigRoutesReturnsNotFoundForMissingGetConfig`; `TestRegisterEngineConfigRoutesReturnsNotFoundForMissingDeleteConfig`; `TestRegisterEngineConfigRoutesRejectsInvalidJSON`; `TestRegisterEngineConfigRoutesRejectsMissingGetConfigID`; `TestRegisterEngineConfigRoutesRejectsMissingCreateName`; `TestRegisterEngineConfigRoutesRejectsMissingConfigPayload`; `TestRegisterEngineConfigRoutesRejectsMissingDeleteConfigID`; `TestRegisterEngineConfigRoutesRejectsInvalidConfigPayload`; `TestRegisterEngineConfigRoutesRejectsInvalidCreatedConfigPayload`; `TestRegisterEngineConfigRoutesBlocksShareMode` | `internal/frontendbindings/specs.go` still exports the generated `getEngineConfig`, `createEngineConfig`, `updateEngineConfig`, and `deleteEngineConfig` endpoints, while the active Project AI/chat settings callers still rely on the same route family for engine-config mutation transport | `Proved` | The engine-config route family still fails closed with stable `400`/`404` envelopes for malformed or missing payloads and still blocks share-mode access instead of widening the current IDE settings surface. |
-| `engine_configs.websocket.broadcasts_full_snapshot_after_mutations` | `backend/setta/types/websocket.py::WebsocketMsgTypeForFrontend.EngineConfigsUpdated` keeps the websocket message type live; `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-update-transport.md` and `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-create-delete-transport.md` record that the source create/update/delete routes broadcast `EngineConfigsUpdated` after mutation | `internal/httpapi/engine_config_routes.go::{createEngineConfigHandler,updateEngineConfigHandler,deleteEngineConfigHandler}` currently mutate storage without any websocket broadcast path | no Go proof yet | `frontend/src/state/actions/websocketReceive.ts` still handles `WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated` by calling `receiveEngineConfigsUpdate`, and `frontend/src/state/actions/ai.ts::receiveEngineConfigsUpdate` still updates the Project AI engine-config store from that websocket snapshot | `Missing` | The current frontend still consumes `EngineConfigsUpdated`, but Go engine-config mutations still rely only on direct route responses and do not emit the source websocket snapshot fan-out after create/update/delete. |
+| `engine_configs.websocket.broadcasts_full_snapshot_after_mutations` | `backend/setta/types/websocket.py::WebsocketMsgTypeForFrontend.EngineConfigsUpdated` keeps the websocket message type live; `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-update-transport.md` and `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-create-delete-transport.md` record that the source create/update/delete routes broadcast `EngineConfigsUpdated` after mutation | `internal/httpapi/engine_config_routes.go::{createEngineConfigHandler,updateEngineConfigHandler,deleteEngineConfigHandler,broadcastEngineConfigsUpdated}`; `internal/realtime/messages.go::NewEngineConfigsUpdatedMessage`; `internal/app/app.go` wires the frontend broadcaster into the route family | `TestNewEngineConfigsUpdatedMessageJSONIncludesEmptyConfigArray`; `TestAppEngineConfigMutationsBroadcastSnapshotUpdates` | `frontend/src/state/actions/websocketReceive.ts` still handles `WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated` by calling `receiveEngineConfigsUpdate`, and `frontend/src/state/actions/ai.ts::receiveEngineConfigsUpdate` still updates the Project AI engine-config store from that websocket snapshot | `Proved` | Engine-config mutations now broadcast the source websocket snapshot fan-out after create/update/delete, and the emitted snapshot preserves the enriched `runtimeSupport` payload that current managed-chat callers consume. |
 | `managed_chat.get.latest_run_hydrates_messages_llm_config_and_provenance` | `tests/routers/test_ai_agent_run_chats.py::{test_get_llm_chat_from_agent_run,test_get_llm_chat_uses_latest_run}` | `internal/managedchat/service.go::GetChat`; `internal/httpapi/ai_routes.go::getLLMChatHandler` | `TestServiceGetChatReturnsLatestRunAndResolvedLLMConfig`; `TestRegisterAIRoutesGetsManagedChat` | `frontend/src/state/actions/ai.ts::getLLMChat`; `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` still hydrate managed chats through `getLLMChat` | `Proved` | Managed-chat hydration still reads the latest run for the chat, returns merged messages, resolves the bound LLM config, and preserves app-generation provenance for the frontend caller. |
 | `managed_chat.get.context_usage_uses_run_metadata_and_ignores_non_finite` | `tests/routers/test_ai_agent_run_chats.py::{test_get_llm_chat_includes_context_usage,test_get_llm_chat_ignores_non_finite_usage_values,test_get_llm_chat_context_uses_run_metadata_not_live_config}` | `internal/managedchat/service.go::{GetChat,resolveContextUsage}` | `TestResolveContextUsageRejectsFractionalUsageValuesAndKeepsValidStringWindow`; `TestServiceGetChatUsesPersistedRunMetadataWhileLiveOverlayIsActive`; `TestRegisterAIRoutesGetsManagedChat` | the same `getLLMChat` caller path in `frontend/src/state/actions/ai.ts` still consumes `contextUsage` from the hydrated managed-chat payload | `Proved` | Managed-chat hydration still derives context usage from persisted run metadata, not the live config snapshot, and still drops malformed non-finite usage values instead of surfacing bogus numbers. |
 | `managed_chat.get.missing_run_returns_chat_not_found` | `tests/routers/test_ai_agent_run_chats.py::test_get_llm_chat_missing_run_returns_typed_not_found_error` | `internal/managedchat/service.go::GetChat`; `internal/httpapi/ai_routes.go::getLLMChatHandler` | `TestServiceGetChatReturnsChatNotFound`; `TestRegisterAIRoutesReturnsNotFoundForMissingManagedChat` | the managed chat hydration path in `frontend/src/state/actions/ai.ts::getLLMChatHydrationOutcome` still treats `chat_not_found` as a typed hydrate failure | `Proved` | Missing managed chats still return a typed `chat_not_found` error instead of degrading into a generic backend failure. |

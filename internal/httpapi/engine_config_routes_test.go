@@ -15,6 +15,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 )
 
 func TestRegisterEngineConfigRoutesListsConfigs(t *testing.T) {
@@ -835,9 +836,10 @@ func newEngineConfigRouteTestHandler(t *testing.T, mode config.Mode, store *agen
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterEngineConfigRoutes(r, EngineConfigRouteDependencies{
-				ModePolicy: modes.NewPolicy(mode),
-				Engines:    store,
-				LLM:        llmRuntime,
+				ModePolicy:   modes.NewPolicy(mode),
+				Engines:      store,
+				LLM:          llmRuntime,
+				WebsocketHub: realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
 			}); err != nil {
 				t.Fatalf("register engine config routes: %v", err)
 			}
