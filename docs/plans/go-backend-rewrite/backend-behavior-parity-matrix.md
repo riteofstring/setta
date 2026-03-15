@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`a82a8dd10ef2ecbbeac5f274d7d139f967516676`
+`5f7a3025edea39e8230541e97c920f9db10922a4`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -75,6 +75,7 @@ It currently covers:
 - view-mode create/switch/edit route behavior
 - section movement, grouping, and param-reorder route behavior
 - code-section attached-terminal route behavior
+- section creation, structural deletion, and delete-selected-params route behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -154,7 +155,10 @@ Rows outside these slices are still pending.
   dormant structure/param route-boundary rows.
 - The code-section attached-terminal slice mostly closes with proofs, but it
   adds one more caller-backed attached-terminal transport gap outside IDE.
-- Forty-five concrete parity gaps are already visible:
+- The section-creation / structural-deletion slice mostly closes with proofs,
+  but it adds two more caller-backed non-IDE transport gaps plus two more
+  dormant route-boundary rows.
+- Forty-seven concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -297,6 +301,16 @@ Rows outside these slices are still pending.
     transport-visible and fail closed with deployment-mode structural `403`
   - current Go mounts that special-case attached-terminal route only in IDE
     even though current shared DnD still switches to it for terminal drops
+  - source share/app sessions keep `createChildSections` transport-visible and
+    fail closed with deployment-mode structural `403`
+  - current Go mounts `createChildSections` only in IDE even though the
+    current non-user code-section header still offers attached-terminal
+    creation through that route
+  - source share/app sessions keep `deleteSections` transport-visible and fail
+    closed with deployment-mode structural `403`
+  - current Go mounts `deleteSections` only in IDE even though the current
+    plugin fallback UI still offers direct section deletion outside user-view
+    mode
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -1080,15 +1094,28 @@ Rows outside these slices are still pending.
 | `CT-01` | `setCodeSectionAttachedTerminal` round-trips attach/detach, removes and restores top-level layout state for the terminal, reparents a terminal out of its previous parent when necessary, normalizes attached code/terminal sizing, and rejects non-terminal or non-code targets. | Source helper: `backend/setta/types/helpers_lvl2.py::_set_code_section_attached_terminal`; source manager method: `backend/setta/project_state/base_project_manager.py::set_code_section_attached_terminal`; source tests: `tests/project_state/test_code_section_attached_terminal.py::{test_attach_and_detach_terminal,test_attach_bumps_code_section_height,test_attach_bumps_auto_code_section_height,test_attach_invalid_terminal_raises,test_attach_requires_code_section}`. | Impl: `internal/projectstate/attached_terminal_writes.go::SetCodeSectionAttachedTerminal`; proof: `internal/projectstate/attached_terminal_writes_test.go::{TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach,TestRuntimeSetCodeSectionAttachedTerminalMovesTerminalFromExistingParent,TestRuntimeSetCodeSectionAttachedTerminalRejectsNonTerminalTarget,TestRuntimeSetCodeSectionAttachedTerminalRejectsNonCodeParent}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesCodeSectionAttachedTerminalPersistsLatestState,TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsInvalidInputs}`. | `Proved` | Current Go route proof covers the surviving typed `invalid_terminal_section` / `invalid_code_section` transport mapping, while the runtime proof directly checks deterministic detach layout restoration and terminal sizing normalization. |
 | `CT-02` | In share/app sessions, `setCodeSectionAttachedTerminal` stays transport-visible and fails closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source docs: `docs/reference/dnd-kit.md`; source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source route: `backend/setta/routers/project_manager.py::route_set_code_section_attached_terminal`. | Current Go mounts `RouteSetCodeSectionAttachedTerminal` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still switches to that route from `frontend/src/state/actions/sections/moveSections.ts::moveSectionsWithBackend` when a single terminal is dropped into a code section, and section DnD remains enabled by `canEditLayout` in `frontend/src/forks/dnd-kit/useDNDSensors.ts` plus `frontend/src/forks/dnd-kit/useMoveSection.ts`. | `Missing` | This is an active transport gap: the source kept the special-case attached-terminal route mounted and failed closed with structural `403`, but current Go removes it outside IDE while current shared DnD still invokes it for terminal drops. |
 
+## Section Creation, Structural Deletion, And Delete-Selected-Params Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `SC-01` | `createTopLevelSection` prunes stale layout state, applies deterministic or viewport-snapshot-aware placement, persists explicit initial names without partial writes on validation failure, returns `metaControlParamId` for MetaControl sections, seeds frontend-facing size defaults, and accepts plugin-defined code languages. | Source helper: `backend/setta/types/helpers_lvl2.py::create_top_level_section`; source manager method: `backend/setta/project_state/base_project_manager.py::create_top_level_section`; source transport types: `backend/setta/project_state/project_manager_types.py::{CreateTopLevelSectionRequest,CreateTopLevelSectionResponse}`. | Impl: `internal/projectstate/top_level_section_creation.go::CreateTopLevelSection`; proof: `internal/projectstate/top_level_section_creation_test.go::{TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicPlacement,TestProjectCreateTopLevelSectionCreatesMetaControlParamAndHonorsExplicitPosition,TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults,TestProjectCreateTopLevelSectionAppliesLayoutSnapshotViewportPlacementAndInitialName,TestProjectCreateTopLevelSectionDoesNotPersistPartialStateWhenInitialNameValidationFails,TestProjectCreateTopLevelSectionAcceptsPluginCodeLanguage}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection,TestRegisterProjectRoutesCreateTopLevelSectionAppliesSnapshotViewportAndName}`. | `Proved` | Default generated section naming stays tracked separately in the naming slice; this row is about placement, persistence, response payload, and implementation-type behavior. |
+| `SC-02` | `createChildSections`, `createChildSectionsViaIncrementer`, and `deleteChildSectionsViaDecrementer` preserve parent-relative insertion/deletion semantics, honor the requested child type, attach Terminal children to code parents with concrete sizing, and keep the surviving typed route mapping for invalid caller state and unsupported child requests. | Source helpers: `backend/setta/types/helpers_lvl2.py::{create_child_sections,create_child_sections_via_incrementer,delete_child_sections_via_decrementer}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{create_child_sections,create_child_sections_via_incrementer,delete_child_sections_via_decrementer}`; source tests: `tests/project_state/test_code_section_attached_terminal.py::test_create_child_terminal_sets_concrete_height`; `tests/types/test_helpers_lvl2.py::test_incrementer_uses_requested_child_type`. | Impl: `internal/projectstate/{child_section_creation.go,child_section_incrementer_creation.go,child_section_decrementer_deletion.go}`; proof: `internal/projectstate/child_section_creation_test.go::{TestProjectCreateChildSectionsInsertsAtIndexAndSetsParentIDs,TestProjectCreateChildSectionsCreatesAttachedTerminalForCodeParent}`; `internal/projectstate/child_section_incrementer_creation_test.go::{TestProjectCreateChildSectionsViaIncrementerPrependsWhenCalledByIsParent,TestProjectCreateChildSectionsViaIncrementerInsertsAfterCalledByChild,TestProjectCreateChildSectionsViaIncrementerRejectsUnsupportedCallerState}`; `internal/projectstate/child_section_decrementer_deletion_test.go::{TestProjectDeleteChildSectionsViaDecrementerDeletesFirstChildrenWhenCalledByIsParent,TestProjectDeleteChildSectionsViaDecrementerDeletesNextChildrenWhenCalledByIsChild,TestProjectDeleteChildSectionsViaDecrementerReturnsNoopWhenDeletionWindowIsEmpty,TestProjectDeleteChildSectionsViaDecrementerRejectsUnsupportedCallerState}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesChildSectionMutationsPersistLatestState,TestRegisterProjectRoutesChildSectionMutationsRejectInvalidInputs}`. | `Proved` | The current Go proof is slightly broader than the pinned source slice because it also directly proves decrementer no-op behavior and explicit invalid-caller route mapping. |
+| `SC-03` | `deleteSections` recursively removes descendants, clears top-level/layout/view-mode state, prunes attached-terminal and unused code-object records, clears entry-code/edge state tied to removed sections, and preserves project-chat/window bindings for surviving sections only. | Source helper: `backend/setta/types/helpers_lvl2.py::delete_sections`; source manager method: `backend/setta/project_state/base_project_manager.py::delete_sections`; source tests: `tests/types/test_helpers_lvl2.py::{test_delete_sections_cleans_section_variant_map,test_delete_sections_prunes_project_chat_windowing_for_removed_sections}`; source manager test: `tests/project_state/test_delete_sections_prunes_code_objs.py::test_delete_sections_prunes_code_objs`. | Impl: `internal/projectstate/delete_sections.go::DeleteSections`; proof: `internal/projectstate/delete_sections_test.go::{TestProjectDeleteSectionsRemovesDescendantsAndTopLevelState,TestProjectDeleteSectionsClearsAttachedTerminalReferences,TestProjectDeleteSectionsPrunesUnusedCodeObjects,TestProjectDeleteSectionsClearsTargetValueWhenRemovingLastIncomingEdge}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState`. | `Proved` | This row is about recursive structural cleanup, not the separate direct-route visibility boundary outside IDE. |
+| `SC-04` | `deleteSelectedParams` removes editable selected params from dict/callable/global param trees, clears section-local pinned/selected/edge-input and type-ignore state for removed params, prunes deleted code objects, and skips protected non-editable params. | Source helper: `backend/setta/types/helpers_lvl2.py::delete_selected_params`; source manager method: `backend/setta/project_state/base_project_manager.py::delete_selected_params`; source test: `tests/types/test_helpers_lvl2.py::test_delete_selected_params_removes_children_and_selection`. | Impl: `internal/projectstate/delete_selected_params.go::DeleteSelectedParams`; proof: `internal/projectstate/delete_selected_params_test.go::{TestProjectDeleteSelectedParamsRemovesSharedDictParamAndSectionState,TestProjectDeleteSelectedParamsSupportsGlobalVariables,TestProjectDeleteSelectedParamsRemovesCallableParam,TestProjectDeleteSelectedParamsSkipsNonEditableParams}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState`. | `Proved` | The current Go runtime proof is stronger than the pinned source helper test because it covers dict, callable, and global-variable trees plus the protected-param skip path. |
+| `SC-05` | In share/app sessions, `createChildSections` stays transport-visible and fails closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source route: `backend/setta/routers/project_manager.py::route_create_child_sections`. | Current Go mounts `RouteCreateChildSections` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still calls the route from `frontend/src/components/Section/Header/AttachedTerminalControls.tsx`, and `frontend/src/components/Section/Header/SectionHeader.tsx` renders those attached-terminal controls for non-user code sections without a deployment-mode guard. | `Missing` | This is an active transport gap: the source kept `createChildSections` mounted and failed closed with structural `403`, but current Go removes the route outside IDE while the shared non-user code-section header still offers attached-terminal creation through it. |
+| `SC-06` | In share/app sessions, `deleteSections` stays transport-visible and fails closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source route: `backend/setta/routers/project_manager.py::route_delete_sections`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_structural_routes_blocked`. | Current Go mounts `RouteDeleteSections` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still offers direct deletion from the plugin fallback card in `frontend/src/components/Section/Layouts/PluginArea.tsx::PluginSectionFallbackCard`, which only checks `isUserView` before calling `route_delete_sections(...)`. | `Missing` | This is an active transport gap: the source kept direct section deletion mounted with structural `403`, but current Go removes the route outside IDE while current plugin fallback cleanup still uses it. |
+| `SC-07` | In share/app sessions, `createTopLevelSection`, `createChildSectionsViaIncrementer`, and `deleteChildSectionsViaDecrementer` stay transport-visible and fail closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source routes: `backend/setta/routers/project_manager.py::{route_create_top_level_section,route_create_child_sections_via_incrementer,route_delete_child_sections_via_decrementer}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_structural_routes_blocked`. | Current Go mounts all three routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current top-level creation helper in `frontend/src/state/actions/sections/createSections.ts` returns early in deployment mode, and the incrementer UI in `frontend/src/components/Section/SectionParts/Incrementer.tsx` disables backend calls with `canEditStructure`, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active Go-era non-IDE caller still depends on these direct structural-create/decrement routes. |
+| `SC-08` | In share/app sessions, `deleteSelectedParams` stays transport-visible and fails closed with deployment-mode param-metadata `403` instead of disappearing entirely outside IDE. | Source param-metadata guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_param_metadata`; source route: `backend/setta/routers/project_manager.py::route_delete_selected_params`. | Current Go mounts `RouteDeleteSelectedParams` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; the current kwargs-controls caller in `frontend/src/components/Section/SectionParts/KwargsControls.tsx` only enables the action when `canEditStructure` is true, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove a surviving Go-era non-IDE caller still needs the direct delete-selected-params route contract. |
+
 ## Current Findings
 
-1. The matrix now contains forty-five concrete source-parity gaps:
+1. The matrix now contains forty-seven concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, `SV-05`, `VM-03`, `MV-02`, and `CT-02`.
+   `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, and `SC-06`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1216,19 +1243,22 @@ Rows outside these slices are still pending.
     route-boundary rows (`SG-02`, `PM-02`).
 41. The code-section attached-terminal slice mostly closes with proofs, but it
     adds one real non-IDE transport gap (`CT-02`).
-42. Git route behavior is now largely proved, including literal pathspec
+42. The section-creation / structural-deletion slice mostly closes with
+    proofs, but it adds two real non-IDE transport gaps (`SC-05`, `SC-06`)
+    plus two dormant route-boundary rows (`SC-07`, `SC-08`).
+43. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-43. The remaining issues in the naming slice are still mostly proof gaps rather
+44. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-44. The next high-value steps are:
+45. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
-      `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`, and
-      `CT-02` should be
+      `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`,
+      `CT-02`, `SC-05`, and `SC-06` should be
       restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
@@ -1237,9 +1267,9 @@ Rows outside these slices are still pending.
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
       `LH-04`, `WL-05`, `AS-02`, `SM-04`, `CH-04`, `SD-07`, `SD-08`,
       `SD-09`, `CS-05`, `CB-05`, `CD-02`, `CD-03`, `PV-06`, `EP-02`,
-      `SV-06`, `VM-04`, `SG-02`, and `PM-02` can be treated as fully dead
-      legacy or share-only transports, or still need explicit
-      retained-boundary decisions
+      `SV-06`, `VM-04`, `SG-02`, `PM-02`, `SC-07`, and `SC-08` can be
+      treated as fully dead legacy or share-only transports, or still need
+      explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
