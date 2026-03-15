@@ -3,7 +3,7 @@ import { useDecodedImages } from "state/definitions";
 import {
   decodeExistingRawImages,
   useImageArtifact,
-} from "state/hooks/artifactTransport";
+} from "state/hooks/artifacts";
 
 function _ImageArea({ sectionId }: { sectionId: string }) {
   const imageArtifact = useImageArtifact(sectionId);

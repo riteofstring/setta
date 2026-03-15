@@ -144,7 +144,21 @@ class ListenerHotReloader:
     ) -> Iterable[tuple[Path, str | None]]:
         path_string = str(Path(raw_path).expanduser())
         if has_magic(path_string):
-            root, pattern = self._split_glob_root(path_string)
+            expanded = Path(path_string).expanduser()
+            parts = expanded.parts
+            root_parts: list[str] = []
+            pattern_parts: list[str] = []
+            for part in parts:
+                if has_magic(part) or pattern_parts:
+                    pattern_parts.append(part)
+                else:
+                    root_parts.append(part)
+            if not root_parts:
+                root = Path(".")
+            else:
+                root = Path(*root_parts)
+            root = self._resolve_path(root)
+            pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
             yield root, pattern
             return
         normalized = self._resolve_path(Path(path_string))
@@ -191,7 +205,11 @@ class ListenerHotReloader:
         def _filter(change: Change, path: str) -> bool:
             if change not in allowed_changes:
                 return False
-            candidate = self._normalize_event_path(path)
+            candidate_path = Path(path)
+            try:
+                candidate = candidate_path.resolve()
+            except RuntimeError:
+                candidate = candidate_path.absolute()
             for spec in self._watch_specs:
                 if spec.accepts(candidate):
                     return True
@@ -220,7 +238,23 @@ class ListenerHotReloader:
     async def _run_reload_cycle(self, *, reload_module: bool) -> None:
         async with self._reload_lock:
             try:
-                builder = self._resolve_builder(reload_module=reload_module)
+                if not reload_module:
+                    builder = self._builder
+                else:
+                    importlib.invalidate_caches()
+                    if self._module_name in sys.modules:
+                        module = importlib.reload(sys.modules[self._module_name])
+                    else:
+                        module = importlib.import_module(self._module_name)
+                    builder = getattr(module, self._builder_name, None)
+                    if builder is None:
+                        raise AttributeError(
+                            f"Module {self._module_name!r} lacks builder {self._builder_name!r}"
+                        )
+                    if not callable(builder):
+                        raise TypeError(
+                            f"Builder attribute {self._builder_name!r} in module {self._module_name!r} is not callable"
+                        )
             except Exception:
                 logger.exception(
                     "Failed to resolve listener callback builder %s in module %s",
@@ -234,39 +268,6 @@ class ListenerHotReloader:
                 trigger_refresh=self._trigger_refresh,
             )
 
-    def _resolve_builder(
-        self,
-        *,
-        reload_module: bool,
-    ) -> "ListenerCallbackBuilder":
-        if not reload_module:
-            return self._builder
-        module = self._load_module(reload_module=reload_module)
-        builder = getattr(module, self._builder_name, None)
-        if builder is None:
-            raise AttributeError(
-                f"Module {self._module_name!r} lacks builder {self._builder_name!r}"
-            )
-        if not callable(builder):
-            raise TypeError(
-                f"Builder attribute {self._builder_name!r} in module {self._module_name!r} is not callable"
-            )
-        return builder
-
-    def _load_module(self, *, reload_module: bool) -> ModuleType:
-        importlib.invalidate_caches()
-        if reload_module and self._module_name in sys.modules:
-            return importlib.reload(sys.modules[self._module_name])
-        return importlib.import_module(self._module_name)
-
-    @staticmethod
-    def _normalize_event_path(raw_path: str) -> Path:
-        path = Path(raw_path)
-        try:
-            return path.resolve()
-        except RuntimeError:
-            return path.absolute()
-
     @staticmethod
     def _resolve_path(raw_path: Path) -> Path:
         try:
@@ -279,26 +280,6 @@ class ListenerHotReloader:
         if path.exists():
             return path.is_file()
         return path.suffix != ""
-
-    @staticmethod
-    def _split_glob_root(raw_path: str) -> tuple[Path, str]:
-        expanded = Path(raw_path).expanduser()
-        parts = expanded.parts
-        root_parts: list[str] = []
-        pattern_parts: list[str] = []
-        for part in parts:
-            if has_magic(part) or pattern_parts:
-                pattern_parts.append(part)
-            else:
-                root_parts.append(part)
-        if not root_parts:
-            root = Path(".")
-        else:
-            root = Path(*root_parts)
-        root = ListenerHotReloader._resolve_path(root)
-        pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
-        return root, pattern
-
 
 @dataclass(frozen=True)
 class _WatcherSpec:
