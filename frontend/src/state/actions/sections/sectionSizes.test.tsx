@@ -3,7 +3,7 @@ import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
   getResizeStartAutoSizeUpdate,
-} from "./sectionSizeGeometry";
+} from "./sectionSizes";
 
 describe("adjustSizeToBeAtLeastMin", () => {
   it("scales width when height is below min", () => {

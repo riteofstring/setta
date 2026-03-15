@@ -25,57 +25,15 @@ _SUPPORTED_FIELDS = {
 _SUPPORTED_ENCODING_ERROR_HANDLERS = {"strict", "ignore", "replace"}
 
 
-def resolve_codex_home_config_path() -> Path | None:
-    codex_home = os.environ.get("CODEX_HOME")
-    if not isinstance(codex_home, str):
-        return None
-    normalized_home = codex_home.strip()
-    if not normalized_home:
-        return None
-    return (Path(normalized_home).expanduser() / "config.toml").resolve(strict=False)
-
-
-def resolve_default_codex_config_path() -> Path:
-    return (Path.home() / ".codex" / "config.toml").resolve(strict=False)
-
-
-def _resolve_raw_codex_mcp_servers_table(
-    payload: dict[str, Any],
-    *,
-    field_name: str,
-) -> dict[str, Any] | None:
-    if field_name not in payload:
-        return None
-    raw_servers = payload[field_name]
-    if not isinstance(raw_servers, dict):
-        raise ValueError(f"'{field_name}' must be an object")
-    return deepcopy(raw_servers)
-
-
-def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
-    if "mcpServers" in payload:
-        raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
-    snake_case_servers = _resolve_raw_codex_mcp_servers_table(
-        payload,
-        field_name="mcp_servers",
-    )
-    if snake_case_servers is None:
-        return {}
-    return snake_case_servers
-
-
-def validate_codex_mcp_servers_payload(payload: dict[str, Any]) -> None:
-    if "mcp_servers" not in payload and "mcpServers" not in payload:
-        return
-    resolve_raw_codex_mcp_servers(payload)
-
-
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
     codex_home_env = os.environ.get("CODEX_HOME")
     if isinstance(codex_home_env, str):
-        codex_home_config_path = resolve_codex_home_config_path()
-        if codex_home_config_path is None:
+        normalized_home = codex_home_env.strip()
+        if not normalized_home:
             return {}
+        codex_home_config_path = (
+            Path(normalized_home).expanduser() / "config.toml"
+        ).resolve(strict=False)
         loaded_from_codex_home = _load_codex_mcp_servers_from_path(
             codex_home_config_path,
             fail_closed=True,
@@ -84,7 +42,7 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
             return {}
         return loaded_from_codex_home
     parsed = _load_codex_mcp_servers_from_path(
-        resolve_default_codex_config_path(),
+        (Path.home() / ".codex" / "config.toml").resolve(strict=False),
         fail_closed=False,
     )
     if parsed:
@@ -126,7 +84,14 @@ def _load_codex_mcp_servers_from_path(
         )
         return {} if fail_closed else None
     try:
-        raw_servers = resolve_raw_codex_mcp_servers(payload)
+        if "mcpServers" in payload:
+            raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
+        if "mcp_servers" not in payload:
+            return {} if fail_closed else None
+        raw_servers = payload["mcp_servers"]
+        if not isinstance(raw_servers, dict):
+            raise ValueError("'mcp_servers' must be an object")
+        raw_servers = deepcopy(raw_servers)
     except ValueError as exc:
         logger.warning(
             "Skipping Codex config at '%s': %s",
@@ -136,27 +101,22 @@ def _load_codex_mcp_servers_from_path(
         return {} if fail_closed else None
     if not raw_servers:
         return {} if fail_closed else None
-    parsed = parse_codex_mcp_servers(raw_servers)
+    parsed = _parse_codex_mcp_servers(raw_servers)
     if parsed:
         return parsed
     return {} if fail_closed else None
 
 
-def load_codex_mcp_server_payloads_from_config() -> dict[str, dict[str, Any]]:
-    parsed = load_codex_mcp_servers_from_config()
-    return {
-        server_id: _serialize_mcp_server_config_for_codex(server_config)
-        for server_id, server_config in parsed.items()
-    }
-
-
-def parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerConfig]:
+def _parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerConfig]:
     parsed: dict[str, MCPServerConfig] = {}
     validated_entries: list[tuple[str, str, Any]] = []
     raw_server_labels_by_canonical_id: dict[str, list[str]] = {}
 
     for raw_server_id, raw_entry in raw_servers.items():
-        server_label = _format_server_label(raw_server_id)
+        if isinstance(raw_server_id, str):
+            server_label = raw_server_id
+        else:
+            server_label = repr(raw_server_id)
         try:
             server_id = _validate_codex_server_id(raw_server_id)
         except ValueError as exc:
@@ -245,7 +205,23 @@ def _parse_codex_mcp_server_entry(
     if command and url:
         raise ValueError(f"server '{server_id}' cannot declare both command and url")
 
-    http_headers = _parse_http_headers(raw_entry, server_id=server_id)
+    raw_http_headers = raw_entry.get("http_headers")
+    if raw_http_headers is None:
+        http_headers = None
+    else:
+        if not isinstance(raw_http_headers, dict):
+            raise ValueError(f"server '{server_id}' http_headers must be an object")
+        normalized_headers: dict[str, str] = {}
+        for header_name, header_value in raw_http_headers.items():
+            if not isinstance(header_name, str) or not isinstance(header_value, str):
+                raise ValueError(
+                    f"server '{server_id}' http_headers values must be string key/value pairs"
+                )
+            normalized_name = header_name.strip()
+            if not normalized_name:
+                continue
+            normalized_headers[normalized_name] = header_value
+        http_headers = normalized_headers or None
 
     resolved_transport = transport
     if not resolved_transport:
@@ -265,21 +241,84 @@ def _parse_codex_mcp_server_entry(
             raise ValueError(
                 f"server '{server_id}' stdio transport cannot define http_headers"
             )
+        args: list[str] = []
+        raw_args = raw_entry.get("args")
+        if raw_args is not None:
+            if not isinstance(raw_args, list):
+                raise ValueError(
+                    f"server '{server_id}' args must be an array of strings"
+                )
+            for index, item in enumerate(raw_args):
+                if not isinstance(item, str):
+                    raise ValueError(
+                        f"server '{server_id}' has invalid args[{index}] value (expected string)"
+                    )
+                normalized_item = item.strip()
+                if normalized_item:
+                    args.append(normalized_item)
+        raw_env = raw_entry.get("env")
+        if raw_env is None:
+            env = None
+        else:
+            if not isinstance(raw_env, dict):
+                raise ValueError(
+                    f"server '{server_id}' env must be an object of string key/value pairs"
+                )
+            normalized_env: dict[str, str] = {}
+            for raw_env_key, raw_env_value in raw_env.items():
+                if not isinstance(raw_env_key, str):
+                    raise ValueError(
+                        f"server '{server_id}' has invalid env key {raw_env_key!r} "
+                        "(expected string)"
+                    )
+                if not isinstance(raw_env_value, str):
+                    raise ValueError(
+                        f"server '{server_id}' has invalid env.{raw_env_key} value "
+                        "(expected string)"
+                    )
+                normalized_key = raw_env_key.strip()
+                if not normalized_key:
+                    raise ValueError(f"server '{server_id}' has an empty env key")
+                normalized_env[normalized_key] = raw_env_value
+            env = normalized_env or None
+        raw_error_handler = raw_entry.get("encoding_error_handler")
+        if raw_error_handler is None:
+            encoding_error_handler = "strict"
+        else:
+            if not isinstance(raw_error_handler, str):
+                raise ValueError(
+                    f"server '{server_id}' encoding_error_handler must be a string"
+                )
+            normalized_error_handler = raw_error_handler.strip().lower()
+            if not normalized_error_handler:
+                raise ValueError(
+                    f"server '{server_id}' encoding_error_handler cannot be empty"
+                )
+            if normalized_error_handler not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
+                raise ValueError(
+                    f"server '{server_id}' has unsupported encoding_error_handler "
+                    f"'{normalized_error_handler}'"
+                )
+            encoding_error_handler = normalized_error_handler
         return MCPServerConfig(
             transport="stdio",
             command=command,
-            args=_parse_args(raw_entry, server_id=server_id),
-            env=_parse_env(raw_entry, server_id=server_id),
+            args=args,
+            env=env,
             cwd=_parse_optional_nonempty_string_field(
                 raw_entry,
                 server_id=server_id,
                 field_name="cwd",
             ),
-            encoding=_parse_encoding(raw_entry, server_id=server_id),
-            encoding_error_handler=_parse_encoding_error_handler(
-                raw_entry,
-                server_id=server_id,
+            encoding=(
+                _parse_optional_nonempty_string_field(
+                    raw_entry,
+                    server_id=server_id,
+                    field_name="encoding",
+                )
+                or "utf-8"
             ),
+            encoding_error_handler=encoding_error_handler,
         )
 
     if command is not None:
@@ -295,120 +334,6 @@ def _parse_codex_mcp_server_entry(
         url=url,
         http_headers=http_headers,
     )
-
-
-def _parse_http_headers(
-    raw_entry: dict[str, Any],
-    *,
-    server_id: str,
-) -> dict[str, str] | None:
-    return _parse_http_headers_payload(
-        raw_entry.get("http_headers"),
-        server_id=server_id,
-        field_name="http_headers",
-    )
-
-
-def _parse_http_headers_payload(
-    raw_http_headers: Any,
-    *,
-    server_id: str,
-    field_name: str,
-) -> dict[str, str] | None:
-    if raw_http_headers is None:
-        return None
-    if not isinstance(raw_http_headers, dict):
-        raise ValueError(f"server '{server_id}' {field_name} must be an object")
-    normalized_headers: dict[str, str] = {}
-    for header_name, header_value in raw_http_headers.items():
-        if not isinstance(header_name, str) or not isinstance(header_value, str):
-            raise ValueError(
-                f"server '{server_id}' {field_name} values must be string key/value pairs"
-            )
-        normalized_name = header_name.strip()
-        if not normalized_name:
-            continue
-        normalized_headers[normalized_name] = header_value
-    if not normalized_headers:
-        return None
-    return normalized_headers
-
-
-def _parse_args(raw_entry: dict[str, Any], *, server_id: str) -> list[str]:
-    args: list[str] = []
-    raw_args = raw_entry.get("args")
-    if raw_args is None:
-        return args
-    if not isinstance(raw_args, list):
-        raise ValueError(f"server '{server_id}' args must be an array of strings")
-    for index, item in enumerate(raw_args):
-        if not isinstance(item, str):
-            raise ValueError(
-                f"server '{server_id}' has invalid args[{index}] value (expected string)"
-            )
-        normalized_item = item.strip()
-        if normalized_item:
-            args.append(normalized_item)
-    return args
-
-
-def _parse_env(raw_entry: dict[str, Any], *, server_id: str) -> dict[str, str] | None:
-    raw_env = raw_entry.get("env")
-    if raw_env is None:
-        return None
-    if not isinstance(raw_env, dict):
-        raise ValueError(
-            f"server '{server_id}' env must be an object of string key/value pairs"
-        )
-    normalized_env: dict[str, str] = {}
-    for raw_env_key, raw_env_value in raw_env.items():
-        if not isinstance(raw_env_key, str):
-            raise ValueError(
-                f"server '{server_id}' has invalid env key {raw_env_key!r} "
-                "(expected string)"
-            )
-        if not isinstance(raw_env_value, str):
-            raise ValueError(
-                f"server '{server_id}' has invalid env.{raw_env_key} value "
-                "(expected string)"
-            )
-        normalized_key = raw_env_key.strip()
-        if not normalized_key:
-            raise ValueError(f"server '{server_id}' has an empty env key")
-        normalized_env[normalized_key] = raw_env_value
-    if not normalized_env:
-        return None
-    return normalized_env
-
-
-def _parse_encoding(raw_entry: dict[str, Any], *, server_id: str) -> str:
-    encoding = _parse_optional_nonempty_string_field(
-        raw_entry,
-        server_id=server_id,
-        field_name="encoding",
-    )
-    if encoding is None:
-        return "utf-8"
-    return encoding
-
-
-def _parse_encoding_error_handler(raw_entry: dict[str, Any], *, server_id: str) -> str:
-    raw_value = raw_entry.get("encoding_error_handler")
-    if raw_value is None:
-        return "strict"
-    if not isinstance(raw_value, str):
-        raise ValueError(
-            f"server '{server_id}' encoding_error_handler must be a string"
-        )
-    normalized_value = raw_value.strip().lower()
-    if not normalized_value:
-        raise ValueError(f"server '{server_id}' encoding_error_handler cannot be empty")
-    if normalized_value not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
-        raise ValueError(
-            f"server '{server_id}' has unsupported encoding_error_handler "
-            f"'{normalized_value}'"
-        )
-    return normalized_value
 
 
 def _parse_optional_nonempty_string_field(
@@ -439,15 +364,3 @@ def _validate_codex_server_id(raw_server_id: Any) -> str:
     if "__" in server_id:
         raise ValueError("server id cannot contain '__'")
     return server_id
-
-
-def _format_server_label(raw_server_id: Any) -> str:
-    if isinstance(raw_server_id, str):
-        return raw_server_id
-    return repr(raw_server_id)
-
-
-def _serialize_mcp_server_config_for_codex(
-    server_config: MCPServerConfig,
-) -> dict[str, Any]:
-    return server_config.model_dump(exclude_none=True, exclude_defaults=True)

@@ -1,7 +1,7 @@
 import {
   isManagedChatSection,
   type ManagedChatSectionAuthorityState,
-} from "state/actions/sectionFeatureSelectors";
+} from "state/actions/sectionInfos";
 import {
   ChatWindowModeEnum,
   type ChatWindowMode,

@@ -1,0 +1,400 @@
+# Unused Python Deletion Plan
+
+Last verified: `2026-03-15`
+
+Purpose: remove superseded Python implementation and tests after rewrite
+completion, without repeating the earlier mistake of deleting code before
+proving the surviving behavior already exists in Go or is no longer required.
+
+This is the final cleanup phase of the Go rewrite. It is not a new migration
+phase and it is not a blanket "delete Python until tests pass" effort.
+
+The output should be:
+
+- no unused Python backend implementation remains in-tree
+- no legacy Python tests remain for still-supported behavior unless they still
+  prove an explicit retained Python boundary
+- every deleted file has either:
+  - an identified Go/frontend replacement owner and proof, or
+  - an explicit justification for why no replacement is needed
+
+The output should not be:
+
+- zero Python files at any cost
+- accidental deletion of retained SDK, packaging, asset, or sidecar boundaries
+- deletion justified only by old rewrite docs or assumption
+
+## Inputs
+
+Start from current code and the live rewrite docs:
+
+- `CURRENT.md`
+- `go-backend-rewrite-plan.md`
+- `caller-backed-backend-surface-checklist.md`
+- `backend-capability-coverage-checklist.md`
+
+Use those docs as routing help only. For each deletion decision, re-check the
+current code, active callers, and tests.
+
+## Non-goals
+
+Do not delete the explicit retained Python boundaries unless a separate product
+decision changes that boundary:
+
+- `backend/setta/__main__.py`
+- `backend/setta/entrypoint.py`
+- public Python APIs under `backend/setta/api/*`
+- share-listener authoring/runtime boundary under
+  `backend/setta/share/listener_runtime.py`
+- Python support modules still imported by those retained APIs
+
+Do not delete explicit shipped asset/process boundaries as part of this plan:
+
+- `backend/setta/agentic/external_adapters/sidecars/*`
+- `backend/setta/vendor/node/*`
+- `backend/setta/plugins/schemas/*`
+- `backend/setta/launcher_artifacts/assets/*`
+- `backend/setta/go_bin/*`
+
+If any of those boundaries should shrink later, treat that as a separate,
+bounded cleanup with its own proof.
+
+## Deletion Rules
+
+### Rule 1: Deletion unit
+
+The deletion unit is a single file or a tight file cluster that implements one
+behavior surface together.
+
+Do not delete broad trees in one step unless every file in the tree shares the
+same proven classification.
+
+### Rule 2: Required proof per deleted implementation file
+
+Before deleting a Python implementation file, record all of:
+
+- current classification:
+  - retained boundary
+  - explicit asset/process boundary
+  - dead/reference tail
+  - still-active debt
+- active caller check:
+  - which current non-test caller would reach this code, if any
+- runtime owner:
+  - exact Go/frontend owner if the behavior still exists
+- proof:
+  - Go/frontend code references
+  - targeted tests already covering the behavior, or
+  - explicit justification that the behavior is no longer part of the current
+    product surface
+
+Do not delete an implementation file on "looks dead" alone.
+
+### Rule 3: Required proof per deleted test file
+
+Before deleting a Python test, record one of:
+
+- replacement proof:
+  - the Go/frontend tests that now prove the same surviving behavior
+- dead-path proof:
+  - the implementation path under test is no longer active or shipped
+- retained-boundary exemption:
+  - the test still proves a retained Python boundary and should stay
+
+Do not require fake one-for-one test translation. Behavioral replacement or
+dead-path proof is enough. Lack of both is not enough.
+
+## Required working artifact: deletion ledger
+
+Maintain a running deletion ledger while executing this plan. It can live in a
+temporary working note, PR description, or commit message draft, but each
+deletion batch must have the same fields:
+
+- Python file(s)
+- type:
+  - implementation
+  - test
+  - support module
+- current classification
+- current caller evidence
+- Go/frontend replacement owner, or explicit no-replacement justification
+- proof tests
+- decision:
+  - delete now
+  - keep for later
+  - retained permanently
+
+No deletion batch should merge without that evidence trail.
+
+## Execution sequence
+
+Do this cleanup in steps. Finish and verify each step before moving on.
+
+### Step 1: Freeze the keep-list
+
+Goal:
+
+- make the intentional Python boundary explicit before deleting anything
+
+Actions:
+
+- restate the retained Python/API/asset boundaries from `CURRENT.md`
+- re-check current imports from:
+  - `backend/setta/api/*`
+  - `backend/setta/share/listener_runtime.py`
+  - `backend/setta/__main__.py`
+  - `backend/setta/entrypoint.py`
+- mark files as:
+  - retained
+  - candidate for deletion review
+
+Exit gate:
+
+- the keep-list is explicit enough that later cleanup cannot accidentally eat
+  a retained Python boundary
+
+### Step 2: Rebuild the candidate inventory from code
+
+Goal:
+
+- convert the current Python tree into deletion candidates grouped by real
+  behavior clusters
+
+Expected candidate clusters include:
+
+- legacy transport shell:
+  - `backend/setta/server_state.py`
+  - `backend/setta/routers/*`
+  - `backend/setta/websockets/*` except retained client helpers
+  - `backend/setta/runtime/*`
+  - `backend/setta/middleware/*`
+  - `backend/setta/mcp/server.py`
+- superseded backend subsystems:
+  - `backend/setta/project_state/*` except retained typed support
+  - `backend/setta/llm/*` except retained `llm/chat_toolkit/*`
+  - `backend/setta/agentic/*` except explicit sidecar assets
+  - `backend/setta/plugins/*` except explicit retained assets or proven public
+    Python surface
+  - `backend/setta/terminals/*`
+  - `backend/setta/deployments/*`
+  - `backend/setta/lsp/*`
+  - `backend/setta/ui_settings/*`
+  - `backend/setta/database/*`
+  - `backend/setta/file_watchers/*`
+  - `backend/setta/binary/*`
+  - `backend/setta/app/*`
+
+Actions:
+
+- use current imports, entrypoints, and caller scans to place every candidate
+  file into a real cluster
+- do not mix retained support modules into a delete batch just because they
+  sit next to dead code
+
+Exit gate:
+
+- every candidate file belongs to a bounded cleanup batch
+
+### Step 3: Delete the lowest-risk legacy transport shell first
+
+Goal:
+
+- remove the old Python server skeleton before touching trickier support code
+
+Expected first batch:
+
+- `backend/setta/server_state.py`
+- `backend/setta/routers/*`
+- `backend/setta/websockets/*` except retained client-side helpers such as
+  `binary_frames.py`
+- `backend/setta/runtime/*`
+- `backend/setta/middleware/*`
+- `backend/setta/mcp/server.py`
+
+Required proof:
+
+- active callers already terminate in Go routes/websockets
+- no retained Python API imports these modules
+- Go tests already cover the surviving runtime/transport behavior
+
+Suggested verification:
+
+- targeted Go route/websocket/app tests
+- targeted Python retained-boundary tests to confirm no import breakage
+
+Exit gate:
+
+- the old Python server shell is gone and retained Python APIs still import and
+  run
+
+### Step 4: Delete superseded subsystem clusters one cluster at a time
+
+Goal:
+
+- remove dead backend logic behind the old Python server shell
+
+Recommended batch order:
+
+1. `project_state`
+2. `terminals`
+3. `deployments`
+4. `lsp`
+5. `ui_settings`
+6. `database`
+7. `file_watchers`
+8. `binary`
+9. `app`
+10. `llm`
+11. `agentic`
+12. `plugins`
+
+Reason for this order:
+
+- early batches are easier to map to obvious Go owners
+- late batches contain more retained helper overlap or a higher chance of
+  mistaken deletion
+
+Per-batch requirements:
+
+- map each deleted Python file to the current Go owner or to an explicit
+  removal justification
+- name the current Go package(s) and tests
+- confirm no retained Python boundary imports the deleted files
+
+Exit gate for each cluster:
+
+- cluster-specific Go ownership or non-replacement justification is documented
+- relevant tests pass
+- no retained Python boundary was widened accidentally
+
+### Step 5: Delete legacy Python tests only after replacement mapping
+
+Goal:
+
+- remove Python tests that now only exercise dead Python backend code
+
+Actions:
+
+- walk `tests/` cluster by cluster
+- for each Python test file:
+  - identify the behavior it actually proved
+  - point to the current Go/frontend proof if the behavior still exists
+  - otherwise prove the path is dead and no longer shipped
+
+Likely keepers:
+
+- tests for retained Python packaging/module entrypoints
+- tests for retained Python listener SDK and runner client boundaries
+
+Likely deletion candidates:
+
+- tests whose only target was the legacy Python server/runtime path now proven
+  dead
+
+Exit gate:
+
+- every deleted Python test has either replacement proof or dead-path proof
+
+### Step 6: Tighten packaging and dependency boundaries after source deletion
+
+Goal:
+
+- make packaging metadata match the new slimmer source tree
+
+Actions:
+
+- review `pyproject.toml`, build includes, force-includes, and any source-only
+  Python dependency extras
+- remove packaging references to Python modules no longer present
+- keep explicit retained assets and boundaries intact
+
+Exit gate:
+
+- package metadata does not reference deleted Python source
+- install/build smoke still works
+
+### Step 7: Final sweep
+
+Goal:
+
+- prove no unused Python implementation/tests remain outside the retained
+  boundary
+
+Actions:
+
+- rescan `backend/setta/*` and `tests/**`
+- classify everything left as:
+  - retained boundary
+  - retained boundary support
+  - explicit asset/process boundary
+  - live current test for retained boundary
+- if anything else remains, either delete it or justify it explicitly
+
+Exit gate:
+
+- no unclassified Python implementation/test files remain
+
+## Batch verification contract
+
+For each deletion batch, run the narrowest tests that prove the touched
+boundary. Prefer targeted suites over one giant end-of-phase run.
+
+Minimum expectation per batch:
+
+- search/import verification for retained Python boundaries
+- targeted Go tests for the surviving owner
+- targeted Python tests if the batch touches retained Python support
+- targeted frontend tests if the deleted behavior was partly frontend-owned
+
+Recommended final sweep verification:
+
+- retained Python boundary pytest targets
+- targeted frontend transport/plugin/runtime tests
+- targeted Go app/httpapi/wsapi/plugins/settacmd tests
+- packaged/module-entrypoint smoke where packaging boundary changed
+
+## Decision table for "no Go equivalent"
+
+It is acceptable to delete a Python file without a Go equivalent only when one
+of these is true:
+
+- the behavior was never part of the supported final product surface
+- the behavior was a legacy transport/runtime path with no active caller
+- the behavior was purely duplicate/reference code after a Go cutover
+- the behavior was an abandoned test-only helper for a dead path
+
+It is not acceptable when:
+
+- the behavior is still shipped or user-visible
+- the behavior is part of a retained Python public API
+- the behavior still exists in product scope but has not been tied to a
+  current owner yet
+
+## Common failure modes to avoid
+
+- deleting Python because the folder "looks legacy"
+- deleting tests before identifying what behavior they proved
+- assuming parity from docs instead of code-and-test proof
+- deleting support modules that are still imported by retained Python APIs
+- treating packaged assets or sidecars as dead source code
+- mixing several clusters into one giant cleanup commit that cannot be audited
+
+## Done means
+
+This cleanup track is done only when:
+
+- all non-retained unused Python implementation has been deleted
+- all non-retained legacy Python tests have been deleted or explicitly kept
+  with reason
+- every deletion has a replacement-owner or no-replacement justification
+- retained Python boundaries still import, package, and behave correctly
+- the remaining Python tree is intentionally small and fully classified
+
+## Next recommended step
+
+Start with Step 1 and Step 2 only.
+
+Do not begin by deleting files.
+The first executable deliverable should be a deletion ledger and a bounded
+first batch, with the legacy transport shell as the default starting point
+unless current code review shows a retained import dependency there.

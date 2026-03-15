@@ -1,18 +1,15 @@
 """Helpers for persisting the LLM configuration file."""
 
-import json
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 
 from setta.database.db_objs import DBE
 from setta.mcp.codex_config import (
     load_codex_mcp_servers_from_config as load_codex_mcp_servers_from_user_config,
 )
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
-from setta.types.chat import ChatMetadata
-from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
+from setta.types.llm_config import AllLLMConfigs, MCPServerConfig
 from setta.utils import constants
-from setta.utils.generate_memorable_string import generate_memorable_available_string
 from setta.utils.network import format_host_for_url
 
 
@@ -119,10 +116,12 @@ def _bootstrap_codex_mcp_servers_if_needed(
 ) -> AllLLMConfigs:
     if config.codexMcpImportedAt:
         return config
-    has_non_setta_servers = _has_non_setta_mcp_servers(config)
+    has_non_setta_servers = any(
+        server_id != SETTA_MCP_SERVER_ID for server_id in config.mcpServers.keys()
+    )
     merged_servers = dict(config.mcpServers)
     if not has_non_setta_servers:
-        imported_servers = _load_codex_mcp_servers_from_config()
+        imported_servers = load_codex_mcp_servers_from_user_config()
         for server_id, server_config in imported_servers.items():
             if server_id in merged_servers:
                 continue
@@ -141,57 +140,3 @@ def _bootstrap_codex_mcp_servers_if_needed(
     if allow_write:
         save_llm_config(updated, dbe)
     return updated
-
-
-def _has_non_setta_mcp_servers(config: AllLLMConfigs) -> bool:
-    for server_id in config.mcpServers.keys():
-        if server_id != SETTA_MCP_SERVER_ID:
-            return True
-    return False
-
-
-def _load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
-    return load_codex_mcp_servers_from_user_config()
-
-
-def merge_chat_llm_configs(
-    config: AllLLMConfigs,
-    chat_metadata: Iterable[ChatMetadata],
-) -> AllLLMConfigs:
-    configs = dict(config.configs)
-    seen_signatures: dict[str, str] = {
-        _build_config_signature(entry): config_id
-        for config_id, entry in configs.items()
-    }
-    for chat in chat_metadata:
-        curr_config = chat.llmConfig
-        signature = _build_config_signature(curr_config)
-        if signature in seen_signatures:
-            continue
-        curr_config_id = curr_config.id
-        if not curr_config_id or curr_config_id in configs:
-            curr_config_id = generate_memorable_available_string(configs.keys())
-        configs[curr_config_id] = curr_config.model_copy(
-            update={"id": curr_config_id, "temporary": True}
-        )
-        seen_signatures[signature] = curr_config_id
-    return AllLLMConfigs(
-        configs=configs,
-        mcpServers=config.mcpServers,
-        defaultMcpServerIds=config.defaultMcpServerIds,
-        default_config_id=config.default_config_id,
-        codexMcpImportedAt=config.codexMcpImportedAt,
-    )
-
-
-def _build_config_signature(config: LLMConfig) -> str:
-    """Create a stable fingerprint so we can deduplicate equivalent configs."""
-    payload = config.model_dump(
-        exclude={"id", "temporary"},
-    )
-    return json.dumps(
-        payload,
-        sort_keys=True,
-        default=str,
-        separators=(",", ":"),
-    )

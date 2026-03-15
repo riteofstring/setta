@@ -11,7 +11,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useIsScrollable } from "state/hooks/sectionScrollability";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getTextBlockText } from "state/hooks/sectionVariants";
 import type { CodeLanguage } from "utils/codeLanguage";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
