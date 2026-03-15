@@ -16,9 +16,10 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `28`
+- Rows audited in this pass: `41`
 - Status counts:
-  - `Proved`: `28`
+  - `Proved`: `38`
+  - `Missing`: `3`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
     preserves the Python-source blank root name instead of inventing `"params"`
@@ -35,12 +36,27 @@ Last audited: `2026-03-16`
   project names, view-mode names, window-space names, section names, param
   names, generated/default names on create flows, related rename/create error
   contracts, and websocket name-validation broadcasts.
+- This pass also extends the matrix into the next suggested bounded slice:
+  project-shell metadata/load/save/save-as/default-project/delete-project and
+  notifications behavior.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
   - section-variant sort-order transport/details
   - broader non-naming layout mutation rules outside the create/rename/default
     slice
+  - project-shell exact-name whitespace/duplicate lookup nuances beyond the
+    currently cited load/save/delete transport rows
+
+## Current Gaps
+
+- `project_shell.load_project_config.not_found_transport_detail`
+  - Python source raises plain `HTTPException(status_code=404, detail=str(exc))`
+    while Go currently returns a typed error envelope.
+- `project_shell.delete_projects.transport_true_response`
+  - Python source returns literal `true`; Go currently returns `null`.
+- `project_shell.notifications.delete_transport_success_bool`
+  - Python source returns `{"success": bool}`; Go currently returns `null`.
 
 ## Matrix
 
@@ -75,3 +91,17 @@ Last audited: `2026-03-16`
 | `param.rename_and_value.atomicity` | `backend/setta/project_state/base_project_manager.py::set_param_name_and_value`; `backend/setta/project_state/project_manager_types.py::SetParamNameAndValueRequest` | `internal/projectstate/code_object_name_and_value.go` | `TestProjectSetParamNameAndValueDoesNotPartiallyApplyOnInvalidName`; `...DoesNotPartiallyApplyOnUnsupportedValueMutation` | `internal/httpapi/project_routes.go` writes through the same runtime mutation | `Proved` | Name/value combined mutations stay atomic. |
 | `param.rename.transport_422_detail` | `tests/routers/test_name_validation_routes.py::test_code_obj_name_validation_rejects_invalid_name`; `backend/setta/routers/project_manager.py::route_set_code_obj_name` | `internal/httpapi/project_routes.go` | `TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalidInputs` | frontend param naming callers use generated endpoints | `Proved` | Invalid code-object renames now use `detail` instead of a typed envelope. |
 | `ws.name_validation.payload_shape_and_view_mode_omission` | `backend/setta/project_state/base_project_manager.py::_broadcast_name_validation_errors` includes `projectErrors`, `sectionErrors`, `paramErrors` and omits `viewModeErrors` | `internal/projectstate/name_validation.go`; `internal/app/app.go`; `internal/realtime/messages.go` | `TestAppFrontendWebsocketSendsInitialNameValidationErrors`; `TestAppSaveBroadcastsNameValidationErrors` | `frontend/src/state/types/nameValidation.ts`; `frontend/src/state/actions/nameValidation.ts`; `frontend/src/state/actions/websocketReceive.ts` | `Proved` | Go matches the source payload shape, including the intentional omission of `viewModeErrors`. |
+| `project_shell.load_all_metadata.default_and_sorted` | `backend/setta/routers/projects.py::route_load_all_project_metadata`; `backend/setta/project_state/base_project_manager.py::get_all_project_metadata` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceLoadAllProjectMetadataReturnsDefaultAndSortedMetadata`; `TestRegisterProjectShellRoutesReturnsAllProjectMetadata`; `TestAppServesProjectShellReadRoutes` | frontend loads the metadata route through `frontend/src/state/actions/project/loadProject.ts` | `Proved` | The Go shell path preserves default-project id plus sorted metadata output. |
+| `project_shell.load_project_config.payload_includes_windowing` | `backend/setta/routers/projects.py::route_load_project_config`; source manager `load_project_config` behavior; `tests/project_state/test_project_chat_windowing_persistence.py` create/save-as windowing coverage | `internal/projectshell/service.go`; `internal/projectview/single_config.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceLoadProjectConfigLoadsByName`; `TestRegisterProjectShellRoutesLoadsProjectConfigByName`; `TestAppServesProjectShellReadRoutes` | `frontend/src/state/actions/project/loadProject.ts` expects `projectConfig.windowSpaces` and `projectChatWindowing` in the loaded state | `Proved` | The loaded shell payload still includes saved window spaces and authoritative live project-chat windowing. |
+| `project_shell.load_project_config.not_found_transport_detail` | `backend/setta/routers/projects.py::route_load_project_config` raises `HTTPException(status_code=404, detail=str(exc))` on `ProjectNotFound` | `internal/httpapi/project_shell_routes.go::loadProjectConfigHandler`; `writeProjectShellRouteError` | `TestRegisterProjectShellRoutesReturnsNotFoundForMissingProjectConfig` currently locks the typed envelope instead of `detail` | frontend load path only checks success/failure today in `frontend/src/state/actions/project/loadProject.ts` | `Missing` | Go still returns `{"error":{"code":"project_config_not_found",...}}` here instead of the source detail-style failure body. |
+| `project_shell.save_project.persists_runtime_changes` | `backend/setta/routers/projects.py::route_save_project` manual-save path | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceSaveProjectPersistsCurrentRuntimeAndRunsHook`; `TestRegisterProjectShellRoutesSavesProject` | app route exercised in `internal/app/project_shell_test.go` | `Proved` | The Go shell save path persists the current runtime snapshot to the backing store. |
+| `project_shell.save_project.broadcast_saved_notification` | `backend/setta/routers/projects.py::route_save_project` emits `Saved!` notification | `internal/app/app.go` wires `AfterProjectSave` to a frontend notification broadcast | `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend consumes websocket notifications through the standard realtime path | `Proved` | The saved-project notification survives in the app-layer wiring even though the HTTP route itself stays thin. |
+| `project_shell.save_as.with_refs_resets_live_windowing_and_clears_chat_ids` | `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_with_refs_seeds_windowing_and_clears_chat_ids` | `internal/projectstate/project_lifecycle.go`; `internal/projectshell/service.go` | `TestDocumentSaveAsNewProjectConfigWithRefsClearsSavedChatIDsAndResetsLiveWindowing`; `TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing` | `TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag` covers route-visible saved chat-id clearing | `Proved` | With-refs save-as still resets live windowing and clears persisted chat bindings. |
+| `project_shell.save_as.without_refs_copies_live_windowing_and_clears_chat_ids` | `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_without_refs_copies_windowing_layout_and_remaps_sections` | `internal/projectstate/project_lifecycle.go`; `internal/projectshell/service.go` | `TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsChatIDs`; `TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout` | `TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag` | `Proved` | Without refs, Go preserves live window layout while still clearing saved/live chat ids. |
+| `project_shell.save_as.invalid_name.transport_422_detail` | `backend/setta/routers/projects.py::route_save_as_new_project_config` catches `InvalidProjectName` with `detail=str(exc)` | `internal/httpapi/project_shell_routes.go` | `TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail` | frontend shell callers use generated endpoints | `Proved` | The invalid-name route contract matches the source. |
+| `project_shell.set_default_project.persists_and_noop` | `backend/setta/project_state/base_project_manager.py::set_as_default_project`; `backend/setta/routers/projects.py::router_set_as_default_project` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook`; `TestServiceSetDefaultProjectConfigNoopSkipsMetadataHook`; `TestRegisterProjectShellRoutesSetsDefaultProjectConfig` | app metadata broadcasts are wired in `internal/app/app.go` | `Proved` | Go preserves both persisted default-project updates and no-op hook suppression. |
+| `project_shell.delete_projects.reconciles_default_and_runs_hooks` | `backend/setta/project_state/base_project_manager.py::delete_project_configs`; related source tests in `tests/project_state/test_codegen_targets.py` and `tests/project_state/test_watch_code.py` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault`; `TestRegisterProjectShellRoutesDeletesProjectConfigs` | app wiring deletes project terminals in `internal/app/app.go` | `Proved` | The Go shell delete path reconciles the default project and runs the post-delete hooks. |
+| `project_shell.delete_projects.transport_true_response` | `backend/setta/routers/projects.py::route_delete_project_configs` returns literal `True` | `internal/httpapi/project_shell_routes.go::deleteProjectConfigsHandler` | `TestRegisterProjectShellRoutesDeletesProjectConfigs` proves behavior but does not lock the response body shape | frontend delete-project modal only checks HTTP success in `frontend/src/components/Modals/DeleteProjectWarningModal/DeleteProjectWarningModal.tsx` | `Missing` | Go currently returns `null` here instead of the source `true` JSON response. |
+| `project_shell.notifications.list_filtered_by_project` | `backend/setta/routers/projects.py::route_get_notifications` returns `read_notifications(projectConfigId)` | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesReturnsProjectNotifications`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane calls `route_get_notifications` | `Proved` | The Go notifications read path keeps per-project filtering. |
+| `project_shell.notifications.delete_persists` | `backend/setta/routers/projects.py::route_delete_notification` deletes the notification through the DB | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane removes locally, then posts the delete | `Proved` | The delete side effect itself survives in Go. |
+| `project_shell.notifications.delete_transport_success_bool` | `backend/setta/routers/projects.py::route_delete_notification` returns `{"success": success}` | `internal/httpapi/project_shell_routes.go::deleteNotificationHandler` | `TestRegisterProjectShellRoutesDeletesNotification` currently proves deletion only, not source response shape | `frontend/src/components/Panes/Overview/NotificationsArea.tsx` ignores the response today | `Missing` | Go currently returns `null` instead of the source success object. |
