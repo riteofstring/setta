@@ -12,6 +12,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 
 SESSION_METADATA_FILENAME = "session.json"
@@ -140,9 +141,21 @@ def _mint_bootstrap_token(session_id: str, secret: bytes) -> str:
 
 
 def _build_bootstrap_urls(host: str, port: int, token: str) -> tuple[str, str]:
-    from setta.utils.network import build_bootstrap_urls
+    trimmed_host = host.strip()
+    trimmed_token = token.strip()
+    if not trimmed_host:
+        raise RuntimeError("bootstrap host is required")
+    if port <= 0:
+        raise RuntimeError("bootstrap port must be positive")
+    if not trimmed_token:
+        raise RuntimeError("bootstrap token is required")
 
-    return build_bootstrap_urls(host, port, token)
+    host_for_url = trimmed_host
+    if ":" in trimmed_host and not trimmed_host.startswith("["):
+        host_for_url = f"[{trimmed_host}]"
+    bootstrap_url_plain = f"http://{host_for_url}:{port}/__setta__/bootstrap"
+    bootstrap_url_fragment = f"{bootstrap_url_plain}#{urlencode({'token': trimmed_token})}"
+    return bootstrap_url_fragment, bootstrap_url_plain
 
 
 def _emit_json(payload: dict[str, Any]) -> None:
