@@ -202,8 +202,13 @@ func TestRegisterProjectShellRoutesReturnsNotFoundForMissingProjectConfig(t *tes
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), "project_config_not_found") {
-		t.Fatalf("expected project_config_not_found body, got %q", response.Body.String())
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing project payload: %v", err)
+	}
+	if payload["detail"] != "Project config not found." {
+		t.Fatalf("unexpected missing project payload %#v", payload)
 	}
 }
 

@@ -150,6 +150,10 @@ func loadProjectConfigHandler(deps ProjectShellRouteDependencies) http.HandlerFu
 
 		projectStateView, err := deps.Shell.LoadProjectConfig(r.Context(), strings.TrimSpace(payload.ProjectConfigName))
 		if err != nil {
+			if errors.Is(err, projectstate.ErrProjectNotFound) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"detail": "Project config not found."})
+				return
+			}
 			writeProjectShellRouteError(w, r, err)
 			return
 		}
