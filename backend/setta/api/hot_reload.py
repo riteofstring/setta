@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from glob import has_magic
 from pathlib import Path
-from types import ModuleType
 from typing import TYPE_CHECKING, Iterable
 
 from watchfiles import Change, awatch
@@ -47,46 +46,6 @@ class ListenerHotReloader:
             )
         self._module_name = module.__name__
         self._builder_name = builder_name
-        self._watch_specs = self._build_watch_specs(
-            module=module,
-            extra_watch_paths=extra_watch_paths,
-            ignore_patterns=ignore_patterns,
-        )
-        self._paths = tuple(dict.fromkeys(spec.root for spec in self._watch_specs))
-        if not self._paths:
-            raise ValueError("ListenerHotReloader requires at least one path to watch")
-        self._trigger_refresh = trigger_refresh
-        self._settle_delay = settle_delay
-        self._stop_event = asyncio.Event()
-        self._reload_lock = asyncio.Lock()
-        allowed_changes = {Change.added, Change.modified, Change.deleted}
-
-        def watch_filter(change: Change, path: str) -> bool:
-            if change not in allowed_changes:
-                return False
-            candidate_path = Path(path)
-            try:
-                candidate = candidate_path.resolve()
-            except RuntimeError:
-                candidate = candidate_path.absolute()
-            for spec in self._watch_specs:
-                if spec.accepts(candidate):
-                    return True
-            return False
-
-        self._watch_filter = watch_filter
-
-    @property
-    def listener(self) -> "SettaListener":
-        return self._listener
-
-    def _build_watch_specs(
-        self,
-        *,
-        module: ModuleType,
-        extra_watch_paths: Iterable[str] | None,
-        ignore_patterns: Iterable[str] | None,
-    ) -> tuple["_WatcherSpec", ...]:
         specs: dict[Path, _WatcherSpec] = {}
         if not ignore_patterns:
             ignore = ()
@@ -153,18 +112,16 @@ class ListenerHotReloader:
 
         for candidate in candidate_paths:
             root_path = self._resolve_path(candidate)
-            includes = None
             spec = specs.get(root_path)
-            include_tuple = includes if includes is not None else ()
             if spec is None:
                 specs[root_path] = _WatcherSpec(
                     root=root_path,
                     is_file=self._is_probable_file(root_path),
-                    includes=include_tuple,
+                    includes=(),
                     ignores=ignore,
                 )
                 continue
-            specs[root_path] = spec.merged_with(include_tuple, ignore)
+            specs[root_path] = spec.merged_with((), ignore)
         if extra_watch_paths:
             for raw in extra_watch_paths:
                 for root_path, include in parse_extra_watch_path(raw):
@@ -179,7 +136,34 @@ class ListenerHotReloader:
                         )
                         continue
                     specs[root_path] = spec.merged_with(include_tuple, ignore)
-        return tuple(specs.values())
+        self._watch_specs = tuple(specs.values())
+        self._paths = tuple(dict.fromkeys(spec.root for spec in self._watch_specs))
+        if not self._paths:
+            raise ValueError("ListenerHotReloader requires at least one path to watch")
+        self._trigger_refresh = trigger_refresh
+        self._settle_delay = settle_delay
+        self._stop_event = asyncio.Event()
+        self._reload_lock = asyncio.Lock()
+        allowed_changes = {Change.added, Change.modified, Change.deleted}
+
+        def watch_filter(change: Change, path: str) -> bool:
+            if change not in allowed_changes:
+                return False
+            candidate_path = Path(path)
+            try:
+                candidate = candidate_path.resolve()
+            except RuntimeError:
+                candidate = candidate_path.absolute()
+            for spec in self._watch_specs:
+                if spec.accepts(candidate):
+                    return True
+            return False
+
+        self._watch_filter = watch_filter
+
+    @property
+    def listener(self) -> "SettaListener":
+        return self._listener
 
     async def stop(self) -> None:
         """Signal the watcher loop to stop."""
