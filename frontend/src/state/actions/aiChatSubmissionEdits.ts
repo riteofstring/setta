@@ -20,7 +20,7 @@ import {
   clearPendingChatDetails,
   commitPendingChatDetails,
   initializePendingChatDetailsWithMessages,
-} from "./aiPendingChatMessageState";
+} from "./aiPendingChatMessageLifecycle";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
 
 async function setEditedSectionChatId({

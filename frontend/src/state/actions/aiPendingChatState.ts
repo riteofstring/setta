@@ -4,12 +4,14 @@ export {
   setPendingChatAppGenerationDetailsForSurface,
 } from "./aiPendingChatAppGenerationState";
 export {
-  applyOptimisticUserMessage,
   clearPendingChatDetails,
   commitPendingChatDetails,
   finalizePendingChatDetails,
   initializePendingChatDetails,
   initializePendingChatDetailsWithMessages,
-  rollbackOptimisticUserMessage,
   seedPendingChatDetails,
-} from "./aiPendingChatMessageState";
+} from "./aiPendingChatMessageLifecycle";
+export {
+  applyOptimisticUserMessage,
+  rollbackOptimisticUserMessage,
+} from "./aiPendingChatMessageMutations";

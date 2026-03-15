@@ -5,4 +5,4 @@ export {
   finalizePendingChatDetails,
   initializePendingChatDetails,
   seedPendingChatDetails,
-} from "./aiPendingChatMessageState";
+} from "./aiPendingChatMessageLifecycle";

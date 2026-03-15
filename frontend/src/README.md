@@ -144,8 +144,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     narrower AI-follow owners.
   - `state/actions/aiPendingChatAppGenerationState.ts` owns pending-surface
     app-generation detail reads and writes.
-  - `state/actions/aiPendingChatMessageState.ts` owns pending draft
-    initialization, promotion, and optimistic message apply or rollback flows.
+  - `state/actions/aiPendingChatMessageLifecycle.ts` owns pending draft
+    initialization, seed, clear, commit, and finalize flows.
+  - `state/actions/aiPendingChatMessageMutations.ts` owns optimistic
+    pending-surface and materialized-chat user-message apply or rollback flows
+    plus app-generation detail updates.
+  - `state/actions/aiPendingChatMessageState.ts` is now the thin compatibility
+    facade over those message-level pending-chat owners.
   - `state/actions/aiPendingChatState.ts` is now a thin compatibility facade
     over those narrower pending-chat owners.
   - `state/actions/aiLLMConfiguration.ts` owns LLM config loading/saving.
@@ -427,6 +432,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `aiChatControls.ts`, `aiExternalAgentStop.ts`, `aiChatStopState.ts`,
     `aiExternalAgentResponses.ts`, `aiChatState.ts`,
     `aiChatSectionState.ts`, `aiPendingChatAppGenerationState.ts`,
+    `aiPendingChatMessageLifecycle.ts`, `aiPendingChatMessageMutations.ts`,
     `aiPendingChatMessageState.ts`, and `aiPendingChatState.ts`.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
     reconciliation, active-section sync, viewport updates, and project-chat

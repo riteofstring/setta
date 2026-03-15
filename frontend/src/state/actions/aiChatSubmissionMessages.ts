@@ -16,7 +16,7 @@ import {
 import {
   applyOptimisticUserMessage,
   rollbackOptimisticUserMessage,
-} from "./aiPendingChatMessageState";
+} from "./aiPendingChatMessageMutations";
 
 export async function submitMessage(
   chatId: string | null,
