@@ -7051,6 +7051,18 @@ func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Req
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrProjectCodegenPythonTargetPayloadInvalid),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetObjectRequired),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldUnknown),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldInvalid),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetLanguageMismatch),
+		errors.Is(err, projectstate.ErrPythonSectionCodegenPolicyInvalid),
+		errors.Is(err, projectstate.ErrPythonSectionCodegenPolicyFieldUnknown),
+		errors.Is(err, projectstate.ErrPythonSectionCodegenPolicyFieldInvalid),
+		errors.Is(err, projectstate.ErrPythonCodeObjValuePolicyInvalid),
+		errors.Is(err, projectstate.ErrPythonCodeObjValuePolicyFieldUnknown),
+		errors.Is(err, projectstate.ErrPythonCodeObjValuePolicyFieldInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_project_codegen_targets", err.Error())
 	case errors.Is(err, ErrProjectCodegenTargetObjectRequired),
 		errors.Is(err, ErrProjectCodegenTargetLanguageRequired),
 		errors.Is(err, projectstate.ErrFrontendPayloadInvalid),
