@@ -6280,3 +6280,50 @@ schedule settings` button still appears on the live task row.
     which remains the largest unresolved first-hop surface after the home page
     dropped to about 451 lines and delegated gallery rendering, side-pane
     shells, and selected-project details into local page-domain modules.
+
+## 2026-03-16 04:20:00 PDT
+
+- Slice completed: extracted local skills browser, markdown viewer, and view-model owners from `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` because
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  was still the largest unresolved project-AI front door at the start of the
+  turn and still mixed skill filtering/selection, markdown preview/edit shells,
+  and MCP/runtime routing in the first file a contributor opened for that
+  surface.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsBrowser.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillMarkdownViewer.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsViewModel.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpPathGroupHeader.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerSkillUpsert.integration.test.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-skills-view-owners-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerSkillUpsert.integration.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerSkillUpsert.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillMarkdownViewer.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsBrowser.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpPathGroupHeader.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsViewModel.ts ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-skills-view-owners-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-skills-view-owners-2026-03-16.md`
+    with the before/after skills-surface measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`
+    with the Project AI Skills view open and the markdown viewer expanded.
+    `ProjectChatSkillsMcpViewer.tsx` dropped from `1661` to `912` lines while
+    the measured skills subtree stayed flat at `48` nodes, kept the same
+    `250px` width, `626px` height, `334px` list-pane height, `12px` splitter,
+    and `1` resize handle, with no visible change in the empty-state skills
+    layout.
+- Commit hash:
+  - `f8f7174a7f6bb171d87ba4fab734eba41e05b689`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`,
+    which is now the largest unresolved front-door hotspot and still combines
+    tracked-pane state, placement/focus commands, animation lifecycle, and
+    floating-bounds or snap orchestration above its extracted windowing owners.
