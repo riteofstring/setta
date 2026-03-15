@@ -26,6 +26,125 @@ _SUPPORTED_ENCODING_ERROR_HANDLERS = {"strict", "ignore", "replace"}
 
 
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
+    def load_codex_mcp_servers_from_path(
+        config_path: Path,
+        *,
+        fail_closed: bool,
+    ) -> dict[str, MCPServerConfig] | None:
+        if not config_path.is_file():
+            return None
+        try:
+            raw_payload = config_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            logger.warning(
+                "Failed to read Codex config at '%s': %s",
+                config_path,
+                exc,
+            )
+            return {} if fail_closed else None
+        if not raw_payload.strip():
+            return {} if fail_closed else None
+        try:
+            payload = tomllib.loads(raw_payload)
+        except tomllib.TOMLDecodeError as exc:
+            logger.warning(
+                "Failed to parse Codex config at '%s': %s",
+                config_path,
+                exc,
+            )
+            return {} if fail_closed else None
+        if not isinstance(payload, dict):
+            logger.warning(
+                "Skipping Codex config at '%s': root payload must be an object",
+                config_path,
+            )
+            return {} if fail_closed else None
+        try:
+            if "mcpServers" in payload:
+                raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
+            if "mcp_servers" not in payload:
+                return {} if fail_closed else None
+            raw_servers = payload["mcp_servers"]
+            if not isinstance(raw_servers, dict):
+                raise ValueError("'mcp_servers' must be an object")
+            raw_servers = deepcopy(raw_servers)
+        except ValueError as exc:
+            logger.warning(
+                "Skipping Codex config at '%s': %s",
+                config_path,
+                exc,
+            )
+            return {} if fail_closed else None
+        if not raw_servers:
+            return {} if fail_closed else None
+
+        parsed: dict[str, MCPServerConfig] = {}
+        validated_entries: list[tuple[str, str, Any]] = []
+        raw_server_labels_by_canonical_id: dict[str, list[str]] = {}
+
+        for raw_server_id, raw_entry in raw_servers.items():
+            if isinstance(raw_server_id, str):
+                server_label = raw_server_id
+            else:
+                server_label = repr(raw_server_id)
+            try:
+                if not isinstance(raw_server_id, str):
+                    raise ValueError("server id must be a string")
+                server_id = raw_server_id.strip()
+                if not server_id:
+                    raise ValueError("server id is empty")
+                if server_id == SETTA_MCP_SERVER_ID:
+                    raise ValueError("server id is reserved for setta")
+                if "__" in server_id:
+                    raise ValueError("server id cannot contain '__'")
+            except ValueError as exc:
+                logger.warning(
+                    "Skipping Codex MCP server '%s': %s",
+                    server_label,
+                    exc,
+                )
+                continue
+            validated_entries.append((server_label, server_id, raw_entry))
+            labels_for_server_id = raw_server_labels_by_canonical_id.get(server_id)
+            if labels_for_server_id is None:
+                raw_server_labels_by_canonical_id[server_id] = [server_label]
+                continue
+            labels_for_server_id.append(server_label)
+
+        collided_canonical_ids = {
+            server_id: labels_for_server_id
+            for server_id, labels_for_server_id in raw_server_labels_by_canonical_id.items()
+            if len(labels_for_server_id) > 1
+        }
+        for server_id, labels_for_server_id in collided_canonical_ids.items():
+            colliding_raw_keys = ", ".join(f"'{label}'" for label in labels_for_server_id)
+            logger.warning(
+                "Skipping Codex MCP server canonical id '%s': "
+                "duplicate canonical server id from raw keys [%s]",
+                server_id,
+                colliding_raw_keys,
+            )
+
+        for server_label, server_id, raw_entry in validated_entries:
+            if server_id in collided_canonical_ids:
+                continue
+            try:
+                server_config = _parse_codex_mcp_server_entry(
+                    raw_entry, server_id=server_id
+                )
+            except ValueError as exc:
+                logger.warning(
+                    "Skipping Codex MCP server '%s': %s",
+                    server_label,
+                    exc,
+                )
+                continue
+            parsed[server_id] = server_config
+
+        if parsed:
+            return parsed
+        return {} if fail_closed else None
+
     codex_home_env = os.environ.get("CODEX_HOME")
     if isinstance(codex_home_env, str):
         normalized_home = codex_home_env.strip()
@@ -34,140 +153,20 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
         codex_home_config_path = (
             Path(normalized_home).expanduser() / "config.toml"
         ).resolve(strict=False)
-        loaded_from_codex_home = _load_codex_mcp_servers_from_path(
+        loaded_from_codex_home = load_codex_mcp_servers_from_path(
             codex_home_config_path,
             fail_closed=True,
         )
         if loaded_from_codex_home is None:
             return {}
         return loaded_from_codex_home
-    parsed = _load_codex_mcp_servers_from_path(
+    parsed = load_codex_mcp_servers_from_path(
         (Path.home() / ".codex" / "config.toml").resolve(strict=False),
         fail_closed=False,
     )
     if parsed:
         return parsed
     return {}
-
-
-def _load_codex_mcp_servers_from_path(
-    config_path: Path,
-    *,
-    fail_closed: bool,
-) -> dict[str, MCPServerConfig] | None:
-    if not config_path.is_file():
-        return None
-    try:
-        raw_payload = config_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        logger.warning(
-            "Failed to read Codex config at '%s': %s",
-            config_path,
-            exc,
-        )
-        return {} if fail_closed else None
-    if not raw_payload.strip():
-        return {} if fail_closed else None
-    try:
-        payload = tomllib.loads(raw_payload)
-    except tomllib.TOMLDecodeError as exc:
-        logger.warning(
-            "Failed to parse Codex config at '%s': %s",
-            config_path,
-            exc,
-        )
-        return {} if fail_closed else None
-    if not isinstance(payload, dict):
-        logger.warning(
-            "Skipping Codex config at '%s': root payload must be an object",
-            config_path,
-        )
-        return {} if fail_closed else None
-    try:
-        if "mcpServers" in payload:
-            raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
-        if "mcp_servers" not in payload:
-            return {} if fail_closed else None
-        raw_servers = payload["mcp_servers"]
-        if not isinstance(raw_servers, dict):
-            raise ValueError("'mcp_servers' must be an object")
-        raw_servers = deepcopy(raw_servers)
-    except ValueError as exc:
-        logger.warning(
-            "Skipping Codex config at '%s': %s",
-            config_path,
-            exc,
-        )
-        return {} if fail_closed else None
-    if not raw_servers:
-        return {} if fail_closed else None
-
-    parsed: dict[str, MCPServerConfig] = {}
-    validated_entries: list[tuple[str, str, Any]] = []
-    raw_server_labels_by_canonical_id: dict[str, list[str]] = {}
-
-    for raw_server_id, raw_entry in raw_servers.items():
-        if isinstance(raw_server_id, str):
-            server_label = raw_server_id
-        else:
-            server_label = repr(raw_server_id)
-        try:
-            if not isinstance(raw_server_id, str):
-                raise ValueError("server id must be a string")
-            server_id = raw_server_id.strip()
-            if not server_id:
-                raise ValueError("server id is empty")
-            if server_id == SETTA_MCP_SERVER_ID:
-                raise ValueError("server id is reserved for setta")
-            if "__" in server_id:
-                raise ValueError("server id cannot contain '__'")
-        except ValueError as exc:
-            logger.warning(
-                "Skipping Codex MCP server '%s': %s",
-                server_label,
-                exc,
-            )
-            continue
-        validated_entries.append((server_label, server_id, raw_entry))
-        labels_for_server_id = raw_server_labels_by_canonical_id.get(server_id)
-        if labels_for_server_id is None:
-            raw_server_labels_by_canonical_id[server_id] = [server_label]
-            continue
-        labels_for_server_id.append(server_label)
-
-    collided_canonical_ids = {
-        server_id: labels_for_server_id
-        for server_id, labels_for_server_id in raw_server_labels_by_canonical_id.items()
-        if len(labels_for_server_id) > 1
-    }
-    for server_id, labels_for_server_id in collided_canonical_ids.items():
-        colliding_raw_keys = ", ".join(f"'{label}'" for label in labels_for_server_id)
-        logger.warning(
-            "Skipping Codex MCP server canonical id '%s': "
-            "duplicate canonical server id from raw keys [%s]",
-            server_id,
-            colliding_raw_keys,
-        )
-
-    for server_label, server_id, raw_entry in validated_entries:
-        if server_id in collided_canonical_ids:
-            continue
-        try:
-            server_config = _parse_codex_mcp_server_entry(
-                raw_entry, server_id=server_id
-            )
-        except ValueError as exc:
-            logger.warning(
-                "Skipping Codex MCP server '%s': %s",
-                server_label,
-                exc,
-            )
-            continue
-        parsed[server_id] = server_config
-
-    if parsed:
-        return parsed
-    return {} if fail_closed else None
 
 
 def _parse_codex_mcp_server_entry(
