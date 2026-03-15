@@ -229,6 +229,10 @@ categorize them.
   should likely come from the adjacent remote `connect` forwarding row or the
   remaining similarly narrow CLI/service proof-only owners before switching
   fully back to heavier missing surfaces
+- That remote `connect` forwarding row is now proved too, so the next cheap
+  queue is no longer the shared remote-path/SSH-arg pass-through family; the
+  remaining adjacent CLI backlog is the more involved foreground/verbose
+  connect behavior or other similarly bounded proof-only owners elsewhere
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
