@@ -5,12 +5,7 @@ from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl2 import (
-    create_top_level_section,
-    set_spreadsheet_file_path,
-    set_spreadsheet_section_settings,
-    set_task_board_section_state,
-)
+from setta.types.helpers_lvl1 import set_curr_effective_section_impl_value
 from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig, default_section_allowlist
 from setta.types.project_state import ProjectStateSingleConfig
@@ -24,6 +19,7 @@ from setta.types.section_impls import (
     TaskBoardTaskRecurrence,
     TaskBoardViewMode,
 )
+from tests.helpers.project_state_sections import create_top_level_section
 
 
 def test_default_codegen_allowlist_includes_data_authoring_sections() -> None:
@@ -67,12 +63,14 @@ def test_task_board_section_exports_structured_codegen_payload() -> None:
             sortIndex=0,
         )
     ]
-    set_task_board_section_state(
+    set_curr_effective_section_impl_value(
         project_state,
         section_id,
-        TaskBoardViewMode.kanban,
-        columns,
-        tasks,
+        {
+            "viewMode": TaskBoardViewMode.kanban,
+            "columns": columns,
+            "tasks": tasks,
+        },
     )
 
     graph = DependencyGraph(project_state)
@@ -125,19 +123,23 @@ def test_spreadsheet_section_exports_structured_codegen_payload() -> None:
         SectionType.Spreadsheet,
         Position(),
     )
-    set_spreadsheet_file_path(
+    set_curr_effective_section_impl_value(
         project_state,
         section_id,
-        "/tmp/data/train-metrics.xlsx",
-        "Sheet1",
+        {
+            "filePath": "/tmp/data/train-metrics.xlsx",
+            "activeSheet": "Sheet1",
+        },
     )
-    set_spreadsheet_section_settings(
+    set_curr_effective_section_impl_value(
         project_state,
         section_id,
-        True,
-        False,
-        SpreadsheetGridDensity.comfortable,
-        True,
+        {
+            "readOnly": True,
+            "showRowNumbers": False,
+            "density": SpreadsheetGridDensity.comfortable,
+            "autoReloadOnExternalChange": True,
+        },
     )
 
     graph = DependencyGraph(project_state)

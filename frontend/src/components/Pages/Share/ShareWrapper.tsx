@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
-import { openWebSocket } from "state/actions/websocketLifecycle";
+import { openWebSocket } from "state/actions/websocketReceive";
+import { useShareSession } from "state/definitions";
 import { useLoadShareDeployment } from "state/hooks/share";
-import { useShareSession } from "state/stores/sessionStores";
 import { AppShell } from "../AppShell";
 
 type ShareWrapperRenderState = {

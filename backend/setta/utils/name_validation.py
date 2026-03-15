@@ -223,11 +223,6 @@ def validate_view_mode_name(
     return normalized
 
 
-def get_window_space_name_format_error(name: str) -> str | None:
-    normalized = _normalize_name(name)
-    return _window_space_name_format_error(normalized)
-
-
 def validate_window_space_name_format(name: str) -> str:
     normalized = _normalize_name(name)
     error = _window_space_name_format_error(normalized)
@@ -801,13 +796,6 @@ def collect_param_name_errors(
                 if error:
                     add_format(code_obj_id, error)
     return conflict_errors, format_errors
-
-
-def collect_param_name_conflicts(
-    project_state: "ProjectStateSingleConfig",
-) -> dict["ID", list[str]]:
-    conflicts, _ = collect_param_name_errors(project_state)
-    return conflicts
 
 
 def collect_param_name_format_errors(
