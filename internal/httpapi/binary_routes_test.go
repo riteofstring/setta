@@ -272,6 +272,46 @@ func TestRegisterBinaryRoutesRejectsInvalidDownloadContentID(t *testing.T) {
 	}
 }
 
+func TestRegisterBinaryRoutesReturnNotFoundForUnknownDownloadContentID(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Store:      store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/binary/missing-content-id", nil)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"binary_payload_not_found"`) {
+		t.Fatalf("expected binary_payload_not_found error, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterBinaryRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
