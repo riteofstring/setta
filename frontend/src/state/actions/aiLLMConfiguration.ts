@@ -54,8 +54,8 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
   });
 }
 
+export { mutateAndSaveLLMApiKeys } from "./aiManagedApiKeyPersistence";
 export {
   loadLLMApiKeys,
-  mutateAndSaveLLMApiKeys,
   receiveLLMApiKeysSnapshotUpdate,
-} from "./aiManagedApiKeys";
+} from "./aiManagedApiKeyState";

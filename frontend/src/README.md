@@ -154,8 +154,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/aiPendingChatState.ts` is now a thin compatibility facade
     over those narrower pending-chat owners.
   - `state/actions/aiLLMConfiguration.ts` owns LLM config loading/saving.
-  - `state/actions/aiManagedApiKeys.ts` owns managed API-key snapshot, load,
-    conflict, and persistence behavior.
+  - `state/actions/aiManagedApiKeyState.ts` owns managed API-key snapshot
+    updates, read failure handling, and deduplicated load behavior.
+  - `state/actions/aiManagedApiKeyPersistence.ts` owns managed API-key
+    persistence queueing plus conflict and corruption retry handling.
+  - `state/actions/aiManagedApiKeys.ts` is now the thin compatibility facade
+    over those managed API-key owners.
   - `state/actions/aiConfigurationCatalogLoads.ts` owns agent-profile,
     prompt-template, external-agent, external-agent-health, and engine-config
     catalog fetch/hydration plus config-health refresh fan-out.
