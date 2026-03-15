@@ -2689,3 +2689,36 @@ module map and placement guide while this cleanup progresses.
     tied for the largest authored/shared state hotspot at 362 lines, by
     separating group CRUD and naming logic from the remaining pin/collapse/
     reorder and assignment or delete flows.
+
+## 2026-03-15 04:40:55 PDT
+
+- Slice completed: split persisted project-chat thread group mutations by CRUD,
+  ordering, and assignment/delete ownership
+- Key files touched:
+  - `frontend/src/state/actions/projectChatThreadGroupCrud.ts`
+  - `frontend/src/state/actions/projectChatThreadGroupOrdering.ts`
+  - `frontend/src/state/actions/projectChatThreadGroupAssignments.ts`
+  - `frontend/src/state/actions/projectChatThreadGroupMutations.ts`
+  - `frontend/src/state/actions/projectChatThreads.ts`
+  - `frontend/src/state/actions/projectChatThreads.test.ts`
+  - `frontend/src/state/actions/undo.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatThreads.test.ts src/state/actions/undo.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatThreadGroupMutations.ts src/state/actions/projectChatThreadGroupCrud.ts src/state/actions/projectChatThreadGroupOrdering.ts src/state/actions/projectChatThreadGroupAssignments.ts src/state/actions/projectChatThreads.ts src/state/actions/projectChatThreads.test.ts src/state/actions/undo.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `93d221552`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/uiSettingReveal.ts`, now the largest
+    authored/shared state hotspot at 360 lines, by separating active reveal
+    orchestration from the remaining mutation launch, focus, and cleanup
+    helpers.
