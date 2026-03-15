@@ -1445,7 +1445,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterFileBrowserRoutes(r, httpapi.FileBrowserRouteDependencies{
 				ModePolicy:     modePolicy,
-				DeploymentRoot: paths.DeploymentRoot,
+				DeploymentRoot: cfg.Paths.DeploymentRoot,
 				Browser:        fileBrowserService,
 			}); err != nil {
 				panic(err)
