@@ -109,8 +109,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     single-run/update reconciliation.
   - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration
     plus pending-surface promotion flow, while
-    `state/actions/aiChatSubmissionPayload.ts` owns request payload assembly
-    and app-generation request metadata, and
+    `state/actions/aiChatSubmissionRequestPayload.ts` owns execution settings,
+    user-message construction, next-message lookup, and raw request-payload
+    builders, `state/actions/aiChatSubmissionPayload.ts` owns app-generation
+    request metadata plus edited-message request preparation, and
     `state/actions/aiChatSubmissionEngineResolution.ts` owns edited-chat
     engine resolution plus agent-run-backed fallback lookup.
   - `state/actions/aiChatControls.ts` owns public stop orchestration for
@@ -642,11 +644,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   those owners instead of regrowing
   `state/actions/uiSettingRevealMutationSnapshots.ts`.
 - `state/actions/aiChatSubmission.ts`,
+  `state/actions/aiChatSubmissionRequestPayload.ts`,
   `state/actions/aiChatSubmissionPayload.ts`, and
   `state/actions/aiChatSubmissionEngineResolution.ts` now split
-  pending-surface submission orchestration, request payload assembly, and
-  edited-chat engine fallback resolution; follow-up cleanup there should stay
-  local to one of those owners instead of regrowing the old `ai.ts` surface.
+  pending-surface submission orchestration, shared request-payload assembly,
+  app-generation or edited-message request preparation, and edited-chat engine
+  fallback resolution; follow-up cleanup there should stay local to one of
+  those owners instead of regrowing the old `ai.ts` surface.
 - `state/actions/windowSpaceSnapshotCapture.ts` and
   `state/actions/windowSpaceSnapshotRestore.ts` now split saved workspace
   snapshot building from restore conversion helpers, so follow-up cleanup there

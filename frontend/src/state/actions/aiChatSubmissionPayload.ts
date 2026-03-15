@@ -7,50 +7,21 @@ import {
   type ChatAppGenerationContext,
   type ChatAppGenerationDetails,
 } from "state/utils/chatAppGenerationDetails";
-import {
-  BaseChatMessageUnion,
-  ChatFileAttachment,
-  ChatPermissionMode,
-  ChatPermissionModeEnum,
-  ChatRoleEnum,
-  createMessageTextContent,
-} from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
-import { requirePendingChatSurfaceId } from "./aiChatState";
+import { BaseChatMessageUnion, ChatFileAttachment } from "utils/generatedTypes";
 import { resolveEngineConfigIdForChat } from "./aiChatSubmissionEngineResolution";
+import {
+  buildChatUserMessage,
+  buildEditedMessageRequestPayload,
+  buildSubmitMessageRequestPayload,
+  getNextMessagesForSubmit,
+  resolveChatExecutionSettings,
+  resolvePendingSurfaceIdForSubmit,
+  type ChatExecutionSettings,
+  type EditedMessageRequestPayload,
+  type SubmitMessageRequestPayload,
+} from "./aiChatSubmissionRequestPayload";
 import { getChatAppGenerationDetailsForTarget } from "./aiPendingChatAppGenerationState";
 import { buildEditedMessageHistory } from "./chatBranches";
-
-export type ChatExecutionSettings = {
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-};
-
-export const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeEnum.minimal,
-  searchEnabled: true,
-};
-
-type SubmitMessageRequestPayload = {
-  message: {
-    id: string;
-    role: ChatRoleEnum.user;
-    content: ReturnType<typeof createMessageTextContent>[];
-    attachments: ChatFileAttachment[];
-    createdAt: number;
-  };
-  thinking: boolean;
-  chatId: string | null;
-  continueFromChatId: string | null;
-  engineConfigId: string;
-  agentProfileId: string | null;
-  appGenerationMode: string | null;
-  appGenerationByMessageId: Record<string, string>;
-  sectionId: string | null;
-  allowUnscoped: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-};
 
 export type PreparedSubmitMessageRequest = {
   requestPayload: SubmitMessageRequestPayload;
@@ -60,14 +31,7 @@ export type PreparedSubmitMessageRequest = {
 };
 
 export type PreparedEditedMessageRequest = {
-  requestPayload: Omit<
-    SubmitMessageRequestPayload,
-    "chatId" | "continueFromChatId"
-  > & {
-    chatId: null;
-    branchParentChatId: string;
-    branchFromMessageId: string;
-  };
+  requestPayload: EditedMessageRequestPayload;
   resolvedPendingSurfaceId: string;
   nextMessages: Array<BaseChatMessageUnion>;
   nextAppGenerationDetails: ChatAppGenerationDetails | null;
@@ -100,12 +64,13 @@ export function prepareSubmitMessageRequest({
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
-  const resolvedPendingSurfaceId =
-    chatId === null
-      ? requirePendingChatSurfaceId(options.pendingSurfaceId ?? null)
-      : options.pendingSurfaceId ?? null;
-  const resolvedExecutionSettings =
-    options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
+  const resolvedPendingSurfaceId = resolvePendingSurfaceIdForSubmit({
+    chatId,
+    pendingSurfaceId: options.pendingSurfaceId,
+  });
+  const resolvedExecutionSettings = resolveChatExecutionSettings(
+    options.executionSettings,
+  );
   const appGeneration = normalizeChatAppGenerationContext(
     options.appGeneration ?? null,
   );
@@ -114,7 +79,7 @@ export function prepareSubmitMessageRequest({
     chatId,
     resolvedPendingSurfaceId,
   );
-  const userMessage = buildUserMessage({
+  const userMessage = buildChatUserMessage({
     messageId: options.messageId,
     message: trimmed,
     attachments,
@@ -132,8 +97,8 @@ export function prepareSubmitMessageRequest({
   );
 
   return {
-    requestPayload: {
-      message: userMessage,
+    requestPayload: buildSubmitMessageRequestPayload({
+      userMessage,
       thinking,
       chatId,
       continueFromChatId: options.continueFromChatId ?? null,
@@ -144,10 +109,8 @@ export function prepareSubmitMessageRequest({
         nextAppGenerationDetails,
       ),
       sectionId: options.sectionId ?? null,
-      allowUnscoped: options.sectionId == null,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
-    },
+      executionSettings: resolvedExecutionSettings,
+    }),
     resolvedPendingSurfaceId,
     userMessageId: userMessage.id,
     appGeneration,
@@ -186,11 +149,11 @@ export async function prepareEditedMessageRequest({
     return null;
   }
   const resolvedExecutionSettings =
-    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
+    resolveChatExecutionSettings(executionSettings);
   const resolvedAppGeneration = normalizeChatAppGenerationContext(
     appGeneration ?? null,
   );
-  const editedMessage = buildUserMessage({
+  const editedMessage = buildChatUserMessage({
     messageId,
     message: trimmed,
     attachments,
@@ -199,9 +162,10 @@ export async function prepareEditedMessageRequest({
   if (!nextMessages) {
     return null;
   }
-  const resolvedPendingSurfaceId = requirePendingChatSurfaceId(
-    pendingSurfaceId ?? null,
-  );
+  const resolvedPendingSurfaceId = resolvePendingSurfaceIdForSubmit({
+    chatId: null,
+    pendingSurfaceId,
+  });
   const parentAppGenerationDetails = getChatAppGenerationDetailsForTarget(
     useAIStore.getState(),
     parentChatId,
@@ -225,10 +189,9 @@ export async function prepareEditedMessageRequest({
   }
 
   return {
-    requestPayload: {
-      message: editedMessage,
+    requestPayload: buildEditedMessageRequestPayload({
+      editedMessage,
       thinking,
-      chatId: null,
       engineConfigId: resolvedEngineConfigId,
       agentProfileId: agentProfileId ?? null,
       appGenerationMode: resolvedAppGeneration?.mode ?? null,
@@ -236,62 +199,12 @@ export async function prepareEditedMessageRequest({
         nextAppGenerationDetails,
       ),
       sectionId: sectionId ?? null,
-      allowUnscoped: sectionId == null,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
-      branchParentChatId: parentChatId,
-      branchFromMessageId: messageId,
-    },
+      executionSettings: resolvedExecutionSettings,
+      parentChatId,
+      messageId,
+    }),
     resolvedPendingSurfaceId,
     nextMessages,
     nextAppGenerationDetails,
   };
-}
-
-function buildUserMessage({
-  messageId,
-  message,
-  attachments,
-}: {
-  messageId?: string;
-  message: string;
-  attachments: ChatFileAttachment[];
-}) {
-  const content = [];
-  if (message) {
-    content.push(createMessageTextContent({ text: message }));
-  }
-  return {
-    id: messageId ?? createNewId(),
-    role: ChatRoleEnum.user,
-    content,
-    attachments,
-    createdAt: Date.now(),
-  };
-}
-
-function getNextMessagesForSubmit({
-  chatId,
-  userMessage,
-  resolvedPendingSurfaceId,
-}: {
-  chatId: string | null;
-  userMessage: BaseChatMessageUnion;
-  resolvedPendingSurfaceId: string | null;
-}): Array<BaseChatMessageUnion> {
-  if (chatId === null) {
-    if (resolvedPendingSurfaceId === null) {
-      return [userMessage];
-    }
-    return [
-      ...(useAIStore.getState().pendingChatDetailsBySurfaceId[
-        resolvedPendingSurfaceId
-      ]?.messages ?? []),
-      userMessage,
-    ];
-  }
-  return [
-    ...(useAIStore.getState().chatDetails[chatId]?.messages ?? []),
-    userMessage,
-  ];
 }

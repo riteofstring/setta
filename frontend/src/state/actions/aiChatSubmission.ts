@@ -17,9 +17,9 @@ import { refreshAgentRunsAfterSubmit } from "./aiAgentRuns";
 import {
   prepareEditedMessageRequest,
   prepareSubmitMessageRequest,
-  type ChatExecutionSettings,
   type PreparedEditedMessageRequest,
 } from "./aiChatSubmissionPayload";
+import { type ChatExecutionSettings } from "./aiChatSubmissionRequestPayload";
 import { getExternalAgentChat, getLLMChat } from "./aiHydration";
 import {
   applyOptimisticUserMessage,
