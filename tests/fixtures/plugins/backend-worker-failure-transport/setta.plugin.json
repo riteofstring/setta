@@ -8,5 +8,5 @@
   "backend": {
     "entrypoint": "backend/entrypoint.py"
   },
-  "capabilities": ["registerRouter"]
+  "capabilities": ["registerCodegenTarget"]
 }

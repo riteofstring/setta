@@ -1,5 +1,4 @@
-import { useShareSession } from "state/definitions";
-import { useWaitingForLSPResult } from "state/stores/editorDiagnosticsStores";
+import { useShareSession, useWaitingForLSPResult } from "state/definitions";
 import { route_restart_language_server } from "utils/generatedEndpoints";
 import { addTemporaryNotification } from "./notifications";
 
