@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -337,6 +338,21 @@ func TestResolveSettaHomeExpandsEnvOverride(t *testing.T) {
 	expected := filepath.Join(base, ".setta-development")
 	if resolved != expected {
 		t.Fatalf("expected expanded env override %q, got %q", expected, resolved)
+	}
+}
+
+func TestValidateSettaHomeNameRejectsNonstandardLeaf(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	invalidHome := filepath.Join(tmpDir, "custom-home")
+
+	err := validateSettaHomeName(invalidHome, "Setta home")
+	if err == nil {
+		t.Fatal("expected invalid setta home name error")
+	}
+	if got := err.Error(); !strings.Contains(got, ".setta") || !strings.Contains(got, ".setta-development") {
+		t.Fatalf("expected canonical setta home names in error, got %q", got)
 	}
 }
 
