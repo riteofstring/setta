@@ -33,7 +33,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - page routing already uses `frontend/src/components/Pages/routeConfig.ts` and `frontend/src/components/Pages/modeRouteResolver.ts`
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
   - project chat already has feature-local helpers such as `projectChatHydrationAuthority.ts`, `projectChatStarterPrompts.ts`, `projectChatSlashCommandSelectors.ts`, and `projectChatFocusUtils.ts`
-- project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingInstanceState.ts`, `frontend/src/state/actions/projectChatWindowingPlacementState.ts`, `frontend/src/state/actions/projectChatWindowingBoundsState.ts`, `frontend/src/state/actions/projectChatWindowingLayoutState.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowCommands.ts`, `frontend/src/state/actions/projectChatWindowMetadataCommands.ts`, `frontend/src/state/actions/projectChatWindowSectionCommands.ts`, `frontend/src/state/actions/projectChatWindowingWriteState.ts`, `frontend/src/state/actions/projectChatWindowingWriteQueue.ts`, `frontend/src/state/actions/projectChatWindowingWritePublish.ts`, `frontend/src/state/actions/projectChatWindowingWriteSync.ts`, `frontend/src/state/actions/projectChatWindowingWritePipeline.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
+- project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingInstanceState.ts`, `frontend/src/state/actions/projectChatWindowingPlacementState.ts`, `frontend/src/state/actions/projectChatWindowingBoundsState.ts`, `frontend/src/state/actions/projectChatWindowingLayoutState.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts`, `frontend/src/state/actions/projectChatWindowLayoutCommands.ts`, `frontend/src/state/actions/projectChatWindowCommands.ts`, `frontend/src/state/actions/projectChatWindowMetadataCommands.ts`, `frontend/src/state/actions/projectChatWindowSectionCommands.ts`, `frontend/src/state/actions/projectChatWindowingWriteState.ts`, `frontend/src/state/actions/projectChatWindowingWriteQueue.ts`, `frontend/src/state/actions/projectChatWindowingWritePublish.ts`, `frontend/src/state/actions/projectChatWindowingWriteSync.ts`, `frontend/src/state/actions/projectChatWindowingWritePipeline.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
   - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - LLM config/API-key handling now lives in `frontend/src/state/actions/aiLLMConfiguration.ts`, while agent-profile, prompt-template, external-agent, external-agent-health, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfigurationCatalogs.ts`
@@ -234,8 +234,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` now owns DOM
   surface lookup plus canvas boot flow, `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
   now owns tracked git-pane graph window reuse/maximize/title coordination,
-  `frontend/src/state/actions/projectChatWindowCommands.ts` now owns public
-  window lifecycle, placement, focus, and bounds commands,
+  `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts` now owns
+  public window lifecycle/focus commands,
+  `frontend/src/state/actions/projectChatWindowLayoutCommands.ts` now owns
+  public placement/dock-fraction/bounds commands plus tracked git-pane cleanup
+  around layout writes, and
+  `frontend/src/state/actions/projectChatWindowCommands.ts` is now a thin
+  compatibility surface,
   `frontend/src/state/actions/projectChatWindowMetadataCommands.ts` now owns
   title/chat-id commands plus current-windowing reads, and
   `frontend/src/state/actions/projectChatWindowSectionCommands.ts` now owns

@@ -5,7 +5,7 @@ import {
   focusProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-} from "state/actions/projectChatWindowCommands";
+} from "state/actions/projectChatWindowLifecycleCommands";
 import { undockProjectChatWindowFromCanvasSection } from "state/actions/projectChatWindowSectionCommands";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import { useProjectState } from "state/definitions";

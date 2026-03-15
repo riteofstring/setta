@@ -57,19 +57,6 @@ import {
   MdVerticalAlignBottom,
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
-import {
-  closeProjectChatWindow,
-  createProjectChatWindowInstance,
-  focusProjectChatWindow,
-  maximizeProjectChatWindow,
-  minimizeProjectChatWindow,
-  reopenProjectChatWindow,
-  setProjectChatWindowBounds,
-  setProjectChatWindowBoundsById,
-  setProjectChatWindowDockFractions,
-  setProjectChatWindowPlacement,
-  unmaximizeProjectChatWindow,
-} from "state/actions/projectChatWindowCommands";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import {
   clearTrackedGitPaneGraphWindowIfMatches,
@@ -80,6 +67,21 @@ import {
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
 } from "state/actions/projectChatWindowingSelectors";
+import {
+  setProjectChatWindowBounds,
+  setProjectChatWindowBoundsById,
+  setProjectChatWindowDockFractions,
+  setProjectChatWindowPlacement,
+} from "state/actions/projectChatWindowLayoutCommands";
+import {
+  closeProjectChatWindow,
+  createProjectChatWindowInstance,
+  focusProjectChatWindow,
+  maximizeProjectChatWindow,
+  minimizeProjectChatWindow,
+  reopenProjectChatWindow,
+  unmaximizeProjectChatWindow,
+} from "state/actions/projectChatWindowLifecycleCommands";
 import {
   setProjectChatWindowChatId,
   setProjectChatWindowTitle,

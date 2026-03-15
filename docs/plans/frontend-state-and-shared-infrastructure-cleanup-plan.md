@@ -30,8 +30,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   section-binding reducers to `projectChatWindowingState.ts`, canvas boot and
   DOM surface lookup to `projectChatWindowingCanvasBoot.ts`, tracked git-pane
   graph window reuse to `projectChatWindowingTrackedGitPane.ts`, public window
-  lifecycle/placement/focus/bounds commands to `projectChatWindowCommands.ts`,
-  title/chat-id commands plus current-windowing reads to
+  lifecycle/focus commands to `projectChatWindowLifecycleCommands.ts`, public
+  placement/dock-fraction/bounds commands plus tracked git-pane cleanup to
+  `projectChatWindowLayoutCommands.ts`, compatibility re-exports to
+  `projectChatWindowCommands.ts`, title/chat-id commands plus current-windowing reads to
   `projectChatWindowMetadataCommands.ts`, section exposure and mode-transition
   commands to `projectChatWindowSectionCommands.ts`, write-state reads plus
   optimistic apply helpers to `projectChatWindowingWriteState.ts`,
@@ -208,20 +210,20 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
-  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 204 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 205 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
   - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
+  - `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts` at 168 lines
   - `frontend/src/state/actions/aiExternalAgentStop.ts` at 168 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 160 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
-  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 204 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 205 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
   - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
+  - `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts` at 168 lines
   - `frontend/src/state/actions/aiExternalAgentStop.ts` at 168 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 160 lines
 - `websocketReceive.ts` now owns:
@@ -479,8 +481,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingState.ts` now owns:
   - section-binding, title, and chat-id reducers
   - section/canvas transition reducers that compose the instance/placement/bounds helpers
+- `projectChatWindowLifecycleCommands.ts` now owns:
+  - public window lifecycle and focus commands
+- `projectChatWindowLayoutCommands.ts` now owns:
+  - public placement commands
+  - dock-fraction and floating-bounds commands
+  - tracked git-pane cleanup coordination around layout writes
 - `projectChatWindowCommands.ts` now owns:
-  - public window lifecycle, placement, focus, and bounds commands
+  - compatibility re-exports for callers that have not moved yet
 - `projectChatWindowMetadataCommands.ts` now owns:
   - title/chat-id commands plus current-windowing state reads
 - `projectChatWindowSectionCommands.ts` now owns:
@@ -540,12 +548,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `projectChatWindowCommands.ts` into narrower window command helpers
+2. Keep project-chat window command ownership explicit
 
-- Separate public window lifecycle/focus commands from the remaining floating
-  bounds and tracked git-pane coordination helpers.
-- Keep naming explicit so agents can tell whether they are calling a public
-  window command, a windowing state reducer, or a write-coordination helper.
+- `projectChatWindowLifecycleCommands.ts` should keep owning public lifecycle
+  and focus commands instead of regrowing placement or bounds helpers.
+- `projectChatWindowLayoutCommands.ts` should keep owning public placement and
+  bounds commands plus tracked git-pane cleanup instead of regrowing
+  section/window transitions or write coordination.
+- `projectChatWindowCommands.ts` should stay a thin compatibility surface until
+  importers have fully moved to the narrower command owners.
 
 3. Normalize optimistic mutation infrastructure
 
