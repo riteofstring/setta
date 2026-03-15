@@ -23,7 +23,7 @@ Current status:
 - Accepted history to preserve: `Phase S1`, `Phase S2`, and `Phase S3` through checkpoint 9
 - Active phase: `Phase S1` follow-up inside checkpoint 1 at the shared param-row grid contract below the section container cluster
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
-- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree), but the checkpoint is still blocked by the touched row-input path because underline/focus feedback is visibly wrong and the fresh `mode` row activation trace is mixed (`56ms` INP on `main` versus `90ms` on the worktree)
+- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree); the row-input follow-up has now restored visible underline/focus feedback parity and dummy-vs-real CodeMirror mono font parity on the touched `mode` field, but checkpoint 1 is still blocked because the fresh untouched-`main` vs worktree `mode` activation trace remains only mixed in the `+100ms` window instead of clearly improving the cold activation path
 - Deferred follow-up watch items after the current structural passes: callable column resizing and section resizing are still noticeably slow, but they should be treated as post-flattening trace targets rather than immediate checkpoint drivers
 - Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
@@ -96,16 +96,24 @@ Immediate next step:
    - keep text-input underline/focus feedback, dummy-vs-real CodeMirror typography parity, and activation responsiveness as hard acceptance checks inside this checkpoint
 11. Current checkpoint-1 follow-up after the row-container flex pass:
    - keep the work inside the same lower seam; do not move upward into `sectionChrome` yet
-   - the next fix slice is the row-input path under the newly flattened row shell:
+   - the row-input follow-up has already restored:
+     - visible underline/focus parity on the touched `mode` field
+     - dummy-vs-real CodeMirror mono font parity on the touched `mode` field
+     - persistent live-editor mounting after first activation so repeated focus no longer pays a blur-triggered remount
+   - checkpoint 1 is still not accepted because the cold first-activation trace is only mixed against untouched `main`
+   - the next fix slice stays in the same lower seam and should target the cold activation path under the newly flattened row shell:
      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
      - `frontend/src/components/Utils/CodeMirror/useCodeMirrorStyle.ts`
+     - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+     - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
      - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
+     - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+     - the mirrored param-input affordance copies in `frontend/src/components/App/appRegistry.tsx`
    - acceptance remains blocked until the same-scene callable compare regains:
-     - visible underline/focus feedback parity
-     - dummy-vs-real CodeMirror typography parity
-     - a non-regressing row-activation trace on untouched `main` vs this worktree
+     - a clearly non-regressing cold row-activation trace on untouched `main` vs this worktree
+     - the same visual/input parity across every touched section type after the activation-path changes land
 
 Historical accepted checkpoint notes retained below:
 

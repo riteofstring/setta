@@ -2941,3 +2941,72 @@ Append-only log for the section performance refactor.
     - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
     - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
   - Re-run the same `busy_tide` untouched-`main` vs worktree compare only after underline/focus parity, dummy-vs-real typography parity, and activation responsiveness are back in line.
+
+### 2026-03-17 83
+
+- Item: Re-run reopened `Phase S1` checkpoint 1 after the row-input CodeMirror parity fixes.
+- Status: `needs_more_work`
+- Details:
+  - Landed the lower row-input follow-up in:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/useCodeMirrorStyle.ts`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+  - The follow-up changed the touched row-input contract by:
+    - keeping the live CodeMirror mounted after first activation instead of tearing it back down on blur
+    - moving the visible underline ownership onto stable row wrappers under the new flex shell
+    - restoring the live CodeMirror mono font contract on the touched value path
+    - adding a behavior test that locks the live editor in place across blur once activated
+  - Focused Vitest result:
+    - `9` files passed
+    - `26` tests passed
+  - Representative Playwright result:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - `6 passed`
+  - Same-scene Chrome DevTools re-check on `busy_tide` -> `zinc_blade` -> `mode`:
+    - untouched `main`: `http://127.0.0.1:3088/busy_tide`
+    - worktree: `http://127.0.0.1:3036/busy_tide`
+    - focused `mode` row screenshots now match the expected lower-shell affordance again:
+      - blue underline is visible on both branches
+      - the live editor text is mono on both branches
+    - the worktree focused `mode` wrapper now reports:
+      - `border-bottom-color: rgb(96, 165, 250)`
+      - `:focus-within = true`
+      - live editor font family = `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`
+  - Saved rerun artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-rerun/`
+  - Fresh cold-activation trace check on the same `mode` pointerdown path, using a `+100ms` post-mousedown window:
+    - `main`
+      - `EventDispatch 3.446ms`
+      - `RunTask 109.704ms`
+      - `FunctionCall 95.525ms`
+      - `UpdateLayoutTree 38.075ms`
+      - `Layout 10.928ms`
+      - `Paint 0.573ms`
+      - `Commit 0.543ms`
+      - `TimerFire 0.079ms`
+      - `FireAnimationFrame 0.343ms`
+    - worktree
+      - `EventDispatch 3.588ms`
+      - `RunTask 109.357ms`
+      - `FunctionCall 98.821ms`
+      - `UpdateLayoutTree 40.231ms`
+      - `Layout 11.278ms`
+      - `Paint 0.556ms`
+      - `Commit 0.133ms`
+      - `TimerFire 0.000ms`
+      - `FireAnimationFrame 0.295ms`
+  - Conclusion:
+    - the reopened hard visual gates are now back in line on the touched `mode` row
+    - the cold first-activation path is still only mixed against untouched `main`
+    - checkpoint 1 is still not accepted, because the user-reported “noticeable activation” issue is not yet clearly improved on the same scene
+- Next action:
+  - Stay in the same lower seam and target the cold activation path directly in:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - the mirrored param-input affordance copies in `frontend/src/components/App/appRegistry.tsx`
+  - Keep `Callable`, `Dict`, `GlobalVariables`, and one floated/window param section in the verification set, with `MetaControl` as a contrast check, before any move upward into `sectionChrome`.
