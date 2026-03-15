@@ -108,10 +108,15 @@ function TempParamSwitch({
     height: normalizedHeight ?? undefined,
     width: normalizedWidth ?? undefined,
   };
+  const columnWidth = "var(--param-column-width, 200px)";
+
   return (
     <article
-      className="section-key-value section-param-row section-min-rows relative grid min-w-0 items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
-      style={dndStyle}
+      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
+      style={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...(dndStyle ?? {}),
+      }}
       data-param-row="true"
       ref={setNodeRef}
       {...(restAttributes ?? {})}
