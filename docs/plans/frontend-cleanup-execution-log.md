@@ -6855,3 +6855,53 @@ schedule settings` button still appears on the live task row.
     which is now the largest remaining first-hop page-shell surface in the
     current tree after `ProjectChatCore.tsx` delegated its composer execution
     and submit-command ownership into a sharp local owner.
+
+## 2026-03-16 07:35 PDT
+
+- Slice completed: extracted the StandaloneWindowSpaceSurface window-session owners
+- This was higher value than jumping straight to
+  `frontend/src/components/App/appRegistry.tsx` or
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  because `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
+  was still a page-domain first hop at 985 lines and still mixed standalone
+  window hydration, merge, focus, bounds, chat-id, embedded-git visibility,
+  blocked-managed filtering, and snap-resize interaction state into the same
+  surface contributors opened to understand standalone window spaces.
+- Key files touched:
+  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
+  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx`
+  - `frontend/src/components/Pages/Project/standaloneWindowSpaceWindowModel.ts`
+  - `frontend/src/components/Pages/Project/standaloneWindowSpaceWindowModel.test.ts`
+  - `frontend/src/components/Pages/Project/useStandaloneWindowSpaceWindowSession.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-pages-shell-cleanup-plan.md`
+  - `perf/reports/frontend/standalone-window-space-surface-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Pages/Project/standaloneWindowSpaceWindowModel.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "restores snapped window spaces back onto the shared floating resize grid|saves a floating layout as a window space and reopens it by URL without mutating workspace windowing state"`
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Pages/Project/standaloneWindowSpaceWindowModel.ts src/components/Pages/Project/standaloneWindowSpaceWindowModel.test.ts src/components/Pages/Project/useStandaloneWindowSpaceWindowSession.ts ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-pages-shell-cleanup-plan.md ../perf/reports/frontend/standalone-window-space-surface-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/standalone-window-space-surface-session-2026-03-16.md`
+    with the before/after line counts and the after-only standalone route
+    measurements captured on an injected `codex-standalone-space` fixture.
+  - CDP visual verification was run on
+    `http://127.0.0.1:3002/wave_tiger/windowspace/codex-standalone-space`.
+    `StandaloneWindowSpaceSurface.tsx` dropped from `985` to `333` lines, the
+    measured standalone surface stayed at `1440x772` and `960x772`, the route
+    kept two visible windows, and there was no horizontal overflow at
+    `1440x900` or `960x900`.
+  - A broader Playwright grep that also covered the same-layout saved-update
+    route hit a transient Vite dynamic-import fetch failure in
+    `seedProjectChatWindowThreads`; live CDP imports stayed healthy, so the
+    passing standalone restore or save or reopen flows above were used as the
+    slice gate instead of treating that one-off fetch error as a code-regression
+    signal.
+- Commit hash:
+  - `009130be8fd3753c038fc53db799402af49606b6`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/App/appRegistry.tsx`, which is now the
+    highest-value unresolved cross-domain front door in the current tree after
+    the standalone window-space surface delegated its local window ownership
+    into sharp page-domain owners.
