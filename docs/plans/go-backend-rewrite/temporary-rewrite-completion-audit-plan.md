@@ -843,3 +843,16 @@ constants were removed from the Python route enum. After that slice, the
 remaining Python backend tail no longer includes a dormant CLI transport path;
 it is the broader server-state/websocket-support and Python project-state
 runtime still carried for retained listener/share behavior.
+
+A later follow-up cleanup slice removed the dead Python inbound websocket
+receiver stack and the old Python listener-coverage path. The legacy
+`WMHFrontendReceiver`, `WMHPythonScriptReceiver`, and
+`ListenerCoverageTracker` modules were deleted, `SettaFastAPIState` no longer
+constructs those receiver objects during IDE/share/app startup, the old Python
+`route_get_listener_coverage` route was removed from
+`backend/setta/routers/listener.py`, and the Python frontend sender no longer
+broadcasts listener-coverage snapshots from that deleted path. After that
+slice, the remaining Python websocket tail is narrower again: it no longer
+includes old inbound websocket message handling, and is now centered on the
+still-live outbound listener/share support plus the broader legacy
+`SettaFastAPIState` and Python project-state wiring.

@@ -72,10 +72,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-    from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
-    from setta.websockets.msg_handlers.python_script_receiver import (
-        WMHPythonScriptReceiver,
-    )
 
 DEFAULT_SHARE_RUN_TTL_SECONDS = 60 * 30
 DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS = 60 * 5
@@ -296,12 +292,6 @@ class SettaFastAPIState:
         self.share_listener_runtime: ShareListenerRuntime = self._defer_attr(
             "share_listener_runtime"
         )
-        self.wmh_frontend_receiver: WMHFrontendReceiver = self._defer_attr(
-            "wmh_frontend_receiver"
-        )
-        self.wmh_python_script_receiver: WMHPythonScriptReceiver = self._defer_attr(
-            "wmh_python_script_receiver"
-        )
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
         self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
         self.agent_runner: AgentRunner = self._defer_attr("agent_runner")
@@ -371,12 +361,6 @@ class SettaFastAPIState:
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
             )
-            from setta.websockets.msg_handlers.frontend_receiver import (
-                WMHFrontendReceiver,
-            )
-            from setta.websockets.msg_handlers.python_script_receiver import (
-                WMHPythonScriptReceiver,
-            )
 
             self.init_status.record("Creating file watchers")
             await self._maybe_delay()
@@ -443,22 +427,6 @@ class SettaFastAPIState:
                 project_manager.lsp_writers = self.lsp_writers
                 settings_project_manager.lsp_writers = self.lsp_writers
 
-            self.init_status.record("Preparing websocket handlers")
-            await self._maybe_delay()
-            self.wmh_frontend_receiver = WMHFrontendReceiver(
-                self.websocket_manager,
-                project_manager,
-                self.realtime_event_hub,
-                ui_setting_reveal_result_hub=self.ui_setting_reveal_result_hub,
-            )
-            self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-                self.websocket_manager,
-                self.listener_registry,
-                self.wmh_frontend_sender,
-                self.wmh_python_script_sender,
-                self.project_manager_switcher,
-                self.dbe,
-            )
             if self._enable_language_server and self.lsps is not None:
                 self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
             else:
@@ -609,13 +577,6 @@ class SettaFastAPIState:
         self.init_status.mark_ready()
 
     async def _initialize_deployment_async(self, app) -> None:
-        from setta.websockets.msg_handlers.frontend_receiver import (
-            WMHFrontendReceiver,
-        )
-        from setta.websockets.msg_handlers.python_script_receiver import (
-            WMHPythonScriptReceiver,
-        )
-
         self.init_status.record("Loading deployment")
         await self._maybe_delay()
         if self.share_deployment_root is None:
@@ -675,22 +636,6 @@ class SettaFastAPIState:
             deployment_root=self.share_deployment_root,
             manifest=self.share_runtime_state.manifest,
             runtime_root=self.share_runtime_root,
-        )
-        self.wmh_frontend_receiver = WMHFrontendReceiver(
-            self.websocket_manager,
-            project_manager=None,
-            realtime_event_hub=self.realtime_event_hub,
-            ui_setting_reveal_result_hub=self.ui_setting_reveal_result_hub,
-            share_mode=True,
-            share_runtime_state=self.share_runtime_state,
-        )
-        self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager,
-            self.listener_registry,
-            self.wmh_frontend_sender,
-            self.wmh_python_script_sender,
-            self.project_manager_switcher,
-            dbe=self.dbe,
         )
         share_terminals = self.terminals
         spawn_background_task(
