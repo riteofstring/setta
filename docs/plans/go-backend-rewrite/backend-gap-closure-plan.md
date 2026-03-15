@@ -100,3 +100,8 @@ categorize them.
   leaves the platform-default Setta-home path row as the main remaining config
   proof slice before it makes sense to switch focus fully back to the larger
   deployment, websocket, watch-code, external-agent, and packaged-CLI gaps
+- The explicit/env `settaFilesRoot` precedence, invalid-local-root bypass, and
+  env-backed root-vs-location conflict row is now proved too; the remaining
+  config proof backlog is basically the platform-default Setta-home row plus
+  the broader user-config validation row unless another shared-owner slice
+  closes faster than the larger live-surface gaps
