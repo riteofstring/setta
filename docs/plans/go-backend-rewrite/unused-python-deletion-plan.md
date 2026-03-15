@@ -360,6 +360,15 @@ Current tree note:
   after the scriptable-chat store deletion; the retained `setta.api.chat_toolkit`
   surface uses `ChatHistoryClient` against the Go-owned listener-route chat
   CRUD path instead.
+- The mixed Python `backend/setta/agentic/store.py` file and
+  `tests/agentic/test_agentic_store.py` are also gone in the current worktree.
+  The old run/config/profile/external-agent helper coverage now belongs to Go
+  under `internal/agentruns`, `internal/agentprofiles`, and
+  `internal/externalagentconfigs`, while prompt-template persistence already
+  belongs to `internal/prompttemplates`; the one still-needed Python
+  prompt-template lookup helper now lives locally in
+  `backend/setta/types/prompt_section_resolution.py` instead of keeping the old
+  mixed agentic store alive.
 - The dead Python websocket-shell tail is also smaller in the current
   worktree: `backend/setta/websockets/websocket_manager.py`,
   `backend/setta/websockets/msg_handlers/base.py`, and
