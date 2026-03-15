@@ -209,10 +209,9 @@ categorize them.
   leak through, and unrelated user folders merely named `runtime` still stay
   scannable; the next cheap queue should move to other remaining
   proof-incomplete or missing owners instead of staying on watchcode
-- The share cached-artifact allowed-root row is now proved too; the next
-  cheap proof-only candidates after this pass are the two adjacent gitread
-  rows (`git diff` raw-leading-space pathspecs / direct symlink rejection,
-  and SHA-256-length commit-hash acceptance)
+- Those two adjacent gitread proof rows are now closed too, so the next cheap
+  queue should come from the remaining non-git proof-incomplete or missing
+  owners instead of staying on this already-proved gitread cluster
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
