@@ -4714,3 +4714,62 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted shared color-picker wrappers for `ParamUI.tsx`, `appRegistry.tsx`, and `DrawAreaControls.tsx`.
   - Decide whether the out-of-scope UI-editor pane color settings pair belongs in this plan before widening upward again.
+
+### 2026-03-18 123
+
+- Item: Accept the UI-editor `Section Config` color-picker wrapper flattening and close the remaining shared `ColorPickerInput` seam for the current scope.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionStyleColorSettings.tsx`
+    - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionTagColorSettings.tsx`
+  - The accepted shared-wrapper move is narrow:
+    - the `Style` color well no longer uses an outer `single-cell-container`
+    - the `Color Tag` choice-trigger wrapper no longer uses `single-cell-container`
+    - the touched visible native/choice-input paths no longer rely on `single-cell-child`
+    - the visible pane controls keep the same compact `144 x 32` footprint on the touched path
+  - Added focused direct coverage in:
+    - `frontend/tests/e2e/editor/section-style-colors.spec.ts`
+      - the `Style` color well no longer exposes `single-cell-container`
+      - the touched native input path no longer exposes `single-cell-child`
+      - the existing style-color persistence/theme regression stayed green
+    - `frontend/tests/e2e/editor/section-color-tags.spec.ts`
+      - the `Color Tag` choice trigger no longer exposes `single-cell-container`
+      - the touched choice-trigger path no longer exposes `single-cell-child`
+      - the existing tag-dot/filter regression stayed green
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - result: `1` file passed, `2` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-style-colors.spec.ts frontend/tests/e2e/editor/section-color-tags.spec.ts`
+      - result: `5` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `wood_palm` on `http://127.0.0.1:3087/wood_palm`
+      - `Style` still reads:
+        - `single-cell-container h-8 min-h-0 w-36 min-w-0`
+        - inner `single-cell-container h-8 min-h-0 w-full min-w-0`
+        - visible native input `single-cell-child ...`
+      - `Color Tag` still reads:
+        - wrapper `single-cell-container h-8 min-h-0 w-full min-w-0`
+        - trigger `... single-cell-container colorpicker ...`
+        - visible trigger path `single-cell-child ...`
+    - worktree: disposable compare project `wet_strong` on `http://127.0.0.1:3011/wet_strong`
+      - `Style` now reads:
+        - `relative flex h-8 min-h-0 w-36 min-w-0 items-stretch`
+        - visible native input `absolute inset-0 flex ...`
+        - no `single-cell-container`
+        - no `single-cell-child`
+      - `Color Tag` now reads:
+        - `relative flex h-8 min-h-0 w-36 min-w-0 items-stretch`
+        - trigger `colorpicker relative flex h-8 min-h-0 w-full min-w-0 ...`
+        - no `single-cell-container`
+        - no `single-cell-child`
+  - Interpretation:
+    - the UI-editor pane pair now joins the accepted shared color-picker baseline
+    - the shared `ColorPickerInput` seam is exhausted for the current scope
+    - the accepted callable/app/draw and MetaControl color-picker slices stay closed
+    - the next pass should return to the remaining section-owned lower shell rather than reopening `sectionChrome`
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_section-config-color-picker-wrapper-shells.md`
+- Next action:
+  - Keep the accepted `Section Config` color-picker wrappers for `SectionStyleColorSettings.tsx` and `SectionTagColorSettings.tsx`.
+  - Return to the remaining section-owned lower shell and re-read `frontend/src/components/Section/SectionParts/Search.tsx` before widening upward again.
