@@ -26,12 +26,13 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the central LLM chat manager:
+Managed mode uses the Go AI routes and runtime in `internal/httpapi/llm_routes.go`,
+`internal/managedchat`, and `internal/managedllm`:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
-- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`) and the backend injects those settings into the run prompt metadata.
-- Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
+- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`), and the Go runtime persists those settings onto the run inputs before provider execution starts.
+- Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state from the Go live runtime.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
   - Response includes `alreadyStopped`, plus optional `stoppedRunId` and `stoppedMessageId` for stop-state reconciliation.
