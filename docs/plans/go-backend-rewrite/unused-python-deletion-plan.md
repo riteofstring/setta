@@ -472,6 +472,18 @@ Current tree note:
   importer, no direct test imports, and no retained public API obligation of
   its own, so the separate Python files were dead support leaves rather than
   meaningful boundaries.
+- The remaining single-consumer helper leaves are also smaller in the current
+  worktree: `backend/setta/code_gen/python/ast_utils.py`,
+  `backend/setta/code_gen/python/position_line_col.py`,
+  `backend/setta/types/prompt_section_resolution.py`,
+  `backend/setta/frontend_affinity_token.py`,
+  `backend/setta/utils/pid_identity.py`, and
+  `backend/setta/llm/chat_toolkit/messages.py` were folded into their only
+  live owners (`dependency_graph.py`, `helpers_lvl2.py`, `api/listener.py`,
+  `sessions/registry.py`, and `llm/chat_toolkit/__init__.py`). The deleted
+  files had no direct test imports, and the only extra helpers they contained
+  (`position_to_line_col`, `is_pid_running`, and `pid_matches_create_time`)
+  had no remaining repo caller at all.
 - The dead generated Python type-definition tail is also smaller in the current
   worktree: `backend/scripts/prune_generated_types.py` pruned repo-unreferenced
   adapters, type-set constants, and the unused `ProjectConfigArgs` typed dict

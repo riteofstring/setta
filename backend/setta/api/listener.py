@@ -28,7 +28,6 @@ from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
@@ -37,11 +36,11 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
-from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.sessions import SessionMetadata, SessionRegistry
+from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -65,11 +64,11 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
-    ListenerRenderedDependencyValues,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
     ListenerRegisterContent,
+    ListenerRenderedDependencyValues,
     ListenerRouterEndpointCallContent,
 )
 from setta.types.project_config import (
@@ -77,8 +76,8 @@ from setta.types.project_config import (
     SectionRepresentationMode,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import SectionType
 from setta.types.routes import Route
+from setta.types.section_impls import SectionType
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -107,6 +106,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
+
+FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE = (
+    "frontendAffinityToken must be a non-empty string when provided."
+)
+
+
+def parse_frontend_affinity_token(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE)
+    normalized = value.strip()
+    if normalized == "":
+        raise ValueError(FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE)
+    return normalized
+
+
 # Listener callbacks may either complete synchronously or return an awaitable.
 ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 ListenerCallbackBuilder = Callable[["SettaListener"], None]

@@ -113,9 +113,7 @@ from setta.types.project_chat_windowing import (
     validate_project_chat_thread_bindings_unchanged,
 )
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
-from setta.types.prompt_section_resolution import (
-    build_prompt_section_preview,
-)
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -180,6 +178,20 @@ from setta.utils.paths import normalize_workspace_path
 from setta.utils.utils import insert_into_array, move_item_in_array
 
 logger = logging.getLogger(__name__)
+
+
+def build_prompt_section_preview(
+    template: str,
+    format: PromptFormat,
+):
+    if format != PromptFormat.Jinja:
+        return PromptRenderResult(
+            rendered_text=template,
+            missing_variables=[],
+            render_error=None,
+        )
+
+    return render_prompt(template, {})
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
