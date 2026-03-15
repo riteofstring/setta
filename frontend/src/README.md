@@ -10,11 +10,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1397`
+- Authored TS/TSX files under `frontend/src`: `1404`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
-  - `components/Chat/ChatMessages.tsx` (`4848`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4759`)
+  - `components/Chat/ChatMessages.tsx` (`3920`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
@@ -70,8 +70,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     inline markdown labels, streaming markdown animation wrappers, and
     conversation-search highlight helpers used by
     `components/Chat/ChatMessages.tsx`.
+  - `components/Chat/chatMessageRuntime.tsx` owns idle-spinner timing,
+    run-duration persistence, timestamps, count-badge animation, activity-label
+    scrambling, ISO timestamp parsing, and activity thought-preview scroll
+    behavior used by `components/Chat/ChatMessages.tsx`.
   - `components/Chat/ChatMessages.tsx` now focuses on list assembly, message-row
-    composition, timers, and interaction wiring across those local chat owners.
+    composition, and interaction wiring across those local chat owners.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
