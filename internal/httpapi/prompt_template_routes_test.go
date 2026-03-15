@@ -615,14 +615,10 @@ func TestRegisterPromptTemplateRoutesRejectsMissingTemplateIDOnGet(t *testing.T)
 	}
 }
 
-func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
+func TestRegisterPromptTemplateRoutesMutationModeGuardsMatchSourceDetailBodies(t *testing.T) {
 	t.Parallel()
 
 	store := newPromptTemplateRouteTestStore(t)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:   config.ModeShare,
-		Policy: map[string]any{"allowLLM": true},
-	})
 	if err := store.Save(prompttemplates.Template{
 		ID:       "template-1",
 		Name:     "Greeting",
@@ -630,21 +626,29 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save template: %v", err)
 	}
-	handler := newPromptTemplateRouteTestHandler(t, config.ModeShare, store, deploymentRuntime)
 
 	testCases := []struct {
-		path    string
-		payload map[string]any
+		name           string
+		mode           config.Mode
+		expectedDetail string
+		path           string
+		payload        map[string]any
 	}{
 		{
-			path: RouteCreatePromptTemplate,
+			name:           "share create",
+			mode:           config.ModeShare,
+			expectedDetail: "Share mode does not allow creating prompt templates.",
+			path:           RouteCreatePromptTemplate,
 			payload: map[string]any{
 				"name":     "Greeting",
 				"template": "Hello {{ name }}",
 			},
 		},
 		{
-			path: RouteUpdatePromptTemplate,
+			name:           "share update",
+			mode:           config.ModeShare,
+			expectedDetail: "Share mode does not allow updating prompt templates.",
+			path:           RouteUpdatePromptTemplate,
 			payload: map[string]any{
 				"template": map[string]any{
 					"id":       "template-1",
@@ -654,24 +658,62 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 			},
 		},
 		{
-			path: RouteDeletePromptTemplate,
+			name:           "share delete",
+			mode:           config.ModeShare,
+			expectedDetail: "Share mode does not allow deleting prompt templates.",
+			path:           RouteDeletePromptTemplate,
 			payload: map[string]any{
 				"templateId": "template-1",
 			},
 		},
+		{
+			name:           "app create",
+			mode:           config.ModeApp,
+			expectedDetail: "Share mode does not allow creating prompt templates.",
+			path:           RouteCreatePromptTemplate,
+			payload: map[string]any{
+				"name":     "Greeting",
+				"template": "Hello {{ name }}",
+			},
+		},
+		{
+			name:           "launcher create",
+			mode:           config.ModeLauncher,
+			expectedDetail: "Launcher mode does not allow this endpoint.",
+			path:           RouteCreatePromptTemplate,
+			payload: map[string]any{
+				"name":     "Greeting",
+				"template": "Hello {{ name }}",
+			},
+		},
 	}
 	for _, testCase := range testCases {
-		response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, testCase.path, testCase.payload)
-		if response.Code != http.StatusForbidden {
-			t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
-		}
-		var payload errorResponse
-		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("decode error payload for %s: %v", testCase.path, err)
-		}
-		if payload.Error.Code != "mode_forbidden" {
-			t.Fatalf("expected mode_forbidden for %s, got %#v", testCase.path, payload)
-		}
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			var deploymentRuntime *deployments.Runtime
+			if testCase.mode == config.ModeShare || testCase.mode == config.ModeApp {
+				deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode:   testCase.mode,
+					Policy: map[string]any{"allowLLM": true},
+				})
+			}
+			handler := newPromptTemplateRouteTestHandler(t, testCase.mode, store, deploymentRuntime)
+			response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, testCase.path, testCase.payload)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload for %s: %v", testCase.path, err)
+			}
+			if payload.Error.Code != "mode_forbidden" {
+				t.Fatalf("expected mode_forbidden for %s, got %#v", testCase.path, payload)
+			}
+			if payload.Error.Message != testCase.expectedDetail {
+				t.Fatalf("expected detail %q, got %#v", testCase.expectedDetail, payload)
+			}
+		})
 	}
 }
 

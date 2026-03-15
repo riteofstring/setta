@@ -9,6 +9,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
+	"setta/internal/prompttemplates"
 )
 
 func TestNewUpdateArtifactsMessage(t *testing.T) {
@@ -247,6 +248,42 @@ func TestNewExternalAgentConfigsUpdatedMessageJSONIncludesEmptyConfigArray(t *te
 	}
 	if !strings.Contains(string(payload), `"configs":[]`) {
 		t.Fatalf("expected configs array in marshaled payload, got %s", string(payload))
+	}
+}
+
+func TestNewPromptTemplatesUpdatedMessageClonesSlice(t *testing.T) {
+	t.Parallel()
+
+	templates := []prompttemplates.Template{
+		{
+			ID:       "template-1",
+			Name:     "Greeting",
+			Template: "Hello {{ name }}",
+			Format:   prompttemplates.FormatJinja,
+		},
+	}
+	message := NewPromptTemplatesUpdatedMessage(templates)
+	templates[0].Name = "mutated"
+
+	if message.MessageType != MessageTypePromptTemplatesUpdated {
+		t.Fatalf("expected prompt templates updated message type, got %q", message.MessageType)
+	}
+	if got := message.Content.Templates[0].Name; got != "Greeting" {
+		t.Fatalf("expected cloned prompt template name Greeting, got %q", got)
+	}
+}
+
+func TestNewPromptTemplatesUpdatedMessageJSONIncludesEmptyTemplateArray(t *testing.T) {
+	t.Parallel()
+
+	message := NewPromptTemplatesUpdatedMessage(nil)
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal prompt templates updated message: %v", err)
+	}
+	if !strings.Contains(string(payload), `"templates":[]`) {
+		t.Fatalf("expected templates array in marshaled payload, got %s", string(payload))
 	}
 }
 

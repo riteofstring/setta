@@ -28,6 +28,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/prompttemplates"
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
@@ -450,6 +451,179 @@ func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	if got := app.SettingsState().Snapshot().Document["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected runtime renameRefactorMode ALWAYS_RENAME, got %#v", got)
 	}
+}
+
+func TestAppPromptTemplateMutationsBroadcastPromptTemplatesUpdated(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	postPromptTemplate := func(path string, body string) *http.Response {
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new prompt template request %s: %v", path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post prompt template request %s: %v", path, err)
+		}
+		return response
+	}
+
+	createResponse := postPromptTemplate(httpapi.RouteCreatePromptTemplate, `{"name":"Greeting","template":"Hello {{ name }}"}`)
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected create prompt template 200, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+	var created prompttemplates.Template
+	if err := json.NewDecoder(createResponse.Body).Decode(&created); err != nil {
+		t.Fatalf("decode created prompt template: %v", err)
+	}
+
+	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypePromptTemplatesUpdated, 4)
+	var createPayload struct {
+		Templates []prompttemplates.Template `json:"templates"`
+	}
+	if err := json.Unmarshal(createEnvelope.Content, &createPayload); err != nil {
+		t.Fatalf("decode create websocket payload: %v", err)
+	}
+	if len(createPayload.Templates) != 1 || createPayload.Templates[0].ID != created.ID {
+		t.Fatalf("expected created prompt template snapshot, got %#v", createPayload.Templates)
+	}
+
+	updateResponse := postPromptTemplate(
+		httpapi.RouteUpdatePromptTemplate,
+		`{"template":{"id":"`+created.ID+`","name":"Greeting v2","template":"Updated {{ name }}","format":"Jinja"}}`,
+	)
+	defer updateResponse.Body.Close()
+	if updateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(updateResponse.Body)
+		t.Fatalf("expected update prompt template 200, got %d with body %q", updateResponse.StatusCode, string(body))
+	}
+
+	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypePromptTemplatesUpdated, 4)
+	var updatePayload struct {
+		Templates []prompttemplates.Template `json:"templates"`
+	}
+	if err := json.Unmarshal(updateEnvelope.Content, &updatePayload); err != nil {
+		t.Fatalf("decode update websocket payload: %v", err)
+	}
+	if len(updatePayload.Templates) != 1 || updatePayload.Templates[0].Name != "Greeting v2" || updatePayload.Templates[0].Template != "Updated {{ name }}" {
+		t.Fatalf("expected updated prompt template snapshot, got %#v", updatePayload.Templates)
+	}
+
+	deleteResponse := postPromptTemplate(httpapi.RouteDeletePromptTemplate, `{"templateId":"`+created.ID+`"}`)
+	defer deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteResponse.Body)
+		t.Fatalf("expected delete prompt template 200, got %d with body %q", deleteResponse.StatusCode, string(body))
+	}
+
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypePromptTemplatesUpdated, 4)
+	var deletePayload struct {
+		Templates []prompttemplates.Template `json:"templates"`
+	}
+	if err := json.Unmarshal(deleteEnvelope.Content, &deletePayload); err != nil {
+		t.Fatalf("decode delete websocket payload: %v", err)
+	}
+	if len(deletePayload.Templates) != 0 {
+		t.Fatalf("expected empty prompt template snapshot after delete, got %#v", deletePayload.Templates)
+	}
+}
+
+func TestAppPromptTemplateWatcherBroadcastsFileChangesAndParseFailures(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	promptsDir := filepath.Join(cfg.Paths.SettaFilesRoot, prompttemplates.DirName)
+	if err := os.MkdirAll(promptsDir, 0o755); err != nil {
+		t.Fatalf("mkdir prompts dir: %v", err)
+	}
+	templatePath := filepath.Join(promptsDir, "template-1.json")
+	if err := os.WriteFile(templatePath, []byte("{\n  \"id\": \"template-1\",\n  \"name\": \"Greeting\",\n  \"template\": \"Hello {{ name }}\",\n  \"format\": \"Jinja\",\n  \"inputSchema\": {},\n  \"metadata\": {}\n}\n"), 0o644); err != nil {
+		t.Fatalf("write prompt template file: %v", err)
+	}
+
+	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypePromptTemplatesUpdated, 6)
+	var updatePayload struct {
+		Templates []prompttemplates.Template `json:"templates"`
+	}
+	if err := json.Unmarshal(updateEnvelope.Content, &updatePayload); err != nil {
+		t.Fatalf("decode watcher prompt template payload: %v", err)
+	}
+	if len(updatePayload.Templates) != 1 || updatePayload.Templates[0].ID != "template-1" {
+		t.Fatalf("expected watcher to broadcast full prompt template snapshot, got %#v", updatePayload.Templates)
+	}
+
+	if err := os.WriteFile(templatePath, []byte("{ invalid json\n"), 0o644); err != nil {
+		t.Fatalf("write invalid prompt template file: %v", err)
+	}
+
+	logEnvelope := readAppRouteEnvelopeUntilType(t, conn, backendlogs.MessageTypeBackendLogEvent, 6)
+	var event backendlogs.Event
+	if err := json.Unmarshal(logEnvelope.Content, &event); err != nil {
+		t.Fatalf("decode backend log event: %v", err)
+	}
+	if event.Message != "Failed to parse prompt templates; keeping previous prompts" {
+		t.Fatalf("expected prompt parse failure log, got %#v", event)
+	}
+	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypePromptTemplatesUpdated, 250*time.Millisecond)
 }
 
 func TestAppSaveLLMConfigBroadcastsLLMUpdates(t *testing.T) {

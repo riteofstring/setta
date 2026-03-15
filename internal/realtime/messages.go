@@ -8,6 +8,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/prompttemplates"
 	"setta/internal/settingsstate"
 )
 
@@ -30,6 +31,7 @@ const (
 	MessageTypeExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
 	MessageTypeEngineConfigsUpdated        = "EngineConfigsUpdated"
 	MessageTypeAgentRunUpdated             = "AgentRunUpdated"
+	MessageTypePromptTemplatesUpdated      = "PromptTemplatesUpdated"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
 	MessageTypeUpdateSettings              = "UpdateSettings"
 	MessageTypeReturnRenameRefactorResults = "ReturnRenameRefactorResults"
@@ -291,6 +293,15 @@ type EngineConfigsUpdatedMessage struct {
 	Content     EngineConfigsUpdatedContent `json:"content"`
 }
 
+type PromptTemplatesUpdatedContent struct {
+	Templates []prompttemplates.Template `json:"templates"`
+}
+
+type PromptTemplatesUpdatedMessage struct {
+	MessageType string                        `json:"messageType"`
+	Content     PromptTemplatesUpdatedContent `json:"content"`
+}
+
 type AgentRunUpdatedMessage struct {
 	ID          *string       `json:"id"`
 	MessageType string        `json:"messageType"`
@@ -482,6 +493,19 @@ func NewEngineConfigsUpdatedMessage(content []agentruns.EngineConfig) EngineConf
 		MessageType: MessageTypeEngineConfigsUpdated,
 		Content: EngineConfigsUpdatedContent{
 			Configs: configs,
+		},
+	}
+}
+
+func NewPromptTemplatesUpdatedMessage(content []prompttemplates.Template) PromptTemplatesUpdatedMessage {
+	templates := append([]prompttemplates.Template(nil), content...)
+	if templates == nil {
+		templates = []prompttemplates.Template{}
+	}
+	return PromptTemplatesUpdatedMessage{
+		MessageType: MessageTypePromptTemplatesUpdated,
+		Content: PromptTemplatesUpdatedContent{
+			Templates: templates,
 		},
 	}
 }

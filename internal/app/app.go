@@ -93,6 +93,7 @@ type App struct {
 	lspSync       *lsp.ProjectSynchronizer
 	watchCode     *watchcode.Service
 	boundCode     *boundcode.Service
+	promptWatcher *prompttemplates.Watcher
 	mcpServer     *mcpx.Server
 	mcpClient     *mcpx.Client
 	pluginRuntime *pluginBackendRuntimeRefresher
@@ -192,6 +193,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		transcriptionSessions *transcriptionsessions.Service
 		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
+		promptTemplateWatcher *prompttemplates.Watcher
 		pluginStore           *plugins.Store
 		pluginDiscovery       *plugins.DiscoveryService
 		pluginMutationService *plugins.Service
@@ -1144,6 +1146,28 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	promptTemplateWatcher, err = prompttemplates.NewWatcher(prompttemplates.WatcherOptions{
+		Store:    promptTemplateStore,
+		Interval: 100 * time.Millisecond,
+		OnTemplatesUpdated: func(ctx context.Context, templates []prompttemplates.Template) error {
+			_, err := websocketHub.BroadcastJSON(
+				ctx,
+				realtime.NewPromptTemplatesUpdatedMessage(templates),
+				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+			)
+			return err
+		},
+		OnParseError: func(ctx context.Context, _ error) error {
+			return backendLogService.LogAndBroadcast(ctx, backendlogs.LogRequest{
+				Severity: backendlogs.SeverityError,
+				Message:  "Failed to parse prompt templates; keeping previous prompts",
+			})
+		},
+	})
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	uiSettingRevealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
 		Transport: websocketHub,
 		Results:   uiSettingRevealResults,
@@ -1536,8 +1560,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
 				ModePolicy:   modePolicy,
 				Templates:    promptTemplateStore,
+				Watcher:      promptTemplateWatcher,
 				ProjectState: projectRuntime,
 				Deployment:   deploymentRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}
@@ -1629,6 +1655,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	listenerBuiltInInvoker.SetHandler(handler)
+	if err := promptTemplateWatcher.Start(context.Background()); err != nil {
+		_ = errors.Join(
+			promptTemplateWatcher.Close(),
+			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+			terminalService.Close(context.Background()),
+		)
+		return nil, err
+	}
 	if mcpClient != nil {
 		mcpClient.Start(context.Background())
 	}
@@ -1653,6 +1687,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspSync:       projectLSPSyncer,
 		watchCode:     watchCodeService,
 		boundCode:     boundCodeService,
+		promptWatcher: promptTemplateWatcher,
 		mcpServer:     mcpServer,
 		mcpClient:     mcpClient,
 		pluginRuntime: pluginRuntimeRefresh,
@@ -1742,6 +1777,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 
 func (a *App) Shutdown(ctx context.Context) error {
 	return errors.Join(
+		a.promptWatcher.Close(),
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),

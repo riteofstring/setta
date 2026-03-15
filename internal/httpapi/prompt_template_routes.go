@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
+	"setta/internal/realtime"
 )
 
 const RouteGetPromptTemplates = "/getPromptTemplates"
@@ -24,8 +26,10 @@ const RouteDeletePromptTemplate = "/deletePromptTemplate"
 type PromptTemplateRouteDependencies struct {
 	ModePolicy   modes.Policy
 	Templates    *prompttemplates.Store
+	Watcher      *prompttemplates.Watcher
 	ProjectState *projectstate.Runtime
 	Deployment   *deployments.Runtime
+	WebsocketHub *realtime.WebsocketHub
 }
 
 type createPromptTemplateRequest struct {
@@ -78,9 +82,9 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 
 	router.Get(RouteGetPromptTemplates, getPromptTemplatesHandler(deps))
 	router.Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps.Templates))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps.Templates, deps.ProjectState))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps.Templates, deps.ProjectState))
+	router.Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps))
+	router.Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps))
+	router.Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps))
 	return nil
 }
 
@@ -119,6 +123,36 @@ func ensurePromptTemplateReadsAllowed(
 		"Deployment policy disallows LLM access.",
 	)
 	return false
+}
+
+func ensurePromptTemplateMutationsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	action string,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if requestInfo.Policy.IsDeployment() {
+		writeError(
+			w,
+			r,
+			http.StatusForbidden,
+			"mode_forbidden",
+			fmt.Sprintf("Share mode does not allow %s prompt templates.", action),
+		)
+		return false
+	}
+	if err := requestInfo.Policy.RequireIDE(); err != nil {
+		if writeModesError(w, r, err) {
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return true
 }
 
 func getPromptTemplatesHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
@@ -172,8 +206,12 @@ func getPromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Handler
 	}
 }
 
-func createPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc {
+func createPromptTemplateHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensurePromptTemplateMutationsAllowed(w, r, "creating") {
+			return
+		}
+		store := deps.Templates
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -194,6 +232,16 @@ func createPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if deps.Watcher != nil {
+			if err := deps.Watcher.SyncKnownState(); err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
+		if err := broadcastPromptTemplatesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		saved, err := store.Get(template.ID)
 		if err != nil {
 			if writePromptTemplateStoreError(w, r, err) {
@@ -206,8 +254,13 @@ func createPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 	}
 }
 
-func updatePromptTemplateHandler(store *prompttemplates.Store, projectState *projectstate.Runtime) http.HandlerFunc {
+func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensurePromptTemplateMutationsAllowed(w, r, "updating") {
+			return
+		}
+		store := deps.Templates
+		projectState := deps.ProjectState
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -246,6 +299,16 @@ func updatePromptTemplateHandler(store *prompttemplates.Store, projectState *pro
 				return
 			}
 		}
+		if deps.Watcher != nil {
+			if err := deps.Watcher.SyncKnownState(); err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
+		if err := broadcastPromptTemplatesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		saved, err := store.Get(template.ID)
 		if err != nil {
@@ -259,8 +322,13 @@ func updatePromptTemplateHandler(store *prompttemplates.Store, projectState *pro
 	}
 }
 
-func deletePromptTemplateHandler(store *prompttemplates.Store, projectState *projectstate.Runtime) http.HandlerFunc {
+func deletePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensurePromptTemplateMutationsAllowed(w, r, "deleting") {
+			return
+		}
+		store := deps.Templates
+		projectState := deps.ProjectState
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -305,8 +373,38 @@ func deletePromptTemplateHandler(store *prompttemplates.Store, projectState *pro
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if deps.Watcher != nil {
+			if err := deps.Watcher.SyncKnownState(); err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
+		if err := broadcastPromptTemplatesUpdated(r.Context(), store, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func broadcastPromptTemplatesUpdated(
+	ctx context.Context,
+	store *prompttemplates.Store,
+	websocketHub *realtime.WebsocketHub,
+) error {
+	if websocketHub == nil || store == nil {
+		return nil
+	}
+	templates, err := store.List()
+	if err != nil {
+		return err
+	}
+	_, err = websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewPromptTemplatesUpdatedMessage(templates),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
 }
 
 func buildCreatedPromptTemplate(payload createPromptTemplateRequest) (prompttemplates.Template, *promptTemplateRouteError) {
