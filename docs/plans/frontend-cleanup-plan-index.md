@@ -37,12 +37,14 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 1. Read [frontend/src/README.md](../../frontend/src/README.md) for the current hotspot list, ownership map, and placement rules.
 2. Read [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) for the overall direction and current prioritization pivot.
 3. Read [frontend-cleanup-execution-log.md](./frontend-cleanup-execution-log.md) for recent slices, but treat older "next slice" notes as historical context rather than automatic instructions.
-4. Pick the companion plan that matches the feature you are changing.
+4. Pick the companion plan that matches the highest-value front-door surface you are changing.
 5. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
 6. Re-check the current tree before acting on any exact file-size or hotspot claim in these docs.
 
 ## Coverage Notes
 
 - Chat, project-AI, and project chat windowing hotspots now have a dedicated companion plan in [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
-- Browser/file-management hotspots and app/plugin runtime remain covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md).
+- Overview and authoring hotspots, including `FileBrowserPane.tsx`, are covered in [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
+- Browser/layout surfaces such as `BrowserArea.tsx` remain covered in [frontend-sections-and-params-cleanup-plan.md](./frontend-sections-and-params-cleanup-plan.md).
+- State/shared-infrastructure plans are usually secondary reading at this stage. Default to them only when a state or utility split is a direct prerequisite for shrinking a still-large UI entry surface.
 - The companion plans cover the rest of the authored frontend surface so the cleanup roadmap is distributed rather than concentrated in one document.

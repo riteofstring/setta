@@ -10,22 +10,29 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 - In scope:
   - `frontend/src/components/Panes/**`
+  - `frontend/src/components/Panes/Overview/FileBrowser/**`
   - pane layout helpers that directly support pane behavior
+  - file-browser helpers that directly support pane behavior
   - `frontend/src/state/hooks/uiTypes.ts`
 - Out of scope:
   - chat/project-AI pane internals already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
-  - file-browser pane internals already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
 
-## Status Refresh (2026-03-14)
+## Status Refresh (2026-03-15)
 
 - `AppConfigPane.tsx` is no longer the original 1700+ line monolith. It already delegates preview/draft shaping work to `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`.
 - `RunInstructions.tsx` already has helper seams in `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`, but the main surface still carries too much orchestration.
-- Future cleanup in this domain should continue those seams instead of starting over from the original snapshot.
+- `FileBrowserPane.tsx` is now one of the largest unresolved front-door pane
+  surfaces in the whole frontend and should come before medium-sized
+  authoring-only cleanup in this domain.
+- Future cleanup in this domain should continue the existing seams, but default
+  to the pane entry surfaces contributors open first instead of polishing
+  smaller supporting files.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1903 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
@@ -48,6 +55,13 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - generation-mode UI state
 - The existing `appDraftPreview.ts` split is a good start, but transport, generation, persistence, and validation are still coupled in the main surface.
 - `RunInstructions.tsx` still mixes parsed-content rendering, accordion state, runnable controls, and higher-level overview-pane orchestration even after the first helper extractions.
+- `FileBrowserPane.tsx` mixes:
+  - root/folder transport and request ownership
+  - recursive search/filter/sort state
+  - selection, clipboard, and DnD behavior
+  - preview/download URL lifecycle
+  - row flattening/virtualization and render shells
+  - file-open and workspace-action commands
 - `ViewingEditingMode.tsx` mixes:
   - view-mode mutation commands
   - resize behavior
@@ -69,16 +83,30 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
    - presentational components
 3. “Registry” style code is acceptable when it reduces giant switches and makes ownership explicit.
 4. Generated route/type usage should be wrapped by pane-local APIs before it reaches leaf UI.
+5. Start with pane front doors and 2000+ entry surfaces before medium-sized authoring cleanup in the same domain.
+6. Do not move a pane monolith into one new 1000+ helper file. Prefer a small pane shell plus a few clear local owners.
 
 ## Plan
 
-1. Separate pane chrome from pane content
+1. Split `FileBrowserPane.tsx` from the pane outward
+
+- Keep `FileBrowserPane.tsx` as the obvious pane entry surface.
+- Extract feature-local owners for:
+  - folder/root transport and stale-request handling
+  - tree flattening/filter/sort view models
+  - DnD, clipboard, and open/rename command adapters
+  - row/header shells and virtualization-specific render helpers
+  - preview/download URL refresh policy
+- If the slice crosses into `BrowserArea.tsx`, use the sections companion plan as
+  a second plan only after the file-browser pane boundary is clear.
+
+2. Separate pane chrome from pane content
 
 - Split overview and UI-editor rail code from content resolution.
 - Keep pane rail buttons declarative and move gating/fallback rules into dedicated selectors.
 - Isolate pane-layout concerns from feature-specific content.
 
-2. Refactor `AppConfigPane.tsx` into feature modules
+3. Refactor `AppConfigPane.tsx` into feature modules
 
 - Continue splitting into:
   - app-definition API transport
@@ -88,12 +116,12 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - presentational editor panels
 - Keep app generation behavior explicit without hiding it inside one large component.
 
-3. Continue splitting `RunInstructions.tsx`
+4. Continue splitting `RunInstructions.tsx`
 
 - Keep `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts` as the first stable seams.
 - Move remaining parsing, derived state, and large render branches out of the main surface.
 
-4. Clean up view-mode and project-config authoring
+5. Clean up view-mode and project-config authoring
 
 - Split `ViewingEditingMode.tsx` into:
   - view-mode list model and commands
@@ -101,20 +129,21 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - resizable stacked-pane shell
 - Keep `WindowSpacesPane` and `ProjectConfigs` readable by moving reorder/edit rules into pure helpers.
 
-5. Introduce explicit section-settings registries
+6. Introduce explicit section-settings registries
 
 - Replace broad section-type switches with well-named section-settings registries where it improves clarity.
 - Keep `SectionConfig.tsx` as a small coordinator that asks, “which settings groups apply here?”
 - Co-locate section-specific settings APIs with their pane components.
 
-6. Make UI-editor tab rules easier to locate
+7. Make UI-editor tab rules easier to locate
 
 - Move UI-editor tab compatibility and stored-tab selection logic into a clearly named authoring state module.
 - Reduce the mental jump between `constants.ts`, `uiTypes.ts`, and `UiEditor.tsx`.
 
-7. Document pane ownership
+8. Document pane ownership
 
 - Add short feature READMEs for:
+  - file browser pane
   - overview pane
   - app config pane
   - UI editor

@@ -94,7 +94,9 @@ Output requirements:
 - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
 - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
 
-Goal: clean up the authored frontend so it is easier for coding agents and humans to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
+Goal: clean up the authored frontend so it is easier for coding agents and humans to navigate, understand, debug, and modify, while preserving behavior and keeping or improving performance.
+
+This stage of the cleanup is about first-hop surfaces: the large files a contributor opens first to understand a feature. Do not default to polishing already-improved internals or splitting smaller state modules unless that is required to shrink one of those entry surfaces.
 
 This is an autonomous execution session. Work independently from the current tree and docs. Do not follow stale plan snapshots blindly.
 
@@ -104,7 +106,7 @@ Read in this order:
 2. `docs/plans/frontend-cleanup-plan-index.md`
 3. `docs/plans/frontend-cleanup-plan.md`
 4. `docs/plans/frontend-cleanup-execution-log.md` if it exists
-5. The one companion plan that matches the slice you pick:
+5. The one companion plan that matches the front-door surface you pick:
    - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
    - `docs/plans/frontend-pages-shell-cleanup-plan.md`
    - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
@@ -115,28 +117,34 @@ Read in this order:
 
 Treat `frontend/src/README.md` as the current source of truth for hotspot rankings, ownership, and placement rules.
 Treat older execution-log "next slice" notes as historical context, not automatic instructions.
+Choose the companion plan for the entry surface you are shrinking, not for the first helper you expect to touch underneath it.
 
 Default slice-selection rules:
 
-- Pick one slice that materially improves one of the current top unresolved hotspots.
+- Pick one slice that materially improves a current front-door hotspot or removes one major mixed responsibility from that hotspot.
 - Default priority order is:
-  - `frontend/src/components/Chat/ChatMessages.tsx`
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Chat/ChatInput.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+- Do not choose `ChatMessages.tsx`, `ChatInput.tsx`, or another already-improved inner surface while a same-domain higher-priority front-door file remains untouched, unless your slice directly simplifies that higher-priority file.
 - Do not choose a smaller `state/actions` or `state/hooks` split while a same-domain 2000+ UI file remains, unless the lower-level split is a direct prerequisite for simplifying that UI file.
-- Treat thin compatibility facades as mostly good enough for now. Do not spend a turn creating or extending a compatibility barrel unless it clearly removes mixed responsibilities from a top hotspot.
+- Treat thin compatibility facades as transitional debt, not as default cleanup targets. Do not spend a turn creating or extending a facade/barrel unless the same turn also shrinks a front-door hotspot.
 - Prefer feature-local extraction: pure helpers, selectors, hooks, render subcomponents, and command adapters next to the owning large file.
+- Do not move mixed responsibilities from one giant file into another giant helper. Prefer a coordinator plus several narrow local owners over a coordinator plus one new 1000+ helper file.
 
 Autonomy rules:
 
-- Prioritize agent legibility: clear module ownership, smaller files, fewer mixed responsibilities, obvious read/write boundaries, feature-local helpers, and less cross-layer jumping.
+- Prioritize agent legibility: clear module ownership, smaller first-hop files, fewer mixed responsibilities, obvious read/write boundaries, feature-local helpers, and less cross-layer jumping.
 - Preserve user-visible behavior unless you intentionally fix a concrete bug.
 - Prefer incremental refactors over broad directory churn. Prove boundaries first, then move files only when ownership becomes clearer.
 - Continue from seams that already exist on the branch instead of recreating older plan snapshots.
@@ -145,11 +153,12 @@ Autonomy rules:
 Execution rules:
 
 - Complete one cleanup slice end-to-end per turn.
-- Bias toward reducing mixed responsibilities in giant render-heavy files, not toward taxonomic splitting of already-small modules.
+- Bias toward removing one named responsibility from a giant render-heavy front-door file, not toward taxonomic splitting of already-small modules.
 - Add or update Vitest coverage for substantial refactors.
 - Add or update Playwright coverage when interactive UI behavior changes materially.
 - For visual or performance-sensitive frontend refactors, use `chrome-devtools-mcp`, do the required visual verification, and append before/after notes under `perf/reports/frontend/` when the change is meaningful.
 - If CDP is unavailable for a slice that truly requires it, defer that slice, note the blocker, and continue with another cleanup area.
+- If a helper you touch is already coarse, keep splitting until ownership becomes obvious instead of dumping more logic into it.
 - Commit each completed slice in a small logical commit with a clear message.
 - Do not stop at analysis. Implement, verify, commit, and document the completed slice.
 
@@ -172,8 +181,8 @@ When you get a message like "proceed" or "proceed with the next step", interpret
 
 - read `frontend/src/README.md`
 - read the execution log if it exists
-- choose the highest-value unresolved hotspot
-- read the matching companion plan(s) for that slice
+- choose the highest-value unresolved front-door hotspot
+- read the matching companion plan(s) for that hotspot
 - implement the slice end-to-end
 - verify it
 - commit it
