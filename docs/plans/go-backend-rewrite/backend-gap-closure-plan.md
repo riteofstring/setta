@@ -133,3 +133,7 @@ categorize them.
 - The local-session registry row for missing `serverMode` metadata is now
   proved too; the same small-proof workflow also applies to CLI/session
   plumbing when the source contract is one narrow selection or omission branch
+- The `status --connect-info` optional-metadata pass-through, optional-field
+  omission, and multi-match selector rows are now proved too; keep mining this
+  CLI/session area when the remaining row is still one focused payload or
+  selector branch instead of a broader remote-command forwarding surface
