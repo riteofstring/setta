@@ -5840,3 +5840,43 @@ schedule settings` button still appears on the live task row.
   - Simplify `frontend/src/components/Git/GitGraphOverlay.tsx`, which is now
     the highest unresolved front-door hotspot after `ProjectChatCore.tsx`
     dropped to about 1225 lines and fell behind the larger pane/layout roots.
+
+## 2026-03-15 22:14:01 PDT
+
+- Slice completed: extracted GitGraphOverlay resize owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` or
+  `frontend/src/components/Panes/Overview/RunInstructions.tsx` because
+  `frontend/src/components/Git/GitGraphOverlay.tsx` still started this turn as
+  a 2040-line first-hop hotspot, and the pane-split or column-resize path was a
+  major mixed responsibility with strong existing resize coverage that could be
+  removed cleanly in one slice.
+- Key files touched:
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Git/gitGraphOverlayResizeModel.ts`
+  - `frontend/src/components/Git/useGitGraphOverlayResize.ts`
+  - `frontend/src/components/Git/gitGraphOverlayResizeModel.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+  - `perf/reports/frontend/git-graph-overlay-resize-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Git/GitGraphOverlay.test.ts src/components/Git/gitGraphOverlayResizeModel.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/git/git-graph-overlay-resize.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Git/GitGraphOverlay.tsx src/components/Git/gitGraphOverlayResizeModel.ts src/components/Git/useGitGraphOverlayResize.ts src/components/Git/gitGraphOverlayResizeModel.test.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-panes-and-authoring-cleanup-plan.md ../perf/reports/frontend/git-graph-overlay-resize-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/git-graph-overlay-resize-2026-03-15.md` with
+    before/after resize notes, trace caveats, and geometry checks.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy` at
+    `1440x900` and `1024x720`; the Git graph kept header separation, history or
+    diff pane minimums, and hidden horizontal overflow after scripted pane and
+    column drags.
+- Commit hash:
+  - `cc372f2526ba1e3b27bd1dc190e6d212b4fe6bec`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`,
+    which is now the largest unresolved non-chat front-door hotspot after
+    `GitGraphOverlay.tsx` dropped to about 1550 lines and delegated its resize
+    lifecycle into feature-local owners.
