@@ -5053,3 +5053,49 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted Chat history spinner shell closed.
   - Re-read `frontend/src/components/Utils/MediaCarousel.tsx` as the next shared shell candidate, using `frontend/src/components/Section/Layouts/BrowserArea.tsx` as the first representative host before deciding whether `PaneContainer` is still a stronger higher seam.
+
+### 2026-03-18 129
+
+- Item: Correct the committed Chat history spinner checkpoint so the preserved width-shell contract matches untouched `main`.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+    - `frontend/tests/e2e/chat/chat-history-spinner-shell.spec.ts`
+  - The kept correction is narrow:
+    - preserve the accepted spinner move off `single-cell-child`
+    - restore the original managed-history wrapper split (`data-chat-width-shell="true"` wrapper outside the scrolling history root)
+    - keep the new Playwright guardrail aligned with that preserved wrapper contract instead of requiring the wrapper node itself to be visibly tall
+  - Why the correction was needed:
+    - the first committed follow-up folded the width shell into the `overflow-y-auto` history root
+    - fresh CDP reads showed that widened the representative worktree history row from untouched `main`'s `376px` width to `386px`
+    - that geometry drift is rejected for this plan because the intended user-visible outcome is performance only
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/ChatArea.test.tsx src/components/Section/Layouts/chatAreaHistoryPolling.test.ts`
+      - result: `2` files passed, `8` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-history-spinner-shell.spec.ts`
+      - result: `1` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts --grep "chat section history refreshes runs when the history panel opens|chat section exits history when external activity resumes the current managed thread|chat section defers run history loading until history is opened|chat section history avoids polling while all runs are idle"`
+      - result: `4` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `coral_thick` on `http://127.0.0.1:3087/coral_thick`
+      - width-shell class: `mx-auto w-full max-w-[72rem] px-2 min-h-0 flex-1`
+      - history-root class: `min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1`
+      - touched markup still exposes `single-cell-child`
+      - geometry:
+        - row `376 x 52.5`
+        - spinner `8.89 x 13`
+    - worktree: disposable compare project `dune_wise` on `http://127.0.0.1:3011/dune_wise`
+      - width-shell class: `mx-auto w-full max-w-[72rem] px-2 min-h-0 flex-1`
+      - history-root class: `min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1`
+      - touched markup no longer exposes `single-cell-child`
+      - geometry:
+        - row `376 x 52.5`
+        - spinner `8.89 x 13`
+  - Interpretation:
+    - the accepted Chat spinner checkpoint stays closed on the corrected width-shell split
+    - the section-owned lower layout stack remains exhausted for the current scope
+    - the next pass still widens upward into the shared `frontend/src/components/Utils/MediaCarousel.tsx` seam
+- Next action:
+  - Keep the corrected Chat history spinner seam closed.
+  - Re-read `frontend/src/components/Utils/MediaCarousel.tsx` as the next shared shell candidate, using `frontend/src/components/Section/Layouts/BrowserArea.tsx` as the first representative host.
