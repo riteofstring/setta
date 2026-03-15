@@ -20,25 +20,28 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import {
-  useLocalStorage,
   useProjectState,
   useShareSession,
-  useTemporaryMiscState,
   useToolArgumentPreview,
-  useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
+import { useTypeErrors } from "state/stores/editorDiagnosticsStores";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
-import { route_clear_text_field_completion } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_clear_text_field_completion,
+  route_set_callable,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 
 export function SectionSearch({
   sectionId,
@@ -431,8 +434,9 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  const updated = await setCallableAndRefreshProjectState(payload);
-  if (updated) {
+  const res = await route_set_callable(payload);
+  if (res200(res)) {
+    // state update occurs by websocket
     setToNotWaiting();
   }
 }

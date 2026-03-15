@@ -19,7 +19,7 @@ import {
   createProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
-import { processProjectStateUpdateFromBackend } from "./sectionInfos";
+import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
 
 function buildProjectState(
   projectChatWindowing = createProjectChatWindowingState(),

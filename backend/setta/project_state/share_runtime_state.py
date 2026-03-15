@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+    from setta.websockets.realtime_event_hub import RealtimeEventHub
 
 
 class ShareRuntimeState:
@@ -66,10 +67,12 @@ class ShareRuntimeState:
         deployment_root: Path,
         frontend_sender: "WMHFrontendSender",
         specific_file_watcher: SpecificFileWatcher | None = None,
+        realtime_event_hub: "RealtimeEventHub | None" = None,
     ) -> None:
         self.dbe = dbe
         self.deployment_root = deployment_root
         self.frontend_sender = frontend_sender
+        self.realtime_event_hub = realtime_event_hub
         self._validate_deployment_root()
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
@@ -261,6 +264,8 @@ class ShareRuntimeState:
             self.dbe,
             artifact_id_resolver=self._format_share_artifact_id,
             path_resolver=self._resolve_share_artifact_path,
+            realtime_event_hub=self.realtime_event_hub,
+            share_session_id=session_id,
         )
         self._session_artifacts[session_id] = artifacts
         return artifacts
