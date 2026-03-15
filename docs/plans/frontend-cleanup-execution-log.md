@@ -6369,3 +6369,43 @@ schedule settings` button still appears on the live task row.
     the highest unresolved front-door hotspot after the dock root dropped under
     1200 lines and delegated lifecycle commands plus animation bookkeeping into
     a local windowing owner.
+
+## 2026-03-16 04:44:09 PDT
+
+- Slice completed: extracted the selected-commit surface out of `frontend/src/components/Git/GitGraphOverlay.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  or `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  because `frontend/src/components/Git/GitGraphOverlay.tsx` was still the
+  default pane-side front door at the start of the turn and still mixed the
+  selected-commit summary, expanded metadata or file list, and diff viewer into
+  the same root that also owns virtualization, lane rendering, and pane layout.
+- Key files touched:
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.tsx`
+  - `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+  - `perf/reports/frontend/git-graph-selected-commit-pane-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Git/GitGraphOverlay.test.ts src/components/Git/gitGraphOverlaySelectedCommitPane.test.tsx src/components/Git/GitGraphWindowContent.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/git/git-graph-overlay-core.spec.ts --grep "git graph marks non-origin remote refs as remote chips|git graph keeps local slash branches as branch chips|git graph can open a historical file diff when the current workspace path is a directory|git graph clears selected commit diff when selected commit disappears after ref toggle"`
+  - `pnpm -C frontend exec prettier --check src/components/Git/GitGraphOverlay.tsx src/components/Git/gitGraphOverlaySelectedCommitPane.tsx src/components/Git/gitGraphOverlaySelectedCommitPane.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-panes-and-authoring-cleanup-plan.md ../perf/reports/frontend/git-graph-selected-commit-pane-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/git-graph-selected-commit-pane-2026-03-16.md`
+    with the before/after selected-commit surface measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`
+    with the newest git commit selected and its first changed file opened in
+    the diff viewer. `GitGraphOverlay.tsx` dropped from `1550` to `1224` lines
+    while the measured selected-commit pane stayed flat at `108` nodes with the
+    same `1` changed-file row, visible diff viewer, `654px` height, and the
+    same selected-commit headline.
+- Commit hash:
+  - `090fa3b3bf1b33e69e10231ea4ee8d19fb8120ad`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`,
+    which is now the highest unresolved front-door hotspot after
+    `GitGraphOverlay.tsx` dropped to 1224 lines and delegated the
+    selected-commit surface into a local git owner.
