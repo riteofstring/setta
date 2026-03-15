@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
-import { toggleAgenticEdgeSelection } from "state/actions/agenticEdgeMutations";
+import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import {
   getAllowedChatIdsForProject,
