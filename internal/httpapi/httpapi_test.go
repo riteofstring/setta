@@ -156,6 +156,30 @@ func TestHandlerAutoAuthsLocalDevFrontendOriginRequests(t *testing.T) {
 	}
 }
 
+func TestHandlerDoesNotAutoAuthWhenDevFrontendPortContractInactive(t *testing.T) {
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/api/runtimeInfo", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:3000")
+	request.RemoteAddr = "127.0.0.1:1234"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d with body %q", response.Code, response.Body.String())
+	}
+	if got := len(response.Result().Cookies()); got != 0 {
+		t.Fatalf("expected no auto-minted auth cookies when dev auto-auth is inactive, got %d", got)
+	}
+}
+
 func TestHandlerAutoAuthsLocalDevFrontendRefererRequests(t *testing.T) {
 	t.Setenv(devFrontendPortEnv, "3000")
 	t.Setenv(devFrontendSchemeEnv, "http")
