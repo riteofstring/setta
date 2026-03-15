@@ -3108,3 +3108,30 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/hooks/sectionMinMaxDims.ts`, now the largest
     authored/shared state hotspot at 316 lines, by separating sizing-policy
     reads from measured min/max derivation helpers.
+
+## 2026-03-15 06:46:59 PDT
+
+- Slice completed: split section sizing-policy reads from measured min/max dims
+- Key files touched:
+  - `frontend/src/state/hooks/sectionSizingPolicyDims.ts`
+  - `frontend/src/state/hooks/sectionMinMaxDims.ts`
+  - `frontend/src/state/hooks/sectionSizes.ts`
+  - `frontend/src/state/hooks/sectionAspectRatioSizing.ts`
+  - `frontend/src/state/hooks/sectionSizes.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/hooks/sectionSizes.test.tsx src/state/hooks/sectionSizes.integration.test.tsx src/state/hooks/sectionAspectRatioSizing.test.ts src/components/Utils/Resizable/CustomResizable.test.ts src/components/Section/Layouts/CodeArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/hooks/sectionSizingPolicyDims.ts src/state/hooks/sectionMinMaxDims.ts src/state/hooks/sectionSizes.ts src/state/hooks/sectionAspectRatioSizing.ts src/state/hooks/sectionSizes.test.tsx src/state/hooks/sectionSizes.integration.test.tsx src/components/Utils/Resizable/CustomResizable.test.ts src/components/Section/Layouts/CodeArea.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/hook ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `d8709ecfd4`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/stores/uiPreferenceStores.ts`, now the largest
+    authored/shared state hotspot at 418 lines, by separating persisted UI
+    preference normalization and defaults from the persisted store creation
+    surface.
