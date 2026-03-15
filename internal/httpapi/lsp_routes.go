@@ -137,8 +137,8 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 	router.Post(RouteGenCodePrefixCompletion, withLSPProjectModeGuard(deps.ModePolicy, genCodePrefixCompletionHandler(deps)))
 	router.Post(RouteGenCodeSuffixCompletion, withLSPProjectModeGuard(deps.ModePolicy, genCodeSuffixCompletionHandler(deps)))
 	router.Post(RouteGetLatestLSPDiagnostics, withLSPProjectModeGuard(deps.ModePolicy, getLatestLSPDiagnosticsHandler(deps)))
-	router.Post(RouteSetCodeSectionDiagnosticsMute, withLSPProjectModeGuard(deps.ModePolicy, setCodeSectionDiagnosticsMuteHandler(deps)))
-	router.Post(RouteSetCodeSectionDiagnosticCodeSuppression, withLSPProjectModeGuard(deps.ModePolicy, setCodeSectionDiagnosticCodeSuppressionHandler(deps)))
+	router.Post(RouteSetCodeSectionDiagnosticsMute, withLSPDiagnosticsModeGuard(deps.ModePolicy, setCodeSectionDiagnosticsMuteHandler(deps)))
+	router.Post(RouteSetCodeSectionDiagnosticCodeSuppression, withLSPDiagnosticsModeGuard(deps.ModePolicy, setCodeSectionDiagnosticCodeSuppressionHandler(deps)))
 	return nil
 }
 
@@ -162,6 +162,16 @@ func withLSPProjectModeGuard(policy modes.Policy, next http.HandlerFunc) http.Ha
 	}
 }
 
+func withLSPDiagnosticsModeGuard(policy modes.Policy, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := lspDiagnosticsModeDetail(policy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func lspAdminModeDetail(policy modes.Policy) (string, bool) {
 	switch {
 	case policy.IsDeployment():
@@ -177,6 +187,17 @@ func lspProjectModeDetail(policy modes.Policy) (string, bool) {
 	switch {
 	case policy.IsDeployment():
 		return "Deployment mode disallows language server features.", true
+	case policy.IsLauncher():
+		return "Launcher mode does not allow this endpoint.", true
+	default:
+		return "", false
+	}
+}
+
+func lspDiagnosticsModeDetail(policy modes.Policy) (string, bool) {
+	switch {
+	case policy.IsDeployment():
+		return "Deployment mode disallows diagnostics settings.", true
 	case policy.IsLauncher():
 		return "Launcher mode does not allow this endpoint.", true
 	default:

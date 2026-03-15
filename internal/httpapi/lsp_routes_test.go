@@ -374,8 +374,8 @@ func TestRegisterLSPRoutesAdminModeGuardsReturnSourceDetailBodies(t *testing.T) 
 	}
 }
 
-// Diagnostics mutation routes share the same project-manager policy as the
-// completion and snapshot routes, including the source detail text.
+// Diagnostics-setting routes use a narrower share-mode detail than the
+// completion/snapshot routes while keeping the same launcher detail body.
 func TestRegisterLSPRoutesMutationModeGuardsReturnSourceDetailBodies(t *testing.T) {
 	t.Parallel()
 
@@ -387,7 +387,7 @@ func TestRegisterLSPRoutesMutationModeGuardsReturnSourceDetailBodies(t *testing.
 		{
 			name:           "share",
 			mode:           config.ModeShare,
-			expectedDetail: "Deployment mode disallows language server features.",
+			expectedDetail: "Deployment mode disallows diagnostics settings.",
 		},
 		{
 			name:           "launcher",
