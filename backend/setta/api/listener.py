@@ -1568,7 +1568,16 @@ class SettaListener:
         self,
         runtime_state: ListenerRuntimeState,
     ) -> dict[str, Any]:
-        value_codec = self._new_live_value_codec(runtime_state.dependency_graph)
+        def unexpected_dependency_lookup(dep_key: BaseDependencyKeyUnion) -> str:
+            raise ValueError(
+                f"Unexpected dependency lookup while rendering direct listener value for {dep_key!r}"
+            )
+
+        value_codec = PythonValueCodec(
+            runtime_state.dependency_graph,
+            unexpected_dependency_lookup,
+            mode=PythonValueMode.LIVE_RUNTIME,
+        )
         values_by_key: dict[BaseDependencyKeyUnion, Any] = {}
         values_by_name: dict[str, Any] = {}
         for name in runtime_state.dependency_metadata.names():
@@ -2128,18 +2137,6 @@ class SettaListener:
             if refresh_future is not None:
                 self._pending_router_endpoint_force_refreshes.pop(call_id, None)
         return result
-
-    def _new_live_value_codec(self, dependency_graph: DependencyGraph) -> PythonValueCodec:
-        def unexpected_dependency_lookup(dep_key: BaseDependencyKeyUnion) -> str:
-            raise ValueError(
-                f"Unexpected dependency lookup while rendering direct listener value for {dep_key!r}"
-            )
-
-        return PythonValueCodec(
-            dependency_graph,
-            unexpected_dependency_lookup,
-            mode=PythonValueMode.LIVE_RUNTIME,
-        )
 
     def _render_direct_node_expression(
         self,
