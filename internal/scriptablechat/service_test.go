@@ -251,6 +251,77 @@ func TestServiceCreateChatPersistsProjectConfigID(t *testing.T) {
 	}
 }
 
+func TestServiceGetAllMetadataUsesCachedNamesAndSortsByLastUpdated(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+	// Cached names must avoid reparsing legacy message payloads while metadata
+	// ordering still follows the persisted lastUpdated value.
+	saveScriptableChatRun(t, fixture.runs, agentruns.Run{
+		ID:         "chat-cached",
+		Status:     agentruns.RunStatusCompleted,
+		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		Inputs: map[string]any{
+			"runType": runTypeScriptableChat,
+			"chatId":  "chat-cached",
+			"llmConfig": map[string]any{
+				"id":        "primary",
+				"model":     "gpt-test",
+				"provider":  "openai",
+				"apiKeyEnv": "OPENAI_API_KEY",
+			},
+		},
+		Outputs: map[string]any{
+			"name":        "Cached Chat",
+			"lastUpdated": "2026-03-13T10:00:00Z",
+			"messages":    []any{map[string]any{"unexpected": "payload"}},
+		},
+	})
+	saveScriptableChatRun(t, fixture.runs, agentruns.Run{
+		ID:         "chat-derived",
+		Status:     agentruns.RunStatusCompleted,
+		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 5, 0, 0, time.UTC)),
+		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 5, 0, 0, time.UTC)),
+		Inputs: map[string]any{
+			"runType": runTypeScriptableChat,
+			"chatId":  "chat-derived",
+			"llmConfig": map[string]any{
+				"id":        "primary",
+				"model":     "gpt-test",
+				"provider":  "openai",
+				"apiKeyEnv": "OPENAI_API_KEY",
+			},
+		},
+		Outputs: map[string]any{
+			"lastUpdated": "2026-03-13T10:05:00Z",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Derived chat name"},
+					},
+				},
+			},
+		},
+	})
+
+	metadata, err := fixture.service.GetAllMetadata(GetAllMetadataRequest{})
+	if err != nil {
+		t.Fatalf("get all metadata: %v", err)
+	}
+	if len(metadata) != 2 {
+		t.Fatalf("expected two metadata entries, got %#v", metadata)
+	}
+	if metadata[0].ID != "chat-cached" || metadata[0].Name != "Cached Chat" {
+		t.Fatalf("expected cached metadata entry first, got %#v", metadata[0])
+	}
+	if metadata[1].ID != "chat-derived" || metadata[1].Name != "Derived chat name" {
+		t.Fatalf("expected derived metadata entry second, got %#v", metadata[1])
+	}
+}
+
 func TestServiceEmitStreamDeltaBroadcastsFrontendMessage(t *testing.T) {
 	t.Parallel()
 

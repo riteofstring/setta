@@ -337,6 +337,24 @@ Current tree note:
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
+- The dead Python scriptable-chat helper test slice is also smaller in the
+  current worktree: `tests/agentic/test_chat_view.py`,
+  `tests/agentic/test_agent_run_index.py`, and `tests/llm/test_chat_store.py`
+  are gone because the surviving scriptable-chat behavior is now covered on
+  the Go side by `internal/scriptablechat/service_test.go`,
+  `internal/agentruns/service_test.go`, and the listener-route coverage in
+  `internal/app/websocket_test.go`, while the deleted Python tests only
+  exercised the superseded Python chat helper/index/store path rather than an
+  explicit retained Python API boundary.
+- The dead Python scriptable-chat implementation slice is also smaller in the
+  current worktree: `backend/setta/llm/chat_store.py`,
+  `backend/setta/agentic/chat_view.py`, `backend/setta/agentic/chat_names.py`,
+  and `tests/llm/test_chat_toolkit_history.py` are gone because scriptable
+  chat persistence, metadata ordering, name derivation, and listener-route
+  chat CRUD now live in Go under `internal/scriptablechat`,
+  `internal/agentruns`, and `internal/app`; the retained
+  `setta.api.chat_toolkit` tests were rewritten to use listener-route payload
+  fixtures instead of the deleted local Python store harness.
 - The dead Python websocket-shell tail is also smaller in the current
   worktree: `backend/setta/websockets/websocket_manager.py`,
   `backend/setta/websockets/msg_handlers/base.py`, and

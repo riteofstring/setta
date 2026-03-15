@@ -1,15 +1,35 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from setta.llm.chat_store import ChatStore
+from typing import Protocol
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 
 
+class ChatStoreProtocol(Protocol):
+    def get_chat(self, chat_id: ID) -> Chat | None: ...
+
+    def get_all_chat_metadata(self) -> list[ChatMetadata]: ...
+
+    def create_new_chat(
+        self,
+        first_message: BaseChatMessageUnion,
+        llm_config: LLMConfig,
+        project_config_id: ID | None = None,
+    ) -> Chat: ...
+
+    def save_messages(
+        self,
+        chat_id: ID,
+        messages: list[BaseChatMessageUnion],
+    ) -> Chat | None: ...
+
+    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> Chat | None: ...
+
+    def delete_chat(self, chat_id: ID) -> None: ...
+
+
 class ChatHistory:
-    def __init__(self, chat_store: "ChatStore") -> None:
+    def __init__(self, chat_store: ChatStoreProtocol) -> None:
         self._chat_store = chat_store
 
     def get(self, chat_id: ID) -> Chat | None:
