@@ -98,7 +98,10 @@ Make section chrome and param rendering easy to change without touching measurem
   list/icon/carousel render surface to
   `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx`,
   preview URL/text-preview cache plus carousel selection to
-  `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`, and
+  `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`,
+  browser root bootstrap, folder/history navigation, recursive filter
+  crawling, and saved-search persistence to
+  `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.ts`, and
   preview-kind plus extension/staleness helpers to
   `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts`.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is no longer the
@@ -125,9 +128,11 @@ Make section chrome and param rendering easy to change without touching measurem
   managed section-chat, history, and config-gating ownership, and
   `frontend/src/components/Section/Layouts/chatAreaRealtimeEvents.ts` for
   shared send/stop realtime dependency telemetry.
-- The next default work in this domain should now start from the remaining
-  layout front doors that contributors open first:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+- There is no longer a 1000+ line section-layout entry surface in this domain.
+  If follow-through work returns here, it should shorten
+  `frontend/src/components/Section/Layouts/BrowserArea.tsx` together with one
+  of its sharp local owners instead of reopening the shared section or param
+  infrastructure first.
 - Shared section/param infrastructure such as `GroupContainer.tsx`,
   `ParamUI.tsx`, and `SectionHeader.tsx` still matters, but it is now support
   work unless it directly shortens one of those layout roots.
@@ -147,13 +152,16 @@ Make section chrome and param rendering easy to change without touching measurem
   - `frontend/src/state/actions/sections/createSectionPlacement.ts` is 72
     lines for smart placement helpers
 - Main shared hotspots include:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines
-  - `frontend/src/components/Params/GroupContainer.tsx` at 999 lines
+  - `frontend/src/components/Section/Layouts/DrawArea/useDrawModeMouseHandlers.ts` at 1039 lines
+  - `frontend/src/components/Params/GroupContainer.tsx` at 995 lines
   - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx` at 944 lines
   - `frontend/src/components/Section/Layouts/CodeArea.tsx` at 934 lines
-  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` at 736 lines
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` at 737 lines
   - `frontend/src/components/Section/Header/SectionHeader.tsx` at 735 lines
-  - `frontend/src/components/Section/Layouts/DrawArea/useDrawModeMouseHandlers.ts` at 1039 lines
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 588 lines as
+    the browser-section coordinator over `BrowserAreaContentView.tsx`,
+    `useBrowserAreaPreviewState.ts`, `useBrowserAreaFolderSession.ts`, and
+    `browserAreaPreviewModel.ts`
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines and
   acts as a thin managed-vs-scriptable branch router over
   `chatAreaManagedSurface.tsx`, `chatAreaManagedHistory.tsx`,
@@ -163,8 +171,9 @@ Make section chrome and param rendering easy to change without touching measurem
   task/column mutations plus DnD math, `taskBoardAreaToolbar.tsx` for the
   toolbar shell, `taskBoardAreaTaskListView.tsx` for list rendering, and
   `taskBoardAreaKanbanView.tsx` for lane/resize/card rendering.
-- `BrowserArea.tsx` is smaller after the local preview-state extraction and is
-  now a follow-through surface unless a same-turn slice clearly shortens it.
+- `BrowserArea.tsx` is now 588 lines after the local preview-state and
+  folder-session extraction and is no longer a default starting point while
+  larger cross-domain front doors remain unresolved.
 - `GroupContainer.tsx` mixes:
   - pinned/unpinned param rendering
   - DnD setup
@@ -202,10 +211,12 @@ Make section chrome and param rendering easy to change without touching measurem
 
 1. Simplify the layout-heavy front doors first
 
-- Start with:
-  - `BrowserArea.tsx`
-  - `TaskBoardArea.tsx` only when a same-turn follow-through shortens the
-    remaining root coordinator or one of its local owners
+- `BrowserArea.tsx` is now a follow-through-only layout coordinator; if this
+  domain is revisited, shorten it together with
+  `useBrowserAreaFolderSession.ts`, `useBrowserAreaPreviewState.ts`, or
+  `BrowserAreaContentView.tsx` in the same turn.
+- `TaskBoardArea.tsx` only when a same-turn follow-through shortens the
+  remaining root coordinator or one of its local owners
 - Continue through `chatAreaManagedSurface.tsx` or
   `chatAreaScriptableSurface.tsx` only when a same-turn slice directly
   shortens one of those local section-chat owners.

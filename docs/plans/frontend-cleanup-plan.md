@@ -61,7 +61,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The next readability problem after file scope is oversized flat namespaces
   where too many sibling files compete as plausible entry points.
 - There are 1503 authored TS/TSX files under `frontend/src`.
-- There are 32 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1200 lines.
+- There are 30 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1200 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1183 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
@@ -69,11 +69,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer a top-size hotspot
   - `frontend/src/components/Chat/ChatInput.tsx` at 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 63 lines after the local settings-section and manager extraction and is no longer a top-size hotspot
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a top-size hotspot
-- `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is still one of the largest unresolved chat/project-AI front doors
+- `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is still one of the largest unresolved chat rendering front doors.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 646 lines after the local tree-data transport/view-model, list-surface, and search-filter extraction and is no longer a top-size hotspot
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines after the local preview-surface and preview-state extraction
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 588 lines after the local preview-surface, preview-state, and folder-session extraction and is no longer a top-size hotspot
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
@@ -219,12 +219,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   list/icon/carousel render surface to
   `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx`, preview
   URL/text-preview cache plus carousel selection to
-  `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`, and
+  `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`,
+  browser root bootstrap, folder/history navigation, recursive filter
+  crawling, and saved-search persistence to
+  `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.ts`, and
   preview-kind/extension/staleness helpers to
   `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts`, so the
   next default work in that domain should continue from the remaining larger
   front-door surfaces instead of immediately re-cutting those new local browser
-  preview owners.
+  owners.
 - `frontend/src/plugins/runtime.ts` now delegates shared plugin-host type
   contracts, empty registry-accumulator construction, and section-kind key
   building to `frontend/src/plugins/runtimeHostTypes.ts`, capability gating,
@@ -315,12 +318,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `TaskBoardArea.tsx`, `RunInstructions.tsx`, or
   `appRegistry.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
-  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
@@ -398,6 +398,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts` now owns file-browser tree flatten/filter/sort helpers, request-ownership tokens, path/date formatting, and Setta-badge metadata helpers, while `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts` now owns file-browser root bootstrap, per-folder transport state, recursive-search crawling, preview URL refresh, and navigation tree view state used by `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`.
 - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface.tsx` now owns the file-browser header shell, virtualized row surface, local column-width sizing, and row-level drag/drop or tooltip rendering, while `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter.tsx` now owns the filter input, save-search action, and search-scope popover used by `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` and `frontend/src/components/Section/Layouts/BrowserArea.tsx`.
 - `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx` now owns the browser section list/icon/carousel render surface, `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts` now owns browser preview URL loading, text-preview fetch state, and carousel selection, and `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts` now owns preview-kind, extension-badge, file-size, and stale-preview helpers used by `frontend/src/components/Section/Layouts/BrowserArea.tsx`.
+- `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.ts` now owns browser root bootstrap, folder/history navigation, recursive filter crawling, path completion state, and saved-search persistence used by `frontend/src/components/Section/Layouts/BrowserArea.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
@@ -995,9 +996,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -1011,16 +1012,15 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` only when a
+    same-turn follow-through shortens `useBrowserAreaFolderSession.ts`,
+    `useBrowserAreaPreviewState.ts`, or `BrowserAreaContentView.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
   - project-chat hydration/runtime orchestration vs submission/edit handlers vs
     render branching in `ProjectChatCore.tsx`
-  - preview/list routing vs large-DOM browser surface rendering in
-    `BrowserArea.tsx`
   - tracked git-pane/window lifecycle vs floating placement/snap behavior in
     `ProjectChatBottomDock.tsx`
   - standalone window focus/z-index vs bounds/snap math vs page shell rendering
@@ -1099,20 +1099,19 @@ Notes:
    file names, clearer subfolders, and colocated tests.
 2. Choose the highest unresolved UI hotspot from the current tree and the
    companion plans,
-   usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
-   `components/Section/Layouts/BrowserArea.tsx`,
-   `components/Chat/ChatInput.tsx`,
+   usually `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`,
+   `components/Chat/ChatMessages.tsx`,
    `components/Git/GitGraphOverlay.tsx`,
    `components/Pages/Project/StandaloneWindowSpaceSurface.tsx`,
-   `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, or
-   `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
+   `components/Section/Layouts/BrowserArea.tsx`, or
+   `components/ChatWindowing/ProjectChatBottomDock.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a
    direct prerequisite for simplifying one of those larger hotspots or when it
    deletes a now-unnecessary compatibility surface after callers have
    converged.
 4. Continue into already-improved coordinators such as
-   `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatCore.tsx`,
-   `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `ChatMessages.tsx` only after
+   `ProjectChatSkillsMcpViewer.tsx`, `ProjectChat.tsx`,
+   `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `BrowserArea.tsx` only after
    the larger same-domain front doors above are materially smaller, or when
    the same-turn slice directly shortens them.
 5. Add domain subfolders in oversized flat namespaces only after each area

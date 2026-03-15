@@ -41,20 +41,16 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
-  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
-  `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`,
+  `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
-  `ProjectChatCore.tsx`,
-  `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and `appRegistry.tsx` are now
-  second-order work unless the same slice directly shortens one of the entry
-  surfaces above.
+  `ProjectChat.tsx`, `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and
+  `appRegistry.tsx` are now second-order work unless the same slice directly
+  shortens one of the entry surfaces above.
 - Once a root surface stabilizes, prefer domain subfolders in oversized flat
   namespaces over any new directory `README.md` files.
 
@@ -69,6 +65,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `TaskBoardArea.tsx` owner path, and the now-localized `ChatArea.tsx` owner
   path remain covered in
   [frontend-sections-and-params-cleanup-plan.md](./frontend-sections-and-params-cleanup-plan.md).
+- `BrowserArea.tsx` is no longer a top hotspot after delegating browser root
+  bootstrap, folder/history navigation, recursive filter crawling, and
+  saved-search persistence to
+  `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.ts`; if
+  section-layout follow-through returns here, it should shorten one of those
+  sharp local owners instead of rebuilding a larger browser coordinator.
 - `ProjectChatSkillsMcpViewer.tsx` is no longer a top hotspot after delegating
   the skills browser/filter shell to
   `projectChatSkillsBrowser.tsx`, the markdown preview/edit shell to
