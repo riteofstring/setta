@@ -3393,3 +3393,66 @@ Append-only log for the section performance refactor.
   - Keep using the deterministic dummy-node `mousedown` harness for any follow-up cold activation traces.
   - Base the next checkpoint decision on the mixed trace plus the corrected DOM/screenshot read, not on the false gray-border conclusion from entry 92.
   - If the evidence still points back down into the lower activation seam, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` first.
+
+### 2026-03-17 94
+
+- Item: Decide whether checkpoint 1 should reopen the lower CodeMirror activation seam or move outward to the shared row contract.
+- Status: `needs_more_work`
+- Details:
+  - Re-read the current lower activation seam around:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+    - `frontend/src/components/Utils/CodeMirror/codeMirrorLanguages.ts`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - Re-read the current branch-vs-`main` row contract owners:
+    - `frontend/index.css`
+    - `frontend/src/components/Params/paramRowClassNames.ts`
+    - `frontend/src/components/Params/ParamRowShell.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+  - Boundary-read conclusion:
+    - the previously landed lower-seam trims already cover the stronger obvious activation work:
+      - synchronous dummy-to-real handoff
+      - removal of the hidden-real initialization gate
+      - plain-versus-autocomplete split
+      - static extension/language caching
+      - guarded `getOnCreateEditor.ts` selection/cursor work
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` still contains a plausible but narrow residual cost in the unchanged non-empty preview path:
+      - parser parse
+      - `highlightTree(...)`
+      - decoration/text rebuilding
+      - React line/span emission
+    - that residual `DummyCodeMirror` work now reads as pre-activation preview cost, not as the main post-`mousedown` activation seam that this checkpoint has been tracing
+  - Read the mixed deterministic `mousedown` trace together with the corrected DOM result.
+  - Interpretation:
+    - the worktree's wins are in the categories the lower activation trims were meant to improve:
+      - `RunTask`
+      - `FunctionCall`
+      - `FireAnimationFrame`
+    - the worktree's losses are the categories more consistent with the remaining row/layout contract:
+      - `EventDispatch`
+      - `UpdateLayoutTree`
+      - `Layout`
+      - `Paint`
+      - `Commit`
+    - the stronger remaining branch-vs-`main` delta is therefore the shared row contract above the activation internals, not another blind pass in `TextInputCodeMirror` / `getExtensions` / `getOnCreateEditor`
+  - Decision:
+    - keep checkpoint 1 open
+    - do not reopen the lower CodeMirror activation seam on the current evidence
+    - treat `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` as a trace-gated fallback only if a fresh rerun explicitly isolates the unchanged non-empty preview path
+    - move the checkpoint evidence read outward to the shared param-row contract before any move upward into `sectionChrome`
+  - Remaining evidence gap:
+    - the plan still calls for explicit verification across:
+      - `Callable`
+      - `Dict`
+      - `GlobalVariables`
+      - one floated/window param section
+      - `MetaControl` as a contrast check
+    - the current tracker state has much stronger callable-side activation evidence than cross-section row-contract evidence
+- Next action:
+  - Keep using the deterministic dummy-node `mousedown` harness for relevant text-input checks.
+  - Build the next checkpoint read around the shared row contract and the declared cross-section verification set instead of another lower activation code slice.
+  - Only reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` if a fresh trace explicitly points back to the unchanged non-empty preview path.
