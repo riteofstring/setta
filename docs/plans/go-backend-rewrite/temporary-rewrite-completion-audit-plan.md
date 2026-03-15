@@ -596,3 +596,11 @@ guard from `backend/setta/mcp/tools/ui_settings.py`. The legacy Python reveal
 path no longer tries to call an undefined plugin-runtime support helper before
 revealing a setting, which matches the core-only registry it now uses. The
 focused Python MCP/UI-setting verification still passes after that cleanup.
+
+A twenty-second follow-up rewrite step narrowed the Python plugin package
+surface itself. `backend/setta/plugins/__init__.py` no longer exports
+`PluginManager`, and the direct agentic integration tests that only exercised
+the dead Python `PluginManager` -> external-agent-runner path were removed.
+The surrounding external-agent runner, preflight, and route suites still pass,
+which confirms the retained Python agentic surface does not depend on that
+plugin-manager export.
