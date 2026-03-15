@@ -3566,6 +3566,61 @@ func TestRegisterProjectRoutesChildSectionMutationsRejectInvalidInputs(t *testin
 	}
 }
 
+func TestRegisterProjectRoutesCreateChildSectionsRejectsDeploymentStructuralChanges(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			baselineProject := childSectionRouteTestProject(t)
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": baselineProject,
+					},
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteCreateChildSections,
+				strings.NewReader(`{"projectConfigId":"project-alpha","parentId":"code-section","implType":"Terminal","numChildren":1,"startIdx":0}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"structural_changes_forbidden"`) {
+				t.Fatalf("expected structural_changes_forbidden body, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment mode disallows structural changes.") {
+				t.Fatalf("expected deployment structural denial, got %q", response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if len(overlayProject.Sections) != len(baselineProject.Sections) {
+				t.Fatalf("expected rejected mutation to preserve overlay section count %d, got %d", len(baselineProject.Sections), len(overlayProject.Sections))
+			}
+			if got := overlayProject.SectionImpls["code-impl"].Code; got == nil || len(got.Children) != 0 {
+				t.Fatalf("expected code section to keep no attached children, got %#v", got)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 

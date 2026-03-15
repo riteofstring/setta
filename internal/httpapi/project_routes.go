@@ -1520,6 +1520,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteCreateChildSections, createChildSectionsHandler(deps))
 		router.With(shareGuard).Post(RouteMoveSections, moveSectionsHandler(deps))
 		router.With(shareGuard).Post(RouteSetCodeSectionAttachedTerminal, setCodeSectionAttachedTerminalHandler(deps))
 		router.With(shareGuard).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
@@ -2334,6 +2335,9 @@ func createChildSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 		projectID := strings.TrimSpace(payload.ProjectID)
 		if projectID == "" {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if !ensureProjectStructuralMutationsAllowed(w, r) {
 			return
 		}
 		if deps.ProjectState == nil || deps.SettingsState == nil {
