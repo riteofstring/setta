@@ -203,10 +203,16 @@ categorize them.
   requests, and trusted-origin store-read failure; the next small proof-only
   slices should keep following that pattern of route-visible negative branches
   on already-implemented owners
-- The watchcode runtime ignored-dir family and unrelated user `runtime/`
-  folder false-positive guard are now proved too; the remaining watchcode
-  backlog is the real resolved-root exclusion work rather than the generic
-  hard-coded basename behavior
+- That remaining watchcode resolved-root exclusion family is now closed too:
+  baseline scans and live watcher filtering both honor configured
+  `setta_files` / runtime roots, explicit ignored-file baselines no longer
+  leak through, and unrelated user folders merely named `runtime` still stay
+  scannable; the next cheap queue should move to other remaining
+  proof-incomplete or missing owners instead of staying on watchcode
+- The next cheap proof-only candidates after this pass are the share cached
+  artifact allowed-root rejection row plus the two adjacent gitread proof rows
+  (`git diff` raw-leading-space pathspecs / direct symlink rejection, and
+  SHA-256-length commit-hash acceptance)
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
