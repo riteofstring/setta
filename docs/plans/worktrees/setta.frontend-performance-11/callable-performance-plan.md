@@ -5,6 +5,46 @@ Worktree: `setta.frontend-performance-11`
 Branch at planning time: `frontend-performance-11`
 Related log: `docs/plans/worktrees/setta.frontend-performance-11/callable-performance-log.md`
 
+## Start Here
+
+If you are a new chat/session picking this work up, use this section first.
+
+- Despite the filename, the active work is no longer callable-only.
+- The accepted callable work in this branch is now pilot history for a broader sections-wide DOM simplification effort.
+- The active refactor target is shared section-shell structure above the callable subtree.
+
+Current status:
+
+- Callable pilot work: complete as pilot/history
+- Callable-specific performance goal: not fully achieved
+- Active plan: sections-wide section-shell simplification
+- Active phase: `Phase S0: Shared Section-Shell Baseline`
+
+Non-negotiable constraints:
+
+- Eliminate div soup wherever wrappers are not carrying real value.
+- Do not use `grid` or `subgrid` in the active implementation path.
+- Use the simplest rendering/layout technique that preserves parity.
+- Preserve all existing user-facing behavior, features, and interactions.
+- The intended user-visible outcome is performance gain only, not redesign.
+- Work from the deepest nested layout ownership outward/upward.
+- Expect multiple passes; after removing a top shared grid layer, re-analyze before deciding the next pass.
+- Use Chrome DevTools performance testing and compare untouched `main` vs this worktree.
+- If a target truly cannot be achieved without `grid`, stop and report the blocker instead of introducing `grid`.
+
+Immediate next step:
+
+1. Run `Phase S0: Shared Section-Shell Baseline`.
+2. Lock representative scenes beyond the callable pilot:
+   - one editor-backed non-callable section
+   - one non-editor section that still exercises the shared section shell and resize path
+3. Capture on `main` and this worktree:
+   - DOM audit: node count, depth, wrapper-only nodes, remaining grid/subgrid ownership
+   - Chrome DevTools traces on the shared resize path
+4. Identify the deepest nested DOM cluster to attack first for each representative section.
+
+Use the log for append-only history, but the active direction and next step should be readable from this file alone.
+
 ## Goal
 
 Simplify the section DOM structure as aggressively as possible, while keeping visible layout and interaction behavior effectively identical to untouched `main`.
