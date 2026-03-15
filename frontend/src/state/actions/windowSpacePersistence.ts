@@ -2,7 +2,7 @@ import { getAuthoritativeProjectChatWindowingState } from "state/actions/project
 import {
   flushPendingProjectChatWindowingWrites,
   syncProjectChatWindowingState,
-} from "state/actions/projectChatWindowingWrites";
+} from "state/actions/projectChatWindowingWriteSync";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
 import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImplSelectors";
 import {

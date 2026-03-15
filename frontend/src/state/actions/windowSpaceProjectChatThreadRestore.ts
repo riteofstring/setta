@@ -1,6 +1,6 @@
 import { setProjectChatWindowChatId } from "state/actions/projectChatWindowMetadataCommands";
 import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
-import { flushPendingProjectChatWindowingWrites } from "state/actions/projectChatWindowingWrites";
+import { flushPendingProjectChatWindowingWrites } from "state/actions/projectChatWindowingWriteSync";
 import { useProjectState, useShareSession } from "state/definitions";
 import {
   ChatWindowModeEnum,

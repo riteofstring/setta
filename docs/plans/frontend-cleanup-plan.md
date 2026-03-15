@@ -33,7 +33,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - page routing already uses `frontend/src/components/Pages/routeConfig.ts` and `frontend/src/components/Pages/modeRouteResolver.ts`
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
   - project chat already has feature-local helpers such as `projectChatHydrationAuthority.ts`, `projectChatStarterPrompts.ts`, `projectChatSlashCommandSelectors.ts`, and `projectChatFocusUtils.ts`
-- project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingInstanceState.ts`, `frontend/src/state/actions/projectChatWindowingPlacementState.ts`, `frontend/src/state/actions/projectChatWindowingBoundsState.ts`, `frontend/src/state/actions/projectChatWindowingLayoutState.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowCommands.ts`, `frontend/src/state/actions/projectChatWindowMetadataCommands.ts`, `frontend/src/state/actions/projectChatWindowSectionCommands.ts`, `frontend/src/state/actions/projectChatWindowingWriteState.ts`, `frontend/src/state/actions/projectChatWindowingWritePipeline.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
+- project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingInstanceState.ts`, `frontend/src/state/actions/projectChatWindowingPlacementState.ts`, `frontend/src/state/actions/projectChatWindowingBoundsState.ts`, `frontend/src/state/actions/projectChatWindowingLayoutState.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowCommands.ts`, `frontend/src/state/actions/projectChatWindowMetadataCommands.ts`, `frontend/src/state/actions/projectChatWindowSectionCommands.ts`, `frontend/src/state/actions/projectChatWindowingWriteState.ts`, `frontend/src/state/actions/projectChatWindowingWriteQueue.ts`, `frontend/src/state/actions/projectChatWindowingWritePublish.ts`, `frontend/src/state/actions/projectChatWindowingWriteSync.ts`, `frontend/src/state/actions/projectChatWindowingWritePipeline.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
   - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - LLM config/API-key handling now lives in `frontend/src/state/actions/aiLLMConfiguration.ts`, while agent-profile, prompt-template, external-agent, external-agent-health, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfigurationCatalogs.ts`
@@ -84,9 +84,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/projectChatWindowingWriteState.ts` now owns
   layout-write permissions, current-windowing store access, optimistic apply
   helpers, and local active-chat sync, while
-  `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` now owns
-  serialized write coordination, authoritative publish/replay, and explicit
-  sync/flush helpers, reducing
+  `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` now owns
+  pending-mutation queueing plus write barriers and flush coordination,
+  `frontend/src/state/actions/projectChatWindowingWritePublish.ts` now owns
+  authoritative publish/replay plus tracked response/send helpers,
+  `frontend/src/state/actions/projectChatWindowingWriteSync.ts` now owns
+  explicit sync/flush helpers, and
+  `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` is now the
+  thin serialized write orchestrator, reducing
   `frontend/src/state/actions/projectChatWindowingWrites.ts` to a thinner
   public mutation facade.
 - `frontend/src/state/actions/sections/createSections.ts` now owns top-level
@@ -231,8 +236,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   section exposure, undock, and section/window mode transition commands,
   `frontend/src/state/actions/projectChatWindowingWriteState.ts` now owns
   layout-write permissions plus optimistic apply helpers,
+  `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` now owns
+  pending-mutation queueing plus write barriers and flush coordination,
+  `frontend/src/state/actions/projectChatWindowingWritePublish.ts` now owns
+  authoritative publish/replay plus tracked response/send helpers,
+  `frontend/src/state/actions/projectChatWindowingWriteSync.ts` now owns
+  explicit sync/flush helpers, and
   `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` now owns
-  serialized write coordination and authoritative publish/replay, and
+  thin serialized write orchestration, and
   `frontend/src/state/actions/projectChatWindowingWrites.ts` is now a thin
   public mutation facade, reducing
   `frontend/src/state/actions/projectChatWindowing.ts` to a 28-line
@@ -394,7 +405,7 @@ Notes:
 ## Phase 3: Simplify Project Chat Windowing
 
 - Refactor `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` and `frontend/src/state/actions/projectChatWindowing.ts`.
-- Continue from the existing selector/instance-state/placement-state/bounds-state/layout-state/state/write-state/write-pipeline/authoritative/ephemeral helper seams in `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
+- Continue from the existing selector/instance-state/placement-state/bounds-state/layout-state/state/write-state/write-queue/write-publish/write-sync/write-pipeline/authoritative/ephemeral helper seams in `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
 - Separate:
   - layout math
   - pointer/keyboard interaction state
@@ -456,7 +467,7 @@ Notes:
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
 2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiChatStreaming.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
-3. Continue the project chat windowing split from the existing `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
+3. Continue the project chat windowing split from the existing `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
 6. Add feature READMEs as each area stabilizes.

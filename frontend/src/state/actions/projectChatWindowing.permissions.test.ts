@@ -26,7 +26,7 @@ import {
   setProjectChatWindowChatId,
   showSectionInProjectChatWindow,
 } from "./projectChatWindowing";
-import { flushPendingProjectChatWindowingWrites } from "./projectChatWindowingWrites";
+import { flushPendingProjectChatWindowingWrites } from "./projectChatWindowingWriteSync";
 
 describe("project chat windowing permissions", () => {
   beforeEach(() => {

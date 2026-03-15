@@ -11,11 +11,11 @@ export {
   setProjectChatWindowPlacement,
   unmaximizeProjectChatWindow,
 } from "./projectChatWindowCommands";
+export { replaceProjectChatWindowingState } from "./projectChatWindowingWrites";
 export {
   flushPendingProjectChatWindowingWrites,
-  replaceProjectChatWindowingState,
   syncProjectChatWindowingState,
-} from "./projectChatWindowingWrites";
+} from "./projectChatWindowingWriteSync";
 export {
   getCurrentProjectChatWindowingState,
   setProjectChatWindowChatId,

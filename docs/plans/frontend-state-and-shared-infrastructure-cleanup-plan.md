@@ -34,8 +34,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   title/chat-id commands plus current-windowing reads to
   `projectChatWindowMetadataCommands.ts`, section exposure and mode-transition
   commands to `projectChatWindowSectionCommands.ts`, write-state reads plus
-  optimistic apply helpers to `projectChatWindowingWriteState.ts`, serialized
-  write coordination and authoritative publish/replay to
+  optimistic apply helpers to `projectChatWindowingWriteState.ts`,
+  pending-mutation queueing to `projectChatWindowingWriteQueue.ts`,
+  authoritative publish/replay plus send helpers to
+  `projectChatWindowingWritePublish.ts`, explicit sync/flush helpers to
+  `projectChatWindowingWriteSync.ts`, serialized orchestration to
   `projectChatWindowingWritePipeline.ts`, and the public mutation facade to
   `projectChatWindowingWrites.ts`, alongside
   `projectChatWindowingAuthoritative.ts` and
@@ -142,10 +145,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   layout write permissions, current-windowing store access, and optimistic
   apply helpers that previously lived in
   `frontend/src/state/actions/projectChatWindowing.ts`, while
-  `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` now owns
-  serialized write coordination, authoritative publish/replay, and sync/flush
-  helpers, reducing `frontend/src/state/actions/projectChatWindowingWrites.ts`
-  to the public mutation facade.
+  `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` now owns
+  pending-mutation queueing plus write barriers and flush coordination,
+  `frontend/src/state/actions/projectChatWindowingWritePublish.ts` now owns
+  authoritative publish/replay plus tracked response/send helpers,
+  `frontend/src/state/actions/projectChatWindowingWriteSync.ts` now owns
+  explicit sync/flush helpers, and
+  `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` is now the
+  thin serialized write orchestrator, reducing
+  `frontend/src/state/actions/projectChatWindowingWrites.ts` to the public
+  mutation facade.
 - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
   persisted project-chat thread group creation, rename, collapse, pin, reorder,
   assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`
@@ -198,21 +207,22 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
+  - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
+  - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
+  - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -416,11 +426,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingWriteState.ts` now owns:
   - layout write permissions and current-windowing store access
   - optimistic mutation application, local rollback boundaries, and active-chat sync
+- `projectChatWindowingWriteQueue.ts` now owns:
+  - pending-mutation queueing, write barriers, and flush coordination
+- `projectChatWindowingWritePublish.ts` now owns:
+  - authoritative publish/replay plus tracked response/send helpers
+- `projectChatWindowingWriteSync.ts` now owns:
+  - explicit sync helpers and the flush facade for project-chat windowing writes
 - `projectChatWindowingWritePipeline.ts` now owns:
-  - serialized write barriers and pending-mutation queueing
-  - authoritative publish/replay flow and explicit sync/flush helpers
+  - thin serialized orchestration across the write-queue and write-publish owners
 - `projectChatWindowingWrites.ts` now owns:
-  - the thin public mutation facade that composes write-state and write-pipeline helpers
+  - the thin public mutation facade that composes write-state, write-pipeline, and write-sync helpers
 - `sections/createSections.ts`, `sections/createSectionPlacement.ts`,
   `sections/createSectionFileOpenShared.ts`,
   `sections/createSectionFileOpenCommands.ts`,
@@ -516,12 +531,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `projectChatWindowingWritePipeline.ts` into narrower write helpers
+2. Split `aiChatControls.ts` into narrower chat-control helpers
 
-- Separate pending-mutation queueing from authoritative publish/replay and
-  explicit sync/flush coordination.
-- Keep naming explicit so agents can tell whether they are calling a local
-  write barrier, a publish/replay helper, or a sync/flush helper.
+- Separate stop orchestration from local stop-state reconciliation and external
+  approval/question response flows.
+- Keep naming explicit so agents can tell whether they are calling a stop
+  command, a stop-state helper, or an external response transport helper.
 
 3. Normalize optimistic mutation infrastructure
 
@@ -532,7 +547,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Continue routing new optimistic write paths through
   `projectStateOptimisticUpdates.ts` instead of rebuilding queue or rollback
   helpers inside feature query modules.
-- Reuse seams that already exist in `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
+- Reuse seams that already exist in `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
 - Avoid each domain hand-rolling slightly different optimistic update scaffolding.
 
 4. Split cross-cutting interaction utilities

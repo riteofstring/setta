@@ -1,14 +1,13 @@
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useAIStore } from "state/stores/aiStores";
 import { type ProjectChatWindowingState } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject } from "./projectChatWindowingEphemeral";
+import { enqueueSerializedProjectChatWindowingWrite } from "./projectChatWindowingWritePipeline";
 import {
-  enqueueSerializedProjectChatWindowingWrite,
   primeAuthoritativeProjectChatWindowingState,
   sendProjectChatWindowingSnapshot,
-  type ProjectChatWindowingSend,
-} from "./projectChatWindowingWritePipeline";
+} from "./projectChatWindowingWritePublish";
+import { hasPendingProjectChatWindowingMutations } from "./projectChatWindowingWriteQueue";
 import {
   applyProjectChatWindowingMutation,
   applyProjectChatWindowingMutationToState,
@@ -21,12 +20,15 @@ import {
 import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
-export { flushPendingProjectChatWindowingWrites } from "./projectChatWindowingWritePipeline";
 export {
   canMutateProjectChatWindowingLayout,
   getProjectChatWindowingStateFromStore,
 } from "./projectChatWindowingWriteState";
 export type { ProjectChatWindowingStoreOptions } from "./projectChatWindowingWriteState";
+export {
+  flushPendingProjectChatWindowingWrites,
+  syncProjectChatWindowingState,
+} from "./projectChatWindowingWriteSync";
 
 export function dispatchProjectChatWindowingMutation(
   mutation: ProjectChatWindowingMutation,
@@ -63,6 +65,7 @@ export function dispatchProjectChatWindowingMutation(
   }
   primeAuthoritativeProjectChatWindowingState(
     projectConfigId,
+    hasPendingProjectChatWindowingMutations(projectConfigId),
     previousProjectChatWindowing,
   );
 
@@ -137,30 +140,6 @@ export function applyProjectChatWindowingMutationLocally(
       activeChatId: options.syncActiveChatId,
     });
   }
-}
-
-export async function syncProjectChatWindowingState() {
-  const projectConfigId = getCurrProjectConfigId();
-  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return null;
-  }
-  const currentWindowing = getProjectChatWindowingStateFromStore(
-    useProjectState.getState(),
-  );
-  primeAuthoritativeProjectChatWindowingState(
-    projectConfigId,
-    currentWindowing,
-  );
-  const opId = createNewId();
-  return enqueueSerializedProjectChatWindowingWrite(projectConfigId, opId, {
-    alwaysSend: true,
-    mutation: (latestWindowing) => ({
-      nextProjectChatWindowing: latestWindowing,
-      alwaysSend: true,
-    }),
-    opId,
-    send: sendProjectChatWindowingSnapshot as ProjectChatWindowingSend,
-  });
 }
 
 export function replaceProjectChatWindowingState(

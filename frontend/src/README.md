@@ -142,11 +142,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectChatWindowingWriteState.ts` owns layout-write
     permissions, current-windowing store access, optimistic apply helpers, and
     local sync behavior.
-  - `state/actions/projectChatWindowingWritePipeline.ts` owns serialized write
-    coordination, authoritative publish/replay, and explicit sync/flush
-    helpers.
+  - `state/actions/projectChatWindowingWriteQueue.ts` owns pending-mutation
+    queueing, write barriers, and flush coordination.
+  - `state/actions/projectChatWindowingWritePublish.ts` owns authoritative
+    publish/replay plus tracked response/send helpers.
+  - `state/actions/projectChatWindowingWriteSync.ts` owns explicit sync helpers
+    and the flush facade for project-chat windowing writes.
+  - `state/actions/projectChatWindowingWritePipeline.ts` now owns thin
+    serialized orchestration across the write-queue and write-publish owners.
   - `state/actions/projectChatWindowingWrites.ts` is now a thinner public
-    mutation facade over the write-state and write-pipeline owners.
+    mutation facade over the write-state, write-pipeline, and write-sync
+    owners.
   - `state/actions/projectChatWindowingAuthoritative.ts` and
     `state/actions/projectChatWindowingEphemeral.ts` already hold narrower helper
     seams and should be extended instead of recreated elsewhere.
@@ -426,10 +432,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
-- `state/actions/projectChatWindowingWritePipeline.ts` is now the largest
-  remaining project-chat windowing coordination surface, so follow-up windowing
-  cleanup should stay local to the write pipeline or the new command modules
-  instead of regrowing the reducer owners
+- `state/actions/aiChatControls.ts` now owns the largest remaining state/action
+  hotspot, so follow-up chat cleanup should stay local to stop orchestration
+  and approval/question response flows instead of regrowing streaming or
+  hydration modules.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.
