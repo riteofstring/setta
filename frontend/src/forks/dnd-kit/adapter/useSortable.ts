@@ -9,8 +9,10 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
-import { getSectionInfo } from "state/actions/sectionHierarchy";
-import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
+import {
+  getSectionInfo,
+  getSectionIsHorizontalOrientation,
+} from "state/actions/sectionInfos";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
 import {

@@ -23,9 +23,7 @@ from setta.types.project_state import ProjectStateBackend, ProjectStateSingleCon
 from setta.types.section_impls import BaseDictSectionImpl, ConfigLanguage, DictSectionImpl
 from setta.utils.structured_data import write_json_source_payload
 from setta.utils.paths import normalize_workspace_path
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -34,7 +32,6 @@ class JsonSourceKeysManager(BaseProjectManager):
         self,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
-        python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
@@ -47,7 +44,6 @@ class JsonSourceKeysManager(BaseProjectManager):
         super().__init__(
             lsp_writers,
             websocket_msg_handler,
-            python_script_sender,
             settings_file,
             specific_file_watcher,
             dbe,
@@ -74,11 +70,7 @@ class TestJsonSourceKeysRefresh:
         root = Path(self._tmpdir.name)
         self.setta_root = root / "setta_files"
         self.websocket_manager = WebsocketManager()
-        self.listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
         self.dbe = DBE(self.setta_root)
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
@@ -112,7 +104,6 @@ class TestJsonSourceKeysRefresh:
         self.manager = JsonSourceKeysManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,

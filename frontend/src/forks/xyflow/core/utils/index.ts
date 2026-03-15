@@ -4,7 +4,7 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import type { Box, Dimensions, Node, Rect } from "../types";

@@ -20,7 +20,6 @@ from setta.types.chat_toolkit import (
     SetChatSystemPromptRequest,
 )
 from setta.types.id import ID
-from setta.types.listener import ListenerCoverageRequest, ListenerCoverageSnapshot
 from setta.types.llm_config import build_scriptable_llm_config
 from setta.types.routes import Route
 
@@ -49,22 +48,6 @@ def _resolve_engine_llm_config(
     if resolved.llm_config is None:
         raise HTTPException(status_code=500, detail="Engine config missing LLM config")
     return resolved.llm_config
-
-
-@router.post(Route.GET_LISTENER_COVERAGE)
-async def route_get_listener_coverage(
-    x: ListenerCoverageRequest,
-    ctx: RuntimeContextFromRequest,
-) -> ListenerCoverageSnapshot:
-    share_session_id = ctx.share_session_id
-    return ctx.state.wmh_python_script_receiver.listener_coverage_tracker.get_snapshot_for_project(
-        x.projectConfigId,
-        ctx.state.listener_registry.iter_registrations_for_project(
-            x.projectConfigId,
-            share_session_id=share_session_id,
-        ),
-        share_session_id=share_session_id,
-    )
 
 
 @router.post(Route.CREATE_CHAT)

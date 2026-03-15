@@ -52,9 +52,7 @@ from setta.types.section_impls import (
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.paths import normalize_workspace_path, workspace_relative_path
 from setta.utils.utils import compute_md5_hex
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.manager_fixture import _shutdown_manager
@@ -107,10 +105,6 @@ class TestWatchCode:
         self.dbe = DBE(self.setta_root)
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.listener_registry = ListenerRegistry()
-        self.python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
         loop = asyncio.get_running_loop()
         self.specific_file_watcher = SpecificFileWatcher(loop=loop)
@@ -151,7 +145,6 @@ class TestWatchCode:
         self.manager = SessionProjectManager(
             persistence_mode=SessionPersistenceMode.ide_main,
             frontend_sender=self.frontend_sender,
-            python_script_sender=self.python_script_sender,
             settings_file=self.settings_file,
             specific_file_watcher=self.specific_file_watcher,
             dbe=self.dbe,
@@ -1265,10 +1258,6 @@ class TestWatchCodeLspOrdering:
         self.dbe = DBE(self.setta_root)
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.listener_registry = ListenerRegistry()
-        self.python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
         loop = asyncio.get_running_loop()
         self.specific_file_watcher = SpecificFileWatcher(loop=loop)
@@ -1312,7 +1301,6 @@ class TestWatchCodeLspOrdering:
         self.manager = SessionProjectManager(
             persistence_mode=SessionPersistenceMode.ide_main,
             frontend_sender=self.frontend_sender,
-            python_script_sender=self.python_script_sender,
             settings_file=self.settings_file,
             specific_file_watcher=self.specific_file_watcher,
             dbe=self.dbe,
