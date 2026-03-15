@@ -904,6 +904,95 @@ func TestRunAPIRejectsUnknownToolWithoutExplicitAuth(t *testing.T) {
 	}
 }
 
+func TestRunAPIUnknownToolWithExplicitAuthUsesDedicatedJSONContract(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	authPath := filepath.Join(t.TempDir(), "auth.json")
+	if err := os.WriteFile(authPath, []byte(`{"cookieHeader":"Cookie: session=value","baseUrl":"http://127.0.0.1:8000"}`), 0o644); err != nil {
+		t.Fatalf("write auth payload: %v", err)
+	}
+
+	// Once auth is explicit, unknown tools should use the dedicated packaged-CLI
+	// error payload instead of the missing-auth InputError contract.
+	stdout, stderr, err := fixture.run("api", "unknownTool", "--auth-json", authPath, "--json-output")
+	if err == nil {
+		t.Fatal("expected unknown-tool error")
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if payload["error"] != "UnknownTool" {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+	if payload["tool"] != "unknownTool" {
+		t.Fatalf("unexpected unknown tool payload %#v", payload)
+	}
+}
+
+func TestRunAPIExplicitCookieAuthTakesPriorityAndUsesSessionBaseURLFallback(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	sessionServerCalls := 0
+	authServerCalls := 0
+	capturedCookie := ""
+	sessionServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sessionServerCalls++
+		capturedCookie = r.Header.Get("Cookie")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"server":"session"}`))
+	}))
+	defer sessionServer.Close()
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authServerCalls++
+		t.Fatalf("explicit auth-json base URL should not be used when cookie auth falls back to the selected session base URL")
+	}))
+	defer authServer.Close()
+
+	fixture.createSessionForURL(t, proc, sessionServer.URL, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	authPath := filepath.Join(t.TempDir(), "auth.json")
+	if err := os.WriteFile(authPath, []byte(`{"cookieHeader":"Cookie: session=auth-json","baseUrl":"`+authServer.URL+`"}`), 0o644); err != nil {
+		t.Fatalf("write auth payload: %v", err)
+	}
+
+	// Explicit cookie auth should win over lower-priority auth JSON, while the
+	// selected session still supplies the default base URL when callers omit it.
+	stdout, stderr, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"api",
+		"getProjectConfigNamesAndIds",
+		"--cookie-header",
+		"Cookie: session=explicit-cookie",
+		"--auth-json",
+		authPath,
+		"--json-output",
+	)
+	if err != nil {
+		t.Fatalf("run api explicit cookie precedence: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != `{"server":"session"}` {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+	if sessionServerCalls != 1 {
+		t.Fatalf("expected one session-server request, got %d", sessionServerCalls)
+	}
+	if authServerCalls != 0 {
+		t.Fatalf("expected no auth-server requests, got %d", authServerCalls)
+	}
+	if capturedCookie != "session=explicit-cookie" {
+		t.Fatalf("unexpected cookie header %q", capturedCookie)
+	}
+}
+
 func TestRunAPIHTTPErrorJSONContract(t *testing.T) {
 	t.Parallel()
 
