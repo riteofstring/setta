@@ -1,44 +1,16 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
-import {
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "utils/constants";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
-
-const TEXT_INPUT_SECTION_GUARD_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
-const TEXT_FIELD_COMPLETIONS_FN_CACHE = new Map<string, ReturnType<typeof wrappedCompletionsFn>>();
-const TEXT_INPUT_BASIC_SETUP = {
-  lineNumbers: false,
-  highlightActiveLineGutter: false,
-  highlightSpecialChars: false,
-  history: false,
-  foldGutter: false,
-  dropCursor: false,
-  allowMultipleSelections: false,
-  indentOnInput: false,
-  autocompletion: false,
-  rectangularSelection: false,
-  crosshairCursor: false,
-  highlightActiveLine: false,
-  highlightSelectionMatches: false,
-  historyKeymap: false,
-  foldKeymap: false,
-  completionKeymap: false,
-  lintKeymap: false,
-  tabSize: 4,
-} as const;
 
 export function TextInputCodeMirror({
   sectionId,
@@ -65,9 +37,17 @@ export function TextInputCodeMirror({
   completionsFn,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
+  const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
 
   function localOnBlur() {
+    // hack to prevent codemirror from
+    // blocking other inputs on blur
+    // https://github.com/uiwjs/react-codemirror/issues/677
+    setTimeout(() => {
+      setActivationEvent(null);
+      setRealIsInitialized(false);
+    }, 0);
     onBlur?.();
   }
 
@@ -79,9 +59,7 @@ export function TextInputCodeMirror({
       return;
     }
     if (event.button === 0) {
-      flushSync(() => {
-        setActivationEvent(event);
-      });
+      setActivationEvent(event);
       applyActiveSectionChange({ interaction: "input-focus", sectionId });
     }
     onMouseDown?.(event);
@@ -93,21 +71,19 @@ export function TextInputCodeMirror({
       return;
     }
     if (!activationEvent) {
-      flushSync(() => {
-        setActivationEvent("tab");
-      });
+      setActivationEvent("tab");
     }
   }
 
   return (
     <>
-      {!activationEvent && (
+      {!realIsInitialized && (
         <DummyCodeMirror
           divId={dummyDivId}
           code={value}
           onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}
-          className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${dummyCodeClassName}`}
+          className={dummyCodeClassName}
           singleLine={singleLine}
           wrapLines={wrapLines}
           theme={theme}
@@ -130,6 +106,8 @@ export function TextInputCodeMirror({
           onTab={onTab}
           onBlur={localOnBlur}
           initialEvent={activationEvent}
+          realIsInitialized={realIsInitialized}
+          setRealIsInitialized={setRealIsInitialized}
           theme={theme}
           language={language}
           autocomplete={autocomplete}
@@ -165,6 +143,8 @@ function CoreCodeMirror({
   onBlur,
   onTab,
   initialEvent,
+  realIsInitialized,
+  setRealIsInitialized,
   theme,
   language,
   autocomplete,
@@ -172,203 +152,53 @@ function CoreCodeMirror({
   completionsFn,
   tooltipParentDivId,
 }) {
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const canUseLsp = !isDeploymentMode;
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
-  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
-  const onCreateEditor = useMemo(
-    () =>
-      getOnCreateEditor({
-        initialEvent,
-        value,
-        defaultVal,
-      }),
-    [defaultVal, initialEvent, value],
-  );
-
-  if (shouldAutocomplete) {
-    return (
-      <AutocompleteCoreCodeMirror
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        value={value}
-        defaultVal={defaultVal}
-        onChange={onChange}
-        className={className}
-        singleLine={singleLine}
-        wrapLines={wrapLines}
-        keyComboActions={keyComboActions}
-        onEscape={onEscape}
-        onBlur={onBlur}
-        onTab={onTab}
-        onCreateEditor={onCreateEditor}
-        theme={theme}
-        language={language}
-        completionsFn={completionsFn}
-        tooltipParentDivId={tooltipParentDivId}
-        divId={divId}
-      />
-    );
-  }
-
-  return (
-    <PlainCoreCodeMirror
-      value={value}
-      defaultVal={defaultVal}
-      onChange={onChange}
-      className={className}
-      singleLine={singleLine}
-      wrapLines={wrapLines}
-      keyComboActions={keyComboActions}
-      onEscape={onEscape}
-      onBlur={onBlur}
-      onTab={onTab}
-      onCreateEditor={onCreateEditor}
-      theme={theme}
-      language={language}
-      divId={divId}
-    />
-  );
-}
-
-function PlainCoreCodeMirror({
-  value,
-  defaultVal,
-  onChange,
-  className,
-  singleLine,
-  wrapLines,
-  keyComboActions,
-  onEscape,
-  onBlur,
-  onTab,
-  onCreateEditor,
-  theme,
-  language,
-  divId,
-}) {
-  const extensions = useMemo(
-    () =>
-      getExtensions({
-        language,
-        singleLine,
-        wrapLines,
-        tabToAutocomplete: true,
-        keyComboActions,
-        onTab,
-        onEscape,
-      }),
-    [
-      keyComboActions,
-      language,
-      onEscape,
-      onTab,
-      singleLine,
-      wrapLines,
-    ],
-  );
-
-  return (
-    <RenderedCodeMirror
-      divId={divId}
-      className={className}
-      value={value}
-      defaultVal={defaultVal}
-      onChange={onChange}
-      onBlur={onBlur}
-      onCreateEditor={onCreateEditor}
-      theme={theme}
-      extensions={extensions}
-    />
-  );
-}
-
-function AutocompleteCoreCodeMirror({
-  sectionId,
-  paramInfoId,
-  value,
-  defaultVal,
-  onChange,
-  className,
-  singleLine,
-  wrapLines,
-  keyComboActions,
-  onEscape,
-  onBlur,
-  onTab,
-  onCreateEditor,
-  theme,
-  language,
-  completionsFn,
-  tooltipParentDivId,
-  divId,
-}) {
   const resolvedTooltipParentDivId =
     resolveTooltipParentDivId(tooltipParentDivId);
   const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
-  const resolvedCompletionsFn = useMemo(
-    () => completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId),
-    [completionsFn, paramInfoId, sectionId],
+
+  const resolvedCompletionsFn = useCallback(
+    shouldAutocomplete
+      ? completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId)
+      : () => null,
+    [sectionId, paramInfoId, shouldAutocomplete, completionsFn],
   );
 
-  const extensions = useMemo(
-    () =>
-      getExtensions({
-        parent: tooltipParent,
-        language,
-        completionsFn: resolvedCompletionsFn,
-        singleLine,
-        wrapLines,
-        tabToAutocomplete: true,
-        keyComboActions,
-        onTab,
-        onEscape,
-      }),
-    [
-      keyComboActions,
-      language,
-      onEscape,
-      onTab,
-      resolvedCompletionsFn,
-      singleLine,
-      tooltipParent,
-      wrapLines,
-    ],
-  );
+  const extensions = getExtensions({
+    parent: tooltipParent,
+    language,
+    completionsFn: resolvedCompletionsFn,
+    singleLine,
+    wrapLines,
+    tabToAutocomplete: true,
+    keyComboActions,
+    onTab,
+    onEscape,
+  });
 
-  return (
-    <RenderedCodeMirror
-      divId={divId}
-      className={className}
-      value={value}
-      defaultVal={defaultVal}
-      onChange={onChange}
-      onBlur={onBlur}
-      onCreateEditor={onCreateEditor}
-      theme={theme}
-      extensions={extensions}
-    />
-  );
-}
+  const onCreateEditor = getOnCreateEditor({
+    initialEvent,
+    setRealIsInitialized,
+    divId,
+    value,
+    defaultVal,
+  });
 
-function RenderedCodeMirror({
-  divId,
-  className,
-  value,
-  defaultVal,
-  onChange,
-  onBlur,
-  onCreateEditor,
-  theme,
-  extensions,
-}) {
   return (
     <CodeMirror
       id={divId}
-      className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${className}`}
+      className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
-      basicSetup={TEXT_INPUT_BASIC_SETUP}
+      basicSetup={{
+        lineNumbers: false,
+        foldGutter: false,
+        highlightActiveLine: false,
+        tabSize: 4,
+      }}
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}
@@ -384,12 +214,6 @@ function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
 ) {
-  const cacheKey = `${sectionId}:${paramInfoId ?? ""}`;
-  const cached = TEXT_FIELD_COMPLETIONS_FN_CACHE.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
   const fn = async (fullText: string, position: number) => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
@@ -413,7 +237,5 @@ function getTextFieldCompletionsFn(
     return [];
   };
 
-  const wrapped = wrappedCompletionsFn(fn);
-  TEXT_FIELD_COMPLETIONS_FN_CACHE.set(cacheKey, wrapped);
-  return wrapped;
+  return wrappedCompletionsFn(fn);
 }
