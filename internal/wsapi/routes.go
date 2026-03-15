@@ -886,10 +886,13 @@ func resolveListenerBootstrap(
 	case projectName != "":
 		projectID, err = snapshot.Document.ProjectIDByName(projectName)
 		if err != nil {
-			return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{
+			details := map[string]any{
 				"projectName": projectName,
-				"message":     err.Error(),
-			}, err
+			}
+			if !errors.Is(err, projectstate.ErrProjectNotFound) {
+				details["message"] = err.Error()
+			}
+			return "", listenersnapshot.ListenerSnapshotPayload{}, details, err
 		}
 	default:
 		projectID = strings.TrimSpace(snapshot.Document.DefaultProjectID)
@@ -901,14 +904,15 @@ func resolveListenerBootstrap(
 
 	_, err = projectview.SingleConfigByProjectID(snapshot.Document, projectID)
 	if err != nil {
-		details := map[string]any{
-			"message": err.Error(),
-		}
+		details := map[string]any{}
 		if projectID != "" {
 			details["projectConfigId"] = projectID
 		}
 		if projectName != "" {
 			details["projectName"] = projectName
+		}
+		if !errors.Is(err, projectstate.ErrProjectNotFound) {
+			details["message"] = err.Error()
 		}
 		return "", listenersnapshot.ListenerSnapshotPayload{}, details, err
 	}

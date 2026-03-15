@@ -54,12 +54,14 @@ func TestRegisterListenerRoutesRejectsUnknownProjectConfig(t *testing.T) {
 		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error response: %v", err)
+	var payload struct {
+		Detail string `json:"detail"`
 	}
-	if payload.Error.Code != "project_config_not_found" {
-		t.Fatalf("expected project_config_not_found, got %q", payload.Error.Code)
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode detail response: %v", err)
+	}
+	if payload.Detail != "project state unavailable for missing-project" {
+		t.Fatalf("expected missing-project detail body, got %#v", payload)
 	}
 }
 

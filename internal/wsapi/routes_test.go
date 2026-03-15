@@ -1110,6 +1110,7 @@ func TestRegisterRoutesListenerInitMissingProjectSendsListenerError(t *testing.T
 	assertRouteListenerError(t, listenerError, "project_state_unavailable", map[string]any{
 		"projectName": "Missing Project",
 	})
+	assertRouteListenerErrorMissingDetailKey(t, listenerError, "message")
 }
 
 func TestRegisterRoutesListenerInitMissingProjectIDSendsListenerError(t *testing.T) {
@@ -1145,6 +1146,7 @@ func TestRegisterRoutesListenerInitMissingProjectIDSendsListenerError(t *testing
 	assertRouteListenerError(t, listenerError, "project_state_unavailable", map[string]any{
 		"projectConfigId": "project-missing",
 	})
+	assertRouteListenerErrorMissingDetailKey(t, listenerError, "message")
 }
 
 func TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit(t *testing.T) {
@@ -3615,6 +3617,26 @@ func assertRouteListenerError(
 		if canonicalValueJSON(t, actualValue) != canonicalValueJSON(t, expectedValue) {
 			t.Fatalf("expected detail %q=%#v, got %#v", key, expectedValue, actualValue)
 		}
+	}
+}
+
+func assertRouteListenerErrorMissingDetailKey(
+	t *testing.T,
+	message routeMessageEnvelope,
+	detailKey string,
+) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerError {
+		t.Fatalf("expected listener error, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerErrorContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener error: %v", err)
+	}
+	if _, ok := content.Details[detailKey]; ok {
+		t.Fatalf("expected listener error details to omit %q, got %#v", detailKey, content.Details)
 	}
 }
 

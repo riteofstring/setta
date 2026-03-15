@@ -91,7 +91,7 @@ func forceRefreshListenerHandler(deps ListenerRouteDependencies) http.HandlerFun
 
 		snapshotPayload, err := listenerForceRefreshPayload(deps, requestInfo, projectID)
 		if err != nil {
-			writeListenerForceRefreshError(w, r, err)
+			writeListenerForceRefreshError(w, r, projectID, err)
 			return
 		}
 
@@ -165,13 +165,15 @@ func listenerForceRefreshPayload(
 	return listenersnapshot.BuildListenerSnapshotPayload(snapshot.Document, projectID)
 }
 
-func writeListenerForceRefreshError(w http.ResponseWriter, r *http.Request, err error) {
+func writeListenerForceRefreshError(w http.ResponseWriter, r *http.Request, projectID string, err error) {
 	switch {
 	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
 		errors.Is(err, projectstate.ErrProjectIDRequired):
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 	case errors.Is(err, projectstate.ErrProjectNotFound):
-		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+		writeJSON(w, http.StatusNotFound, map[string]string{
+			"detail": fmt.Sprintf("project state unavailable for %s", strings.TrimSpace(projectID)),
+		})
 	case errors.Is(err, deployments.ErrUnknownSession),
 		errors.Is(err, projectstate.ErrSessionIDRequired):
 		writeError(w, r, http.StatusNotFound, "unknown_share_session", "Unknown share session.")
