@@ -362,6 +362,13 @@ Current tree note:
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
+- The dead Python test-helper leaf batch is also smaller in the current
+  worktree: `tests/start/launch_test_helpers.py`,
+  `tests/utils/integration_flags.py`, `tests/utils/setta_paths.py`, and
+  `tests/utils/setta_test_paths.py` are gone because no current test,
+  `conftest`, script, or manual helper imports them anywhere in the repo after
+  the earlier backend cleanup. They were orphaned local test utilities rather
+  than retained-boundary proof, so no replacement owner is needed.
 - The dead Python scriptable-chat helper test slice is also smaller in the
   current worktree: `tests/agentic/test_chat_view.py`,
   `tests/agentic/test_agent_run_index.py`, and `tests/llm/test_chat_store.py`
