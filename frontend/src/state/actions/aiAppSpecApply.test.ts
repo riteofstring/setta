@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { receiveLLMResponseChunk } from "./ai";
+import { receiveLLMResponseChunk } from "./aiChatStreaming";
 
-import {
-  useAppDefinition,
-  useAppPreview,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useAppDefinition, useAppPreview } from "state/stores/appStores";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,

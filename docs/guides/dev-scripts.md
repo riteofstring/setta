@@ -48,27 +48,24 @@ Use these first for day-to-day work.
 - `./format_code.sh`
   - Formats Python via Ruff (requires env activation; see notes below).
 - `./build.sh`
-  - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
+  - Builds the production frontend and bundles the backend wheel.
 - `./build_and_upload.sh`
   - Builds + uploads release artifacts.
 - `./cleanup.sh`
   - Removes stale build artifacts before packaging/publishing.
 - `./verify_install.sh`
-  - Dedicated sdist-completeness smoke (runs the full `build.sh` path, then installs the built sdist via `uv pip`).
+  - Release smoke test (builds + installs sdist via `uv pip`).
 - `./install_built_setta.sh`
   - Builds Setta and installs the latest wheel into an isolated uv venv.
-  - This is the wheel-based packaged-user install check, not the sdist smoke path.
   - Default install root: `.venv_for_built_setta` (override with `--install-root`).
 - `source ./activate_built_setta.sh`
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop local setup (repo-local Python `source`, `dev`, and `gemini`
-    extras + frontend deps + sidecars).
+  - One-stop local setup (uv sync + frontend deps + sidecars).
 - `./init_env.sh`
   - Creates/updates the Python environment.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync` with
-    explicit `source`, `dev`, and `gemini` extras for repo workflows.
+  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync`.
 
 ## Layer 2: Repo `scripts/` helpers
 
@@ -123,8 +120,6 @@ These are the underlying tasks used by the wrappers above.
   - Vitest (watchable).
 - `pnpm generate`
   - Regenerates templates/types from `frontend/generation/`.
-- `pnpm -C frontend generate-go-frontend-bindings`
-  - Regenerates only the canonical Go-owned frontend route/type/endpoint files.
 - `pnpm gcf`
   - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
@@ -143,14 +138,12 @@ Useful when you need to debug a specific subsystem.
   - Starts the backend process (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
   - Template/type generation (used by `pnpm generate`).
-- `frontend/generation/generate_go_frontend_bindings.sh`
-  - Direct Go-owned frontend route/type/endpoint generation helper.
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
 
 ## Notes
 
-- **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).
