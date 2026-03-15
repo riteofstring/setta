@@ -123,6 +123,16 @@ class TestMultiMCPClientToolCache:
             f"{SETTA_MCP_SERVER_ID}__read_file_range"
             in client.init_tool_definitions
         )
+        assert client.init_tool_definitions[
+            f"{SETTA_MCP_SERVER_ID}__read_file_range"
+        ] == {
+            "type": "function",
+            "function": {
+                "name": f"{SETTA_MCP_SERVER_ID}__read_file_range",
+                "description": "Read file contents",
+                "parameters": {},
+            },
+        }
         assert (
             f"{SETTA_MCP_SERVER_ID}__list_projects"
             in client.discoverable_tool_definitions

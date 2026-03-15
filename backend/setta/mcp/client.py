@@ -13,10 +13,7 @@ from anyio.streams.memory import (
     MemoryObjectReceiveStream,
     MemoryObjectSendStream,
 )
-from litellm.types.llms.openai import (
-    ChatCompletionToolParam,
-    ChatCompletionToolParamFunctionChunk,
-)
+from litellm.types.llms.openai import ChatCompletionToolParam
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -613,9 +610,14 @@ class MultiMCPClient:
                     annotations = SettaToolAnnotations.model_validate(raw_annotations)
                     tool_type = SettaToolType(annotations.settaToolType)
             namespaced_name = build_namespaced_tool_name(server_id, tool.name)
-            definition = self._convert_tool_to_llm_definition(
-                tool, namespaced_name=namespaced_name
-            )
+            definition: ChatCompletionToolParam = {
+                "type": "function",
+                "function": {
+                    "name": namespaced_name,
+                    "description": tool.description or "",
+                    "parameters": tool.inputSchema or {},
+                },
+            }
             if tool_type == SettaToolType.init:
                 init_tools[namespaced_name] = definition
             else:
@@ -646,17 +648,6 @@ class MultiMCPClient:
         self.discoverable_tool_definitions = discoverable_tools
         self.tool_annotations_by_name = annotations_by_name
         self.routing = routing
-
-    @staticmethod
-    def _convert_tool_to_llm_definition(
-        tool: Tool, *, namespaced_name: str
-    ) -> ChatCompletionToolParam:
-        function_payload: ChatCompletionToolParamFunctionChunk = {
-            "name": namespaced_name,
-            "description": tool.description or "",
-            "parameters": tool.inputSchema or {},
-        }
-        return {"type": "function", "function": function_payload}
 
 
 async def run_stdio_bridge(config: BridgeConfig) -> None:
