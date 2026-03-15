@@ -2329,7 +2329,9 @@ class SettaListener:
         if events is None:
             events = []
 
-        project_manager = self._get_router_endpoint_api()
+        if self._router_endpoint_api is None:
+            self._router_endpoint_api = RouterEndpointAPI(self._call_router_endpoint)
+        project_manager = self._router_endpoint_api
         runtime_state = self._runtime_state
         if runtime_state is None:
             raise RuntimeError(
@@ -2418,11 +2420,6 @@ class SettaListener:
                 continue
             changed_by_id[ListenerDependencyId(sectionId=dep_key.sectionId)] = value
         return changed_by_id
-
-    def _get_router_endpoint_api(self) -> RouterEndpointAPI:
-        if self._router_endpoint_api is None:
-            self._router_endpoint_api = RouterEndpointAPI(self._call_router_endpoint)
-        return self._router_endpoint_api
 
     async def _send_websocket_payload(self, payload: str) -> None:
         websocket = self._websocket
