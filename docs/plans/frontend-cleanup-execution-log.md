@@ -2869,6 +2869,34 @@ module map and placement guide while this cleanup progresses.
     optimistic window-space CRUD helpers from the current-floating-window save
     flow, authoritative resync, and snapshot persistence path.
 
+## 2026-03-15 05:38:56 PDT
+
+- Slice completed: split static section creation catalog defaults away from
+  hook-time create-list gating
+- Key files touched:
+  - `frontend/src/state/actions/sections/createSectionCatalog.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalogTypes.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalog.test.tsx`
+  - `frontend/src/state/actions/sections/createSectionCatalogStatic.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/createSectionCatalogStatic.test.tsx src/state/actions/sections/createSectionCatalog.test.tsx src/state/actions/sections/createSectionsHelper.test.tsx src/components/AppHeader/SearchBar/ProjectPageSearch.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sections/createSectionCatalog.ts src/state/actions/sections/createSectionCatalogStatic.ts src/state/actions/sections/createSectionCatalogTypes.ts src/state/actions/sections/createSectionCatalog.test.tsx src/state/actions/sections/createSectionCatalogStatic.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `4e6908f06f`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/app.ts`, now the largest
+    authored/shared state hotspot at 319 lines, by separating app-session
+    storage/bootstrap from deployment-state load/reset and project-config
+    caching helpers.
+
 ## 2026-03-15 05:26:34 PDT
 
 - Slice completed: split saved window-space CRUD ownership from the
