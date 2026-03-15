@@ -49,7 +49,8 @@ import { deleteSelectedAgenticEdges } from "./agenticEdgeMutations";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
 import { formatActiveCodeSection } from "./formatCode";
-import { getIsInput, getTabShortcutInfo } from "./keyShortcutUtils";
+import { getIsInput } from "./keyShortcutInputPolicy";
+import { getTabShortcutInfo } from "./keyShortcutMatching";
 import { restartLanguageServer } from "./lsp";
 import {
   openFileMenuLoadProjectConfigModal,

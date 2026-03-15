@@ -1,4 +1,5 @@
 import { keyActivationCommands } from "./keyActivationHandlers";
+import { isTabLikeShortcut } from "./keyShortcutMatching";
 import {
   createParamShortcutRegistration,
   createShortcutRegistration,
@@ -15,7 +16,6 @@ import type {
   SettingsShortcuts,
   ShortcutRegistration,
 } from "./keyShortcutRegistrationTypes";
-import { isTabLikeShortcut } from "./keyShortcutUtils";
 export type {
   KeyAction,
   KeyActionEvent,

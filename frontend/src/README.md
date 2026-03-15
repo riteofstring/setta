@@ -400,7 +400,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `state/actions/keyShortcutRegistrationGroups.ts` owns the grouped shortcut
     registration tables, `keyShortcutRegistrations.ts` owns the remaining
     Tab-vs-param binding decisions plus registry composition,
-    `keyShortcutUtils.ts` owns shortcut parsing/input-ignore policy, and
+    `keyShortcutMatching.ts` owns shortcut parsing, event-code normalization,
+    and shortcut matching, `keyShortcutInputPolicy.ts` owns editable-target and
+    input-ignore policy, `keyShortcutUtils.ts` is now the thin compatibility
+    facade, and
     `keyActivationHandlers.ts` owns `Tab`/`Escape`, section selection, and
     React Flow key-mode handlers.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;

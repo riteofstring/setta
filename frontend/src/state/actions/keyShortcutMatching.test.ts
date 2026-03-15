@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
+
 import {
-  getIgnoreWhenInInputField,
   getNormalizedEventCode,
   getShouldPreventDefault,
   getTabShortcutInfo,
   isShortcutPressed,
   parseShortcut,
-} from "./keyShortcutUtils";
+} from "./keyShortcutMatching";
 
-describe("keyShortcutUtils", () => {
+describe("keyShortcutMatching", () => {
   it("normalizes shortcut strings into parsed modifier and key sets", () => {
     // Shortcut parsing should turn letter, digit, and symbol tokens into event-code keys.
     const parsed = parseShortcut("mod + shift + 1 + /");
@@ -45,14 +45,12 @@ describe("keyShortcutUtils", () => {
     ).toBe("KeyA");
   });
 
-  it("preserves default browser behavior for tab-only and plain-text input shortcuts", () => {
-    // The listener should not prevent default for bare Tab or common text-field copy shortcuts.
+  it("preserves default browser behavior for tab-only and copy shortcuts", () => {
+    // The listener should not prevent default for bare Tab or common clipboard shortcuts.
     expect(getShouldPreventDefault(parseShortcut("tab"))).toBe(false);
-    expect(getIgnoreWhenInInputField(parseShortcut("mod + c"), true)).toBe(
+    expect(getShouldPreventDefault(parseShortcut("mod + c"))).toBe(false);
+    expect(getShouldPreventDefault(parseShortcut("mod + shift + 1"))).toBe(
       true,
-    );
-    expect(getIgnoreWhenInInputField(parseShortcut("escape"), false)).toBe(
-      false,
     );
   });
 

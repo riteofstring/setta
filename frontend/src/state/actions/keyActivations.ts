@@ -1,6 +1,18 @@
 import { useSettings } from "state/stores/uiPreferenceStores";
 import { isMacOs } from "utils/utils";
 import {
+  getIgnoreWhenInInputField,
+  getIsInput,
+} from "./keyShortcutInputPolicy";
+import {
+  getNormalizedEventCode,
+  getShouldPreventDefault,
+  isShortcutPressed,
+  modifierKeyCodes,
+  parseShortcut,
+  type ParsedShortcut,
+} from "./keyShortcutMatching";
+import {
   createShortcutRegistrations,
   type KeyAction,
   type KeyActionEvent,
@@ -8,16 +20,6 @@ import {
   type ShortcutRegistration,
   type ShortcutTrackingName,
 } from "./keyShortcutRegistrations";
-import {
-  getIgnoreWhenInInputField,
-  getIsInput,
-  getNormalizedEventCode,
-  getShouldPreventDefault,
-  isShortcutPressed,
-  modifierKeyCodes,
-  parseShortcut,
-  type ParsedShortcut,
-} from "./keyShortcutUtils";
 
 type ShortcutInfo = {
   parsedShortcut: ParsedShortcut;
