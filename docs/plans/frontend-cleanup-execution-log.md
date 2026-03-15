@@ -6589,3 +6589,46 @@ schedule settings` button still appears on the live task row.
     is now the highest unresolved front-door hotspot after `ChatInput.tsx`
     dropped below the 1000-line review threshold and delegated its
     draft-session ownership into sharp local chat owners.
+
+## 2026-03-16 06:02:41 PDT
+
+- Slice completed: extracted the browser-area folder-session owner out of
+  `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  or `frontend/src/components/Chat/ChatMessages.tsx` because
+  `frontend/src/components/Section/Layouts/BrowserArea.tsx` was still the
+  recorded next unresolved front-door hotspot at the start of the turn and
+  still mixed browser root bootstrap, folder/history navigation, recursive
+  filter crawling, path completion state, and saved-search persistence into
+  the first browser-layout file contributors opened.
+- Key files touched:
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.ts`
+  - `frontend/src/components/Section/Layouts/useBrowserAreaFolderSession.integration.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `perf/reports/frontend/browser-area-folder-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/useBrowserAreaFolderSession.integration.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx src/components/Section/Layouts/BrowserAreaContentView.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-path-navigation.spec.ts frontend/tests/e2e/file-browser/browser-filter-recursive.spec.ts frontend/tests/e2e/file-browser/browser-saved-searches.spec.ts --grep "browser sections support breadcrumb and go-up navigation|browser filter shows matches in subfolders \(glob \+ fuzzy\)|browser can save a search and re-apply it from the Filters column"`
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/BrowserArea.tsx src/components/Section/Layouts/useBrowserAreaFolderSession.ts src/components/Section/Layouts/useBrowserAreaFolderSession.integration.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../perf/reports/frontend/browser-area-folder-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/browser-area-folder-session-2026-03-16.md`
+    with the before/after browser-section measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `BrowserArea.tsx` dropped from `1302` to `588` lines while the measured
+    browser-section subtree stayed effectively flat from `290` to `289` nodes,
+    the explorer subtree stayed flat at `142` nodes, the visible button count
+    stayed at `34`, the visible textbox count stayed at `2`, the unscaled
+    section geometry stayed at `722px` by `462px`, and there was no horizontal
+    overflow at `1440x900` or `960x900`.
+- Commit hash:
+  - `74fd7f344f04ed39bd21a1450cf0e89d24cfeb86`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`,
+    which is now the highest unresolved front-door hotspot in the current tree
+    after `BrowserArea.tsx` dropped below the 800-line review threshold and
+    delegated its folder/session ownership into a sharp local browser owner.
