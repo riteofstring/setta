@@ -86,9 +86,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `315`
+- Rows audited in this pass: `316`
 - Status counts:
-  - `Proved`: `285`
+  - `Proved`: `286`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `2`
   - `Retained Python boundary`: `8`
@@ -121,6 +121,10 @@ Last audited: `2026-03-17`
     bodies instead of inheriting the generic `missing_share_session` /
     `unknown_share_session` error envelope from the shared deployment
     middleware
+  - `internal/httpapi/terminal_routes.go`: malformed `runCode` JSON now
+    returns the Python/FastAPI-style
+    `422 {"status_code":10422,"message":...,"data":null}` validation
+    envelope instead of the Go-only `400 invalid_json` error
   - `internal/httpapi/filebrowser_routes.go`: deployment
     `checkIfFileExists` now mirrors the source allowlist by resolving paths
     relative to the deployment root and allowing only `artifacts`,
@@ -407,6 +411,8 @@ Last audited: `2026-03-17`
 - `run_code.share_session_transport_detail_bodies` is now an explicit proved
   row instead of hiding the route-specific share-session transport behind the
   generic deployment middleware coverage.
+- `run_code.invalid_json.validation_error_transport` is now an explicit proved
+  row instead of leaving the malformed-JSON transport drift implicit.
 - `file_browser.check_if_file_exists.share_mode_deployment_path_restriction`
   is now proved through an explicit share-mode route test instead of remaining
   an open file-browser gap.
@@ -521,6 +527,7 @@ Last audited: `2026-03-17`
 | `run_code.param_overrides_do_not_mutate_base_state` | `tests/project_state/test_run_overrides.py::test_create_run_command_applies_overrides_without_mutating_state` | `internal/runs/planner.go` | `TestPlannerPlanAcceptsParamOverridesWithoutMutatingBaseState`; `TestRegisterTerminalRoutesAcceptsParamOverridesInIDE` | `frontend/src/utils/generatedTypes.ts` still exposes `paramOverrides` on `RunCodeRequest` | `Proved` | Param overrides still apply to the run snapshot without mutating the persisted runtime values. |
 | `run_code.invalid_param_override_key_rejected` | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_rejects_bad_param_key`; `backend/setta/routers/terminals.py::_validate_run_overrides` | `internal/runs/planner.go` | `TestPlannerPlanRejectsInvalidParamOverrideKey` | `internal/httpapi/terminal_routes.go` maps the planner error back onto the `runCode` transport | `Proved` | Bad param override keys are still rejected before dispatch. |
 | `run_code.invalid_request.transport_400_detail_bodies` | `backend/setta/routers/terminals.py::route_run_code` catches `(KeyError, ValueError)` and returns `HTTPException(status_code=400, detail=...)` for invalid run-target and override requests | `internal/httpapi/terminal_routes.go::{runCodeHandler,normalizeRunRequestDetail}` | `TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads` | current `runCode` callers still receive invalid-request failures on the same surviving HTTP route | `Proved` | Invalid `runCode` requests now preserve the source `400 {"detail": ...}` body shape for planner and validation failures instead of a typed Go error envelope. |
+| `run_code.invalid_json.validation_error_transport` | `backend/setta/project_state/project_manager_types.py::RunCodeRequest`; `backend/setta/routers/terminals.py::route_run_code`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/terminal_routes.go::runCodeHandler`; `internal/httpapi/httpapi.go::writeValidationError` | `TestRegisterTerminalRoutesRunCodeMalformedJSONReturnsValidationEnvelope` | `frontend/src/state/actions/runOrImportCode.ts` still posts to the same `runCode` route family | `Proved` | Malformed `runCode` JSON now once again returns the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of the Go-only `400 invalid_json` error payload. |
 | `run_code.share_session_transport_detail_bodies` | `backend/setta/routers/dependencies.py::require_share_session_id`; `backend/setta/routers/terminals.py::route_run_code` | `internal/httpapi/terminal_routes.go::{RegisterTerminalRoutes,runCodeHandler,writeRunCodeShareSessionError}` | `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies` | `frontend/src/state/actions/runOrImportCode.ts`; `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` still prove `runCode` as an active caller-backed surface in deployment/share mode | `Proved` | Deployment `runCode` now once again maps missing and unknown share-session failures to source-style `400/404 {"detail": ...}` bodies instead of the generic Go `missing_share_session` / `unknown_share_session` error envelopes. |
 | `run_code.generated_entry_allocates_temporary_terminal` | `backend/setta/terminals/run_code.py::run_command` allocates a temporary terminal and calls `create_temporary_terminal` when no reusable terminal exists | `internal/runs/service.go::resolveTerminalSection` | `TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal` | generated-entry callers still use the same `runCode` route without a section id | `Proved` | Entry-code runs without an attached section terminal still allocate a top-level temporary terminal and route output there. |
 | `run_code.generated_entry_reuses_idle_top_level_terminal` | `backend/setta/terminals/run_code.py::run_command`; `backend/setta/terminals/terminals.py::get_free_terminal` | `internal/runs/service.go::resolveReusableGeneratedEntryTerminalSection`; `internal/terminals/service.go::ReusableSession` | `TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry`; `TestServiceReusableSessionReturnsTrueForIdleInteractiveShell`; `TestServiceReusableSessionReturnsFalseForForegroundJob` | IDE callers still expect repeated generated-entry runs to reuse an idle terminal when one is available | `Proved` | Generated-entry runs still reuse an idle top-level terminal instead of always creating a fresh temporary terminal. |

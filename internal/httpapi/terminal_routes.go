@@ -191,7 +191,7 @@ func runCodeHandler(runCodeService *runs.Service, shareResolver *modes.Resolver)
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[RunCodeRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 

@@ -1130,6 +1130,51 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 	}
 }
 
+func TestRegisterTerminalRoutesRunCodeMalformedJSONReturnsValidationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload validationErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode validation envelope: %v", err)
+	}
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if payload.Message == "" {
+		t.Fatalf("expected validation message, got %#v", payload)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
+	}
+}
+
 func TestRegisterTerminalRoutesAcceptsParamOverridesInIDE(t *testing.T) {
 	t.Parallel()
 
