@@ -661,3 +661,71 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this is the second accepted Phase 3 checkpoint because it deepens another shallow callable render seam without changing user-visible behavior
   - the next performance read should now move off the idle shell baseline and onto the active filter/reorder interaction path
+
+### Phase 3 checkpoint 3: `GroupContainer` measurement churn narrowing after targeted filter/reorder traces
+
+- Date/time: 2026-03-16
+- Trace setup:
+  - built fresh `math.sqrt` callable trace scenes on the workspace route for both branches:
+    - worktree: `http://127.0.0.1:3011/quick_black`
+    - untouched `main`: `http://127.0.0.1:3087/saying_glacier`
+  - temporarily disabled `backend.autoRefetchCallableParamsOnLspMismatch` on both projects during trace-scene authoring so the authored `a` through `k` callable layout would remain stable
+  - restored that setting to `true` on both projects after the traces were captured
+- Pre-change targeted traces:
+  - artifacts:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-filter.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase3-filter.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-reorder.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase3-reorder.trace.json`
+  - measured interaction timings:
+    - worktree filter:
+      - apply DOM settle: `93.2ms`
+      - clear DOM settle: `114.9ms`
+    - untouched `main` filter:
+      - apply DOM settle: `100.5ms`
+      - clear DOM settle: `107.9ms`
+    - worktree reorder:
+      - DOM settle: `118.1ms`
+    - untouched `main` reorder:
+      - DOM settle: `137.6ms`
+  - trace read:
+    - filter traces still surfaced mostly page-level work:
+      - `ProjectChatBottomDock`
+      - `eq` in `chunk-MB4RGFJ3.js`
+      - `checkScrollable` in `sectionSizes.ts`
+    - reorder traces repeatedly surfaced `GroupContainer.scheduleMeasure` in the active update window, making `GroupContainer` the next credible seam instead of another shell-only cleanup
+- Scope:
+  - updated `frontend/src/components/Params/GroupContainer.tsx` so the top fixed-height `MutationObserver` now observes direct child-list changes only instead of the whole subtree
+  - updated `frontend/src/components/Params/paramAreaMeasurements.ts` so the param-area measure key is now order-insensitive for the visible member set
+  - added focused Vitest coverage in `frontend/src/components/Params/paramAreaMeasurements.test.ts` proving reorder does not invalidate the measure key when membership is unchanged
+- Automated verification:
+  - reran `pnpm -C frontend exec vitest run src/components/Params/paramAreaMeasurements.test.ts`
+  - result: `1 passed`, `5 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable section remained visually aligned after the `GroupContainer` checkpoint
+  - parity screenshots:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-groupcontainer-control.png`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase3-groupcontainer-control.png`
+- Post-change targeted rerun:
+  - artifact:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase3-reorder-after-groupcontainer.trace.json`
+  - measured worktree reorder timing:
+    - DOM settle: `107.9ms`
+    - before/after: `118.1ms -> 107.9ms`
+  - trace evidence:
+    - the post-change worktree reorder rerun no longer reported a `ForcedReflow` insight
+    - `scheduleMeasure` references in the worktree reorder trace dropped from `7` to `3`
+    - `GroupContainer.tsx` references in the worktree reorder trace dropped from `20` to `7`
+- Interpretation:
+  - this is the first Phase 3 checkpoint that clearly converts the filter/reorder trace read into a narrower measurement boundary with a measurable improvement on the same interaction path
+  - the relevant callable seam here was not another row wrapper; it was overly broad measurement ownership inside `GroupContainer`
+  - the result is still scoped:
+    - it improves the measured worktree reorder path
+    - it removes the worktree reorder forced-reflow insight in the rerun
+    - it does not claim the whole callable performance plan is complete

@@ -167,7 +167,7 @@ function _ParamGroupContainer({
       frameId = requestAnimationFrame(updateFixedHeight);
     };
 
-    mutationObserver.observe(outer, { childList: true, subtree: true });
+    mutationObserver.observe(outer, { childList: true });
     scheduleMeasure();
 
     return () => {
