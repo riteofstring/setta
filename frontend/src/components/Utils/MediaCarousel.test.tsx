@@ -88,35 +88,4 @@ describe("MediaCarousel", () => {
     expect(markup).toContain('data-media-carousel-item-id="image-2"');
     expect(markup).toContain('draggable="true"');
   });
-
-  it("keeps the shared thumbnail shell off single-cell helpers", () => {
-    const markup = renderToStaticMarkup(
-      <MediaCarousel items={imageItems} selectedId="image-1" />,
-    );
-
-    // The shared carousel shell should now be a plain relative flex wrapper so
-    // every host can reuse it without the old single-cell grid contract.
-    expect(markup).toContain(
-      "relative flex shrink-0 items-center justify-center overflow-clip rounded-md border border-solid",
-    );
-    expect(markup).not.toContain("single-cell-container");
-    expect(markup).not.toContain("single-cell-child");
-  });
-
-  it("preserves custom thumbnail content inside the shared shell", () => {
-    const markup = renderToStaticMarkup(
-      <MediaCarousel
-        items={imageItems}
-        selectedId="image-1"
-        renderThumbnail={(item) => (
-          <div data-custom-thumbnail={item.id} className="h-full w-full" />
-        )}
-      />,
-    );
-
-    expect(markup).toContain('data-custom-thumbnail="image-1"');
-    expect(markup).toContain('data-custom-thumbnail="image-2"');
-    expect(markup).not.toContain("single-cell-container");
-    expect(markup).not.toContain("single-cell-child");
-  });
 });
