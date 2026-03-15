@@ -289,6 +289,7 @@ func RefreshProjectRuntimeFromSettings(
 		if buildErr != nil {
 			return buildErr
 		}
+		preserveSettingsCodeObjectDisplayNames(&builtProject, currentProject)
 		mergedProject := overlayProjectShellState(
 			builtProject,
 			currentProject,
@@ -385,6 +386,23 @@ func overlayProjectShellState(
 	}
 
 	return merged
+}
+
+func preserveSettingsCodeObjectDisplayNames(
+	fresh *projectstate.Project,
+	current projectstate.Project,
+) {
+	if fresh == nil {
+		return
+	}
+	for codeObjID, freshCodeObj := range fresh.CodeObjs {
+		currentCodeObj, ok := current.CodeObjs[codeObjID]
+		if !ok {
+			continue
+		}
+		freshCodeObj.DisplayName = currentCodeObj.DisplayName
+		fresh.CodeObjs[codeObjID] = freshCodeObj
+	}
 }
 
 func repairSettingsProjectShellViewModes(

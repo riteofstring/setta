@@ -233,6 +233,89 @@ func TestRefreshProjectRuntimeFromSettingsHydratesLiveValuesAndPreservesActiveVi
 	}
 }
 
+func TestRefreshProjectRuntimeFromSettingsPreservesExistingDisplayNamesAndBackfillsNewCodeObjs(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+
+		guiCodeObjID := settingsCodeObjID("gui", []string{"gui"})
+		guiCodeObj := project.CodeObjs[guiCodeObjID]
+		guiCodeObj.DisplayName = "Custom GUI Label"
+		project.CodeObjs[guiCodeObjID] = guiCodeObj
+
+		languageServerCodeObjID := settingsCodeObjID("languageServer", []string{"languageServer"})
+		languageServerCodeObj := project.CodeObjs[languageServerCodeObjID]
+		languageServerCodeObj.DisplayName = ""
+		project.CodeObjs[languageServerCodeObjID] = languageServerCodeObj
+
+		if err := removeSettingsProjectCodeObject(
+			&project,
+			"backend",
+			[]string{"backend", "renameRefactorMode"},
+		); err != nil {
+			return projectstate.Document{}, err
+		}
+
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate settings project display names: %v", err)
+	}
+
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("refresh settings project runtime: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+
+	guiCodeObj := project.CodeObjs[settingsCodeObjID("gui", []string{"gui"})]
+	if guiCodeObj.DisplayName != "Custom GUI Label" {
+		t.Fatalf("expected gui display name Custom GUI Label, got %q", guiCodeObj.DisplayName)
+	}
+
+	languageServerCodeObj := project.CodeObjs[settingsCodeObjID("languageServer", []string{"languageServer"})]
+	if languageServerCodeObj.DisplayName != "" {
+		t.Fatalf("expected languageServer display name to stay blank, got %q", languageServerCodeObj.DisplayName)
+	}
+
+	renameRefactorModeCodeObj := project.CodeObjs[settingsCodeObjID("backend", []string{"backend", "renameRefactorMode"})]
+	if renameRefactorModeCodeObj.DisplayName != "Rename Refactor Mode" {
+		t.Fatalf("expected renameRefactorMode display name Rename Refactor Mode, got %q", renameRefactorModeCodeObj.DisplayName)
+	}
+}
+
 func TestRefreshProjectRuntimeFromSettingsRepairsMissingRequiredViewMode(t *testing.T) {
 	t.Parallel()
 

@@ -47,6 +47,10 @@ scenarios:
     kind: settings_project_existing_section_code_obj_backfill
     seed: none
     description: Restarting with a stale dedicated settings project missing a field inside an existing section should backfill that field without dropping the settings shell.
+  - name: settings_project_display_name_backfill
+    kind: settings_project_display_name_backfill
+    seed: none
+    description: Reloading /settings after restart should preserve existing settings-node display names while backfilling newly materialized blank-label nodes only.
   - name: settings_project_valid_view_mode_noop
     kind: settings_project_valid_view_mode_noop
     seed: none

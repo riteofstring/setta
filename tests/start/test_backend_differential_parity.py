@@ -1892,6 +1892,62 @@ class Route:
             },
         )
 
+    def test_summarize_settings_project_display_name_backfill_detects_repair(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectConfig": {},
+            "codeObjs": {
+                "gui-code-obj": {
+                    "name": "gui",
+                    "displayName": "Custom GUI Label",
+                },
+                "language-server-code-obj": {
+                    "name": "languageServer",
+                    "displayName": "",
+                },
+                "rename-refactor-mode-code-obj": {
+                    "name": "renameRefactorMode",
+                    "displayName": "Rename Refactor Mode",
+                },
+            },
+        }
+
+        summary = harness.summarize_settings_project_display_name_backfill(
+            initial_load_http_status=200,
+            restart_load_http_status=200,
+            restart_load_payload=payload,
+            restart_latest_http_status=200,
+            restart_latest_payload={"projectState": payload},
+            persisted_after_payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLoadCodeObjDisplayNames": {
+                    "gui": "Custom GUI Label",
+                    "languageServer": "",
+                    "renameRefactorMode": "Rename Refactor Mode",
+                },
+                "restartLatestHttpStatus": 200,
+                "restartLatestCodeObjDisplayNames": {
+                    "gui": "Custom GUI Label",
+                    "languageServer": "",
+                    "renameRefactorMode": "Rename Refactor Mode",
+                },
+                "persistedAfterRestartCodeObjDisplayNames": {
+                    "gui": "Custom GUI Label",
+                    "languageServer": "",
+                    "renameRefactorMode": "Rename Refactor Mode",
+                },
+            },
+        )
+
     def test_summarize_persisted_project_windowing_after_create_detects_defaults(
         self,
     ) -> None:

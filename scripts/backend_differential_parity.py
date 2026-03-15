@@ -90,6 +90,11 @@ SETTINGS_PARAM_IMPL_SAMPLE_SPECS = [
 SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS = [
     ("backend.renameRefactorMode", "backend", ["renameRefactorMode"]),
 ]
+SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES = [
+    "gui",
+    "languageServer",
+    "renameRefactorMode",
+]
 
 
 class ParityHarnessError(RuntimeError):
@@ -801,6 +806,8 @@ def execute_scenario(
         return execute_settings_project_missing_required_section_fails_closed(backend)
     if scenario.kind == "settings_project_existing_section_code_obj_backfill":
         return execute_settings_project_existing_section_code_obj_backfill(backend)
+    if scenario.kind == "settings_project_display_name_backfill":
+        return execute_settings_project_display_name_backfill(backend)
     if scenario.kind == "settings_project_valid_view_mode_noop":
         return execute_settings_project_valid_view_mode_noop(backend)
     if scenario.kind == "settings_project_missing_visible_layout_repair":
@@ -1477,6 +1484,88 @@ def execute_settings_project_existing_section_code_obj_backfill(
         "restartLoadProjectConfigStatus": restart_load_http_status,
         "restartLoadProjectConfig": restart_load_payload,
         "postLoadPersistedSettingsProjectDocument": post_load_persisted_payload,
+    }
+
+
+def execute_settings_project_display_name_backfill(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    corrupted_payload = set_settings_code_obj_display_name_in_store_payload(
+        persisted_payload,
+        code_obj_name="gui",
+        display_name="Custom GUI Label",
+    )
+    corrupted_payload = set_settings_code_obj_display_name_in_store_payload(
+        corrupted_payload,
+        code_obj_name="languageServer",
+        display_name="",
+    )
+    corrupted_payload = remove_settings_param_from_store_payload(
+        corrupted_payload,
+        section_name="backend",
+        param_path=["renameRefactorMode"],
+    )
+    write_json(backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_backend(backend)
+
+    restart_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    restart_latest_response = None
+    restart_latest_payload = None
+    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+        restarted_project_config = object_field(restart_load_payload, "projectConfig")
+        restarted_project_id = expect_non_empty_string(
+            restarted_project_config.get("id"),
+            "projectConfig.id",
+        )
+        restart_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": restarted_project_id},
+        )
+        restart_latest_payload = normalize_response_json_allow_status(
+            restart_latest_response
+        )
+
+    persisted_after_payload = read_persisted_settings_project_document(backend)
+    summary = summarize_settings_project_display_name_backfill(
+        initial_load_http_status=initial_load_response.status_code,
+        restart_load_http_status=restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        restart_latest_payload=restart_latest_payload,
+        persisted_after_payload=persisted_after_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "corruptedSettingsProjectDocument": corrupted_payload,
+        "restartLoadProjectConfigStatus": restart_load_response.status_code,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        "restartLatestProjectState": restart_latest_payload,
+        "persistedSettingsProjectDocumentAfterRestart": persisted_after_payload,
     }
 
 
@@ -2441,6 +2530,48 @@ def summarize_settings_project_existing_section_code_obj_backfill(
     return summary
 
 
+def summarize_settings_project_display_name_backfill(
+    initial_load_http_status: int,
+    restart_load_http_status: int,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    persisted_after_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+        "restartLoadHttpStatus": restart_load_http_status,
+        "restartLatestHttpStatus": restart_latest_http_status,
+        "persistedAfterRestartCodeObjDisplayNames": settings_store_code_obj_display_name_samples(
+            persisted_after_payload,
+            SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+        ),
+    }
+
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        summary["restartLoadCodeObjDisplayNames"] = settings_payload_code_obj_display_name_samples(
+            restart_load_payload,
+            SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+        )
+    else:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        summary["restartLatestCodeObjDisplayNames"] = settings_payload_code_obj_display_name_samples(
+            latest_project_state,
+            SETTINGS_DISPLAY_NAME_SAMPLE_CODE_OBJ_NAMES,
+        )
+    elif restart_latest_http_status is not None:
+        summary["restartLatestErrorSummary"] = normalize_error_summary(
+            restart_latest_payload
+        )
+
+    return summary
+
+
 def summarize_settings_project_valid_view_mode_noop(
     initial_load_http_status: int,
     restart_load_http_status: int,
@@ -3308,6 +3439,24 @@ def settings_payload_code_obj_display_name_samples(
     return display_names
 
 
+def settings_store_code_obj_display_name_samples(
+    payload: Any,
+    code_obj_names: list[str],
+) -> dict[str, str | None]:
+    samples: dict[str, str | None] = {code_obj_name: None for code_obj_name in code_obj_names}
+    if not isinstance(payload, dict):
+        return samples
+    try:
+        settings_project = settings_project_payload_from_store_payload(payload)
+    except ParityHarnessError:
+        return samples
+    resolved = settings_payload_code_obj_display_name_samples(
+        settings_project,
+        code_obj_names,
+    )
+    return {code_obj_name: resolved.get(code_obj_name) for code_obj_name in code_obj_names}
+
+
 def settings_payload_section_width(
     payload: dict[str, Any],
     section_name: str,
@@ -3411,6 +3560,26 @@ def remove_settings_param_from_store_payload(
         section_name=section_name,
         param_path=param_path,
     )
+    if "projectConfig" in cloned:
+        return cloned
+
+    projects = object_field(cloned, "projects", allow_missing=True)
+    projects["settings"] = settings_project
+    return cloned
+
+
+def set_settings_code_obj_display_name_in_store_payload(
+    payload: dict[str, Any],
+    code_obj_name: str,
+    display_name: str,
+) -> dict[str, Any]:
+    cloned = json.loads(json.dumps(payload))
+    settings_project = settings_project_payload_from_store_payload(cloned)
+    code_objs = object_field(settings_project, "codeObjs", allow_missing=True)
+    code_obj_id = find_code_obj_id_by_name(code_objs, code_obj_name)
+    code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
+    code_obj["displayName"] = display_name
+
     if "projectConfig" in cloned:
         return cloned
 
