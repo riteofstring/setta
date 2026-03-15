@@ -151,7 +151,7 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 	router.Post(RouteStopTranscriptionSession, stopTranscriptionSessionHandler(deps))
 	router.Post(RouteCancelTranscriptionSession, cancelTranscriptionSessionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
+	router.Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentApproval, respondExternalAgentApprovalHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentQuestion, respondExternalAgentQuestionHandler(deps))
@@ -348,8 +348,48 @@ func aiRouteAdditionalInputs(appGenerationByMessageID map[string]string) map[str
 	}
 }
 
+func ensureAIFollowSnapshotAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AIRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if err := requestInfo.Policy.RequireNotLauncher(); err != nil {
+		if writeModesError(w, r, err) {
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
 func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureAIFollowSnapshotAllowed(w, r, deps) {
+			return
+		}
 		payload, err := decodeJSONBody[GetAIFollowSnapshotRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")

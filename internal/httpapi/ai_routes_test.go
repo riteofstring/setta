@@ -864,6 +864,122 @@ func TestRegisterAIRoutesReturnsManagedAndExternalAIFollowSnapshot(t *testing.T)
 	}
 }
 
+func TestRegisterAIRoutesAllowDeploymentAIFollowSnapshotWhenLLMAccessEnabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	managedRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	managedRun.ID = "run-managed-follow"
+	fixture.managedLive.ActivateRun(managedRun)
+	if err := fixture.managedLive.ApplyChunk(context.Background(), managedchat.StreamChunkParams{
+		RunID:           managedRun.ID,
+		ChatID:          "chat-managed",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-managed",
+			ToolCallID:      "tool-call-managed",
+			ToolName:        mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+			ArgumentsDelta:  `{"sectionId":"section-managed"}`,
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{"section": {"section-managed"}},
+		},
+	}); err != nil {
+		t.Fatalf("apply managed preview chunk: %v", err)
+	}
+
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": true},
+	})
+	handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+		t,
+		config.ModeShare,
+		deploymentRuntime,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetAIFollowSnapshot,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload []realtime.AIFollowToolArgumentsUpdateContent
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode snapshot response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one snapshot entry, got %#v", payload)
+	}
+	if payload[0].ProjectConfigID != "project-alpha" || payload[0].ChatID != "chat-managed" {
+		t.Fatalf("unexpected managed snapshot identity %#v", payload[0])
+	}
+	if len(payload[0].IDsByType["section"]) != 1 || payload[0].IDsByType["section"][0] != "section-managed" {
+		t.Fatalf("unexpected managed follow ids %#v", payload[0].IDsByType)
+	}
+}
+
+func TestRegisterAIRoutesBlockDeploymentAIFollowSnapshotWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": false},
+	})
+	handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+		t,
+		config.ModeShare,
+		deploymentRuntime,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetAIFollowSnapshot,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "llm_access_forbidden" {
+		t.Fatalf("expected llm_access_forbidden, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesRejectsMissingProjectIDForAIFollowSnapshot(t *testing.T) {
 	t.Parallel()
 
