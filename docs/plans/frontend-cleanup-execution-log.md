@@ -2897,6 +2897,39 @@ module map and placement guide while this cleanup progresses.
     storage/bootstrap from deployment-state load/reset and project-config
     caching helpers.
 
+## 2026-03-15 05:50:26 PDT
+
+- Slice completed: split app-session bootstrap away from app deployment-state
+  loading and reset flow
+- Key files touched:
+  - `frontend/src/state/actions/app.ts`
+  - `frontend/src/state/actions/appSessionState.ts`
+  - `frontend/src/state/actions/appDeploymentState.ts`
+  - `frontend/src/state/actions/appSessionState.test.ts`
+  - `frontend/src/state/actions/appDeploymentState.test.ts`
+  - `frontend/src/state/actions/websocketShareSessionRecovery.ts`
+  - `frontend/src/state/actions/websocketShareSessionRecovery.test.ts`
+  - `frontend/src/state/hooks/app.ts`
+  - `frontend/src/components/App/AppRenderer.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/appSessionState.test.ts src/state/actions/appDeploymentState.test.ts src/state/actions/websocketShareSessionRecovery.test.ts src/components/App/AppRenderer.test.tsx src/components/App/AppRenderer.policy.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/app.ts src/state/actions/appSessionState.ts src/state/actions/appDeploymentState.ts src/state/actions/appSessionState.test.ts src/state/actions/appDeploymentState.test.ts src/state/actions/websocketShareSessionRecovery.ts src/state/actions/websocketShareSessionRecovery.test.ts src/state/hooks/app.ts src/components/App/AppRenderer.tsx src/components/App/appRegistry.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `023829e8e9`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiPendingChatState.ts`, now the largest
+    authored/shared state hotspot at 312 lines, by separating pending-surface
+    app-generation detail reads or writes from the optimistic message apply,
+    commit, and rollback flows.
+
 ## 2026-03-15 05:26:34 PDT
 
 - Slice completed: split saved window-space CRUD ownership from the
