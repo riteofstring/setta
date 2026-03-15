@@ -1,5 +1,5 @@
 import { RiStopFill } from "react-icons/ri";
-import { stopCode } from "state/actions/runOrImportCode";
+import { stopCode } from "state/actions/runCodeControls";
 export function StopButton() {
   return (
     <div className="flex justify-stretch">
