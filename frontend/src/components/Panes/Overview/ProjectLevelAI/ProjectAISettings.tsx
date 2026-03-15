@@ -15,25 +15,24 @@ import {
   createAgentProfile,
   createExternalAgentConfig,
   createPromptTemplate,
+  createTranscriptionProfile,
   deleteAgentProfile,
   deleteExternalAgentConfig,
   deletePromptTemplate,
+  deleteTranscriptionProfile,
   updateAgentProfile,
   updateExternalAgentConfig,
   updatePromptTemplate,
-} from "state/actions/aiConfigurationCatalogMutations";
-import {
-  createTranscriptionProfile,
-  deleteTranscriptionProfile,
   updateTranscriptionProfile,
-} from "state/actions/aiTranscriptionProfiles";
+} from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
+  useLocalStorage,
   useProjectState,
+  useSettings,
   useShareSession,
 } from "state/definitions";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_save_settings } from "utils/generatedEndpoints";
 import {

@@ -24,7 +24,6 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import BaseCodeSectionImpl, CodeSectionImpl
 from setta.websockets.listener_registry import ListenerRegistry
-from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -142,8 +141,6 @@ class TestRunCodeAttachedTerminal:
         await self.manager.update(self.project_state.model_copy(deep=True))
 
         self.terminals = Terminals(self.frontend_sender, self.settings_file)
-        self.cli_sender = WMHCLISender(self.websocket_manager)
-
         yield
 
         await self.terminals.delete_all_terminals()
@@ -206,11 +203,9 @@ class TestRunCodeAttachedTerminal:
                 projectConfigId=self.project_config_id,
                 sectionId=self.code_section_id,
                 terminalSectionId=missing_terminal_id,
-                cliId=None,
             ),
             self.manager,
             self.terminals,
-            self.cli_sender,
         )
 
         state = self.manager.get_single_config_state(self.project_config_id)
@@ -239,11 +234,9 @@ class TestRunCodeAttachedTerminal:
                 projectConfigId=self.project_config_id,
                 sectionId=self.code_section_id,
                 terminalSectionId=attached_terminal_id,
-                cliId=None,
             ),
             self.manager,
             self.terminals,
-            self.cli_sender,
         )
 
         state = self.manager.get_single_config_state(self.project_config_id)
