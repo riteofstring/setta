@@ -13,7 +13,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
-  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
@@ -46,26 +45,24 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
+import { seedPendingChatDetails } from "state/actions/aiChatSubmission";
+import { updateEngineConfig } from "state/actions/aiConfigurationCatalogMutations";
+import { saveLLMConfig } from "state/actions/aiLLMConfiguration";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import {
-  saveLLMConfig,
-  seedPendingChatDetails,
-  updateEngineConfig,
-} from "state/actions/ai";
-import {
-  buildChatHistoryEntries,
   buildChatProvenanceByChatId,
   resolveScopedChatProvenanceForChatId,
-  type ChatHistoryCompatibility,
-} from "state/actions/chatHistory";
+} from "state/actions/chatHistoryProvenance";
+import type { ChatHistoryCompatibility } from "state/actions/chatHistoryTypes";
 import { addPersistentNotification } from "state/actions/notifications";
-import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
+import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreadGroupAssignments";
 import {
   useAIStore,
-  useLocalStorage,
   useProjectState,
   type ProjectChatAuxView,
 } from "state/definitions";
-import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGenerationDetails";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   AllLLMConfigs,
@@ -871,14 +868,6 @@ function ProjectChatSurface({
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
-  );
-  const selectableLLMConfigId = useMemo(
-    () =>
-      resolveSelectableLLMConfigId(
-        availableConfigGroups,
-        selectedLLMConfigId,
-      ),
-    [availableConfigGroups, selectedLLMConfigId],
   );
   const llmSelectionUnavailableReason = useMemo(
     () =>
@@ -1974,7 +1963,7 @@ function ProjectChatSurface({
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectableLLMConfigId}
+                        selectedLLMConfigId={selectedLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -2201,7 +2190,6 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
-                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2275,7 +2263,6 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
-              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}

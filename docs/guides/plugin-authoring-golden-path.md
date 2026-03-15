@@ -11,21 +11,16 @@ setta plugins init setta-my-plugin --template full --out .
 This generates:
 
 - `setta.plugin.json`
-- `backend/` Go scaffolding when using `--template backend` or `--template full`
-- `frontend/dist/` and `content/` scaffolding when using `--template full`
+- optional `backend/`, `frontend/dist/`, and `content/` scaffolding
 - `pyproject.toml` with package metadata aligned to manifest `id` and `version`
-
-`setta plugins init` now generates a Go-backed `backend/main.go` scaffold for
-backend-capable templates. Backend plugin support remains in scope, and new
-backend authoring should target Go rather than Python.
 
 ## 2. Implement plugin logic
 
+- Backend: edit `backend/entrypoint.py` and expose `register(plugin)`.
 - Frontend: edit `frontend/dist/index.js` and export:
   - `apiVersion`
   - `register(host)`
   - optional CSS: `frontend/dist/index.css` and set `frontend.style` in manifest
-- Backend: edit `backend/main.go` and `backend/go.mod`.
 - Content: add templates/assets under `content/`.
 
 ### Optional: define plugin UI settings from config schema
@@ -57,6 +52,35 @@ Notes:
 - `settingId` is plugin-local; MCP callers will see `plugin::<pluginId>::<settingId>`.
 - `configPath` must be a non-empty string array.
 - `defaultValue` is required and must validate against `valueSchema` (or inferred schema at `configPath`).
+- Do not register the same local setting id in both schema and backend runtime registration.
+
+### Optional: define plugin UI settings from backend runtime handlers
+
+Use backend runtime handlers when reads/writes are not simple config-path updates:
+
+```python
+def register(plugin):
+    plugin.register_ui_setting(
+        {
+            "id": "backend_enabled",
+            "title": "Backend Enabled",
+            "description": "Enable backend-controlled behavior.",
+            "paneId": "my-settings-pane",
+            "revealKey": "my-settings",
+            "synonyms": ["backend enabled"],
+            "mutability": "writable",
+            "valueSchema": {"type": "boolean"},
+            "read": read_setting,
+            "write": write_setting,
+        }
+    )
+```
+
+Notes:
+- Backend UI setting registration requires effective `registerPane` capability.
+- `read` is required for all backend settings.
+- For `mutability="writable"`, `write` is required; for `readOnly`, `write` must be omitted.
+- `id` is plugin-local and must not contain `::`.
 
 ### Optional: implement frontend reveal handlers for plugin settings
 
@@ -102,6 +126,9 @@ setta plugins rescan
 setta plugins list
 setta plugins restart-required
 ```
+
+If your plugin has backend capabilities, restart Setta when `restart-required`
+reports pending backend plugins.
 
 ## 4. Validate plugin contract
 
@@ -149,6 +176,4 @@ setta plugins list
 setta plugins restart-required
 ```
 
-Use fixture references in `tests/fixtures/plugins/` for known-good examples.
-Backend runtime parity still needs more Go rewrite work, but the authoring path
-for backend plugins is now Go-native.
+Use fixture references in `tests/fixtures/plugins/` for known-good examples (`backend`, `frontend`, `content`, `full`).

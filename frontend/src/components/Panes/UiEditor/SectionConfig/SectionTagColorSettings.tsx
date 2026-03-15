@@ -11,12 +11,9 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import {
-  useProjectState,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import {
   route_save_settings,
   route_set_section_tag_color,
