@@ -2,6 +2,7 @@ package statemachineruns
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -209,6 +210,20 @@ func TestRuntimeStartRunFailsClosedWhenSignalTargetProfileDisallowsWorkflowSigna
 	}
 	if latest == nil || latest.Status != agentruns.RunStatusFailed {
 		t.Fatalf("expected failed latest workflow run, got %#v", latest)
+	}
+}
+
+func TestRuntimeStartRunRejectsMachineGroupWithoutStartSection(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRuntimeFixture(t)
+
+	_, err := fixture.runtime.StartRun("project-alpha", "workflow-missing", nil, nil)
+	if !errors.Is(err, ErrInvalidStateMachineInput) {
+		t.Fatalf("expected typed invalid workflow input, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "does not have a Start section") {
+		t.Fatalf("expected missing-start detail, got %v", err)
 	}
 }
 

@@ -190,6 +190,78 @@ func TestRegisterStateMachineRunRoutesFailClosedWhenSignalTargetProfileBlocksWor
 	}
 }
 
+func TestRegisterStateMachineRunRoutesMapValidationAndNotFoundErrors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newStateMachineRunRouteFixture(t, config.ModeIDE)
+
+	for _, testCase := range []struct {
+		name           string
+		payload        StartStateMachineRunRequest
+		expectedStatus int
+		expectedCode   string
+		messageSubstr  string
+	}{
+		{
+			name:           "missing project config id",
+			payload:        StartStateMachineRunRequest{MachineGroupID: "workflow-a"},
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "project_config_id_required",
+		},
+		{
+			name:           "missing machine group id",
+			payload:        StartStateMachineRunRequest{ProjectConfigID: "project-alpha"},
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "machine_group_id_required",
+		},
+		{
+			name:           "missing project",
+			payload:        StartStateMachineRunRequest{ProjectConfigID: "project-missing", MachineGroupID: "workflow-a"},
+			expectedStatus: http.StatusNotFound,
+			expectedCode:   "project_config_not_found",
+		},
+		{
+			name: "missing start section",
+			payload: StartStateMachineRunRequest{
+				ProjectConfigID: "project-alpha",
+				MachineGroupID:  "workflow-a",
+				StartSectionID:  stringPointer("start-section-missing"),
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedCode:   "section_not_found",
+		},
+		{
+			name:           "missing machine group start section",
+			payload:        StartStateMachineRunRequest{ProjectConfigID: "project-alpha", MachineGroupID: "workflow-missing"},
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "state_machine_run_invalid",
+			messageSubstr:  "does not have a Start section",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			response := stateMachineRunRouteRequest(
+				t,
+				fixture.handler,
+				RouteStartStateMachineRun,
+				testCase.payload,
+				testCase.expectedStatus,
+			)
+			stateMachineRouteErrorCode(t, response, testCase.expectedCode)
+			if testCase.messageSubstr == "" {
+				return
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error response: %v", err)
+			}
+			if !strings.Contains(payload.Error.Message, testCase.messageSubstr) {
+				t.Fatalf("expected error detail containing %q, got %#v", testCase.messageSubstr, payload)
+			}
+		})
+	}
+}
+
 func TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode(t *testing.T) {
 	t.Parallel()
 

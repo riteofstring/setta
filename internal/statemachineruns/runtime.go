@@ -774,10 +774,18 @@ func (r *Runtime) resolveGraph(
 		}
 	}
 	if len(startSectionIDs) == 0 {
-		return graph{}, nil, fmt.Errorf("state machine group %s does not have a Start section", machineGroupID)
+		return graph{}, nil, fmt.Errorf(
+			"%w: state machine group %s does not have a Start section",
+			ErrInvalidStateMachineInput,
+			machineGroupID,
+		)
 	}
 	if len(startSectionIDs) != 1 {
-		return graph{}, nil, fmt.Errorf("state machine group %s must resolve to exactly one Start section", machineGroupID)
+		return graph{}, nil, fmt.Errorf(
+			"%w: state machine group %s must resolve to exactly one Start section",
+			ErrInvalidStateMachineInput,
+			machineGroupID,
+		)
 	}
 	resolvedStartSectionID := startSectionIDs[0]
 	if startSectionID != nil && strings.TrimSpace(*startSectionID) != "" && strings.TrimSpace(*startSectionID) != resolvedStartSectionID {
