@@ -1266,6 +1266,36 @@ func TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesRuntimeReportsManualRestartCapabilityOutsideIDEWithCallback(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestServiceWithRestartCallback(t, config.ModeShare, func(context.Context) (bool, error) {
+		return true, nil
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeShare, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api"+RoutePluginsRuntime, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload plugins.RuntimeResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode share-mode plugin runtime response: %v", err)
+	}
+	if payload.Status.RestartCapability.Mode != plugins.RestartCapabilityModeManual {
+		t.Fatalf("expected manual restart capability, got %#v", payload.Status.RestartCapability)
+	}
+	if payload.Status.RestartCapability.Command == nil || *payload.Status.RestartCapability.Command != "setta" {
+		t.Fatalf("expected manual restart command, got %#v", payload.Status.RestartCapability.Command)
+	}
+	if payload.Status.RestartCapability.Reason == nil || *payload.Status.RestartCapability.Reason != "Plugin runtime restart is available only in IDE mode." {
+		t.Fatalf("unexpected share-mode restart reason %#v", payload.Status.RestartCapability.Reason)
+	}
+}
+
 func TestRegisterPluginRootRoutesServesFrontendAssetsAndImmutableCache(t *testing.T) {
 	t.Parallel()
 
