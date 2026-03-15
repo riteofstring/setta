@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -3129,6 +3130,9 @@ func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *te
 	if payload.Error.Code != "unsupported_model" {
 		t.Fatalf("expected unsupported_model, got %#v", payload)
 	}
+	if payload.Error.Message != "Realtime transcription is unavailable for this provider/model." {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
 }
 
 func TestRegisterAIRoutesReturnsTypedMissingTranscriptionProfile(t *testing.T) {
@@ -3815,6 +3819,9 @@ func TestRegisterAIRoutesReturnsTypedTranscriptionSessionNotFound(t *testing.T) 
 	if payload.Error.Code != "session_not_found" {
 		t.Fatalf("expected session_not_found, got %#v", payload)
 	}
+	if payload.Error.Message != "Transcription session missing-session not found." {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
 }
 
 func readAIRouteRealtimeProviderMessage(ctx context.Context, conn *websocket.Conn) (map[string]any, error) {
@@ -3865,6 +3872,167 @@ func TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode(t *testing
 	}
 	if payload.Error.Code != "audio_payload_too_large" {
 		t.Fatalf("expected audio_payload_too_large, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
+				Provider:  "openai",
+				BaseURL:   "https://example.com/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-file",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+	handler.ServeHTTP(startResponse, startRequest)
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 start, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start payload: %v", err)
+	}
+
+	audioPCM16 := bytes.Repeat([]byte{0x00}, transcriptionsessions.DefaultAppendPCMMaxBytes-2)
+	appendRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString(audioPCM16)+`","sampleRateHz":24000,"channels":1}`),
+	)
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendResponse := httptest.NewRecorder()
+	handler.ServeHTTP(appendResponse, appendRequest)
+
+	if appendResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 append, got %d with body %q", appendResponse.Code, appendResponse.Body.String())
+	}
+	var payload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(appendResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode append payload: %v", err)
+	}
+	if payload.AppendText != "" || payload.FullText != "" || payload.IsFinal {
+		t.Fatalf("unexpected append payload %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRejectInvalidTranscriptionAppendPayloads(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	validAudio := base64.StdEncoding.EncodeToString([]byte{0x00, 0x00})
+	oddAudio := base64.StdEncoding.EncodeToString([]byte{0x00})
+	for _, testCase := range []struct {
+		name            string
+		body            string
+		expectedMessage string
+	}{
+		{
+			name:            "sample rate zero",
+			body:            `{"sessionId":"session-1","audioPcm16Base64":"` + validAudio + `","sampleRateHz":0,"channels":1}`,
+			expectedMessage: "sampleRateHz must be greater than 0.",
+		},
+		{
+			name:            "channels zero",
+			body:            `{"sessionId":"session-1","audioPcm16Base64":"` + validAudio + `","sampleRateHz":24000,"channels":0}`,
+			expectedMessage: "channels must be greater than 0.",
+		},
+		{
+			name:            "invalid base64",
+			body:            `{"sessionId":"session-1","audioPcm16Base64":"%%%","sampleRateHz":24000,"channels":1}`,
+			expectedMessage: "Audio payload is not valid base64.",
+		},
+		{
+			name:            "empty audio payload",
+			body:            `{"sessionId":"session-1","audioPcm16Base64":"   ","sampleRateHz":24000,"channels":1}`,
+			expectedMessage: "Audio payload is empty.",
+		},
+		{
+			name:            "odd byte pcm16 payload",
+			body:            `{"sessionId":"session-1","audioPcm16Base64":"` + oddAudio + `","sampleRateHz":24000,"channels":1}`,
+			expectedMessage: "Audio payload must be PCM16 with an even byte length.",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteAppendTranscriptionAudio,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "invalid_request" {
+				t.Fatalf("expected invalid_request, got %#v", payload)
+			}
+			if payload.Error.Message != testCase.expectedMessage {
+				t.Fatalf("expected %q, got %#v", testCase.expectedMessage, payload)
+			}
+		})
 	}
 }
 

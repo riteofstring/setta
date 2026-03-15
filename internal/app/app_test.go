@@ -4675,6 +4675,57 @@ func TestAppServesFileModeTranscriptionSessionRoutes(t *testing.T) {
 	}
 }
 
+func TestAppRejectsUnauthorizedTranscriptionAppendBeforeJSONDecode(t *testing.T) {
+	// Auth middleware should reject appendTranscriptionAudio before the route
+	// tries to decode invalid JSON request bodies.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId"`),
+	)
+	if err != nil {
+		t.Fatalf("new append request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("append transcription audio without auth: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected append 401, got %d with body %q", response.StatusCode, string(body))
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read unauthorized append body: %v", err)
+	}
+	if strings.Contains(string(body), "invalid_json") {
+		t.Fatalf("expected auth rejection before JSON decode, got %q", string(body))
+	}
+	if !strings.Contains(string(body), "unauthorized") {
+		t.Fatalf("expected unauthorized auth error, got %q", string(body))
+	}
+}
+
 func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 	// The real IDE app should own realtime transcription session lifecycle and
 	// stream incremental transcript deltas through the bounded Go runtime.

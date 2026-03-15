@@ -16,6 +16,27 @@ import (
 	"setta/internal/transcriptionprofiles"
 )
 
+type blockingAppendEngine struct {
+	started    chan struct{}
+	release    chan struct{}
+	closeCalls int
+}
+
+func (e *blockingAppendEngine) AppendAudio(context.Context, []byte, int, int) (Delta, error) {
+	e.started <- struct{}{}
+	<-e.release
+	return Delta{}, nil
+}
+
+func (e *blockingAppendEngine) Stop(context.Context) (Delta, error) {
+	return Delta{}, nil
+}
+
+func (e *blockingAppendEngine) Close() error {
+	e.closeCalls++
+	return nil
+}
+
 func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
 	t.Parallel()
 
@@ -642,6 +663,164 @@ func TestServicePruneExpiredSessionsRemovesIdleSession(t *testing.T) {
 	})
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("expected pruned session not found, got %v", err)
+	}
+}
+
+func TestServiceAppendRejectsInvalidPayloadVariants(t *testing.T) {
+	t.Parallel()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:        "openai-file",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			BaseURL:   "https://example.com/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM: runtime,
+		NewID: func() string {
+			return "session-invalid"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeFile, runtime, "openai-file"),
+	})
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name            string
+		audioPCM16      []byte
+		sampleRateHz    int
+		channels        int
+		expectedMessage string
+	}{
+		{
+			name:            "sample rate zero",
+			audioPCM16:      []byte{0x00, 0x00},
+			sampleRateHz:    0,
+			channels:        1,
+			expectedMessage: "sampleRateHz must be greater than 0.",
+		},
+		{
+			name:            "channels zero",
+			audioPCM16:      []byte{0x00, 0x00},
+			sampleRateHz:    24_000,
+			channels:        0,
+			expectedMessage: "channels must be greater than 0.",
+		},
+		{
+			name:            "empty audio payload",
+			audioPCM16:      []byte{},
+			sampleRateHz:    24_000,
+			channels:        1,
+			expectedMessage: "Audio payload is empty.",
+		},
+		{
+			name:            "odd pcm16 payload",
+			audioPCM16:      []byte{0x00},
+			sampleRateHz:    24_000,
+			channels:        1,
+			expectedMessage: "PCM16 payload must have an even byte length.",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := service.AppendAudio(context.Background(), AppendRequest{
+				ScopeID:      "scope-1",
+				SessionID:    started.SessionID,
+				AudioPCM16:   testCase.audioPCM16,
+				SampleRateHz: testCase.sampleRateHz,
+				Channels:     testCase.channels,
+			})
+			if !errors.Is(err, ErrInvalidRequest) {
+				t.Fatalf("expected invalid request, got %v", err)
+			}
+			if err.Error() != testCase.expectedMessage {
+				t.Fatalf("expected %q, got %q", testCase.expectedMessage, err.Error())
+			}
+		})
+	}
+}
+
+func TestServicePruneExpiredSessionsSkipsSessionWhileAppendIsInFlight(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC)
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{}, map[string]string{})
+	engine := &blockingAppendEngine{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	service := &Service{
+		llm:        runtime,
+		sessionTTL: time.Second,
+		timeNow: func() time.Time {
+			return now
+		},
+		sessions: map[string]*activeSession{
+			"session-inflight": {
+				scopeID:      "scope-1",
+				engine:       engine,
+				lastActivity: now,
+			},
+		},
+	}
+
+	appendDone := make(chan error, 1)
+	go func() {
+		_, err := service.AppendAudio(context.Background(), AppendRequest{
+			ScopeID:      "scope-1",
+			SessionID:    "session-inflight",
+			AudioPCM16:   []byte{0x00, 0x00},
+			SampleRateHz: 24_000,
+			Channels:     1,
+		})
+		appendDone <- err
+	}()
+	<-engine.started
+
+	now = now.Add(2 * time.Second)
+	if err := service.PruneExpiredSessions(context.Background()); err != nil {
+		t.Fatalf("prune expired sessions while append in flight: %v", err)
+	}
+
+	service.mu.Lock()
+	session := service.sessions["session-inflight"]
+	service.mu.Unlock()
+	if session == nil {
+		t.Fatal("expected in-flight session to remain registered")
+	}
+	if engine.closeCalls != 0 {
+		t.Fatalf("expected in-flight session not to close during prune, got %d close calls", engine.closeCalls)
+	}
+
+	close(engine.release)
+	if err := <-appendDone; err != nil {
+		t.Fatalf("append audio: %v", err)
+	}
+
+	now = now.Add(2 * time.Second)
+	if err := service.PruneExpiredSessions(context.Background()); err != nil {
+		t.Fatalf("prune expired sessions after append completes: %v", err)
+	}
+
+	service.mu.Lock()
+	session = service.sessions["session-inflight"]
+	service.mu.Unlock()
+	if session != nil {
+		t.Fatalf("expected completed idle session to be pruned, got %#v", session)
+	}
+	if engine.closeCalls != 1 {
+		t.Fatalf("expected pruned idle session to close once, got %d", engine.closeCalls)
 	}
 }
 
