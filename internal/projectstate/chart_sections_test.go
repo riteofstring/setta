@@ -97,8 +97,8 @@ func TestRuntimeChartMutationsUpdateEffectivePayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("effectiveSectionPayload chart-section: %v", err)
 	}
-	if got := payloadRawStringField(payload, "dataPath"); got != "artifacts/chart.csv" {
-		t.Fatalf("expected trimmed dataPath, got %q", got)
+	if got := payloadRawStringField(payload, "dataPath"); got != "  artifacts/chart.csv  " {
+		t.Fatalf("expected literal dataPath, got %q", got)
 	}
 
 	chartSettings, ok := payloadObjectField(payload, "chartSettings")

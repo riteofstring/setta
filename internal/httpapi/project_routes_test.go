@@ -6253,8 +6253,8 @@ func TestRegisterProjectRoutesChartMutationsPersistLatestState(t *testing.T) {
 	}
 
 	chartModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["chart-section"].SharedModifier)
-	if chartModifier["dataPath"] != "artifacts/chart.csv" {
-		t.Fatalf("expected trimmed chart dataPath, got %#v", chartModifier["dataPath"])
+	if chartModifier["dataPath"] != "  artifacts/chart.csv  " {
+		t.Fatalf("expected literal chart dataPath, got %#v", chartModifier["dataPath"])
 	}
 	rawChartSettings, ok := chartModifier["chartSettings"].(map[string]any)
 	if !ok {

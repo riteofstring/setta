@@ -47,7 +47,7 @@ func (p *Project) SetChartAreaDataPath(sectionID string, dataPath string) error 
 	if err != nil {
 		return err
 	}
-	return p.setCurrentSectionField(section.ID, "dataPath", strings.TrimSpace(dataPath))
+	return p.setCurrentSectionField(section.ID, "dataPath", dataPath)
 }
 
 func (d *Document) SetChartAreaDataPath(projectID string, sectionID string, dataPath string) error {

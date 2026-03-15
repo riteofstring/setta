@@ -137,7 +137,7 @@ It covers:
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
 - The chart- and browser-metadata slices mostly close with proofs, but they
-  now only add three more caller-backed transport/runtime gaps plus one more
+  now only add two more caller-backed transport/runtime gaps plus one more
   dormant deployment-mode boundary row.
 - The group-orientation / section-data slice mostly closes with proofs, but it
   now only adds one more caller-backed transport/runtime gap plus three more
@@ -206,10 +206,6 @@ It covers:
     `report_state_machine_signal`
   - current Go workflow startup does not validate that precondition even
     though current docs still describe the fail-closed behavior
-  - source-baseline `setChartAreaDataPath` persists the literal `dataPath`
-    string provided by the caller
-  - current Go trims leading and trailing whitespace before persisting that
-    chart data path
   - source-baseline invalid `setChartType` / `setChartSettings` request bodies
     fail FastAPI/Pydantic validation with `422`
   - current Go normalizes chart-type payloads after JSON decode and returns
@@ -897,7 +893,7 @@ It covers:
 
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `CH-01` | `setChartAreaDataPath` persists the literal `dataPath` string supplied by the caller through latest-state hydration instead of trimming leading or trailing whitespace. | Source helper: `backend/setta/types/helpers_lvl2.py::set_chart_area_data_path`; source route: `backend/setta/routers/project_manager.py::route_set_chart_area_data_path`; current caller: `frontend/src/components/Panes/UiEditor/SectionConfig/ChartAreaSettings.tsx` via `frontend/src/state/hooks/editableText.ts::useEditableOnSubmit`. | Current Go trims before persistence in `internal/projectstate/chart_sections.go::SetChartAreaDataPath`; proof: `internal/projectstate/chart_sections_test.go::TestRuntimeChartMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsPersistLatestState`. | `Missing` | This is a caller-backed behavior gap: source writes the submitted path verbatim, while current Go persists `strings.TrimSpace(dataPath)`. |
+| `CH-01` | `setChartAreaDataPath` persists the literal `dataPath` string supplied by the caller through latest-state hydration instead of trimming leading or trailing whitespace. | Source helper: `backend/setta/types/helpers_lvl2.py::set_chart_area_data_path`; source route: `backend/setta/routers/project_manager.py::route_set_chart_area_data_path`; current caller: `frontend/src/components/Panes/UiEditor/SectionConfig/ChartAreaSettings.tsx` via `frontend/src/state/hooks/editableText.ts::useEditableOnSubmit`. | Impl: `internal/projectstate/chart_sections.go::SetChartAreaDataPath`; proof: `internal/projectstate/chart_sections_test.go::TestRuntimeChartMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsPersistLatestState`. | `Proved` | Current Go now matches the source caller contract by preserving the submitted `dataPath` string verbatim, including leading and trailing whitespace, through latest-state hydration. |
 | `CH-02` | `setChartType` preserves shared chart-setting fields while changing the chart discriminator, and `setChartSettings` only applies the fields named in `changedSettings`. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_chart_type,set_chart_settings}`. | Impl: `internal/projectstate/chart_sections.go::{SetChartType,SetChartSettings,carryForwardChartSettings}`; proof: `internal/projectstate/chart_sections_test.go::TestRuntimeChartMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsPersistLatestState`. | `Proved` | Current Go proof covers carry-forward of shared fields like `xAxisColumn` / `xAxisLog`, clearing incompatible line-only settings on scatter conversion, and selective updates from `changedSettings`. |
 | `CH-03` | Invalid `chartType` / `chartSettings.type` request payloads should fail source FastAPI/Pydantic validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded chart-type strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetChartTypeRequest,SetChartSettingsRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_chart_type,route_set_chart_settings}`. | Current Go normalizes post-decode in `internal/projectstate/chart_sections.go::{normalizeChartType,parseChartSettingsUpdate}` and maps failures through `internal/httpapi/project_routes.go::writeChartMutationError`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: current Go trims and returns `400 chart_type_invalid`, while the source typed request body would reject the same payload at framework validation time with `422`. |
 | `CH-04` | Source share/app sessions keep chart metadata mutation routes mounted and gate them with `allowParamChanges` instead of restricting them to IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_chart_area_data_path,route_set_chart_type,route_set_chart_settings}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::test_param_routes_blocked`. | Current Go mounts all three routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the IDE `ChartAreaSettings` surface via `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` and `frontend/src/components/Panes/UiEditor/SectionConfig/{SectionConfig,ChartAreaSettings}.tsx`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove any active deployment/share caller still exposes chart metadata editing in the Go-era product. |
@@ -1153,11 +1149,11 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains fourteen concrete source-parity gaps:
+1. The matrix now contains thirteen concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
-   `TB-03`, `CH-01`, `CH-03`, `BR-02`, `SD-05`,
+   `TB-03`, `CH-03`, `BR-02`, `SD-05`,
    `CS-02`, `CS-04`, `CB-03`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
@@ -1234,9 +1230,9 @@ It covers:
     one dormant mode-boundary row (`PW-04`).
 28. The text-block mutation slice mostly closes with proofs and now only adds
     one real transport/status gap (`TB-03`).
-29. The chart-metadata slice mostly closes with proofs, but it adds two real
-    transport/runtime gaps (`CH-01`, `CH-03`) plus one dormant
-    deployment-mode route-boundary row (`CH-04`).
+29. The chart-metadata slice mostly closes with proofs and now only adds one
+    real transport/runtime gap (`CH-03`) plus one dormant deployment-mode
+    route-boundary row (`CH-04`).
 30. The browser-section metadata slice mostly closes with proofs and now only
     adds one real transport-contract gap (`BR-02`).
 31. The group-orientation / section-data slice mostly closes with proofs and
@@ -1301,7 +1297,7 @@ It covers:
     - decide whether `US-05`,
       `WS-01`,
       `DP-08`,
-      `TB-03`, `CH-01`, `CH-03`, `BR-02`,
+      `TB-03`, `CH-03`, `BR-02`,
       `SD-05`, `CS-02`, `CS-04`, `CB-03`,
       `DL-02` should be restored or
       documented as intentional divergences
