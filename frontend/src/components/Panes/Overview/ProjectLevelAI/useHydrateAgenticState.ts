@@ -5,7 +5,7 @@ import {
   loadExternalAgentConfigs,
   loadExternalAgentHealth,
   loadPromptTemplates,
-} from "state/actions/aiConfigurationCatalogs";
+} from "state/actions/aiConfigurationCatalogLoads";
 import { loadTranscriptionProfiles } from "state/actions/aiTranscriptionProfiles";
 import { useAIStore } from "state/definitions";
 

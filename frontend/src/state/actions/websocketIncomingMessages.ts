@@ -24,7 +24,7 @@ import {
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
   receivePromptTemplatesUpdate,
-} from "./aiConfigurationCatalogs";
+} from "./aiConfigurationCatalogLoads";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,

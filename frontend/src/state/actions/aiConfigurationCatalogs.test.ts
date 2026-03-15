@@ -28,20 +28,22 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAIStore } from "../definitions";
 import {
+  loadAgentProfiles,
+  loadEngineConfigs,
+  loadExternalAgentConfigs,
+  loadPromptTemplates,
+} from "./aiConfigurationCatalogLoads";
+import {
   createAgentProfile,
   createExternalAgentConfig,
   createPromptTemplate,
   deleteAgentProfile,
   deleteExternalAgentConfig,
   deletePromptTemplate,
-  loadAgentProfiles,
-  loadEngineConfigs,
-  loadExternalAgentConfigs,
-  loadPromptTemplates,
   updateAgentProfile,
   updateExternalAgentConfig,
   updatePromptTemplate,
-} from "./aiConfigurationCatalogs";
+} from "./aiConfigurationCatalogMutations";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<

@@ -20,7 +20,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 ## Status Refresh (2026-03-14)
 
 - Unlike the later `clean-code` branch, this branch still has a shared `frontend/src/state/definitions.ts` index, but AI/chat store ownership now lives in `frontend/src/state/stores/aiStores.ts`, app runtime state now lives in `frontend/src/state/stores/appStores.ts`, session/share state now lives in `frontend/src/state/stores/sessionStores.ts`, browser state now lives in `frontend/src/state/stores/fileBrowserStores.ts`, search state now lives in `frontend/src/state/stores/searchStores.ts`, feedback state now lives in `frontend/src/state/stores/feedbackStores.ts`, project-status state now lives in `frontend/src/state/stores/projectStatusStores.ts`, layout interaction state now lives in `frontend/src/state/stores/layoutInteractionStores.ts`, UI preference/config state now lives in `frontend/src/state/stores/uiPreferenceStores.ts`, editor diagnostics state now lives in `frontend/src/state/stores/editorDiagnosticsStores.ts`, and shared persist fallback logic lives in `frontend/src/state/storePersistStorage.ts`.
-- `frontend/src/state/actions/aiHydrationOutcome.ts`, `frontend/src/state/actions/aiHydrationApply.ts`, `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiLLMConfiguration.ts`, `frontend/src/state/actions/aiConfigurationCatalogs.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiTranscriptionSessions.ts`, `frontend/src/state/actions/aiTranscriptionProfiles.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiExternalAgentStop.ts`, `frontend/src/state/actions/aiChatStopState.ts`, `frontend/src/state/actions/aiExternalAgentResponses.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, `frontend/src/state/actions/aiChatStreaming.ts`, `frontend/src/state/actions/aiChatStreamingMessages.ts`, `frontend/src/state/actions/aiChatStreamingSectionState.ts`, `frontend/src/state/actions/aiChatStreamingToolCalls.ts`, `frontend/src/state/actions/aiChatStreamingToolPreviews.ts`, `frontend/src/state/actions/aiChatStreamingAppDefinition.ts`, and `frontend/src/state/actions/aiChatStreamingTools.ts` now carry the hydration, agent-run, config/API-key, settings-catalog, transcription orchestration, transcription transport, transcription-profile, submission, chat-control, external stop/recovery, local stop-state, external approval/question response, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
+- `frontend/src/state/actions/aiHydrationOutcome.ts`, `frontend/src/state/actions/aiHydrationApply.ts`, `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiLLMConfiguration.ts`, `frontend/src/state/actions/aiConfigurationCatalogLoads.ts`, `frontend/src/state/actions/aiConfigurationCatalogState.ts`, `frontend/src/state/actions/aiConfigurationCatalogMutations.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiTranscriptionSessions.ts`, `frontend/src/state/actions/aiTranscriptionProfiles.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiExternalAgentStop.ts`, `frontend/src/state/actions/aiChatStopState.ts`, `frontend/src/state/actions/aiExternalAgentResponses.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, `frontend/src/state/actions/aiChatStreaming.ts`, `frontend/src/state/actions/aiChatStreamingMessages.ts`, `frontend/src/state/actions/aiChatStreamingSectionState.ts`, `frontend/src/state/actions/aiChatStreamingToolCalls.ts`, `frontend/src/state/actions/aiChatStreamingToolPreviews.ts`, `frontend/src/state/actions/aiChatStreamingAppDefinition.ts`, and `frontend/src/state/actions/aiChatStreamingTools.ts` now carry the hydration, agent-run, config/API-key, settings-catalog, transcription orchestration, transcription transport, transcription-profile, submission, chat-control, external stop/recovery, local stop-state, external approval/question response, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
 - `frontend/src/state/actions/projectChatWindowing.ts` now delegates pure
   windowing normalization and default-bounds helpers to
   `projectChatWindowingNormalization.ts`, selection reads to
@@ -237,7 +237,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
@@ -245,11 +244,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
+  - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
+  - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
+  - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
+  - `frontend/src/state/actions/artifacts.ts` at 366 lines
+  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
+  - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
+  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
@@ -554,9 +559,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `aiLLMConfiguration.ts` now owns:
   - LLM config load/save behavior
   - managed API-key snapshot updates, read failure handling, and queued write conflict resolution
-- `aiConfigurationCatalogs.ts` now owns:
-  - agent-profile, prompt-template, external-agent, and engine-config catalog loads and mutations
+- `aiConfigurationCatalogLoads.ts` now owns:
+  - agent-profile, prompt-template, external-agent, and engine-config catalog fetch/hydration
   - external-agent health loading plus external-agent-config update fan-out
+- `aiConfigurationCatalogState.ts` now owns:
+  - shared AI catalog snapshot writes
+  - mutation success and failure store updates
+- `aiConfigurationCatalogMutations.ts` now owns:
+  - agent-profile, prompt-template, external-agent, and engine-config mutation transport
 - `terminal.ts`, `terminalSessions.ts`, and `terminalFit.ts` now split into:
   - `terminal.ts` for React mount, ready/focus wiring, and resize observation
   - `terminalSessions.ts` for cached websocket session reuse, stdin gating, and resize transport

@@ -111,9 +111,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     pending app-generation state, and promotion into materialized chats.
   - `state/actions/aiLLMConfiguration.ts` owns LLM config loading/saving plus
     managed API-key snapshot, conflict, and persistence behavior.
-  - `state/actions/aiConfigurationCatalogs.ts` owns agent-profile,
+  - `state/actions/aiConfigurationCatalogLoads.ts` owns agent-profile,
     prompt-template, external-agent, external-agent-health, and engine-config
-    catalog load/mutation behavior.
+    catalog fetch/hydration plus config-health refresh fan-out.
+  - `state/actions/aiConfigurationCatalogState.ts` owns AI catalog store-write
+    helpers for snapshots, mutation success, and failure state.
+  - `state/actions/aiConfigurationCatalogMutations.ts` owns agent-profile,
+    prompt-template, external-agent, and engine-config mutation transport.
+  - `state/actions/aiConfigurationCatalogs.ts` is now a thin compatibility
+    facade over the narrower catalog owners.
   - `state/actions/aiConfiguration.ts` is now a thin compatibility surface that
     re-exports the LLM/config and catalog owners.
   - `state/actions/aiTranscription.ts` owns provider dictation decode,
