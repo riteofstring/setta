@@ -779,6 +779,7 @@ const initTemplateBackendMainGo = "package main\n\n" +
 	"  case backendProbeArg:\n" +
 	"    payload := map[string]any{\n" +
 	"      \"schemaVersion\": 1,\n" +
+	"      \"codegenTargets\": []map[string]any{},\n" +
 	"      \"routes\": []map[string]any{},\n" +
 	"      \"staticDirs\": []map[string]any{},\n" +
 	"      \"listenerEndpoints\": []map[string]any{},\n" +

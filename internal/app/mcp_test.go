@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -4179,8 +4180,8 @@ func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsOverAuthentic
 		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
 	}
 	message, ok := payload["message"].(string)
-	if !ok || !strings.Contains(message, "only supports python") {
-		t.Fatalf("expected python-only rejection message, got %#v", payload["message"])
+	if !ok || !strings.Contains(message, "is not registered") {
+		t.Fatalf("expected plugin-registration rejection message, got %#v", payload["message"])
 	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
@@ -4192,7 +4193,7 @@ func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsOverAuthentic
 	}
 }
 
-func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsWithTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsLinkedPluginSetProjectConfigCodegenTargetsWithTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -4215,10 +4216,54 @@ func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsWithTemporary
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
+	localPluginRoot := filepath.Join(t.TempDir(), "backend")
+	copyAppTestDir(t, sourceRoot, localPluginRoot)
+	manifestPath := filepath.Join(localPluginRoot, "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read linked plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode linked plugin manifest: %v", err)
+	}
+	manifest["capabilities"] = []string{"registerCodegenTarget"}
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode linked plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write linked plugin manifest: %v", err)
+	}
+
+	httpClient := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	linkRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsLink, bytes.NewReader(mustAppJSON(t, map[string]any{
+		"localPluginRoot": localPluginRoot,
+		"scope":           "workspace",
+		"enable":          true,
+		"force":           true,
+	})))
+	if err != nil {
+		t.Fatalf("new plugins link request: %v", err)
+	}
+	linkRequest.Header.Set("Content-Type", "application/json")
+	linkResponse, err := httpClient.Do(linkRequest)
+	if err != nil {
+		t.Fatalf("post plugins link: %v", err)
+	}
+	defer linkResponse.Body.Close()
+	if linkResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(linkResponse.Body)
+		t.Fatalf("expected plugins link 200, got %d with body %q", linkResponse.StatusCode, string(body))
+	}
+
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
 	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
 		Endpoint:   server.URL + "/mcp",
-		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+		HTTPClient: httpClient,
 	}, nil)
 	if err != nil {
 		t.Fatalf("connect authenticated mcp client: %v", err)
@@ -4244,24 +4289,20 @@ func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsWithTemporary
 	if err != nil {
 		t.Fatalf("call temp-id set_project_config_codegen_targets: %v", err)
 	}
-	if !result.IsError {
-		t.Fatalf("expected temp-id set_project_config_codegen_targets rejection, got %#v", result.StructuredContent)
+	if result.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", result.StructuredContent)
 	}
 	payload := mustStructuredMapValue(t, result.StructuredContent)
-	if payload["code"] != "invalid_arguments" {
-		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
-	}
-	message, ok := payload["message"].(string)
-	if !ok || !strings.Contains(message, "only supports python") {
-		t.Fatalf("expected python-only rejection message, got %#v", payload["message"])
+	if payload["status"] != "ok" {
+		t.Fatalf("expected ok status, got %#v", payload)
 	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
-		t.Fatalf("project by id after temp-id app set_project_config_codegen_targets: %v", err)
+		t.Fatalf("project by id after temp-id app linked-plugin set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 0 {
-		t.Fatalf("expected no persisted codegen targets after temp-id app rejection, got %#v", project.CodegenTargets)
+	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("expected persisted plugin codegen target after temp-id app call, got %#v", project.CodegenTargets)
 	}
 }
 

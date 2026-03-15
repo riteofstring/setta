@@ -36,7 +36,6 @@ var (
 		"registerContextMenu":          {},
 		"registerLanguageServer":       {},
 		"registerExternalAgentAdapter": {},
-		"registerCodegenTarget":        {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,

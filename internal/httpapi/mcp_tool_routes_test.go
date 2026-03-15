@@ -24,6 +24,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 )
@@ -3132,8 +3133,8 @@ func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargets(t *testing.
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		CodegenTargetValidator: projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
-			return nil
+		CodegenTargetValidator: projectstate.CodegenTargetValidatorFunc(func(_ context.Context, target projectstate.ProjectCodegenTarget) error {
+			return fmt.Errorf("%w: %s", plugins.ErrRegisteredCodegenTargetNotFound, target.Language)
 		}),
 		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
 			return nil
@@ -3188,8 +3189,8 @@ func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargets(t *testing.
 	if structured["code"] != "invalid_arguments" {
 		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
 	}
-	if !strings.Contains(fmt.Sprint(structured["message"]), "only supports python") {
-		t.Fatalf("expected python-only rejection message, got %#v", structured["message"])
+	if !strings.Contains(fmt.Sprint(structured["message"]), "is not registered") {
+		t.Fatalf("expected plugin-registration rejection message, got %#v", structured["message"])
 	}
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
@@ -3201,7 +3202,7 @@ func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargets(t *testing.
 	}
 }
 
-func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargetsWithTemporaryIDs(t *testing.T) {
+func TestMCPToolCallRouteSupportsPluginSetProjectConfigCodegenTargetsWithTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
@@ -3265,23 +3266,20 @@ func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargetsWithTemporar
 	}
 
 	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if !payload.IsError {
-		t.Fatalf("expected temp-id set_project_config_codegen_targets rejection, got %#v", payload.StructuredContent)
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", payload.StructuredContent)
 	}
 	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
-	if structured["code"] != "invalid_arguments" {
-		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
-	}
-	if !strings.Contains(fmt.Sprint(structured["message"]), "only supports python") {
-		t.Fatalf("expected python-only rejection message, got %#v", structured["message"])
+	if structured["status"] != "ok" {
+		t.Fatalf("expected ok status, got %#v", structured)
 	}
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after temp-id route set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 0 {
-		t.Fatalf("expected no persisted codegen targets after temp-id route rejection, got %#v", project.CodegenTargets)
+	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("expected persisted plugin codegen target after temp-id route call, got %#v", project.CodegenTargets)
 	}
 }
 

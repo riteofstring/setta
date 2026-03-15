@@ -32,6 +32,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
 	"setta/internal/observability"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/terminals"
@@ -8892,8 +8893,8 @@ func TestAppRejectsPluginSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 	}
 }
 
-func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
-	// Linking a backend plugin after startup should not make removed plugin codegen targets available again.
+func TestAppLinkedPluginCodegenTargetsBecomeAvailableAfterLink(t *testing.T) {
+	// Linking a backend plugin after startup should make its registered codegen targets available without a separate app restart.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -8923,6 +8924,24 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
 	localPluginRoot := filepath.Join(t.TempDir(), "backend")
 	copyAppTestDir(t, sourceRoot, localPluginRoot)
+	manifestPath := filepath.Join(localPluginRoot, "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read linked plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode linked plugin manifest: %v", err)
+	}
+	manifest["capabilities"] = []string{"registerCodegenTarget"}
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode linked plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write linked plugin manifest: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -8958,7 +8977,8 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	getRuntime := func() struct {
 		Status struct {
 			Plugins []struct {
-				PluginID string `json:"pluginId"`
+				PluginID                 string                                  `json:"pluginId"`
+				RegisteredCodegenTargets []plugins.PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
 			} `json:"plugins"`
 		} `json:"status"`
 	} {
@@ -8983,7 +9003,8 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 		var payload struct {
 			Status struct {
 				Plugins []struct {
-					PluginID string `json:"pluginId"`
+					PluginID                 string                                  `json:"pluginId"`
+					RegisteredCodegenTargets []plugins.PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
 				} `json:"plugins"`
 			} `json:"status"`
 		}
@@ -9006,6 +9027,9 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	}
 	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-backend" {
 		t.Fatalf("unexpected linked plugin runtime payload %#v", runtimePayload.Status.Plugins[0])
+	}
+	if len(runtimePayload.Status.Plugins[0].RegisteredCodegenTargets) != 1 {
+		t.Fatalf("expected linked plugin codegen registration in runtime payload, got %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets)
 	}
 
 	requestBody := mustAppJSON(t, map[string]any{
@@ -9031,17 +9055,17 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 		t.Fatalf("post setProjectConfigCodegenTargets: %v", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusBadRequest {
+	if response.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected setProjectConfigCodegenTargets 400, got %d with body %q", response.StatusCode, string(payload))
+		t.Fatalf("expected setProjectConfigCodegenTargets 200, got %d with body %q", response.StatusCode, string(payload))
 	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
-		t.Fatalf("project by id after linked plugin rejection: %v", err)
+		t.Fatalf("project by id after linked plugin codegen update: %v", err)
 	}
-	if len(project.CodegenTargets) != 0 {
-		t.Fatalf("expected no persisted codegen targets after linked plugin rejection, got %#v", project.CodegenTargets)
+	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("expected persisted linked plugin codegen target, got %#v", project.CodegenTargets)
 	}
 }
 

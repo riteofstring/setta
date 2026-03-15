@@ -75,6 +75,14 @@ func main() {
 	case backendProbeArg:
 		writeJSON(map[string]any{
 			"schemaVersion": 1,
+			"codegenTargets": []map[string]any{
+				{
+					"targetId":        "typescript",
+					"language":        "setta-fixture-backend-codegen:typescript",
+					"name":            "Fixture TypeScript State",
+					"defaultFileName": "fixture_state.ts",
+				},
+			},
 			"routes": []map[string]any{
 				{
 					"path":    "/health",

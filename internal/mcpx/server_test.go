@@ -4375,7 +4375,7 @@ func TestServerSetProjectConfigCodegenTargetsRejectsPluginTargetsBeforeScopeChec
 	}
 }
 
-func TestServerSetProjectConfigCodegenTargetsRejectsPluginTargetsWithTemporaryProjectID(t *testing.T) {
+func TestServerSetProjectConfigCodegenTargetsSupportsPluginTargetsWithTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
@@ -4417,23 +4417,20 @@ func TestServerSetProjectConfigCodegenTargetsRejectsPluginTargetsWithTemporaryPr
 	if err != nil {
 		t.Fatalf("call temp-id set_project_config_codegen_targets: %v", err)
 	}
-	if !result.IsError {
-		t.Fatalf("expected temp-id set_project_config_codegen_targets rejection, got %#v", result.StructuredContent)
+	if result.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", result.StructuredContent)
 	}
 	payload := mustStructuredMap(t, result.StructuredContent)
-	if payload["code"] != "invalid_arguments" {
-		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
-	}
-	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "only supports python") {
-		t.Fatalf("expected python-only rejection message, got %#v", payload["message"])
+	if payload["status"] != "ok" {
+		t.Fatalf("expected ok status, got %#v", payload)
 	}
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
-		t.Fatalf("project by id after rejected set_project_config_codegen_targets: %v", err)
+		t.Fatalf("project by id after temp-id set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 0 {
-		t.Fatalf("expected no persisted codegen targets after rejection, got %#v", project.CodegenTargets)
+	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("expected persisted plugin codegen target, got %#v", project.CodegenTargets)
 	}
 }
 

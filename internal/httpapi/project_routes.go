@@ -15,6 +15,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/deployments"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
@@ -158,7 +159,6 @@ const (
 var (
 	ErrProjectCodegenTargetObjectRequired   = errors.New("project codegen target payload must be a JSON object")
 	ErrProjectCodegenTargetLanguageRequired = errors.New("project codegen target language is required")
-	ErrProjectCodegenTargetPythonOnly       = errors.New("project codegen targets only support python")
 )
 
 type ProjectRouteDependencies struct {
@@ -6157,9 +6157,6 @@ func decodeProjectCodegenTarget(payload json.RawMessage) (projectstate.ProjectCo
 	if language == "" {
 		return projectstate.ProjectCodegenTarget{}, ErrProjectCodegenTargetLanguageRequired
 	}
-	if language != string(projectstate.CodeLanguagePython) {
-		return projectstate.ProjectCodegenTarget{}, ErrProjectCodegenTargetPythonOnly
-	}
 
 	return projectstate.ProjectCodegenTarget{
 		Language: language,
@@ -7056,12 +7053,13 @@ func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Req
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, ErrProjectCodegenTargetObjectRequired),
 		errors.Is(err, ErrProjectCodegenTargetLanguageRequired),
-		errors.Is(err, ErrProjectCodegenTargetPythonOnly),
 		errors.Is(err, projectstate.ErrFrontendPayloadInvalid),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired):
+		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired),
+		errors.Is(err, plugins.ErrRegisteredCodegenTargetNotFound),
+		errors.Is(err, plugins.ErrRegisteredCodegenTargetConflict):
 		writeError(w, r, http.StatusBadRequest, "invalid_project_codegen_targets", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

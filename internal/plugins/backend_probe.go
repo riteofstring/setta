@@ -19,6 +19,7 @@ const (
 
 type backendProbeResponse struct {
 	SchemaVersion     int                                `json:"schemaVersion"`
+	CodegenTargets    []PluginRegisteredCodegenTarget    `json:"codegenTargets"`
 	Routes            []PluginRegisteredBackendRoute     `json:"routes"`
 	StaticDirs        []PluginRegisteredStaticDir        `json:"staticDirs"`
 	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints"`
@@ -27,7 +28,7 @@ type backendProbeResponse struct {
 func backendProbeRequired(capabilities []string) bool {
 	for _, capability := range capabilities {
 		switch capability {
-		case "registerRouter", "registerStaticDir", "registerListenerEndpoint":
+		case "registerCodegenTarget", "registerRouter", "registerStaticDir", "registerListenerEndpoint":
 			return true
 		}
 	}
@@ -68,7 +69,7 @@ func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, execut
 			err.Error(),
 		)
 	}
-	probe, err = normalizeBackendProbeResponse(pluginRoot, probe)
+	probe, err = normalizeBackendProbeResponse(pluginRoot, manifest.ID, probe)
 	if err != nil {
 		return backendProbeResponse{}, newServiceError(
 			ServiceErrorCodeBackendRuntimeInvalid,
@@ -93,6 +94,9 @@ func decodeBackendProbeResponse(output []byte) (backendProbeResponse, error) {
 	if probe.SchemaVersion != backendProbeSchemaVersion {
 		return backendProbeResponse{}, fmt.Errorf("unsupported schema version %d", probe.SchemaVersion)
 	}
+	if probe.CodegenTargets == nil {
+		probe.CodegenTargets = []PluginRegisteredCodegenTarget{}
+	}
 	if probe.Routes == nil {
 		probe.Routes = []PluginRegisteredBackendRoute{}
 	}
@@ -105,7 +109,40 @@ func decodeBackendProbeResponse(output []byte) (backendProbeResponse, error) {
 	return probe, nil
 }
 
-func normalizeBackendProbeResponse(pluginRoot string, probe backendProbeResponse) (backendProbeResponse, error) {
+func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe backendProbeResponse) (backendProbeResponse, error) {
+	targetIDs := map[string]struct{}{}
+	targetLanguages := map[string]struct{}{}
+	for index, target := range probe.CodegenTargets {
+		normalized, err := normalizeBackendCodegenTargetRegistration(pluginID, target)
+		if err != nil {
+			return backendProbeResponse{}, fmt.Errorf("codegen target %d: %w", index, err)
+		}
+		probe.CodegenTargets[index] = normalized
+		if _, exists := targetIDs[normalized.TargetID]; exists {
+			return backendProbeResponse{}, fmt.Errorf("duplicate codegen target id %s", normalized.TargetID)
+		}
+		targetIDs[normalized.TargetID] = struct{}{}
+		if _, exists := targetLanguages[normalized.Language]; exists {
+			return backendProbeResponse{}, fmt.Errorf("duplicate codegen target language %s", normalized.Language)
+		}
+		targetLanguages[normalized.Language] = struct{}{}
+	}
+	slices.SortFunc(probe.CodegenTargets, func(left PluginRegisteredCodegenTarget, right PluginRegisteredCodegenTarget) int {
+		if left.Language < right.Language {
+			return -1
+		}
+		if left.Language > right.Language {
+			return 1
+		}
+		if left.TargetID < right.TargetID {
+			return -1
+		}
+		if left.TargetID > right.TargetID {
+			return 1
+		}
+		return 0
+	})
+
 	routeKeys := map[string]struct{}{}
 	for index, route := range probe.Routes {
 		normalized, err := normalizeBackendRouteRegistration(route)
@@ -190,6 +227,42 @@ func normalizeBackendProbeResponse(pluginRoot string, probe backendProbeResponse
 	})
 
 	return probe, nil
+}
+
+func normalizeBackendCodegenTargetRegistration(pluginID string, target PluginRegisteredCodegenTarget) (PluginRegisteredCodegenTarget, error) {
+	targetID := strings.TrimSpace(target.TargetID)
+	if targetID == "" {
+		return PluginRegisteredCodegenTarget{}, fmt.Errorf("targetId is required")
+	}
+
+	language := strings.TrimSpace(target.Language)
+	if language == "" {
+		return PluginRegisteredCodegenTarget{}, fmt.Errorf("language is required")
+	}
+
+	name := strings.TrimSpace(target.Name)
+	if name == "" {
+		return PluginRegisteredCodegenTarget{}, fmt.Errorf("name is required")
+	}
+
+	defaultFileName := strings.TrimSpace(target.DefaultFileName)
+	if defaultFileName == "" {
+		return PluginRegisteredCodegenTarget{}, fmt.Errorf("defaultFileName is required")
+	}
+	if strings.ContainsAny(defaultFileName, `/\`) {
+		return PluginRegisteredCodegenTarget{}, fmt.Errorf("defaultFileName must be a file name")
+	}
+	if defaultFileName == "." || defaultFileName == ".." {
+		return PluginRegisteredCodegenTarget{}, fmt.Errorf("defaultFileName must be a file name")
+	}
+
+	return PluginRegisteredCodegenTarget{
+		TargetID:        targetID,
+		PluginID:        strings.TrimSpace(pluginID),
+		Language:        language,
+		Name:            name,
+		DefaultFileName: defaultFileName,
+	}, nil
 }
 
 func normalizeBackendRouteRegistration(route PluginRegisteredBackendRoute) (PluginRegisteredBackendRoute, error) {

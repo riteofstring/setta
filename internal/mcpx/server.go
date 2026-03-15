@@ -7303,14 +7303,6 @@ func readProjectCodegenTargetValue(rawValue any, key string, index int) (project
 	if language == "" {
 		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d].language is required", key, index)
 	}
-	if language != string(projectstate.CodeLanguagePython) {
-		return projectstate.ProjectCodegenTarget{}, newToolError(
-			"invalid_arguments",
-			"%s[%d].language only supports python",
-			key,
-			index,
-		)
-	}
 
 	return projectstate.ProjectCodegenTarget{
 		Language: language,
@@ -7448,6 +7440,8 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired),
+		errors.Is(err, plugins.ErrRegisteredCodegenTargetNotFound),
+		errors.Is(err, plugins.ErrRegisteredCodegenTargetConflict),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetPayloadInvalid),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetObjectRequired),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldUnknown),

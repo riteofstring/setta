@@ -21,13 +21,14 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/settingsstate"
 )
 
-func TestRegisterProjectRoutesRejectsPluginCodegenTargets(t *testing.T) {
+func TestRegisterProjectRoutesValidatesAndPersistsPluginCodegenTargets(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
@@ -92,28 +93,74 @@ func TestRegisterProjectRoutesRejectsPluginCodegenTargets(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload projectview.SingleConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode project state payload: %v", err)
+	}
+	if len(payload.ProjectConfig.CodegenTargets) != 1 {
+		t.Fatalf("expected one persisted codegen target in response, got %#v", payload.ProjectConfig.CodegenTargets)
+	}
+	if !reflect.DeepEqual(validatedTargets, []string{"setta-fixture-backend-codegen:typescript"}) {
+		t.Fatalf("expected validator call for plugin target, got %#v", validatedTargets)
+	}
+
+	snapshot := projectRuntime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one persisted codegen target, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected persisted codegen target %#v", project.CodegenTargets[0])
+	}
+	if string(project.CodegenTargets[0].Payload) != `{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"AlphaState"}}` {
+		t.Fatalf("unexpected persisted codegen target payload %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
+func TestRegisterProjectRoutesRejectsPluginCodegenTargetsWhenValidatorFails(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), projectstate.CodegenTargetValidatorFunc(func(_ context.Context, target projectstate.ProjectCodegenTarget) error {
+		return fmt.Errorf("%w: %s", plugins.ErrRegisteredCodegenTargetNotFound, target.Language)
+	}), nil, nil)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetProjectConfigCodegenTargets, strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"setta-fixture-backend-codegen:typescript"}]}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
-	}
-	if payload.Error.Code != "invalid_project_codegen_targets" {
-		t.Fatalf("expected invalid_project_codegen_targets, got %#v", payload)
-	}
-	if len(validatedTargets) != 0 {
-		t.Fatalf("expected plugin target rejection before validator, got %#v", validatedTargets)
+	if !strings.Contains(response.Body.String(), `"code":"invalid_project_codegen_targets"`) {
+		t.Fatalf("expected invalid_project_codegen_targets error, got %q", response.Body.String())
 	}
 
 	snapshot := projectRuntime.Snapshot()
 	project := snapshot.Document.Projects["project-alpha"]
 	if len(project.CodegenTargets) != 0 {
-		t.Fatalf("expected no persisted codegen targets after rejection, got %#v", project.CodegenTargets)
+		t.Fatalf("expected no persisted codegen targets after validator failure, got %#v", project.CodegenTargets)
 	}
 }
 

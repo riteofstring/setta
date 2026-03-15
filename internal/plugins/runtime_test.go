@@ -217,6 +217,7 @@ func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
 		payload["capabilities"] = []string{
+			"registerCodegenTarget",
 			"registerMcpTools",
 			"registerRouter",
 			"registerStaticDir",
@@ -234,18 +235,19 @@ func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	if len(runtimeResponse.List.Plugins) != 1 {
 		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
 	}
-	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 4 {
+	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 5 {
 		t.Fatalf("expected backend transport capabilities to be effective, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
-	if runtimeResponse.List.Plugins[0].EffectiveCapabilities[0] != "registerMcpTools" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[1] != "registerRouter" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[2] != "registerStaticDir" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[3] != "registerListenerEndpoint" {
+	if runtimeResponse.List.Plugins[0].EffectiveCapabilities[0] != "registerCodegenTarget" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[1] != "registerMcpTools" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[2] != "registerRouter" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[3] != "registerStaticDir" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[4] != "registerListenerEndpoint" {
 		t.Fatalf("unexpected effective backend capabilities %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
-	if len(statusEntry.RequestedCapabilities) != 4 {
+	if len(statusEntry.RequestedCapabilities) != 5 {
 		t.Fatalf("expected requested backend capabilities, got %#v", statusEntry.RequestedCapabilities)
 	}
 	if len(statusEntry.BlockedCapabilities) != 0 {
@@ -259,6 +261,7 @@ func TestServiceRuntimeReportsBackendRegistrationsFromProbe(t *testing.T) {
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
 		payload["capabilities"] = []string{
+			"registerCodegenTarget",
 			"registerRouter",
 			"registerStaticDir",
 			"registerListenerEndpoint",
@@ -279,6 +282,12 @@ func TestServiceRuntimeReportsBackendRegistrationsFromProbe(t *testing.T) {
 	statusEntry := runtimeResponse.Status.Plugins[0]
 	if statusEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active backend fixture, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.RegisteredCodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target, got %#v", statusEntry.RegisteredCodegenTargets)
+	}
+	if got := statusEntry.RegisteredCodegenTargets[0]; got.TargetID != "typescript" || got.PluginID != "setta-fixture-backend" || got.Language != "setta-fixture-backend-codegen:typescript" || got.Name != "Fixture TypeScript State" || got.DefaultFileName != "fixture_state.ts" {
+		t.Fatalf("unexpected codegen target registration %#v", got)
 	}
 	if len(statusEntry.RegisteredBackendRoutes) != 2 {
 		t.Fatalf("expected two backend routes, got %#v", statusEntry.RegisteredBackendRoutes)

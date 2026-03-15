@@ -182,6 +182,7 @@ type DiscoveredPlugin struct {
 	BlockedCapabilities         []PluginBlockedCapability
 	EnablementSource            *PluginEnablementSource
 	RestartRequired             bool
+	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
 	RegisteredStaticDirs        []PluginRegisteredStaticDir
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint

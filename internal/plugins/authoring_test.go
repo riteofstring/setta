@@ -182,7 +182,7 @@ func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeHostVersionInvalid)
 }
 
-// Validate should accept known backend capability names even while the Go runtime still blocks them at execution time.
+// Validate should accept backend capability names that the Go plugin runtime supports today.
 func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -190,6 +190,7 @@ func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-backend-capability-fixture", "backend")
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
 		payload["capabilities"] = []string{
+			"registerCodegenTarget",
 			"registerMcpTools",
 			"registerRouter",
 			"registerStaticDir",

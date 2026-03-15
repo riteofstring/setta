@@ -677,6 +677,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	codegenValidator = pluginMutationService
 	pluginRouteService = pluginMutationService
 	if modePolicy.IsIDE() && projectRuntime != nil {
 		engineStore, err = agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
