@@ -4838,3 +4838,32 @@ in `frontend/src/README.md` and the cleanup plans.
   - `5d56225c790e1bc27886a1836ef8d37d8e5f0dc9`
 - Next highest-value unblocked slice:
   - Split attachment/media preview handling out of `frontend/src/components/Chat/ChatMessages.tsx` so attachment URL loading, text preview fetch state, and media carousel branching stop sharing the main chat render surface.
+
+## 2026-03-15 13:48:16 PDT
+
+- Slice completed: extracted attachment URL loading and preview rendering out of `ChatMessages.tsx`
+- Why this slice now:
+  - `frontend/src/components/Chat/ChatMessages.tsx` remained the largest unresolved UI hotspot after the assistant-activity and structured-output splits, and attachment/media preview handling was the next cohesive seam already localized to one render-heavy branch. That made it higher value than switching to `ProjectChatBottomDock.tsx` before removing another large mixed-responsibility path from the top chat surface.
+- Key files touched:
+  - `frontend/src/components/Chat/chatAttachmentPreviewUrls.ts`
+  - `frontend/src/components/Chat/chatAttachmentPreviewUrls.test.ts`
+  - `frontend/src/components/Chat/chatAttachmentPreviews.tsx`
+  - `frontend/src/components/Chat/chatAttachmentPreviews.test.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Chat/ChatMessages.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-attachment-preview-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatAttachmentPreviewUrls.test.ts src/components/Chat/chatAttachmentPreviews.test.tsx src/components/Chat/chatStructuredOutput.test.tsx src/components/Chat/chatAssistantActivity.test.ts src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/ChatMessages.test.tsx src/components/Chat/chatAttachmentPreviewUrls.ts src/components/Chat/chatAttachmentPreviewUrls.test.ts src/components/Chat/chatAttachmentPreviews.tsx src/components/Chat/chatAttachmentPreviews.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-attachment-preview-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-attachment-preview-2026-03-15.md` with the same-origin harness context and before/after attachment-preview observations.
+  - CDP visual verification was done through a same-origin harness that imported `ChatMessageList` directly, because the normal app shell was already blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error.
+  - Verified the archive attachment preview flow before and after the extraction; the fallback dialog copy stayed the same and the open-dialog harness DOM node count stayed effectively flat (`83` before, `82` after). Screenshot saved under `perf/reports/frontend/chat-attachment-preview-open-2026-03-15.png`.
+- Commit hash:
+  - `defc62a308dee1021c9e79eb326500b83d5704cd`
+- Next highest-value unblocked slice:
+  - Split markdown/code message content rendering plus conversation-search highlighting out of `frontend/src/components/Chat/ChatMessages.tsx` so MarkdownContent, inline image-url rendering, and search-highlight wrappers stop sharing the top-level chat surface.
