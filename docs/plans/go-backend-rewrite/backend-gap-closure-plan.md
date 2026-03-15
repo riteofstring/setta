@@ -50,8 +50,8 @@ categorize them.
   required-view-mode-repair / missing-required-section / code-obj-backfill
   slice
 - Broaden `/settings` repair proof beyond the required-tab restart slice:
-  `settings_project.view_modes.reset_preserves_active_tab_name_else_falls_back_and_reprojects_active_layout`,
-  `settings_project.view_modes.valid_settings_project_is_noop`, and
+  `settings_project.view_modes.reset_preserves_active_tab_name_else_falls_back_and_reprojects_active_layout`
+  and
   `settings_project.view_modes.reset_when_top_level_or_required_tab_state_is_invalid`
 - Workspace-launch outdated-settings preflight parity:
   `settings_project.launch.missing_required_section_surfaces_typed_outdated_settings_error`
