@@ -44,7 +44,7 @@ import { updateSettings } from "./settings";
 import {
   receiveUISettingReveal,
   type UISettingRevealExecutionContext,
-} from "./uiSettingReveal";
+} from "./uiSettingRevealRequests";
 import {
   buildExecutionContextMismatchStatuses,
   type UISettingRevealResultStatus,

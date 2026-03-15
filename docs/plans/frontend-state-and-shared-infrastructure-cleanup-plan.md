@@ -230,22 +230,25 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   previously lived in `frontend/src/state/actions/aiHydration.ts`.
 - `frontend/src/state/actions/aiHydration.ts` is now the thin public hydration
   facade that composes the outcome and apply owners.
-- `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
-  entrypoint; `uiSettingRevealMutations.ts` now owns the mutation lock plus
-  high-level reveal orchestration, `uiSettingRevealMutationOwnership.ts` owns
-  lease sequence and touched-field ownership,
-  `uiSettingRevealMutationCapture.ts` owns snapshot capture plus
-  failure-result assembly, `uiSettingRevealMutationRecordRestore.ts` now owns
-  shared owned-record revert helpers,
-  `uiSettingRevealMutationLocalStorageRestore.ts` now owns local-storage
-  rollback, `uiSettingRevealMutationProjectStateRestore.ts` now owns
-  project-state active-section rollback,
-  `uiSettingRevealMutationRestore.ts` is now the thin restore orchestrator,
-  `uiSettingRevealMutationSnapshots.ts` is now the compatibility facade,
-  `uiSettingRevealActivation.ts` owns
-  pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
-  lookup and highlighting, and `uiSettingRevealShared.ts` owns
-  execution-context/status helpers.
+- `frontend/src/state/actions/uiSettingRevealRequests.ts` now owns
+  request-level reveal project/context gating plus the per-request reveal loop,
+  `frontend/src/state/actions/uiSettingRevealExecution.ts` now owns
+  single-target mutation, plugin fallback, anchor lookup, and lease cleanup,
+  and `frontend/src/state/actions/uiSettingReveal.ts` is now the thin
+  compatibility facade. `uiSettingRevealMutations.ts` still owns the mutation
+  lock plus high-level reveal orchestration,
+  `uiSettingRevealMutationOwnership.ts` still owns lease sequence and touched-field
+  ownership, `uiSettingRevealMutationCapture.ts` still owns snapshot capture
+  plus failure-result assembly,
+  `uiSettingRevealMutationRecordRestore.ts` still owns shared owned-record
+  revert helpers, `uiSettingRevealMutationLocalStorageRestore.ts` still owns
+  local-storage rollback, `uiSettingRevealMutationProjectStateRestore.ts`
+  still owns project-state active-section rollback,
+  `uiSettingRevealMutationRestore.ts` is still the thin restore orchestrator,
+  `uiSettingRevealMutationSnapshots.ts` is still the compatibility facade,
+  `uiSettingRevealActivation.ts` owns pane/accordion activation writes,
+  `uiSettingRevealDom.ts` owns anchor lookup and highlighting, and
+  `uiSettingRevealShared.ts` owns execution-context/status helpers.
 - `frontend/src/state/actions/keyActivations.ts` is now a 284-line listener
   orchestration entrypoint; `keyShortcutRegistrationGroups.ts` owns grouped
   shortcut registration tables, `keyShortcutRegistrations.ts` owns the
@@ -268,18 +271,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
-  - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts` at 190 lines
-  - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 178 lines
+  - `frontend/src/state/actions/gitGraphLog.ts` at 351 lines
+  - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
+  - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
-  - `frontend/src/state/actions/sections/moveSectionState.ts` at 252 lines
-  - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts` at 190 lines
+  - `frontend/src/state/actions/gitGraphLog.ts` at 351 lines
+  - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
+  - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -458,10 +461,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - top-level layout pending-op reconciliation after backend snapshots
   - debounced backend layout persistence and optimistic layout snapshot writes
 - `uiSettingReveal.ts` and adjacent helpers now split into:
-  - `uiSettingReveal.ts` for reveal orchestration and plugin fallback flow
+  - `uiSettingRevealRequests.ts` for request-level reveal project/context gating and the per-request reveal loop
+  - `uiSettingRevealExecution.ts` for single-target reveal mutation, plugin fallback polling, anchor lookup, and lease cleanup
+  - `uiSettingReveal.ts` as the thin compatibility facade
   - `uiSettingRevealMutations.ts` for reveal mutation lock and high-level orchestration
   - `uiSettingRevealMutationOwnership.ts` for lease sequence and touched-field ownership
-  - `uiSettingRevealMutationSnapshots.ts` for snapshot capture and rollback application
+  - `uiSettingRevealMutationCapture.ts` for snapshot capture plus failure-result assembly
+  - `uiSettingRevealMutationRestore.ts` as the thin restore orchestrator
+  - `uiSettingRevealMutationSnapshots.ts` as the compatibility facade
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders

@@ -437,18 +437,25 @@ feature-local adapters around them when the consuming surface is non-trivial.
     facade, and
     `keyActivationHandlers.ts` owns `Tab`/`Escape`, section selection, and
     React Flow key-mode handlers.
-  - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
-    `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal
-    orchestration, `uiSettingRevealMutationOwnership.ts` owns lease sequence and
-    touched-field ownership, `uiSettingRevealMutationCapture.ts` owns snapshot
-    capture plus failure-result assembly, `uiSettingRevealMutationRecordRestore.ts`
-    owns shared owned-record revert helpers, `uiSettingRevealMutationLocalStorageRestore.ts`
-    owns local-storage rollback, `uiSettingRevealMutationProjectStateRestore.ts`
+  - `state/actions/uiSettingRevealRequests.ts` owns request-level reveal
+    project/context gating plus the per-request reveal loop.
+  - `state/actions/uiSettingRevealExecution.ts` owns single-target reveal
+    mutation application, plugin-handler fallback polling, anchor lookup, and
+    lease rollback/finalization behavior.
+  - `state/actions/uiSettingReveal.ts` is now the thin compatibility facade
+    for reveal requests, while `uiSettingRevealMutations.ts` owns the mutation
+    lock plus high-level reveal orchestration,
+    `uiSettingRevealMutationOwnership.ts` owns lease sequence and touched-field
+    ownership, `uiSettingRevealMutationCapture.ts` owns snapshot capture plus
+    failure-result assembly,
+    `uiSettingRevealMutationRecordRestore.ts` owns shared owned-record revert
+    helpers, `uiSettingRevealMutationLocalStorageRestore.ts` owns
+    local-storage rollback, `uiSettingRevealMutationProjectStateRestore.ts`
     owns project-state active-section rollback, and
-    `uiSettingRevealMutationRestore.ts` is now the thin restore orchestrator,
-    `uiSettingRevealMutationSnapshots.ts` is now the compatibility facade,
-    `uiSettingRevealActivation.ts` owns pane activation writes,
-    `uiSettingRevealDom.ts` owns DOM anchor/highlight behavior, and
+    `uiSettingRevealMutationRestore.ts` is now the thin restore orchestrator.
+  - `state/actions/uiSettingRevealMutationSnapshots.ts` is now the
+    compatibility facade, `uiSettingRevealActivation.ts` owns pane activation
+    writes, `uiSettingRevealDom.ts` owns DOM anchor/highlight behavior, and
     `uiSettingRevealShared.ts` owns execution-status helpers.
   - `state/hooks/sectionMinMaxDims.ts` owns section sizing-policy reads plus
     measured min/max dimension derivation for section surfaces.

@@ -41,7 +41,7 @@ vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-vi.mock("state/actions/uiSettingReveal", () => ({
+vi.mock("state/actions/uiSettingRevealRequests", () => ({
   receiveUISettingReveal: vi.fn(),
 }));
 
@@ -824,7 +824,7 @@ describe("openWebSocket", () => {
     });
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
-      "state/actions/uiSettingReveal"
+      "state/actions/uiSettingRevealRequests"
     );
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
@@ -937,7 +937,7 @@ describe("openWebSocket", () => {
     });
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
-      "state/actions/uiSettingReveal"
+      "state/actions/uiSettingRevealRequests"
     );
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
@@ -1044,7 +1044,7 @@ describe("openWebSocket", () => {
   it("does not send UISettingReveal ACKs after websocket generation rollover", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
-      "state/actions/uiSettingReveal"
+      "state/actions/uiSettingRevealRequests"
     );
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
@@ -1124,7 +1124,7 @@ describe("openWebSocket", () => {
     });
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
-      "state/actions/uiSettingReveal"
+      "state/actions/uiSettingRevealRequests"
     );
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
@@ -1202,7 +1202,7 @@ describe("openWebSocket", () => {
   it("acks malformed UISettingReveal payloads without throwing", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
-      "state/actions/uiSettingReveal"
+      "state/actions/uiSettingRevealRequests"
     );
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"

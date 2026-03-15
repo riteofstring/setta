@@ -43,7 +43,7 @@ import {
 type PluginRevealInvokeArgs = Parameters<
   typeof invokePluginSettingRevealHandler
 >[0];
-let receiveUISettingReveal: typeof import("./uiSettingReveal").receiveUISettingReveal;
+let receiveUISettingReveal: typeof import("./uiSettingRevealRequests").receiveUISettingReveal;
 
 function createRevealTarget(
   overrides: Partial<UISettingRevealTarget>,
@@ -228,7 +228,7 @@ function buildBackendProjectStateUpdate({
 
 describe("receiveUISettingReveal", () => {
   beforeEach(async () => {
-    ({ receiveUISettingReveal } = await import("./uiSettingReveal"));
+    ({ receiveUISettingReveal } = await import("./uiSettingRevealRequests"));
     vi.useFakeTimers();
     resetProjectStores();
     useProjectState.setState((state) => {
