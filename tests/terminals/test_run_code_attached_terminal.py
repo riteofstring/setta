@@ -23,10 +23,7 @@ from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import BaseCodeSectionImpl, CodeSectionImpl
-from setta.websockets.listener_registry import ListenerRegistry
-from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
@@ -36,7 +33,6 @@ class RunCodeTestManager(BaseProjectManager):
         self,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
-        python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
@@ -49,7 +45,6 @@ class RunCodeTestManager(BaseProjectManager):
         super().__init__(
             lsp_writers,
             websocket_msg_handler,
-            python_script_sender,
             settings_file,
             specific_file_watcher,
             dbe,
@@ -92,11 +87,7 @@ class TestRunCodeAttachedTerminal:
         )
 
         self.websocket_manager = WebsocketManager()
-        self.listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
         self.dbe = DBE(self.setta_root)
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
@@ -129,7 +120,6 @@ class TestRunCodeAttachedTerminal:
         self.manager = RunCodeTestManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -142,8 +132,6 @@ class TestRunCodeAttachedTerminal:
         await self.manager.update(self.project_state.model_copy(deep=True))
 
         self.terminals = Terminals(self.frontend_sender, self.settings_file)
-        self.cli_sender = WMHCLISender(self.websocket_manager)
-
         yield
 
         await self.terminals.delete_all_terminals()
@@ -206,11 +194,9 @@ class TestRunCodeAttachedTerminal:
                 projectConfigId=self.project_config_id,
                 sectionId=self.code_section_id,
                 terminalSectionId=missing_terminal_id,
-                cliId=None,
             ),
             self.manager,
             self.terminals,
-            self.cli_sender,
         )
 
         state = self.manager.get_single_config_state(self.project_config_id)
@@ -239,11 +225,9 @@ class TestRunCodeAttachedTerminal:
                 projectConfigId=self.project_config_id,
                 sectionId=self.code_section_id,
                 terminalSectionId=attached_terminal_id,
-                cliId=None,
             ),
             self.manager,
             self.terminals,
-            self.cli_sender,
         )
 
         state = self.manager.get_single_config_state(self.project_config_id)
