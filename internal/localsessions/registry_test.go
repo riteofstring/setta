@@ -124,6 +124,43 @@ func TestRegistryDeleteSessionRemovesSessionDirectory(t *testing.T) {
 	}
 }
 
+func TestRegistryDeleteSessionRemovesExtraFiles(t *testing.T) {
+	t.Parallel()
+
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	registry, err := NewRegistry(RegistryOptions{
+		SessionsRoot: sessionsRoot,
+		Random:       bytes.NewReader([]byte("abcdef0123456789abcdef0123456789abcdef0123456789")),
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	metadata, err := registry.CreateSession(CreateSessionInput{
+		WorkspaceRoot: filepath.Join(t.TempDir(), "workspace"),
+		Host:          "127.0.0.1",
+		Port:          61234,
+		PID:           43210,
+		ServerMode:    "ide",
+	})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	sessionDir := filepath.Join(sessionsRoot, metadata.ID)
+	extraPath := filepath.Join(sessionDir, "extra.txt")
+	if err := os.WriteFile(extraPath, []byte("extra"), 0o644); err != nil {
+		t.Fatalf("write extra file: %v", err)
+	}
+
+	if err := registry.DeleteSession(metadata.ID); err != nil {
+		t.Fatalf("delete session: %v", err)
+	}
+	if _, err := os.Stat(sessionDir); !os.IsNotExist(err) {
+		t.Fatalf("expected session dir with extra files to be removed, stat err=%v", err)
+	}
+}
+
 func TestRegistryLoadSessionsAndFindByWorkspaceAndMode(t *testing.T) {
 	t.Parallel()
 
