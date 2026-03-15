@@ -1560,10 +1560,6 @@ class _WorkerBackendPluginContext:
         self.requested_capabilities: list[str] = list(state.requested_capabilities)
         self.effective_capabilities: list[str] = list(state.effective_capabilities)
 
-    @property
-    def deployment_mode(self) -> bool:
-        return self.server_mode in {"share", "app"}
-
     def register_router(self, router: Any, *, prefix: str | None = None) -> None:
         self._state._register_router(router, prefix=prefix, host_call=self._host_call)
 
@@ -1699,24 +1695,6 @@ class _WorkerBackendPluginContext:
                 )
             params["shareSessionId"] = share_session_id.strip()
         self._host_call("host.emit_listener_dependency_event", params)
-
-    def register_startup_task(self, _coro_fn: Any) -> None:
-        raise WorkerError(
-            "PLUGIN_BACKEND_REGISTER_FAILED",
-            (
-                f"Plugin {self.plugin_id} register_startup_task is not supported "
-                "in isolated worker mode."
-            ),
-        )
-
-    def register_shutdown_task(self, _coro_fn: Any) -> None:
-        raise WorkerError(
-            "PLUGIN_BACKEND_REGISTER_FAILED",
-            (
-                f"Plugin {self.plugin_id} register_shutdown_task is not supported "
-                "in isolated worker mode."
-            ),
-        )
 
 
 def _emit_response(payload: dict[str, Any]) -> None:

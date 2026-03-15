@@ -390,7 +390,6 @@ def test_worker_context_reflects_server_mode_and_capabilities(tmp_path: Path) ->
         "def register(plugin):\n"
         "    payload = {\n"
         "        'serverMode': plugin.server_mode,\n"
-        "        'deploymentMode': plugin.deployment_mode,\n"
         "        'requestedCapabilities': list(plugin.requested_capabilities),\n"
         "        'effectiveCapabilities': list(plugin.effective_capabilities),\n"
         "    }\n"
@@ -416,7 +415,6 @@ def test_worker_context_reflects_server_mode_and_capabilities(tmp_path: Path) ->
     payload = json.loads(marker_path.read_text(encoding="utf-8"))
     assert payload == {
         "serverMode": "share",
-        "deploymentMode": True,
         "requestedCapabilities": ["registerPane", "readProjectState"],
         "effectiveCapabilities": ["registerPane"],
     }
@@ -655,16 +653,6 @@ def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
             "        'generate': lambda _state, _options: {'files': []},\n"
             "    })\n",
             "cannot contain ':' in worker mode",
-        ),
-        (
-            "def register(plugin):\n"
-            "    plugin.register_startup_task(lambda: None)\n",
-            "register_startup_task is not supported",
-        ),
-        (
-            "def register(plugin):\n"
-            "    plugin.register_shutdown_task(lambda: None)\n",
-            "register_shutdown_task is not supported",
         ),
     ],
 )

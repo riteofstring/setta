@@ -646,3 +646,13 @@ handshake-failure fixture directories were removed from
 `tests/fixtures/plugins/`. Typed handshake mismatch coverage remains in the Go
 `decodeWorkerHandshake` tests, but the retained Python worker runtime no longer
 contains a production path that exists only for those tests.
+
+A twenty-seventh follow-up rewrite step removed more dead Python worker-context
+API surface. `backend/setta/plugins/worker.py` no longer exposes the
+`deployment_mode` convenience property or the unsupported
+`register_startup_task` / `register_shutdown_task` stubs, and the focused
+Python worker tests now only assert the still-live context fields and still-live
+registration failures. This does not change the blocker verdict, but it narrows
+the retained Python worker boundary away from non-functional compatibility
+helpers and closer to the real route/MCP/codegen/language-server/external-agent
+runtime that still needs replacement.
