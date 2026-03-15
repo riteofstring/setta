@@ -16,8 +16,7 @@ export function buildParamAreaMeasureKey({
       ? Math.round(sectionWidth)
       : sectionWidth ?? "auto";
   const columnKey = columnWidth ?? "auto";
-  const paramIdsKey = [...paramIds].sort().join("|");
-  return `${paramIdsKey}::${widthKey}::${columnKey}`;
+  return `${paramIds.join("|")}::${widthKey}::${columnKey}`;
 }
 
 export function getRepresentativeRowHeight(rowHeights: number[]): number {
