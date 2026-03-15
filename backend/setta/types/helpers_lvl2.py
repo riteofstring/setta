@@ -6,13 +6,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import rpack
-from setta.llm.prompt_renderer import render_prompt
+from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
-    DrawAreaLayerItem,
 )
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
@@ -63,9 +62,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgs,
     CodeSectionImplArgsWithCallable,
     CoreArgs,
-    DrawSectionImplArgsWithCallable,
-    GenPythonCodeSectionImplArgsWithCallable,
-    GenPythonMetadataSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     ListRootSectionImplArgsWithCallable,
@@ -99,7 +95,6 @@ from setta.types.helpers_lvl1 import (
     get_curr_section_base_impl,
     get_curr_section_variant,
     get_variant_base_and_effective_code_obj_impl_with_type_guard,
-    get_variant_base_and_effective_section_impl,
     get_variant_base_and_effective_section_impl_with_type_guard,
     get_variant_base_code_obj_impl,
     get_variant_effective_section_impl,
@@ -131,13 +126,11 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
-    ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
     ListRootViewMode,
     MetaControlSectionImpl,
-    PromptFormat,
     PromptSectionImpl,
     SectionSize,
     SectionSizeMode,
@@ -153,7 +146,6 @@ from setta.types.section_impls import (
     TaskBoardTask,
     TaskBoardViewMode,
     TerminalSectionImpl,
-    TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
     TypeErrorIgnoreState,
@@ -282,28 +274,6 @@ def get_curr_top_level_param_ids(
     return get_top_level_param_ids(p, section_impl)
 
 
-def collect_ignore_type_errors_by_section(
-    p: "ProjectStateSingleConfig",
-) -> dict[ID, TypeErrorIgnoreState]:
-    ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
-    for section_id in p.sections.keys():
-        section_impl = get_curr_effective_section_impl(p, section_id)
-        if not isinstance(section_impl, BaseSectionWithParamsImpl):
-            continue
-        ignore_state = section_impl.ignoreTypeErrors
-        ignored_params = {
-            param_id: True
-            for param_id, is_ignored in ignore_state.params.items()
-            if is_ignored
-        }
-        if ignore_state.callable or ignored_params:
-            ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
-                callable=ignore_state.callable,
-                params=ignored_params,
-            )
-    return ignore_type_errors_by_section
-
-
 def get_top_level_param_ids(
     p: "ProjectStateCore", section_impl: BaseSectionWithParamsImpl
 ) -> list[ID]:
@@ -350,25 +320,6 @@ def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
     return f"{child_name}{output}"
-
-
-def callable_is_already_selected(
-    p: "ProjectStateSingleConfig", sectionId: ID, callableName: str
-):
-    selected_item = get_curr_section_callable_code_obj(p, sectionId)
-    return selected_item and selected_item.name == callableName
-
-
-def callable_has_been_selected_before(
-    p: "ProjectStateSingleConfig", sectionId: ID, callableName: str
-):
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, CallableSectionImpl
-    )
-    for c in section_impl.codeObjVariantMap.keys():
-        if p.codeObjs[c].name == callableName:
-            return c
-    return None
 
 
 def add_code_obj(
@@ -523,13 +474,6 @@ def set_param_entered_value(
     )
 
 
-def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
-    for projectConfigId, config in p.projectConfigs.items():
-        if projectConfigName == config.name:
-            return projectConfigId
-    raise ProjectNotFound
-
-
 def set_project_config_name(
     p: "ProjectStateBackend", projectConfigId: ID, newName: str
 ):
@@ -627,42 +571,6 @@ def create_section(
 def init_draw_section_layer(impl: DrawSectionImpl):
     layer = DrawAreaLayer(elements=[])
     impl.layers = [layer]
-
-
-def append_draw_area_layer_item(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    layerIdx: int,
-    element: DrawAreaLayerItem,
-):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, DrawSectionImpl
-    )
-    if layerIdx < 0 or layerIdx >= len(impl.layers):
-        raise ValueError(
-            f"Layer index {layerIdx} out of range for draw section {sectionId}"
-        )
-
-    target_layer = impl.layers[layerIdx]
-    if any(existing.dataPath == element.dataPath for existing in target_layer.elements):
-        return
-
-    element_copy = element.model_copy(deep=True)
-
-    def update_layers(curr_layers: list[DrawAreaLayer]):
-        layers_copy = [layer.model_copy(deep=True) for layer in curr_layers]
-        layer_to_update = layers_copy[layerIdx]
-        layer_to_update = layer_to_update.model_copy(
-            update={"elements": [*layer_to_update.elements, element_copy]}
-        )
-        layers_copy[layerIdx] = layer_to_update
-        return layers_copy
-
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        DrawSectionImplArgsWithCallable(layers=update_layers),
-    )
 
 
 @dataclass(frozen=True)
@@ -1102,27 +1010,6 @@ def compute_smart_top_level_section_position(
     return position, None
 
 
-def resolve_top_level_section_position_and_pan(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    impl_type: SectionType,
-    position: Position | None,
-    impl_overrides: BaseSectionImplArgsUnion | None,
-    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
-    viewport_bounds: ViewportBounds | None,
-) -> tuple[Position, Position | None]:
-    if position is not None:
-        return position, None
-    return compute_smart_top_level_section_position(
-        settings,
-        p,
-        impl_type,
-        impl_overrides,
-        layout_snapshot,
-        viewport_bounds,
-    )
-
-
 def apply_top_level_section_layout_snapshot(
     p: "ProjectStateSingleConfig",
     layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
@@ -1313,130 +1200,6 @@ def ensure_code_section_embedded_terminal_size(
         )
 
 
-def ensure_code_section_attached_terminal(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-) -> ID:
-    code_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseCodeSectionImpl
-    )
-    children = list(code_impl.children)
-    if len(children) > 1:
-        raise ValueError(f"Code section {sectionId} has multiple children.")
-    if len(children) == 1:
-        terminal_id = children[0]
-        get_curr_effective_section_impl_with_type_guard(
-            p, terminal_id, TerminalSectionImpl
-        )
-        p.projectConfig.topLevelSections.pop(terminal_id, None)
-        _set_code_section_attached_terminal(p, sectionId, terminal_id)
-        ensure_code_section_embedded_terminal_size(settings, p, sectionId, terminal_id)
-        logger.info(
-            "ensure_code_section_attached_terminal existing_child section=%s terminal=%s",
-            sectionId,
-            terminal_id,
-        )
-        return terminal_id
-    attached_terminal_id = code_impl.attachedTerminalSectionId
-    if attached_terminal_id is not None:
-        if attached_terminal_id in p.sections:
-            get_curr_effective_section_impl_with_type_guard(
-                p, attached_terminal_id, TerminalSectionImpl
-            )
-            parent_id = p.parentSectionMap.get(attached_terminal_id)
-            if parent_id and parent_id != sectionId:
-                raise ValueError(
-                    f"Terminal {attached_terminal_id} already belongs to {parent_id}."
-                )
-            p.projectConfig.topLevelSections.pop(attached_terminal_id, None)
-            set_curr_effective_section_impl_value(
-                p,
-                sectionId,
-                BaseParentSectionImplArgsWithCallable(children=[attached_terminal_id]),
-            )
-            _set_code_section_attached_terminal(p, sectionId, attached_terminal_id)
-            ensure_code_section_embedded_terminal_size(
-                settings, p, sectionId, attached_terminal_id
-            )
-            logger.info(
-                "ensure_code_section_attached_terminal existing_attached section=%s terminal=%s",
-                sectionId,
-                attached_terminal_id,
-            )
-            return attached_terminal_id
-        attached_terminal_id = None
-    size = SectionSize(
-        width=code_impl.size.width,
-        height=_get_terminal_default_height(settings),
-    )
-    terminal_id = create_section(
-        settings,
-        p,
-        SectionType.Terminal,
-        {"size": size},
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseParentSectionImplArgsWithCallable(children=[terminal_id]),
-    )
-    _set_code_section_attached_terminal(p, sectionId, terminal_id)
-    ensure_code_section_embedded_terminal_size(settings, p, sectionId, terminal_id)
-    logger.info(
-        "ensure_code_section_attached_terminal created section=%s terminal=%s",
-        sectionId,
-        terminal_id,
-    )
-    return terminal_id
-
-
-def detach_code_section_attached_terminal(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-) -> None:
-    code_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseCodeSectionImpl
-    )
-    child_ids = list(code_impl.children)
-    if len(child_ids) > 1:
-        raise ValueError(f"Code section {sectionId} has multiple children.")
-    terminal_id = child_ids[0] if child_ids else code_impl.attachedTerminalSectionId
-    if terminal_id is None:
-        return
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseParentSectionImplArgsWithCallable(children=[]),
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {"attachedTerminalSectionId": None},
-    )
-    if terminal_id not in p.sections:
-        return
-    if terminal_id in p.projectConfig.topLevelSections:
-        return
-    position, _ = compute_smart_top_level_section_position(
-        settings,
-        p,
-        SectionType.Terminal,
-        None,
-        None,
-        None,
-    )
-    p.projectConfig.topLevelSections[terminal_id] = TopLevelSectionLayout(
-        **position.model_dump()
-    )
-    logger.info(
-        "detach_code_section_attached_terminal section=%s terminal=%s",
-        sectionId,
-        terminal_id,
-    )
-
-
 def create_child_sections(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -1625,25 +1388,6 @@ def _prune_unused_code_objs(p: "ProjectStateSingleConfig") -> None:
     for code_obj_id in list(p.codeObjs.keys()):
         if code_obj_id not in reachable:
             delete_code_obj(p, code_obj_id)
-
-
-def delete_child_sections_via_decrementer(
-    p: "ProjectStateSingleConfig", calledBy: ID, numChildren: int
-):
-    impl = get_curr_effective_section_impl(p, calledBy)
-    if isinstance(impl, BaseParentSectionImpl):
-        sectionIds = impl.children[:numChildren]
-    else:
-        parentId = p.parentSectionMap[calledBy]
-        if not parentId:
-            raise ValueError
-        parentImpl = get_curr_effective_section_impl_with_type_guard(
-            p, parentId, BaseParentSectionImpl
-        )
-        startIdx = parentImpl.children.index(calledBy) + 1
-        sectionIds = parentImpl.children[startIdx : startIdx + numChildren]
-
-    delete_sections(p, sectionIds)
 
 
 def check_if_section_is_still_used_somewhere(
@@ -1992,17 +1736,6 @@ def is_color_hex(string):
     return bool(re.match(pattern, string))
 
 
-def hex_to_rgba(hex_color: str, opacity: float) -> str:
-    # Remove # if present
-    hex_color = hex_color.replace("#", "")
-
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-
-    return f"rgba({r}, {g}, {b}, {opacity})"
-
-
 def create_kwarg_objs(
     settings: SettingsState, p: "ProjectStateSingleConfig", sectionIds: list[ID]
 ):
@@ -2285,38 +2018,6 @@ def delete_kwarg_from_dict_section(
     return removed_param_id
 
 
-def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: str):
-    sectionId = p.singletonSections.GenPythonCode
-    if not sectionId:
-        return
-    set_curr_effective_section_impl_value(
-        p, sectionId, GenPythonCodeSectionImplArgsWithCallable(code=code)
-    )
-
-
-def maybe_update_gen_python_metadata_section(
-    p: "ProjectStateSingleConfig", code: str | None
-):
-    sectionId = p.singletonSections.GenPythonMetadata
-    if not sectionId:
-        return
-    if code is None:
-        code = ""
-    set_curr_effective_section_impl_value(
-        p, sectionId, GenPythonMetadataSectionImplArgsWithCallable(code=code)
-    )
-
-
-def delete_section_variant_or_ask(
-    p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
-):
-    core = p.sections[sectionId]
-    variant, _, impl = get_variant_base_and_effective_section_impl(p, core, variantId)
-    if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-        return normalize_workspace_path(variant.name)
-    delete_section_variant(p, sectionId, variantId)
-
-
 def delete_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID):
     core = p.sections[sectionId]
     if len(core.variants) < 2:
@@ -2340,51 +2041,6 @@ def delete_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variant
         p.projectConfig.sectionVariantMap[sectionId] = core.variants[0]
 
     del p.sectionVariants[variantId]
-
-
-def toggle_variant_json_source(
-    p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
-):
-    core = p.sections[sectionId]
-    variant, base_impl, impl = (
-        get_variant_base_and_effective_section_impl_with_type_guard(
-            p, core, variantId, BaseDictSectionImpl
-        )
-    )
-    newIsJsonSource = not impl.isJsonSource
-    newConfigLanguage = (
-        ConfigLanguage.json if newIsJsonSource else ConfigLanguage.python
-    )
-    set_effective_impl_value(
-        base_impl,
-        core,
-        variant,
-        BaseDictSectionImplArgsWithCallable(
-            isJsonSource=newIsJsonSource, configLanguage=newConfigLanguage
-        ),
-    )
-
-
-def set_variant_json_source_keys(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    variantId: ID,
-    jsonSourceKeys: list[str],
-):
-    core = p.sections[sectionId]
-    variant, base_impl, _ = get_variant_base_and_effective_section_impl_with_type_guard(
-        p, core, variantId, BaseDictSectionImpl
-    )
-    set_effective_impl_value(
-        base_impl,
-        core,
-        variant,
-        BaseDictSectionImplArgsWithCallable(jsonSourceKeys=jsonSourceKeys),
-    )
-
-
-def toggle_variant_frozen(p: "ProjectStateSingleConfig", variantId: ID):
-    p.sectionVariants[variantId].isFrozen = not p.sectionVariants[variantId].isFrozen
 
 
 def compute_initial_default_variant(variant: Variant):
@@ -2594,56 +2250,6 @@ def get_first_markdown_heading(markdown: str):
         if heading_text:
             return heading_text
     return None
-
-
-def toggle_position_locks(p: "ProjectStateSingleConfig", section_ids: list[ID]):
-    for section_id in section_ids:
-        if section_id not in p.sections:
-            raise KeyError(f"Section {section_id} not found")
-    for section_id in section_ids:
-        set_curr_effective_section_impl_value(
-            p,
-            section_id,
-            BaseSectionImplArgsWithCallable(
-                positionAndSizeLocked=lambda curr: not curr
-            ),
-        )
-
-
-def toggle_minimized(p: "ProjectStateSingleConfig", sectionId: ID):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionImplArgsWithCallable(isMinimized=lambda curr: not curr),
-    )
-
-
-def toggle_group_orientation(p: "ProjectStateSingleConfig", sectionId: ID):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, GroupSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        GroupSectionImplArgsWithCallable(isHorizontalOrientation=lambda curr: not curr),
-    )
-
-
-def set_group_overflow_mode(
-    p: "ProjectStateSingleConfig", sectionId: ID, overflow_mode: bool
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, GroupSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        GroupSectionImplArgsWithCallable(overflowMode=overflow_mode),
-    )
-
-
-def set_code(p: "ProjectStateSingleConfig", sectionId: ID, code: str):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseCodeSectionImplArgsWithCallable(code=code),
-    )
 
 
 def set_code_file_binding(
@@ -3187,16 +2793,6 @@ def create_edge(p: "ProjectStateSingleConfig", edge: Edge):
     p.projectConfig.edges.append(edge)
 
 
-def update_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    for idx, existing in enumerate(p.projectConfig.edges):
-        if existing.id != edge.id:
-            continue
-        _ensure_edge_endpoints_valid(p, edge)
-        p.projectConfig.edges[idx] = edge
-        return
-    raise KeyError(f"Edge {edge.id} not found.")
-
-
 def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     edge_ids = set(edgeIds)
     existing_ids = {edge.id for edge in p.projectConfig.edges}
@@ -3213,42 +2809,6 @@ def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     p.projectConfig.edges = remaining_edges
     for edge in removed_edges:
         _maybe_clear_edge_target_value(p, edge)
-
-
-def reconnect_edge(
-    p: "ProjectStateSingleConfig",
-    edgeId: ID,
-    sourceSectionId: ID,
-    sourceVariantId: ID,
-    sourcePortId: ID,
-    targetSectionId: ID,
-    targetVariantId: ID,
-    targetPortId: ID,
-):
-    for idx, existing in enumerate(p.projectConfig.edges):
-        if existing.id != edgeId:
-            continue
-        updated = existing.model_copy(
-            update={
-                "sourceSectionId": sourceSectionId,
-                "sourceVariantId": sourceVariantId,
-                "sourcePortId": sourcePortId,
-                "targetSectionId": targetSectionId,
-                "targetVariantId": targetVariantId,
-                "targetPortId": targetPortId,
-            }
-        )
-        _ensure_edge_endpoints_valid(p, updated)
-        target_changed = (
-            existing.targetSectionId != targetSectionId
-            or existing.targetVariantId != targetVariantId
-            or existing.targetPortId != targetPortId
-        )
-        p.projectConfig.edges[idx] = updated
-        if target_changed:
-            _maybe_clear_edge_target_value(p, existing)
-        return
-    raise KeyError(f"Edge {edgeId} not found.")
 
 
 def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
@@ -3571,16 +3131,6 @@ def set_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variantId:
     _prune_invalid_agentic_edges(p)
 
 
-def set_default_section_variant(
-    p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID
-):
-    p.sections[sectionId].defaultVariant = variantId
-
-
-def set_section_variant_name(p: "ProjectStateSingleConfig", variantId: ID, name: str):
-    p.sectionVariants[variantId].name = name
-
-
 def set_section_sizes(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -3598,64 +3148,6 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     normalized = validate_section_name(p, sectionId, name)
     p.sections[sectionId].name = normalized
     p._section_slug_cache = None
-
-
-def set_section_tag_color(
-    p: "ProjectStateSingleConfig", sectionId: ID, tagColor: str | None
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionImplArgsWithCallable(tagColor=tagColor),
-    )
-
-
-def set_section_style_color(
-    p: "ProjectStateSingleConfig", sectionId: ID, styleColor: str | None
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionImplArgsWithCallable(styleColor=styleColor),
-    )
-
-
-def set_meta_control_show_section_title(
-    p: "ProjectStateSingleConfig", sectionId: ID, showSectionTitle: bool
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, MetaControlSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        MetaControlSectionImplArgsWithCallable(showSectionTitle=showSectionTitle),
-    )
-
-
-def set_text_block_display_mode(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    textDisplayMode: TextBlockDisplayMode,
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(textDisplayMode=textDisplayMode),
-    )
-
-
-def set_text_block_meta_control_style(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    metaControlStyle: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(metaControlStyle=metaControlStyle),
-    )
 
 
 def set_callable_hide_params(
