@@ -5384,3 +5384,56 @@ in `frontend/src/README.md` and the cleanup plans.
   - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`,
     which is now the largest unresolved project-AI front-door hotspot after
     `ProjectAISettings.tsx` delegated external-agent settings to a local owner.
+
+## 2026-03-15 18:50:34 PDT
+
+- Slice completed: extracted the slash-commands surface out of
+  `ProjectChatSkillsMcpViewer.tsx`
+- Why this slice now:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+    was still a `2478`-line front-door project-AI hotspot after the
+    `ProjectAISettings.tsx` external-agent extraction.
+  - The `slash_commands` branch was its clearest remaining feature-local seam:
+    it combined engine-tab selection, agent-run polling, native-command
+    authority handling, custom slash-command draft state, and a large render
+    branch inside the same file that also owns the skills browser and MCP
+    runtime viewer.
+  - This was higher value than jumping straight to
+    `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+    because it removed one whole user-facing mode from the active project-AI
+    entry surface, cut `ProjectChatSkillsMcpViewer.tsx` to about `1661` lines,
+    and made the slash-command owner obvious from the caller.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-slash-commands-view-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.perf.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerSkillUpsert.integration.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts --grep "project ai chat can open slash commands in a dedicated side view|project ai chat keeps custom slash commands available without engine configs|project ai chat only fetches agent runs for slash commands"`
+  - `pnpm -C frontend exec prettier --check src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-slash-commands-view-2026-03-15.md src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.test.ts`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-slash-commands-view-2026-03-15.md`
+    with the baseline and rerun notes for the same `AI Settings -> Slash Commands`
+    tab-switch interaction.
+  - DevTools inline trace summary for that interaction reported `244ms` observed
+    INP before the extraction and `140ms` after, so the slice did not regress
+    the slash-view switch path.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that the extracted slash view still renders the custom-command
+    form plus engine tabs, that entering a command and prompt still enables the
+    `Add slash command` action, and that the unsaved draft survives
+    `Slash Commands -> Skills -> Slash Commands`.
+- Commit hash:
+  - `4fecd1b19b4243c4f6ea4b0b84d86539a0e14ff4`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`,
+    which is now the highest unresolved front-door hotspot in
+    `frontend/src/README.md` after `ProjectChatSkillsMcpViewer.tsx` delegated
+    slash-command ownership to a local view owner.
