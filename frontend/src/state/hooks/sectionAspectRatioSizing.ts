@@ -10,7 +10,10 @@ import {
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { useSettings } from "state/stores/uiPreferenceStores";
 import { type SectionSize } from "utils/generatedTypes";
-import { getMinSectionHeight, getMinSectionWidth } from "./sectionMinMaxDims";
+import {
+  getMinSectionHeight,
+  getMinSectionWidth,
+} from "./sectionSizingPolicyDims";
 
 type ImageArtifactLike = {
   width: number;

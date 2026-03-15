@@ -5,7 +5,8 @@ import {
   getMaxSectionWidth,
   getMinSectionHeight,
   getMinSectionWidth,
-} from "./sectionMinMaxDims";
+  getSectionSizeMode,
+} from "./sectionSizingPolicyDims";
 
 const META_MODE_ANY = "any" as const;
 
@@ -175,5 +176,41 @@ describe("section sizing helpers", () => {
     });
     expect(minHeight).toBe(sizingPolicy.byType.MetaControl.minHeight);
     expect(minWidth).toBe(sizingPolicy.byType.MetaControl.minWidth);
+  });
+
+  it("uses the meta control size mode when provided", () => {
+    const sizeMode = getSectionSizeMode({
+      sectionType: SectionTypeEnum.MetaControl,
+      isTwitter: false,
+      metaControlSizeMode: { height: "auto_only", width: "manual_only" },
+    });
+    expect(sizeMode).toEqual({
+      height: "auto_only",
+      width: "manual_only",
+    });
+  });
+
+  it("forces manual sizing for terminal sections", () => {
+    const sizeMode = getSectionSizeMode({
+      sectionType: SectionTypeEnum.Terminal,
+      isTwitter: false,
+      metaControlSizeMode: null,
+    });
+    expect(sizeMode).toEqual({
+      height: "manual_only",
+      width: "manual_only",
+    });
+  });
+
+  it("uses auto height for twitter sections", () => {
+    const sizeMode = getSectionSizeMode({
+      sectionType: SectionTypeEnum.Social,
+      isTwitter: true,
+      metaControlSizeMode: null,
+    });
+    expect(sizeMode).toEqual({
+      height: "auto_only",
+      width: "any",
+    });
   });
 });

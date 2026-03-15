@@ -302,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/hooks/sectionMinMaxDims.ts` at 316 lines
+  - `frontend/src/state/stores/uiPreferenceStores.ts` at 418 lines
+  - `frontend/src/state/definitions.ts` at 404 lines
+  - `frontend/src/state/activeSectionUI.ts` at 364 lines
+  - `frontend/src/state/utils/chatAppGeneration.ts` at 319 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
-  - `frontend/src/state/actions/aiFollow.ts` at 304 lines
-  - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
-  - `frontend/src/state/actions/aiTranscription.ts` at 300 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -394,9 +394,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `customResizableChrome.ts` now owns:
   - resize-handle direction lookup from DOM targets
   - handle enablement, hit-area sizing, and MetaControl or attached-terminal chrome
-- `sectionMinMaxDims.ts` now owns:
-  - section sizing-policy reads plus measured min/max dimension derivation
+- `sectionSizingPolicyDims.ts` now owns:
+  - section sizing-policy reads
   - MetaControl sizing-policy lookup and section size-mode resolution
+- `sectionMinMaxDims.ts` now owns:
+  - measured min/max dimension derivation for live section surfaces
 - `sectionScrollability.ts` now owns:
   - shared ResizeObserver and MutationObserver wiring for overflow detection
   - scrollability measurement plus `onMeasure` callback dispatch

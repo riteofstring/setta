@@ -3,11 +3,11 @@ export {
   useTwitterSectionSize,
   useYouTubeSectionSize,
 } from "./sectionAspectRatioSizing";
+export { useSectionMinMaxDims } from "./sectionMinMaxDims";
+export { useIsScrollable } from "./sectionScrollability";
 export {
   getMaxSectionHeight,
   getMaxSectionWidth,
   getMinSectionHeight,
   getMinSectionWidth,
-  useSectionMinMaxDims,
-} from "./sectionMinMaxDims";
-export { useIsScrollable } from "./sectionScrollability";
+} from "./sectionSizingPolicyDims";

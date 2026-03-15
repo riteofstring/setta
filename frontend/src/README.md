@@ -507,8 +507,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     shared activation helpers, `uiSettingRevealDom.ts` owns DOM
     anchor/highlight behavior, and `uiSettingRevealShared.ts` owns
     execution-status helpers.
-  - `state/hooks/sectionMinMaxDims.ts` owns section sizing-policy reads plus
-    measured min/max dimension derivation for section surfaces.
+  - `state/hooks/sectionSizingPolicyDims.ts` owns section sizing-policy reads
+    and section size-mode resolution, while
+    `state/hooks/sectionMinMaxDims.ts` owns the measured min/max dimension
+    derivation path for section surfaces.
   - `state/hooks/sectionScrollability.ts` owns the shared overflow observer used
     by Browser, Chat, TextBlock, Group, and params surfaces.
   - `state/hooks/sectionAspectRatioSizing.ts` owns draw/social/media aspect-ratio
