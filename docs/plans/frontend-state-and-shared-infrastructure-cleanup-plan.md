@@ -120,6 +120,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   lived in `frontend/src/state/actions/websocketLifecycle.ts`; future cleanup
   should keep websocket bootstrap and recovery flows on those dedicated
   surfaces instead of mixing them back into lifecycle wiring.
+- `frontend/src/state/actions/websocketLifecycleState.ts` now owns last/current
+  websocket target tracking plus open-status coordination, while
+  `frontend/src/state/actions/websocketLifecycleHandlers.ts` now owns
+  active-socket listener wiring, transport-error teardown, replacement
+  cleanup, and reconnect or recovery scheduling, reducing
+  `frontend/src/state/actions/websocketLifecycle.ts` to the public
+  socket-open entrypoint plus route/url selection.
 - `frontend/src/state/actions/windowSpaceCrud.ts` now owns saved window-space
   sort/name/delete mutations plus optimistic persistence and layout rollback,
   `frontend/src/state/actions/windowSpaceSave.ts` now owns current-floating-window
@@ -370,11 +377,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/websocketLifecycle.ts` at 244 lines
   - `frontend/src/state/actions/sectionDisplayQueries.ts` at 242 lines
   - `frontend/src/state/actions/projectChatThreadStorageUndo.ts` at 238 lines
   - `frontend/src/state/actions/projectChatWindowingNormalization.ts` at 236 lines
   - `frontend/src/state/actions/stateMachineRunSelection.ts` at 234 lines
+  - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` at 234 lines
+  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -436,9 +444,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   store entrypoint.
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
+- `websocketLifecycleState.ts` now owns:
+  - last/current websocket target tracking
+  - open-connection status used by reconnect notifications and recovery
+- `websocketLifecycleHandlers.ts` now owns:
+  - active-socket listener wiring
+  - transport-error teardown, replacement cleanup, and reconnect scheduling
+  - close-path auth/share recovery handoff
 - `websocketLifecycle.ts` now owns:
-  - websocket transport lifecycle and reconnect behavior
-  - active-socket listener wiring, replacement, and reconnect scheduling
+  - public websocket open entrypoint
+  - route selection and socket URL construction
 - `websocketBootstrap.ts` now owns:
   - socket-open connection registration and current-address sends
   - project-state and diagnostics bootstrap for IDE mode

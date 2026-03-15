@@ -506,8 +506,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `UISettingReveal` ACK validation, failure-status construction, and result
     sends.
   - `state/actions/websocketReceive.ts` is now a thin compatibility facade.
-  - `state/actions/websocketLifecycle.ts` owns socket transport lifecycle,
-    active-socket listener wiring, replacement, and reconnect scheduling.
+  - `state/actions/websocketLifecycleState.ts` owns last/current websocket
+    target tracking plus open-connection status used by reconnect flows.
+  - `state/actions/websocketLifecycleHandlers.ts` owns active-socket listener
+    wiring, transport error handling, replacement teardown, and reconnect or
+    recovery scheduling.
+  - `state/actions/websocketLifecycle.ts` owns the public socket-open
+    entrypoint plus route/url selection before delegating to those lifecycle
+    owners.
   - `state/actions/websocketBootstrap.ts` owns socket-open connection
     registration, current-address send, project-state or diagnostics bootstrap,
     and deployment listener-coverage bootstrap.
@@ -776,11 +782,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/sectionShownParams.ts`, `state/actions/sectionHierarchy.ts`,
   and `state/actions/sectionToolArgumentPreview.ts` should stay feature-local
   and avoid regrowing `state/actions/sectionInfos.ts`.
-- `state/actions/websocketLifecycle.ts`, `websocketBootstrap.ts`,
-  `websocketAuthRecovery.ts`, and `websocketShareSessionRecovery.ts` now split
-  transport, bootstrap, auth recovery, and share-session restoration, so any
-  future websocket cleanup should keep extending those owners instead of
-  rebuilding the facade
+- `state/actions/websocketLifecycleState.ts`,
+  `websocketLifecycleHandlers.ts`, `websocketLifecycle.ts`,
+  `websocketBootstrap.ts`, `websocketAuthRecovery.ts`, and
+  `websocketShareSessionRecovery.ts` now split lifecycle state, listener or
+  reconnect handling, public open transport, bootstrap, auth recovery, and
+  share-session restoration, so any future websocket cleanup should keep
+  extending those owners instead of rebuilding the facade
 - `components/Utils/Resizable/CustomResizable.tsx` now delegates resize
   lifecycle and optimistic persistence to
   `components/Utils/Resizable/useCustomResizableBehavior.ts`, pure clamp/auto-
