@@ -213,6 +213,7 @@ describe("TextInputCodeMirror activation", () => {
     expect(realCodeMirror?.className).toContain(
       SETTA_PREVENT_SECTION_ACTIVE_CSS,
     );
+    expect(realCodeMirror?.className).not.toContain("opacity-0");
     expect(getExtensionsMock).toHaveBeenCalled();
     const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
     expect(lastCall?.completionsFn).toBeUndefined();

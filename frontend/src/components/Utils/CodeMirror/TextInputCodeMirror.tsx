@@ -43,7 +43,6 @@ export function TextInputCodeMirror({
   completionsFn,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
-  const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
 
   function localOnBlur() {
@@ -76,7 +75,7 @@ export function TextInputCodeMirror({
 
   return (
     <>
-      {!realIsInitialized && (
+      {!activationEvent && (
         <DummyCodeMirror
           divId={dummyDivId}
           code={value}
@@ -105,8 +104,6 @@ export function TextInputCodeMirror({
           onTab={onTab}
           onBlur={localOnBlur}
           initialEvent={activationEvent}
-          realIsInitialized={realIsInitialized}
-          setRealIsInitialized={setRealIsInitialized}
           theme={theme}
           language={language}
           autocomplete={autocomplete}
@@ -142,8 +139,6 @@ function CoreCodeMirror({
   onBlur,
   onTab,
   initialEvent,
-  realIsInitialized,
-  setRealIsInitialized,
   theme,
   language,
   autocomplete,
@@ -177,7 +172,6 @@ function CoreCodeMirror({
 
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
-    setRealIsInitialized,
     divId,
     value,
     defaultVal,
@@ -186,7 +180,7 @@ function CoreCodeMirror({
   return (
     <CodeMirror
       id={divId}
-      className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${className}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{
