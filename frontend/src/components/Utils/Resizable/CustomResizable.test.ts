@@ -1,8 +1,9 @@
-import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizes";
+import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizeGeometry";
 import { describe, expect, it } from "vitest";
 import {
   clampChangedSize,
   getAutoClampSize,
+  getAutoOnlySizeModeUpdate,
   shouldEmitResizeEndEvent,
 } from "./customResizableSizing";
 import { SIZE_MODE } from "./utils";
@@ -95,5 +96,28 @@ describe("getAutoClampSize", () => {
         },
       }),
     ).toEqual(expected);
+  });
+});
+
+describe("getAutoOnlySizeModeUpdate", () => {
+  it("returns null when both dimensions remain manual", () => {
+    expect(
+      getAutoOnlySizeModeUpdate({
+        width: SIZE_MODE.manual_only,
+        height: SIZE_MODE.any,
+      }),
+    ).toBeNull();
+  });
+
+  it("promotes auto-only dimensions to auto size", () => {
+    expect(
+      getAutoOnlySizeModeUpdate({
+        width: SIZE_MODE.auto_only,
+        height: SIZE_MODE.auto_only,
+      }),
+    ).toEqual({
+      width: "auto",
+      height: "auto",
+    });
   });
 });

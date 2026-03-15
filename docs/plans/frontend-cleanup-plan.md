@@ -300,6 +300,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   now owns draw/social/media aspect-ratio sizing behavior, reducing
   `frontend/src/state/hooks/sectionSizes.ts` to a 13-line compatibility
   surface.
+- `frontend/src/state/actions/sections/sectionSizeGeometry.ts` now owns pure
+  section sizing math, resize-direction helpers, and auto-size promotion
+  helpers, `frontend/src/state/actions/sections/sectionSizeState.ts` now owns
+  local section-size writes plus width propagation,
+  `frontend/src/state/actions/sections/sectionSizePersistence.ts` now owns
+  optimistic section-size persistence plus raw `setSectionSizes` transport, and
+  `frontend/src/state/actions/sections/sectionSizes.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/actions/params/paramMoveQueries.ts` now owns param
   selection resolution, visible-sibling grouping, and movement-context reads,
   `frontend/src/state/actions/params/paramMoveMutations.ts` now owns
@@ -456,10 +464,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   section/canvas focus behavior to
   `frontend/src/utils/focusManagerSections.ts`.
 - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` is down to 246
-  lines and now delegates resize lifecycle and optimistic section-size
-  persistence to `useCustomResizableBehavior.ts`, pure clamp and auto-clamp
-  decisions to `customResizableSizing.ts`, and handle chrome plus direction
-  parsing to `customResizableChrome.ts`.
+  lines and now delegates resize lifecycle, auto-size promotion, and
+  resize-event emission to `useCustomResizableBehavior.ts`, pure clamp and
+  auto-clamp plus auto-only size-mode update derivation to
+  `customResizableSizing.ts`, handle chrome plus direction parsing to
+  `customResizableChrome.ts`, pure section sizing math and resize-direction
+  helpers to `state/actions/sections/sectionSizeGeometry.ts`, local size writes
+  plus width propagation to `state/actions/sections/sectionSizeState.ts`, and
+  optimistic section-size persistence to
+  `state/actions/sections/sectionSizePersistence.ts`.
 - `frontend/src/state/actions/stateMachineEdges.ts` is down to a 12-line
   compatibility entrypoint and now delegates workflow handle normalization to
   `stateMachineEdgeCanonicalization.ts`, workflow graph reads and machine-group
@@ -707,7 +720,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/sections/sectionSizes.ts`, `state/actions/websocketIncomingUISettingReveal.ts`, `state/actions/edgeHandles.ts`, `state/actions/gitStatusAndDiff.ts`, `state/actions/shareSessionState.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/websocketIncomingUISettingReveal.ts`, `state/actions/edgeHandles.ts`, `state/actions/gitStatusAndDiff.ts`, `state/actions/shareSessionState.ts`, `state/actions/runOrImportCode.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

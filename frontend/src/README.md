@@ -703,6 +703,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     by Browser, Chat, TextBlock, Group, and params surfaces.
   - `state/hooks/sectionAspectRatioSizing.ts` owns draw/social/media aspect-ratio
     sizing writes and draw-canvas size normalization.
+  - `state/actions/sections/sectionSizeGeometry.ts` owns pure section sizing
+    math, resize-direction helpers, and auto-size promotion helpers.
+  - `state/actions/sections/sectionSizeState.ts` owns local section-size writes
+    plus parent or sibling width propagation.
+  - `state/actions/sections/sectionSizePersistence.ts` owns optimistic
+    persisted section-size writes and raw `setSectionSizes` transport.
+  - `state/actions/sections/sectionSizes.ts` is now the thin compatibility
+    facade over those narrower section-size owners.
   - `state/hooks/sectionSizes.ts` is now a thin compatibility surface that
     re-exports the narrower hook owners.
   - `state/hooks/terminals/terminal.ts` now just orchestrates terminal mount,
@@ -866,12 +874,16 @@ feature-local adapters around them when the consuming surface is non-trivial.
   share-session restoration, so any future websocket cleanup should keep
   extending those owners instead of rebuilding the facade
 - `components/Utils/Resizable/CustomResizable.tsx` now delegates resize
-  lifecycle and optimistic persistence to
+  lifecycle, auto-size promotion, and resize-event emission to
   `components/Utils/Resizable/useCustomResizableBehavior.ts`, pure clamp/auto-
-  clamp decisions to `components/Utils/Resizable/customResizableSizing.ts`, and
-  handle chrome plus direction parsing to
-  `components/Utils/Resizable/customResizableChrome.ts`; follow-up work here
-  should stay local to one of those owners instead of growing the composition
-  surface again
+  clamp plus auto-only size-mode update derivation to
+  `components/Utils/Resizable/customResizableSizing.ts`, handle chrome plus
+  direction parsing to `components/Utils/Resizable/customResizableChrome.ts`,
+  pure section sizing math and resize-direction helpers to
+  `state/actions/sections/sectionSizeGeometry.ts`, local size writes plus width
+  propagation to `state/actions/sections/sectionSizeState.ts`, and optimistic
+  section-size persistence to `state/actions/sections/sectionSizePersistence.ts`;
+  follow-up work here should stay local to one of those owners instead of
+  growing the composition surface again
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

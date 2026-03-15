@@ -1,26 +1,24 @@
 import _ from "lodash";
 import type { ResizeCallback, ResizeStartCallback } from "re-resizable";
 import { useEffect, useRef } from "react";
-import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
-import {
-  getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
-} from "state/actions/sectionEffectiveImpls";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImpls";
 import {
   getResizeStartAutoSizeUpdate,
   isHeightResizeDirection,
-  setSelfParentSiblingChildrenWidths,
   type ResizeHandleDirection,
-} from "state/actions/sections/sectionSizes";
+} from "state/actions/sections/sectionSizeGeometry";
+import { persistSectionSizeUpdate } from "state/actions/sections/sectionSizePersistence";
+import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizeState";
 import { useProjectState, useResizeEvent } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useMisc } from "state/stores/layoutInteractionStores";
-import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
 import {
   clampChangedSize,
   getAutoClampSize,
+  getAutoOnlySizeModeUpdate,
   shouldEmitResizeEndEvent,
+  type ResizeSizeMode,
 } from "./customResizableSizing";
 import {
   getChangedSize,
@@ -28,13 +26,6 @@ import {
   isResizeDoubleClick,
   SIZE_MODE,
 } from "./utils";
-
-type SizeModeValue = (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
-
-type ResizeSizeMode = {
-  width: SizeModeValue;
-  height: SizeModeValue;
-};
 
 type AspectRatioState = {
   size: SectionSize;
@@ -90,24 +81,8 @@ export function useCustomResizableBehavior({
   });
   const doubleClickPendingRef = useRef(false);
 
-  const submitSectionSizeUpdate = (nextSize: Partial<SectionSize>) => {
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          nextSize,
-          state,
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_sizes({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionSizes: updatedSectionSizes,
-          frontendOpId,
-        }),
-    });
-  };
+  const submitSectionSizeUpdate = (nextSize: Partial<SectionSize>) =>
+    persistSectionSizeUpdate(sectionId, nextSize);
 
   const maybePromoteAutoSize = (
     direction: ResizeHandleDirection,
@@ -288,14 +263,8 @@ function useAutoOnlySizeModeEffect(
   sizeMode: ResizeSizeMode,
 ) {
   useEffect(() => {
-    const changedSize: Partial<SectionSize> = {};
-    if (sizeMode.height === SIZE_MODE.auto_only) {
-      changedSize.height = "auto";
-    }
-    if (sizeMode.width === SIZE_MODE.auto_only) {
-      changedSize.width = "auto";
-    }
-    if (Object.keys(changedSize).length === 0) {
+    const changedSize = getAutoOnlySizeModeUpdate(sizeMode);
+    if (!changedSize) {
       return;
     }
     useProjectState.setState((state) => {

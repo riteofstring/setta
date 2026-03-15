@@ -5,8 +5,8 @@ import { getSectionType } from "state/actions/sectionStructureQueries";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
-  setSectionSize,
-} from "state/actions/sections/sectionSizes";
+} from "state/actions/sections/sectionSizeGeometry";
+import { setSectionSize } from "state/actions/sections/sectionSizeState";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { useSettings } from "state/stores/uiPreferenceStores";
 import { type SectionSize } from "utils/generatedTypes";

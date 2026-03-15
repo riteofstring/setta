@@ -1,5 +1,5 @@
 import type { Enable, HandleClassName, HandleStyles } from "re-resizable";
-import type { ResizeHandleDirection } from "state/actions/sections/sectionSizes";
+import type { ResizeHandleDirection } from "state/actions/sections/sectionSizeGeometry";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,

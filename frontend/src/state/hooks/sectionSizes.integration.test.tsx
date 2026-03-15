@@ -1,8 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  getResizeStartAutoSizeUpdate,
-  setSectionSize,
-} from "state/actions/sections/sectionSizes";
+import { getResizeStartAutoSizeUpdate } from "state/actions/sections/sectionSizeGeometry";
+import { setSectionSize } from "state/actions/sections/sectionSizeState";
 import { useProjectState, useResizeEvent } from "state/definitions";
 import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { useSettings } from "state/stores/uiPreferenceStores";

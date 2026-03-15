@@ -58,6 +58,18 @@ Make section chrome and param rendering easy to change without touching measurem
   now owns active-view lookup plus visibility/render and ancestor-visibility
   queries, and `frontend/src/state/actions/sectionDisplayQueries.ts` is now
   the thin compatibility facade.
+- `frontend/src/state/actions/sections/sectionSizeGeometry.ts` now owns pure
+  section sizing math, resize-direction helpers, and auto-size promotion
+  helpers, `frontend/src/state/actions/sections/sectionSizeState.ts` now owns
+  local section-size writes plus parent or sibling width propagation,
+  `frontend/src/state/actions/sections/sectionSizePersistence.ts` now owns
+  optimistic section-size persistence plus raw `setSectionSizes` transport, and
+  `frontend/src/state/actions/sections/sectionSizes.ts` is now the thin
+  compatibility facade. `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts`
+  now focuses on resize lifecycle, double-click tracking, auto-size promotion,
+  and resize-event emission, while
+  `frontend/src/components/Utils/Resizable/customResizableSizing.ts` owns pure
+  clamp and auto-clamp plus auto-only size-mode update helpers.
 - `frontend/src/state/actions/params/paramSelectionCommands.ts` now owns
   single-param drag/drop selection normalization,
   `frontend/src/state/actions/params/paramMoveCommands.ts` now owns optimistic

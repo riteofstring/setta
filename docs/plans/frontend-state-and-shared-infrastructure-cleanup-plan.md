@@ -439,7 +439,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/sectionSizes.ts` at 218 lines
   - `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` at 216 lines
   - `frontend/src/state/actions/edgeHandles.ts` at 216 lines
   - `frontend/src/state/actions/gitStatusAndDiff.ts` at 215 lines
@@ -451,6 +450,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
+  - `frontend/src/state/actions/edges.ts` at 208 lines
   - `frontend/src/state/actions/edges.ts` at 208 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
@@ -587,10 +587,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share-capability gating and active-handle state bridging into handle chrome
 - `useCustomResizableBehavior.ts` now owns:
   - resize lifecycle and double-click tracking
-  - auto-size promotion, auto-clamp, and optimistic section-size persistence
-  - resize event emission into shared layout-interaction state
+  - auto-size promotion and resize-event emission
+  - pointer-driven resize orchestration into shared layout-interaction state
 - `customResizableSizing.ts` now owns:
   - pure clamp and auto-clamp sizing helpers
+  - auto-only size-mode update derivation
   - resize-end emission decisions that can be tested without React
 - `customResizableChrome.ts` now owns:
   - resize-handle direction lookup from DOM targets
@@ -606,6 +607,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `sectionAspectRatioSizing.ts` now owns:
   - draw-area canvas size normalization
   - social/media aspect-ratio writes and default size promotion
+- `sectionSizeGeometry.ts` now owns:
+  - pure section sizing math and resize-direction helpers
+  - auto-size promotion helpers for resizable surfaces
+- `sectionSizeState.ts` now owns:
+  - local section-size writes
+  - parent/sibling width propagation across compatible section trees
+- `sectionSizePersistence.ts` now owns:
+  - optimistic section-size persistence
+  - raw `setSectionSizes` transport shared by resize and group-overflow flows
 - `sectionSizes.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `paramMoveQueries.ts` now owns:

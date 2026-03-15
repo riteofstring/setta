@@ -1,4 +1,4 @@
-import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizes";
+import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizeGeometry";
 import { SectionSize } from "utils/generatedTypes";
 import { SIZE_MODE } from "./utils";
 
@@ -6,10 +6,23 @@ export const AUTO_CLAMP_TOLERANCE = 2;
 
 type SizeModeValue = (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 
-type ResizeSizeMode = {
+export type ResizeSizeMode = {
   width: SizeModeValue;
   height: SizeModeValue;
 };
+
+export function getAutoOnlySizeModeUpdate(
+  sizeMode: ResizeSizeMode,
+): Partial<SectionSize> | null {
+  const changedSize: Partial<SectionSize> = {};
+  if (sizeMode.height === SIZE_MODE.auto_only) {
+    changedSize.height = "auto";
+  }
+  if (sizeMode.width === SIZE_MODE.auto_only) {
+    changedSize.width = "auto";
+  }
+  return Object.keys(changedSize).length > 0 ? changedSize : null;
+}
 
 type ResizeEndDecisionInput = {
   resizeStarted: boolean;
