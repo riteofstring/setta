@@ -449,9 +449,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     increments plus persisted session snapshot updates.
   - `state/actions/appSessionState.ts` is now the thin compatibility facade
     over those app-session owners.
-  - `state/actions/shareSessionState.ts` owns share-session cookie or
-    session-storage bootstrap, cached-session reuse, and deployment-mode
-    initialization.
+  - `state/actions/shareSessionStoredState.ts` owns share-session cookie or
+    session-storage reads, writes, store hydration, cached-session reuse, and
+    reset behavior.
+  - `state/actions/shareSessionBootstrap.ts` owns share-session ensure or
+    initialize flows for deployment bootstrap and recovery.
+  - `state/actions/shareSessionState.ts` is now the thin compatibility facade
+    over those share-session owners.
   - `state/actions/shareProjectConfig.ts` owns share project-config
     load/retry transport plus post-load hydration side effects.
   - `state/actions/share.ts` is now the thin compatibility facade over those

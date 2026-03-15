@@ -2,10 +2,8 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useServerMode, useShareSession } from "state/stores/sessionStores";
 import { initializeAppSessionFromCurrentDeployment } from "./appSessionBootstrap";
 import { resetAppSessionState } from "./appSessionStoredState";
-import {
-  initializeShareSessionFromCurrentDeployment,
-  resetShareSessionState,
-} from "./share";
+import { initializeShareSessionFromCurrentDeployment } from "./shareSessionBootstrap";
+import { resetShareSessionState } from "./shareSessionStoredState";
 
 export const SHARE_SESSION_MISSING_CODE = 4400;
 export const SHARE_SESSION_UNKNOWN_CODE = 4404;

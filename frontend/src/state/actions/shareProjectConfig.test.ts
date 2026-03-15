@@ -14,7 +14,7 @@ vi.mock("state/actions/project/loadProject", () => ({
   loadProjectState: vi.fn(),
 }));
 
-vi.mock("./shareSessionState", () => ({
+vi.mock("./shareSessionBootstrap", () => ({
   ensureShareSessionFromCurrentDeployment: vi.fn(),
 }));
 
@@ -51,7 +51,7 @@ describe("shareProjectConfig", () => {
       "state/actions/project/loadProject"
     );
     const { ensureShareSessionFromCurrentDeployment } = await import(
-      "./shareSessionState"
+      "./shareSessionBootstrap"
     );
     const { route_load_share_project_config } = await import(
       "utils/generatedEndpoints"

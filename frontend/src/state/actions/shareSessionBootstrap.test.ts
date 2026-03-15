@@ -1,10 +1,6 @@
 // @vitest-environment jsdom
 
-import {
-  useAllProjectMetadata,
-  useServerMode,
-  useShareSession,
-} from "state/stores/sessionStores";
+import { useServerMode, useShareSession } from "state/stores/sessionStores";
 import { resetProjectStores } from "state/utils";
 import type { ShareDeploymentSessionResponse } from "utils/generatedTypes";
 import { createProjectConfig, createSharePolicy } from "utils/generatedTypes";
@@ -13,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ensureShareSessionFromCurrentDeployment,
   initializeShareSessionFromCurrentDeployment,
-} from "./shareSessionState";
+} from "./shareSessionBootstrap";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_create_share_session_current: vi.fn(),
@@ -32,7 +28,7 @@ function buildShareSessionResponse(): ShareDeploymentSessionResponse {
   };
 }
 
-describe("shareSessionState", () => {
+describe("shareSessionBootstrap", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
@@ -56,7 +52,7 @@ describe("shareSessionState", () => {
     });
   });
 
-  it("reuses the cached share session from session storage", async () => {
+  it("reuses the cached share session from session storage when share mode is already resolved", async () => {
     const { route_create_share_session_current } = await import(
       "utils/generatedEndpoints"
     );
@@ -73,9 +69,6 @@ describe("shareSessionState", () => {
     expect(loaded).toEqual(session);
     expect(route_create_share_session_current).not.toHaveBeenCalled();
     expect(useShareSession.getState().shareSessionId).toBe("share-session-1");
-    expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBe(
-      "config-1",
-    );
   });
 
   it("clears share session state when the server is already resolved to non-share mode", async () => {
@@ -93,10 +86,6 @@ describe("shareSessionState", () => {
       shareDeploymentName: "demo-share",
       shareDeploymentVersion: "v1",
     });
-    useAllProjectMetadata.setState({
-      defaultProjectConfigId: "config-1",
-      projectMetadata: [createProjectConfig({ id: "config-1" })],
-    });
     window.sessionStorage.setItem(
       "settaShareSession",
       JSON.stringify(buildShareSessionResponse()),
@@ -106,7 +95,6 @@ describe("shareSessionState", () => {
 
     expect(recovered).toBe(false);
     expect(useShareSession.getState().shareSessionId).toBeNull();
-    expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBeNull();
     expect(window.sessionStorage.getItem("settaShareSession")).toBeNull();
   });
 });

@@ -9,8 +9,11 @@ vi.mock("state/actions/appSessionStoredState", () => ({
   resetAppSessionState: vi.fn(),
 }));
 
-vi.mock("state/actions/share", () => ({
+vi.mock("state/actions/shareSessionBootstrap", () => ({
   initializeShareSessionFromCurrentDeployment: vi.fn(),
+}));
+
+vi.mock("state/actions/shareSessionStoredState", () => ({
   resetShareSessionState: vi.fn(),
 }));
 
@@ -42,10 +45,12 @@ describe("websocketShareSessionRecovery", () => {
   });
 
   it("resets share session state and warns when recovery fails", async () => {
-    const {
-      initializeShareSessionFromCurrentDeployment,
-      resetShareSessionState,
-    } = await import("state/actions/share");
+    const { initializeShareSessionFromCurrentDeployment } = await import(
+      "state/actions/shareSessionBootstrap"
+    );
+    const { resetShareSessionState } = await import(
+      "state/actions/shareSessionStoredState"
+    );
     const { addTemporaryNotification } = await import(
       "state/actions/notifications"
     );

@@ -4,7 +4,7 @@ import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useShareSession } from "state/stores/sessionStores";
 import { res200 } from "utils/endpointUtils";
 import { route_load_share_project_config } from "utils/generatedEndpoints";
-import { ensureShareSessionFromCurrentDeployment } from "./shareSessionState";
+import { ensureShareSessionFromCurrentDeployment } from "./shareSessionBootstrap";
 
 type ShareProjectConfigLoadParams = {
   projectConfigId: string;

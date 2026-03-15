@@ -100,12 +100,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   thin restore orchestrator, and
   `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` is now the
   thin compatibility facade.
-- `frontend/src/state/actions/shareSessionState.ts` now owns share-session
-  cookie or session-storage bootstrap, cached-session reuse, and
-  deployment-mode initialization, `frontend/src/state/actions/shareProjectConfig.ts`
-  now owns share project-config load/retry transport plus post-load hydration
-  side effects, and `frontend/src/state/actions/share.ts` is now the thin
-  compatibility facade.
+- `frontend/src/state/actions/shareSessionStoredState.ts` now owns
+  share-session cookie or session-storage reads, writes, store hydration,
+  cached-session reuse, and reset behavior,
+  `frontend/src/state/actions/shareSessionBootstrap.ts` now owns
+  share-session ensure or initialize flows for deployment bootstrap and
+  recovery, `frontend/src/state/actions/shareProjectConfig.ts` now owns share
+  project-config load/retry transport plus post-load hydration side effects,
+  and `frontend/src/state/actions/shareSessionState.ts` plus
+  `frontend/src/state/actions/share.ts` are now thin compatibility facades.
 - `frontend/src/state/actions/activeSectionSync.ts` now owns durable
   active-section selection scheduling, flush, backend send, and authoritative
   restore behavior, `frontend/src/state/actions/activeSectionCommands.ts` now
@@ -731,7 +734,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/shareSessionState.ts`, `state/actions/runOrImportCode.ts`, `state/actions/projectChatWindowingInstanceState.ts`, `state/actions/params/paramMoveQueries.ts`, `state/actions/sectionProjectStateSync.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/runOrImportCode.ts`, `state/actions/projectChatWindowingInstanceState.ts`, `state/actions/params/paramMoveQueries.ts`, `state/actions/sectionProjectStateSync.ts`, `state/actions/lspDiagnostics.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

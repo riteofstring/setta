@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { fetchListenerCoverageSnapshot } from "state/actions/listenerCoverage";
 import { loadProjectState } from "state/actions/project/loadProject";
-import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
+import { ensureShareSessionFromCurrentDeployment } from "state/actions/shareSessionBootstrap";
 import { useShareSession } from "state/definitions";
 import { useProjectLoading } from "state/stores/projectStatusStores";
 import { resetProjectStores } from "state/utils";

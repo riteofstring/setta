@@ -179,13 +179,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` now owns
   deployment-policy restore gating plus saved project-chat thread rebound that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
-- `frontend/src/state/actions/shareSessionState.ts` now owns share-session
-  cookie or session-storage bootstrap, cached-session reuse, and
-  deployment-mode initialization that previously lived in
+- `frontend/src/state/actions/shareSessionStoredState.ts` now owns
+  share-session cookie or session-storage reads, writes, store hydration,
+  cached-session reuse, and reset behavior that previously lived in
   `frontend/src/state/actions/share.ts`, while
+  `frontend/src/state/actions/shareSessionBootstrap.ts` now owns
+  share-session ensure or initialize flows for deployment bootstrap and
+  recovery,
   `frontend/src/state/actions/shareProjectConfig.ts` now owns share
-  project-config load/retry transport plus post-load hydration side effects;
-  `frontend/src/state/actions/share.ts` is now the thin compatibility facade.
+  project-config load/retry transport plus post-load hydration side effects,
+  and `frontend/src/state/actions/shareSessionState.ts` plus
+  `frontend/src/state/actions/share.ts` are now thin compatibility facades.
 - `frontend/src/state/actions/appSessionStoredState.ts` now owns app-session
   cookie or session-storage reads, writes, store hydration, and reset behavior
   that previously lived in `frontend/src/state/actions/appSessionState.ts`,
@@ -444,7 +448,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/shareSessionState.ts` at 214 lines
   - `frontend/src/state/actions/runOrImportCode.ts` at 214 lines
   - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 213 lines
   - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
@@ -454,6 +457,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
   - `frontend/src/state/actions/edges.ts` at 208 lines
   - `frontend/src/state/actions/projectChatWindowingSectionState.ts` at 207 lines
+  - `frontend/src/state/actions/stateMachineEdgeMutations.ts` at 206 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
