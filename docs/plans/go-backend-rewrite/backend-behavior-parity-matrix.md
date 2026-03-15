@@ -664,7 +664,7 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `BP-01` | Binary upload/download round-trips payload bytes and media type, and invalid binary content ids are rejected. | `tests/routers/test_file_browser_routes.py::test_binary_upload_and_download`; `tests/routers/test_file_browser_routes.py::test_binary_download_rejects_invalid_content_id`. | Impl: `internal/httpapi/binary_routes.go`; `internal/binary/store.go`; proof: `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesStoresUploadedPayload`; `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesServesDownloadedPayload`; `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesRejectsInvalidDownloadContentID`; `internal/binary/store_test.go::TestStoreStreamRoundTripsContent`. | `Proved` | |
-| `BP-02` | Binary upload accepts `durable=false`, rejects invalid durable form values, and fails oversized uploads with `413`. | `tests/routers/test_file_browser_routes.py::test_binary_upload_allows_non_durable`; `tests/routers/test_file_browser_routes.py::test_binary_upload_rejects_invalid_durable_value`; `tests/routers/test_file_browser_routes.py::test_binary_upload_rejects_oversized_payload`. | Impl: `internal/httpapi/binary_routes.go`; `internal/binary/store.go`; partial proof: `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesStoresUploadedPayload`; `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesRejectsInvalidDurableFlag`; `internal/binary/store_test.go::TestStoreStreamRejectsOversizedPayload`. | `Implemented, proof incomplete` | Current Go tests prove the upload path, invalid durable parsing, and store-level oversize rejection, but this slice does not yet have a direct Go route test for `durable=false` metadata persistence or the transport-level `413` upload response. |
+| `BP-02` | Binary upload accepts `durable=false`, rejects invalid durable form values, and fails oversized uploads with `413`. | `tests/routers/test_file_browser_routes.py::test_binary_upload_allows_non_durable`; `tests/routers/test_file_browser_routes.py::test_binary_upload_rejects_invalid_durable_value`; `tests/routers/test_file_browser_routes.py::test_binary_upload_rejects_oversized_payload`. | Impl: `internal/httpapi/binary_routes.go`; `internal/binary/store.go`; proof: `internal/httpapi/binary_routes_test.go::{TestRegisterBinaryRoutesStoresUploadedPayload,TestRegisterBinaryRoutesRejectsInvalidDurableFlag,TestRegisterBinaryRoutesRejectsOversizedPayload}`; `internal/binary/store_test.go::TestStoreStreamRejectsOversizedPayload`. | `Proved` | The route test now directly proves both the stored `durable=false` metadata and the transport-level `413 binary_payload_too_large` response. |
 | `BP-03` | Source-baseline binary download is policy-gated in share mode instead of being removed outright from deployment runtimes. | `tests/routers/test_file_browser_routes.py::test_binary_download_blocks_when_policy_disallows`. | Current Go guard: `internal/httpapi/binary_routes.go::RegisterBinaryRoutes`; proof: `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesBlocksDeploymentMode`. | `Dormant / unproven caller` | Current Go only exposes `/binary/*` on the full IDE runtime. This slice does not yet prove any surviving share/app caller still needs raw binary downloads now that attachments and share-artifact routes cover the active file-access paths. |
 
 ## Artifact Routes And Share Overlays
@@ -1270,7 +1270,6 @@ It covers:
     proofs, and it adds:
     - one new dormant share/runtime question around binary downloads
       (`BP-03`)
-    - one more under-proved proof cluster (`BP-02`)
 11. The UI-settings and app-definition/app-spec slice mostly closes with
     proofs, but it adds one real behavior gap around share-session-scoped
     reveal routing (`US-05`) plus one more dormant transport row around the
@@ -1419,8 +1418,7 @@ It covers:
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
       `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
       code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
-      `WC-02`), the new docstring/completion proof gap (`CP-02`), the new
-      binary/artifact/attachment/file-browser proof gap (`BP-02`),
+      `WC-02`), the new docstring/completion proof gap (`CP-02`),
       the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps

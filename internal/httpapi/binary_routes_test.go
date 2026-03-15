@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -74,6 +75,21 @@ func TestRegisterBinaryRoutesStoresUploadedPayload(t *testing.T) {
 	if string(payload) != "snapshot-bytes" {
 		t.Fatalf("expected uploaded payload bytes, got %q", string(payload))
 	}
+
+	metadataPath := filepath.Join(store.Root(), ref.ContentID+".json")
+	metadataContent, err := os.ReadFile(metadataPath)
+	if err != nil {
+		t.Fatalf("read uploaded metadata: %v", err)
+	}
+	var metadata struct {
+		Durable bool `json:"durable"`
+	}
+	if err := json.Unmarshal(metadataContent, &metadata); err != nil {
+		t.Fatalf("decode uploaded metadata: %v", err)
+	}
+	if metadata.Durable {
+		t.Fatalf("expected durable=false metadata, got %#v", metadata)
+	}
 }
 
 func TestRegisterBinaryRoutesRejectsInvalidDurableFlag(t *testing.T) {
@@ -115,6 +131,56 @@ func TestRegisterBinaryRoutesRejectsInvalidDurableFlag(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `"code":"invalid_form_value"`) {
 		t.Fatalf("expected invalid_form_value error, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterBinaryRoutesRejectsOversizedPayload(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Store:      store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	oversizedPayload := bytes.Repeat([]byte("a"), int(binarypayload.DefaultMaxUploadBytes)+1)
+	body, contentType := buildBinaryUploadRequestBody(t, oversizedPayload, "true")
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteBinaryUpload, body)
+	request.Header.Set("Content-Type", contentType)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode oversized error payload: %v", err)
+	}
+	if payload.Error.Code != "binary_payload_too_large" {
+		t.Fatalf("expected binary_payload_too_large, got %#v", payload)
+	}
+	if payload.Error.Message != payloadTooLargeMessage(binarypayload.DefaultMaxUploadBytes) {
+		t.Fatalf("unexpected oversized error payload %#v", payload)
 	}
 }
 
