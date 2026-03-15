@@ -355,6 +355,11 @@ Current tree note:
   `internal/agentruns`, and `internal/app`; the retained
   `setta.api.chat_toolkit` tests were rewritten to use listener-route payload
   fixtures instead of the deleted local Python store harness.
+- The now-unused local `backend/setta/llm/chat_toolkit/history.py` helper is
+  also gone in the current worktree because no retained Python API imports it
+  after the scriptable-chat store deletion; the retained `setta.api.chat_toolkit`
+  surface uses `ChatHistoryClient` against the Go-owned listener-route chat
+  CRUD path instead.
 - The dead Python websocket-shell tail is also smaller in the current
   worktree: `backend/setta/websockets/websocket_manager.py`,
   `backend/setta/websockets/msg_handlers/base.py`, and

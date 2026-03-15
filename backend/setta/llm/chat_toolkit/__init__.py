@@ -1,4 +1,3 @@
-from .history import ChatHistory
 from .messages import (
     assistant_message,
     message_attachment,
@@ -14,7 +13,6 @@ from .stream_assembler import ChatStreamAssembler
 from .tool_calls import ToolCallAccumulator, ToolCallBuilder
 
 __all__ = [
-    "ChatHistory",
     "ChatStreamAssembler",
     "ToolCallAccumulator",
     "ToolCallBuilder",
