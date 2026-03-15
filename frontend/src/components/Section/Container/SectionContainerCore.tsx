@@ -14,7 +14,7 @@ import {
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { getSectionStylePreviewColorKey } from "utils/constants";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
@@ -33,17 +33,6 @@ type SectionContainerCoreProps = {
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
-};
-
-type SectionContainerCoreStaticContentProps = {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  isUserView: boolean;
-  hideAgenticEdgeHandles: boolean;
-  isAttachedTerminalChild: boolean;
-  isInOtherProjectConfigs: boolean;
-  positionAndSizeLocked: boolean;
-  hasSectionStyleTheme: boolean;
 };
 
 function _SectionContainerCore({
@@ -159,6 +148,20 @@ function _SectionContainerCore({
         isolation: "isolate",
       } as React.CSSProperties)
     : sectionStyleVars;
+  const shouldRenderSharedChatHandles =
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const isWorkflowOnlyNodeSection =
+    sectionTypeName === SectionTypeEnum.StateMachineStart ||
+    sectionTypeName === SectionTypeEnum.StateMachineGate ||
+    sectionTypeName === SectionTypeEnum.StateMachineEnd;
+  const shouldRenderChatSharedHandles =
+    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
+  const shouldRenderAgenticEdgeHandles =
+    shouldRenderSharedChatHandles &&
+    !shouldRenderChatSharedHandles &&
+    !isWorkflowOnlyNodeSection;
+  const shouldRenderStateMachineEdgeHandles =
+    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
 
   return (
     <section
@@ -170,72 +173,28 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      <SectionContainerCoreStaticContent
+      {shouldRenderChatSharedHandles ? (
+        <ChatSharedEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderAgenticEdgeHandles ? (
+        <AgenticEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderStateMachineEdgeHandles ? (
+        <StateMachineEdgeHandles isUserView={isUserView} />
+      ) : null}
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
+      <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        isUserView={isUserView}
-        hideAgenticEdgeHandles={hideAgenticEdgeHandles}
-        isAttachedTerminalChild={isAttachedTerminalChild}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
+        hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
       />
     </section>
   );
 }
-
-const SectionContainerCoreStaticContent = React.memo(
-  function SectionContainerCoreStaticContent({
-    sectionId,
-    sectionTypeName,
-    isUserView,
-    hideAgenticEdgeHandles,
-    isAttachedTerminalChild,
-    isInOtherProjectConfigs,
-    positionAndSizeLocked,
-    hasSectionStyleTheme,
-  }: SectionContainerCoreStaticContentProps) {
-    const shouldRenderSharedChatHandles =
-      !hideAgenticEdgeHandles && !isAttachedTerminalChild;
-    const isWorkflowOnlyNodeSection =
-      sectionTypeName === SectionTypeEnum.StateMachineStart ||
-      sectionTypeName === SectionTypeEnum.StateMachineGate ||
-      sectionTypeName === SectionTypeEnum.StateMachineEnd;
-    const shouldRenderChatSharedHandles =
-      shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
-    const shouldRenderAgenticEdgeHandles =
-      shouldRenderSharedChatHandles &&
-      !shouldRenderChatSharedHandles &&
-      !isWorkflowOnlyNodeSection;
-    const shouldRenderStateMachineEdgeHandles =
-      shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
-
-    return (
-      <>
-        {shouldRenderChatSharedHandles ? (
-          <ChatSharedEdgeHandles isUserView={isUserView} />
-        ) : null}
-        {shouldRenderAgenticEdgeHandles ? (
-          <AgenticEdgeHandles isUserView={isUserView} />
-        ) : null}
-        {shouldRenderStateMachineEdgeHandles ? (
-          <StateMachineEdgeHandles isUserView={isUserView} />
-        ) : null}
-        <MinimizedDataEdgeHandles sectionId={sectionId} />
-        <SectionContainerCoreResizable
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          positionAndSizeLocked={positionAndSizeLocked}
-          hideHeader={isAttachedTerminalChild}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      </>
-    );
-  },
-);
-
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
   (p, n) => p.isUserView === n.isUserView,
