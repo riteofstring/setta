@@ -355,6 +355,72 @@ func TestServiceDeleteRemovesCanonicalArtifacts(t *testing.T) {
 	}
 }
 
+func TestServiceCreateAndUpdateNormalizeEnvVarWhitelist(t *testing.T) {
+	t.Parallel()
+
+	store, service, _, _ := newExternalAgentConfigServiceTestFixture(t)
+
+	// Create/update should both persist the same trimmed, blank-dropped,
+	// deduped, sorted env whitelist contract that the external-agent routes
+	// expose to the Project AI settings surface.
+	created, err := service.Create(Config{
+		ID:                 "normalized-whitelist",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+		EnvVarWhitelist: []string{
+			" OPENAI_API_KEY ",
+			"",
+			"ANTHROPIC_API_KEY",
+			"OPENAI_API_KEY",
+			"  ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+	expectedCreate := []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
+	if !reflect.DeepEqual(created.EnvVarWhitelist, expectedCreate) {
+		t.Fatalf("expected normalized create whitelist %#v, got %#v", expectedCreate, created.EnvVarWhitelist)
+	}
+	storedAfterCreate, err := store.Get(created.ID)
+	if err != nil {
+		t.Fatalf("get created config: %v", err)
+	}
+	if !reflect.DeepEqual(storedAfterCreate.EnvVarWhitelist, expectedCreate) {
+		t.Fatalf("expected persisted create whitelist %#v, got %#v", expectedCreate, storedAfterCreate.EnvVarWhitelist)
+	}
+
+	updated, err := service.Update(Config{
+		ID:                 created.ID,
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+		EnvVarWhitelist: []string{
+			" ZETA_KEY ",
+			"ALPHA_KEY",
+			"ZETA_KEY",
+			"",
+		},
+	})
+	if err != nil {
+		t.Fatalf("update config: %v", err)
+	}
+	expectedUpdate := []string{"ALPHA_KEY", "ZETA_KEY"}
+	if !reflect.DeepEqual(updated.EnvVarWhitelist, expectedUpdate) {
+		t.Fatalf("expected normalized update whitelist %#v, got %#v", expectedUpdate, updated.EnvVarWhitelist)
+	}
+	storedAfterUpdate, err := store.Get(created.ID)
+	if err != nil {
+		t.Fatalf("get updated config: %v", err)
+	}
+	if !reflect.DeepEqual(storedAfterUpdate.EnvVarWhitelist, expectedUpdate) {
+		t.Fatalf("expected persisted update whitelist %#v, got %#v", expectedUpdate, storedAfterUpdate.EnvVarWhitelist)
+	}
+}
+
 func TestServiceUpdateReturnsNotFound(t *testing.T) {
 	t.Parallel()
 
