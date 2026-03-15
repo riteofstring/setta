@@ -55,15 +55,7 @@ class DBE:
         self.settings_project = self.path / "setta-settings-project.json"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
-        self.external_agents = self.path / "external_agents.json"
-        self.engine_configs = self.path / "engine_configs.json"
-        self.transcription_profiles = self.path / "transcription_profiles.json"
-        self.agent_profiles = self.path / "agent_profiles.json"
-        self.agent_runs = self.path / "agent_runs"
-        self.agent_run_index = self.path / "agent_run_index.json"
-        self.agentic_summary_cache = self.path / "agentic_summary_cache.json"
         self.prompts = self.path / "prompts"
-        self.prompts_example = self.path / "prompts.example.json"
         self.deployment_manifest = self.path / "manifest.json"
         self.dot_env = normalize_workspace_path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
@@ -310,58 +302,6 @@ class DBE:
     def write_llm_config_example(self, payload: Any) -> None:
         self.write_json(self.llm_config_example, payload)
 
-    def read_external_agents(self) -> list[dict]:
-        payload = self.read_json(self.external_agents)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("external_agents.json must contain a list of configs")
-        return payload
-
-    def write_external_agents(self, payload: list[dict]) -> None:
-        self.write_json(self.external_agents, payload)
-
-    def read_engine_configs(self) -> list[dict]:
-        payload = self.read_json(self.engine_configs)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("engine_configs.json must contain a list of configs")
-        return payload
-
-    def write_engine_configs(self, payload: list[dict]) -> None:
-        self.write_json(self.engine_configs, payload)
-
-    def read_transcription_profiles(self) -> list[dict]:
-        payload = self.read_json(self.transcription_profiles)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError(
-                "transcription_profiles.json must contain a list of profiles"
-            )
-        return payload
-
-    def write_transcription_profiles(self, payload: list[dict]) -> None:
-        self.write_json(self.transcription_profiles, payload)
-
-    def read_agent_run_index(self) -> dict[str, Any]:
-        payload = self.read_json(self.agent_run_index)
-        if not payload:
-            return {}
-        if not isinstance(payload, dict):
-            raise ValueError("agent_run_index.json must contain an object")
-        return payload
-
-    def write_agent_run_index(self, payload: dict[str, Any]) -> None:
-        self.write_json(self.agent_run_index, payload)
-
-    def read_prompts_example(self) -> Any:
-        return self.read_json(self.prompts_example)
-
-    def write_prompts_example(self, payload: Any) -> None:
-        self.write_json(self.prompts_example, payload)
-
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)
         if raw is None:
@@ -378,44 +318,6 @@ class DBE:
         if content:
             content += "\n"
         self.write(self.dot_env, content)
-
-    def read_agent_profiles(self) -> list[dict]:
-        payload = self.read_json(self.agent_profiles)
-        if not payload:
-            return []
-        if not isinstance(payload, list):
-            raise ValueError("agent_profiles.json must contain a list of profiles")
-        return payload
-
-    def write_agent_profiles(self, payload: list[dict]) -> None:
-        self.write_json(self.agent_profiles, payload)
-
-    def agent_run_path(self, run_id: ID) -> Path:
-        return self.agent_runs / f"{run_id}.json"
-
-    def read_agent_run(self, run_id: ID) -> dict | None:
-        path = self.agent_run_path(run_id)
-        if not path.exists():
-            return None
-        data = self.read_json(path)
-        if not data:
-            return None
-        return data
-
-    def write_agent_run(self, run_id: ID, payload: dict) -> None:
-        self.write_json(self.agent_run_path(run_id), payload)
-
-    def list_agent_run_paths(self) -> list[Path]:
-        if not self.agent_runs.exists():
-            return []
-        return sorted(self.agent_runs.glob("*.json"))
-
-    def delete_agent_run_file(self, run_id: ID) -> None:
-        path = self.agent_run_path(run_id)
-        lock = self.get_file_lock(path)
-        with lock:
-            if path.exists():
-                path.unlink()
 
     def prompt_path(self, prompt_id: ID) -> Path:
         return self.prompts / f"{prompt_id}.json"
