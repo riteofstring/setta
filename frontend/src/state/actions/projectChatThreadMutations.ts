@@ -9,7 +9,7 @@ import {
 import {
   ProjectChatThreadDeleteUndoInverse,
   pushProjectChatThreadStorageUndoEntry,
-} from "./projectChatThreadStorageUndo";
+} from "./projectChatThreadStorageUndoStack";
 
 export function markProjectChatThreadViewed(
   projectConfigId: string,

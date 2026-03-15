@@ -65,10 +65,8 @@ import {
   reorderProjectChatThreads,
   toggleProjectChatThreadPinned,
 } from "state/actions/projectChatThreadMutations";
-import {
-  canUndoLastProjectChatThreadStorageMutation,
-  undoLastProjectChatThreadStorageMutation,
-} from "state/actions/projectChatThreadStorageUndo";
+import { undoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoApply";
+import { canUndoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoStack";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {

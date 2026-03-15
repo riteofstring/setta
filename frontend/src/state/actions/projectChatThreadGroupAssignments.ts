@@ -7,7 +7,7 @@ import {
 import {
   ProjectChatThreadGroupDeleteUndoInverse,
   pushProjectChatThreadStorageUndoEntry,
-} from "./projectChatThreadStorageUndo";
+} from "./projectChatThreadStorageUndoStack";
 
 export function setProjectChatThreadGroupAssignment(
   projectConfigId: string,

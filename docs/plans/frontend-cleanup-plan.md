@@ -209,9 +209,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   assignment/delete behavior, while
   `frontend/src/state/actions/projectChatThreadGroupMutations.ts` is now a
   thin compatibility re-export surface. `frontend/src/state/actions/projectChatThreadMutations.ts`
-  still owns per-thread viewed, pin, reorder, and delete behavior, and
-  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` still owns the
-  local delete undo stack and restoration logic, leaving
+  still owns per-thread viewed, pin, reorder, and delete behavior,
+  `frontend/src/state/actions/projectChatThreadStorageUndoStack.ts` now owns
+  the local delete undo stack plus per-project lookup, and
+  `frontend/src/state/actions/projectChatThreadStorageUndoApply.ts` now owns
+  thread/group inverse restoration writes, with
+  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` as the thin
+  compatibility surface and
   `frontend/src/state/actions/projectChatThreads.ts` as the compatibility
   surface.
 - `frontend/src/state/actions/gitGraphRefreshState.ts` now owns git graph/log
@@ -677,7 +681,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/projectChatThreadStorageUndo.ts`, `state/actions/projectChatWindowingNormalization.ts`, `state/actions/stateMachineRunSelection.ts`, `state/actions/projectChatWindowingCanvasBoot.ts`, `state/actions/sectionLayoutQueries.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/projectChatWindowingNormalization.ts`, `state/actions/stateMachineRunSelection.ts`, `state/actions/projectChatWindowingCanvasBoot.ts`, `state/actions/sectionLayoutQueries.ts`, `state/actions/params/paramTree.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

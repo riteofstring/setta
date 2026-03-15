@@ -106,8 +106,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owners.
   - `state/actions/projectChatThreadMutations.ts` owns persisted per-thread
     viewed, pin, reorder, and delete behavior.
-  - `state/actions/projectChatThreadStorageUndo.ts` owns the local thread/group
-    delete undo stack and restoration logic.
+  - `state/actions/projectChatThreadStorageUndoStack.ts` owns the local
+    thread/group delete undo stack, stack limit, and per-project lookup.
+  - `state/actions/projectChatThreadStorageUndoApply.ts` owns local thread/group
+    delete undo restoration writes.
+  - `state/actions/projectChatThreadStorageUndo.ts` is now the thin
+    compatibility facade over those undo owners.
   - `state/actions/projectChatThreads.ts` is now a thin compatibility surface
     that re-exports the thread-group, thread, and undo owners.
   - `state/actions/aiHydrationOutcome.ts` owns managed/external hydration route

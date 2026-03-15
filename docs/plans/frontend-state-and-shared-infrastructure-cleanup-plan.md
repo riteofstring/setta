@@ -214,10 +214,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   assignment/delete behavior, while
   `frontend/src/state/actions/projectChatThreadGroupMutations.ts` is now the
   thin compatibility surface. `frontend/src/state/actions/projectChatThreadMutations.ts`
-  still owns per-thread viewed, pin, reorder, and delete behavior, and
-  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` still owns the
-  local delete undo stack and restoration logic that previously lived in
-  `frontend/src/state/actions/projectChatThreads.ts`.
+  still owns per-thread viewed, pin, reorder, and delete behavior,
+  `frontend/src/state/actions/projectChatThreadStorageUndoStack.ts` now owns
+  the local delete undo stack plus per-project lookup, and
+  `frontend/src/state/actions/projectChatThreadStorageUndoApply.ts` now owns
+  thread/group inverse restoration writes that previously lived in
+  `frontend/src/state/actions/projectChatThreads.ts`, while
+  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` is now the thin
+  compatibility re-export surface.
 - `frontend/src/state/actions/gitGraphRefreshState.ts` now owns git graph/log
   refresh plus initial page loading,
   `frontend/src/state/actions/gitGraphPaginationRequests.ts` now owns
@@ -381,11 +385,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatThreadStorageUndo.ts` at 238 lines
   - `frontend/src/state/actions/projectChatWindowingNormalization.ts` at 236 lines
   - `frontend/src/state/actions/stateMachineRunSelection.ts` at 234 lines
   - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` at 234 lines
   - `frontend/src/state/actions/sectionLayoutQueries.ts` at 233 lines
+  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
+  - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
@@ -771,6 +776,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `projectChatThreadGroupOrdering.ts`,
   `projectChatThreadGroupAssignments.ts`,
   `projectChatThreadGroupMutations.ts`, `projectChatThreadMutations.ts`,
+  `projectChatThreadStorageUndoStack.ts`,
+  `projectChatThreadStorageUndoApply.ts`,
   `projectChatThreadStorageUndo.ts`, and `projectChatThreadStorageShared.ts`
   now split into:
   - `projectChatThreads.ts` as the thin compatibility re-export surface
@@ -779,7 +786,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `projectChatThreadGroupAssignments.ts` for assignment/delete mutations
   - `projectChatThreadGroupMutations.ts` as the thin compatibility re-export surface
   - `projectChatThreadMutations.ts` for per-thread viewed, pin, reorder, and delete mutations
-  - `projectChatThreadStorageUndo.ts` for delete undo-stack ownership and restoration
+  - `projectChatThreadStorageUndoStack.ts` for delete undo-stack ownership, limit enforcement, and per-project lookup
+  - `projectChatThreadStorageUndoApply.ts` for thread/group inverse restoration writes
+  - `projectChatThreadStorageUndo.ts` as the thin compatibility re-export surface
   - `projectChatThreadStorageShared.ts` for normalization and ordering helpers shared by the mutation and undo owners
 - `aiChatStreaming.ts`, `aiChatStreamingRouting.ts`,
   `aiChatStreamingMessageDeltas.ts`, `aiChatStreamingMessageUpserts.ts`,

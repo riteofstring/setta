@@ -17,8 +17,8 @@ export {
   reorderProjectChatThreads,
   toggleProjectChatThreadPinned,
 } from "./projectChatThreadMutations";
+export { undoLastProjectChatThreadStorageMutation } from "./projectChatThreadStorageUndoApply";
 export {
   canUndoLastProjectChatThreadStorageMutation,
   clearProjectChatThreadStorageUndoStackForTests,
-  undoLastProjectChatThreadStorageMutation,
-} from "./projectChatThreadStorageUndo";
+} from "./projectChatThreadStorageUndoStack";
