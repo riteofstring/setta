@@ -88,3 +88,12 @@ def register(plugin):
             "settingsKey": "fixtureDslLanguageServer",
         }
     )
+
+    def setta_fixture_backend_route_runtime_tool(*, value: str) -> str:
+        return f"route-runtime:{plugin.plugin_id}:{value}"
+
+    plugin.register_mcp_tool(
+        setta_fixture_backend_route_runtime_tool,
+        name="setta_fixture_backend_route_runtime_tool",
+        annotations={"accessType": "read"},
+    )

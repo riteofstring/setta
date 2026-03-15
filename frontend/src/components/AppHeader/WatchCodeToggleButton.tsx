@@ -4,7 +4,7 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { route_set_watch_code_enabled } from "utils/generatedEndpoints";
+import { setWatchCodeEnabledAndRefreshProjectState } from "state/actions/project/watchCode";
 
 export function WatchCodeToggleButton() {
   const enabled = useProjectState(
@@ -35,7 +35,7 @@ export function WatchCodeToggleButton() {
         if (disabled) {
           return;
         }
-        void route_set_watch_code_enabled({
+        void setWatchCodeEnabledAndRefreshProjectState({
           projectConfigId,
           enabled: !enabled,
         });

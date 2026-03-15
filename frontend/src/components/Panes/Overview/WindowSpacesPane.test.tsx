@@ -14,8 +14,6 @@ import { WindowSpacesPane } from "./WindowSpacesPane";
 const createWindowSpaceFromCurrentFloatingWindowsMock = vi.fn();
 const persistWindowSpaceSortOrderMock = vi.fn();
 const restoreWindowSpaceInWorkspaceMock = vi.fn();
-const setWindowSpaceNameMock = vi.fn();
-const deleteWindowSpaceMock = vi.fn();
 
 type MockProjectState = {
   sections: Record<string, { name: string }>;
@@ -69,27 +67,16 @@ vi.mock("state/definitions", () => ({
   ) => selector(mockProjectState),
 }));
 
-vi.mock("state/actions/windowSpacePersistence", async () => {
-  const actual = await vi.importActual<
-    typeof import("state/actions/windowSpacePersistence")
-  >("state/actions/windowSpacePersistence");
-  return {
-    ...actual,
-    createWindowSpaceFromCurrentFloatingWindows: () =>
-      createWindowSpaceFromCurrentFloatingWindowsMock(),
-    persistWindowSpaceSortOrder: (...args: unknown[]) =>
-      persistWindowSpaceSortOrderMock(...args),
-    setWindowSpaceName: (...args: unknown[]) => setWindowSpaceNameMock(...args),
-    deleteWindowSpace: (...args: unknown[]) => deleteWindowSpaceMock(...args),
-  };
-});
-
 vi.mock("state/actions/windowSpaces", async () => {
   const actual = await vi.importActual<
     typeof import("state/actions/windowSpaces")
   >("state/actions/windowSpaces");
   return {
     ...actual,
+    createWindowSpaceFromCurrentFloatingWindows: () =>
+      createWindowSpaceFromCurrentFloatingWindowsMock(),
+    persistWindowSpaceSortOrder: (...args: unknown[]) =>
+      persistWindowSpaceSortOrderMock(...args),
     restoreWindowSpaceInWorkspace: (...args: unknown[]) =>
       restoreWindowSpaceInWorkspaceMock(...args),
   };
@@ -103,8 +90,6 @@ describe("WindowSpacesPane", () => {
     createWindowSpaceFromCurrentFloatingWindowsMock.mockReset();
     persistWindowSpaceSortOrderMock.mockReset();
     restoreWindowSpaceInWorkspaceMock.mockReset();
-    setWindowSpaceNameMock.mockReset();
-    deleteWindowSpaceMock.mockReset();
     mockProjectState = {
       sections: {},
       projectConfig: {
