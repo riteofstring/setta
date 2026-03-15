@@ -2930,6 +2930,36 @@ module map and placement guide while this cleanup progresses.
     app-generation detail reads or writes from the optimistic message apply,
     commit, and rollback flows.
 
+## 2026-03-15 05:57:32 PDT
+
+- Slice completed: split pending chat app-generation detail state away from
+  pending draft message mutations
+- Key files touched:
+  - `frontend/src/state/actions/aiPendingChatState.ts`
+  - `frontend/src/state/actions/aiPendingChatAppGenerationState.ts`
+  - `frontend/src/state/actions/aiPendingChatMessageState.ts`
+  - `frontend/src/state/actions/aiPendingChatState.test.ts`
+  - `frontend/src/state/actions/aiPendingChatAppGenerationState.test.ts`
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiPendingChatAppGenerationState.test.ts src/state/actions/aiPendingChatState.test.ts src/state/actions/aiChatSubmissionPayload.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiChatPromotion.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiPendingChatState.ts src/state/actions/aiPendingChatAppGenerationState.ts src/state/actions/aiPendingChatMessageState.ts src/state/actions/aiPendingChatState.test.ts src/state/actions/aiPendingChatAppGenerationState.test.ts src/state/actions/aiChatSubmission.ts src/state/actions/aiChatSubmissionPayload.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `a8c1145106`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatStreamingMessages.ts`, now the
+    largest authored/shared state hotspot at 308 lines, by separating shared
+    message delta reducers from finalized-assistant merge or message-upsert
+    helpers.
+
 ## 2026-03-15 05:26:34 PDT
 
 - Slice completed: split saved window-space CRUD ownership from the
