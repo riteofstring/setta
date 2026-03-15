@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
-  resolveProjectChatThreadVisibilityFromResize,
-} from "./ProjectChat";
-import {
   resolveProjectChatEngineConfigIdForSelectedChat,
   resolveProjectChatEngineSwitchContinuationAfterContextChange,
   resolveProjectChatEngineSwitchContinuationOnEngineChange,
   resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
   resolveProjectChatSelectedLLMUnavailableReason,
+  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
+  resolveProjectChatThreadVisibilityFromResize,
   shouldProjectChatSkipEngineSyncForContinuation,
-} from "./projectChatEngineSelection";
+} from "./ProjectChat";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 
 describe("resolveProjectChatThreadVisibilityFromResize", () => {

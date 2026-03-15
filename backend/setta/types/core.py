@@ -1,10 +1,8 @@
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import BaseCodeObjImpl
 from setta.types.generated.impl_field_literals import AllImplFields
 from setta.types.generated.shared_modifier import SharedModifier
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 from setta.types.section_impls import BaseSectionImpl, SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
