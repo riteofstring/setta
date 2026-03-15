@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { useProjectState } from "state/definitions";
-import { useSettings } from "state/stores/uiPreferenceStores";
+import { useProjectState, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   CodeObjTypeEnum,
