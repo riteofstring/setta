@@ -4948,3 +4948,31 @@ in `frontend/src/README.md` and the cleanup plans.
   - `4bb14f52a615f7083fba64c8d38a94d1daee2a77`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is again the top unresolved hotspot at about `4759` lines and still mixes layout math, pointer resize or drag state, snap logic, animation bookkeeping, tracked git-pane behavior, and render shells.
+
+## 2026-03-15 14:57:20 PDT
+
+- Slice completed: extracted dock layout math, visible-window selection, and minimized-pill display calculations out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was the top unresolved hotspot at the start of the slice, and its dock layout math was already a cohesive pure seam that sat directly on the render-heavy surface.
+  - This was higher value than switching to `ChatMessages.tsx` again because the dock remained larger after the shortcut split, and moving the responsive width or visibility calculations first makes the later pointer resize or drag extraction more legible instead of forcing those interactions to keep re-deriving layout state inline.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-bottom-dock-layout-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat bottom dock narrows into a single visible window and collapses chats into a menu"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatBottomDockLayout.ts src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-bottom-dock-layout-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-bottom-dock-layout-2026-03-15.md` with same-origin harness before/after notes and screenshots.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that the wide `900px` viewport still showed the `Review` and `Ship` dock windows with one minimized tray pill, and that the narrow `520px` viewport still collapsed all dock windows into the overflow menu with `Plan`, `Review`, and `Ship` entries.
+- Commit hash:
+  - `af474fffc2b5b1656702c0103065dbae0254071d`
+- Next highest-value unblocked slice:
+  - Simplify the pointer resize or drag state inside `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is still the top unresolved hotspot at about `4421` lines now that the layout calculations live in `projectChatBottomDockLayout.ts`.
