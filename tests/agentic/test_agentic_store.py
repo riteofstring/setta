@@ -4,21 +4,22 @@ from tempfile import TemporaryDirectory
 import pytest
 
 from setta.agentic.store import (
+    create_agent_run,
+    delete_prompt_template,
+    list_agent_runs,
+    list_prompt_templates,
+    load_agent_profiles,
+    load_external_agent_configs,
     load_agent_run,
     load_prompt_template,
-    require_agent_profile,
-    require_engine_config,
     require_external_agent_config,
+    save_agent_profiles,
+    save_external_agent_configs,
     save_agent_run,
+    save_prompt_template,
 )
 from setta.database.db_objs import DBE
-from setta.types.agentic import (
-    AgentProfile,
-    AgentRun,
-    AgentRunStatus,
-    EngineConfig,
-    EngineType,
-)
+from setta.types.agentic import AgentProfile, AgentRunStatus
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
@@ -27,7 +28,6 @@ from setta.types.external_agents import (
 )
 from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
-from setta.utils.timestamps import get_now_timestamp
 
 
 class TestAgenticStore:
@@ -36,9 +36,11 @@ class TestAgenticStore:
         root.mkdir(parents=True, exist_ok=True)
         return DBE(root)
 
-    def test_require_agent_profile_reads_seeded_profile(self) -> None:
+    def test_profiles_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = self._build_dbe(tmpdir)
+            assert load_agent_profiles(dbe) == []
+
             profiles = [
                 AgentProfile(
                     name="Alpha",
@@ -53,26 +55,17 @@ class TestAgenticStore:
                     systemPrompt="You are beta.",
                 ),
             ]
-            dbe.write_agent_profiles(
-                [profile.model_dump(mode="json") for profile in profiles]
-            )
+            save_agent_profiles(dbe, profiles)
 
-            loaded = require_agent_profile(dbe, profiles[0].id)
-            assert loaded.id == profiles[0].id
-            assert loaded.toolAllowlist == ["tool.a", "tool.b"]
+            loaded = load_agent_profiles(dbe)
+            assert [p.id for p in profiles] == [p.id for p in loaded]
+            assert loaded[0].toolAllowlist == ["tool.a", "tool.b"]
+            assert loaded[1].name == "Beta"
 
-            with pytest.raises(KeyError):
-                require_agent_profile(dbe, ID("missing-profile"))
-
-    def test_agent_runs_roundtrip(self) -> None:
+    def test_runs_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = self._build_dbe(tmpdir)
-            run = AgentRun(
-                profileId=None,
-                status=AgentRunStatus.running,
-                startedAt=get_now_timestamp(),
-                inputs={"prompt": "hello"},
-            )
+            run = create_agent_run(profile_id=None, inputs={"prompt": "hello"})
             save_agent_run(dbe, run)
 
             loaded = load_agent_run(dbe, run.id)
@@ -84,9 +77,15 @@ class TestAgenticStore:
             assert loaded.inputs == {"prompt": "hello"}
             assert loaded.startedAt is not None
 
-    def test_require_external_agent_config_reads_seeded_config(self) -> None:
+            runs = list_agent_runs(dbe)
+            assert len(runs) == 1
+            assert runs[0].id == run.id
+
+    def test_external_agent_configs_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = self._build_dbe(tmpdir)
+            assert load_external_agent_configs(dbe) == []
+
             configs = [
                 ExternalAgentConfig(
                     name="Codex app-server",
@@ -110,33 +109,17 @@ class TestAgenticStore:
                     workingDir="/tmp",
                 ),
             ]
-            dbe.write_external_agents(
-                [config.model_dump(mode="json") for config in configs]
-            )
+            save_external_agent_configs(dbe, configs)
+
+            loaded = load_external_agent_configs(dbe)
+            assert [c.id for c in configs] == [c.id for c in loaded]
+            assert loaded[0].toolType == ExternalAgentToolType.codex
+            assert loaded[1].runMode == ExternalAgentRunMode.server
 
             required = require_external_agent_config(dbe, configs[0].id)
             assert required.id == configs[0].id
-            assert required.toolType == ExternalAgentToolType.codex
             with pytest.raises(KeyError):
                 require_external_agent_config(dbe, ID("missing-config"))
-
-    def test_require_engine_config_reads_seeded_config(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = self._build_dbe(tmpdir)
-            config = EngineConfig(
-                id=ID("engine-alpha"),
-                name="Managed",
-                engineType=EngineType.setta_llm,
-                settaLlmConfigId="primary",
-            )
-            dbe.write_engine_configs([config.model_dump(mode="json")])
-
-            loaded = require_engine_config(dbe, config.id)
-            assert loaded.id == config.id
-            assert loaded.settaLlmConfigId == "primary"
-
-            with pytest.raises(KeyError):
-                require_engine_config(dbe, ID("missing-engine"))
 
     def test_prompt_templates_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -149,7 +132,7 @@ class TestAgenticStore:
                 metadata={"category": "greeting"},
             )
 
-            dbe.write_prompt(template.id, template.model_dump(mode="json"))
+            save_prompt_template(dbe, template)
 
             loaded = load_prompt_template(dbe, template.id)
             assert loaded is not None
@@ -158,3 +141,9 @@ class TestAgenticStore:
             assert loaded.template == template.template
             assert loaded.inputSchema == template.inputSchema
             assert loaded.metadata == template.metadata
+
+            templates = list_prompt_templates(dbe)
+            assert [entry.id for entry in templates] == [template.id]
+
+            delete_prompt_template(dbe, template.id)
+            assert list_prompt_templates(dbe) == []

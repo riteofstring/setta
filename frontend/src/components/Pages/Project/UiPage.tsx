@@ -6,7 +6,8 @@ import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
-import { useLocalStorage, useMisc } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 

@@ -4,10 +4,6 @@ This document describes how Setta’s backend handles logging and errors, and ho
 signals reach (1) developer-visible server logs and (2) user-visible UI “backend log
 events”.
 
-The active backend HTTP/websocket/MCP runtime is Go-owned. Python details in this
-document apply only to retained Python listener/share helpers, not to the main
-backend transport/runtime.
-
 ## Goals
 
 - Make backend logs easy to correlate across HTTP requests, websockets, and background
@@ -20,23 +16,23 @@ backend transport/runtime.
 
 There are two parallel outputs:
 
-1. **Backend logging output** (stdout/stderr and optional file):
-   - The active backend runtime logs through Go packages such as
-     `internal/httpapi`, `internal/backendlogs`, and related services.
-   - Retained Python listener/share helpers still use
-     `setta.logging.config.configure_listener_logging()` and related Python
-     context helpers.
+1. **Python logging output** (stdout/stderr and optional file):
+   - Configured via `setta.logging.config.configure_logging()` (backend) and
+     `setta.logging.config.configure_listener_logging()` (listener scripts).
+   - All logs include a formatted `setta_context` field built from contextvars.
 
 2. **Frontend “backend log events”** (websocket broadcast to UI):
-   - Sent by the Go-owned `internal/backendlogs.Service` over `/ws/frontend`.
+   - Sent via `setta.websockets.msg_handlers.frontend_sender.WMHFrontendSender`.
    - Used for user-facing messages like “MCP Server Ready” and for surfacing failures.
 
 ## Logging Configuration
 
 ### Entry Points
 
-- Shipped backend runtime: the packaged Go CLI/server owns the main backend
-  logging path.
+- Backend CLI: `backend/setta/start.py` calls `configure_logging()` before starting
+  uvicorn, and passes `log_config=None` so uvicorn does not install its own logging
+  config.
+- Packaged background runner: `backend/setta/backend_launcher.py` does the same.
 - Listener scripts: `backend/setta/api/listener.py` uses
   `configure_listener_logging()` (same format, no uvicorn access logger).
 
@@ -73,28 +69,30 @@ Values are normalized and sanitized:
 
 **HTTP requests**
 
-- Active Go middleware: `internal/httpapi/httpapi.go`
-  - Adds `request_id` and logs request method/path/status through the Go
-    request, recovery, and access-log middleware stack.
-- Retained Python helper: `bind_request_logging_context` is still available for
-  retained Python FastAPI/Starlette surfaces.
+- Middleware: `backend/setta/middleware/logging_context.py`
+  - Adds `request_id`, `method`, `path`, and `client` (when available).
+  - Enriches `endpoint` once routing has resolved it (at first response start).
+- Dependency: `bind_request_logging_context` adds `endpoint` for FastAPI dependency
+  flows (where middleware scope may not cover all desired work).
 
 **Websocket connections**
 
 - Context manager: `backend/setta/logging/context_bindings.py`
   - Adds `websocket_id`, `path`, optional `project_config_id`, and `client`.
-- Active Go transport: `internal/wsapi`
-  - Resolves connection type, auth, and mode/share-session context before
-    handing the socket to the route-specific handler.
+- Router loop: `backend/setta/routers/websocket.py`
+  - Adds `connection_type` and optional `client_connection_id` / `connection_id`.
 
 **Project context (`project_config_id`)**
 
-Many endpoints include a project id in their request JSON body. On the active Go
-surface, handlers validate `projectConfigId` explicitly and fail with the
-canonical `project_config_id_required` error when it is missing:
+Many endpoints include a project id in their request JSON body. For those, Setta
+extracts and binds `project_config_id` automatically:
 
-- Project routes: `internal/httpapi/project_routes.go`
-- Project shell routes: `internal/httpapi/project_shell_routes.go`
+- Route class: `backend/setta/logging/project_id_route.py`
+  - `ProjectIdContextRoute` inspects JSON bodies and calls `push_logging_context(...)`.
+- Router wrapper: `backend/setta/routers/setta_api_router.py`
+  - `SettaProjectContextAPIRouter(..., require_project_context_by_default=True)` marks
+    routes so missing project ids become hard failures (KeyError).
+- Endpoint decorator: `@require_project_context(...)` opts individual endpoints in.
 
 **Background tasks**
 
@@ -150,25 +148,24 @@ It:
   exception to propagate to the task and be detectable via awaiting or
   `task.exception()`.
 
-Retained Python listener/share helpers still use `re_raise=True` selectively
-for must-succeed background tasks and use the default (swallow) for many
-long-lived or optional loops.
+The backend uses `re_raise=True` for initialization (`backend/setta/server_state.py`)
+and uses the default (swallow) for many long-lived or optional background tasks.
 
 ## When To Use Which
 
 Rules of thumb for choosing between local logging/broadcasting helpers vs relying on
 global handling:
 
-- **HTTP routes**: Prefer returning or propagating errors through the active
-  surface's centralized handling. On the Go backend this means using the shared
-  `internal/httpapi` helpers and per-route error mapping instead of adding
-  route-local duplicate logging.
+- **HTTP routes (FastAPI)**: Prefer raising `HTTPException` (or letting exceptions
+  bubble) and rely on the global handlers in `backend/setta/server.py` to log and (when
+  initialized) broadcast. Avoid adding per-route `try/except` blocks solely to log,
+  because that typically double-logs.
 - **HTTP routes with custom behavior**: Catch exceptions only when you must translate
   them into a specific status/message (e.g. domain error → `HTTPException(4xx)`), or
   you need to do local cleanup/rollback before re-raising.
-- **Websockets**: Handle errors at the loop boundary (log + optionally
-  broadcast) and then close. The active shared pattern lives in `internal/wsapi`
-  and the route-specific websocket handlers under `internal/wsapi/routes.go`.
+- **Websockets**: There is no FastAPI “global exception response” path for websocket
+  loops, so handle errors at the loop boundary (log + optionally broadcast) and then
+  re-raise/close. The shared pattern is in `backend/setta/routers/websocket.py`.
 - **Background tasks / long-lived loops**: Use `spawn_background_task(...)` so failures
   are labeled and context is preserved. Use `re_raise=True` for must-succeed tasks
   (startup/core orchestration); leave it False for resilient “keep running” tasks.
@@ -186,27 +183,36 @@ global handling:
 
 ## HTTP Error Handling
 
-The legacy top-level Python FastAPI app in `backend/setta/server.py` used shared
-exception handlers, but that module has been removed as part of the Go rewrite.
-Do not treat a Python-wide HTTP error handler as the active backend source of
-truth now.
+Global exception handling is centralized in `backend/setta/server.py`:
 
-For retained Python FastAPI or Starlette surfaces, either:
+- `RequestValidationError` (FastAPI/Pydantic input validation):
+  - Logged and broadcast with label `fastapi-validation-error`.
+  - Returns status `422` with a custom payload shape
+    (`{"status_code": 10422, "message": "...", "data": null}`).
+- `HTTPException`:
+  - Logged and broadcast with label `fastapi-http-exception`.
+  - “Handled” is treated as: `status < 500` and `status != 422`.
+    - Handled → WARNING severity
+    - Unhandled (5xx and 422) → ERROR severity
+  - Response is delegated to FastAPI’s `http_exception_handler`.
+- Any other exception:
+  - Logged and broadcast with label `fastapi-unhandled-exception`.
+  - Returns a generic `500 Internal Server Error` payload (no exception text).
 
-- rely on that surface's own explicitly registered handlers, or
-- translate/log errors locally where that surface expects it.
-
-The active main backend HTTP error handling now lives in the Go runtime.
+When the app is fully initialized, `_log_and_broadcast_http_error` uses
+`SettaFastAPIState.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(...)`
+so errors appear in the UI; during early boot it falls back to server-side logging.
 
 ## Websocket Error Handling
 
 Two main patterns exist:
 
-- The shared Go websocket transport in `internal/wsapi` resolves auth/mode
-  context, maps close reasons, and closes the connection on handler failure.
-- Route-specific websocket handlers in `internal/wsapi/routes.go` and
-  higher-level services under `internal/app` follow the same “log + UI
-  broadcast + close” pattern where the behavior is user-visible.
+- The shared router loop (`backend/setta/routers/websocket.py`) wraps the connection
+  lifecycle and logs/broadcasts any unexpected exception with label
+  `websocket-route-loop`, then re-raises (allowing the server to close the connection).
+- Specialized websocket endpoints (for example terminals in
+  `backend/setta/routers/terminals.py`) follow the same “log + UI broadcast + re-raise”
+  pattern.
 
 ## Listener (External Process) Error Handling
 
@@ -220,26 +226,28 @@ Listener scripts are clients that connect over websockets:
 Listener → backend error mapping for “emit to frontend” is more structured:
 
 - Listener emit translation raises typed errors (for example
-  `listenerEmitUnknownDependencyError`) in
-  `internal/wsapi/listener_frontend_emit.go`.
-- The Go listener websocket handler resolves those into structured
-  `ListenerError` messages back to the listener
-  (`internal/wsapi/routes.go`, `internal/wsapi/listener_frontend_emit.go`).
+  `UnknownListenerDependencyError`) in
+  `backend/setta/listeners/listener_frontend_emit_resolver.py`.
+- The websocket receiver catches these and sends typed error messages back to the
+  listener, usually logging them as warnings
+  (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
 
 ## MCP Tool Error Handling
 
-- The active MCP server/runtime is Go-owned under `internal/mcpx`, which maps
-  tool/runtime failures into structured responses.
-- The retained Python MCP client still retries its SSE connection loop and uses
-  `logger.exception(...)` on failures (`backend/setta/mcp/client.py`).
+- The MCP server wraps tool exceptions into `ToolError` so callers get structured
+  failures (`backend/setta/mcp/server.py`).
+- The MCP client retries its SSE connection loop and uses `logger.exception(...)` on
+  failures (`backend/setta/mcp/client.py`).
 
 ## UI “Backend Log Events”
 
 The backend can broadcast log events to the frontend via websockets:
 
-- Core sender: `internal/backendlogs/service.go`
-  - `LogAndBroadcast(...)` writes to server logs and broadcasts.
-  - The service sends `BackendLogEvent` envelopes to `/ws/frontend`.
+- Core sender: `backend/setta/websockets/msg_handlers/frontend_sender.py`
+  - `broadcast_backend_log_event(...)` sends a message to frontend connections.
+  - `log_and_broadcast_backend_log_event(...)` writes to server logs and broadcasts.
+  - `log_failure_and_broadcast_backend_log_event(...)` logs a structured failure via
+    `log_failure(...)` then emits a UI event message.
 
 UI event filtering:
 
@@ -272,9 +280,9 @@ consumes these events and provides a diagnostics-focused UI:
 
 `SettaNotification` is a separate concept from UI “backend log events”.
 
-- Notifications are user-facing events (for example “Saved!” / “Autosaved!”)
-  stored/retrieved via the backend notification path (see
-  `internal/httpapi/project_shell_routes.go` and `internal/notifications`).
+- Notifications are user-facing events (for example “Saved!” / “Autosaved!”) sent via
+  `WMHFrontendSender.broadcast_notification(...)` and typically stored/retrieved via
+  the DB layer (see endpoints like `backend/setta/routers/projects.py`).
 - Backend log events are primarily diagnostic/status messages (optionally including
   failures) sent via `broadcast_backend_log_event(...)` and filtered by
   `SETTA_UI_LOG_LEVEL`.
@@ -288,8 +296,9 @@ consumes these events and provides a diagnostics-focused UI:
   preserved and failures are logged consistently.
 - Choose `re_raise=True` for background tasks that must crash loudly (startup or core
   processing loops).
-- For Go routes, validate and normalize `projectConfigId` at the handler boundary
-  in `internal/httpapi/*` rather than relying on custom Python router wrappers.
+- Bind project ids to context for endpoint-driven operations using
+  `SettaProjectContextAPIRouter` and/or `@require_project_context()` rather than
+  manually threading ids through every log call.
 
 ## Relevant Environment Variables
 
