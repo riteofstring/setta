@@ -71,6 +71,42 @@ func TestRunBackupsListRejectsInvalidLimit(t *testing.T) {
 	}
 }
 
+func TestRunBackupsListJSONHidesRestoreStashes(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	backupDir := filepath.Join(cwd, "setta_files", "backups")
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		t.Fatalf("mkdir backup dir: %v", err)
+	}
+	visibleBackup := filepath.Join(backupDir, "backup_20260101_000000_000001.json")
+	restoreStash := filepath.Join(backupDir, "restore_stash_20260308_123000_123000.json")
+	for _, path := range []string{visibleBackup, restoreStash} {
+		if err := os.WriteFile(path, []byte("payload"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	stdout, stderr, err := runBackupsSettaCommand(t, cwd, "", "backups", "list", "--json")
+	if err != nil {
+		t.Fatalf("run backups list: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var payload []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode json payload: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected only visible backup entries, got %#v", payload)
+	}
+	if got := payload[0]["path"]; got != visibleBackup {
+		t.Fatalf("expected visible backup path %q, got %#v", visibleBackup, got)
+	}
+}
+
 func TestRunBackupsRestoreLatestOverwritesProjectAndStashes(t *testing.T) {
 	t.Parallel()
 
