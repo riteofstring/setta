@@ -1,8 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectState } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
   ActiveSectionPolicyContext,
@@ -13,8 +12,10 @@ import {
   type SetActiveSectionIdsOptions,
   setActiveSectionIds,
 } from "./activeSections";
-import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
-import { getHighestAncestor } from "./sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getHighestAncestor,
+} from "./sectionInfos";
 import { setZIndices } from "./sections/sectionPositions";
 
 type SectionClickIntent = {

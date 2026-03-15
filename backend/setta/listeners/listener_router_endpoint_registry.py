@@ -7,7 +7,12 @@ from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.runtime.context import RuntimeContext
-from setta.server import app
+from setta.routers import (
+    listener_router,
+    lsp_router,
+    project_manager_router,
+    terminals_http_router,
+)
 from setta.server_state import SettaFastAPIState
 
 _ALLOWED_ENDPOINT_MODULE_PREFIXES = (
@@ -16,12 +21,17 @@ _ALLOWED_ENDPOINT_MODULE_PREFIXES = (
     "setta.routers.listener",
     "setta.routers.lsp",
 )
+_LISTENER_ENDPOINT_ROUTERS = (
+    project_manager_router,
+    terminals_http_router,
+    listener_router,
+    lsp_router,
+)
 
 
 @dataclass(frozen=True, slots=True)
 class ListenerRouterEndpointSpec:
     endpoint_name: str
-    method_name: str
     endpoint: Callable[..., Any]
     request_model: type[BaseModel]
     request_param_name: str
@@ -34,13 +44,6 @@ def _is_allowed_module(module_name: str) -> bool:
         if module_name.startswith(prefix):
             return True
     return False
-
-
-def _derive_method_name(endpoint_name: str) -> str:
-    for prefix in ("route_", "router_"):
-        if endpoint_name.startswith(prefix):
-            return endpoint_name[len(prefix) :]
-    return endpoint_name
 
 
 def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
@@ -84,7 +87,6 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
 
     return ListenerRouterEndpointSpec(
         endpoint_name=endpoint.__name__,
-        method_name=_derive_method_name(endpoint.__name__),
         endpoint=endpoint,
         request_model=request_model,
         request_param_name=request_param_name,
@@ -96,24 +98,12 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
 @lru_cache(maxsize=1)
 def get_listener_router_endpoint_specs() -> dict[str, ListenerRouterEndpointSpec]:
     specs: dict[str, ListenerRouterEndpointSpec] = {}
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
-        spec = _build_spec(route)
-        if spec is None:
-            continue
-        specs[spec.endpoint_name] = spec
+    for router in _LISTENER_ENDPOINT_ROUTERS:
+        for route in router.routes:
+            if not isinstance(route, APIRoute):
+                continue
+            spec = _build_spec(route)
+            if spec is None:
+                continue
+            specs[spec.endpoint_name] = spec
     return specs
-
-
-@lru_cache(maxsize=1)
-def get_listener_router_endpoint_specs_by_method_name() -> dict[
-    str, ListenerRouterEndpointSpec
-]:
-    specs = get_listener_router_endpoint_specs()
-    by_method: dict[str, ListenerRouterEndpointSpec] = {}
-    for spec in specs.values():
-        if spec.method_name in by_method:
-            raise ValueError(f"Duplicate listener endpoint name: {spec.method_name}")
-        by_method[spec.method_name] = spec
-    return by_method
