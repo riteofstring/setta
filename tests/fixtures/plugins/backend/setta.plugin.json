@@ -12,6 +12,7 @@
     "registerRouter",
     "registerMcpTools",
     "readProjectState",
-    "emitListenerEvents"
+    "emitListenerEvents",
+    "registerListenerEndpoint"
   ]
 }
