@@ -6018,3 +6018,43 @@ schedule settings` button still appears on the live task row.
   - Simplify `frontend/src/plugins/runtime.ts`, which is now the top unresolved
     front-door hotspot after `ChatArea.tsx` dropped to a thin branch router and
     moved managed/scriptable ownership into feature-local surfaces.
+
+## 2026-03-15 23:24:14 PDT
+
+- Slice completed: extracted plugin runtime host owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/RunInstructions.tsx` because
+  `frontend/src/plugins/runtime.ts` was still the top unresolved front-door
+  hotspot at the start of the turn, and it still mixed plugin host API
+  assembly, registration validation, frontend module loading, style side
+  effects, and plugin cleanup in one first-hop runtime file.
+- Key files touched:
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/plugins/runtimeHostTypes.ts`
+  - `frontend/src/plugins/runtimeHostValidation.ts`
+  - `frontend/src/plugins/runtimePluginHost.ts`
+  - `frontend/src/plugins/runtimeHostValidation.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/plugins/runtimeHostValidation.test.ts src/plugins/runtime.test.ts src/plugins/runtimeProjectStateBridge.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/plugins/plugins-pane.spec.ts --grep 'plugins overview tab supports fixture plugin render and disabled fallback|plugins pane shows package-manager guidance and disables managed write actions'`
+  - `pnpm -C frontend exec prettier --check src/plugins/runtime.ts src/plugins/runtimeHostTypes.ts src/plugins/runtimeHostValidation.ts src/plugins/runtimePluginHost.ts src/plugins/runtimeHostValidation.test.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this slice was a behavior-preserving
+    ownership extraction rather than a render-path or visual change.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy` at
+    `1400x900`; after a clean reload, the plugin overview still showed the
+    `PLUGINS`, `PLUGIN RUNTIME`, and `INSTALL PLUGIN` sections with the current
+    disabled controls, and the only remaining console noise was the
+    pre-existing React 19 `element.ref` warning.
+- Commit hash:
+  - `2cff502c5ca024f4de4a9131680204fedddb9dd6`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/RunInstructions.tsx`,
+    which is now the highest unresolved front-door hotspot after
+    `frontend/src/plugins/runtime.ts` dropped to about 622 lines and delegated
+    host/validation ownership into feature-local runtime modules.
