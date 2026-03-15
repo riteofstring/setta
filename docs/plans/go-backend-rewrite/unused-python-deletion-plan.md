@@ -265,6 +265,13 @@ Current tree note:
   Python share runtime, while current deployment publish/runtime/session
   policy already lives in Go under `internal/deployments`,
   `internal/shareartifacts`, and `internal/runs`.
+- `backend/setta/lsp/*`, `backend/setta/file_watchers/*`, and
+  `backend/setta/types/specific_file_watcher.py` are also gone in the current
+  worktree because the old Python language-server orchestration, file-watcher
+  runtime, and watcher event models had no remaining non-test callers after
+  the project-state cleanup. Current caller-backed ownership already lives in
+  Go under `internal/lsp`, `internal/lspcompletion`, `internal/lspsignature`,
+  `internal/watchcode`, `internal/codeformat`, and `internal/pythonenv`.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
