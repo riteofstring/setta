@@ -48,12 +48,12 @@ import {
 import { seedPendingChatDetails } from "state/actions/aiChatSubmission";
 import { updateEngineConfig } from "state/actions/aiConfigurationCatalogs";
 import { saveLLMConfig } from "state/actions/aiLLMConfiguration";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import {
-  buildChatHistoryEntries,
   buildChatProvenanceByChatId,
   resolveScopedChatProvenanceForChatId,
-  type ChatHistoryCompatibility,
-} from "state/actions/chatHistory";
+} from "state/actions/chatHistoryProvenance";
+import type { ChatHistoryCompatibility } from "state/actions/chatHistoryTypes";
 import { addPersistentNotification } from "state/actions/notifications";
 import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreadGroupMutations";
 import {

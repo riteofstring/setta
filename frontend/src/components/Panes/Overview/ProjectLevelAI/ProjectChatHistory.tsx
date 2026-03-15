@@ -44,10 +44,8 @@ import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbFolder, TbFolderOpen } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
-import {
-  buildChatHistoryEntries,
-  type ChatRunType,
-} from "state/actions/chatHistory";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import type { ChatRunType } from "state/actions/chatHistoryTypes";
 import {
   createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,

@@ -58,11 +58,11 @@ import {
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
-import {
-  buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
-  type ChatRunType,
-} from "state/actions/chatHistory";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import type {
+  ChatHistoryCompatibility,
+  ChatRunType,
+} from "state/actions/chatHistoryTypes";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,

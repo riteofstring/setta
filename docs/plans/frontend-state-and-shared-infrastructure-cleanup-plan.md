@@ -226,22 +226,32 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/chatHistory.ts` at 459 lines
   - `frontend/src/state/actions/agenticEdges.ts` at 448 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
+  - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
+  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/chatHistory.ts` at 459 lines
   - `frontend/src/state/actions/agenticEdges.ts` at 448 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
+  - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
+  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
+- `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry
+  derivation and title normalization,
+  `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical and
+  scoped provenance lookup, `frontend/src/state/actions/chatHistoryShared.ts`
+  now owns shared run filtering/grouping helpers,
+  `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history
+  types, and `frontend/src/state/actions/chatHistory.ts` is now a thin
+  compatibility facade.
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:

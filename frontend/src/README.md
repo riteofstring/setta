@@ -453,9 +453,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
-- `state/actions/chatHistory.ts` now owns the largest remaining chat history
-  paging/selection cluster, so follow-up cleanup there should stay local to
-  history fetch/selection helpers instead of regrowing thread mutation modules.
+- `state/actions/chatHistoryEntries.ts`,
+  `state/actions/chatHistoryProvenance.ts`,
+  `state/actions/chatHistoryShared.ts`, and
+  `state/actions/chatHistoryTypes.ts` now split thread-entry derivation,
+  provenance lookups, shared run filtering/grouping, and shared history types,
+  so follow-up cleanup there should stay local to one of those owners instead
+  of regrowing `state/actions/chatHistory.ts`.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.

@@ -57,11 +57,11 @@ import {
   type ChatHydrationOutcomeType,
 } from "state/actions/aiHydration";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
-import {
-  buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
-  type ChatRunType,
-} from "state/actions/chatHistory";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import type {
+  ChatHistoryCompatibility,
+  ChatRunType,
+} from "state/actions/chatHistoryTypes";
 import {
   useAIStore,
   useProjectState,
