@@ -192,7 +192,6 @@ async def route_run_code(
             x,
             manager,
             ctx.state.terminals,
-            ctx.state.wmh_cli_sender,
             share_session_id=share_session_id,
         )
     except Exception as exc:
