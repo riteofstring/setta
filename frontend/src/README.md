@@ -10,11 +10,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1418`
-- Non-generated TS/TSX files at `1000+` lines: `43`
+- Authored TS/TSX files under `frontend/src`: `1421`
+- Non-generated TS/TSX files at `1000+` lines: `44`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
@@ -24,6 +23,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
   - `components/Chat/ChatInput.tsx` (`2117`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
 
 ## Module Map
 
@@ -101,6 +101,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns project-chat history DnD ids, pointer geometry, drop-target
     resolution, and thread/group reorder math used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts`
+    owns preferred-engine selection, selected-thread engine reconciliation,
+    engine-switch continuation guards, and LLM-unavailable messaging used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx`
+    owns the project-chat settings popover shell, dictation source options,
+    tool quick-links, and activity-default toggles used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now focuses on
+    project-chat surface orchestration, inline-thread layout, aux-view routing,
+    conversation-search state, and chat-core/history composition over those
+    local engine-selection, settings-popover, and hydration owners.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now
     focuses on polling, local toolbar state, search navigation, thread/group
     commands, DnD orchestration, and the history render shells over those

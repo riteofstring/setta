@@ -10,12 +10,12 @@ import {
 } from "utils/generatedTypes";
 import { receiveAgentRunUpdate } from "./aiAgentRuns";
 import { receiveLLMResponseChunk } from "./aiChatStreaming";
+import { receiveExternalAgentConfigsUpdate } from "./aiConfigurationCatalogLoads";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
-  receiveExternalAgentConfigsUpdate,
   receivePromptTemplatesUpdate,
-} from "./aiConfigurationCatalogLoads";
+} from "./aiConfigurationCatalogState";
 import { receiveAIFollowToolResultUpdate } from "./aiFollowHighlights";
 import { receiveAIFollowToolArgumentsUpdate } from "./aiFollowToolArguments";
 import { receiveLLMConfigUpdate } from "./aiLLMConfiguration";
