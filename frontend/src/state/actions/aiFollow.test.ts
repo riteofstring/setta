@@ -1,8 +1,22 @@
-import { useAIFollow } from "state/stores/aiStores";
+import { useAIFollow } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { AgenticEdgeKindEnum } from "utils/generatedTypes";
+import {
+  AgenticEdgeKindEnum,
+  createAIFollowToolArgumentsUpdateContent,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { receiveAgenticScopeViolationEdges } from "./aiFollow";
+
+const routeGetAIFollowSnapshotMock = vi.fn();
+
+vi.mock("utils/generatedEndpoints", () => ({
+  route_get_ai_follow_snapshot: (...args: unknown[]) =>
+    routeGetAIFollowSnapshotMock(...args),
+}));
+
+import {
+  receiveAgenticScopeViolationEdges,
+  requestAIFollowSnapshot,
+} from "./aiFollow";
 
 describe("useAIFollow defaults", () => {
   beforeEach(() => {
@@ -86,5 +100,73 @@ describe("receiveAgenticScopeViolationEdges", () => {
         projectConfigId
       ];
     expect(stored).toEqual([edgeForward]);
+  });
+});
+
+describe("requestAIFollowSnapshot", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    routeGetAIFollowSnapshotMock.mockReset();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("hydrates tool argument ids from the Go-owned AI follow snapshot route", async () => {
+    routeGetAIFollowSnapshotMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        createAIFollowToolArgumentsUpdateContent({
+          projectConfigId: "project-1",
+          chatId: "chat-1",
+          idsByType: {
+            callableName: ["callable-1"],
+          },
+        }),
+      ],
+    });
+
+    await requestAIFollowSnapshot("project-1");
+
+    expect(routeGetAIFollowSnapshotMock).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+    expect(
+      useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
+    ).toEqual({
+      "chat-1": {
+        callableName: ["callable-1"],
+      },
+    });
+  });
+
+  it("ignores empty snapshots from the backend route", async () => {
+    routeGetAIFollowSnapshotMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+
+    await requestAIFollowSnapshot("project-1");
+
+    expect(
+      useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
+    ).toBeUndefined();
+  });
+
+  it("ignores failed snapshot responses", async () => {
+    routeGetAIFollowSnapshotMock.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: null,
+    });
+
+    await requestAIFollowSnapshot("project-1");
+
+    expect(
+      useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
+    ).toBeUndefined();
   });
 });

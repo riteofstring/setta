@@ -3,7 +3,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Awaitable, Callable
 
-from setta.api.generated_listener_endpoints import RouterEndpointAPI
+from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.llm.chat_toolkit import (
     ChatStreamAssembler,
     ToolCallBuilder,

@@ -1,4 +1,4 @@
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { useMisc } from "state/definitions";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

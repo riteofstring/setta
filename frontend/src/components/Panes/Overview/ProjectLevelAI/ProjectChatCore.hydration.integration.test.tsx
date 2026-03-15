@@ -4,7 +4,6 @@ import "testUtils/reactRefreshPreamble";
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("components/Chat/ChatInput", () => ({
@@ -16,18 +15,23 @@ vi.mock("components/Chat/ChatMessages", () => ({
   ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
 }));
 
-vi.mock("state/actions/aiHydration", async () => {
-  const actual = await vi.importActual<
-    typeof import("state/actions/aiHydration")
-  >("state/actions/aiHydration");
+vi.mock("state/actions/ai", async () => {
+  const actual =
+    await vi.importActual<typeof import("state/actions/ai")>(
+      "state/actions/ai",
+    );
   return {
     ...actual,
     getLLMChatHydrationOutcome: vi.fn(),
   };
 });
 
-import { getLLMChatHydrationOutcome } from "state/actions/aiHydration";
-import { useAIStore, useProjectState } from "state/definitions";
+import { getLLMChatHydrationOutcome } from "state/actions/ai";
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   EngineTypeEnum,
