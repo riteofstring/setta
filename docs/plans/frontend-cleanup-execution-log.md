@@ -6720,3 +6720,49 @@ schedule settings` button still appears on the live task row.
     the highest unresolved front-door hotspot in the current tree after
     `ChatMessages.tsx` delegated its message surface ownership into sharp local
     chat owners.
+
+## 2026-03-16 06:42:07 PDT
+
+- Slice completed: extracted git graph commit-index and commit-list-surface
+  owners out of `frontend/src/components/Git/GitGraphOverlay.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` or
+  `frontend/src/components/App/appRegistry.tsx` because
+  `frontend/src/components/Git/GitGraphOverlay.tsx` was still the recorded
+  pane-side first-hop hotspot at the start of the turn and still mixed commit
+  lookup/search helpers plus the virtualized row/lane surface into the same
+  file contributors opened first to understand the git graph.
+- Key files touched:
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Git/gitGraphOverlayCommitIndex.ts`
+  - `frontend/src/components/Git/gitGraphOverlayCommitListSurface.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.test.ts`
+  - `frontend/src/components/Git/gitGraphOverlayCommitListSurface.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+  - `perf/reports/frontend/git-graph-commit-list-surface-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Git/GitGraphOverlay.test.ts src/components/Git/gitGraphOverlayCommitListSurface.test.tsx src/components/Git/gitGraphOverlaySelectedCommitPane.test.tsx src/components/Git/GitGraphWindowContent.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/git/git-graph-overlay-core.spec.ts frontend/tests/e2e/git/git-graph-overlay-pagination.spec.ts frontend/tests/e2e/git/git-graph-overlay-lanes.spec.ts --grep "git graph marks non-origin remote refs as remote chips|git graph keeps local slash branches as branch chips|git graph clears selected commit diff when selected commit disappears after ref toggle|git graph pauses auto-pagination after a load-more error until Retry is clicked|git graph keeps lanes aligned across join boundaries"`
+  - `pnpm -C frontend exec prettier --check src/components/Git/GitGraphOverlay.tsx src/components/Git/gitGraphOverlayCommitIndex.ts src/components/Git/gitGraphOverlayCommitListSurface.tsx src/components/Git/GitGraphOverlay.test.ts src/components/Git/gitGraphOverlayCommitListSurface.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-panes-and-authoring-cleanup-plan.md ../perf/reports/frontend/git-graph-commit-list-surface-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/git-graph-commit-list-surface-2026-03-16.md`
+    with the before/after git-graph list-surface measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `GitGraphOverlay.tsx` dropped from `1224` to `310` lines, the measured
+    overlay geometry stayed at `1356px` by `702px`, the commit-list wrapper
+    stayed at `759px` by `597px`, the selected-row detail surface remained
+    visible after clicking a commit, and there was no horizontal overflow at
+    `1440x900` or `960x900`. The live dev page rendered more visible row hosts
+    after reload, so the row-host/node counts in the perf note are documented
+    as non-identical live-run samples rather than a strict apples-to-apples DOM
+    benchmark.
+- Commit hash:
+  - `5a7111dcb0f8c71533c3ce4b6eeb272d921aefcd`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+    which is now the highest unresolved front-door hotspot in the current tree
+    after `GitGraphOverlay.tsx` delegated its commit indexing and virtualized
+    list ownership into sharp local git owners.
