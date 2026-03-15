@@ -3,9 +3,9 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getActiveViewModeConfig } from "state/actions/sectionDisplayQueries";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
