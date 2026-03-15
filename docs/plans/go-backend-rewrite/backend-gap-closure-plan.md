@@ -52,10 +52,10 @@ categorize them.
   outdated-settings slice
 - Add executable proof for the remaining dedicated-`/settings` rows that are
   still open, especially:
-  `settings_project.scaffold.sections_seed_fixed_550px_width_defaults`,
-  `settings_project.display_names.humanized_labels_seeded_for_settings_params`,
+  `settings_project.scaffold.sections_use_shared_settings_file_json_source_variants_by_slice`,
+  `settings_project.validation.save_updates_allow_reserved_settings_name_beyond_bootstrap`,
   and
-  `settings_project.scaffold.sections_use_shared_settings_file_json_source_variants_by_slice`
+  `settings_project.code_objs.field_type_to_param_impl_mapping_preserved_on_create_and_backfill`
 - Keep newly isolated non-caller-visible mismatches explicit instead of folding
   them back into broader live-contract rows; the next example is
   `settings_project.load.partial_layout_visible_section_repair_is_ephemeral_on_disk_in_source`
