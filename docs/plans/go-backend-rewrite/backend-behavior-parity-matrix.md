@@ -98,9 +98,9 @@ Last audited: `2026-03-17`
 
 - Rows audited in this pass: `328`
 - Status counts:
-  - `Proved`: `299`
+  - `Proved`: `300`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `1`
+  - `Missing`: `0`
   - `Retained Python boundary`: `8`
   - `Intentional divergence`: `6`
   - `Dormant / unproven caller`: `14`
@@ -131,6 +131,13 @@ Last audited: `2026-03-17`
     `422 {"status_code":10422,"message":...,"data":null}` validation
     envelope instead of falling through to the Go-only
     `400 invalid_settings` response
+  - `internal/settingsstate/validation.go` and
+    `internal/httpapi/settings_routes.go`: `saveSettings` now validates
+    typed-invalid nested payloads across the current Go-owned direct-save
+    settings branches (`shortcuts`, `gui`, `backend`, `sectionSizingPolicy`,
+    and `languageServer`) and returns the Python-style
+    `422 {"status_code":10422,"message":...,"data":null}` validation
+    envelope before persisting
   - `internal/httpapi/app_definition_routes.go`: missing or null direct
     `validateAppDefinition` / `setAppDefinition` `appSpec` payloads now
     return the Python-style
@@ -395,14 +402,12 @@ Last audited: `2026-03-17`
     external-agent-config mutation-detail AI surface rows
 ## Current Gaps
 
-- `settings.save.typed_validation.transport_422_validation_envelope` remains
-  `Missing`: the Python route rejects typed-invalid nested settings at request
-  parse time, while the Go save route still accepts a raw object, normalizes
-  defaults, and only surfaces many invalid nested values later through
-  downstream query helpers. The current checkout also no longer contains an
-  authoritative Go-consumable full `SettingsState` schema artifact, so closing
-  this gap requires restoring a canonical generated schema owner or promoting
-  a full Go-owned settings schema instead of adding more partial validators.
+- No explicit `Missing` rows remain in the currently audited set. The
+  remaining settings-schema caveat is narrower than a live transport gap: the
+  checkout still does not carry a full generated Go mirror of every legacy
+  historical settings branch, so save-time validation is now proved for the
+  current Go-owned direct-save contract rather than every dormant legacy slice
+  in `setta-settings.json`.
 - No explicit `Implemented, proof incomplete` rows remain in this audited
   slice.
 - `settings.save.disabling_autosave_cancels_pending_project_autosaves` is now
@@ -685,7 +690,7 @@ Last audited: `2026-03-17`
 | `settings.save.rejects_non_object_payload` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/types/generated/settings_state.py::SettingsState`; `backend/setta/database/settings_file.py::save_settings` | `internal/settingsstate/settingsstate_test.go::TestNormalizeRawRejectsNonObjectPayload`; `internal/httpapi/settings_routes.go::writeSettingsSaveError` | `TestRegisterSettingsRoutesRejectsNonObjectSettingsPayload` | direct save callers are still the completion-guard settings writes in `ProjectAISettings.tsx`, rename-preference writes in `RenameReferencesModal.tsx`, and section-tag-color writes in `SectionTagColorSettings.tsx` | `Proved` | Saving live settings still fails fast when the root payload is not a JSON object. |
 | `settings.save.invalid_json.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/httpapi/httpapi.go::writeValidationError` | `TestRegisterSettingsRoutesSaveMalformedJSONReturnsValidationEnvelope` | the same direct save caller surface remains active, though malformed JSON here is transport-test coverage rather than a current UI-produced failure | `Proved` | Malformed `saveSettings` JSON now once again returns the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of the Go-only `400 invalid_json` error payload. |
 | `settings.save.required_settings_field.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest` requires `settings: SettingsState`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler` | `TestRegisterSettingsRoutesSaveMissingSettingsFieldReturnsValidationEnvelope` | the same direct save caller surface remains active, though missing-`settings` here is route-transport proof rather than a current UI-produced failure | `Proved` | Missing or null direct `saveSettings` `settings` payloads now once again fail at request-parse time with the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of falling through to the Go-only `400 invalid_settings` response. |
-| `settings.save.typed_validation.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/types/generated/settings_state.py::SettingsState`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/settingsstate/document.go::NormalizeRaw`; `internal/settingsstate/settingsstate_test.go::TestQueriesRejectInvalidValues`; `internal/settingsstate/settingsstate_test.go::TestStructuralMutationSettingsForDocumentRejectsInvalidValues`; `internal/frontendbindings/project_state_support.go::SettingsState` | no Go route proof for rejecting typed-invalid nested settings at save time | direct save callers remain the completion-guard settings writes in `ProjectAISettings.tsx`, rename-preference writes in `RenameReferencesModal.tsx`, and section-tag-color writes in `SectionTagColorSettings.tsx`, but no Go route proof exists for nested typed-invalid payload rejection at save time | `Missing` | The source route validated nested settings against the typed `SettingsState` model before persisting. The Go route still accepts any JSON object, merges defaults, and only rejects many invalid nested values later when downstream readers query specific fields. The current checkout no longer carries a full authoritative Go-consumable settings schema; the Go frontend binding `SettingsState` is only an empty placeholder, so closing this parity gap requires restoring a canonical generated schema owner or promoting a full Go-owned schema instead of extending ad hoc field checks. |
+| `settings.save.typed_validation.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/types/generated/settings_state.py::SettingsState`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/settingsstate/validation.go::ValidateDirectSaveDocument` | `TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues`; `TestRegisterSettingsRoutesSaveRejectsTypedInvalidNestedSettings` | direct save callers remain the completion-guard settings writes in `ProjectAISettings.tsx`, rename-preference writes in `RenameReferencesModal.tsx`, and section-tag-color writes in `SectionTagColorSettings.tsx`; the current generated frontend save contract still covers `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer` | `Proved` | The Go save route now validates typed-invalid nested payloads across the current Go-owned direct-save settings contract before persisting, so invalid branch/object/enum/array payloads once again fail with the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of being accepted until downstream readers trip on them later. The broader historical settings file still contains legacy branches beyond that active caller-backed contract, but no current direct-save transport gap remains on the audited surface. |
 | `settings.save.persists_runtime_snapshot_and_broadcasts_update` | `backend/setta/routers/settings.py::route_save_settings`; `backend/setta/database/settings_file.py::save_settings` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/settingsstate/runtime.go::ReplaceAndSave` | `TestRegisterSettingsRoutesSavePersistsSnapshot`; `TestAppSaveSettingsBroadcastsUpdateSettings` | `frontend/src/state/actions/settings.ts`; `frontend/src/state/actions/websocketReceive.ts` still rely on the HTTP save plus `UpdateSettings` websocket broadcast | `Proved` | Direct settings saves still persist the canonical snapshot and immediately fan out the updated document over the frontend websocket. |
 | `settings.save.mode_guard_preserves_share_specific_detail` | `tests/routers/test_settings_mode_guard.py::test_save_settings_is_blocked_in_launcher_mode`; `backend/setta/routers/settings.py::route_save_settings`; `backend/setta/runtime/context.py::RuntimeContext.require_ide_mode` | `internal/httpapi/settings_routes.go::settingsSaveModeDetail` | `TestRegisterSettingsRoutesBlocksSaveOutsideFullIDE` | the same completion-guard / rename-preference / section-tag-color save callers still post through the direct `saveSettings` route | `Proved` | Save-settings mode guards now return Python-style detail bodies again, including the source share-mode-specific `"Share mode does not allow updating settings."` message. |
 | `settings_project.save.materializes_live_settings_snapshot` | `tests/project_state/test_settings_project_json_source_load.py::test_settings_project_loads_json_sources_before_save`; `backend/setta/database/settings_file.py::save_updated_json_source_sections` | `internal/settingsstate/materializer.go::ApplySettingsProjectDocument`; app-owned settings-project save hook | `TestApplySettingsProjectDocumentOverlaysJSONSourceSections`; `TestAppSaveSettingsProjectMaterializesLiveSettings` | the IDE app still owns the settings-project save path that pushes live settings updates | `Proved` | Saving the editable settings project still overlays JSON-source sections onto live settings, persists `setta-settings.json`, and broadcasts the resulting runtime snapshot. |
