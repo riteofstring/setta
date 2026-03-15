@@ -18,6 +18,7 @@ import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
+  resolveEffectiveThinking,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
@@ -41,28 +42,29 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import { loadAgentRuns } from "state/actions/aiAgentRuns";
-import { buildMessageBranchInfo } from "state/actions/aiBranches";
-import { stopManagedSectionChatResponse } from "state/actions/aiChatControls";
-import { getDefaultChatDetails } from "state/actions/aiChatDetails";
 import {
   clearPendingChatDetails,
+  getDefaultChatDetails,
+  getExternalAgentChat,
+  getLLMChat,
   initializePendingChatDetails,
+  loadAgentRuns,
+  stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
-} from "state/actions/aiChatSubmission";
-import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
-import { transcribeChatAudioWithProfile } from "state/actions/aiTranscriptionUpload";
+  transcribeChatAudioWithProfile,
+} from "state/actions/ai";
+import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
   buildBranchFromEdit,
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
-import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
-import type {
-  ChatHistoryCompatibility,
-  ChatRunType,
-} from "state/actions/chatHistoryTypes";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -70,16 +72,17 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketRealtime";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import {
   useAIStore,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { useIsScrollable } from "state/hooks/sectionScrollability";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
@@ -122,6 +125,7 @@ type ChatStopActionPayload = {
 type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
 
 type ChatSectionChatId = string | null;
+type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
@@ -494,8 +498,7 @@ function ScriptableChatArea({
 
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
-      let sendPromise: ReturnType<typeof route_set_chat_section_state> | null =
-        null;
+      let sendPromise: Promise<ChatSectionStateRouteResponse> | null = null;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -1322,6 +1325,10 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const effectiveThinking = resolveEffectiveThinking({
+    engineConfig: selectedEngineConfig,
+    requestedThinking: thinking,
+  });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveManagedChatRunType(engineType);
     if (!runType) {
@@ -1602,7 +1609,7 @@ function ManagedChatArea({
           chatId,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           effectiveEngineConfigId,
           isExternalEngine,
           {
@@ -1639,8 +1646,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      effectiveThinking,
       surfaceId,
-      thinking,
       canUseManagedChat,
     ],
   );
@@ -1683,7 +1690,7 @@ function ManagedChatArea({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId: effectiveEngineConfigId,
         isExternalEngine,
         agentProfileId,
@@ -1706,8 +1713,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      effectiveThinking,
       surfaceId,
-      thinking,
       canUseManagedChat,
     ],
   );
