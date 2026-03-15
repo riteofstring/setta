@@ -5,7 +5,7 @@ Last audited: `2026-03-17`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `f102ae8bc52d66a064ec998bda410f776d603127`
+- Target head: `ce0e3c993dd02988bc84ffc79de202e254f67a94`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -119,6 +119,9 @@ Last audited: `2026-03-17`
   persistence, invalid-target and enum validation, and deployment
   `allowLayoutChanges` overlay policy on the current section-data caller
   surface
+- plus the targeted code-file-binding follow-up slice:
+  canonical path/access-mode persistence and fail-closed invalid-target /
+  invalid-binding transport on the current code settings caller surface
 - plus the targeted agent-run / workflow follow-up slice:
   persisted run list/read caller authority, `AgentRunUpdated` workflow
   websocket delivery, and the accepted `getAgentRun` / `startAgentRun`
@@ -154,9 +157,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `387`
+- Rows audited in this pass: `389`
 - Status counts:
-  - `Proved`: `355`
+  - `Proved`: `357`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `0`
   - `Retained Python boundary`: `8`
@@ -575,6 +578,9 @@ Last audited: `2026-03-17`
 - Section-data mutations for group orientation plus spreadsheet/task-board/
   image/social state are now explicit proved rows instead of remaining folded
   into the generic section-data route tests and checklist notes.
+- Code-file-binding canonicalization and invalid-binding transport are now
+  explicit proved rows instead of remaining implicit inside the code settings
+  caller checklist and route-test inventory.
 - Retained Python boundaries are now recorded explicitly for
   `setta.api.SettaListener`, `setta.api.chat_toolkit`,
   `setta.api.SettaRunner`, the share listener runtime, and the packaged
@@ -612,6 +618,8 @@ Last audited: `2026-03-17`
 | `section_data.mutations.persist_group_orientation_spreadsheet_task_board_image_and_social_state` | `backend/setta/types/section_impls.py::{GroupSectionImpl,SpreadsheetSectionImpl,SpreadsheetGridDensity,TaskBoardSectionImpl,TaskBoardViewMode,SocialSectionImpl}` defines the persisted section-data fields and defaults on the source payloads | `internal/projectstate/section_data_settings.go::{ToggleGroupOrientation,SetSpreadsheetFilePath,SetSpreadsheetSectionSettings,SetTaskBoardSectionState,SetImageAreaImagePath,SetSocialURL}`; `internal/httpapi/project_routes.go::{toggleGroupOrientationHandler,setSpreadsheetFilePathHandler,setSpreadsheetSectionSettingsHandler,setTaskBoardSectionStateHandler,setImageAreaImagePathHandler,setSocialURLHandler}` | `TestRuntimeSectionDataMutationsUpdateEffectivePayload`; `TestRegisterProjectRoutesSectionDataMutationsPersistLatestState` | `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/SpreadsheetSectionSettings.tsx`, `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/TaskBoardSettings.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/ImageAreaSettings.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/SocialAreaSettings.tsx`, and the group-orientation controls still persist through this route family | `Proved` | Group orientation plus spreadsheet/task-board/image/social mutations still round-trip persisted section data: spreadsheet file paths are trimmed, spreadsheet settings persist, duplicate task-board columns normalize down to the first entry, orphaned task `columnId` values normalize to `null`, and image/social payloads still persist directly. |
 | `section_data.mutations.reject_non_matching_sections_and_invalid_density_or_view_mode` | `backend/setta/types/section_impls.py::{SpreadsheetGridDensity,TaskBoardViewMode}` defines the allowed spreadsheet and task-board literals on the source payloads | `internal/projectstate/section_data_settings.go::{ToggleGroupOrientation,SetSpreadsheetFilePath,SetSpreadsheetSectionSettings,SetTaskBoardSectionState,SetImageAreaImagePath,SetSocialURL}`; `internal/httpapi/project_routes.go::writeProjectStateRouteError` | `TestRuntimeSectionDataMutationsRejectInvalidTargetsAndValues`; `TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs` | the same spreadsheet/task-board/image/social and group-orientation callers still hit this route family, so these guards remain the authoritative backend contract when stale UI state or manual requests target the wrong section type or submit invalid literals | `Proved` | Section-data writes still fail closed for wrong section kinds, unknown or padded spreadsheet `density` values, and unknown or padded task-board `viewMode` literals, with rejected requests leaving persisted spreadsheet/task-board state unchanged. |
 | `section_data.deployment.overlay_policy_follows_allow_layout_changes` | `docs/reference/share-policy-flags.md` classifies layout/display mutations under `allowLayoutChanges`, which is the deployment guard used for these section-data routes | `internal/httpapi/project_routes.go::RegisterProjectRoutes` section-data route registrations; `internal/httpapi/project_routes.go::{setSpreadsheetFilePathHandler,setSpreadsheetSectionSettingsHandler,setTaskBoardSectionStateHandler}` | `TestRegisterProjectRoutesSectionDataUsesDeploymentOverlayWhenLayoutChangesAllowed`; `TestRegisterProjectRoutesSectionDataRejectsDeploymentPolicyWhenLayoutChangesDisallowed` | `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/SpreadsheetSectionSettings.tsx`, `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`, and `frontend/src/components/Panes/UiEditor/SectionConfig/TaskBoardSettings.tsx` still reach these routes in share/app flows | `Proved` | Deployment/share/app section-data writes still stay session-overlay scoped when `allowLayoutChanges` is enabled, leave the base document untouched, and fail with `layout_changes_forbidden` when that deployment policy is disabled. |
+| `code_file_binding.mutation.canonicalizes_path_persists_access_mode_and_keeps_manual_binding` | `backend/setta/types/section_impls.py::{CodeFileBinding,CodeFileAccessMode}` defines the source payload shape with `autoBinding=False` by default; `backend/setta/types/project_state.py::validate_code_file_bindings`; `tests/utils/test_name_validation.py::test_validate_code_file_bindings_does_not_promote_manual_binding` | `internal/projectstate/code_file_binding_writes.go::{SetCodeFileBinding,normalizeCodeFileBindingWrite}`; `internal/httpapi/project_routes.go::setCodeFileBindingHandler` | `TestRuntimeSetCodeFileBindingUpdatesEffectivePayloadAndBinding`; `TestRegisterProjectRoutesSetCodeFileBindingPersistsLatestState` | `frontend/src/components/Panes/UiEditor/SectionConfig/CodeAreaSettings.tsx` still mutates the code binding path/access mode through `route_set_code_file_binding` | `Proved` | Direct code-file-binding writes still canonicalize workspace-style paths, persist the selected access mode, and keep the binding explicit/manual by returning `autoBinding=false` instead of promoting the write into an auto-generated binding. |
+| `code_file_binding.mutation.rejects_non_code_sections_blank_paths_and_invalid_access_modes` | `backend/setta/types/section_impls.py::CodeFileAccessMode` defines the allowed access-mode literals; `backend/setta/types/project_state.py::validate_code_file_bindings` requires canonical non-empty binding paths | `internal/projectstate/code_file_binding_writes.go::{SetCodeFileBinding,normalizeCodeFileBindingWrite,normalizeCodeFileAccessMode}`; `internal/httpapi/project_routes.go::writeSetCodeFileBindingError` | `TestRuntimeSetCodeFileBindingRejectsInvalidTargetsAndValues`; `TestRegisterProjectRoutesSetCodeFileBindingRejectsInvalidInputs` | the same `CodeAreaSettings` caller still hits this route, so these guards remain the backend fail-closed contract when stale UI state or manual requests target non-code sections or invalid binding payloads | `Proved` | The code-file-binding route still fails closed for non-code sections, blank canonical paths, and invalid access-mode literals, surfacing stable `invalid_code_section`, `code_file_binding_path_required`, and `code_file_access_mode_invalid` transport errors. |
 | `section.rename.trim_format_and_chat_slug_allowance` | `tests/utils/test_name_validation.py` section-name tests including `test_section_name_allows_chat_slug_with_namespaced_routes` | `internal/projectstate/section_names.go` | `TestProjectSetSectionNameTrimsAndUpdatesSection`; `...RejectsDocumentedFormatFailures`; `...AllowsDocumentedValidNames` | `internal/projectstate/name_validation.go` feeds websocket validation payloads | `Proved` | Includes the source chat-slug allowance. |
 | `section.rename.sibling_and_top_level_slug_conflicts` | `tests/utils/test_name_validation.py::test_duplicate_sibling_name_rejected`; `...section_slug_collision...`; `...top_level_python_identifier_conflict_rejected` | `internal/projectstate/section_names.go`; `internal/projectstate/name_validation.go` | `TestProjectSetSectionNameRejectsDuplicateSiblingName`; `...RejectsTopLevelIdentifierConflict` | `backend-visible` through rename + websocket validation | `Proved` | Go keeps both direct sibling collisions and top-level Python-identifier conflicts. |
 | `section.rename.full_path_slug_conflict` | `tests/utils/test_name_validation.py` descendant-path conflict tests including move-conflict coverage | `internal/projectstate/section_names.go`; `internal/projectstate/name_validation.go` | `TestProjectSetSectionNameRejectsDescendantSlugConflict` | websocket name-validation payload uses the same collected section conflicts | `Proved` | Descendant/full-path slug conflicts still invalidate the rename. |
