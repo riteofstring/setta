@@ -606,7 +606,7 @@ func (s *Service) resolveDeploymentPath(raw string) (string, error) {
 	if trimmed == "" {
 		return "", &artifacts.Error{
 			Kind:    artifacts.ErrorInvalidRequest,
-			Message: "Artifact id must be a non-empty string.",
+			Message: "artifact path must be a non-empty string",
 		}
 	}
 	if filepath.IsAbs(trimmed) {

@@ -1754,6 +1754,53 @@ func TestRegisterRoutesListenerFrontendEmitRejectsProjectMismatch(t *testing.T) 
 	})
 }
 
+func TestRegisterRoutesListenerFrontendEmitReportsMissingProjectState(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	textSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", textSectionID, "")
+	if _, err := projectRuntime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		delete(document.Projects, "project-a")
+		document.DefaultProjectID = ""
+		return document, nil
+	}); err != nil {
+		t.Fatalf("remove project before listener emit: %v", err)
+	}
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":"hello"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit after project removal: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "project_state_unavailable", map[string]any{
+		"message": "'project-a'",
+	})
+}
+
 func TestRegisterRoutesListenerFrontendEmitRejectsEmptyPayload(t *testing.T) {
 	t.Parallel()
 
@@ -2032,7 +2079,7 @@ func TestRegisterRoutesListenerFrontendEmitRejectsBlankArtifactPath(t *testing.T
 
 	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_artifact_update", map[string]any{
 		"path":    "   ",
-		"message": "Artifact id must be a non-empty string.",
+		"message": "artifact path must be a non-empty string",
 	})
 }
 

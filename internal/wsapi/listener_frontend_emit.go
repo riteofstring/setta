@@ -255,10 +255,14 @@ func handleListenerFrontendEmit(
 	snapshot := runtime.Snapshot()
 	project, err := snapshot.Document.ProjectByID(projectID)
 	if err != nil {
+		message := err.Error()
+		if errors.Is(err, projectstate.ErrProjectNotFound) {
+			message = fmt.Sprintf("'%s'", projectID)
+		}
 		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
 			Error: "project_state_unavailable",
 			Details: map[string]any{
-				"message": err.Error(),
+				"message": message,
 			},
 		}, deps)
 	}

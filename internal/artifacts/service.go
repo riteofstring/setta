@@ -656,7 +656,7 @@ func (s *Service) resolveArtifactPath(raw string) (string, string, error) {
 	if trimmed == "" {
 		return "", "", &Error{
 			Kind:    ErrorInvalidRequest,
-			Message: "Artifact id must be a non-empty string.",
+			Message: "artifact path must be a non-empty string",
 		}
 	}
 	var resolved string
