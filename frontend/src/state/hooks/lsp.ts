@@ -1,5 +1,5 @@
 import { textFieldIdForLSPWaiting } from "state/actions/lsp";
-import { useWaitingForLSPResult } from "state/definitions";
+import { useWaitingForLSPResult } from "state/stores/editorDiagnosticsStores";
 
 export function useTextFieldWaitingForLSPResult({ sectionId, paramInfoId }) {
   return useWaitingForLSPResult(
