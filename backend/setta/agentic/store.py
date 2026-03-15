@@ -11,61 +11,28 @@ from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
 
 
-def load_agent_profiles(dbe: DBE) -> list[AgentProfile]:
-    payload = dbe.read_agent_profiles()
-    return [AgentProfile.model_validate(entry) for entry in payload]
-
-
-def load_external_agent_configs(dbe: DBE) -> list[ExternalAgentConfig]:
-    payload = dbe.read_external_agents()
-    return [ExternalAgentConfig.model_validate(entry) for entry in payload]
-
-
-def load_engine_configs(dbe: DBE) -> list[EngineConfig]:
-    payload = dbe.read_engine_configs()
-    return [EngineConfig.model_validate(entry) for entry in payload]
-
-
-def get_external_agent_config_index(
-    configs: list[ExternalAgentConfig],
-    config_id: ID,
-) -> int:
-    for idx, config in enumerate(configs):
+def require_external_agent_config(dbe: DBE, config_id: ID) -> ExternalAgentConfig:
+    for raw_config in dbe.read_external_agents():
+        config = ExternalAgentConfig.model_validate(raw_config)
         if config.id == config_id:
-            return idx
+            return config
     raise KeyError(f"External agent config {config_id} not found")
 
 
-def require_external_agent_config(dbe: DBE, config_id: ID) -> ExternalAgentConfig:
-    configs = load_external_agent_configs(dbe)
-    config_idx = get_external_agent_config_index(configs, config_id)
-    return configs[config_idx]
-
-
-def get_engine_config_index(configs: list[EngineConfig], config_id: ID) -> int:
-    for idx, config in enumerate(configs):
+def require_engine_config(dbe: DBE, config_id: ID) -> EngineConfig:
+    for raw_config in dbe.read_engine_configs():
+        config = EngineConfig.model_validate(raw_config)
         if config.id == config_id:
-            return idx
+            return config
     raise KeyError(f"Engine config {config_id} not found")
 
 
-def require_engine_config(dbe: DBE, config_id: ID) -> EngineConfig:
-    configs = load_engine_configs(dbe)
-    config_idx = get_engine_config_index(configs, config_id)
-    return configs[config_idx]
-
-
-def get_agent_profile_index(profiles: list[AgentProfile], profile_id: ID) -> int:
-    for idx, profile in enumerate(profiles):
-        if profile.id == profile_id:
-            return idx
-    raise KeyError(f"Agent profile {profile_id} not found")
-
-
 def require_agent_profile(dbe: DBE, profile_id: ID) -> AgentProfile:
-    profiles = load_agent_profiles(dbe)
-    profile_idx = get_agent_profile_index(profiles, profile_id)
-    return profiles[profile_idx]
+    for raw_profile in dbe.read_agent_profiles():
+        profile = AgentProfile.model_validate(raw_profile)
+        if profile.id == profile_id:
+            return profile
+    raise KeyError(f"Agent profile {profile_id} not found")
 
 
 def load_agent_run(dbe: DBE, run_id: ID) -> AgentRun | None:
