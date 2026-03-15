@@ -4,7 +4,7 @@ import {
   resolveAgenticScopeForChatSections,
 } from "state/agenticScopeUtils";
 import type { ZustandProjectState } from "state/definitions";
-import { useAgenticScopeHighlights } from "state/definitions";
+import { useAgenticScopeHighlights } from "state/stores/aiStores";
 import type { AgenticEdge } from "utils/generatedTypes";
 import { SectionTypeEnum } from "utils/generatedTypes";
 

@@ -2,8 +2,8 @@
 
 Backend success fixture plugin.
 
-- Purpose: MCP + project-state registration coverage.
-- Capabilities: none. This fixture is a minimal backend plugin shell.
+- Purpose: router + MCP registration coverage.
+- Capabilities: `registerRouter`, `registerMcpTools`.
 
 Manual smoke:
 
