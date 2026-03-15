@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from tests.start.dev_script_wiring_helpers import (
+    build_backend_start_sandbox,
     ensure_dev_dependencies_or_skip,
     repo_root,
     run_script,
@@ -40,6 +41,67 @@ echo "$*" > "{capture_args}"
     assert "--profile dev" in args
     assert f"--setta-files-root {tmp_path / 'state_root'}" in args
     assert "--setta-files-location global" not in args
+    assert "--log-level debug" in args
+
+
+def test_backend_start_default_non_reload_uses_go_entrypoint(tmp_path: Path) -> None:
+    sandbox_root = build_backend_start_sandbox(tmp_path)
+    capture_args = tmp_path / "go_args.txt"
+
+    write_stub_executable(
+        sandbox_root / "scripts" / "go.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_args}"
+""",
+    )
+
+    result = run_script(
+        ["bash", str(sandbox_root / "frontend" / "backendStart.sh"), "--no-open"],
+        cwd=sandbox_root,
+        env={
+            **os.environ.copy(),
+            "SETTA_BACKEND_LOG_FILE": str(tmp_path / "backend.log"),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    args = capture_args.read_text(encoding="utf-8")
+    assert args.startswith("run ./cmd/setta ")
+    assert "--no-open" in args
+    assert "--log-level debug" in args
+
+def test_backend_start_reload_uses_go_entrypoint(tmp_path: Path) -> None:
+    sandbox_root = build_backend_start_sandbox(tmp_path)
+    capture_args = tmp_path / "go_args.txt"
+
+    write_stub_executable(
+        sandbox_root / "scripts" / "go.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_args}"
+""",
+    )
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "frontend" / "backendStart.sh"),
+            "--reload",
+            "--no-open",
+        ],
+        cwd=sandbox_root,
+        env={
+            **os.environ.copy(),
+            "SETTA_BACKEND_LOG_FILE": str(tmp_path / "backend.log"),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    args = capture_args.read_text(encoding="utf-8")
+    assert args.startswith("run ./cmd/setta ")
+    assert "--reload" in args
+    assert "--no-open" in args
     assert "--log-level debug" in args
 
 
