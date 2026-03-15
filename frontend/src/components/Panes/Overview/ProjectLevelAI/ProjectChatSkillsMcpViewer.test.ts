@@ -2,19 +2,25 @@ import { createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
+  areAgentNativeSlashCommandMapsEqual,
+  resolveAgentNativeSlashCommandsByEngineId,
+} from "./projectChatSkillsMcpViewerUtils";
+import {
   canCreateCustomSkill,
+  canSaveSelectedSkill,
+  resolveRawMarkdownModeHint,
   resolveRenderedSkillPreviewContent,
+  resolveSaveSelectedSkillButtonTitle,
   resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdReplace,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
+  resolveSkillPreviewTruncationNotice,
+  SKILL_MARKDOWN_VIEW_MODE_RAW,
+  SKILL_MARKDOWN_VIEW_MODE_RENDERED,
   upsertAppGenSkillEntry,
-} from "./ProjectChatSkillsMcpViewer";
-import {
-  areAgentNativeSlashCommandMapsEqual,
-  resolveAgentNativeSlashCommandsByEngineId,
-} from "./projectChatSkillsMcpViewerUtils";
+} from "./projectChatSkillsViewModel";
 
 describe("resolveAgentNativeSlashCommandsByEngineId", () => {
   it("keeps only authoritative entries for the active project and engine set", () => {
@@ -412,6 +418,24 @@ describe("resolveRenderedSkillPreviewContent", () => {
   });
 });
 
+describe("resolveSkillPreviewTruncationNotice", () => {
+  it("formats truncation metadata only when the backend reports the original size", () => {
+    expect(
+      resolveSkillPreviewTruncationNotice({
+        selectedSkillContentTruncated: true,
+        selectedSkillOriginalSizeBytes: 2048,
+      }),
+    ).toBe("Preview truncated from 2,048 bytes.");
+
+    expect(
+      resolveSkillPreviewTruncationNotice({
+        selectedSkillContentTruncated: false,
+        selectedSkillOriginalSizeBytes: 2048,
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("resolveSkillMarkdownRawDraftBySkillIdHydration", () => {
   it("hydrates a draft for a newly loaded skill", () => {
     const hydrated = resolveSkillMarkdownRawDraftBySkillIdHydration({
@@ -464,6 +488,58 @@ describe("resolveSkillMarkdownRawDraftBySkillIdHydration", () => {
         loadedContent: "# Server copy",
       },
     });
+  });
+});
+
+describe("raw markdown viewer helpers", () => {
+  it("explains when the raw markdown editor stays read-only", () => {
+    expect(
+      resolveRawMarkdownModeHint({
+        selectedSkillId: "workspace_agents_skills::release",
+        selectedSkillIsEditable: false,
+        selectedSkillEditabilityReason: "Workspace skills are synced from git.",
+        selectedSkillContentTruncated: false,
+        skillContentLoadStatus: "loaded",
+      }),
+    ).toBe("Workspace skills are synced from git.");
+  });
+
+  it("keeps the save button disabled until the editable raw view is ready", () => {
+    expect(
+      resolveSaveSelectedSkillButtonTitle({
+        selectedSkillId: "user_agents_skills::editable",
+        selectedSkillIsEditable: true,
+        selectedSkillEditabilityReason: null,
+        selectedSkillContentTruncated: false,
+        skillContentLoadStatus: "loaded",
+      }),
+    ).toBe("Save selected custom skill");
+
+    expect(
+      canSaveSelectedSkill({
+        skillContentLoadStatus: "loaded",
+        selectedSkillIsEditable: true,
+        selectedSkillId: "user_agents_skills::editable",
+        skillMarkdownViewMode: SKILL_MARKDOWN_VIEW_MODE_RAW,
+        selectedSkillContentTruncated: false,
+        skillMarkdownRawDraft: "# editable",
+        skillContentLoading: false,
+        customSkillSaveInFlight: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      canSaveSelectedSkill({
+        skillContentLoadStatus: "loaded",
+        selectedSkillIsEditable: true,
+        selectedSkillId: "user_agents_skills::editable",
+        skillMarkdownViewMode: SKILL_MARKDOWN_VIEW_MODE_RENDERED,
+        selectedSkillContentTruncated: false,
+        skillMarkdownRawDraft: "# editable",
+        skillContentLoading: false,
+        customSkillSaveInFlight: false,
+      }),
+    ).toBe(false);
   });
 });
 

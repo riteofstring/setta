@@ -1,7 +1,3 @@
-import * as Accordion from "@radix-ui/react-accordion";
-import CodeMirror from "@uiw/react-codemirror";
-import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -10,9 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
@@ -32,6 +25,13 @@ import {
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import {
+  DEFAULT_SKILLS_LIST_HEIGHT_PCT,
+  MIN_SKILL_MARKDOWN_HEIGHT_PCT,
+  MIN_SKILLS_LIST_HEIGHT_PCT,
+  ProjectChatSkillsBrowser,
+} from "./projectChatSkillsBrowser";
+import { ProjectChatSkillsMcpPathGroupHeader } from "./projectChatSkillsMcpPathGroupHeader";
+import {
   buildSkillStatusBySkillId,
   filterSkills,
   groupMcpServersByConfigPath,
@@ -40,14 +40,22 @@ import {
   resolveMcpServerStatus,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
+import {
+  canCreateCustomSkill,
+  isActionablePath,
+  resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
+  resolveSkillMarkdownRawDraftBySkillIdHydration,
+  resolveSkillMarkdownRawDraftBySkillIdReplace,
+  resolveSkillMarkdownRawDraftBySkillIdUpdate,
+  SKILL_MARKDOWN_VIEW_MODE_RAW,
+  SKILL_MARKDOWN_VIEW_MODE_RENDERED,
+  type SkillContentCacheEntry,
+  type SkillContentLoadStatus,
+  type SkillMarkdownDraftStateEntry,
+  type SkillMarkdownViewMode,
+  upsertAppGenSkillEntry,
+} from "./projectChatSkillsViewModel";
 import { ProjectChatSlashCommandsView } from "./projectChatSlashCommandsView";
-
-type PathGroupHeaderProps = {
-  title: string;
-  path: string | null;
-  onCopyPath: (path: string | null) => void;
-  onRevealPath: (path: string | null) => void;
-};
 
 type ProjectChatSkillsMcpViewerProps = {
   projectConfigId: string;
@@ -62,272 +70,10 @@ const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
 const SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewMode";
-const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
-const SKILL_MARKDOWN_VIEW_MODE_RENDERED = "rendered";
-const SKILL_MARKDOWN_VIEW_MODE_RAW = "raw";
-const DEFAULT_SKILLS_LIST_HEIGHT_PCT = 66;
-const MIN_SKILLS_LIST_HEIGHT_PCT = 30;
-const MIN_SKILL_MARKDOWN_HEIGHT_PCT = 20;
-const SKILL_MARKDOWN_RENDERED_CLASS =
-  "prose prose-sm max-w-none dark:prose-invert prose-headings:my-2 prose-headings:font-semibold prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0";
-type SkillMarkdownViewMode =
-  | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
-  | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
-type SkillContentLoadStatus = "idle" | "loading" | "loaded" | "error";
 type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
 >;
-type SkillMarkdownDraftStateEntry = {
-  draft: string;
-  loadedContent: string;
-};
-
-type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
-  skillMarkdownDraftStateBySkillId: Record<
-    string,
-    SkillMarkdownDraftStateEntry
-  >;
-  skillId: string;
-  skillContent: string;
-};
-
-type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
-  skillMarkdownDraftStateBySkillId: Record<
-    string,
-    SkillMarkdownDraftStateEntry
-  >;
-  skillId: string;
-  nextRawDraft: string;
-};
-
-type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
-  skillMarkdownDraftStateBySkillId: Record<
-    string,
-    SkillMarkdownDraftStateEntry
-  >;
-  skillId: string;
-  nextRawDraft: string;
-};
-
-type SkillContentCacheEntry = {
-  content: string;
-  truncated: boolean;
-  originalSizeBytes: number | null;
-};
-type SelectedSkillViewState = {
-  selectedSkillId: string;
-  selectedSkillContent: string;
-  selectedSkillContentTruncated: boolean;
-  selectedSkillOriginalSizeBytes: number | null;
-};
-
-function compareAppGenSkillEntries(
-  first: AppGenSkillEntry,
-  second: AppGenSkillEntry,
-): number {
-  const rootLabelComparison = first.rootLabel.localeCompare(second.rootLabel);
-  if (rootLabelComparison !== 0) {
-    return rootLabelComparison;
-  }
-  const relativePathComparison = first.relativePath.localeCompare(
-    second.relativePath,
-  );
-  if (relativePathComparison !== 0) {
-    return relativePathComparison;
-  }
-  return first.name.localeCompare(second.name);
-}
-
-export function upsertAppGenSkillEntry(
-  skills: AppGenSkillEntry[],
-  nextSkill: AppGenSkillEntry,
-): AppGenSkillEntry[] {
-  const existingIndex = skills.findIndex(
-    (skill) => skill.skillId === nextSkill.skillId,
-  );
-  const nextSkills =
-    existingIndex >= 0
-      ? skills.map((skill, index) =>
-          index === existingIndex ? nextSkill : skill,
-        )
-      : [...skills, nextSkill];
-  return nextSkills.sort(compareAppGenSkillEntries);
-}
-
-export function resolveSkillMarkdownRawDraftBySkillIdHydration({
-  skillMarkdownDraftStateBySkillId,
-  skillId,
-  skillContent,
-}: ResolveSkillMarkdownRawDraftBySkillIdHydrationInput): Record<
-  string,
-  SkillMarkdownDraftStateEntry
-> | null {
-  const currentEntry = skillMarkdownDraftStateBySkillId[skillId];
-  if (currentEntry) {
-    if (currentEntry.loadedContent === skillContent) {
-      return null;
-    }
-    if (currentEntry.draft !== currentEntry.loadedContent) {
-      return {
-        ...skillMarkdownDraftStateBySkillId,
-        [skillId]: {
-          ...currentEntry,
-          loadedContent: skillContent,
-        },
-      };
-    }
-  }
-  return {
-    ...skillMarkdownDraftStateBySkillId,
-    [skillId]: {
-      draft: skillContent,
-      loadedContent: skillContent,
-    },
-  };
-}
-
-export function resolveSkillMarkdownRawDraftBySkillIdReplace({
-  skillMarkdownDraftStateBySkillId,
-  skillId,
-  nextRawDraft,
-}: ResolveSkillMarkdownRawDraftBySkillIdReplaceInput): Record<
-  string,
-  SkillMarkdownDraftStateEntry
-> | null {
-  const currentEntry = skillMarkdownDraftStateBySkillId[skillId];
-  if (
-    currentEntry &&
-    currentEntry.draft === nextRawDraft &&
-    currentEntry.loadedContent === nextRawDraft
-  ) {
-    return null;
-  }
-  return {
-    ...skillMarkdownDraftStateBySkillId,
-    [skillId]: {
-      draft: nextRawDraft,
-      loadedContent: nextRawDraft,
-    },
-  };
-}
-
-export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
-  currentSelectedSkillId,
-  requestSkillId,
-  selectUpdatedSkill,
-  skill,
-  skillContent,
-}: {
-  currentSelectedSkillId: string | null;
-  requestSkillId: string | null;
-  selectUpdatedSkill: boolean;
-  skill: AppGenSkillEntry;
-  skillContent: AppGenSkillContent;
-}): SelectedSkillViewState | null {
-  if (!selectUpdatedSkill && currentSelectedSkillId !== requestSkillId) {
-    return null;
-  }
-  return {
-    selectedSkillId: skill.skillId,
-    selectedSkillContent: skillContent.content,
-    selectedSkillContentTruncated: skillContent.truncated,
-    selectedSkillOriginalSizeBytes: skillContent.originalSizeBytes,
-  };
-}
-
-export function resolveSkillMarkdownRawDraftBySkillIdUpdate({
-  skillMarkdownDraftStateBySkillId,
-  skillId,
-  nextRawDraft,
-}: ResolveSkillMarkdownRawDraftBySkillIdUpdateInput): Record<
-  string,
-  SkillMarkdownDraftStateEntry
-> | null {
-  const currentEntry = skillMarkdownDraftStateBySkillId[skillId];
-  if (currentEntry?.draft === nextRawDraft) {
-    return null;
-  }
-  return {
-    ...skillMarkdownDraftStateBySkillId,
-    [skillId]: {
-      draft: nextRawDraft,
-      loadedContent: currentEntry?.loadedContent ?? nextRawDraft,
-    },
-  };
-}
-
-function isActionablePath(path: string | null): path is string {
-  if (typeof path !== "string") {
-    return false;
-  }
-  const normalizedPath = path.trim().toLowerCase();
-  return normalizedPath !== "";
-}
-
-export function canCreateCustomSkill({
-  customSkillCreateInFlight,
-  customSkillCreateRootPath,
-  newCustomSkillRelativePath,
-}: {
-  customSkillCreateInFlight: boolean;
-  customSkillCreateRootPath: string | null;
-  newCustomSkillRelativePath: string;
-}): boolean {
-  if (customSkillCreateInFlight) {
-    return false;
-  }
-  if (!isActionablePath(customSkillCreateRootPath)) {
-    return false;
-  }
-  return newCustomSkillRelativePath.trim() !== "";
-}
-
-export function resolveSkillPreviewContent({
-  skillContentLoading,
-  skillsLoading,
-  selectedSkillId,
-  skillContentLoadStatus,
-  selectedSkillContent,
-}: {
-  skillContentLoading: boolean;
-  skillsLoading: boolean;
-  selectedSkillId: string | null;
-  skillContentLoadStatus: SkillContentLoadStatus;
-  selectedSkillContent: string;
-}): string {
-  if (skillContentLoading || (skillsLoading && !selectedSkillId)) {
-    return "Loading skill content...";
-  }
-  if (skillContentLoadStatus === "error") {
-    return "Skill content unavailable.";
-  }
-  if (selectedSkillId && skillContentLoadStatus === "loaded") {
-    return selectedSkillContent;
-  }
-  return "Select a skill to preview SKILL.md.";
-}
-
-export function resolveRenderedSkillPreviewContent({
-  skillPreviewContent,
-  skillMarkdownRawDraft,
-  selectedSkillId,
-  skillContentLoadStatus,
-}: {
-  skillPreviewContent: string;
-  skillMarkdownRawDraft: string | null;
-  selectedSkillId: string | null;
-  skillContentLoadStatus: SkillContentLoadStatus;
-}): string {
-  if (
-    selectedSkillId &&
-    skillContentLoadStatus === "loaded" &&
-    skillMarkdownRawDraft !== null
-  ) {
-    return skillMarkdownRawDraft;
-  }
-  return skillPreviewContent;
-}
 
 function attachSkillsListResizeListeners(args: {
   target: ResizeListenerTarget;
@@ -345,53 +91,8 @@ function attachSkillsListResizeListeners(args: {
   };
 }
 
-function PathGroupHeader({
-  title,
-  path,
-  onCopyPath,
-  onRevealPath,
-}: PathGroupHeaderProps) {
-  const actionablePath = isActionablePath(path);
-  const displayPath = path && path.trim() ? path : "Unavailable";
-  const iconButtonClassName =
-    "grid h-5 w-5 place-items-center rounded text-setta-500 opacity-0 transition-all duration-150 group-hover/header:opacity-100 group-focus-within/header:opacity-100 hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200";
-  return (
-    <div className="group/header flex min-w-0 items-start justify-between gap-2 px-1 pb-1">
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-setta-700 dark:text-setta-200">
-          {title}
-        </div>
-        <div
-          className="truncate font-mono text-[10px] text-setta-400 dark:text-setta-500"
-          title={displayPath}
-        >
-          {displayPath}
-        </div>
-      </div>
-      <div className="flex flex-none items-center gap-1">
-        <button
-          aria-label={`Copy path for ${title}`}
-          title="Copy path"
-          className={`${iconButtonClassName} cursor-pointer`}
-          disabled={!actionablePath}
-          onClick={() => onCopyPath(path)}
-        >
-          <i className="gg-file !scale-[0.55]" />
-        </button>
-        <button
-          aria-label={`Reveal path for ${title}`}
-          title="Reveal in OS file explorer"
-          className={`${iconButtonClassName} cursor-pointer`}
-          disabled={!actionablePath}
-          onClick={() => onRevealPath(path)}
-        >
-          <i className="gg-folder !scale-[0.55]" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
+// Owns top-level routing between the skills, MCP, and slash-command views plus
+// the async fetch/save flows that feed the extracted skills render owners.
 export function ProjectChatSkillsMcpViewer({
   projectConfigId,
   chatId,
@@ -414,7 +115,6 @@ export function ProjectChatSkillsMcpViewer({
   const allLLMConfigsInitialLoadComplete = useAIStore(
     (state) => state.allLLMConfigsInitialLoadComplete,
   );
-  const codeMirrorTheme = useCodeMirrorStyle();
   const [skills, setSkills] = useState<AppGenSkillEntry[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
@@ -763,29 +463,8 @@ export function ProjectChatSkillsMcpViewer({
     mcpConfigPath,
     settaFilesLocation,
   ]);
-  const readonlyMarkdownViewerExtensions = useMemo(() => {
-    return getExtensions({
-      language: "markdown",
-      wrapLines: true,
-      isDisabled: true,
-      tabToAutocomplete: false,
-      indentWithTab: false,
-    });
-  }, []);
-  const editableMarkdownViewerExtensions = useMemo(() => {
-    return getExtensions({
-      language: "markdown",
-      wrapLines: true,
-      isDisabled: false,
-      tabToAutocomplete: false,
-      indentWithTab: false,
-    });
-  }, []);
-
   const mcpServersLoading =
     !allLLMConfigsInitialLoadComplete || mcpRuntimeStatusLoading;
-  const skillContentLoading = skillContentLoadStatus === "loading";
-  const showSkillsLoadingState = skillsLoading && skills.length === 0;
   const skillMarkdownRawDraft = selectedSkillId
     ? skillMarkdownDraftStateBySkillId[selectedSkillId]?.draft ?? null
     : null;
@@ -809,105 +488,33 @@ export function ProjectChatSkillsMcpViewer({
   const selectedSkillIsEditable = selectedSkill?.isEditable === true;
   const selectedSkillEditabilityReason =
     selectedSkill?.editabilityReason ?? null;
-  const skillPreviewContent = useMemo(() => {
-    return resolveSkillPreviewContent({
-      skillContentLoading,
-      skillsLoading,
+
+  const updateSelectedSkillMarkdownDraft = useCallback(
+    (nextRawDraft: string) => {
+      if (
+        !selectedSkillIsEditable ||
+        selectedSkillContentTruncated ||
+        skillContentLoadStatus !== "loaded" ||
+        !selectedSkillId
+      ) {
+        return;
+      }
+      setSkillMarkdownDraftStateBySkillId((current) => {
+        const next = resolveSkillMarkdownRawDraftBySkillIdUpdate({
+          skillMarkdownDraftStateBySkillId: current,
+          skillId: selectedSkillId,
+          nextRawDraft,
+        });
+        return next ?? current;
+      });
+    },
+    [
+      selectedSkillContentTruncated,
       selectedSkillId,
+      selectedSkillIsEditable,
       skillContentLoadStatus,
-      selectedSkillContent,
-    });
-  }, [
-    selectedSkillContent,
-    selectedSkillId,
-    skillContentLoadStatus,
-    skillContentLoading,
-    skillsLoading,
-  ]);
-  const renderedSkillPreviewContent = useMemo(() => {
-    return resolveRenderedSkillPreviewContent({
-      skillPreviewContent,
-      skillMarkdownRawDraft,
-      selectedSkillId,
-      skillContentLoadStatus,
-    });
-  }, [
-    skillContentLoadStatus,
-    skillMarkdownRawDraft,
-    skillPreviewContent,
-    selectedSkillId,
-  ]);
-  const skillPreviewTruncationNotice =
-    selectedSkillContentTruncated && selectedSkillOriginalSizeBytes !== null
-      ? `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`
-      : null;
-  const isRawMarkdownView =
-    skillMarkdownViewMode === SKILL_MARKDOWN_VIEW_MODE_RAW;
-  const rawMarkdownModeHint = useMemo(() => {
-    if (!selectedSkillId) {
-      return "Read-only preview. Select a skill to edit.";
-    }
-    if (skillContentLoadStatus === "error") {
-      return "Read-only preview. Resolve content loading errors before editing.";
-    }
-    if (skillContentLoadStatus !== "loaded") {
-      return "Read-only preview. Skill content is still loading.";
-    }
-    if (!selectedSkillIsEditable) {
-      return (
-        selectedSkillEditabilityReason ??
-        "Read-only preview. Select or create a custom skill to edit."
-      );
-    }
-    if (selectedSkillContentTruncated) {
-      return (
-        "Preview is truncated. Full content loading is required before editing " +
-        "or saving."
-      );
-    }
-    return "Editing mode for custom skills.";
-  }, [
-    selectedSkillId,
-    selectedSkillContentTruncated,
-    selectedSkillEditabilityReason,
-    selectedSkillIsEditable,
-    skillContentLoadStatus,
-  ]);
-  const saveSelectedSkillButtonTitle = useMemo(() => {
-    if (!selectedSkillId) {
-      return "Select a skill to edit.";
-    }
-    if (skillContentLoadStatus === "error") {
-      return "Cannot save while skill content failed to load.";
-    }
-    if (skillContentLoadStatus !== "loaded") {
-      return "Skill content is still loading.";
-    }
-    if (!selectedSkillIsEditable) {
-      return (
-        selectedSkillEditabilityReason ?? "Only custom skills can be edited."
-      );
-    }
-    if (selectedSkillContentTruncated) {
-      return "Cannot save a truncated preview.";
-    }
-    return "Save selected custom skill";
-  }, [
-    selectedSkillId,
-    selectedSkillContentTruncated,
-    selectedSkillEditabilityReason,
-    selectedSkillIsEditable,
-    skillContentLoadStatus,
-  ]);
-  const canSaveSelectedSkill =
-    skillContentLoadStatus === "loaded" &&
-    selectedSkillIsEditable &&
-    !!selectedSkillId &&
-    isRawMarkdownView &&
-    !selectedSkillContentTruncated &&
-    skillMarkdownRawDraft !== null &&
-    !skillContentLoading &&
-    !customSkillSaveInFlight;
+    ],
+  );
 
   const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
@@ -1190,7 +797,7 @@ export function ProjectChatSkillsMcpViewer({
                   key={`${group.configLabel}:${group.configPath ?? "unavailable"}`}
                   className={groupIndex === 0 ? "" : "pt-2"}
                 >
-                  <PathGroupHeader
+                  <ProjectChatSkillsMcpPathGroupHeader
                     title={group.configLabel}
                     path={group.configPath}
                     onCopyPath={copyPathToClipboard}
@@ -1255,402 +862,48 @@ export function ProjectChatSkillsMcpViewer({
         </section>
       ) : null}
       {showSkillsSection ? (
-        <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
-          data-testid="project-chat-skills-content"
-        >
-          <div className="grid gap-2">
-            <search className="relative flex min-w-0 items-center gap-1">
-              <div className="absolute left-0 grid select-none place-items-center pl-1">
-                <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
-              </div>
-              <input
-                aria-label="Filter skills"
-                className="min-w-0 flex-grow cursor-text truncate rounded bg-setta-100/70 py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 focus-visible:ring-1 focus-visible:ring-blue-300 dark:bg-setta-900/80 dark:text-setta-200 dark:placeholder-setta-700 dark:focus-visible:ring-blue-500"
-                value={skillFilter}
-                onChange={(event) => setSkillFilter(event.target.value)}
-                placeholder="Filter"
-              />
-              <button
-                type="button"
-                data-testid="project-chat-skills-refresh"
-                aria-label="Refresh"
-                title="Refresh skills"
-                className="grid h-7 w-7 shrink-0 place-items-center rounded text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                onClick={() => void refreshSkillsBrowser()}
-                disabled={skillsLoading}
-              >
-                <FiRefreshCw
-                  className={`h-3.5 w-3.5 ${skillsLoading ? "animate-spin" : ""}`}
-                />
-              </button>
-            </search>
-            <div className="flex min-w-0 items-center gap-1">
-              <input
-                aria-label="New custom skill name"
-                data-testid="project-chat-custom-skill-relative-path-input"
-                className="min-w-0 flex-1 cursor-text truncate rounded bg-setta-100/70 px-2 py-1 text-xs text-setta-700 placeholder-setta-400 outline-0 focus-visible:ring-1 focus-visible:ring-blue-300 dark:bg-setta-900/80 dark:text-setta-200 dark:placeholder-setta-700 dark:focus-visible:ring-blue-500"
-                value={newCustomSkillRelativePath}
-                onChange={(event) =>
-                  setNewCustomSkillRelativePath(event.target.value)
-                }
-                placeholder="new-custom-skill"
-              />
-              <button
-                type="button"
-                data-testid="project-chat-custom-skill-create"
-                aria-label="Create custom skill"
-                title="Create custom skill"
-                className="grid h-7 w-7 shrink-0 place-items-center rounded text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                onClick={() => void createCustomSkill()}
-                disabled={!canCreateCustomSkillButton}
-              >
-                <FiPlus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex min-w-0 items-center justify-between gap-2 px-1 text-[10px] text-setta-500 dark:text-setta-400">
-              <span
-                className="truncate"
-                data-testid="project-chat-custom-skill-root-path"
-                title={
-                  customSkillCreateRootPath ??
-                  "Custom skill create root unavailable."
-                }
-              >
-                {customSkillCreateRootPath
-                  ? customSkillCreateRootActionable
-                    ? `Custom skills root: ${customSkillCreateRootPath}`
-                    : `Custom skills root (not created yet): ${customSkillCreateRootPath}`
-                  : skillsLoading
-                    ? "Loading custom skills root..."
-                    : "Custom skills root unavailable."}
-              </span>
-              <button
-                type="button"
-                data-testid="project-chat-custom-skill-root-reveal"
-                className="shrink-0 rounded px-1 py-0.5 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                onClick={() =>
-                  void revealPathInFileExplorer(customSkillCreateRootPath)
-                }
-                disabled={
-                  !customSkillCreateRootActionable ||
-                  !isActionablePath(customSkillCreateRootPath)
-                }
-              >
-                Open
-              </button>
-            </div>
-          </div>
-          <div
-            ref={skillsSectionRef}
-            className="flex min-h-0 min-w-0 flex-1 flex-col"
-          >
-            <div
-              className="min-h-0 min-w-0 overflow-auto rounded-md p-2 text-xs"
-              data-testid="project-chat-skills-list-pane"
-              style={
-                isSkillMarkdownViewerOpen
-                  ? { flexBasis: `${skillsListHeightPct}%` }
-                  : undefined
-              }
-            >
-              {skillsError ? (
-                <div className="mb-2 rounded bg-amber-50 px-2 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                  Skills unavailable ({skillsError}).
-                </div>
-              ) : null}
-              {showSkillsLoadingState ? (
-                <div className="text-setta-500 dark:text-setta-400">
-                  Loading skills...
-                </div>
-              ) : groupedSkills.length === 0 ? (
-                <div className="text-setta-500 dark:text-setta-400">
-                  No skills found.
-                </div>
-              ) : (
-                groupedSkills.map((group, groupIndex) => (
-                  <div
-                    key={group.rootPath}
-                    className={groupIndex === 0 ? "" : "pt-2"}
-                  >
-                    <PathGroupHeader
-                      title={group.rootLabel}
-                      path={group.rootPath}
-                      onCopyPath={copyPathToClipboard}
-                      onRevealPath={(path) =>
-                        void revealPathInFileExplorer(path)
-                      }
-                    />
-                    <div className="mt-1 grid gap-1 border-t border-setta-200/80 px-1 pt-1 dark:border-setta-800">
-                      {group.skills.map((skill) => {
-                        const selected = skill.skillId === selectedSkillId;
-                        const status = skillStatusBySkillId[skill.skillId];
-                        const isApplicable = status?.isApplicable ?? false;
-                        const isActive = status?.activityState === "active";
-                        const isActivityUnknown =
-                          status?.activityState === "unknown";
-                        return (
-                          <button
-                            key={skill.skillId}
-                            className={`flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded py-1 pl-1 pr-2 text-left transition-colors ${
-                              selected
-                                ? "bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
-                                : "hover:bg-setta-100 dark:hover:bg-setta-800"
-                            }`}
-                            data-selected={selected ? "true" : "false"}
-                            onClick={() => setSelectedSkillId(skill.skillId)}
-                          >
-                            <span
-                              className="block w-full min-w-0 truncate font-semibold"
-                              title={skill.name}
-                              data-testid="skills-mcp-skill-name"
-                            >
-                              {skill.name}
-                            </span>
-                            <span
-                              className="block w-full min-w-0 truncate text-[11px] opacity-80"
-                              title={skill.relativePath}
-                              data-testid="skills-mcp-skill-path"
-                            >
-                              {skill.relativePath}
-                            </span>
-                            {isApplicable || isActive || isActivityUnknown ? (
-                              <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[10px] font-semibold">
-                                {isApplicable ? (
-                                  <span
-                                    className="rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                    title={status.applicabilityReason}
-                                  >
-                                    Applicable
-                                  </span>
-                                ) : null}
-                                {isActive ? (
-                                  <span
-                                    className="rounded border border-blue-300 bg-blue-50 px-1 py-[1px] text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                    title={
-                                      status.activitySource
-                                        ? `Detected from ${status.activitySource}`
-                                        : "Skill invocation observed."
-                                    }
-                                  >
-                                    Active
-                                  </span>
-                                ) : null}
-                                {isActivityUnknown ? (
-                                  <span
-                                    className="rounded border border-amber-300 bg-amber-50 px-1 py-[1px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                    title="Skill activity metadata is unavailable for this thread."
-                                  >
-                                    Unknown
-                                  </span>
-                                ) : null}
-                              </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            {isSkillMarkdownViewerOpen ? (
-              <div
-                data-testid="project-chat-skills-resize-handle"
-                role="separator"
-                aria-label="Resize skill list and markdown viewer"
-                className="group/resize relative flex h-3 cursor-row-resize items-center justify-center"
-                onPointerDown={beginSkillsListResize}
-                onDoubleClick={() =>
-                  setSkillsListHeightPct(DEFAULT_SKILLS_LIST_HEIGHT_PCT)
-                }
-              >
-                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
-                <div className="relative z-[1] h-1 w-10 rounded-full bg-setta-300/90 transition-colors group-hover/resize:bg-blue-400 dark:bg-setta-600 dark:group-hover/resize:bg-blue-400" />
-              </div>
-            ) : null}
-            <div
-              className={
-                isSkillMarkdownViewerOpen
-                  ? "min-h-[140px] min-w-0 flex-1 overflow-hidden"
-                  : "min-w-0"
-              }
-            >
-              <Accordion.Root
-                type="single"
-                collapsible
-                value={
-                  isSkillMarkdownViewerOpen ? SKILL_MARKDOWN_VIEWER_VALUE : ""
-                }
-                onValueChange={(value) =>
-                  setIsSkillMarkdownViewerOpen(
-                    value === SKILL_MARKDOWN_VIEWER_VALUE,
-                  )
-                }
-                className={isSkillMarkdownViewerOpen ? "h-full min-h-0" : ""}
-              >
-                <Accordion.Item
-                  value={SKILL_MARKDOWN_VIEWER_VALUE}
-                  className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${
-                    isSkillMarkdownViewerOpen
-                      ? "flex h-full min-h-0 flex-col"
-                      : ""
-                  }`}
-                >
-                  <Accordion.Header>
-                    <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1 text-left">
-                      <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                        Skill Markdown Viewer
-                      </span>
-                      <FiChevronDown
-                        aria-hidden="true"
-                        className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
-                      />
-                    </Accordion.Trigger>
-                  </Accordion.Header>
-                  <Accordion.Content
-                    className={`overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown ${
-                      isSkillMarkdownViewerOpen ? "min-h-0 flex-1" : ""
-                    }`}
-                  >
-                    {isSkillMarkdownViewerOpen ? (
-                      <div className="flex h-full min-h-0 flex-col">
-                        {skillContentLoadStatus === "error" &&
-                        skillContentLoadError ? (
-                          <div
-                            data-testid="project-chat-skill-content-error"
-                            className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-                          >
-                            Failed to load skill content:{" "}
-                            {skillContentLoadError}
-                          </div>
-                        ) : null}
-                        {skillPreviewTruncationNotice ? (
-                          <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                            {skillPreviewTruncationNotice}
-                          </div>
-                        ) : null}
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-setta-200/80 px-2 py-1 dark:border-setta-700/80">
-                          <div className="inline-flex items-center gap-1 rounded bg-setta-100/70 p-0.5 dark:bg-setta-900/80">
-                            <button
-                              type="button"
-                              data-testid="project-chat-skill-markdown-view-rendered"
-                              className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                                !isRawMarkdownView
-                                  ? "bg-setta-200 text-setta-800 dark:bg-setta-700 dark:text-setta-100"
-                                  : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                              }`}
-                              onClick={() =>
-                                setSkillMarkdownViewMode(
-                                  SKILL_MARKDOWN_VIEW_MODE_RENDERED,
-                                )
-                              }
-                            >
-                              Rendered
-                            </button>
-                            <button
-                              type="button"
-                              data-testid="project-chat-skill-markdown-view-raw"
-                              className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                                isRawMarkdownView
-                                  ? "bg-setta-200 text-setta-800 dark:bg-setta-700 dark:text-setta-100"
-                                  : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                              }`}
-                              onClick={() =>
-                                setSkillMarkdownViewMode(
-                                  SKILL_MARKDOWN_VIEW_MODE_RAW,
-                                )
-                              }
-                            >
-                              Raw text
-                            </button>
-                          </div>
-                          <button
-                            type="button"
-                            data-testid="project-chat-custom-skill-save"
-                            className="inline-flex h-6 items-center gap-1 rounded px-2 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                            onClick={() => void saveSelectedCustomSkill()}
-                            disabled={!canSaveSelectedSkill}
-                            title={saveSelectedSkillButtonTitle}
-                          >
-                            <FiSave className="h-3 w-3" />
-                            Save
-                          </button>
-                        </div>
-                        {isRawMarkdownView ? (
-                          <div className="px-2 py-1 text-[10px] text-setta-500 dark:text-setta-400">
-                            {rawMarkdownModeHint}
-                          </div>
-                        ) : null}
-                        {!isRawMarkdownView ? (
-                          <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
-                            <ReactMarkdown
-                              className={SKILL_MARKDOWN_RENDERED_CLASS}
-                              remarkPlugins={[remarkGfm]}
-                            >
-                              {renderedSkillPreviewContent}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <div className="min-h-0 flex-1 overflow-hidden">
-                            <CodeMirror
-                              aria-label="Skill Markdown Content"
-                              className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
-                              height="100%"
-                              value={
-                                skillMarkdownRawDraft ?? skillPreviewContent
-                              }
-                              onChange={(value) => {
-                                if (
-                                  !selectedSkillIsEditable ||
-                                  selectedSkillContentTruncated ||
-                                  skillContentLoadStatus !== "loaded"
-                                ) {
-                                  return;
-                                }
-                                if (!selectedSkillId) {
-                                  return;
-                                }
-                                setSkillMarkdownDraftStateBySkillId(
-                                  (current) => {
-                                    const next =
-                                      resolveSkillMarkdownRawDraftBySkillIdUpdate(
-                                        {
-                                          skillMarkdownDraftStateBySkillId:
-                                            current,
-                                          skillId: selectedSkillId,
-                                          nextRawDraft: value,
-                                        },
-                                      );
-                                    return next ?? current;
-                                  },
-                                );
-                              }}
-                              theme={codeMirrorTheme}
-                              extensions={
-                                selectedSkillIsEditable &&
-                                !selectedSkillContentTruncated &&
-                                skillContentLoadStatus === "loaded"
-                                  ? editableMarkdownViewerExtensions
-                                  : readonlyMarkdownViewerExtensions
-                              }
-                              basicSetup={{
-                                lineNumbers: false,
-                                foldGutter: false,
-                                highlightActiveLine: false,
-                                tabSize: 4,
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                  </Accordion.Content>
-                </Accordion.Item>
-              </Accordion.Root>
-            </div>
-          </div>
-        </section>
+        <ProjectChatSkillsBrowser
+          skillsCount={skills.length}
+          skillsLoading={skillsLoading}
+          skillsError={skillsError}
+          skillFilter={skillFilter}
+          onSkillFilterChange={setSkillFilter}
+          onRefreshSkills={() => void refreshSkillsBrowser()}
+          newCustomSkillRelativePath={newCustomSkillRelativePath}
+          onNewCustomSkillRelativePathChange={setNewCustomSkillRelativePath}
+          canCreateCustomSkillButton={canCreateCustomSkillButton}
+          onCreateCustomSkill={() => void createCustomSkill()}
+          customSkillCreateRootPath={customSkillCreateRootPath}
+          customSkillCreateRootActionable={customSkillCreateRootActionable}
+          groupedSkills={groupedSkills}
+          selectedSkillId={selectedSkillId}
+          onSelectSkill={setSelectedSkillId}
+          skillStatusBySkillId={skillStatusBySkillId}
+          onCopyPathToClipboard={copyPathToClipboard}
+          onRevealPathInFileExplorer={(path) =>
+            void revealPathInFileExplorer(path)
+          }
+          skillsSectionRef={skillsSectionRef}
+          isSkillMarkdownViewerOpen={isSkillMarkdownViewerOpen}
+          onSkillMarkdownViewerOpenChange={setIsSkillMarkdownViewerOpen}
+          skillsListHeightPct={skillsListHeightPct}
+          onBeginSkillsListResize={beginSkillsListResize}
+          onResetSkillsListHeight={() =>
+            setSkillsListHeightPct(DEFAULT_SKILLS_LIST_HEIGHT_PCT)
+          }
+          selectedSkill={selectedSkill}
+          selectedSkillContent={selectedSkillContent}
+          selectedSkillContentTruncated={selectedSkillContentTruncated}
+          selectedSkillOriginalSizeBytes={selectedSkillOriginalSizeBytes}
+          skillContentLoadStatus={skillContentLoadStatus}
+          skillContentLoadError={skillContentLoadError}
+          skillMarkdownViewMode={skillMarkdownViewMode}
+          onSkillMarkdownViewModeChange={setSkillMarkdownViewMode}
+          skillMarkdownRawDraft={skillMarkdownRawDraft}
+          customSkillSaveInFlight={customSkillSaveInFlight}
+          onSaveSelectedCustomSkill={() => void saveSelectedCustomSkill()}
+          onSkillMarkdownChange={updateSelectedSkillMarkdownDraft}
+        />
       ) : null}
       <ProjectChatSlashCommandsView
         isVisible={showSlashCommandsSection}

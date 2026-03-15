@@ -61,11 +61,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The next readability problem after file scope is oversized flat namespaces
   where too many sibling files compete as plausible entry points.
 - There are 1503 authored TS/TSX files under `frontend/src`.
-- There are 35 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
+- There are 34 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1500 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1377 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, and conversation-search extractions
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1661 lines after the local slash-command extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer a top-size hotspot
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1658 lines after the local docked/floating/maximized surface extraction
   - `frontend/src/components/Chat/ChatInput.tsx` at 1605 lines after the local composer meta-controls extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
@@ -193,6 +193,19 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   so the next default work in that domain should continue from the remaining
   larger project-chat entry surfaces instead of re-cutting those new local
   owners immediately.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  now delegates grouped skills search/filter/selection plus the skills split
+  shell to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsBrowser.tsx`,
+  grouped root-path header rendering to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpPathGroupHeader.tsx`,
+  markdown preview/edit rendering to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillMarkdownViewer.tsx`,
+  and pure skill preview/save derivation to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsViewModel.ts`,
+  so follow-through work in that domain should continue from the remaining
+  larger chat/project-AI front doors unless a same-turn slice directly shortens
+  the remaining MCP/runtime coordination path.
 - `frontend/src/components/Section/Layouts/BrowserArea.tsx` now delegates the
   list/icon/carousel render surface to
   `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx`, preview
@@ -261,10 +274,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The remaining high-leverage work is now split between a few unresolved large
   UI front doors and a small set of still-large cross-domain entry surfaces.
   Default to those before revisiting already-improved coordinators such as
-  `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatCore.tsx`,
-  `TaskBoardArea.tsx`, `RunInstructions.tsx`, or `appRegistry.tsx`.
+  `ChatArea.tsx`, `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatHistory.tsx`,
+  `ProjectChatCore.tsx`, `TaskBoardArea.tsx`, `RunInstructions.tsx`, or
+  `appRegistry.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
@@ -273,13 +286,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
-  `ProjectChatBottomDock.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`, or
-  `ChatMessages.tsx` as a default starting point while a same-domain
-  higher-priority front door above remains unresolved, unless the slice
-  directly shortens that higher-priority path.
+  `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
+  `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `ChatMessages.tsx` as a
+  default starting point while a same-domain higher-priority front door above
+  remains unresolved, unless the slice directly shortens that higher-priority
+  path.
 - Do not pick a smaller `state/actions` or `state/hooks` split while a
   same-domain 2000+ line UI file remains, unless the lower-level extraction is
   a direct prerequisite for simplifying that larger file.
@@ -339,6 +354,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.ts` now owns runtime native slash-command discovery, authority gating, and recognized/executable slash-command set assembly used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts` now owns conversation-search filtering, submitted prompt history, runtime activity derivation, retained-image checks, latest-chat selection, and branch-source prompt helpers used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts` now owns custom slash-command draft reconciliation, namespace-authority gating, and native-command status text, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx` now owns slash-command engine tabs, agent-run polling, custom-command draft state, and the slash-command form/list shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsViewModel.ts` now owns skill preview fallback copy, raw-markdown/save gating, selected-skill draft hydration, and root-path grouping or save-state derivation used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillMarkdownViewer.tsx` now owns the skill markdown accordion shell, raw-vs-rendered preview toggle, save/reset affordances, and CodeMirror preview/edit surface used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsBrowser.tsx` now owns grouped skills search/filter rendering, selection row chrome, split-pane composition, and the extracted markdown-viewer wiring used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpPathGroupHeader.tsx` now owns the per-root path header shell used by the extracted skills browser.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx` now owns external-agent config selection state, tool-type/run-mode reconciliation, Claude/OpenCode validation, and the external-agent form shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.helpers.ts` now owns shared plugin capability/source formatting, config/settings draft serialization, restart planning, and action error shaping, `frontend/src/components/Panes/Overview/Plugins/pluginsPanePluginCard.tsx` now owns per-plugin card render branches, pane/command launch shells, and capability sections, `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigEditors.tsx` now owns schema-backed plugin config editing and language-server settings editors, `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigSchema.ts` now owns top-level config-schema field derivation plus immutable config updates, and `frontend/src/components/Panes/Overview/Plugins/pluginsPaneShared.tsx` now owns shared action-button, capability-row, and install-summary shells used by `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`.
 - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts` now owns file-browser tree flatten/filter/sort helpers, request-ownership tokens, path/date formatting, and Setta-badge metadata helpers, while `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts` now owns file-browser root bootstrap, per-folder transport state, recursive-search crawling, preview URL refresh, and navigation tree view state used by `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`.
@@ -939,9 +958,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -955,30 +974,31 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
-  - task/column commands vs DnD math vs board shells in `TaskBoardArea.tsx`
-  - search/indexing vs virtualization vs detail panes in `GitGraphOverlay.tsx`
-  - provider routing vs settings groups vs override editors in
-    `ProjectAISettings.tsx`
+  - project-chat orchestration vs aux-view routing vs hydration continuity in
+    `ProjectChat.tsx`
+  - recursive-search transport vs preview state vs browser shell composition in
+    `FileBrowserPane.tsx`
+  - preview/list routing vs large-DOM browser surface rendering in
+    `BrowserArea.tsx`
   - standalone window focus/z-index vs bounds/snap math vs page shell rendering
     in `StandaloneWindowSpaceSurface.tsx`
 
 ## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 
 - Follow-through surfaces such as
-  `ProjectChatBottomDock.tsx`,
   `ProjectChatSkillsMcpViewer.tsx`,
-  `ProjectAISettings.tsx`,
-  `FileBrowserPane.tsx`,
-  `BrowserArea.tsx`,
+  `ProjectChatCore.tsx`,
+  `ProjectChatHistory.tsx`,
   `ChatInput.tsx`,
-  `ChatMessages.tsx`, and
-  `ProjectChatHistory.tsx`
+  `ChatMessages.tsx`,
+  `HomePage.tsx`,
+  and `RunInstructions.tsx`
   still matter, but they are no longer the default starting points.
 - Only continue there when:
   - the slice directly shortens a higher-priority root surface, or
@@ -1042,22 +1062,22 @@ Notes:
    file names, clearer subfolders, and colocated tests.
 2. Choose the highest unresolved UI hotspot from the current tree and the
    companion plans,
-   usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
-   `components/App/appRegistry.tsx`,
-   `components/Section/Layouts/TaskBoardArea.tsx`,
+   usually `components/ChatWindowing/ProjectChatBottomDock.tsx`,
    `components/Git/GitGraphOverlay.tsx`,
-   `components/Pages/Home/HomePage.tsx`,
    `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or
-   `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+   `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+   `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`,
+   `components/Section/Layouts/BrowserArea.tsx`, or
+   `components/Pages/Project/StandaloneWindowSpaceSurface.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a
    direct prerequisite for simplifying one of those larger hotspots or when it
    deletes a now-unnecessary compatibility surface after callers have
    converged.
 4. Continue into already-improved coordinators such as
-   `ProjectChatBottomDock.tsx`, `FileBrowserPane.tsx`, `BrowserArea.tsx`,
-   `ChatInput.tsx`, `ChatMessages.tsx`, or `ProjectChatHistory.tsx` only after
-   the larger same-domain front doors above are materially smaller, or when the
-   same-turn slice directly shortens them.
+   `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatCore.tsx`,
+   `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `ChatMessages.tsx` only after
+   the larger same-domain front doors above are materially smaller, or when
+   the same-turn slice directly shortens them.
 5. Add domain subfolders in oversized flat namespaces only after each area
    stabilizes and only when they make the next edit path more obvious.
 
