@@ -3,7 +3,7 @@ import { usePluginTopNavBarItems } from "plugins/runtime";
 import { type ReactNode, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useShareSession } from "state/definitions";
+import { useShareSession } from "state/stores/sessionStores";
 import { useShareCapabilities } from "state/hooks/share";
 import { EditMenu } from "./EditMenu";
 import { FileMenu } from "./FileMenu";

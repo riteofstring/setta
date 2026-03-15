@@ -4,8 +4,8 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import { useMemo } from "react";
-import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { useDndState } from "./dndState";
 import {
