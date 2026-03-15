@@ -397,6 +397,19 @@ Current tree note:
   `backend/setta/agentic/external_adapters/sidecars/*` and the plugin schema
   assets under `backend/setta/plugins/schemas/*`, both of which stay retained
   through packaging force-includes rather than Python package imports.
+- The dead Python package-marker stubs for retained-support trees are also
+  smaller in the current worktree: empty or docstring-only `__init__.py` files
+  under `backend/setta/code_gen`, `backend/setta/database`,
+  `backend/setta/llm`, `backend/setta/logging`, `backend/setta/mcp`,
+  `backend/setta/project_state`, `backend/setta/secrets`,
+  `backend/setta/share`, `backend/setta/types`, `backend/setta/utils`,
+  `backend/setta/websockets`, and matching `tests/*` subpackages were deleted
+  because current callers import concrete submodules rather than relying on
+  package-level code there, so namespace-package resolution is enough and no
+  replacement owner is needed. The re-exporting package roots that still carry
+  actual API or compatibility behavior, such as `backend/setta/api/__init__.py`,
+  `backend/setta/auth/__init__.py`, and `backend/setta/sessions/__init__.py`,
+  stay retained.
 - The live Python `backend/setta/database/db_objs.py` helper has also been
   narrowed in the current worktree: the dead settings-project, notification,
   temp-id-map, LLM-config, deployment-manifest, external-agent,
