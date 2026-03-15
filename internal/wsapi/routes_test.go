@@ -645,6 +645,98 @@ func TestRegisterRoutesFrontendClosesOnInvalidBinaryDependencyEventPayload(t *te
 	}
 }
 
+func TestRegisterRoutesFrontendBinaryRealtimeUIChangeBroadcastsBinaryFrame(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	drawSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Draw", "canvas")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster:  broadcaster,
+			ProjectState: projectRuntime,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["`+drawSectionID+`"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	ack := readNextMessage(t, listener)
+	assertListenerRegisterAck(t, ack, "project-a", "")
+
+	binaryPayload := []byte("binary-draw-snapshot")
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeUIChange",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyKey": map[string]any{
+				"type":      "Section",
+				"sectionId": drawSectionID,
+			},
+			"value": map[string]any{
+				"type": "Binary",
+				"payload": map[string]any{
+					"contentId":  "bin-1",
+					"byteLength": len(binaryPayload),
+					"mimeType":   "image/png",
+				},
+			},
+		},
+	}, binaryPayload)
+	if err != nil {
+		t.Fatalf("encode frontend binary realtime ui change: %v", err)
+	}
+	if err := frontend.Write(context.Background(), websocket.MessageBinary, frame); err != nil {
+		t.Fatalf("write binary realtime ui change: %v", err)
+	}
+
+	messageType, payload := readNextFrame(t, listener)
+	if messageType != websocket.MessageBinary {
+		t.Fatalf("expected binary listener frame, got %d", messageType)
+	}
+	header, forwardedPayload, err := realtime.DecodeBinaryFrame(payload)
+	if err != nil {
+		t.Fatalf("decode listener binary frame: %v", err)
+	}
+	var envelope routeMessageEnvelope
+	if err := json.Unmarshal(header, &envelope); err != nil {
+		t.Fatalf("decode listener binary header: %v", err)
+	}
+	assertRouteListenerRealtimeEvent(t, envelope, "project-a", "", 1, drawSectionID, `{"type":"Binary","payload":{"contentId":"bin-1","byteLength":20,"mimeType":"image/png"}}`)
+	if string(forwardedPayload) != string(binaryPayload) {
+		t.Fatalf("expected binary realtime payload %q, got %q", string(binaryPayload), string(forwardedPayload))
+	}
+
+	content := decodeRouteListenerRealtimeContent(t, envelope)
+	if content.DependencyValues == nil {
+		t.Fatal("expected authoritative dependency values on binary realtime event")
+	}
+	byKey := map[string]string{}
+	for _, entry := range content.DependencyValues.Entries {
+		byKey[entry.DependencyKey] = entry.RenderedValue
+	}
+	if got := byKey[drawSectionID]; got != `b'binary-draw-snapshot'` {
+		t.Fatalf("expected rendered binary dependency value %q, got %q", `b'binary-draw-snapshot'`, got)
+	}
+}
+
 func TestRegisterRoutesFrontendBinaryDependencyEventBroadcastsBinaryFrame(t *testing.T) {
 	t.Parallel()
 
