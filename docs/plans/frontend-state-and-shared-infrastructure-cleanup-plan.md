@@ -214,10 +214,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   lookup and highlighting, and `uiSettingRevealShared.ts` owns
   execution-context/status helpers.
 - `frontend/src/state/actions/keyActivations.ts` is now a 284-line listener
-  orchestration entrypoint; `keyShortcutRegistrations.ts` owns grouped shortcut
-  registration, `keyShortcutUtils.ts` owns shortcut parsing, event-code
-  normalization, and input-ignore policy, and `keyActivationHandlers.ts` owns
-  `Tab`/`Escape`, section-selection, and React Flow key-mode handlers.
+  orchestration entrypoint; `keyShortcutRegistrationGroups.ts` owns grouped
+  shortcut registration tables, `keyShortcutRegistrations.ts` owns the
+  remaining Tab-vs-param binding decisions plus registry composition,
+  `keyShortcutUtils.ts` owns shortcut parsing, event-code normalization, and
+  input-ignore policy, and `keyActivationHandlers.ts` owns `Tab`/`Escape`,
+  section-selection, and React Flow key-mode handlers.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessions.ts` owns cached websocket session
   reuse and transport wiring, and `terminalFit.ts` owns xterm
@@ -231,7 +233,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
@@ -239,15 +240,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
+  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
+  - `frontend/src/state/actions/artifacts.ts` at 366 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -428,10 +430,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
-- `keyActivations.ts`, `keyShortcutRegistrations.ts`, `keyShortcutUtils.ts`,
-  and `keyActivationHandlers.ts` now split into:
+- `keyActivations.ts`, `keyShortcutRegistrationGroups.ts`,
+  `keyShortcutRegistrations.ts`, `keyShortcutUtils.ts`, and
+  `keyActivationHandlers.ts` now split into:
   - `keyActivations.ts` for global key-listener wiring and pressed-key bookkeeping
-  - `keyShortcutRegistrations.ts` for grouped shortcut registration tables
+  - `keyShortcutRegistrationGroups.ts` for grouped shortcut registration tables
+  - `keyShortcutRegistrations.ts` for Tab-vs-param binding decisions and registry composition
   - `keyShortcutUtils.ts` for shortcut parsing, event-code normalization, and input-ignore policy
   - `keyActivationHandlers.ts` for `Tab`/`Escape`, section-selection, and React Flow key-mode handlers
 - `windowSpacePersistence.ts` now owns:

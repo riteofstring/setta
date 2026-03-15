@@ -377,9 +377,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     orchestration for saved window spaces.
   - `state/actions/keyActivations.ts` now just owns global key-listener
     orchestration and pressed-key bookkeeping;
-    `state/actions/keyShortcutRegistrations.ts` owns the grouped shortcut
-    registry, `keyShortcutUtils.ts` owns shortcut parsing/input-ignore policy,
-    and `keyActivationHandlers.ts` owns `Tab`/`Escape`, section selection, and
+    `state/actions/keyShortcutRegistrationGroups.ts` owns the grouped shortcut
+    registration tables, `keyShortcutRegistrations.ts` owns the remaining
+    Tab-vs-param binding decisions plus registry composition,
+    `keyShortcutUtils.ts` owns shortcut parsing/input-ignore policy, and
+    `keyActivationHandlers.ts` owns `Tab`/`Escape`, section selection, and
     React Flow key-mode handlers.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
     `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal

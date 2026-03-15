@@ -272,6 +272,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/hooks/terminals/terminalFit.ts`.
 - `frontend/src/state/actions/keyActivations.ts` is down to 284 lines and now
   delegates grouped shortcut registration to
+  `frontend/src/state/actions/keyShortcutRegistrationGroups.ts`, the
+  remaining Tab-vs-param binding and registry composition to
   `frontend/src/state/actions/keyShortcutRegistrations.ts`, shortcut
   parsing/input-ignore policy to
   `frontend/src/state/actions/keyShortcutUtils.ts`, and `Tab`/`Escape`,

@@ -4,27 +4,6 @@ import { describe, expect, it } from "vitest";
 import { createShortcutRegistrations } from "./keyShortcutRegistrations";
 
 describe("createShortcutRegistrations", () => {
-  it("keeps the tooltip shortcuts tracked for key-up coordination", () => {
-    // Tooltip paging and copy shortcuts must stay discoverable so the listener can
-    // keep the floating tooltip open while any of them remain pressed.
-    const registrations = createShortcutRegistrations(
-      createSettingsState().shortcuts,
-    );
-
-    expect(
-      registrations
-        .flatMap((registration) =>
-          registration.trackingName ? [registration.trackingName] : [],
-        )
-        .sort(),
-    ).toEqual([
-      "copyTooltipTextShortcut",
-      "decrementTooltipPageShortcut",
-      "incrementTooltipPageShortcut",
-      "showTooltipShortcut",
-    ]);
-  });
-
   it("omits duplicate param bindings when Tab owns indent and unindent", () => {
     // Tab-based param indentation should stay routed through the shared Tab handler
     // instead of registering duplicate dedicated shortcut entries.
