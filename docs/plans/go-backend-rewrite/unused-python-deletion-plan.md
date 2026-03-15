@@ -249,6 +249,25 @@ Current tree note:
   execution all already live in Go under `internal/terminals`,
   `internal/wsapi/routes.go`, `internal/httpapi/terminal_routes.go`, and the
   Go `runs`/project-state runtime.
+- The superseded Python project-state manager/runtime cluster is also gone in
+  the current worktree: `backend/setta/project_state/*` now retains only
+  `project_manager_types.py`, `project_state_summary_types.py`, and
+  `settings_project.py` as Python support modules still imported by retained
+  Python APIs or type helpers. The deleted runtime ownership already lives in
+  Go under `internal/projectstate`, `internal/projectview`,
+  `internal/watchcode`, `internal/httpapi`, and `internal/frontendbindings`.
+- `backend/setta/binary/*` is also gone in the current worktree because the
+  old Python binary store was only used by the superseded Python project-state
+  runtime; current binary content ownership already lives in Go under
+  `internal/binary`, `internal/artifacts`, and `internal/shareartifacts`.
+- `backend/setta/deployments/*` is also gone in the current worktree because
+  the remaining Python `deployment_utils.py` helper only served the dead
+  Python share runtime, while current deployment publish/runtime/session
+  policy already lives in Go under `internal/deployments`,
+  `internal/shareartifacts`, and `internal/runs`.
+- `tests/utils/manager_fixture.py` and the Python tests that only exercised
+  the superseded Python project-state/session-manager runtime are also gone in
+  the current worktree.
 - Recompute the remaining Step 3 batch from live imports before deleting more
   websocket helpers. `backend/setta/websockets/binary_frames.py` remains tied
   to the retained Python listener SDK, while `websocket_manager.py` and

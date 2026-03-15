@@ -4,7 +4,6 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
-from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.agentic_edges import (
     AgenticEdge,
     AgenticEdgeContextMode,
@@ -65,6 +64,12 @@ from setta.types.state_machine_edges import (
     StateMachineTargetAction,
 )
 from setta.utils.constants import C
+
+
+class SignatureHelpStatus(str, Enum):
+    MATCHED = "matched"
+    NO_MATCH = "no_match"
+    SKIPPED = "skipped"
 
 
 class ProjectManagerRequestWithFrontendOp(BaseModel):
