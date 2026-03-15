@@ -188,6 +188,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     chat surfaces back into the canvas.
   - `state/actions/projectChatWindowingTrackedGitPane.ts` owns tracked git-pane
     graph window reuse plus maximize/title coordination.
+  - `state/actions/projectChatWindowingTrackedGitPaneState.ts` owns tracked
+    git-pane instance-key reads/writes plus validity reconciliation.
+  - `state/actions/projectChatWindowingEmbeddedPaneVisibility.ts` owns
+    embedded git-pane visibility reads/writes plus authoritative prune/replace
+    reconciliation.
+  - `state/actions/projectChatWindowingEphemeralKeys.ts` owns project-scoped
+    ephemeral window key build/parse helpers.
   - `state/actions/projectChatWindowLifecycleCommands.ts` owns public window
     lifecycle and focus commands.
   - `state/actions/projectChatWindowLayoutCommands.ts` owns public placement,
@@ -215,9 +222,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectChatWindowingWrites.ts` is now a thinner public
     mutation facade over the write-state, write-pipeline, and write-sync
     owners.
-  - `state/actions/projectChatWindowingAuthoritative.ts` and
-    `state/actions/projectChatWindowingEphemeral.ts` already hold narrower helper
-    seams and should be extended instead of recreated elsewhere.
+  - `state/actions/projectChatWindowingAuthoritative.ts` owns authoritative
+    snapshot publication and replay helpers.
+  - `state/actions/projectChatWindowingEphemeral.ts` is now a thin
+    compatibility and reconciliation surface over the narrower ephemeral key,
+    tracked-window, and embedded-visibility owners.
 
 - Workflow edges
 

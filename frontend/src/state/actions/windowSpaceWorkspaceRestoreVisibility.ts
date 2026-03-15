@@ -1,4 +1,4 @@
-import { isProjectChatGitGraphEmbeddedPaneVisible } from "state/actions/projectChatWindowingEphemeral";
+import { isProjectChatGitGraphEmbeddedPaneVisible } from "state/actions/projectChatWindowingEmbeddedPaneVisibility";
 import {
   ChatWindowModeEnum,
   WindowSpaceSurfaceKindEnum,

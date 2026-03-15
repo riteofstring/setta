@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
+import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeralKeys";
 import { useProjectState } from "state/definitions";
 import { useMisc } from "state/stores/layoutInteractionStores";
 import { createProjectConfig } from "utils/generatedTypes";

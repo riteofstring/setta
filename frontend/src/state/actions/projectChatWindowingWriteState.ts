@@ -6,10 +6,8 @@ import {
 } from "state/definitions";
 import { useAIStore } from "state/stores/aiStores";
 import { type ProjectChatWindowingState } from "utils/generatedTypes";
-import {
-  reconcileProjectChatWindowingEphemeralState,
-  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject,
-} from "./projectChatWindowingEphemeral";
+import { replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject } from "./projectChatWindowingEmbeddedPaneVisibility";
+import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 export type ProjectChatWindowingStoreOptions = {
   syncActiveChatId?: string | undefined;

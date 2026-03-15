@@ -1,7 +1,10 @@
 import { GitPane } from "components/Panes/Overview/Git/GitPane";
 import { useEffect } from "react";
 import { ensureGitGraphStateLoaded } from "state/actions/gitGraphOverlayActions";
-import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
+import {
+  isProjectChatGitGraphEmbeddedPaneVisibleInState,
+  toggleProjectChatGitGraphEmbeddedPaneVisibility,
+} from "state/actions/projectChatWindowingEmbeddedPaneVisibility";
 import { useProjectState } from "state/definitions";
 import { useMisc } from "state/stores/layoutInteractionStores";
 import { GitGraphOverlay } from "./GitGraphOverlay";
@@ -29,13 +32,10 @@ export function GitGraphWindowContent({
     if (!instanceId) {
       return false;
     }
-    const ephemeralKey = buildProjectChatEphemeralWindowInstanceKey(
+    return isProjectChatGitGraphEmbeddedPaneVisibleInState(
+      state,
       projectConfigId,
       instanceId,
-    );
-    return (
-      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId[ephemeralKey] ===
-      true
     );
   });
   const isControlledEmbeddedGitPane =
@@ -52,25 +52,10 @@ export function GitGraphWindowContent({
       onEmbeddedGitPaneVisibleChange?.(!isEmbeddedGitPaneVisible);
       return;
     }
-    const ephemeralKey = buildProjectChatEphemeralWindowInstanceKey(
+    toggleProjectChatGitGraphEmbeddedPaneVisibility(
       projectConfigId,
       instanceId,
     );
-    useMisc.setState((state) => {
-      const nextVisibilityByInstanceId = {
-        ...state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
-      };
-      if (nextVisibilityByInstanceId[ephemeralKey]) {
-        delete nextVisibilityByInstanceId[ephemeralKey];
-      } else {
-        nextVisibilityByInstanceId[ephemeralKey] = true;
-      }
-      return {
-        ...state,
-        projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
-          nextVisibilityByInstanceId,
-      };
-    });
   }
 
   return (

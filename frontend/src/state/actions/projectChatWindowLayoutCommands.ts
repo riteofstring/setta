@@ -10,8 +10,8 @@ import {
   type SetBoundsOptions,
   type SetDockFractionsOptions,
 } from "./projectChatWindowingBoundsState";
-import { clearTrackedGitPaneGraphWindowIfMatches } from "./projectChatWindowingEphemeral";
 import { setProjectChatWindowPlacementInState } from "./projectChatWindowingPlacementState";
+import { clearTrackedGitPaneGraphWindowIfMatches } from "./projectChatWindowingTrackedGitPaneState";
 import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import { canMutateProjectChatWindowingLayout } from "./projectChatWindowingWriteState";
 import { getCurrProjectConfigId } from "./sectionInfos";

@@ -1,6 +1,5 @@
 import { useProjectState } from "state/definitions";
 import { useSettings } from "state/stores/uiPreferenceStores";
-import { clearTrackedGitPaneGraphWindowIfMatches } from "./projectChatWindowingEphemeral";
 import {
   addProjectChatWindowInstanceInState,
   type CreateProjectChatWindowInstanceOptions,
@@ -14,6 +13,7 @@ import {
   unmaximizeProjectChatWindowInState,
 } from "./projectChatWindowingPlacementState";
 import { shouldSyncActiveProjectChatId } from "./projectChatWindowingSelectors";
+import { clearTrackedGitPaneGraphWindowIfMatches } from "./projectChatWindowingTrackedGitPaneState";
 import {
   applyProjectChatWindowingMutationLocally,
   dispatchProjectChatWindowingMutation,

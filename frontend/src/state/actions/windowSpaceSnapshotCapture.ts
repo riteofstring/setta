@@ -1,6 +1,6 @@
 import { normalizeFloatingBounds } from "components/ChatWindowing/projectChatSnapLayout";
 import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/projectChatViewport";
-import { isProjectChatGitGraphEmbeddedPaneVisible } from "state/actions/projectChatWindowingEphemeral";
+import { isProjectChatGitGraphEmbeddedPaneVisible } from "state/actions/projectChatWindowingEmbeddedPaneVisibility";
 import type { ZustandProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,

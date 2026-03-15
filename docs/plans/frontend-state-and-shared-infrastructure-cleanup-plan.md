@@ -46,6 +46,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `projectChatWindowingWritePipeline.ts`, and the public mutation facade to
   `projectChatWindowingWrites.ts`, alongside
   `projectChatWindowingAuthoritative.ts` and
+  `projectChatWindowingEphemeralKeys.ts`,
+  `projectChatWindowingTrackedGitPaneState.ts`,
+  `projectChatWindowingEmbeddedPaneVisibility.ts`, and
   `projectChatWindowingEphemeral.ts`; future cleanup should keep building on
   those seams.
 - `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
@@ -304,12 +307,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowingEphemeral.ts` at 299 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 297 lines
   - `frontend/src/state/actions/keyShortcutRegistrationGroups.ts` at 294 lines
   - `frontend/src/state/actions/gitGraphLoadState.ts` at 294 lines
   - `frontend/src/state/actions/uiSettingRevealExecution.ts` at 287 lines
   - `frontend/src/state/actions/keyActivations.ts` at 286 lines
+  - `frontend/src/state/actions/aiChatStreamingRouting.ts` at 278 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -685,6 +688,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingTrackedGitPane.ts` now owns:
   - tracked git-pane graph window reuse
   - maximize and title refresh for the pane-following git graph surface
+- `projectChatWindowingTrackedGitPaneState.ts` now owns:
+  - tracked git-pane instance-key reads and writes
+  - tracked git-pane validity reconciliation against authoritative window state
+- `projectChatWindowingEmbeddedPaneVisibility.ts` now owns:
+  - embedded git-pane visibility reads and toggles
+  - project-scoped replace and authoritative prune reconciliation
+- `projectChatWindowingEphemeralKeys.ts` now owns:
+  - project-scoped ephemeral window key build and parse helpers
 - `projectChatWindowingNormalization.ts` now owns:
   - pure windowing normalization
   - default floating and docked bounds helpers for UI readers and reducers
@@ -718,6 +729,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowing.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
   - write-helper re-exports shared by legacy callers and tests
+- `projectChatWindowingEphemeral.ts` now owns:
+  - compatibility re-exports for callers that have not moved yet
+  - tracked-window and embedded-visibility reconciliation composition
 - `aiLLMConfiguration.ts` now owns:
   - LLM config load/save behavior
 - `aiManagedApiKeys.ts` now owns:
@@ -803,7 +817,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Continue routing new optimistic write paths through
   `projectStateOptimisticUpdates.ts` instead of rebuilding queue or rollback
   helpers inside feature query modules.
-- Reuse seams that already exist in `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
+- Reuse seams that already exist in `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
 - Avoid each domain hand-rolling slightly different optimistic update scaffolding.
 
 4. Split cross-cutting interaction utilities

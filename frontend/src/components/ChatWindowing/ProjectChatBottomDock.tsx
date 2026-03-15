@@ -59,14 +59,14 @@ import {
 import { RiChat3Line } from "react-icons/ri";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import {
-  clearTrackedGitPaneGraphWindowIfMatches,
-  getTrackedGitPaneGraphWindowInstanceIdForProject,
-} from "state/actions/projectChatWindowingEphemeral";
-import {
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
 } from "state/actions/projectChatWindowingNormalization";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
+import {
+  clearTrackedGitPaneGraphWindowIfMatches,
+  getTrackedGitPaneGraphWindowInstanceIdForProject,
+} from "state/actions/projectChatWindowingTrackedGitPaneState";
 import {
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,

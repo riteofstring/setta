@@ -1,7 +1,7 @@
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useAIStore } from "state/stores/aiStores";
 import { type ProjectChatWindowingState } from "utils/generatedTypes";
-import { getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject } from "./projectChatWindowingEphemeral";
+import { getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject } from "./projectChatWindowingEmbeddedPaneVisibility";
 import { enqueueSerializedProjectChatWindowingWrite } from "./projectChatWindowingWritePipeline";
 import {
   primeAuthoritativeProjectChatWindowingState,

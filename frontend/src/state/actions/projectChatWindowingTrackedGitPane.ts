@@ -3,10 +3,6 @@ import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
 } from "utils/generatedTypes";
-import {
-  resolveTrackedGitPaneGraphWindowInstanceId,
-  setTrackedGitPaneGraphWindowInstanceId,
-} from "./projectChatWindowingEphemeral";
 import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
 import {
   focusProjectChatWindowInState,
@@ -14,6 +10,10 @@ import {
   reopenProjectChatWindowInState,
 } from "./projectChatWindowingPlacementState";
 import { setProjectChatWindowTitleInState } from "./projectChatWindowingState";
+import {
+  resolveTrackedGitPaneGraphWindowInstanceId,
+  setTrackedGitPaneGraphWindowInstanceId,
+} from "./projectChatWindowingTrackedGitPaneState";
 import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {
   canMutateProjectChatWindowingLayout,
