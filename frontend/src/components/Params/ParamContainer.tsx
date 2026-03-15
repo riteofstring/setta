@@ -90,7 +90,6 @@ function _ParamContainer({
   );
   const hasChildRows = renderChildren.length > 0;
   const shouldRenderNestedChildSubtrees = hasChildRows;
-  const useExplicitLeafGrid = !isNestedParam && !hasChildRows;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -99,11 +98,11 @@ function _ParamContainer({
     ? NESTED_CHILD_ROW_CLASS_NAME
     : "";
 
-  if (useExplicitLeafGrid) {
+  if (!isNestedParam) {
     return (
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${nestedChildRowClassName} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+        className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${nestedChildRowClassName} ${shouldRenderNestedChildSubtrees ? "justify-between gap-y-1" : ""} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
         style={dndStyle}
         data-param-row="true"
         {...floatingBoxHandlers}
@@ -125,48 +124,21 @@ function _ParamContainer({
         {hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
         )}
+        {shouldRenderNestedChildSubtrees && (
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            isNestedChildInTree={true}
+          />
+        )}
       </article>
     );
   }
-
-  return !isNestedParam ? (
-    <article
-      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center justify-between rounded-sm px-[2px] ${nestedChildRowClassName} ${shouldRenderNestedChildSubtrees ? "gap-y-1" : ""} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
-      style={dndStyle}
-      data-param-row="true"
-      {...floatingBoxHandlers}
-      onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-      onClick={onClick}
-      ref={dndRef}
-      {...(dndAttributes ?? {})}
-      {...(dndListeners ?? {})}
-      tabIndex={-1}
-      role={undefined}
-    >
-      {children}
-      <ParamInput
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        maybeErrorMessage={errorMessage}
-      />
-      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-      {hasError && (
-        <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-      )}
-      {shouldRenderNestedChildSubtrees && (
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={renderChildren}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          isNestedChildInTree={true}
-        />
-      )}
-    </article>
-  ) : (
+  return (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={`section-args-nested ${isNestedChildInTree ? "section-key-value" : "section-lg-value"} group/arg-group section-min-rows [&>p]:section-key-value relative grid items-center justify-between gap-y-1 rounded-sm ${nestedChildRowClassName} ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}

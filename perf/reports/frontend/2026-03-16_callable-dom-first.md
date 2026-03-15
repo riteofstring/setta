@@ -397,3 +397,30 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this removes a real row/tree wrapper instead of only moving classes around
   - the accepted result keeps the nested child visibly indented, preserves the baseline geometry contract, and holds the screenshot parity gate
+
+### Phase 2 checkpoint 3: non-nested real-row branch unification
+
+- Date/time: 2026-03-16
+- Scope:
+  - removed the `useExplicitLeafGrid` branch split from `frontend/src/components/Params/ParamContainer.tsx`
+  - collapsed the two non-nested real-row render paths into one shared row path
+  - kept the nested-parent row path separate and applied `justify-between gap-y-1` only when nested child rows are present
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable surface remained visually aligned after the branch unification
+- Live control-scene read:
+  - callable subtree nodes:
+    - `main`: `125`
+    - worktree: `100`
+  - visible param rows: `7` on both `main` and the worktree
+- Interpretation:
+  - this checkpoint does not reduce DOM count further on the stable control scene
+  - it does reduce `ParamContainer` branch complexity by removing a redundant non-nested row split, which makes the row/tree ownership boundary slightly deeper before the next DnD-shell step

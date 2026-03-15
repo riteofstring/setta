@@ -463,3 +463,31 @@ Append-only log for the callable DOM-first performance refactor.
     - both keep the nested child visibly indented relative to the top-level `mode` row, which satisfies the baseline geometry contract
 - Next action:
   - Continue Phase 2 with the next row/tree checkpoint only if it removes another real row/tree wrapper or contract layer without reopening the now-stable nested child geometry.
+
+### 2026-03-16 29
+
+- Item: Phase 2 checkpoint 3 non-nested real-row branch unification.
+- Status: `done`
+- Details:
+  - Removed the `useExplicitLeafGrid` split from `frontend/src/components/Params/ParamContainer.tsx`.
+  - Collapsed the two non-nested real-row render branches into a single row path, while keeping the nested-parent row branch separate.
+  - Kept the existing non-nested row contract intact by applying `justify-between gap-y-1` only when nested child rows are actually present.
+  - This deepens `ParamContainer` slightly by hiding a branch distinction that callers and adjacent row-tree modules do not need to know about.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the branch unification.
+  - Live control-scene read:
+    - callable subtree nodes:
+      - `main`: `125`
+      - worktree: `100`
+    - visible param rows: `7` on both `main` and the worktree
+    - the accepted worktree control scene preserved the same pinned and nested-child geometry as checkpoint 28
+- Next action:
+  - Continue Phase 2 only if the next step removes another row/tree seam with real contract value, ideally around DnD placeholder ownership or duplicated row-shell responsibilities across `ParamContainer` and `ParamSwitch`.
