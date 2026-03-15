@@ -249,4 +249,23 @@ describe("SectionContainerCore", () => {
         ?.getAttribute("data-user-view"),
     ).toBe("true");
   });
+
+  it("does not add gesture-time compositor promotion styles during viewport interaction", () => {
+    mockViewportInteractionActive = true;
+
+    act(() => {
+      root.render(
+        <SectionContainerCore sectionId="section-1" isUserView={false} />,
+      );
+    });
+
+    const section = host.querySelector(
+      'section[data-section-id="section-1"]',
+    ) as HTMLElement | null;
+    expect(section).not.toBeNull();
+    expect(section?.style.willChange).toBe("");
+    expect(section?.style.transform).toBe("");
+    expect(section?.style.backfaceVisibility).toBe("");
+    expect(section?.style.isolation).toBe("");
+  });
 });
