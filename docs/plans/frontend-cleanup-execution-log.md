@@ -4495,3 +4495,29 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/websocketIncomingUISettingReveal.ts`
     so ACK routing, store writes, and activation follow-up handling stop
     sharing one websocket event surface.
+
+## 2026-03-15 12:12:04 PDT
+
+- Slice completed: split websocket UI setting reveal ACK routing and execution handling
+- Key files touched:
+  - `frontend/src/state/actions/websocketIncomingUISettingRevealAck.ts`
+  - `frontend/src/state/actions/websocketIncomingUISettingRevealExecution.ts`
+  - `frontend/src/state/actions/websocketIncomingUISettingReveal.ts`
+  - `frontend/src/state/actions/websocketIncomingUISettingRevealAck.test.ts`
+  - `frontend/src/state/actions/websocketIncomingUISettingRevealExecution.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/websocketIncomingUISettingRevealAck.test.ts src/state/actions/websocketIncomingUISettingRevealExecution.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/websocketIncomingUISettingReveal.ts src/state/actions/websocketIncomingUISettingRevealAck.ts src/state/actions/websocketIncomingUISettingRevealExecution.ts src/state/actions/websocketIncomingUISettingRevealAck.test.ts src/state/actions/websocketIncomingUISettingRevealExecution.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual websocket/state ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `5af09ae01a8a90f2d66b6fbbb42f2fcbd841e175`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/edgeHandles.ts` so edge handle lookup,
+    drag activation, and canvas hit-target ownership stop sharing one action
+    surface.
