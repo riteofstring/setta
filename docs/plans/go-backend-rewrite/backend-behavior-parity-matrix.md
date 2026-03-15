@@ -5,7 +5,7 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `4f9777e9f44fe6be2f423d63066130b6a5ea5330`
+- Target head: `364c99f3724d9534460b04d0b21d2f70d1ec387e`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -32,9 +32,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `209`
+- Rows audited in this pass: `210`
 - Status counts:
-  - `Proved`: `201`
+  - `Proved`: `202`
   - `Intentional divergence`: `5`
   - `Dormant / unproven caller`: `3`
 - Audit fixes landed while building this matrix:
@@ -162,8 +162,8 @@ Last audited: `2026-03-16`
     subset audited here
   - remaining settings typed-validation / invalid-JSON transport-detail rows
     beyond the mode-guard subset audited here
-  - remaining app-definition invalid-JSON and missing-app-spec detail rows
-    beyond the catalog / mode-guard / invalid-set subset audited here
+  - remaining app-definition invalid-JSON and not-found/detail rows beyond the
+    catalog / mode-guard / invalid-set / missing-file-read subset audited here
   - remaining UI-setting corrupt-config, reveal-after-set, affinity-precedence,
     and reveal-lease rows beyond the search/temporary-id/share-routing/
     plugin-invalid-entry subset audited here
@@ -357,6 +357,7 @@ Last audited: `2026-03-16`
 | `app_definition.http_launcher_mode_not_blocked_and_missing_manager_404_detail` | `backend/setta/routers/project_manager.py::{route_get_app_definition,route_validate_app_definition,route_set_app_definition}` only call `_deny_deployment_mode_structural` and then return `404 "Project manager not available."` when `project_manager_switcher.main` is absent | `internal/httpapi/app_definition_routes.go::{getAppDefinitionHandler,validateAppDefinitionHandler,setAppDefinitionHandler,appDefinitionModeDetail}` | `TestRegisterAppDefinitionRoutesAllowsLauncherModeWhenRuntimePresent`; `TestRegisterAppDefinitionRoutesReturns404DetailWhenProjectManagerUnavailable` | `frontend/src/utils/generatedEndpoints.ts` still exposes the direct app-definition HTTP routes outside the MCP path | `Proved` | Launcher mode no longer hits a Go-only mode guard: app-definition HTTP routes now run when a runtime exists and return the source `404 {"detail":"Project manager not available."}` when it does not. |
 | `app_definition.http_deployment_mode_forbidden_detail` | `backend/setta/routers/project_manager.py::{route_get_app_definition,route_validate_app_definition,route_set_app_definition}`; `_deny_deployment_mode_structural` | `internal/httpapi/app_definition_routes.go::appDefinitionModeDetail` | `TestRegisterAppDefinitionRoutesBlocksDeploymentModesWithStructuralDetail` | the same direct HTTP app-definition routes remain registered on the frontend-visible API surface | `Proved` | Deployment/share/app mode requests once again fail with the source structural-change detail body instead of the generic Go mode envelope. |
 | `app_definition.get.loads_stored_spec_from_app_spec_path` | `tests/project_state/test_app_definition.py::test_set_app_definition_persists_spec`; `backend/setta/project_state/base_project_manager.py::get_app_definition` | `internal/projectstate/app_definition_reads.go::GetAppDefinition` | `TestRuntimeGetAppDefinitionReturnsStoredSpec`; `TestRegisterAppDefinitionRoutesGetsStoredDefinition`; `TestMCPToolCallRouteSupportsGetAppDefinition`; `TestAppIDEMCPToolCallRouteSupportsGetAppDefinition` | both the direct app-definition HTTP route and the MCP tool route still return stored app-spec content from disk | `Proved` | Once metadata points at an app-spec file, reads still load the persisted spec from that path instead of serving stale in-memory-only data. |
+| `app_definition.get.missing_stored_spec_returns_nil_without_error` | `backend/setta/project_state/base_project_manager.py::get_app_definition`; `backend/setta/app/spec_store.py::read_app_spec` returns `None` for missing or empty files | `internal/projectstate/app_definition_reads.go::GetAppDefinition`; `internal/appspec/store.go::Read` | `TestRuntimeGetAppDefinitionReturnsNilSpecWhenStoredFileIsMissing`; `TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing` | `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` still hydrates with `response.data.appSpec ?? null` from `route_get_app_definition` | `Proved` | When metadata points at a missing app-spec file, direct reads still return the stored app-definition metadata with `appSpec=null` instead of failing the request. |
 | `app_definition.validate.capabilities_happy_path` | `tests/project_state/test_app_definition.py::test_validate_app_definition_returns_capabilities`; `backend/setta/project_state/base_project_manager.py::validate_app_definition`; `backend/setta/app/definition_diagnostics.py::validate_app_definition_payload` | `internal/projectstate/app_definition_reads.go::ValidateAppDefinition`; `internal/appspec/diagnostics.go::BuildCapabilities` | `TestRuntimeValidateAppDefinitionReturnsCapabilities`; `TestRegisterAppDefinitionRoutesValidatesDefinition`; `TestMCPToolCallRouteSupportsValidateAppDefinition`; `TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition` | `validate_app_definition` remains available on the bounded HTTP and MCP tool surfaces | `Proved` | Validation still returns a zero-error happy path with catalog/version capability metadata derived from the active app-definition inputs. |
 | `app_definition.validate.accumulates_errors_and_warnings` | `tests/project_state/test_app_definition.py::test_validate_app_definition_reports_unknown_component`; `...reports_theme_errors`; `...warns_on_run_missing_section_id`; `...warns_on_ignored_theme_vars`; `...warns_on_external_assets`; `...accumulates_multiple_errors` | `internal/projectstate/app_definition_reads.go::ValidateAppDefinition`; `internal/appspec/validation.go`; `internal/appspec/diagnostics.go` | `TestRuntimeValidateAppDefinitionReportsWarningsAndMultipleErrors`; `TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition` | the retained MCP validation tool still returns structured `errors` and `warnings` to callers | `Proved` | App-definition validation still accumulates multiple structural errors and non-fatal warnings in one response instead of short-circuiting on the first issue. |
 | `app_definition.set.persists_spec_and_metadata` | `tests/project_state/test_app_definition.py::test_set_app_definition_persists_spec`; `backend/setta/project_state/base_project_manager.py::set_app_definition` | `internal/projectstate/app_definition_writes.go::SetAppDefinition` | `TestRuntimeSetAppDefinitionPersistsSpecAndMetadata`; `TestRegisterAppDefinitionRoutesPersistsDefinition`; `TestMCPToolCallRouteSupportsSetAppDefinition`; `TestAppIDEMCPToolCallRouteSupportsSetAppDefinition` | `set_app_definition` remains active on both the project HTTP route family and the MCP tool surface | `Proved` | Persisted app-definition writes still normalize the target path, save the app spec to disk, and store matching app-definition metadata in project state. |
