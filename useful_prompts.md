@@ -96,7 +96,7 @@ Output requirements:
 
 Goal: clean up the authored frontend so it is easier for coding agents and humans to navigate, understand, debug, and modify, while preserving behavior and keeping or improving performance.
 
-This stage of the cleanup is about first-hop surfaces: the large files a contributor opens first to understand a feature. Do not default to polishing already-improved internals or splitting smaller state modules unless that is required to shrink one of those entry surfaces.
+This stage is about unresolved front-door surfaces: the large files a contributor still opens first to understand a feature. Do not default to polishing already-improved coordinators or splitting smaller state modules unless that is required to shrink one of those front doors in the same turn.
 
 This is an autonomous execution session. Work independently from the current tree and docs. Do not follow stale plan snapshots blindly.
 
@@ -106,41 +106,50 @@ Read in this order:
 2. `docs/plans/frontend-cleanup-plan-index.md`
 3. `docs/plans/frontend-cleanup-plan.md`
 4. `docs/plans/frontend-cleanup-execution-log.md` if it exists
-5. The one companion plan that matches the front-door surface you pick:
-   - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
-   - `docs/plans/frontend-pages-shell-cleanup-plan.md`
-   - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
-   - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
-   - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
-   - `docs/plans/frontend-forks-cleanup-plan.md` when the slice directly touches `frontend/src/forks/**`
+5. The one companion plan that matches the root surface you pick:
+   - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md` for `ProjectChat.tsx`, `ProjectChatCore.tsx`, `ProjectAISettings.tsx`, `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatBottomDock.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx`
+   - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md` for `GitGraphOverlay.tsx`, `PluginsPane.tsx`, `RunInstructions.tsx`, `FileBrowserPane.tsx`, `AppConfigPane.tsx`, and overview/UI-editor surfaces
+   - `docs/plans/frontend-sections-and-params-cleanup-plan.md` for `ChatArea.tsx`, `TaskBoardArea.tsx`, `BrowserArea.tsx`, and shared section/param surfaces
+   - `docs/plans/frontend-pages-shell-cleanup-plan.md` for `HomePage.tsx`, router/page-shell work, and standalone project/window-space surfaces
+   - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md` only when the slice starts directly from `frontend/src/plugins/runtime.ts` or when lower-level shared state work is required by the same-turn front-door simplification
+   - `docs/plans/frontend-forks-cleanup-plan.md` only when the slice directly touches `frontend/src/forks/**`
+   - For `frontend/src/components/App/appRegistry.tsx`, there is no dedicated companion plan yet; use the core plan plus nearby code/tests, and only pull in the state/shared plan if the slice crosses into runtime/store boundaries
 6. A second companion plan only if the slice truly crosses domains
 
 Treat `frontend/src/README.md` as the current source of truth for hotspot rankings, ownership, and placement rules.
 Treat older execution-log "next slice" notes as historical context, not automatic instructions.
-Choose the companion plan for the entry surface you are shrinking, not for the first helper you expect to touch underneath it.
+Choose the companion plan for the root surface you are shrinking, not for the first helper you expect to touch underneath it.
+If the docs and the current tree disagree, trust the current tree and update the docs in the same turn when your slice materially changes the map.
 
 Default slice-selection rules:
 
-- Pick one slice that materially improves a current front-door hotspot or removes one major mixed responsibility from that hotspot.
+- Pick one slice that materially shrinks a current front-door hotspot or removes one major mixed responsibility from that hotspot.
 - Default priority order is:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
-  - `frontend/src/plugins/runtime.ts`
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
-- Do not choose `ChatMessages.tsx`, `ChatInput.tsx`, or another already-improved inner surface while a same-domain higher-priority front-door file remains untouched, unless your slice directly simplifies that higher-priority file.
-- Do not choose a smaller `state/actions` or `state/hooks` split while a same-domain 2000+ UI file remains, unless the lower-level split is a direct prerequisite for simplifying that UI file.
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+- Do not start with `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ChatInput.tsx`, `ChatMessages.tsx`, `FileBrowserPane.tsx`, or `BrowserArea.tsx` while a same-domain higher-priority front door above remains unresolved, unless your slice directly shortens that higher-priority file.
+- Do not choose a smaller `state/actions` or `state/hooks` split while a same-domain front-door file above is still the clearer entry point, unless the lower-level split is a direct prerequisite for simplifying that file in the same turn.
 - Treat thin compatibility facades as transitional debt, not as default cleanup targets. Do not spend a turn creating or extending a facade/barrel unless the same turn also shrinks a front-door hotspot.
 - Prefer feature-local extraction: pure helpers, selectors, hooks, render subcomponents, and command adapters next to the owning large file.
 - Do not move mixed responsibilities from one giant file into another giant helper. Prefer a coordinator plus several narrow local owners over a coordinator plus one new 1000+ helper file.
+- If you pick `frontend/src/components/App/appRegistry.tsx` or `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`, add or update direct Vitest coverage for the extracted ownership boundary as part of the same slice.
+- Local feature `README.md` files are supporting work only. Add them after a root surface stabilizes; do not spend a cleanup slice on docs-only churn.
 
 Autonomy rules:
 

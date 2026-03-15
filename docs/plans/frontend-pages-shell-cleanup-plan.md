@@ -17,10 +17,14 @@ Make page-level code easy to follow by giving routing, page loading, page shells
   - chat-specific rendering internals
   - project chat windowing implementation details already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
 
-## Status Refresh (2026-03-14)
+## Status Refresh (2026-03-15)
 
 - `router.tsx` is no longer the only routing boundary. `routeConfig.ts` and `modeRouteResolver.ts` already exist and should be treated as the first stable seams for continued cleanup.
 - The main page-shell work left on this branch is still `HomePage.tsx` plus the standalone project/window-space surfaces. Those areas have not been split to the same degree yet.
+- This domain is now secondary to the larger unresolved project-chat, git,
+  pane, section-layout, runtime, and app-mode front doors. When page work is
+  the right next slice, `HomePage.tsx` is the default starting point rather
+  than router-only churn.
 
 ## Current State (Observed)
 
@@ -62,22 +66,7 @@ Make page-level code easy to follow by giving routing, page loading, page shells
 
 ## Plan
 
-1. Split route assembly from route behavior
-
-- Continue moving mode-specific wrapper composition out of `router.tsx` into small route modules, building on `routeConfig.ts` and `modeRouteResolver.ts`.
-- Keep `router.tsx` as the assembly point for paths and top-level route trees.
-- Extract retry/loading/error shells for server-mode initialization so they are not inline route clutter.
-
-2. Refactor page loaders and guards
-
-- Create explicit page-level loader/guard helpers for:
-  - project loading
-  - standalone chat/share-policy access
-  - share home fallback behavior
-  - launcher-specific availability checks
-- Keep page renderers focused on UI state once loading/guard conditions are resolved.
-
-3. Split the home page by responsibility
+1. Split the home-page front door before router-only cleanup
 
 - Break `HomePage.tsx` into:
   - metadata bootstrap/load path
@@ -85,7 +74,23 @@ Make page-level code easy to follow by giving routing, page loading, page shells
   - layout mode calculation
   - project list/gallery rendering
   - workspace/file-browser side pane
-- Add a small domain README for home-page ownership and entry points.
+- Add a small domain README for home-page ownership only after those boundaries
+  stabilize.
+
+2. Split route assembly from route behavior
+
+- Continue moving mode-specific wrapper composition out of `router.tsx` into small route modules, building on `routeConfig.ts` and `modeRouteResolver.ts`.
+- Keep `router.tsx` as the assembly point for paths and top-level route trees.
+- Extract retry/loading/error shells for server-mode initialization so they are not inline route clutter.
+
+3. Refactor page loaders and guards
+
+- Create explicit page-level loader/guard helpers for:
+  - project loading
+  - standalone chat/share-policy access
+  - share home fallback behavior
+  - launcher-specific availability checks
+- Keep page renderers focused on UI state once loading/guard conditions are resolved.
 
 4. Split standalone project surfaces
 

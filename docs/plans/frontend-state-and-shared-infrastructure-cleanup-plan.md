@@ -23,6 +23,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   already done. The default next cleanup slices should usually start from the
   remaining giant render-heavy UI files, not from smaller `state/actions`
   modules.
+- The main exception is `frontend/src/plugins/runtime.ts`, which is still a
+  true front-door hotspot and can be a valid direct starting point in this
+  companion plan.
 - New state-layer work is justified when it directly simplifies a remaining
   large UI hotspot in the same domain, or when it deletes a compatibility
   facade after callers have converged on the narrower owning modules.
@@ -33,6 +36,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Treat the existing thin compatibility facades as acceptable transition
   surfaces for now. They are not the default target unless removing one will
   clearly shorten the debug path for a high-priority hotspot.
+- Do not choose `frontend/src/state/definitions.ts`,
+  `frontend/src/state/storeDefinitions.ts`, or another broad shared-state file
+  as a default cleanup target while `runtime.ts` or a same-domain UI front door
+  is still the clearer entry surface.
 - `frontend/src/plugins/runtime.ts` now delegates stable plugin-list and status
   reference reuse plus sorted section-kind, pane-tab, command, and top-nav
   derivation to `frontend/src/plugins/runtimeDerivedViews.ts`; future runtime

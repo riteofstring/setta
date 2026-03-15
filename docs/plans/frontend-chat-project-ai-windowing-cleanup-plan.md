@@ -22,23 +22,23 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - The largest unresolved frontend hotspots are still concentrated here:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 2092 lines after the local settings and engine-selection extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 2088 lines after the local empty-state extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 1472 lines after the local external-agent extraction
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1659 lines after the local docked/floating/maximized surface extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 1662 lines after the local slash-command extraction
   - `frontend/src/components/Chat/ChatInput.tsx` is now about 1606 lines after the local composer meta-controls extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 1472 lines after the local external-agent extraction
   - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1237 lines after the local chat-owner extractions and is no longer a top-size hotspot
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 914 lines after the local history-panel, folder-shell, and thread-row extraction and is no longer the blocking front-door hotspot in this domain.
 - The next default work in this domain should continue from the remaining
   large chat/project-AI surfaces a contributor still opens first:
   - `ProjectChat.tsx`
   - `ProjectChatCore.tsx`
-  - `ProjectChatBottomDock.tsx`
+  - `ProjectAISettings.tsx`
   - `ProjectChatSkillsMcpViewer.tsx`
-  - `ChatInput.tsx`
-- `ChatMessages.tsx` and `ChatInput.tsx` still matter, but they are now
-  follow-through slices unless they directly simplify those entry surfaces or
-  one of the already-extracted helper files becomes its own mixed-responsibility
-  hotspot.
+  - `ProjectChatBottomDock.tsx`
+- `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx` still
+  matter, but they are now follow-through slices unless they directly simplify
+  those entry surfaces or one of the already-extracted helper files becomes its
+  own mixed-responsibility hotspot.
 - Many lower-level seams already exist and should be treated as stable enough:
   - `frontend/src/components/Chat/chatAssistantActivity.ts` now owns assistant activity or timeline derivation, thought-summary labels, activity-only grouping checks, and assistant tool-copy text builders for `ChatMessages.tsx`
   - `frontend/src/components/Chat/chatStructuredOutput.tsx` now owns structured output payload inference, diff classification, formatted tool-result text extraction, and the resizable structured-output surface for `ChatMessages.tsx`
@@ -76,6 +76,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - Future cleanup in this domain should default to simplifying the giant
   render-heavy files above instead of creating more facade-only state modules or
   moving mixed responsibilities into new 1000+ local helper files.
+- Local `README.md` files in `ProjectLevelAI/`, `Chat/`, or `ChatWindowing/`
+  are useful only after one of the roots above stabilizes. Do not spend a
+  slice on docs-only work while those front doors remain large.
 
 ## Current Problems
 
@@ -115,13 +118,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 ## Plan
 
-1. Simplify the project-AI entry surfaces first
+1. Simplify the main project-chat entry surfaces first
 
-- Start with the remaining largest project-AI/windowing entry surfaces such as
-  `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ProjectChat.tsx`,
-  and `ProjectChatCore.tsx`, then continue into
-  `ProjectChatSkillsMcpViewer.tsx` only when the skills browser or MCP viewer
-  is the clearest same-turn seam.
+- Start with `ProjectChat.tsx` and `ProjectChatCore.tsx`.
 - Keep those files as the obvious entry surfaces, but move clearly named
   responsibilities out of them:
   - aux-view persistence and routing
@@ -132,7 +131,20 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - A good slice in this phase removes one major responsibility from one of these
   files and makes the new owner obvious from the caller.
 
-2. Simplify the remaining `ProjectChatHistory.tsx` coordinator and `ProjectChatBottomDock.tsx` only where it shortens the main path
+2. Continue into the next project-AI roots, not the follow-through coordinators
+
+- After `ProjectChat.tsx` and `ProjectChatCore.tsx`, default next to
+  `ProjectAISettings.tsx` and `ProjectChatSkillsMcpViewer.tsx`.
+- Keep pushing clearly named responsibilities out of those files:
+  - deployment-mode gating and guardrail persistence
+  - manager routing and accordion composition
+  - skill selection/filtering and skill-content loading
+  - MCP runtime grouping and aux-view routing
+- Treat `ProjectChatBottomDock.tsx` as the next windowing root only after the
+  main project-AI front doors above are materially smaller, unless the same
+  slice directly shortens their path.
+
+3. Simplify `ProjectChatBottomDock.tsx` and `ProjectChatHistory.tsx` only where they shorten the main path
 
 - Keep the existing history view-model, history render-owner, DnD, dock-layout,
   resize, pill-strip, floating-interaction, and window-shell seams.
@@ -145,7 +157,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   `projectChatFloatingInteractions.ts`, split that helper only when it reduces
   the number of files a contributor must traverse from `ProjectChatBottomDock.tsx`.
 
-3. Treat `ChatInput.tsx` and `ChatMessages.tsx` as follow-through cleanup, not default starting points
+4. Treat `ChatInput.tsx` and `ChatMessages.tsx` as follow-through cleanup, not default starting points
 
 - Keep the existing chat-local owners for activity derivation, structured
   output, attachments, markdown rendering, runtime hooks, submission, and
@@ -156,7 +168,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - the change directly simplifies `ProjectChat.tsx`, `ProjectChatCore.tsx`, or
     another higher-priority entry surface.
 
-4. Add local ownership docs once a root surface stabilizes
+5. Add local ownership docs once a root surface stabilizes
 
 - For any stabilized chat/project-AI/windowing root, add a short local
   `README.md` describing:

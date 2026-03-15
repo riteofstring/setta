@@ -41,10 +41,35 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 5. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
 6. Re-check the current tree before acting on any exact file-size or hotspot claim in these docs.
 
+## Current Default Starting Points (2026-03-15)
+
+- The highest-value unresolved front-door hotspots are:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+- Already-improved coordinators and smaller follow-through surfaces such as
+  `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ChatInput.tsx`,
+  `ChatMessages.tsx`, `FileBrowserPane.tsx`, and `BrowserArea.tsx` are now
+  second-order work unless the same slice directly shortens one of the entry
+  surfaces above.
+- Local feature `README.md` files are useful once a root surface stabilizes,
+  but they should not be the primary work item for a cleanup slice.
+
 ## Coverage Notes
 
 - Chat, project-AI, and project chat windowing hotspots now have a dedicated companion plan in [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
-- Overview and authoring hotspots, including `FileBrowserPane.tsx`, are covered in [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
-- Browser/layout surfaces such as `BrowserArea.tsx` remain covered in [frontend-sections-and-params-cleanup-plan.md](./frontend-sections-and-params-cleanup-plan.md).
-- State/shared-infrastructure plans are usually secondary reading at this stage. Default to them only when a state or utility split is a direct prerequisite for shrinking a still-large UI entry surface.
+- Overview and authoring hotspots, including `GitGraphOverlay.tsx`,
+  `PluginsPane.tsx`, `RunInstructions.tsx`, and `FileBrowserPane.tsx`, are
+  covered in [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
+- Browser/layout surfaces such as `ChatArea.tsx`, `TaskBoardArea.tsx`, and
+  `BrowserArea.tsx` remain covered in [frontend-sections-and-params-cleanup-plan.md](./frontend-sections-and-params-cleanup-plan.md).
+- Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
+- State/shared-infrastructure plans are usually secondary reading at this stage. Default to them only when a state or utility split is a direct prerequisite for shrinking a still-large UI entry surface, or when the slice starts directly from `frontend/src/plugins/runtime.ts`.
 - The companion plans cover the rest of the authored frontend surface so the cleanup roadmap is distributed rather than concentrated in one document.

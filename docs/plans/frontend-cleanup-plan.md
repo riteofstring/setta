@@ -71,8 +71,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - App and plugin runtime remain cleanup hotspots:
+  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 2040 lines
+  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` at 2023 lines
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/plugins/runtime.ts` at 1948 lines after the local project-state bridge extraction
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
+  - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
 
 ## Current Pivot (2026-03-15)
 
@@ -165,6 +169,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
+- The remaining high-leverage work is now split between a few unresolved 2000+
+  UI front doors and a small set of still-large cross-domain entry surfaces.
+  Default to those before revisiting already-improved coordinators such as
+  `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ChatInput.tsx`,
+  `ChatMessages.tsx`, `FileBrowserPane.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
@@ -172,14 +181,23 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
-  - `frontend/src/components/Chat/chatAssistantActivityCard.tsx`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+- Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
+  `ProjectChatBottomDock.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`, or
+  `ChatMessages.tsx` as a default starting point while a same-domain
+  higher-priority front door above remains unresolved, unless the slice
+  directly shortens that higher-priority path.
 - Do not pick a smaller `state/actions` or `state/hooks` split while a
   same-domain 2000+ line UI file remains, unless the lower-level extraction is
   a direct prerequisite for simplifying that larger file.
@@ -191,6 +209,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Treat the existing thin compatibility facades as acceptable transition
   surfaces for now, but do not add more facade-only hops unless the same slice
   also shrinks one of the top hotspots above.
+- `frontend/src/components/App/appRegistry.tsx` and
+  `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` are still large
+  front-door files without strong root-level colocated test coverage on this
+  branch. If a slice starts there, add direct Vitest coverage for the extracted
+  ownership boundary as part of the same change.
+- Local feature `README.md` files are useful once a root surface stabilizes,
+  but they are supporting work. Do not spend a cleanup slice on docs-only
+  churn.
 - Use [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
   for the shared chat/project-AI/windowing cluster,
   [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md)
@@ -818,95 +844,90 @@ Notes:
   - exceptions must be deliberate and documented
 - Define a small set of allowed patterns for store access, selector creation, transport wrappers, and test placement so Codex agents are not guessing.
 
-## Phase 1: Simplify Chat, Project AI, And Windowing First
+## Phase 1: Shrink The Remaining Front-Door Hotspots
 
-- Start with the highest-traffic shared path:
-  - `frontend/src/components/Chat/ChatMessages.tsx`
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Chat/ChatInput.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+- Start with the biggest unresolved first-hop surfaces:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
-- Use [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
-  as the detailed companion plan for this cluster.
-- Keep existing feature-local helpers in `frontend/src/components/Panes/Overview/ProjectLevelAI/` and adjacent chat directories as stable seams instead of folding behavior back into the large surface files.
-- Only take a lower-level chat/windowing state split when it is a direct
-  prerequisite for simplifying one of the render-heavy surfaces above.
-- Continue breaking `ChatMessages.tsx` only where a remaining local render seam is still worth the extra hop:
-  - assistant/user/system bubble shells
-  - message-level action bars and edit wiring
-  - grouped-row iteration helpers
-- Break `ChatInput.tsx` into:
-  - composer state
-  - attachment handling
-  - slash command resolution
-  - presentational subcomponents
-- Continue simplifying the lower-level chat/windowing action modules only when
-  the extraction removes mixed responsibilities from one of the large UI
-  surfaces above, for example around:
-  - chat submission/editing
-  - chat hydration
-  - chat streaming reducers
-  - agent runs
-  - engine/config loading
-  - transcription
-- Keep the existing chat virtualization work aligned with this phase by treating [chat-message-list-virtualization-plan.md](./chat-message-list-virtualization-plan.md) as part of the same chat cleanup track.
-
-## Phase 2: Make Store Ownership Obvious
-
-- Continue splitting the remaining cross-feature local store owners
-  (`frontend/src/state/storeDefinitions.ts`) while keeping
-  `frontend/src/state/definitions.ts` thin and continuing to retarget callers
-  onto extracted seams like `atomicProjectStorePublication.ts`,
-  `activeSectionSelection.ts`, and `activeSectionBackendSync.ts`.
-- Add selectors next to stores so components read derived data through named helpers instead of reconstructing it inline.
-- Reduce component-level `useStore.getState()` / `useStore.setState()` calls, especially in render-heavy UI surfaces.
-- Prefer named command functions for mutations so the write path is easy to locate.
-- Keep Zustand, but tighten access patterns instead of introducing a new state library.
-
-## Phase 3: Simplify Project Chat Windowing
-
-- Refactor `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` around its remaining tracked-git-pane commands and dock/floating window shells before considering more state-only windowing work.
-- Continue from the existing default-bounds/state-normalization/normalization/selector/instance-creation/instance-updates/instance-state/placement-state/bounds-state/layout-state/section-state/metadata-state/state/write-state/write-queue/write-publish/write-sync/write-pipeline/authoritative/ephemeral helper seams in `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
-- Separate:
-  - layout math
-  - pointer/keyboard interaction state
-  - persisted windowing mutations
-  - render shells
-  - animation state
-- Move reusable calculations into pure modules with focused tests.
-- Keep performance front and center for drag/resize and large multi-window scenarios.
-
-## Phase 4: Clean Up File Browser And Section Layouts
-
-- Refactor:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
-- Separate data loading/filtering/preview resolution from rendering.
-- Keep virtualization and large-folder behavior explicit and measurable.
-- Push expensive path/filter/search derivation into tested helpers/selectors before React render.
-- Reduce wrapper depth where possible to keep DOM shape flatter.
+- Use the matching companion plan for the root surface you choose.
+- Remove one major mixed responsibility at a time:
+  - hydration and preflight orchestration
+  - large render branches and shell composition
+  - toolbar or aux-view routing
+  - drag/resize or virtualization interaction ownership
+  - domain-specific view-model derivation
+- Prefer feature-local owners next to the root file over new cross-feature
+  helper layers.
 
-## Phase 5: Simplify App And Plugin Runtime Surfaces
+## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
-- Refactor:
-  - `frontend/src/components/App/appRegistry.tsx`
+- Once the phase-1 roots are smaller, continue into:
   - `frontend/src/plugins/runtime.ts`
-- Separate runtime registry concerns from renderers, bindings, capability checks, and markdown/media helpers.
-- Document the extension points clearly so agents know where to add new runtime component types or plugin hooks.
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+- Keep the entry surface obvious, but move clearly named responsibilities out of
+  it:
+  - registry vs renderer vs binding adapters in `appRegistry.tsx`
+  - runtime transport vs host API vs subscription/view-model work in
+    `runtime.ts`
+  - parsed-content orchestration vs runnable-control shells in
+    `RunInstructions.tsx`
+  - task/column commands vs DnD math vs board shells in `TaskBoardArea.tsx`
+  - data bootstrap vs search/favorites model vs presentational shells in
+    `HomePage.tsx`
 
-## Phase 6: Put Documentation Next To Code
+## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 
-- Add short `README.md` files for the major feature roots touched during cleanup.
+- Follow-through surfaces such as
+  `ProjectChatBottomDock.tsx`,
+  `ProjectChatSkillsMcpViewer.tsx`,
+  `ProjectAISettings.tsx`,
+  `FileBrowserPane.tsx`,
+  `BrowserArea.tsx`,
+  `ChatInput.tsx`,
+  `ChatMessages.tsx`, and
+  `ProjectChatHistory.tsx`
+  still matter, but they are no longer the default starting points.
+- Only continue there when:
+  - the slice directly shortens a higher-priority root surface, or
+  - an extracted helper has become the new real mixed-responsibility bottleneck.
+- Do not spend a turn polishing smaller state/action modules in these domains
+  unless that extraction is required to simplify the larger caller in the same
+  change.
+
+## Phase 4: Tighten Shared Store And Command Boundaries Only From Caller Pain
+
+- Keep making store ownership more explicit, but only where a large UI surface
+  still suffers from unclear read/write boundaries.
+- Prefer:
+  - named selectors close to the owning store
+  - named command modules for writes
+  - fewer ad hoc `getState()` / `setState()` calls inside JSX-heavy surfaces
+- Do not take a state-only slice just to split an already small module or to
+  create another thin compatibility facade.
+
+## Phase 5: Add Local Ownership Docs After A Root Surface Stabilizes
+
+- Once a feature root becomes meaningfully smaller and its boundaries hold
+  across a few slices, add a short local `README.md`.
+- Good candidates after stabilization include:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/`
+  - `frontend/src/components/Git/`
+  - `frontend/src/components/Section/Layouts/`
+  - `frontend/src/components/Panes/Overview/`
 - Each README should answer:
   - what this feature owns
   - main entry components
   - primary stores/selectors/commands
   - generated API dependencies
   - most relevant tests
-- This is high leverage for Codex agents because it reduces "search the tree until something looks right" work.
+- Do not spend a cleanup slice on README-only churn while large front-door
+  hotspots remain.
 
 ## Verification Strategy
 
@@ -927,11 +948,31 @@ Notes:
 
 ## Recommended Execution Order
 
-1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Git/GitGraphOverlay.tsx`, `components/Panes/Overview/Plugins/PluginsPane.tsx`, `components/Section/Layouts/ChatArea.tsx`, `plugins/runtime.ts`, `components/Chat/chatAssistantActivityCard.tsx`, `components/App/appRegistry.tsx`, `components/Section/Layouts/TaskBoardArea.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or `components/ChatWindowing/ProjectChatBottomDock.tsx`.
-3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a direct prerequisite for simplifying one of those larger hotspots or when it deletes a now-unnecessary compatibility surface after callers have converged.
-4. Continue project chat windowing, file browser, section layout, page, pane, and runtime cleanup from the companion plans once the highest current hotspot in that area is clear.
-5. Add feature READMEs as each area stabilizes.
+1. Refresh or add the module map, placement rules, and execution log only if
+   they are missing, stale, or changed by your slice.
+2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
+   usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+   `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`,
+   `components/Git/GitGraphOverlay.tsx`,
+   `components/Panes/Overview/Plugins/PluginsPane.tsx`,
+   `components/Section/Layouts/ChatArea.tsx`,
+   `plugins/runtime.ts`,
+   `components/Panes/Overview/RunInstructions.tsx`,
+   `components/App/appRegistry.tsx`,
+   `components/Section/Layouts/TaskBoardArea.tsx`,
+   `components/Pages/Home/HomePage.tsx`,
+   `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or
+   `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a
+   direct prerequisite for simplifying one of those larger hotspots or when it
+   deletes a now-unnecessary compatibility surface after callers have
+   converged.
+4. Continue into already-improved coordinators such as
+   `ProjectChatBottomDock.tsx`, `FileBrowserPane.tsx`, `BrowserArea.tsx`,
+   `ChatInput.tsx`, `ChatMessages.tsx`, or `ProjectChatHistory.tsx` only after
+   the larger same-domain front doors above are materially smaller, or when the
+   same-turn slice directly shortens them.
+5. Add feature `README.md` files only after each area stabilizes.
 
 ## Notes
 

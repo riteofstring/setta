@@ -11,9 +11,10 @@ Make section chrome and param rendering easy to change without touching measurem
 - In scope:
   - `frontend/src/components/Params/**`
   - `frontend/src/components/Section/**`
+  - `frontend/src/components/Section/Layouts/**`
   - shared section/param measurement and layout helpers
 - Out of scope:
-  - chat/browser/task-board layout internals already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
+  - project-level chat/project-AI surfaces already covered in [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
   - project-level page routing and pane shells
 
 ## Status Refresh (2026-03-15)
@@ -107,6 +108,14 @@ Make section chrome and param rendering easy to change without touching measurem
   `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts` and
   the schedule dropdown shell plus local recurrence editor state to
   `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`.
+- The next default work in this domain should now start from the remaining
+  layout front doors that contributors open first:
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+- Shared section/param infrastructure such as `GroupContainer.tsx`,
+  `ParamUI.tsx`, and `SectionHeader.tsx` still matters, but it is now support
+  work unless it directly shortens one of those layout roots.
 
 ## Current State (Observed)
 
@@ -123,12 +132,24 @@ Make section chrome and param rendering easy to change without touching measurem
   - `frontend/src/state/actions/sections/createSectionPlacement.ts` is 72
     lines for smart placement helpers
 - Main shared hotspots include:
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines
   - `frontend/src/components/Params/GroupContainer.tsx` at 999 lines
   - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx` at 944 lines
   - `frontend/src/components/Section/Layouts/CodeArea.tsx` at 934 lines
   - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` at 736 lines
   - `frontend/src/components/Section/Header/SectionHeader.tsx` at 735 lines
   - `frontend/src/components/Section/Layouts/DrawArea/useDrawModeMouseHandlers.ts` at 1039 lines
+- `ChatArea.tsx` now represents the main section-level chat front door and
+  should usually beat shared param infrastructure as a default cleanup target.
+- `TaskBoardArea.tsx` still mixes:
+  - task/column command orchestration
+  - DnD state and drop-target math
+  - board shell rendering for list and kanban modes
+  - inline task editing and completion heuristics
+- `BrowserArea.tsx` is smaller after the local preview-state extraction and is
+  now a follow-through surface unless a same-turn slice clearly shortens it.
 - `GroupContainer.tsx` mixes:
   - pinned/unpinned param rendering
   - DnD setup
@@ -163,12 +184,26 @@ Make section chrome and param rendering easy to change without touching measurem
 
 ## Plan
 
-1. Extract measurement and observer logic first
+1. Simplify the layout-heavy front doors first
+
+- Start with:
+  - `ChatArea.tsx`
+  - `TaskBoardArea.tsx`
+  - `BrowserArea.tsx` only after the first two or when it is the clearest
+    same-turn seam
+- Move clearly named responsibilities out of those files:
+  - section-chat orchestration vs render shells
+  - task/column commands vs DnD math vs board presentation
+  - preview/data loading vs render shells
+- Keep new owners feature-local to the layout surface instead of routing through
+  generic shared helpers too early.
+
+2. Extract measurement and observer logic where it supports those roots
 
 - Move section header height tracking, param-area measurement, and pinned/unpinned observer logic into dedicated hooks/modules.
 - Keep render files focused on composition and styling once the measurements are computed elsewhere.
 
-2. Split param rendering by control family
+3. Split param rendering by control family
 
 - Turn `ParamUI.tsx` into a small dispatcher over explicit control modules.
 - Co-locate each control’s:
@@ -178,7 +213,7 @@ Make section chrome and param rendering easy to change without touching measurem
   - tests
 - Keep shared permission/deployment rules in a small shared param policy layer.
 
-3. Separate section chrome from section-specific actions
+4. Separate section chrome from section-specific actions
 
 - Break `SectionHeader.tsx` into:
   - shared header shell
@@ -187,7 +222,7 @@ Make section chrome and param rendering easy to change without touching measurem
   - section action groups
 - Make it obvious where to add a new control without editing a long mixed-responsibility file.
 
-4. Simplify group/container infrastructure
+5. Simplify group/container infrastructure
 
 - Reduce the amount of layout, DnD, measurement, and render logic living in `GroupContainer.tsx`.
 - Standardize the boundaries between:
@@ -196,13 +231,15 @@ Make section chrome and param rendering easy to change without touching measurem
   - param area
   - layout body
 
-5. Apply the same boundaries to the next layout-heavy surfaces
+6. Apply the same boundaries to the next shared infrastructure surfaces
 
 - After shared section/param infrastructure is split, follow through on:
   - `CodeArea.tsx`
   - `useDrawModeMouseHandlers.ts`
   - draw/meta-control shared infrastructure
 - Prefer pure interaction helpers and selector-backed state access over large in-component orchestration.
+- If a slice starts from `TaskBoardArea.tsx`, add direct Vitest coverage for the
+  extracted task/column ownership boundary as part of the same change.
 
 ## Risks And Mitigations
 
