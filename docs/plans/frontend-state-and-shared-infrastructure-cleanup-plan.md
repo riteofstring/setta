@@ -371,12 +371,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `keyShortcutUtils.ts` is now the thin compatibility facade, and
   `keyActivationHandlers.ts` owns `Tab`/`Escape`, section-selection, and
   param-shortcut dispatch behavior.
-- `frontend/src/state/actions/stateMachineRunSelection.ts` now owns workflow
-  run filtering, latest-run selection, and browser polling/subscription
-  behavior, `frontend/src/state/actions/stateMachineRunMutations.ts` now owns
-  optimistic workflow start/stop/reset commands plus refresh-after-mutation
-  behavior, and `frontend/src/state/actions/stateMachineRuns.ts` is now the
-  thin compatibility facade.
+- `frontend/src/state/actions/stateMachineRunQueries.ts` now owns workflow
+  run filtering, share-session scoping, and latest-run selection,
+  `frontend/src/state/actions/stateMachineRunPolling.ts` now owns browser
+  polling, visibility refresh, and workflow-run subscriptions,
+  `frontend/src/state/actions/stateMachineRunSelection.ts` is now the thin
+  compatibility facade, `frontend/src/state/actions/stateMachineRunMutations.ts`
+  now owns optimistic workflow start/stop/reset commands plus
+  refresh-after-mutation behavior, and
+  `frontend/src/state/actions/stateMachineRuns.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessionTransport.ts` now owns websocket/session
   bootstrap plus stdin/output transport wiring, `terminalSessions.ts` now owns
@@ -391,9 +395,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/stateMachineRunSelection.ts` at 234 lines
   - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` at 234 lines
   - `frontend/src/state/actions/sectionLayoutQueries.ts` at 233 lines
+  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
+  - `frontend/src/state/actions/appSessionState.ts` at 229 lines
+  - `frontend/src/state/actions/customRuns.ts` at 227 lines
+  - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/customRuns.ts` at 227 lines
@@ -715,7 +722,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
 - `stateMachineRuns.ts` and adjacent helpers now split into:
-  - `stateMachineRunSelection.ts` for workflow run filtering, latest-run selection, and browser polling/subscription behavior
+  - `stateMachineRunQueries.ts` for workflow run filtering, share-session scoping, and latest-run selection
+  - `stateMachineRunPolling.ts` for browser polling, visibility refresh, and workflow-run subscriptions
+  - `stateMachineRunSelection.ts` as the thin compatibility facade
   - `stateMachineRunMutations.ts` for optimistic workflow start/stop/reset commands plus refresh-after-mutation behavior
   - `stateMachineRuns.ts` as the thin compatibility facade
 - `keyActivations.ts`, `keyActivationPressedKeys.ts`,

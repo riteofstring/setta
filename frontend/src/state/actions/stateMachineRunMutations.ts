@@ -10,7 +10,7 @@ import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 
 import { getCurrProjectConfigId } from "./sectionEffectiveImplSelectors";
 import { logWorkflowDebug } from "./stateMachineDebug";
-import { pollRunningStateMachineRunsForCurrentProject } from "./stateMachineRunSelection";
+import { pollRunningStateMachineRunsForCurrentProject } from "./stateMachineRunPolling";
 
 async function runStateMachineMutation({
   machineGroupId,

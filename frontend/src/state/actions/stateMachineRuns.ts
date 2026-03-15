@@ -3,7 +3,5 @@ export {
   startStateMachineRun,
   stopStateMachineRun,
 } from "./stateMachineRunMutations";
-export {
-  getLatestStateMachineRun,
-  subscribeStateMachineRunPolling,
-} from "./stateMachineRunSelection";
+export { subscribeStateMachineRunPolling } from "./stateMachineRunPolling";
+export { getLatestStateMachineRun } from "./stateMachineRunQueries";

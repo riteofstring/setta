@@ -294,8 +294,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - Workflow runs
 
-  - `state/actions/stateMachineRunSelection.ts` owns workflow run filtering,
-    latest-run selection, and browser polling/subscription behavior.
+  - `state/actions/stateMachineRunQueries.ts` owns workflow run filtering,
+    share-session scoping, and latest-run selection.
+  - `state/actions/stateMachineRunPolling.ts` owns browser polling,
+    visibility-triggered refresh, and workflow-run subscription behavior.
+  - `state/actions/stateMachineRunSelection.ts` is now the thin compatibility
+    facade over those read-side workflow-run owners.
   - `state/actions/stateMachineRunMutations.ts` owns optimistic workflow
     start/stop/reset commands plus refresh-after-mutation behavior.
   - `state/actions/stateMachineRuns.ts` is now the thin compatibility facade.
