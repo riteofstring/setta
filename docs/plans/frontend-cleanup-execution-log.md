@@ -3322,3 +3322,35 @@ module map and placement guide while this cleanup progresses.
     authored/shared hotspot at 304 lines, by separating tool-argument snapshot
     reads or writes from result-highlight and scope-violation timeout
     orchestration.
+
+## 2026-03-15 07:55:50 PDT
+
+- Slice completed: split AI-follow tool-argument snapshot ownership from
+  tool-result highlight and scope-violation timeout orchestration
+- Key files touched:
+  - `frontend/src/state/actions/aiFollowToolArguments.ts`
+  - `frontend/src/state/actions/aiFollowHighlights.ts`
+  - `frontend/src/state/actions/aiFollow.ts`
+  - `frontend/src/state/actions/aiFollowToolArguments.test.ts`
+  - `frontend/src/state/actions/aiFollowHighlights.test.ts`
+  - `frontend/src/state/actions/aiChatStopState.ts`
+  - `frontend/src/state/actions/aiChatStreamingRouting.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/state/actions/websocketReceive.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiFollowToolArguments.test.ts src/state/actions/aiFollowHighlights.test.ts src/state/actions/aiChatStopState.test.ts src/state/actions/aiChatStreamingRouting.test.ts src/state/actions/websocketBootstrap.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiFollow.ts src/state/actions/aiFollowToolArguments.ts src/state/actions/aiFollowHighlights.ts src/state/actions/aiFollowToolArguments.test.ts src/state/actions/aiFollowHighlights.test.ts src/state/actions/aiChatStopState.ts src/state/actions/aiChatStreamingRouting.ts src/state/actions/websocketIncomingMessages.ts src/state/actions/websocketReceive.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `5cbd7ae43c5fc967fc459ead74695d7d46dd1f99`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/keyActivationHandlers.ts`, now the
+    largest authored/shared hotspot at 302 lines, by separating keybinding
+    registration or teardown grouping from runtime activation dispatch.
