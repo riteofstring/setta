@@ -9,9 +9,10 @@ Last audited: `2026-03-16`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
-  bootstrap/coverage/force-refresh/frontend-emit/plugin-transport slice, and the
+  bootstrap/coverage/force-refresh/frontend-emit/plugin-transport slice, the
   terminals/terminal-websocket/delete/interrupt/run-code/deployment-policy
-  slice from `backend-behavior-parity-matrix-plan.md`
+  slice, and the detached-run route/manager slice from
+  `backend-behavior-parity-matrix-plan.md`
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -24,9 +25,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `99`
+- Rows audited in this pass: `110`
 - Status counts:
-  - `Proved`: `94`
+  - `Proved`: `105`
   - `Intentional divergence`: `5`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
@@ -64,6 +65,9 @@ Last audited: `2026-03-16`
   delete and interrupt behavior, attached-terminal selection, generated-entry
   terminal allocation/reuse, run overrides, and deployment run-policy/session
   overlay rules.
+- This pass also extends the matrix into the detached-run slice: route
+  launcher/deployment/snapshot validation, override validation, detached-run
+  snapshot planning, and detached-run manager lifecycle/status persistence.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -77,12 +81,12 @@ Last audited: `2026-03-16`
     delivery rules beyond the force-refresh and coverage rows audited here
   - project-shell exact-name whitespace/duplicate lookup nuances beyond the
     currently cited load/save/delete transport rows
-  - detached-run HTTP transport/details and run-record lifecycle rows beyond
-    the shared override invariants cited here
   - terminal websocket invalid-share-session and close-reason/detail parity
     beyond the ready/history/resize/read-only/policy rows audited here
   - run-code invalid-request/detail transport rows beyond the terminal-selection
     and deployment-policy behaviors audited here
+  - detached-run not-found/detail transport rows and Python runner SDK payload
+    encoding rows beyond the route/manager invariants audited here
   - draw-snapshot persistence/codegen side effects beyond the terminal dispatch
     rows audited here
   - LSP, formatting, and watch-code behavior rows from the broader fourth audit
@@ -199,3 +203,14 @@ Last audited: `2026-03-16`
 | `run_code.deployment_single_run_limit` | `backend/setta/share/policy.py::ensure_share_multiple_runs_allowed`; `backend/setta/project_state/share_runtime_state.py::try_reserve_session_run_count` | `internal/runs/service.go::resolveExecution` | `TestRegisterTerminalRoutesRejectsSecondDeploymentRunWhenMultipleRunsDisabled` | share deployments still expose per-session run-count state to callers through deployment metadata | `Proved` | When multiple runs are disabled, only the first deployment run per share session is allowed. |
 | `run_code.deployment_reserved_run_count_rolls_back_on_startup_failure` | `backend/setta/routers/terminals.py::route_run_code` rolls back reserved single-run state in the exception path; `backend/setta/project_state/share_runtime_state.py::rollback_reserved_session_run_count` | `internal/runs/service.go::resolveExecution`; `internal/httpapi/terminal_routes.go` | `TestRegisterTerminalRoutesRollsBackReservedDeploymentRunOnStartupFailure` | the Go route preserves the single-run reservation invariant even when startup fails before dispatch | `Proved` | A failed deployment run startup still releases the reserved single-run slot so the session is not permanently wedged. |
 | `run_code.cli_id_dispatch_to_cli_sender` | `backend/setta/project_state/project_manager_types.py::RunCodeRequest.cliId`; `backend/setta/terminals/run_code.py::run_command` dispatches to `WMHCLISender` when `cliId` is present | `internal/httpapi/terminal_routes.go::runCodeHandler` rejects non-empty `CLIID` | `TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads`; `TestAppRunCodeRouteRejectsUnsupportedCLIID` | `frontend/src/utils/generatedTypes.ts` still exposes `cliId`, but current Go callers do not use it | `Intentional divergence` | Python supported websocket CLI dispatch for `runCode`; Go explicitly rejects `cliId` because that transport path has not been reimplemented. |
+| `run_detached.launcher_mode_forbidden` | `tests/routers/test_full_runtime_mode_guards.py::test_run_detached_is_blocked_in_launcher_mode`; `backend/setta/routers/runs.py` uses `SettaProjectContextNonLauncherAPIRouter` | `internal/httpapi/detached_run_routes.go::RegisterDetachedRunRoutes` | `TestRegisterDetachedRunRoutesRejectsLauncherMode` | `frontend/src/utils/generatedEndpoints.ts` still exposes `runDetached`, `getRunStatus`, and `cancelRun` as active caller surfaces | `Proved` | Detached-run routes still fail closed in launcher mode. Exact Python-style `detail` body parity is deferred separately. |
+| `run_detached.deployment_mode_unsupported` | `backend/setta/routers/runs.py::route_run_detached` raises `400` for deployment mode | `internal/httpapi/detached_run_routes.go::runDetachedHandler` | `TestRegisterDetachedRunRoutesRejectsDeploymentMode` | generated frontend detached-run callers still hit the same route names on the Go transport | `Proved` | Detached runs remain unavailable in deployment/share mode. Exact Python-style `detail` body parity is deferred separately. |
+| `run_detached.never_snapshot_mode_rejected` | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_rejects_never`; `backend/setta/routers/runs.py::route_run_detached` | `internal/httpapi/detached_run_routes.go::runDetachedHandler`; `internal/runs/planner.go` | `TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode` | `RunDetachedRequest.runSnapshotMode` remains part of the generated frontend contract | `Proved` | Detached runs still reject `runSnapshotMode=never` because detached execution always snapshots. Exact Python-style `detail` body parity is deferred separately. |
+| `run_detached.invalid_param_override_key_rejected` | `tests/project_state/test_run_overrides.py::test_route_run_detached_rejects_bad_param_key`; `backend/setta/routers/runs.py::route_run_detached` | `internal/httpapi/detached_run_routes.go`; `internal/runs/planner.go` | `TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey`; `TestPlannerPlanRejectsInvalidParamOverrideKey` | the detached-run route still accepts `paramOverrides` on the active transport surface | `Proved` | Bad detached-run param override keys are still rejected before a run is started. Exact Python-style `detail` body parity is deferred separately. |
+| `run_detached.ephemeral_snapshot_copies_manual_code_into_runtime_root` | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_snapshots_file_on_ephemeral` | `internal/runs/planner.go` | `TestPlannerPlanSnapshotsAllManualCodeSections`; `TestRegisterDetachedRunRoutesStartsAndTracksRun` | detached-run status payloads still expose the snapshot path that callers can inspect later | `Proved` | Detached-run planning still snapshots manual code into a runtime-owned directory and uses the snapshot path as the execution entrypoint. |
+| `detached_run.start_persists_status_logs_and_tags` | `tests/run_manager/test_detached_run_manager.py::test_start_run_persists_status_and_logs` | `internal/detachedruns/manager.go::StartRun` | `TestManagerStartRunPersistsStatusAndLogs`; `TestRegisterDetachedRunRoutesStartsAndTracksRun` | `frontend/src/utils/generatedEndpoints.ts` calls `runDetached` then polls `getRunStatus` against the same persisted run record | `Proved` | Starting a detached run still persists metadata, stdout logs, tags, and the initial running status. |
+| `detached_run.invalid_command_marks_failed` | `tests/run_manager/test_detached_run_manager.py::test_start_run_invalid_command_marks_failed` | `internal/detachedruns/manager.go::StartRun` | `TestManagerStartRunInvalidCommandMarksFailed` | detached-run status records still preserve failed-start metadata for later inspection | `Proved` | Invalid detached-run commands still create a failed run record with `exitCode=-1` instead of disappearing silently. |
+| `detached_run.cancel_marks_canceled_with_exit_code` | `tests/run_manager/test_detached_run_manager.py::test_cancel_run_marks_canceled`; `...test_canceled_run_records_exit_code` | `internal/detachedruns/manager.go::CancelRun` | `TestManagerCancelRunMarksCanceled`; `TestRegisterDetachedRunRoutesCancelsRun` | `cancelRun` and `getRunStatus` remain active generated frontend endpoints | `Proved` | Canceling a live detached run still transitions it to `canceled` and records the eventual exit code. |
+| `detached_run.cancel_after_exit_keeps_exited_status` | `tests/run_manager/test_detached_run_manager.py::test_cancel_after_exit_keeps_exited_status` | `internal/detachedruns/manager.go::CancelRun` | `TestManagerCancelRunKeepsExitedStatus` | callers can still issue idempotent cancel requests after exit without mutating the completed status | `Proved` | Canceling an already exited detached run still preserves the completed `exited` metadata instead of rewriting it to `canceled`. |
+| `detached_run.get_status_untracked_marks_lost` | `tests/run_manager/test_detached_run_manager.py::test_get_status_untracked_run_marks_lost` | `internal/detachedruns/manager.go::GetStatus` | `TestManagerGetStatusUntrackedRunMarksLost` | `getRunStatus` still reflects the manager-owned persisted state for orphaned processes | `Proved` | If a detached run loses its in-memory process tracking, status reads still mark it as `lost` instead of leaving a stale `running` record behind. |
+| `detached_run.cancel_untracked_marks_lost` | `tests/run_manager/test_detached_run_manager.py::test_cancel_untracked_run_marks_lost` | `internal/detachedruns/manager.go::CancelRun` | `TestManagerCancelRunUntrackedRunMarksLost` | `cancelRun` still routes through the same manager path even when the process table no longer has the run | `Proved` | Canceling an untracked detached run still resolves it to `lost` without inventing an exit code. |
