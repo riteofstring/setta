@@ -220,7 +220,23 @@ class ListenerHotReloader:
     async def _run_reload_cycle(self, *, reload_module: bool) -> None:
         async with self._reload_lock:
             try:
-                builder = self._resolve_builder(reload_module=reload_module)
+                if not reload_module:
+                    builder = self._builder
+                else:
+                    importlib.invalidate_caches()
+                    if self._module_name in sys.modules:
+                        module = importlib.reload(sys.modules[self._module_name])
+                    else:
+                        module = importlib.import_module(self._module_name)
+                    builder = getattr(module, self._builder_name, None)
+                    if builder is None:
+                        raise AttributeError(
+                            f"Module {self._module_name!r} lacks builder {self._builder_name!r}"
+                        )
+                    if not callable(builder):
+                        raise TypeError(
+                            f"Builder attribute {self._builder_name!r} in module {self._module_name!r} is not callable"
+                        )
             except Exception:
                 logger.exception(
                     "Failed to resolve listener callback builder %s in module %s",
@@ -233,31 +249,6 @@ class ListenerHotReloader:
                 builder,
                 trigger_refresh=self._trigger_refresh,
             )
-
-    def _resolve_builder(
-        self,
-        *,
-        reload_module: bool,
-    ) -> "ListenerCallbackBuilder":
-        if not reload_module:
-            return self._builder
-        module = self._load_module(reload_module=reload_module)
-        builder = getattr(module, self._builder_name, None)
-        if builder is None:
-            raise AttributeError(
-                f"Module {self._module_name!r} lacks builder {self._builder_name!r}"
-            )
-        if not callable(builder):
-            raise TypeError(
-                f"Builder attribute {self._builder_name!r} in module {self._module_name!r} is not callable"
-            )
-        return builder
-
-    def _load_module(self, *, reload_module: bool) -> ModuleType:
-        importlib.invalidate_caches()
-        if reload_module and self._module_name in sys.modules:
-            return importlib.reload(sys.modules[self._module_name])
-        return importlib.import_module(self._module_name)
 
     @staticmethod
     def _normalize_event_path(raw_path: str) -> Path:
