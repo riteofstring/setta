@@ -29,17 +29,45 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	engineConfigID := "engine-config-1"
 	transcriptionProfileID := "transcription-profile-1"
 	agentProfileID := "agent-profile-1"
-	if _, err := runtime.SetChatSectionSettings(context.Background(), "project-alpha", "chat-section", ChatSectionSettings{
-		Managed:                true,
-		EngineConfigID:         &engineConfigID,
-		TranscriptionProfileID: &transcriptionProfileID,
-		AgentProfileID:         &agentProfileID,
-		Thinking:               true,
-		PermissionMode:         ChatPermissionModeYOLO,
-		SearchEnabled:          true,
-		DictationMode:          ChatDictationModeProvider,
-	}); err != nil {
-		t.Fatalf("SetChatSectionSettings returned error: %v", err)
+
+	chatPayload := func() map[string]any {
+		t.Helper()
+
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, "chat-section", "chat-variant")
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload chat-section: %v", err)
+		}
+		return payload
+	}
+
+	for _, settingsCase := range []struct {
+		permissionMode ChatPermissionMode
+		dictationMode  ChatDictationMode
+	}{
+		{permissionMode: ChatPermissionModeMinimal, dictationMode: ChatDictationModeAuto},
+		{permissionMode: ChatPermissionModeYOLO, dictationMode: ChatDictationModeBrowser},
+		{permissionMode: ChatPermissionModeConfigTomlCustom, dictationMode: ChatDictationModeProvider},
+	} {
+		if _, err := runtime.SetChatSectionSettings(context.Background(), "project-alpha", "chat-section", ChatSectionSettings{
+			Managed:                true,
+			EngineConfigID:         &engineConfigID,
+			TranscriptionProfileID: &transcriptionProfileID,
+			AgentProfileID:         &agentProfileID,
+			Thinking:               true,
+			PermissionMode:         settingsCase.permissionMode,
+			SearchEnabled:          true,
+			DictationMode:          settingsCase.dictationMode,
+		}); err != nil {
+			t.Fatalf("SetChatSectionSettings(%s,%s) returned error: %v", settingsCase.permissionMode, settingsCase.dictationMode, err)
+		}
+		payload := chatPayload()
+		if got := payloadRawStringField(payload, "permissionMode"); got != string(settingsCase.permissionMode) {
+			t.Fatalf("expected permissionMode %q, got %q", settingsCase.permissionMode, got)
+		}
+		if got := payloadRawStringField(payload, "dictationMode"); got != string(settingsCase.dictationMode) {
+			t.Fatalf("expected dictationMode %q, got %q", settingsCase.dictationMode, got)
+		}
 	}
 
 	activeBranchID := "branch-1"
@@ -74,11 +102,7 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 		t.Fatalf("SetChatSectionChatID returned error: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	payload, err := effectiveSectionPayload(project, "chat-section", "chat-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload chat-section: %v", err)
-	}
+	payload := chatPayload()
 	if got := payloadRawStringField(payload, "engineConfigId"); got != "engine-config-1" {
 		t.Fatalf("expected engineConfigId engine-config-1, got %q", got)
 	}
@@ -97,11 +121,11 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	if !payloadBoolField(payload, "searchEnabled") {
 		t.Fatal("expected searchEnabled=true")
 	}
-	if got := payloadRawStringField(payload, "permissionMode"); got != "yolo" {
-		t.Fatalf("expected permissionMode yolo, got %q", got)
+	if got := payloadRawStringField(payload, "permissionMode"); got != "config_toml_custom" {
+		t.Fatalf("expected final permissionMode config_toml_custom, got %q", got)
 	}
 	if got := payloadRawStringField(payload, "dictationMode"); got != "provider" {
-		t.Fatalf("expected dictationMode provider, got %q", got)
+		t.Fatalf("expected final dictationMode provider, got %q", got)
 	}
 	if got := payloadRawStringField(payload, "inputText"); got != "Draft input" {
 		t.Fatalf("expected inputText Draft input, got %q", got)
@@ -151,11 +175,7 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	if _, err := runtime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", nil); err != nil {
 		t.Fatalf("clearing chat id returned error: %v", err)
 	}
-	project = runtime.Snapshot().Document.Projects["project-alpha"]
-	payload, err = effectiveSectionPayload(project, "chat-section", "chat-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload chat-section after clear: %v", err)
-	}
+	payload = chatPayload()
 	if value, ok := payload["chatId"]; !ok || value != nil {
 		t.Fatalf("expected chatId to persist as null after clear, got %#v", payload["chatId"])
 	}

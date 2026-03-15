@@ -40,48 +40,78 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 
-	for _, requestSpec := range []struct {
-		route string
-		body  string
-	}{
-		{
-			route: RouteSetChatSectionSettings,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":true,"engineConfigId":"engine-config-1","transcriptionProfileId":"transcription-profile-1","agentProfileId":"agent-profile-1","thinking":true,"permissionMode":"minimal","searchEnabled":true,"dictationMode":"browser"}`,
-		},
-		{
-			route: RouteSetChatSectionState,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","frontendOpId":"chat-op-1","state":{"messages":[{"id":"message-1","type":"user","content":"hello"}],"inputText":"Draft input","waitingForResponse":true,"toolCallArguments":{"tool-call-1":"{\"query\":\"hello\"}"},"activeBranchId":"branch-1","branches":{"branch-1":{"messages":[{"id":"message-1","type":"user"}],"createdAt":42,"parentBranchId":"root-branch","branchFromMessageId":"message-1"}}}}`,
-		},
-		{
-			route: RouteSetChatSectionChatID,
-			body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"chat-1"}`,
-		},
-	} {
-		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
+		return response
+	}
+	latestChatPayload := func() ProjectStateSingleConfigWithCompletedOpIDs {
+		t.Helper()
+
+		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+		if latestResponse.Code != http.StatusOK {
+			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+		}
+
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload: %v", err)
+		}
+		return payload
+	}
+
+	for _, settingsCase := range []struct {
+		permissionMode string
+		dictationMode  string
+	}{
+		{
+			permissionMode: "minimal",
+			dictationMode:  "auto",
+		},
+		{
+			permissionMode: "yolo",
+			dictationMode:  "browser",
+		},
+		{
+			permissionMode: "config_toml_custom",
+			dictationMode:  "provider",
+		},
+	} {
+		response := post(
+			RouteSetChatSectionSettings,
+			`{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":true,"engineConfigId":"engine-config-1","transcriptionProfileId":"transcription-profile-1","agentProfileId":"agent-profile-1","thinking":true,"permissionMode":"`+settingsCase.permissionMode+`","searchEnabled":true,"dictationMode":"`+settingsCase.dictationMode+`"}`,
+		)
 		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("expected 200 for settings %s/%s, got %d with body %q", settingsCase.permissionMode, settingsCase.dictationMode, response.Code, response.Body.String())
+		}
+
+		payload := latestChatPayload()
+		chatSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["chat-section"].SharedModifier)
+		if got := chatSharedModifier["permissionMode"]; got != settingsCase.permissionMode {
+			t.Fatalf("expected permissionMode %s, got %#v", settingsCase.permissionMode, got)
+		}
+		if got := chatSharedModifier["dictationMode"]; got != settingsCase.dictationMode {
+			t.Fatalf("expected dictationMode %s, got %#v", settingsCase.dictationMode, got)
 		}
 	}
 
-	latestRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetLatestProjectState,
-		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	response := post(
+		RouteSetChatSectionState,
+		`{"projectConfigId":"project-alpha","sectionId":"chat-section","frontendOpId":"chat-op-1","state":{"messages":[{"id":"message-1","type":"user","content":"hello"}],"inputText":"Draft input","waitingForResponse":true,"toolCallArguments":{"tool-call-1":"{\"query\":\"hello\"}"},"activeBranchId":"branch-1","branches":{"branch-1":{"messages":[{"id":"message-1","type":"user"}],"createdAt":42,"parentBranchId":"root-branch","branchFromMessageId":"message-1"}}}}`,
 	)
-	latestRequest.Header.Set("Content-Type", "application/json")
-	latestResponse := httptest.NewRecorder()
-	handler.ServeHTTP(latestResponse, latestRequest)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionState, response.Code, response.Body.String())
+	}
+	response = post(RouteSetChatSectionChatID, `{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"chat-1"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionChatID, response.Code, response.Body.String())
 	}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
+	payload := latestChatPayload()
 	if !reflect.DeepEqual(payload.CompletedOpIDs, []string{"chat-op-1"}) {
 		t.Fatalf("expected completed frontend op ids [chat-op-1], got %#v", payload.CompletedOpIDs)
 	}
@@ -94,11 +124,11 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 	if got := chatSharedModifier["engineConfigId"]; got != "engine-config-1" {
 		t.Fatalf("expected engineConfigId engine-config-1, got %#v", got)
 	}
-	if got := chatSharedModifier["permissionMode"]; got != "minimal" {
-		t.Fatalf("expected permissionMode minimal, got %#v", got)
+	if got := chatSharedModifier["permissionMode"]; got != "config_toml_custom" {
+		t.Fatalf("expected final permissionMode config_toml_custom, got %#v", got)
 	}
-	if got := chatSharedModifier["dictationMode"]; got != "browser" {
-		t.Fatalf("expected dictationMode browser, got %#v", got)
+	if got := chatSharedModifier["dictationMode"]; got != "provider" {
+		t.Fatalf("expected final dictationMode provider, got %#v", got)
 	}
 	if got := chatSharedModifier["inputText"]; got != "Draft input" {
 		t.Fatalf("expected inputText Draft input, got %#v", got)
@@ -120,20 +150,7 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 		t.Fatalf("expected branch-1 createdAt 42, got %#v", branches["branch-1"])
 	}
 
-	secondLatestRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetLatestProjectState,
-		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
-	)
-	secondLatestRequest.Header.Set("Content-Type", "application/json")
-	secondLatestResponse := httptest.NewRecorder()
-	handler.ServeHTTP(secondLatestResponse, secondLatestRequest)
-	if secondLatestResponse.Code != http.StatusOK {
-		t.Fatalf("expected second latest-state response 200, got %d with body %q", secondLatestResponse.Code, secondLatestResponse.Body.String())
-	}
-	if err := json.Unmarshal(secondLatestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode second latest project payload: %v", err)
-	}
+	payload = latestChatPayload()
 	if len(payload.CompletedOpIDs) != 0 {
 		t.Fatalf("expected completed frontend op ids to clear, got %#v", payload.CompletedOpIDs)
 	}

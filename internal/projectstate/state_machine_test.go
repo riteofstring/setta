@@ -93,13 +93,31 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 	}
 
 	// Then update the gate section settings that the frontend pane edits directly.
-	gateType := StateMachineGateTypeXOR
-	if _, err := runtime.SetStateMachineSectionSettings(context.Background(), "project-alpha", "gate-section", StateMachineSectionSettings{
-		MachineGroupID: "workflow-a",
-		Label:          "Decision",
-		GateType:       &gateType,
-	}); err != nil {
-		t.Fatalf("SetStateMachineSectionSettings returned error: %v", err)
+	gateSectionPayload := func() map[string]any {
+		t.Helper()
+
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, "gate-section", "gate-variant")
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload gate-section: %v", err)
+		}
+		return payload
+	}
+	for _, gateType := range []StateMachineGateType{
+		StateMachineGateTypeAND,
+		StateMachineGateTypeOR,
+		StateMachineGateTypeXOR,
+	} {
+		if _, err := runtime.SetStateMachineSectionSettings(context.Background(), "project-alpha", "gate-section", StateMachineSectionSettings{
+			MachineGroupID: "workflow-a",
+			Label:          "Decision",
+			GateType:       &gateType,
+		}); err != nil {
+			t.Fatalf("SetStateMachineSectionSettings(%s) returned error: %v", gateType, err)
+		}
+		if got := payloadRawStringField(gateSectionPayload(), "gateType"); got != string(gateType) {
+			t.Fatalf("expected gate type %q, got %q", gateType, got)
+		}
 	}
 
 	project := runtime.Snapshot().Document.Projects["project-alpha"]
@@ -140,10 +158,7 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 		t.Fatalf("expected chat->end source filter run_completed, got %#v", chatToEnd.SourceFilter)
 	}
 
-	gatePayload, err := effectiveSectionPayload(project, "gate-section", "gate-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload gate-section: %v", err)
-	}
+	gatePayload := gateSectionPayload()
 	if got := payloadRawStringField(gatePayload, "machineGroupId"); got != "workflow-a" {
 		t.Fatalf("expected gate machineGroupId workflow-a, got %q", got)
 	}

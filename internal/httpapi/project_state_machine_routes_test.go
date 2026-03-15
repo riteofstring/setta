@@ -125,24 +125,47 @@ func TestRegisterProjectRoutesStateMachineMutationsPersistAndTrackFrontendOps(t 
 		},
 	}, http.StatusOK, "")
 
-	gateType := projectstate.StateMachineGateTypeXOR
-	stateMachineRouteRequest(t, handler, RouteSetStateMachineSectionSettings, SetStateMachineSectionSettingsRequest{
-		FrontendOpID:   stringPointer("workflow-section-op"),
-		ProjectID:      "project-alpha",
-		SectionID:      "gate-section",
-		MachineGroupID: "workflow-a",
-		Label:          "Decision",
-		GateType:       &gateType,
-	}, http.StatusOK, "")
+	currentGateModifier := func() map[string]any {
+		t.Helper()
 
-	latestResponse := stateMachineRouteRequest(t, handler, RouteGetLatestProjectState, GetLatestProjectStateRequest{
-		ProjectID: "project-alpha",
-	}, http.StatusOK, "")
-
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
+		return decodeProjectRouteRawObject(t, projectRuntime.Snapshot().Document.Projects["project-alpha"].Sections["gate-section"].SharedModifier)
 	}
+	for _, gateCase := range []struct {
+		gateType     projectstate.StateMachineGateType
+		frontendOpID *string
+	}{
+		{gateType: projectstate.StateMachineGateTypeAND},
+		{gateType: projectstate.StateMachineGateTypeOR},
+		{gateType: projectstate.StateMachineGateTypeXOR, frontendOpID: stringPointer("workflow-section-op")},
+	} {
+		stateMachineRouteRequest(t, handler, RouteSetStateMachineSectionSettings, SetStateMachineSectionSettingsRequest{
+			FrontendOpID:   gateCase.frontendOpID,
+			ProjectID:      "project-alpha",
+			SectionID:      "gate-section",
+			MachineGroupID: "workflow-a",
+			Label:          "Decision",
+			GateType:       &gateCase.gateType,
+		}, http.StatusOK, "")
+		if got := currentGateModifier()["gateType"]; got != string(gateCase.gateType) {
+			t.Fatalf("expected gate type %s, got %#v", gateCase.gateType, got)
+		}
+	}
+
+	latestStateMachinePayload := func() ProjectStateSingleConfigWithCompletedOpIDs {
+		t.Helper()
+
+		latestResponse := stateMachineRouteRequest(t, handler, RouteGetLatestProjectState, GetLatestProjectStateRequest{
+			ProjectID: "project-alpha",
+		}, http.StatusOK, "")
+
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload: %v", err)
+		}
+		return payload
+	}
+
+	payload := latestStateMachinePayload()
 	if !reflect.DeepEqual(payload.CompletedOpIDs, []string{
 		"workflow-create-op",
 		"workflow-create-chat-op",
@@ -179,12 +202,7 @@ func TestRegisterProjectRoutesStateMachineMutationsPersistAndTrackFrontendOps(t 
 	}
 
 	// Latest-state fetches should drain the completed op queue after the caller observes it.
-	secondLatestResponse := stateMachineRouteRequest(t, handler, RouteGetLatestProjectState, GetLatestProjectStateRequest{
-		ProjectID: "project-alpha",
-	}, http.StatusOK, "")
-	if err := json.Unmarshal(secondLatestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode second latest project payload: %v", err)
-	}
+	payload = latestStateMachinePayload()
 	if len(payload.CompletedOpIDs) != 0 {
 		t.Fatalf("expected completed op ids to clear, got %#v", payload.CompletedOpIDs)
 	}
