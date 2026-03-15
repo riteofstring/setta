@@ -1007,6 +1007,7 @@ def execute_settings_project_shell(
         if latest_response is None
         else latest_response.status_code,
         latest_payload=latest_payload,
+        workspace_root=str(backend.workspace_root),
     )
     return summary, {
         "loadProjectConfigStatus": load_response.status_code,
@@ -1973,6 +1974,7 @@ def summarize_settings_project_shell(
     payload: Any,
     latest_http_status: int | None,
     latest_payload: Any,
+    workspace_root: str,
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {"httpStatus": http_status, "latestHttpStatus": latest_http_status}
     if http_status != 200 or not isinstance(payload, dict):
@@ -2041,6 +2043,15 @@ def summarize_settings_project_shell(
                 payload,
                 expected_width=550,
             ),
+            "jsonSourceVariantNameSamples": settings_payload_section_variant_name_samples(
+                payload,
+                display_name_sample_names,
+                workspace_root=workspace_root,
+            ),
+            "jsonSourceConfigLanguageSamples": settings_payload_section_config_language_samples(
+                payload,
+                display_name_sample_names,
+            ),
             "sectionWidthSamples": settings_payload_section_width_samples(
                 payload,
                 display_name_sample_names,
@@ -2086,6 +2097,15 @@ def summarize_settings_project_shell(
                 "latestFixedWidthSectionCount": settings_payload_fixed_width_section_count(
                     latest_project_state,
                     expected_width=550,
+                ),
+                "latestJSONSourceVariantNameSamples": settings_payload_section_variant_name_samples(
+                    latest_project_state,
+                    display_name_sample_names,
+                    workspace_root=workspace_root,
+                ),
+                "latestJSONSourceConfigLanguageSamples": settings_payload_section_config_language_samples(
+                    latest_project_state,
+                    display_name_sample_names,
                 ),
                 "latestSectionWidthSamples": settings_payload_section_width_samples(
                     latest_project_state,
@@ -2828,6 +2848,32 @@ def settings_payload_fixed_width_section_count(
     return count
 
 
+def settings_payload_section_variant_name_samples(
+    payload: dict[str, Any],
+    section_names: list[str],
+    workspace_root: str,
+) -> dict[str, str]:
+    return {
+        section_name: normalize_parity_path(
+            settings_payload_section_variant(payload, section_name).get("name"),
+            workspace_root,
+        )
+        for section_name in section_names
+    }
+
+
+def settings_payload_section_config_language_samples(
+    payload: dict[str, Any],
+    section_names: list[str],
+) -> dict[str, str]:
+    return {
+        section_name: normalized_string(
+            settings_payload_section_impl(payload, section_name).get("configLanguage")
+        )
+        for section_name in section_names
+    }
+
+
 def settings_payload_section_width_samples(
     payload: dict[str, Any],
     section_names: list[str],
@@ -2880,6 +2926,19 @@ def settings_payload_section_impl(
     payload: dict[str, Any],
     section_name: str,
 ) -> dict[str, Any]:
+    section_variant = settings_payload_section_variant(payload, section_name)
+    section_impl_id = expect_non_empty_string(
+        section_variant.get("impl"),
+        f"sectionVariants.{section_name}.impl",
+    )
+    section_impls = object_field(payload, "sectionImpls", allow_missing=True)
+    return expect_object(section_impls.get(section_impl_id), f"sectionImpls.{section_impl_id}")
+
+
+def settings_payload_section_variant(
+    payload: dict[str, Any],
+    section_name: str,
+) -> dict[str, Any]:
     project_config = object_field(payload, "projectConfig")
     sections = object_field(payload, "sections", allow_missing=True)
     section_id = find_section_id_by_name(sections, section_name)
@@ -2889,16 +2948,24 @@ def settings_payload_section_impl(
         f"projectConfig.sectionVariantMap.{section_id}",
     )
     section_variants = object_field(payload, "sectionVariants", allow_missing=True)
-    section_variant = expect_object(
+    return expect_object(
         section_variants.get(section_variant_id),
         f"sectionVariants.{section_variant_id}",
     )
-    section_impl_id = expect_non_empty_string(
-        section_variant.get("impl"),
-        f"sectionVariants.{section_variant_id}.impl",
-    )
-    section_impls = object_field(payload, "sectionImpls", allow_missing=True)
-    return expect_object(section_impls.get(section_impl_id), f"sectionImpls.{section_impl_id}")
+
+
+def normalize_parity_path(raw_path: Any, workspace_root: str) -> str:
+    normalized = normalized_string(raw_path)
+    if not normalized:
+        return ""
+    normalized = os.path.normpath(normalized)
+    if workspace_root and os.path.isabs(normalized):
+        workspace_root_path = Path(os.path.normpath(workspace_root)).resolve()
+        try:
+            return Path(normalized).resolve().relative_to(workspace_root_path).as_posix()
+        except ValueError:
+            pass
+    return normalized.replace(os.sep, "/")
 
 
 def settings_project_payload_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:

@@ -281,6 +281,10 @@ class Route:
 
     def test_summarize_settings_project_shell_detects_expected_contract(self) -> None:
         harness = load_harness_module()
+        workspace_root = "/tmp/workspace"
+        shared_settings_path = (
+            f"{workspace_root}/setta_files/setta-settings.json"
+        )
 
         sections = {
             "section-a": {"name": "shortcuts", "displayName": "Shortcuts"},
@@ -337,16 +341,23 @@ class Route:
             section_id: f"{section_id}-variant" for section_id in sections
         }
         section_variants = {
-            variant_id: {"id": variant_id, "impl": f"{section_id}-impl"}
+            variant_id: {
+                "id": variant_id,
+                "name": shared_settings_path,
+                "impl": f"{section_id}-impl",
+            }
             for section_id, variant_id in section_variant_map.items()
         }
         section_impls = {
             f"{section_id}-impl": {
                 "id": f"{section_id}-impl",
                 "type": "Dict",
+                "configLanguage": "json",
+                "isJsonSource": True,
+                "jsonSourceKeys": [section["name"]],
                 "size": {"width": 550.0},
             }
-            for section_id in sections
+            for section_id, section in sections.items()
         }
         code_objs = {
             "code-obj-gui": {"name": "gui", "displayName": "GUI"},
@@ -475,6 +486,7 @@ class Route:
             payload=payload,
             latest_http_status=200,
             latest_payload=latest_payload,
+            workspace_root=workspace_root,
         )
 
         self.assertEqual(
@@ -519,6 +531,18 @@ class Route:
                     "All Settings": 4,
                 },
                 "fixedWidthSectionCount": 16,
+                "jsonSourceVariantNameSamples": {
+                    "gui": "setta_files/setta-settings.json",
+                    "languageServer": "setta_files/setta-settings.json",
+                    "iFrameSectionDefault": "setta_files/setta-settings.json",
+                    "genPythonCodeSectionDefault": "setta_files/setta-settings.json",
+                },
+                "jsonSourceConfigLanguageSamples": {
+                    "gui": "json",
+                    "languageServer": "json",
+                    "iFrameSectionDefault": "json",
+                    "genPythonCodeSectionDefault": "json",
+                },
                 "sectionWidthSamples": {
                     "gui": 550.0,
                     "languageServer": 550.0,
@@ -599,6 +623,18 @@ class Route:
                     "All Settings",
                 ],
                 "latestFixedWidthSectionCount": 16,
+                "latestJSONSourceVariantNameSamples": {
+                    "gui": "setta_files/setta-settings.json",
+                    "languageServer": "setta_files/setta-settings.json",
+                    "iFrameSectionDefault": "setta_files/setta-settings.json",
+                    "genPythonCodeSectionDefault": "setta_files/setta-settings.json",
+                },
+                "latestJSONSourceConfigLanguageSamples": {
+                    "gui": "json",
+                    "languageServer": "json",
+                    "iFrameSectionDefault": "json",
+                    "genPythonCodeSectionDefault": "json",
+                },
                 "latestSectionWidthSamples": {
                     "gui": 550.0,
                     "languageServer": 550.0,

@@ -161,9 +161,19 @@ var settingsViewModeSpecs = []settingsViewModeSpec{
 }
 
 func BuildProjectDocument(document Document) (projectstate.Document, error) {
+	return buildProjectDocumentWithSharedSettingsPath(document, DefaultFileName)
+}
+
+func buildProjectDocumentWithSharedSettingsPath(
+	document Document,
+	sharedSettingsPath string,
+) (projectstate.Document, error) {
 	normalized, err := document.Normalized()
 	if err != nil {
 		return projectstate.Document{}, err
+	}
+	if strings.TrimSpace(sharedSettingsPath) == "" {
+		sharedSettingsPath = DefaultFileName
 	}
 
 	sectionNames := orderedSettingsSectionNames(normalized)
@@ -187,7 +197,12 @@ func BuildProjectDocument(document Document) (projectstate.Document, error) {
 
 	sectionIDByName := make(map[string]string, len(sectionNames))
 	for _, sectionName := range sectionNames {
-		sectionID, err := addSettingsSection(&project, sectionName, normalized[sectionName])
+		sectionID, err := addSettingsSection(
+			&project,
+			sharedSettingsPath,
+			sectionName,
+			normalized[sectionName],
+		)
 		if err != nil {
 			return projectstate.Document{}, err
 		}
@@ -230,7 +245,10 @@ func EnsureProjectRuntimeBootstrapped(
 		return RefreshProjectRuntimeFromSettings(ctx, settingsRuntime, projectRuntime)
 	}
 
-	builtDocument, err := BuildProjectDocument(settingsDocument)
+	builtDocument, err := buildProjectDocumentWithSharedSettingsPath(
+		settingsDocument,
+		sharedSettingsPathForRuntime(settingsRuntime),
+	)
 	if err != nil {
 		return err
 	}
@@ -254,7 +272,10 @@ func RefreshProjectRuntimeFromSettings(
 	}
 
 	settingsDocument := settingsRuntime.Snapshot().Document
-	builtDocument, err := BuildProjectDocument(settingsDocument)
+	builtDocument, err := buildProjectDocumentWithSharedSettingsPath(
+		settingsDocument,
+		sharedSettingsPathForRuntime(settingsRuntime),
+	)
 	if err != nil {
 		return err
 	}
@@ -466,7 +487,12 @@ func repairSettingsProjectShellViewModes(
 	return repaired, nil
 }
 
-func addSettingsSection(project *projectstate.Project, sectionName string, rawValue any) (string, error) {
+func addSettingsSection(
+	project *projectstate.Project,
+	sharedSettingsPath string,
+	sectionName string,
+	rawValue any,
+) (string, error) {
 	sectionID := settingsSectionID(sectionName)
 	sectionVariantID := settingsSectionVariantID(sectionName)
 	sectionImplID := settingsSectionImplID(sectionName)
@@ -478,6 +504,7 @@ func addSettingsSection(project *projectstate.Project, sectionName string, rawVa
 	sectionPayload, err := marshalSettingsPayload(map[string]any{
 		"id":                sectionImplID,
 		"type":              "Dict",
+		"configLanguage":    "json",
 		"isJsonSource":      true,
 		"jsonSourceKeys":    []string{sectionName},
 		"size":              map[string]any{"width": settingsSectionWidth},
@@ -499,6 +526,7 @@ func addSettingsSection(project *projectstate.Project, sectionName string, rawVa
 	}
 	project.SectionVariants[sectionVariantID] = projectstate.SectionVariant{
 		ID:     sectionVariantID,
+		Name:   sharedSettingsPath,
 		ImplID: sectionImplID,
 	}
 	project.SectionImpls[sectionImplID] = projectstate.SectionImpl{
@@ -507,6 +535,15 @@ func addSettingsSection(project *projectstate.Project, sectionName string, rawVa
 		Payload: sectionPayload,
 	}
 	return sectionID, nil
+}
+
+func sharedSettingsPathForRuntime(settingsRuntime *Runtime) string {
+	if settingsRuntime != nil && settingsRuntime.store != nil {
+		if path := strings.TrimSpace(settingsRuntime.store.Path()); path != "" {
+			return path
+		}
+	}
+	return DefaultFileName
 }
 
 func addSettingsCodeObject(

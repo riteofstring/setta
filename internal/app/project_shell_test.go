@@ -181,7 +181,11 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 		t.Fatal("expected settings project active view mode id")
 	}
 	assertSettingsProjectViewModeRouteContract(t, loadSettingsPayload)
-	assertSettingsProjectRouteBootstrapMetadataContract(t, loadSettingsPayload)
+	assertSettingsProjectRouteBootstrapMetadataContract(
+		t,
+		loadSettingsPayload,
+		filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
+	)
 
 	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
 	if err != nil {
@@ -211,7 +215,11 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 		t.Fatalf("expected latest-state settings project name %q, got %q", settingsstate.SettingsProjectName, latestStatePayload.ProjectState.ProjectConfig.Name)
 	}
 	assertSettingsProjectViewModeRouteContract(t, latestStatePayload.ProjectState)
-	assertSettingsProjectRouteBootstrapMetadataContract(t, latestStatePayload.ProjectState)
+	assertSettingsProjectRouteBootstrapMetadataContract(
+		t,
+		latestStatePayload.ProjectState,
+		filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
+	)
 }
 
 func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testing.T) {
@@ -946,6 +954,7 @@ func settingsPayloadViewModeByName(
 func assertSettingsProjectRouteBootstrapMetadataContract(
 	t *testing.T,
 	payload projectview.SingleConfig,
+	expectedSharedSettingsPath string,
 ) {
 	t.Helper()
 
@@ -958,7 +967,21 @@ func assertSettingsProjectRouteBootstrapMetadataContract(
 		if !ok {
 			t.Fatalf("expected section variant %q for %q", variantID, section.Name)
 		}
+		if variant.Name != expectedSharedSettingsPath {
+			t.Fatalf("expected route section variant %q name %q, got %q", section.Name, expectedSharedSettingsPath, variant.Name)
+		}
 		sectionImplPayload := settingsPayloadSectionImplByID(t, payload, variant.Impl)
+		if sectionImplPayload["configLanguage"] != "json" {
+			t.Fatalf("expected settings route payload section %q configLanguage json, got %#v", section.Name, sectionImplPayload["configLanguage"])
+		}
+		isJSONSource, ok := sectionImplPayload["isJsonSource"].(bool)
+		if !ok || !isJSONSource {
+			t.Fatalf("expected settings route payload section %q to stay JSON-source backed, got %#v", section.Name, sectionImplPayload["isJsonSource"])
+		}
+		jsonSourceKeys, ok := sectionImplPayload["jsonSourceKeys"].([]any)
+		if !ok || len(jsonSourceKeys) != 1 || jsonSourceKeys[0] != section.Name {
+			t.Fatalf("expected settings route payload section %q jsonSourceKeys [%q], got %#v", section.Name, section.Name, sectionImplPayload["jsonSourceKeys"])
+		}
 		size, ok := sectionImplPayload["size"].(map[string]any)
 		if !ok {
 			t.Fatalf("expected settings route payload section %q to include size", section.Name)

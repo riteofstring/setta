@@ -3,6 +3,7 @@ package settingsstate
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
@@ -25,7 +26,8 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 		t.Fatalf("new settings document: %v", err)
 	}
 
-	projectDocument, err := BuildProjectDocument(settingsDocument)
+	settingsPath := filepath.Join(t.TempDir(), DefaultFileName)
+	projectDocument, err := buildProjectDocumentWithSharedSettingsPath(settingsDocument, settingsPath)
 	if err != nil {
 		t.Fatalf("build settings project document: %v", err)
 	}
@@ -59,7 +61,7 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 		t.Fatalf("expected shared settings layout to include 46 sections, got %d", len(project.TopLevelSections))
 	}
 	assertSettingsProjectViewModeLayoutAndViewportContract(t, project)
-	assertSettingsProjectBootstrapMetadataContract(t, project)
+	assertSettingsProjectBootstrapMetadataContract(t, project, settingsPath)
 
 	expectedCountsByView := map[string]int{
 		"All Settings":                        46,
@@ -596,10 +598,18 @@ func assertSettingsProjectViewModeLayoutAndViewportContract(
 func assertSettingsProjectBootstrapMetadataContract(
 	t *testing.T,
 	project projectstate.Project,
+	expectedSharedSettingsPath string,
 ) {
 	t.Helper()
 
 	for _, sectionName := range settingsSectionOrder {
+		sectionVariant, ok := project.SectionVariants[settingsSectionVariantID(sectionName)]
+		if !ok {
+			t.Fatalf("expected settings section variant for %q", sectionName)
+		}
+		if sectionVariant.Name != expectedSharedSettingsPath {
+			t.Fatalf("expected settings section variant %q name %q, got %q", sectionName, expectedSharedSettingsPath, sectionVariant.Name)
+		}
 		sectionImpl, ok := project.SectionImpls[settingsSectionImplID(sectionName)]
 		if !ok {
 			t.Fatalf("expected settings section impl for %q", sectionName)
@@ -607,6 +617,17 @@ func assertSettingsProjectBootstrapMetadataContract(
 		var payload map[string]any
 		if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
 			t.Fatalf("unmarshal settings section impl %q: %v", sectionName, err)
+		}
+		if payload["configLanguage"] != "json" {
+			t.Fatalf("expected settings section %q configLanguage json, got %#v", sectionName, payload["configLanguage"])
+		}
+		isJSONSource, ok := payload["isJsonSource"].(bool)
+		if !ok || !isJSONSource {
+			t.Fatalf("expected settings section %q to stay JSON-source backed, got %#v", sectionName, payload["isJsonSource"])
+		}
+		jsonSourceKeys, ok := payload["jsonSourceKeys"].([]any)
+		if !ok || len(jsonSourceKeys) != 1 || jsonSourceKeys[0] != sectionName {
+			t.Fatalf("expected settings section %q jsonSourceKeys [%q], got %#v", sectionName, sectionName, payload["jsonSourceKeys"])
 		}
 		size, ok := payload["size"].(map[string]any)
 		if !ok {
