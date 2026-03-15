@@ -38,6 +38,19 @@ func TestCollectNameValidationErrorsReportsProjectAndSectionIssues(t *testing.T)
 	assertNameValidationMapMessage(t, errors.SectionErrors, "sibling", `Duplicate sibling name "Sibling".`)
 }
 
+// Reserved Settings projects should keep working with format-only validation
+// broadcasts because that path intentionally suppresses the reserved-name rule.
+func TestCollectProjectNameFormatErrorsAllowsReservedSettingsName(t *testing.T) {
+	t.Parallel()
+
+	project := sectionNameTestProject(t)
+	project.Name = "Settings"
+
+	if errors := collectProjectNameFormatErrors(project); len(errors) != 0 {
+		t.Fatalf("expected no project format errors for Settings, got %#v", errors)
+	}
+}
+
 // Text blocks with heading-derived names should report the derived-name error
 // instead of silently failing to update the section title.
 func TestCollectNameValidationErrorsReportsTextBlockHeadingNameErrors(t *testing.T) {
