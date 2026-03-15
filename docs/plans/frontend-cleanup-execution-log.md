@@ -6455,3 +6455,50 @@ schedule settings` button still appears on the live task row.
     which is now the highest unresolved front-door hotspot after
     `ProjectAISettings.tsx` dropped under 100 lines and delegated its settings
     routing plus CRUD surfaces into local Project AI owners.
+
+## 2026-03-16 05:13:02 PDT
+
+- Slice completed: extracted the file-browser list surface and search filter
+  owners out of `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` or
+  `frontend/src/components/Section/Layouts/BrowserArea.tsx` because
+  `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` was
+  still the recorded next unresolved pane-side front door at the start of the
+  turn and still mixed filter/save-search/search-scope UI plus the
+  header/virtualized row surface into the first file a contributor opened for
+  shared file-browser behavior.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface.test.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter.test.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+  - `perf/reports/frontend/file-browser-pane-list-surface-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/FileBrowser/FileBrowserPane.test.ts src/components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface.test.tsx src/components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-filters.spec.ts frontend/tests/e2e/file-browser/browser-file-open.spec.ts frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts`
+  - `pnpm -C frontend exec prettier --check ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-panes-and-authoring-cleanup-plan.md ../perf/reports/frontend/file-browser-pane-list-surface-2026-03-16.md src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx src/components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface.tsx src/components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface.test.tsx src/components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter.tsx src/components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter.test.tsx src/components/Section/Layouts/BrowserArea.tsx`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/file-browser-pane-list-surface-2026-03-16.md`
+    with the before/after home workspace-browser measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/home`.
+    `FileBrowserPane.tsx` dropped from `1399` to `646` lines while the
+    measured home workspace-browser subtree stayed flat at `266` nodes with the
+    same `29` visible rows, the same `283px` pane width, the same `633px`
+    height, and no horizontal overflow at `1200x900` or `1440x900`. The home
+    layout collapses that side pane below that range, so the visible checks
+    were taken at the smallest width where the shared file-browser pane still
+    renders.
+- Commit hash:
+  - `03b5dbbd9644263df72cf6da9645684c0ce5b275`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+    which is now the highest unresolved front-door hotspot after
+    `FileBrowserPane.tsx` dropped under 700 lines and delegated its list/filter
+    surfaces into local file-browser owners.
