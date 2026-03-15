@@ -1,5 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { getSectionInfo } from "state/actions/sectionInfos";
+import { getSectionInfo } from "state/actions/sectionHierarchy";
 import { useProjectState } from "state/definitions";
 
 export function ClearValues({ sectionId }) {

@@ -33,15 +33,15 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import {
-  useLspDiagnostics,
-  useMisc,
   useProjectState,
   useResizeEvent,
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useSectionMinMaxDims } from "state/hooks/sectionMinMaxDims";
+import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { C } from "utils/c";
 import {
   getPythonCodegenTarget,

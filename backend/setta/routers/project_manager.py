@@ -36,6 +36,7 @@ from setta.project_state.project_manager_types import (
     DeleteStateMachineEdgesRequest,
     DeleteViewModeRequest,
     DeleteWindowSpaceRequest,
+    ForceRefreshProjectRequest,
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -619,6 +620,30 @@ async def route_get_latest_lsp_diagnostics(
     await _deny_deployment_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.get_latest_lsp_diagnostics(x)
+
+
+@router.post(Route.FORCE_REFRESH_LISTENER)
+async def route_force_refresh_listener(
+    x: ForceRefreshProjectRequest, ctx: RuntimeContextFromRequest
+) -> None:
+    manager = ctx.get_project_manager(x.projectConfigId)
+    try:
+        project_state = await manager.get_latest_project_state(
+            GetLatestProjectStateRequest(
+                projectConfigId=x.projectConfigId,
+                frontendOpId=x.frontendOpId,
+            )
+        )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"project state unavailable for {x.projectConfigId}",
+        ) from exc
+
+    await ctx.state.wmh_python_script_sender.send_force_refresh(
+        projectState=project_state,
+        share_session_id=ctx.share_session_id,
+    )
 
 
 @router.post(Route.SET_TOP_LEVEL_SECTION_LAYOUT)
