@@ -425,6 +425,59 @@ func TestHandlerServesBootstrapPageWhenAuthEnabled(t *testing.T) {
 	}
 }
 
+func TestBootstrapConsumeAcceptsBearerTokenWhenBodyOmitsToken(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info: stubInfoService{
+			mode: "ide",
+			info: RuntimeInfo{Mode: "ide"},
+		},
+		Auth: authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	consumeRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/__setta__/bootstrap/consume",
+		bytes.NewBufferString(`{}`),
+	)
+	consumeRequest.Header.Set("Content-Type", "application/json")
+	consumeRequest.Header.Set("Authorization", "Bearer "+token)
+	consumeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(consumeResponse, consumeRequest)
+	if consumeResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", consumeResponse.Code, consumeResponse.Body.String())
+	}
+	if strings.TrimSpace(consumeResponse.Body.String()) != `{"status":"ok"}` {
+		t.Fatalf("unexpected bootstrap consume payload %q", consumeResponse.Body.String())
+	}
+
+	// Header-only bootstrap consume must mint the same auth cookie/session
+	// context as the documented JSON-body token path.
+	responseCookies := consumeResponse.Result().Cookies()
+	if len(responseCookies) != 1 {
+		t.Fatalf("expected one auth cookie, got %d", len(responseCookies))
+	}
+
+	protectedRequest := httptest.NewRequest(http.MethodGet, "/api/runtimeInfo", nil)
+	protectedRequest.AddCookie(responseCookies[0])
+	protectedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(protectedResponse, protectedRequest)
+	if protectedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", protectedResponse.Code, protectedResponse.Body.String())
+	}
+}
+
 func TestBootstrapPageUsesDevFrontendRedirectWhenConfigured(t *testing.T) {
 	t.Setenv(devFrontendPortEnv, "3000")
 	t.Setenv(devFrontendSchemeEnv, "http")
