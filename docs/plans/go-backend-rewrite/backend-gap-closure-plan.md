@@ -155,3 +155,7 @@ categorize them.
   back toward the broader deployment, websocket, watch-code, external-agent,
   or platform-default config backlog unless another single-branch CLI proof is
   obviously cheaper
+- The startup-banner auto-open suppression row is now proved too; if another
+  narrow packaged-CLI slice is still clearly cheaper than the broader live
+  backlogs, the MCP bridge bootstrap-URL / verbose-logging rows are the next
+  obvious candidates
