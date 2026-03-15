@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`3bae0edea716594bf32d09a68345d465bac6fed2`
+`ef6019fd9934ca8767ed74567594e61e2530cc8e`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -96,6 +96,8 @@ It currently covers:
 - retained chat-toolkit helper stream-assembly and chat-section-sync behavior
 - retained `SettaRunner` auth, summary, and detached-run param-sweep behavior
 - auth token/current-session helper and local session registry behavior
+- project codegen targets, generated Python materialization, and Python
+  dependency-graph/export behavior
 
 Rows outside these slices are still pending.
 
@@ -135,6 +137,8 @@ Rows outside these slices are still pending.
 - The group-orientation / section-data slice mostly closes with proofs, but it
   adds two more caller-backed transport/runtime gaps plus three more dormant
   route-boundary rows.
+- The codegen-target / generated-Python / dependency-graph slice mostly closes
+  with proofs, but it adds one real transport-validation gap (`CG-04`).
 - The chat-section persistence / stale-chat-cleanup slice mostly closes with
   proofs, but it adds two more caller-backed transport/policy gaps, one
   dormant direct-HTTP read boundary row, and one proof-gap row.
@@ -1159,15 +1163,29 @@ Rows outside these slices are still pending.
 | `SR-01` | Local session registry creation/load persists canonical workspace/connect-info fields plus the secret path, returns sessions newest-first, and resolves workspace+server-mode matches against canonicalized workspace paths. | Source helper: `backend/setta/sessions/registry.py::SessionRegistry`; source tests: `tests/sessions/test_registry.py::{test_create_and_load_session,test_create_session_persists_connect_info_path_fields,test_find_sessions_by_workspace_resolves_paths,test_find_sessions_by_workspace_and_mode_filters_server_mode}`. | Impl: `internal/localsessions/registry.go::{CreateSession,LoadSessions,FindSessionsByWorkspaceAndMode}`; proof: `internal/localsessions/registry_test.go::{TestRegistryCreateSessionWritesMetadataAndSecret,TestRegistryLoadSessionsAndFindByWorkspaceAndMode}`; startup proof: `cmd/setta-server/local_session_test.go::TestMaybeBootstrapLocalSessionCreatesCurrentSessionAndCleansUp`. | `Proved` | The Go registry stores the same core connect-info fields under the runtime sessions root; this row is scoped to the persisted load/filter contract, not stale-session pruning. |
 | `SR-02` | Active-session filtering keeps only live Setta processes, recognizes `setta` / `setta-script.py` / `setta-server` process signatures, and ignores current-PID sessions unless in-process mode is explicitly enabled. | Source helper: `backend/setta/sessions/registry.py::{load_sessions,_is_session_stale,is_session_process_setta}`; source tests: `tests/sessions/test_registry.py::{test_is_session_process_setta_detects_console_script_name,test_is_session_process_setta_detects_script_py_name,test_is_session_process_setta_detects_server_binary_name,test_load_sessions_prunes_non_setta_process,test_load_sessions_prunes_current_pid_without_in_process_flag,test_load_sessions_keeps_current_pid_with_in_process_flag}`. | Impl: `internal/localsessions/registry.go::{FilterActiveSessions,IsSessionActive}`; caller usage: `internal/settacli/cli.go`; `internal/settacli/tool_api.go`; `internal/settacmd/backups.go`. | `Implemented, proof incomplete` | Source Python baked this into `load_sessions(prune_stale=True)`, while current Go factors it into caller-applied filtering helpers. This slice does not yet cite direct Go tests for the process-signature and current-PID branches. |
 
+## Project Codegen Targets, Generated Python, And Dependency Graph
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `CG-01` | `set_project_config_codegen_targets` persists the ordered target list, rejects duplicate `language` entries before plugin validation runs, and leaves state unchanged when plugin-target validation fails. | Source docs: `docs/reference/codegen-targets.md`; source model validation: `backend/setta/types/project_config.py::{ProjectCodegenPluginTarget.validate_language,ProjectConfig._validate_codegen_targets}`. | Impl: `internal/projectstate/codegen_targets.go::{normalizeCodegenTargetsForMutation,SetProjectCodegenTargets}`; proof: `internal/projectstate/codegen_targets_test.go::{TestRuntimeSetProjectCodegenTargetsPersistsPluginOnlyTargets,TestRuntimeSetProjectCodegenTargetsRejectsDuplicateLanguages,TestRuntimeSetProjectCodegenTargetsRequiresValidatorForPluginTargets,TestRuntimeSetProjectCodegenTargetsPropagatesValidatorFailure}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesValidatesAndPersistsPluginCodegenTargets,TestRegisterProjectRoutesRejectsPluginCodegenTargetsWhenValidatorFails,TestRegisterProjectRoutesRejectsInvalidCodegenTargetPayload}`. | `Proved` | This row is scoped to ordered persistence plus duplicate/validator failure behavior, not the separate Python-target reconciliation path. |
+| `CG-02` | Enabling Python codegen reconciles canonical generated bindings and singleton sections, while disabling it clears generated bindings, removes generated sections, and clears `entryCodeBlockId` when it pointed at the generated section. | Source docs: `docs/reference/codegen-targets.md`; source project-state singleton export behavior: `backend/setta/types/project_state.py::ProjectStateSingleConfig.validate_singleton_sections`. | Impl: `internal/projectstate/codegen_targets.go::{applySupportedPythonCodegenMutation,cleanupRemovedPythonCodegen}`; proof: `internal/projectstate/codegen_targets_test.go::{TestRuntimeSetProjectCodegenTargetsDisablesPythonTargetAndCleansUpGeneratedState,TestRuntimeSetProjectCodegenTargetsEnablesPythonTargetWithReconciledGeneratedSections,TestRuntimeSetProjectCodegenTargetsAllowsPluginMutationWithUnchangedPythonTarget,TestRuntimeSetProjectCodegenTargetsTreatsDefaultedPythonPayloadAsUnchanged}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesDisablesPythonCodegenAndReturnsCleanedProjectState,TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSections}`; frontend state proof: `frontend/src/state/actions/project/codegenTargets.test.ts::it("replaces the current project state and matching metadata from the authoritative response")`. | `Proved` | Current Go proof explicitly checks generated code/metadata singleton ids, canonical write-only bindings, unchanged-default Python payload handling, and entry-section cleanup on disable. |
+| `CG-03` | `setGenCodePrefix` and `setGenCodeSuffix` mutate only the Python target fields, require an existing Python target, and keep the `GenPythonCode` section as a body-only read-only view while the UI edits prefix/suffix on the target itself. | Source docs: `docs/reference/codegen-targets.md` and `docs/reference/codegen-section-policy-and-metadata.md`; source model: `backend/setta/types/project_config.py::ProjectCodegenPythonTarget`; current caller behavior: `frontend/src/components/Section/Layouts/CodeArea.tsx::GenPythonCodeAreaContent`. | Impl: `internal/projectstate/python_codegen_writes.go::{SetGenCodePrefix,SetGenCodeSuffix}`; proof: `internal/projectstate/python_codegen_writes_test.go::{TestRuntimeSetGenCodePrefixPersistsPythonTargetField,TestRuntimeSetGenCodePrefixRequiresPythonTarget,TestRuntimeSetGenCodeSuffixPersistsPythonTargetField,TestRuntimeSetGenCodeSuffixRequiresPythonTarget}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSetGenCodePrefixAndSuffixPersistRuntimeState,TestRegisterProjectRoutesSetGenCodePrefixAndSuffixRejectMissingPythonTarget}`. | `Proved` | The current CodeArea caller still splits the combined doc and sends prefix/suffix route writes while keeping the generated body read-only. |
+| `CG-04` | Invalid Python-target extra fields or invalid nested policy payloads should fail as request-validation errors instead of surfacing as internal server errors. | Source model validation: `backend/setta/types/project_config.py::{ProjectCodegenPythonTarget,SectionTypeCodegenPolicy,SectionCodegenPolicy,CodeObjTypeValuePolicy,CodeObjValuePolicy}` all use `extra="forbid"`. | Current decode path: `internal/projectstate/python_codegen.go::{DecodePythonCodegenTarget,normalizePythonCodegenTargetObjectField}`; current route mapping: `internal/httpapi/project_routes.go::writeSetProjectConfigCodegenTargetsError`; current decode proof: `internal/projectstate/python_codegen_test.go::{TestDecodePythonCodegenTargetRejectsUnknownField,TestDecodePythonCodegenTargetRejectsInvalidNestedSectionPolicy}`. | `Missing` | Current Go rejects the bad payloads internally, but `writeSetProjectConfigCodegenTargetsError` does not map `ErrProjectCodegenPythonTargetFieldUnknown`, `ErrProjectCodegenPythonTargetFieldInvalid`, or nested policy-decode errors, so those branches currently fall through to `500 internal_error` instead of the source validation contract. |
+| `CG-05` | Generated Python materialization writes canonical `setta_gen.py` plus optional `setta_gen_meta.py`, stores only the generated body in the singleton section payload, injects metadata import/assignment when enabled, prunes stale metadata when disabled, and leaves unrelated non-Python outputs alone. | Source docs: `docs/reference/codegen-targets.md`; `docs/reference/codegen-section-policy-and-metadata.md`; source helper constants: `backend/setta/utils/utils.py::{GEN_CODE_FILENAME,GEN_CODE_META_FILENAME}`. | Impl: `internal/codegen/python_materializer.go`; renderer impls: `internal/codegen/{python_code_renderer.go,python_meta_renderer.go}`; proof: `internal/codegen/python_materializer_test.go::{TestPythonMaterializerMaterializeProjectWritesCodeAndMetadata,TestPythonMaterializerReconcileProjectPythonGeneratedSections,TestPythonMaterializerMaterializeProjectRemovesStaleMetadataWhenDisabled,TestPythonMaterializerMaterializeDocumentPrunesOnlyPythonOutputs}`; renderer proof: `internal/codegen/python_code_renderer_test.go::TestPythonCodeRendererIncludesHelperImportBlock`; `internal/codegen/python_meta_renderer_test.go::TestPythonMetadataRendererGeneratesDeterministicProjectAndSectionMetadata`. | `Proved` | This row is about authoritative file/section output and pruning behavior, not the separate route contract for enabling/disabling the target. |
+| `DG-01` | Python codegen policy/export helpers default section and code-object representations, merge effective shared-plus-variant state, derive MetaControl inclusion from the control param type, and expose resolved section/code-object views without callers reparsing raw JSON. | Source policy helpers: `backend/setta/types/project_config.py::{default_section_type_policies,default_code_obj_type_value_policies,resolve_section_codegen_policy,resolve_code_obj_value_policy}`; source tests: `tests/code_gen/test_code_obj_value_policy_dependency_graph.py`; `tests/code_gen/test_meta_control_dependency_graph.py`. | Impl: `internal/projectstate/{python_codegen_export.go,python_codegen_policy.go}`; proof: `internal/projectstate/python_codegen_export_test.go::{TestDecodePythonSectionCodegenPolicyUsesDefaults,TestResolvePythonSectionCodegenPolicyAppliesMetaControlAllowlistAndValidation,TestResolvePythonCodeObjValuePolicyUsesOverride,TestProjectPythonCodegenExportResolvesEffectiveSectionAndCodeObject,TestProjectPythonCodegenExportResolvesMetaControlPolicyFromControlParam}`. | `Proved` | Current Go’s export surface is stronger than the source helper shape because callers can consume resolved typed policy/export views directly instead of reparsing raw payloads. |
+| `DG-02` | The Python dependency graph builds deterministic sanitized dependency names, exports global-variable params at the top level, resolves parser-backed `state.<path>` references, and drops shadowed or syntactically invalid references instead of creating heuristic edges. | Source tests: `tests/code_gen/test_sanitize_python_identifier.py`; `tests/code_gen/test_dependency_graph_plugin.py`; `tests/code_gen/test_dependency_graph_chat.py`; `tests/code_gen/test_dependency_graph_draw.py`; `tests/code_gen/test_dependency_graph_image.py`. | Impl: `internal/codegen/python_dependency_graph.go`; proof: `internal/codegen/python_dependency_graph_test.go::{TestBuildPythonDependencyGraphCallableSectionExportsParamsAndUniquePaths,TestBuildPythonDependencyGraphGlobalVariablesExportsTopLevelParams,TestBuildPythonDependencyGraphResolvesForwardStateReferences,TestBuildPythonDependencyGraphSkipsShadowedAndInvalidStateReferences}`. | `Proved` | Current Go uses a parser-backed reference extractor and explicit name sanitization instead of keyword heuristics, which matches the repo’s robustness requirement. |
+| `DG-03` | Dependency-value rendering preserves source representation semantics across task-board/spreadsheet/plugin/chat/draw/image/meta-control/password/code-param/slider/dropzone payloads, including file-path/file-read fallbacks and helper-based packaged-runtime rendering. | Source tests: `tests/code_gen/test_data_authoring_section_codegen.py`; `tests/code_gen/test_dependency_graph_chat.py`; `tests/code_gen/test_dependency_graph_draw.py`; `tests/code_gen/test_dependency_graph_image.py`; `tests/code_gen/test_dependency_graph_plugin.py`; `tests/code_gen/test_meta_control_dependency_graph.py`; `tests/code_gen/test_value_codec.py`. | Impl: `internal/codegen/{python_dependency_graph.go,python_value_codec.go}`; proof: `internal/codegen/python_dependency_graph_test.go::TestBuildPythonDependencyGraphSectionValueModes`; `internal/codegen/python_dependency_graph_test.go::TestBuildPythonDependencyGraphPasswordParamHonorsProvidedSecrets`; `internal/codegen/python_value_codec_test.go::{TestPythonValueCodecFormatCallableSectionHandlesPassingStylesAndOrder,TestPythonValueCodecFormatsParamRepresentations,TestPythonValueCodecFormatsPasswordAndFileHelpers,TestPythonValueCodecFormatsSectionsByRepresentation,TestPythonValueCodecFormatsDropzoneRepresentations}`; current packaged-runtime helper import proof: `internal/codegen/python_code_renderer_test.go::TestPythonCodeRendererIncludesHelperImportBlock`. | `Proved` | This row covers value-shape/rendering parity, while `CG-05` separately tracks authoritative file materialization. |
+
 ## Current Findings
 
-1. The matrix now contains forty-seven concrete source-parity gaps:
+1. The matrix now contains forty-eight concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, and `SC-06`.
+   `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, `SC-06`, and
+   `CG-04`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1304,19 +1322,22 @@ Rows outside these slices are still pending.
     client surface as explicit retained boundaries.
 44. The auth/session-registry slice adds no new real behavior gap, but it
     does add two broader proof-gap rows (`AC-02`, `SR-02`).
-45. Git route behavior is now largely proved, including literal pathspec
+45. The codegen-target / generated-Python / dependency-graph slice mostly
+    closes with proofs, but it adds one real transport-validation gap
+    (`CG-04`).
+46. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-46. The remaining issues in the naming slice are still mostly proof gaps rather
+47. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-47. The next high-value steps are:
+48. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
       `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`,
-      `CT-02`, `SC-05`, and `SC-06` should be
+      `CT-02`, `SC-05`, `SC-06`, and `CG-04` should be
       restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
