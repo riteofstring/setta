@@ -43,8 +43,18 @@ func TestRegisterSettingsRoutesReturnsCurrentSnapshot(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode load settings payload: %v", err)
 	}
-	if got := payload["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+	backend := payload["backend"].(map[string]any)
+	if got := backend["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+	if got := backend["autobackup"]; got != true {
+		t.Fatalf("expected autobackup true, got %#v", got)
+	}
+	if got := backend["autobackupFreq"]; got != float64(300) {
+		t.Fatalf("expected autobackupFreq 300, got %#v", got)
+	}
+	if got := backend["autobackupKeepLastN"]; got != float64(10) {
+		t.Fatalf("expected autobackupKeepLastN 10, got %#v", got)
 	}
 }
 
