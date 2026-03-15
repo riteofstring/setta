@@ -2507,3 +2507,81 @@ Append-only log for the section performance refactor.
   - This is still only a narrow `SectionWindowSurface` pass. The next serious `Phase S3` step should move outward into higher shared floating/window consumers above the accepted body seam.
 - Next action:
   - Continue `Phase S3` by targeting higher shared floating/window shell ownership above `SectionWindowSurface.tsx` without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, or floating-body seams unless a later trace proves it necessary.
+
+### 2026-03-17 74
+
+- Item: Accept `Phase S3` checkpoint 7 after isolating standalone window-space window surfaces from unrelated sibling focus and local thread churn.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` so the standalone surface now:
+    - keeps hydration, blocked-window bookkeeping, snapped-resize orchestration, and the sorted visible-window list in the parent
+    - moves each absolute window frame plus the `SectionWindowSurface` versus `ProjectChatWindowSurface` split into a memoized child
+    - centralizes standalone local chat-thread `SetStateAction` handling through `resolveStandaloneWindowProjectChatUpdate(...)`
+    - skips the initial `hydrationKey` blocked-state reset so immediate blocked-window reports are not cleared on mount
+  - Extended `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` with focused invalidation coverage proving unrelated standalone sibling surfaces stay stable when:
+    - a different window is focused
+    - a project-chat window updates its local thread
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - result: `3` files passed, `33` tests passed
+  - Re-ran representative Playwright coverage:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "keeps standalone project surfaces isolated from workspace selection and windowing state"`
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat windows reopen canvas-bound sections as centered floating windows while keeping section chrome"`
+    - result: `1 passed` plus `1 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Used a new representative standalone window-space focus replay because this checkpoint targets sibling invalidation inside `StandaloneWindowSpaceSurface`, not workspace activation or resize:
+    - open fresh workspace tabs on untouched `main` and the worktree
+    - inject the same saved standalone layout into live state with:
+      - `Perf Chat` as a project-chat window at `zIndex 2`
+      - `S0 Dict` as a section window at `zIndex 1`
+    - switch each tab into `/{project}/windowspace/perf_focus_space` with `history.pushState(...)` plus `PopStateEvent`
+    - mark the replay boundary with `performance.mark("s3-window-space-focus-start")`
+    - dispatch a deterministic `pointerdown` on the lower-z `perf-section-window`
+    - wait two RAFs and mark `performance.mark("s3-window-space-focus-after-raf")`
+    - compare the target renderer from `s3-window-space-focus-start` through `+100ms`
+  - Live CDP standalone-window validation:
+    - both branches kept the same two-window standalone route content:
+      - `S0 Dict`
+      - filter `gamma`
+      - visible `gamma` row
+      - `Perf Chat`
+      - the standalone chat composer and warning banner
+    - both branches kept the same standalone window geometry before the replay:
+      - `perf-section-window`: `x 700`, `width 700`, `height 675`, `zIndex 1`
+      - `perf-chat-window`: `x 0`, `width 700`, `height 540`, `zIndex 2`
+    - both branches ended the replay with the same focus result:
+      - `perf-section-window` promoted to `zIndex 3`
+      - `perf-chat-window` stayed at `zIndex 2`
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint7/`
+  - Accepted marked target-renderer totals from the standalone focus pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `69.373`
+      - `UpdateLayoutTree`: `6.765`
+      - `Layout`: `5.392`
+      - `Paint`: `0.280`
+      - `RunTask`: `72.348`
+      - `EventDispatch`: `0.309`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.325`
+      - `Commit`: `0.290`
+    - worktree
+      - `FunctionCall`: `46.731`
+      - `UpdateLayoutTree`: `5.918`
+      - `Layout`: `5.729`
+      - `Paint`: `0.325`
+      - `RunTask`: `51.100`
+      - `EventDispatch`: `0.539`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.416`
+      - `Commit`: `0.263`
+- Interpretation:
+  - Checkpoint 7 is accepted.
+  - The worktree materially improves the representative standalone focus window on `FunctionCall`, `UpdateLayoutTree`, `RunTask`, and `Commit`.
+  - `Layout`, `Paint`, `EventDispatch`, and `FireAnimationFrame` are slightly higher on the worktree, but they do not outweigh the scripting/task improvement on the touched seam.
+  - The stronger evidence is the new focused guardrail proving unrelated standalone sibling surfaces no longer rerender on focus and local chat-thread churn.
+  - This is still only a standalone window-space consumer pass. The next serious `Phase S3` step should move outward into route-level or remaining shared floating/window ownership above the accepted per-window seam.
+- Next action:
+  - Continue `Phase S3` by targeting route-level or remaining shared floating/window ownership above `StandaloneWindowSpaceSurface.tsx` without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, floating-body, or standalone per-window seams unless a later trace proves it necessary.

@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 6 isolates the floating `SectionWindowSurface` body path from durable active-id and preview-theme churn
-- Current `Phase S3` state: checkpoint 6 accepted; the next serious step is higher shared floating/window shell ownership above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body seams
+- Latest accepted checkpoint: `Phase S3` checkpoint 7 isolates standalone window-space window surfaces from unrelated sibling focus and local thread churn
+- Current `Phase S3` state: checkpoint 7 accepted; the next serious step is route-level or remaining shared floating/window ownership above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space seams
 
 Non-negotiable constraints:
 
@@ -168,6 +168,26 @@ Immediate next step:
      - `FireAnimationFrame`
    - `Commit` is the only small watch item left from this checkpoint, and it is not large enough to reject the pass
    - the next serious `Phase S3` step should move outward into higher shared floating/window consumers above `SectionWindowSurface.tsx`, not reopen the accepted floating-body memo seam unless a later trace proves it necessary
+19. Current post-checkpoint-7 direction:
+   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` now keeps:
+     - hydration and merge state
+     - blocked managed-chat bookkeeping
+     - snapped resize orchestration
+     - the sorted visible-window list
+   - a memoized per-window child now owns:
+     - the absolute standalone `article` frame
+     - the `SectionWindowSurface` versus `ProjectChatWindowSurface` split
+     - per-window local chat-thread and embedded-git callbacks
+   - focused invalidation coverage now proves unrelated standalone sibling windows do not rerender when only:
+     - a different window is focused
+     - a project-chat window updates its local thread
+   - the representative standalone focus trace now favors the worktree on:
+     - `FunctionCall`
+     - `UpdateLayoutTree`
+     - `RunTask`
+     - `Commit`
+   - `Layout`, `Paint`, `EventDispatch`, and `FireAnimationFrame` are slightly higher on the worktree, but not enough to reject the pass
+   - the next serious `Phase S3` step should move outward into route-level or remaining shared floating/window ownership above `StandaloneWindowSpaceSurface.tsx`, not reopen the accepted per-window memo seam unless a later trace proves it necessary
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
