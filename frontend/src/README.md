@@ -463,10 +463,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.
-- `state/actions/agenticEdges.ts` now owns the largest remaining agentic edge
-  orchestration cluster, so any follow-up there should stay local to
-  agentic-edge reads/mutations instead of regrowing shared workflow edge
-  helpers.
+- `state/actions/agenticEdgeConnections.ts` now owns agentic-edge handle
+  normalization, connection validation, and kind resolution, while
+  `state/actions/agenticEdgeMutations.ts` now owns optimistic create/update/
+  delete/selection commands; follow-up cleanup there should stay local to one
+  of those owners instead of regrowing `state/actions/agenticEdges.ts`.
+- `state/actions/uiSettingRevealMutationSnapshots.ts` now owns the largest
+  remaining reveal snapshot/rollback cluster, so any follow-up there should
+  stay local to snapshot capture and restore helpers instead of regrowing the
+  broader reveal orchestration surface.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

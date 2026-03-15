@@ -17,7 +17,7 @@ import {
   createAgenticEdgeFromSections,
   deleteAgenticEdgesById,
   updateAgenticEdgeContextMode,
-} from "state/actions/agenticEdges";
+} from "state/actions/agenticEdgeMutations";
 import { updateEngineConfig } from "state/actions/aiConfigurationCatalogs";
 import { setProjectChatWindowModeForSection } from "state/actions/projectChatWindowSectionCommands";
 import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowingSelectors";
