@@ -1,6 +1,6 @@
 # Backend Behavior Parity Matrix
 
-Last updated: `2026-03-15`
+Last updated: `2026-03-16`
 
 Source baseline branch: `main`
 
@@ -24,6 +24,10 @@ It currently covers:
 - project shell read/lifecycle/default-project routes
 - project shell metadata broadcasts and save notifications
 - project notification read/delete flows
+- listener bootstrap/init/register behavior
+- listener realtime/force-refresh transport behavior
+- listener coverage route and coverage-update contracts
+- listener frontend emit dependency/artifact update behavior
 
 Rows outside these slices are still pending.
 
@@ -51,12 +55,18 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Two concrete parity gaps are already visible:
+- Four concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
     `withRefs`
   - current Go ignores `withRefs` and always performs the same clone path
+  - source-baseline listener registration changes push
+    `ListenerCoverageSnapshot` updates over the frontend websocket
+  - current Go only exposes the pull route and does not emit the websocket
+    update
+  - source-baseline listener transport supports `use_temporary_ids`
+  - current Go rejects temporary listener ids on `ListenerInit`
 
 ## Project Names
 
@@ -143,18 +153,48 @@ Rows outside these slices are still pending.
 | `PS-14` | `deleteNotification` removes the targeted persisted notification entry. | `backend/setta/routers/projects.py::route_delete_notification`; `backend/setta/database/db_objs.py::delete_notification`. | Impl: `internal/notifications/store.go::Delete`; `internal/notifications/service.go::DeleteNotification`; proof: `internal/notifications/store_test.go::TestStoreListByProjectAndDelete`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesDeletesNotification`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellRenameAndNotificationRoutes`. | `Proved` | |
 | `PS-15` | Manual save emits a non-temporary `save` notification with id, project id, message, and timestamp on the frontend websocket. | `docs/reference/logging-and-error-handling.md` user-notifications guidance; `backend/setta/routers/projects.py::route_save_project`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_notification`. | Impl: `internal/app/app.go::broadcastSavedProjectNotification`; proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | The source baseline evidence proves a websocket notification contract, not persistence into `notifications.json`. |
 
+## Listener Bootstrap, Coverage, And Frontend Emits
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `LS-01` | `ListenerInit` for an explicit `projectConfigId` records bootstrap state and replies with a targeted `ListenerForceRefresh` containing project state plus authoritative dependency catalog/value payloads. | `docs/reference/setta-realtime-behavior.md` snapshot bootstrap section; `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_bootstrap_snapshot`; `backend/setta/websockets/msg_handlers/python_script_sender.py::send_force_refresh`. | Impl: `internal/wsapi/routes.go::handleListenerInit`; `internal/realtime/listener_broadcaster.go::SendForceRefresh`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerInitIncludesDependencyCatalog`; `internal/realtime/listener_broadcaster_test.go::TestListenerBroadcasterForceRefreshIncludesDependencyCatalog`. | `Proved` | |
+| `LS-02` | `ListenerInit` resolves `projectName` when `projectConfigId` is absent. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_init`; `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_bootstrap_snapshot`; `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_error_when_project_name_missing`. | Impl: `internal/wsapi/routes.go::resolveListenerBootstrap`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh`. | `Proved` | |
+| `LS-03` | `ListenerInit` falls back to the default project in the active IDE/share-session scope when no target is provided. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_init`; `docs/reference/setta-realtime-behavior.md` snapshot bootstrap section. | Impl: `internal/wsapi/routes.go::resolveListenerBootstrap`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerInitFallsBackToDefaultProject`; `internal/wsapi/routes_test.go::TestRegisterRoutesShareListenerInitUsesSessionScope`. | `Proved` | |
+| `LS-04` | Unknown listener bootstrap targets send `project_state_unavailable` listener errors instead of force-refresh payloads. | `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_error_when_project_missing`; `tests/websockets/test_python_script_receiver.py::test_listener_init_sends_error_when_project_name_missing`. | Impl: `internal/wsapi/routes.go::handleListenerInit`; `internal/wsapi/routes.go::resolveListenerBootstrap`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerInitMissingProjectSendsListenerError`. | `Implemented, proof incomplete` | Current Go directly proves the missing-`projectName` branch. This slice does not yet have a direct Go test for the explicit missing-`projectConfigId` variant from `main`. |
+| `LS-05` | `ListenerRegister` stores callbacks and returns `ListenerRegisterAck` with accepted callback statuses plus the resolved bootstrapped project/session ids. | `tests/websockets/test_python_script_receiver.py::test_listener_register_stores_registration_and_sends_ack`; `backend/setta/websockets/listener_registry.py`; `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_register`. | Impl: `internal/wsapi/routes.go::handleListenerRegister`; `internal/realtime/listener_registry.go::UpsertRegistration`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages`; `internal/wsapi/routes_test.go::TestRegisterRoutesShareFrontendDependencyEventScopesToSession`. | `Proved` | |
+| `LS-06` | Registered listener callbacks receive matching realtime dependency deltas and action events, including binary payloads, with share-session scoping and a shared sequence counter. | `docs/reference/setta-realtime-behavior.md` realtime delta pipeline and action event pipeline; `tests/api/test_listener_realtime.py`; `backend/setta/websockets/msg_handlers/python_script_sender.py`. | Impl: `internal/realtime/listener_broadcaster.go`; `internal/realtime/listener_registry.go`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages`; `internal/wsapi/routes_test.go::TestRegisterRoutesFrontendRealtimeUIChangeBroadcastsToMatchingListener`; `internal/wsapi/routes_test.go::TestRegisterRoutesFrontendBinaryDependencyEventBroadcastsBinaryFrame`; `internal/wsapi/routes_test.go::TestRegisterRoutesShareFrontendDependencyEventScopesToSession`. | `Proved` | |
+| `LS-07` | Python-style listener registrations may send typed dependency keys, and backend routing preserves the canonical dependency-key contract. | `docs/reference/setta-realtime-behavior.md` registration section; `backend/setta/api/listener.py::_build_register_content`; `tests/api/test_listener_dependency_translation.py`. | Impl/proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerAcceptsPythonRegisterPayloadAndEmitsStructuredDependencyKeys`. | `Proved` | |
+| `LS-08` | Force refresh resets listener sequencing and sends the latest snapshot to the bootstrapped listeners for the project/share scope, even when no listeners are currently connected. | `docs/reference/setta-realtime-behavior.md` force refresh lifecycle section; `backend/setta/websockets/msg_handlers/python_script_sender.py::send_force_refresh`; `tests/routers/test_project_manager_force_refresh.py::test_force_refresh_broadcasts_latest_snapshot`. | Impl: `internal/realtime/listener_broadcaster.go::SendForceRefresh`; proof: `internal/realtime/listener_broadcaster_test.go::TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSequence`; `internal/realtime/listener_broadcaster_test.go::TestListenerBroadcasterForceRefreshResetsSequenceWithoutTargets`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefresh`. | `Proved` | |
+| `LS-09` | The force-refresh HTTP route returns the current snapshot transport and rejects unknown project/share-session requests with typed route errors. | `backend/setta/routers/project_manager.py::route_force_refresh_listener`; `tests/routers/test_project_manager_force_refresh.py::test_force_refresh_broadcasts_latest_snapshot`; `tests/routers/test_project_manager_force_refresh.py::test_force_refresh_missing_project_raises_http_error`. | Impl: `internal/httpapi/listener_routes.go::forceRefreshListenerHandler`; proof: `internal/httpapi/listener_routes_test.go::TestRegisterListenerRoutesRejectsUnknownProjectConfig`; `internal/httpapi/listener_routes_test.go::TestRegisterListenerRoutesShareForceRefreshRequiresSession`; app proof: `internal/app/websocket_test.go::TestAppServesListenerForceRefreshRoute`. | `Proved` | |
+| `LS-10` | Listener coverage snapshots ignore `refresh_only` callbacks, surface realtime wildcards separately, and respect share-session scoping on reads. | `backend/setta/websockets/listener_coverage.py`; `tests/websockets/test_listener_coverage.py::test_returns_snapshot_for_new_dependencies`; `tests/websockets/test_listener_coverage.py::test_handles_wildcard_callbacks`; `tests/websockets/test_listener_coverage.py::test_emits_reset_snapshot_when_no_registrations`; `backend/setta/routers/listener.py::route_get_listener_coverage`. | Impl: `internal/realtime/listener_coverage.go::BuildListenerCoverageSnapshot`; `internal/httpapi/listener_routes.go::getListenerCoverageHandler`; proof: `internal/realtime/listener_coverage_test.go::TestBuildListenerCoverageSnapshotIgnoresRefreshOnlyCallbacks`; `internal/realtime/listener_coverage_test.go::TestBuildListenerCoverageSnapshotTracksRealtimeWildcard`; `internal/httpapi/listener_routes_test.go::TestRegisterListenerRoutesReturnsCoverageSnapshot`; `internal/httpapi/listener_routes_test.go::TestRegisterListenerRoutesShareCoverageRespectsSessionScope`; app proof: `internal/app/websocket_test.go::TestAppServesListenerCoverageRoute`. | `Proved` | |
+| `LS-11` | Listener registration changes push `ListenerCoverageSnapshot` updates to frontend websockets, scoped to the active share session. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_sync_listener_coverage`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_listener_coverage_snapshot`; `tests/websockets/test_python_script_receiver_share_mode.py::test_listener_coverage_broadcasts_to_session`. | Current Go coverage path: `internal/httpapi/listener_routes.go::getListenerCoverageHandler`; frontend pull path: `frontend/src/state/actions/listenerCoverage.ts`. | `Missing` | Current Go exposes the pull route but does not emit `ListenerCoverageSnapshot` over `/ws/frontend`. That means coverage can stay stale after listener register/disconnect until the frontend refetches explicitly. |
+| `LS-12` | Listener frontend emits require prior registration and reject unregistered sockets with `listener_not_registered`. | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_unregistered_socket`. | Impl: `internal/wsapi/listener_frontend_emit.go::handleListenerFrontendEmit`. | `Implemented, proof incomplete` | This slice does not yet have a direct Go test for the emit-side unregistered-socket error branch. |
+| `LS-13` | Listener frontend emits reject project mismatches, empty payloads, and missing share-session context with typed listener errors. | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_project_config_mismatch`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_empty_payload`; `tests/websockets/test_python_script_receiver_share_mode.py::test_frontend_emit_without_share_session_reports_error`. | Impl: `internal/wsapi/listener_frontend_emit.go::handleListenerFrontendEmit`. | `Implemented, proof incomplete` | Current Go code has all three branches (`project_config_mismatch`, `listener_emit_invalid_payload`, `share_session_missing`), but this slice has no direct Go tests for them yet. |
+| `LS-14` | Listener frontend dependency updates apply to project state and broadcast the authoritative frontend project-state update without a separate ack. | `docs/reference/listener-flows.md` Flow D; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_forwards_to_frontend_without_ack`. | Impl: `internal/wsapi/listener_frontend_emit.go`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFrontend`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitUpdatesSectionParamValue`. | `Proved` | |
+| `LS-15` | Listener frontend artifact updates persist/broadcast artifact changes and remain scoped to the active share session. | `docs/reference/listener-flows.md` Flow D; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_forwards_artifact_updates_to_manager`; `tests/websockets/test_python_script_receiver_share_mode.py`. | Impl: `internal/wsapi/listener_frontend_emit.go`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitBroadcastsArtifactUpdates`; `internal/wsapi/routes_test.go::TestRegisterRoutesShareListenerFrontendEmitScopesArtifactUpdatesToSession`. | `Proved` | |
+| `LS-16` | Listener frontend emit validation rejects unknown dependencies plus invalid/unsupported dependency or artifact payload shapes with typed listener errors. | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_unknown_dependency`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_invalid_value`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_reports_artifact_errors_from_manager`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_blank_artifact_paths`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_type_mismatches`. | Impl: `internal/wsapi/listener_frontend_emit.go`; partial proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitRejectsInvalidArtifactUpdate`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedArtifactUpdate`. | `Implemented, proof incomplete` | Go currently proves the unknown-dependency and some artifact-validation branches. The source-baseline invalid-value, blank-path/type-mismatch, and manager-propagated artifact-error variants still need direct Go proof in this slice. |
+| `LS-17` | Listener transport supports `use_temporary_ids`: temporary project ids are accepted on init/register and outbound ack/force-refresh payload ids are remapped back to temporary ids. | `docs/reference/setta-listener-examples.md`; `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_init`; `backend/setta/websockets/msg_handlers/python_script_sender.py::send_force_refresh`; `tests/websockets/test_python_script_receiver.py::test_listener_register_ack_uses_temporary_project_id`; `tests/websockets/test_python_script_receiver.py::test_listener_init_maps_temporary_project_id`. | Current Go behavior: `internal/wsapi/routes.go::handleListenerInit` rejects `UseTemporaryIDs` with `listener_invalid_id`. | `Missing` | This is a concrete parity gap, not a documented divergence. The current rewrite docs still advertise `SettaListener(..., use_temporary_ids=True)` in `docs/reference/setta-listener-examples.md`. |
+
 ## Current Findings
 
-1. The matrix now contains two concrete source-parity gaps:
-   `CN-07` and `PS-08`.
+1. The matrix now contains four concrete source-parity gaps:
+   `CN-07`, `PS-08`, `LS-11`, and `LS-17`.
 2. The project-shell slice also surfaced one source behavior that is still
    unproven on the current Go architecture:
    `PS-06`.
-3. The remaining issues in the naming slice are still mostly proof gaps rather
+3. The listener slice added four more rows that are implemented in Go but
+   still under-proved relative to `main`:
+   `LS-04`, `LS-12`, `LS-13`, and `LS-16`.
+4. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
-4. The next high-value steps are:
+5. The next high-value steps are:
    - decide whether `CN-07` and `PS-08` should be restored or documented as
+     intentional divergences
+   - decide whether `LS-11` and `LS-17` should be restored or documented as
      intentional divergences
    - close proof gaps for project/view-mode/window-space/section format-rule
      variants
-   - continue the matrix into the listener/websocket/runtime payload slice
+   - close the remaining listener proof gaps (`LS-04`, `LS-12`, `LS-13`,
+     `LS-16`)
+   - continue the matrix into the remaining realtime/runtime slices that are
+     still outside this partial matrix
