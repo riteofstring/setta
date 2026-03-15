@@ -1562,6 +1562,12 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteSetTopLevelSectionLayout, setTopLevelSectionLayoutHandler(deps))
+		router.With(shareGuard).Post(RouteAutoLayoutTopLevelSections, autoLayoutTopLevelSectionsHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionSizes, setSectionSizesHandler(deps))
+		router.With(shareGuard).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
+		router.With(shareGuard).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
+		router.With(shareGuard).Post(RouteSetViewport, setViewportHandler(deps))
 		router.With(shareGuard).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
@@ -3455,7 +3461,10 @@ func setSectionSizesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil || deps.SettingsState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+		if deps.SettingsState == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -3465,12 +3474,17 @@ func setSectionSizesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		sectionSizes := make(map[string]projectstate.SectionSize, len(payload.SectionSizes))
 		for sectionID, size := range payload.SectionSizes {
 			sectionSizes[sectionID] = size.ProjectStateValue()
 		}
-		if _, err := deps.ProjectState.SetSectionSizes(
+		if _, err := runtime.SetSectionSizes(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionSizes,
@@ -3898,12 +3912,17 @@ func setTopLevelSectionLayoutHandler(deps ProjectRouteDependencies) http.Handler
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTopLevelSectionLayout(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.TopLevelSections); err != nil {
+		if _, err := runtime.SetTopLevelSectionLayout(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.TopLevelSections); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -3924,7 +3943,10 @@ func autoLayoutTopLevelSectionsHandler(deps ProjectRouteDependencies) http.Handl
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil || deps.SettingsState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+		if deps.SettingsState == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -3938,7 +3960,12 @@ func autoLayoutTopLevelSectionsHandler(deps ProjectRouteDependencies) http.Handl
 			writeAutoLayoutError(w, r, err)
 			return
 		}
-		if _, err := deps.ProjectState.AutoLayoutTopLevelSections(
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if _, err := runtime.AutoLayoutTopLevelSections(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			settings,
@@ -3964,12 +3991,17 @@ func togglePositionLocksHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.TogglePositionLocks(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs); err != nil {
+		if _, err := runtime.TogglePositionLocks(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -3995,12 +4027,17 @@ func toggleMinimizedHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleMinimized(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID); err != nil {
+		if _, err := runtime.ToggleMinimized(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -4086,12 +4123,17 @@ func setViewportHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetViewport(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.Viewport); err != nil {
+		if _, err := runtime.SetViewport(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.Viewport); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}

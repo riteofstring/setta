@@ -163,8 +163,8 @@ It covers:
 - The history/clipboard slice mostly closes with proofs, but it adds two more
   clipboard parity gaps plus one more dormant deployment-mode route-boundary
   row.
-- The view-mode layout / layout-presentation slice mostly closes with proofs,
-  but it adds one more caller-backed deployment-policy gap.
+- The view-mode layout / layout-presentation slice now closes with proofs and
+  adds no new concrete gap.
 - The section-chrome / child-defaults / param-selection slice mostly closes
   with proofs, and it now only retains two more dormant child-default
   route-boundary rows.
@@ -984,7 +984,7 @@ It covers:
 | `VL-04` | `autoLayoutTopLevelSections` uses the section-sizing policy and auto-size fallbacks to rewrite top-level layouts without overlap while preserving the layout origin, syncing the active view mode, and rejecting invalid margin or dimensions. | Source tests: `tests/types/test_section_sizing_normalization.py::test_auto_layout_falls_back_for_auto_sizes`; source helper: `backend/setta/types/helpers_lvl2.py::auto_layout_top_level_sections`; source route: `backend/setta/routers/project_manager.py::route_auto_layout_top_level_sections`. | Impl: `internal/projectstate/auto_layout.go::AutoLayoutTopLevelSections`; proof: `internal/projectstate/auto_layout_test.go::{TestRuntimeAutoLayoutTopLevelSectionsRewritesLayoutsWithoutOverlapAndPreservesOrigin,TestRuntimeAutoLayoutTopLevelSectionsRejectsNegativeMargin,TestRuntimeAutoLayoutTopLevelSectionsRejectsNonPositiveDimensions}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesAutoLayoutTopLevelSectionsPersistsLatestState,TestRegisterProjectRoutesAutoLayoutTopLevelSectionsReturns422ForInvalidMargin,TestRegisterProjectRoutesAutoLayoutTopLevelSectionsReturns404ForMissingProject}`. | `Proved` | The current Go runtime proof is stronger than the isolated source Python test because it directly checks origin preservation, overlap avoidance, and active-view-mode sync. |
 | `VL-05` | `setSectionSizes` clamps values to sizing policy bounds, preserves explicit `auto`, keeps embedded code and attached terminal widths in lockstep, and rejects conflicting or non-finite inputs with the typed auto-layout failure path. | Source tests: `tests/types/test_section_sizing_normalization.py::{test_normalize_section_size_clamps_to_policy_bounds,test_normalize_section_size_clamps_negative_values,test_normalize_section_size_preserves_auto,test_normalize_section_size_rejects_non_finite,test_set_section_sizes_normalizes_payload}`; source helper: `backend/setta/types/helpers_lvl2.py::set_section_sizes`; source route: `backend/setta/routers/project_manager.py::route_set_section_sizes`. | Impl: `internal/projectstate/section_size_writes.go::SetSectionSizes`; proof: `internal/projectstate/section_size_writes_test.go::{TestRuntimeSetSectionSizesNormalizesPolicyBounds,TestRuntimeSetSectionSizesPreservesAutoAndRejectsNonFiniteValues,TestRuntimeSetSectionSizesKeepsEmbeddedCodeAndTerminalWidthsInLockstep,TestRuntimeSetSectionSizesRejectsConflictingEmbeddedWidths}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSetSectionSizesPersistsLatestState,TestRegisterProjectRoutesSetSectionSizesRejectsConflictingEmbeddedWidths}`. | `Proved` | Current Go preserves the source embedded-width coupling between code sections and attached terminals and keeps the same typed `invalid_auto_layout` route family for conflicts. |
 | `VL-06` | `setActiveIDs`, `toggleMinimized`, and `togglePositionLocks` persist project/effective-payload presentation state, and `togglePositionLocks` validates all section ids before applying any mutation. | Source routes: `backend/setta/routers/project_manager.py::{route_set_active_ids,route_toggle_minimized,route_toggle_position_locks}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{set_active_ids,toggle_minimized,toggle_position_locks}`; source helper: `backend/setta/types/helpers_lvl2.py::{toggle_minimized,toggle_position_locks}`. | Impl: `internal/projectstate/layout_presentation.go::{SetActiveIDs,ToggleMinimized,TogglePositionLocks}`; proof: `internal/projectstate/layout_presentation_test.go::{TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload,TestRuntimeTogglePositionLocksValidatesBeforeApplying}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState,TestRegisterProjectRoutesTogglePositionLocksReturnsNotFoundForUnknownSection}`. | `Proved` | The current route proof covers the typed `404 section_not_found` branch for failed lock toggles as well as the persisted active-id/minimized state updates. |
-| `VL-07` | In share/app sessions, the layout-presentation route family stays mounted behind `allowLayoutChanges`: `setTopLevelSectionLayout`, `autoLayoutTopLevelSections`, `setSectionSizes`, `togglePositionLocks`, `toggleMinimized`, and `setViewport` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_top_level_section_layout,route_auto_layout_top_level_sections,route_set_section_sizes,route_toggle_position_locks,route_toggle_minimized,route_set_viewport}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues those writes from share-aware layout callers via `frontend/src/state/actions/sectionInfos.ts`, `frontend/src/state/actions/sections/sectionPositions.ts`, `frontend/src/components/Utils/Resizable/CustomResizable.tsx`, `frontend/src/components/Section/Header/{LockPositionButton,MinimizeButton}.tsx`, `frontend/src/components/Params/ResizeHandle.tsx`, and `frontend/src/components/AppHeader/EditMenu.tsx`. | `Missing` | This is an active parity gap: the source/current docs keep these writes policy-gated under `allowLayoutChanges`, but current Go removes the entire direct route family outside IDE even though current layout callers still drive it in share-aware flows. |
+| `VL-07` | In share/app sessions, the layout-presentation route family stays mounted behind `allowLayoutChanges`: `setTopLevelSectionLayout`, `autoLayoutTopLevelSections`, `setSectionSizes`, `togglePositionLocks`, `toggleMinimized`, and `setViewport` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_top_level_section_layout,route_auto_layout_top_level_sections,route_set_section_sizes,route_toggle_position_locks,route_toggle_minimized,route_set_viewport}`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,setTopLevelSectionLayoutHandler,autoLayoutTopLevelSectionsHandler,setSectionSizesHandler,togglePositionLocksHandler,toggleMinimizedHandler,setViewportHandler}`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesLayoutPresentationUsesDeploymentOverlayWhenLayoutChangesAllowed,TestRegisterProjectRoutesLayoutPresentationRejectsDeploymentPolicyWhenLayoutChangesDisallowed}`. | `Proved` | Current Go now matches the source/current share-policy contract by keeping the full route family mounted in deployment sessions, applying allowed writes to the request-scoped overlay, and returning typed `403 layout_changes_forbidden` responses when policy blocks them. |
 
 ## Section Chrome, Child Defaults, And Param-Selection Routes
 
@@ -1169,12 +1169,12 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains twenty concrete source-parity gaps:
+1. The matrix now contains nineteen concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
    `SV-05`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
@@ -1271,8 +1271,8 @@ It covers:
 34. The history/clipboard slice mostly closes with proofs, but it adds two
     real clipboard-route/payload gaps (`CB-03`, `CB-04`) plus one dormant
     deployment-mode route-boundary row (`CB-05`).
-35. The view-mode layout / layout-presentation slice mostly closes with
-    proofs, but it adds one real deployment-policy gap (`VL-07`).
+35. The view-mode layout / layout-presentation slice now closes with proofs
+    and adds no real deployment-policy gap.
 36. The section-chrome / child-defaults / param-selection slice closes with
     proofs and retains only two dormant child-default route-boundary rows
     (`CD-02`, `CD-03`).
@@ -1321,7 +1321,7 @@ It covers:
       `WS-01`,
       `DP-08`,
       `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
-      `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
+      `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
       `SV-05`,
       `DL-02` should be restored or
       documented as intentional divergences
