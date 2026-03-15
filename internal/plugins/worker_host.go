@@ -25,7 +25,6 @@ const (
 	CapabilityEmitListenerEvents           = "emitListenerEvents"
 	CapabilityRegisterMCPTools             = "registerMcpTools"
 	CapabilityReadProjectState             = "readProjectState"
-	CapabilityRegisterListenerEndpoint     = "registerListenerEndpoint"
 	CapabilityRegisterRouter               = "registerRouter"
 	CapabilityRegisterStaticDir            = "registerStaticDir"
 	CapabilityRegisterLanguageServer       = "registerLanguageServer"
@@ -37,7 +36,6 @@ const (
 	HostMethodEmitListenerDependencyEvent = "host.emit_listener_dependency_event"
 	HostMethodRegisterMCPTool             = "host.register_mcp_tool"
 	HostMethodReadProjectState            = "host.read_project_state"
-	HostMethodRegisterListenerEndpoint    = "host.register_listener_endpoint"
 	HostMethodRegisterRouter              = "host.register_router"
 	HostMethodRegisterStaticDir           = "host.register_static_dir"
 	HostMethodRegisterLanguageServer      = "host.register_language_server"
@@ -109,7 +107,6 @@ var supportedExternalAgentRunModes = map[string]struct{}{
 type WorkerHostOptions struct {
 	ListenerProducer              *realtime.ListenerProducer
 	Deployment                    *deployments.Runtime
-	ListenerEndpointRegistrar     BackendListenerEndpointRegistrar
 	ProjectStateReader            ProjectStateReader
 	RouterRegistrar               BackendRouterRegistrar
 	StaticDirRegistrar            BackendStaticDirRegistrar
@@ -149,11 +146,6 @@ type RegisterStaticDirRequest struct {
 
 type RegisterMCPToolRequest struct {
 	Tool *workerMCPToolRegistrationPayload `json:"tool"`
-}
-
-type RegisterListenerEndpointRequest struct {
-	EndpointName string `json:"endpointName"`
-	RouteID      string `json:"routeId"`
 }
 
 type ReadProjectStateRequest struct {
@@ -228,7 +220,6 @@ type workerCodegenTargetRegistrationPayload struct {
 type WorkerHost struct {
 	listener                  *realtime.ListenerProducer
 	deployment                *deployments.Runtime
-	listenerEndpointStore     BackendListenerEndpointRegistrar
 	projectStateReader        ProjectStateReader
 	routerStore               BackendRouterRegistrar
 	staticDirStore            BackendStaticDirRegistrar
@@ -240,7 +231,6 @@ type WorkerHost struct {
 
 func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	if options.ListenerProducer == nil &&
-		options.ListenerEndpointRegistrar == nil &&
 		options.ProjectStateReader == nil &&
 		options.RouterRegistrar == nil &&
 		options.StaticDirRegistrar == nil &&
@@ -254,7 +244,6 @@ func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	return &WorkerHost{
 		listener:                  options.ListenerProducer,
 		deployment:                options.Deployment,
-		listenerEndpointStore:     options.ListenerEndpointRegistrar,
 		projectStateReader:        options.ProjectStateReader,
 		routerStore:               options.RouterRegistrar,
 		staticDirStore:            options.StaticDirRegistrar,
@@ -348,25 +337,6 @@ func (h *WorkerHost) ReadProjectState(
 		return ProjectStateReadResult{}, fmt.Errorf("%w: %v", ErrWorkerHostProjectStateReadFailed, err)
 	}
 	return result, nil
-}
-
-func (h *WorkerHost) RegisterListenerEndpoint(
-	ctx context.Context,
-	worker WorkerContext,
-	request RegisterListenerEndpointRequest,
-) error {
-	if h == nil || h.listenerEndpointStore == nil {
-		return ErrWorkerHostListenerEndpointRegistrarRequired
-	}
-	if !worker.hasCapability(CapabilityRegisterListenerEndpoint) {
-		return fmt.Errorf("%w: %s", ErrWorkerHostCapabilityDenied, CapabilityRegisterListenerEndpoint)
-	}
-
-	registration, err := normalizeWorkerListenerEndpointRegistration(worker, request)
-	if err != nil {
-		return err
-	}
-	return h.listenerEndpointStore.RegisterListenerEndpoint(ctx, registration)
 }
 
 func (h *WorkerHost) RegisterLanguageServer(
@@ -541,15 +511,6 @@ func (h *WorkerHost) Dispatch(
 			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
 		}
 		return encoded, nil
-	case HostMethodRegisterListenerEndpoint:
-		var request RegisterListenerEndpointRequest
-		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
-		}
-		if err := h.RegisterListenerEndpoint(ctx, worker, request); err != nil {
-			return nil, err
-		}
-		return json.RawMessage(`{"ok":true}`), nil
 	case HostMethodRegisterRouter:
 		var request RegisterRouterRequest
 		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
@@ -672,32 +633,6 @@ func normalizeWorkerRouterRegistration(
 		PluginID: pluginID,
 		Prefix:   prefix,
 		Routes:   routes,
-	}, nil
-}
-
-func normalizeWorkerListenerEndpointRegistration(
-	worker WorkerContext,
-	request RegisterListenerEndpointRequest,
-) (RegisteredBackendListenerEndpoint, error) {
-	pluginID := strings.TrimSpace(worker.PluginID)
-	if pluginID == "" {
-		return RegisteredBackendListenerEndpoint{}, ErrWorkerHostPluginIDRequired
-	}
-
-	endpointName := strings.TrimSpace(request.EndpointName)
-	if endpointName == "" {
-		return RegisteredBackendListenerEndpoint{}, ErrWorkerHostListenerEndpointNameRequired
-	}
-
-	routeID := strings.TrimSpace(request.RouteID)
-	if routeID == "" {
-		return RegisteredBackendListenerEndpoint{}, ErrWorkerHostListenerEndpointRouteIDRequired
-	}
-
-	return RegisteredBackendListenerEndpoint{
-		PluginID:     pluginID,
-		EndpointName: endpointName,
-		RouteID:      routeID,
 	}, nil
 }
 

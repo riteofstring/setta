@@ -326,8 +326,9 @@ Current stop point:
 
 ### Step 4. Finish Active Endpoint Authority Without Recreating Dormant Surface
 
-- Keep built-in and plugin listener endpoint invocation on one Go-owned
-  boundary for the active supported listener endpoint surface.
+- Keep retained Python listener callers plus built-in listener endpoint
+  invocation on one Go-owned boundary for the active supported listener
+  endpoint surface.
 - Extend the current Go-owned built-in listener endpoint dispatch beyond the
   existing manifest-backed `GoHTTPRoutes` plus chat/chat-section surface only
   if a concrete current listener workflow proves it still needs more.

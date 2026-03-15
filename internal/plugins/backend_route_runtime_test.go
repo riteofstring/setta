@@ -185,8 +185,8 @@ func TestBackendRouteRuntimeInvokesToolOnlyFixtureMCPTools(t *testing.T) {
 	}
 }
 
-// Backend fixture plugins should capture listener-endpoint registrations and support project-state reads over both routes and MCP tools.
-func TestBackendRouteRuntimeSupportsProjectStateReadsAndListenerRegistrations(t *testing.T) {
+// Backend fixture plugins should support project-state reads over both routes and MCP tools.
+func TestBackendRouteRuntimeSupportsProjectStateReadsOverRoutesAndMCPTools(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
 
@@ -213,17 +213,6 @@ func TestBackendRouteRuntimeSupportsProjectStateReadsAndListenerRegistrations(t 
 			t.Fatalf("close backend route runtime: %v", err)
 		}
 	}()
-
-	listenerEndpoints := runtime.ListenerEndpoints()
-	if len(listenerEndpoints) != 1 {
-		t.Fatalf("expected 1 listener endpoint registration, got %#v", listenerEndpoints)
-	}
-	if listenerEndpoints[0].EndpointName != "fixture_listener_endpoint" {
-		t.Fatalf("expected fixture listener endpoint registration, got %#v", listenerEndpoints[0])
-	}
-	if _, ok := runtime.routeByID["setta-fixture-backend:"+listenerEndpoints[0].RouteID]; !ok {
-		t.Fatalf("expected listener endpoint route id to match a registered route, got %#v", listenerEndpoints[0])
-	}
 
 	route := mustFindBackendRoute(t, runtime.Routes(), "/project-state-summary")
 	request := httptest.NewRequest(
@@ -261,68 +250,6 @@ func TestBackendRouteRuntimeSupportsProjectStateReadsAndListenerRegistrations(t 
 	projectConfig, ok = projectSummary["projectConfig"].(map[string]any)
 	if !ok || projectConfig["id"] != "fixture-project" {
 		t.Fatalf("unexpected project summary tool result %#v", result)
-	}
-}
-
-// Backend fixture plugins should invoke registered listener endpoints through the live worker runtime.
-func TestBackendRouteRuntimeInvokesFixtureListenerEndpoints(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
-
-	projectRuntime := newWorkerHostTestProjectRuntime(t, projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "fixture-project",
-		Projects: map[string]projectstate.Project{
-			"fixture-project": {
-				ID:   "fixture-project",
-				Name: "Fixture Project",
-			},
-		},
-	})
-	reader, err := NewRuntimeProjectStateReader(RuntimeProjectStateReaderOptions{
-		ProjectState: projectRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new project state reader: %v", err)
-	}
-
-	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-		Broadcaster:  realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{}),
-		ProjectState: projectRuntime,
-	})
-
-	runtime := mustNewBackendRouteRuntimeWithOptions(t, roots, config.ModeIDE, reader, listenerProducer)
-	defer func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close backend route runtime: %v", err)
-		}
-	}()
-
-	result, err := runtime.InvokeListenerEndpoint(context.Background(), "fixture_listener_endpoint", map[string]any{
-		"projectConfigId": "fixture-project",
-		"sectionId":       "fixture-section",
-		"payload":         "hello",
-	})
-	if err != nil {
-		t.Fatalf("invoke listener endpoint: %v", err)
-	}
-
-	response, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("expected listener endpoint response map, got %#v", result)
-	}
-	if response["ok"] != true || response["projectConfigId"] != "fixture-project" || response["sectionId"] != "fixture-section" {
-		t.Fatalf("unexpected listener endpoint response %#v", response)
-	}
-
-	_, err = runtime.InvokeListenerEndpoint(context.Background(), "missing_listener_endpoint", map[string]any{
-		"projectConfigId": "fixture-project",
-	})
-	if err == nil {
-		t.Fatal("expected missing listener endpoint to fail")
-	}
-	if !strings.Contains(err.Error(), "unknown listener endpoint: missing_listener_endpoint") {
-		t.Fatalf("expected unknown listener endpoint error, got %v", err)
 	}
 }
 

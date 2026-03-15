@@ -18,8 +18,6 @@ generatedRoutes frontend/src/utils/transportRouteConstants.ts GoRoutePrefixHelpe
 generatedRoutes frontend/src/utils/transportRouteConstants.ts GoWebsocketRouteHelpers
 launcherBootstrapUrl frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx resolveLauncherBootstrapUrl
 launcherBootstrapUrl frontend/src/components/Pages/Launcher/LauncherHomePage.tsx resolveLauncherBootstrapUrl
-plugins/transport frontend/src/plugins/listenerEndpointClient.ts BuildPluginListenerWebsocketUrlOptions
-plugins/transport frontend/src/plugins/listenerEndpointClient.ts buildPluginListenerWebsocketUrl
 plugins/transport frontend/src/plugins/runtime.ts buildPluginAssetUrl
 plugins/transport frontend/src/plugins/runtime.ts buildPluginBackendFetchUrl
 requestTransport frontend/src/components/Section/Layouts/settaApiAction.ts post

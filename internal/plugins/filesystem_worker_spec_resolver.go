@@ -50,7 +50,8 @@ var (
 		"writeWorkspacePlugins":        {},
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
-		"registerContextMenu": {},
+		"registerContextMenu":      {},
+		"registerListenerEndpoint": {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,

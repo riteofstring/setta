@@ -183,7 +183,6 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert register_response["result"] == {"ok": True}
         assert host_method_calls == [
             "host.register_router",
-            "host.register_listener_endpoint",
             "host.register_mcp_tool",
             "host.register_mcp_tool",
         ]
@@ -268,10 +267,10 @@ def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
-def test_worker_register_supports_read_state_emit_and_listener_endpoint(
+def test_worker_register_supports_read_state_emit_and_route_registration(
     tmp_path: Path,
 ) -> None:
-    # Worker register should support host read_project_state, emit_listener_dependency_event, and listener endpoint registration.
+    # Worker register should support host read_project_state, emit_listener_dependency_event, and route registration.
     plugin_root = _copy_backend_fixture(tmp_path)
     (plugin_root / "backend" / "entrypoint.py").write_text(
         "from fastapi import APIRouter\n\n"
@@ -281,7 +280,6 @@ def test_worker_register_supports_read_state_emit_and_listener_endpoint(
         "    def fixture_listener_echo(projectConfigId: str):\n"
         "        return {'projectConfigId': projectConfigId}\n\n"
         "    plugin.register_router(router)\n"
-        "    plugin.register_listener_endpoint('fixture_listener_echo')\n"
         "    project_state = plugin.read_project_state(project_config_id='fixture-project', view='summary')\n"
         "    assert project_state['projectConfig']['id'] == 'fixture-project'\n"
         "    plugin.emit_listener_dependency_event(\n"
@@ -342,7 +340,6 @@ def test_worker_register_supports_read_state_emit_and_listener_endpoint(
         assert register_response["result"] == {"ok": True}
         assert host_method_calls == [
             "host.register_router",
-            "host.register_listener_endpoint",
             "host.read_project_state",
             "host.emit_listener_dependency_event",
         ]

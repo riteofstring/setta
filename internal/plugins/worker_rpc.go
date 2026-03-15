@@ -289,15 +289,10 @@ func workerHostDispatchErrorCode(err error) string {
 	case errors.Is(err, ErrWorkerHostCapabilityDenied):
 		return workerRPCCapabilityDeniedCode
 	case errors.Is(err, ErrWorkerHostLanguageServerRegistrarRequired),
-		errors.Is(err, ErrWorkerHostListenerEndpointRegistrarRequired),
 		errors.Is(err, ErrWorkerHostExternalAgentRegistrarRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
 		errors.Is(err, ErrWorkerHostPluginIDRequired),
 		errors.Is(err, ErrWorkerHostPluginRootRequired),
-		errors.Is(err, ErrWorkerHostListenerEndpointRequired),
-		errors.Is(err, ErrWorkerHostListenerEndpointNameRequired),
-		errors.Is(err, ErrWorkerHostListenerEndpointRouteIDRequired),
-		errors.Is(err, ErrWorkerHostListenerEndpointUnknownRoute),
 		errors.Is(err, ErrWorkerHostLanguageServerRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerLanguageRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerLanguageInvalid),
@@ -322,7 +317,6 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageNeeded),
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageInvalid),
 		errors.Is(err, ErrWorkerHostCodegenHandlerIDRequired),
-		errors.Is(err, ErrBackendListenerEndpointRegistrationConflict),
 		errors.Is(err, ErrLanguageServerRegistrationConflict),
 		errors.Is(err, ErrExternalAgentAdapterRegistrationConflict),
 		errors.Is(err, ErrCodegenTargetRegistrationConflict):

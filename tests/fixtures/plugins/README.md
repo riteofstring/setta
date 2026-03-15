@@ -11,7 +11,7 @@ Principles:
 
 Current fixtures:
 
-- `backend/`: backend-only plugin with Python entrypoint that registers one plugin route and one MCP tool.
+- `backend/`: backend-only plugin with Python entrypoint that registers plugin routes plus MCP tools.
 - `backend-codegen/`: backend-only plugin that registers a worker-based codegen target.
 - `backend-external-agent/`: backend-only plugin that registers external agent adapters.
 - `backend-language-server/`: backend-only plugin that registers a language server.
@@ -45,8 +45,8 @@ Target fixture catalog (coverage baseline):
 
 Current count:
 
-- 21 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 20 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 20 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 19 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:

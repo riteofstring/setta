@@ -28,9 +28,7 @@ import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams } from "utils/endpointUtils";
 import * as generatedEndpoints from "utils/generatedEndpoints";
-import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import {
   createCore,
   createDictSectionImpl,
@@ -226,10 +224,6 @@ type CapturedPluginHost = {
       timestampMs?: number;
     },
   ) => void;
-  callListenerEndpoint: (
-    endpointName: string,
-    payload?: Record<string, unknown>,
-  ) => Promise<unknown>;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
     sectionId: string,
@@ -2630,176 +2624,6 @@ describe("plugin runtime helpers", () => {
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
     expect(realtimeSpy).not.toHaveBeenCalled();
-  });
-
-  it("calls listener endpoints over the Go websocket route with project and share context", async () => {
-    vi.stubGlobal(
-      "WebSocket",
-      RuntimeTestWebSocket as unknown as typeof WebSocket,
-    );
-    vi.spyOn(globalThis.crypto, "randomUUID")
-      .mockReturnValueOnce("listener-transport-id")
-      .mockReturnValueOnce("listener-call-id");
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-runtime-listener";
-    });
-    useShareSession.setState({
-      isDeploymentMode: true,
-      shareSessionId: "share-runtime-listener",
-    });
-
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaCapturedPluginHost = host;\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["registerListenerEndpoint"],
-    });
-
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "share",
-    );
-    expect(result?.error).toBeNull();
-
-    const host = getCapturedPluginHost();
-    const listenerCallPromise = host.callListenerEndpoint(
-      "fixture_listener_endpoint",
-      {
-        sectionId: "section-listener",
-        payload: "hello",
-      },
-    );
-
-    const socket = RuntimeTestWebSocket.instances[0];
-    if (!socket) {
-      throw new Error("Expected runtime listener websocket to be created.");
-    }
-
-    const url = new URL(socket.url);
-    expect(url.host).toBe(new URL(C_ADDRESSES.BACKEND_ORIGIN).host);
-    expect(url.pathname).toBe(
-      replaceAddressParams(GoWebsocketRoutes.listenerById, {
-        listenerID: "plugin-listener-transport-id",
-      }),
-    );
-    expect(url.searchParams.get("projectId")).toBe("project-runtime-listener");
-    expect(url.searchParams.get("shareSessionId")).toBe(
-      "share-runtime-listener",
-    );
-
-    socket.open();
-    socket.receiveJson({
-      messageType: "ListenerRegisterAck",
-      content: {
-        projectConfigId: "project-runtime-listener",
-        shareSessionId: "share-runtime-listener",
-        callbacks: {},
-      },
-    });
-    socket.receiveJson({
-      messageType: "ListenerRouterEndpointResult",
-      content: {
-        projectConfigId: "project-runtime-listener",
-        callId: "listener-call-id",
-        ok: true,
-        result: {
-          ok: true,
-          value: "hello",
-        },
-      },
-    });
-
-    await expect(listenerCallPromise).resolves.toEqual({
-      ok: true,
-      value: "hello",
-    });
-    expect(socket.sentMessages).toHaveLength(2);
-    expect(JSON.parse(socket.sentMessages[0] ?? "")).toEqual({
-      messageType: "ListenerRegister",
-      content: {
-        callbacks: {},
-      },
-    });
-    expect(JSON.parse(socket.sentMessages[1] ?? "")).toEqual({
-      messageType: "ListenerRouterEndpointCall",
-      content: {
-        projectConfigId: "project-runtime-listener",
-        callId: "listener-call-id",
-        endpointName: "fixture_listener_endpoint",
-        payload: {
-          sectionId: "section-listener",
-          payload: "hello",
-        },
-      },
-    });
-  });
-
-  it("enforces capability checks and payload validation for callListenerEndpoint", async () => {
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaCapturedPluginHost = host;\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: [],
-    });
-
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
-    expect(result?.error).toBeNull();
-
-    const host = getCapturedPluginHost();
-    await expect(
-      host.callListenerEndpoint("fixture_listener_endpoint", {}),
-    ).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.CapabilityDenied,
-    });
-
-    const capablePlugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["registerListenerEndpoint"],
-    });
-    const capableResult = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      capablePlugin,
-      "ide",
-    );
-    expect(capableResult?.error).toBeNull();
-
-    const capableHost = getCapturedPluginHost();
-    await expect(
-      capableHost.callListenerEndpoint("", {}),
-    ).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    });
-    await expect(
-      capableHost.callListenerEndpoint(
-        "fixture_listener_endpoint",
-        JSON.parse('["nope"]'),
-      ),
-    ).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    });
   });
 
   it("cleans active plugin subscriptions when runtime reloads", async () => {

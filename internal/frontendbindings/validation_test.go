@@ -2045,10 +2045,6 @@ func TestFrontendPluginTransportImportsStayWithinExplicitBoundaries(t *testing.T
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedImports := map[string]map[string]struct{}{
-		"frontend/src/plugins/listenerEndpointClient.ts": {
-			"buildPluginListenerWebsocketUrl":        {},
-			"BuildPluginListenerWebsocketUrlOptions": {},
-		},
 		"frontend/src/plugins/runtime.ts": {
 			"buildPluginAssetUrl":        {},
 			"buildPluginBackendFetchUrl": {},

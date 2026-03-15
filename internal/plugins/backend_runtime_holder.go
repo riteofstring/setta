@@ -81,7 +81,3 @@ func (h *BackendRuntimeHolder) ResolveStaticAssetPath(pluginID string, assetPath
 func (h *BackendRuntimeHolder) InvokeMCPTool(ctx context.Context, toolName string, arguments map[string]any) (any, error) {
 	return h.Current().InvokeMCPTool(ctx, toolName, arguments)
 }
-
-func (h *BackendRuntimeHolder) InvokeListenerEndpoint(ctx context.Context, endpointName string, payload map[string]any) (any, error) {
-	return h.Current().InvokeListenerEndpoint(ctx, endpointName, payload)
-}

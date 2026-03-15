@@ -26,11 +26,10 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
-import { callListenerEndpointOverWebsocket } from "./listenerEndpointClient";
 import {
-  isPluginPaneIconName,
-  PluginPaneIconNameEnum,
-  type PluginPaneIconName,
+	isPluginPaneIconName,
+	PluginPaneIconNameEnum,
+	type PluginPaneIconName,
 } from "./paneIcons";
 import { buildPluginAssetUrl, buildPluginBackendFetchUrl } from "./transport";
 
@@ -189,8 +188,6 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-type PluginCallListenerEndpointPayload = Record<string, unknown>;
-
 type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
@@ -224,10 +221,6 @@ type SettaPluginHost = {
     value: unknown,
     options?: PluginSectionRealtimeEmitOptions,
   ) => void;
-  callListenerEndpoint: (
-    endpointName: string,
-    payload?: PluginCallListenerEndpointPayload,
-  ) => Promise<unknown>;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
     sectionId: string,
@@ -316,7 +309,6 @@ const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
-const registerListenerEndpointCapability = "registerListenerEndpoint";
 
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
@@ -1501,42 +1493,6 @@ function registerPluginModule({
           payload: toLiteralRealtimePayload(value),
         },
         timestampMs,
-      });
-    },
-    callListenerEndpoint: async (endpointName, payload) => {
-      ensureCapability(
-        plugin.pluginId,
-        effectiveCapabilitySet,
-        registerListenerEndpointCapability,
-        "callListenerEndpoint",
-      );
-      const normalizedEndpointName = requireNonEmptyString(
-        endpointName,
-        `Plugin ${plugin.pluginId} callListenerEndpoint requires endpointName.`,
-      );
-      let normalizedPayload: Record<string, unknown> = {};
-      if (payload !== undefined) {
-        if (!isPlainRecord(payload)) {
-          throw new PluginRuntimeError(
-            PluginFrontendErrorCodeEnum.RegistrationInvalid,
-            `Plugin ${plugin.pluginId} callListenerEndpoint requires an object payload.`,
-          );
-        }
-        normalizedPayload = structuredClone(payload);
-      }
-      const shareSession = useShareSession.getState();
-      return callListenerEndpointOverWebsocket({
-        listenerId: `plugin-${crypto.randomUUID()}`,
-        projectConfigId: requireNonEmptyString(
-          useProjectState.getState().projectConfig.id,
-          `Plugin ${plugin.pluginId} callListenerEndpoint requires an active projectConfigId.`,
-        ),
-        endpointName: normalizedEndpointName,
-        payload: normalizedPayload,
-        shareSessionId:
-          shareSession.isDeploymentMode && shareSession.shareSessionId
-            ? shareSession.shareSessionId
-            : null,
       });
     },
     readSection: (sectionId) => {

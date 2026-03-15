@@ -101,12 +101,6 @@ func (noopBackendMCPToolRegistrar) RegisterMCPTool(context.Context, RegisteredMC
 	return nil
 }
 
-type noopBackendListenerEndpointRegistrar struct{}
-
-func (noopBackendListenerEndpointRegistrar) RegisterListenerEndpoint(context.Context, RegisteredBackendListenerEndpoint) error {
-	return nil
-}
-
 func NewLanguageServerRegistry() *LanguageServerRegistry {
 	return &LanguageServerRegistry{
 		byLanguage: map[string]RegisteredLanguageServer{},
@@ -340,7 +334,6 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 		RouterRegistrar:               routers,
 		StaticDirRegistrar:            noopBackendStaticDirRegistrar{},
 		MCPToolRegistrar:              noopBackendMCPToolRegistrar{},
-		ListenerEndpointRegistrar:     noopBackendListenerEndpointRegistrar{},
 		LanguageServerRegistrar:       languageServers,
 		ExternalAgentAdapterRegistrar: externalAgentAdapters,
 		CodegenTargetRegistrar:        codegenTargets,

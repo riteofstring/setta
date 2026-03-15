@@ -36,27 +36,22 @@ const (
 )
 
 type RouteDependencies struct {
-	Transport               Dependencies
-	Deployment              *deployments.Runtime
-	ProjectState            *projectstate.Runtime
-	Artifacts               ListenerArtifactService
-	ShareArtifacts          ListenerShareArtifactService
-	WebsocketHub            *realtime.WebsocketHub
-	UISettingRevealResults  *realtime.UISettingRevealResultHub
-	ListenerBroadcaster     *realtime.ListenerBroadcaster
-	BuiltInListenerInvoker  BuiltInListenerEndpointInvoker
-	ListenerEndpointInvoker ListenerEndpointInvoker
-	ListenerProducer        *realtime.ListenerProducer
-	Terminals               *terminals.Service
-	FrontendIDSource        func() (string, error)
+	Transport              Dependencies
+	Deployment             *deployments.Runtime
+	ProjectState           *projectstate.Runtime
+	Artifacts              ListenerArtifactService
+	ShareArtifacts         ListenerShareArtifactService
+	WebsocketHub           *realtime.WebsocketHub
+	UISettingRevealResults *realtime.UISettingRevealResultHub
+	ListenerBroadcaster    *realtime.ListenerBroadcaster
+	BuiltInListenerInvoker BuiltInListenerEndpointInvoker
+	ListenerProducer       *realtime.ListenerProducer
+	Terminals              *terminals.Service
+	FrontendIDSource       func() (string, error)
 }
 
 type BuiltInListenerEndpointInvoker interface {
 	InvokeBuiltInListenerEndpoint(context.Context, ConnectionInfo, string, map[string]any) (any, bool, error)
-}
-
-type ListenerEndpointInvoker interface {
-	InvokeListenerEndpoint(context.Context, string, map[string]any) (any, error)
 }
 
 type ListenerArtifactService interface {
@@ -968,10 +963,7 @@ func invokeListenerEndpoint(
 			return result, nil
 		}
 	}
-	if deps.ListenerEndpointInvoker == nil {
-		return nil, fmt.Errorf("unknown listener endpoint: %s", endpointName)
-	}
-	return deps.ListenerEndpointInvoker.InvokeListenerEndpoint(ctx, endpointName, payload)
+	return nil, fmt.Errorf("unknown listener endpoint: %s", endpointName)
 }
 
 func sendListenerRouterEndpointResult(

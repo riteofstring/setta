@@ -1516,7 +1516,7 @@ func TestRegisterRoutesListenerEndpointCallRequiresRegistration(t *testing.T) {
 	})
 }
 
-func TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpointBeforePluginFallback(t *testing.T) {
+func TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpoint(t *testing.T) {
 	t.Parallel()
 
 	authService := newTestAuthService(t, config.ModeIDE)
@@ -1534,20 +1534,14 @@ func TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpointBeforePlugin
 			}, true, nil
 		},
 	}
-	pluginInvoker := &routeListenerEndpointInvoker{
-		invoke: func(string, map[string]any) (any, error) {
-			return map[string]any{"handledBy": "plugin"}, nil
-		},
-	}
 	server := newRouteServer(t, RouteDependencies{
 		Transport: Dependencies{
 			Auth:       authService,
 			ModePolicy: modes.NewPolicy(config.ModeIDE),
 		},
-		WebsocketHub:            hub,
-		ListenerBroadcaster:     broadcaster,
-		BuiltInListenerInvoker:  builtInInvoker,
-		ListenerEndpointInvoker: pluginInvoker,
+		WebsocketHub:           hub,
+		ListenerBroadcaster:    broadcaster,
+		BuiltInListenerInvoker: builtInInvoker,
 	})
 	defer server.Close()
 
@@ -1585,136 +1579,6 @@ func TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpointBeforePlugin
 	if builtInInvoker.calls[0].payload["projectConfigId"] != "project-a" || builtInInvoker.calls[0].payload["sectionId"] != "fixture-section" {
 		t.Fatalf("unexpected built-in payload %#v", builtInInvoker.calls[0].payload)
 	}
-	if len(pluginInvoker.calls) != 0 {
-		t.Fatalf("expected plugin invoker to be skipped when built-in handled the endpoint, got %#v", pluginInvoker.calls)
-	}
-}
-
-func TestRegisterRoutesListenerEndpointCallFallsBackToPluginWhenBuiltInIsUnhandled(t *testing.T) {
-	t.Parallel()
-
-	authService := newTestAuthService(t, config.ModeIDE)
-	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: hub,
-	})
-	builtInInvoker := &routeBuiltInListenerEndpointInvoker{
-		invoke: func(ConnectionInfo, string, map[string]any) (any, bool, error) {
-			return nil, false, nil
-		},
-	}
-	pluginInvoker := &routeListenerEndpointInvoker{
-		invoke: func(endpointName string, payload map[string]any) (any, error) {
-			return map[string]any{
-				"handledByPlugin": endpointName,
-				"projectConfigId": payload["projectConfigId"],
-			}, nil
-		},
-	}
-	server := newRouteServer(t, RouteDependencies{
-		Transport: Dependencies{
-			Auth:       authService,
-			ModePolicy: modes.NewPolicy(config.ModeIDE),
-		},
-		WebsocketHub:            hub,
-		ListenerBroadcaster:     broadcaster,
-		BuiltInListenerInvoker:  builtInInvoker,
-		ListenerEndpointInvoker: pluginInvoker,
-	})
-	defer server.Close()
-
-	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
-	defer conn.CloseNow()
-
-	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
-		t.Fatalf("write listener register message: %v", err)
-	}
-	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
-
-	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-a","callId":"call-plugin","endpointName":"fixture_listener_endpoint","payload":{"sectionId":"fixture-section"}}}`)); err != nil {
-		t.Fatalf("write listener router endpoint call: %v", err)
-	}
-
-	result := readNextMessage(t, conn)
-	assertListenerRouterEndpointResult(t, result, realtime.ListenerRouterEndpointResultContent{
-		ProjectConfigID: "project-a",
-		CallID:          "call-plugin",
-		OK:              true,
-		Result: map[string]any{
-			"handledByPlugin": "fixture_listener_endpoint",
-			"projectConfigId": "project-a",
-		},
-	}, nil)
-
-	if len(builtInInvoker.calls) != 1 {
-		t.Fatalf("expected one built-in probe before plugin fallback, got %#v", builtInInvoker.calls)
-	}
-	if len(pluginInvoker.calls) != 1 {
-		t.Fatalf("expected one plugin listener endpoint call, got %#v", pluginInvoker.calls)
-	}
-}
-
-func TestRegisterRoutesListenerEndpointCallDispatchesPluginEndpointAndInjectsProjectID(t *testing.T) {
-	t.Parallel()
-
-	authService := newTestAuthService(t, config.ModeIDE)
-	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: hub,
-	})
-	invoker := &routeListenerEndpointInvoker{
-		invoke: func(endpointName string, payload map[string]any) (any, error) {
-			return map[string]any{
-				"handledByPlugin": endpointName,
-				"projectConfigId": payload["projectConfigId"],
-				"sectionId":       payload["sectionId"],
-			}, nil
-		},
-	}
-	server := newRouteServer(t, RouteDependencies{
-		Transport: Dependencies{
-			Auth:       authService,
-			ModePolicy: modes.NewPolicy(config.ModeIDE),
-		},
-		WebsocketHub:            hub,
-		ListenerBroadcaster:     broadcaster,
-		ListenerEndpointInvoker: invoker,
-	})
-	defer server.Close()
-
-	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
-	defer conn.CloseNow()
-
-	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
-		t.Fatalf("write listener register message: %v", err)
-	}
-	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
-
-	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-a","callId":"call-2","endpointName":"fixture_listener_endpoint","payload":{"sectionId":"fixture-section"}}}`)); err != nil {
-		t.Fatalf("write listener router endpoint call: %v", err)
-	}
-
-	result := readNextMessage(t, conn)
-	assertListenerRouterEndpointResult(t, result, realtime.ListenerRouterEndpointResultContent{
-		ProjectConfigID: "project-a",
-		CallID:          "call-2",
-		OK:              true,
-		Result: map[string]any{
-			"handledByPlugin": "fixture_listener_endpoint",
-			"projectConfigId": "project-a",
-			"sectionId":       "fixture-section",
-		},
-	}, nil)
-
-	if len(invoker.calls) != 1 {
-		t.Fatalf("expected one listener endpoint call, got %#v", invoker.calls)
-	}
-	if invoker.calls[0].endpointName != "fixture_listener_endpoint" {
-		t.Fatalf("unexpected endpoint name %#v", invoker.calls[0])
-	}
-	if invoker.calls[0].payload["projectConfigId"] != "project-a" || invoker.calls[0].payload["sectionId"] != "fixture-section" {
-		t.Fatalf("unexpected injected payload %#v", invoker.calls[0].payload)
-	}
 }
 
 func TestRegisterRoutesListenerEndpointCallRejectsPayloadProjectMismatch(t *testing.T) {
@@ -1725,15 +1589,13 @@ func TestRegisterRoutesListenerEndpointCallRejectsPayloadProjectMismatch(t *test
 	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: hub,
 	})
-	invoker := &routeListenerEndpointInvoker{}
 	server := newRouteServer(t, RouteDependencies{
 		Transport: Dependencies{
 			Auth:       authService,
 			ModePolicy: modes.NewPolicy(config.ModeIDE),
 		},
-		WebsocketHub:            hub,
-		ListenerBroadcaster:     broadcaster,
-		ListenerEndpointInvoker: invoker,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
 	})
 	defer server.Close()
 
@@ -1759,12 +1621,9 @@ func TestRegisterRoutesListenerEndpointCallRejectsPayloadProjectMismatch(t *test
 		"expectedProjectConfigId": "project-a",
 		"receivedProjectConfigId": "project-b",
 	})
-	if len(invoker.calls) != 0 {
-		t.Fatalf("expected mismatched payload to skip invocation, got %#v", invoker.calls)
-	}
 }
 
-func TestRegisterRoutesListenerEndpointCallReturnsUnknownPluginEndpointError(t *testing.T) {
+func TestRegisterRoutesListenerEndpointCallReturnsUnknownEndpointError(t *testing.T) {
 	t.Parallel()
 
 	authService := newTestAuthService(t, config.ModeIDE)
@@ -1772,19 +1631,13 @@ func TestRegisterRoutesListenerEndpointCallReturnsUnknownPluginEndpointError(t *
 	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: hub,
 	})
-	invoker := &routeListenerEndpointInvoker{
-		invoke: func(string, map[string]any) (any, error) {
-			return nil, errors.New("unknown listener endpoint: missing_listener_endpoint")
-		},
-	}
 	server := newRouteServer(t, RouteDependencies{
 		Transport: Dependencies{
 			Auth:       authService,
 			ModePolicy: modes.NewPolicy(config.ModeIDE),
 		},
-		WebsocketHub:            hub,
-		ListenerBroadcaster:     broadcaster,
-		ListenerEndpointInvoker: invoker,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
 	})
 	defer server.Close()
 
@@ -2244,11 +2097,6 @@ func withPathParam(listenerID string) dialOption {
 	}
 }
 
-type routeListenerEndpointCall struct {
-	endpointName string
-	payload      map[string]any
-}
-
 type routeBuiltInListenerEndpointCall struct {
 	endpointName   string
 	payload        map[string]any
@@ -2282,25 +2130,6 @@ func (s *routeBuiltInListenerEndpointInvoker) InvokeBuiltInListenerEndpoint(
 		return nil, false, nil
 	}
 	return s.invoke(info, endpointName, payload)
-}
-
-type routeListenerEndpointInvoker struct {
-	calls  []routeListenerEndpointCall
-	invoke func(string, map[string]any) (any, error)
-}
-
-func (s *routeListenerEndpointInvoker) InvokeListenerEndpoint(_ context.Context, endpointName string, payload map[string]any) (any, error) {
-	if s == nil {
-		return nil, nil
-	}
-	s.calls = append(s.calls, routeListenerEndpointCall{
-		endpointName: endpointName,
-		payload:      cloneRouteListenerPayload(payload),
-	})
-	if s.invoke == nil {
-		return nil, nil
-	}
-	return s.invoke(endpointName, payload)
 }
 
 func withTerminalPath(projectID string, sectionID string) dialOption {

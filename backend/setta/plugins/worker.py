@@ -28,7 +28,6 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.invoke_mcp_tool",
     "plugin.invoke_codegen_target",
     "host.register_router",
-    "host.register_listener_endpoint",
     "host.register_static_dir",
     "host.register_mcp_tool",
     "host.register_language_server",
@@ -160,7 +159,6 @@ class _WorkerState:
     entrypoint_path: Path
     module: Any | None = None
     route_handlers: dict[str, _WorkerRouteHandler] = field(default_factory=dict)
-    route_ids_by_endpoint_name: dict[str, list[str]] = field(default_factory=dict)
     mcp_tools_by_name: dict[str, Callable[..., Any]] = field(default_factory=dict)
     codegen_target_generators: dict[str, Callable[..., Any]] = field(
         default_factory=dict
@@ -239,10 +237,6 @@ class _WorkerState:
                 endpoint=route.endpoint,
                 needs_raw_body=needs_raw_body,
             )
-            endpoint_name = route.endpoint.__name__
-            if endpoint_name not in self.route_ids_by_endpoint_name:
-                self.route_ids_by_endpoint_name[endpoint_name] = []
-            self.route_ids_by_endpoint_name[endpoint_name].append(route_id)
             route_descriptors.append(
                 {
                     "routeId": route_id,
@@ -271,70 +265,6 @@ class _WorkerState:
             {
                 "urlPrefix": url_prefix,
                 "path": str(path),
-            },
-        )
-
-    def _register_listener_endpoint(
-        self,
-        *,
-        endpoint_name: str,
-        route_id: str | None,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        if not isinstance(endpoint_name, str) or endpoint_name.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} listener endpoint name must be "
-                    "a non-empty string."
-                ),
-            )
-        normalized_endpoint_name = endpoint_name.strip()
-
-        resolved_route_id = route_id
-        if resolved_route_id is None:
-            route_ids = self.route_ids_by_endpoint_name.get(normalized_endpoint_name)
-            if route_ids is None or len(route_ids) == 0:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} listener endpoint "
-                        f"{normalized_endpoint_name!r} does not match any "
-                        "registered route endpoint names."
-                    ),
-                )
-            if len(route_ids) > 1:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} listener endpoint "
-                        f"{normalized_endpoint_name!r} is ambiguous; pass route_id "
-                        "explicitly."
-                    ),
-                )
-            resolved_route_id = route_ids[0]
-        if not isinstance(resolved_route_id, str) or resolved_route_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} listener endpoint route_id must be "
-                    "a non-empty string when provided."
-                ),
-            )
-        normalized_route_id = resolved_route_id.strip()
-        if normalized_route_id not in self.route_handlers:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} listener endpoint references unknown "
-                    f"route id: {normalized_route_id}."
-                ),
-            )
-        host_call(
-            "host.register_listener_endpoint",
-            {
-                "endpointName": normalized_endpoint_name,
-                "routeId": normalized_route_id,
             },
         )
 
@@ -1591,15 +1521,6 @@ class _WorkerBackendPluginContext:
     def register_codegen_target(self, target: Any) -> None:
         self._state._register_codegen_target(
             target=target,
-            host_call=self._host_call,
-        )
-
-    def register_listener_endpoint(
-        self, endpoint_name: str, *, route_id: str | None = None
-    ) -> None:
-        self._state._register_listener_endpoint(
-            endpoint_name=endpoint_name,
-            route_id=route_id,
             host_call=self._host_call,
         )
 

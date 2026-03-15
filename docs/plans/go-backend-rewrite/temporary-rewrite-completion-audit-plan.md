@@ -326,12 +326,16 @@ This verdict holds under both of the only reasonable definitions:
   - `frontend/src/utils/transportRouteConstants.ts`
   - `frontend/src/state/actions/websocketReceive.ts`
   - `frontend/src/state/hooks/terminals/terminal.ts`
-  - `frontend/src/plugins/listenerEndpointClient.ts`
 - Schema-backed plugin UI settings are now Go-owned on the MCP path:
   - `internal/uisettings/plugins.go`
   - `internal/mcpx/ui_setting_tools.go`
   - active plugin setting search/read/write now resolve through Go plugin
     runtime/config APIs instead of the old Python plugin UI-setting registry
+- The old Python-backed plugin listener-endpoint surface is gone:
+  - `backend/setta/plugins/worker.py` no longer registers listener endpoints
+  - `internal/plugins` no longer captures or invokes plugin listener endpoints
+  - `/ws/listeners/{listenerID}` now serves retained Python listeners and
+    built-in listener endpoints only, not plugin-defined endpoint dispatch
 
 ### Verified retained Python boundaries
 
@@ -367,17 +371,18 @@ slice. The remaining blocker is repo-wide backend/runtime ownership outside the
 explicit retained boundary list, most notably the still-active Python plugin
 worker implementation/runtime path in `backend/setta/plugins/worker.py`. The
 deleted Python plugin-management path in `backend/setta/plugins/manager.py`,
-the old top-level Python FastAPI app, the old
-`setta.dev_start` shim, the old source-only Python startup/CLI helper
-surfaces, the legacy Python server-state startup path, and the legacy Python
-project-state plugin-codegen owner are no longer part of that blocker set, and
-schema-backed plugin UI settings are no longer part of that blocker set either.
+the removed plugin listener-endpoint path, the old top-level Python FastAPI
+app, the old `setta.dev_start` shim, the old source-only Python startup/CLI
+helper surfaces, the legacy Python server-state startup path, and the legacy
+Python project-state plugin-codegen owner are no longer part of that blocker
+set, and schema-backed plugin UI settings are no longer part of that blocker
+set either.
 
 ### Test and smoke evidence executed
 
 - Passed:
   - `source activate.sh && python -m setta version`
-  - `pnpm -C frontend exec vitest run src/utils/requestTransport.test.ts src/utils/backendOriginTransport.test.ts src/utils/transportRouteConstants.test.ts src/utils/endpointUtils.test.ts src/utils/generatedEndpoints.test.ts src/plugins/listenerEndpointClient.test.ts src/state/hooks/terminals/websocketUrl.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec vitest run src/utils/requestTransport.test.ts src/utils/backendOriginTransport.test.ts src/utils/transportRouteConstants.test.ts src/utils/endpointUtils.test.ts src/utils/generatedEndpoints.test.ts src/state/hooks/terminals/websocketUrl.test.ts src/state/actions/websocketReceive.test.ts`
   - `source activate.sh && ./scripts/go.sh test ./internal/settacli ./internal/sshx ./internal/codeformat -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion|TestAppLinkRefreshesPluginLanguageServerRouter)$' -count=1`
