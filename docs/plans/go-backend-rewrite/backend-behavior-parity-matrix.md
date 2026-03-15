@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`3d2182eb2e3de0fafacb71a64eda388f3c0115e5`
+`83d7307fb6fababcc4715bffdef9d5369bcf5e7b`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -54,6 +54,7 @@ It currently covers:
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
+- workspace launch intent/local/remote launch behavior
 - surviving MCP init-tool behavior for project metadata, installed packages, and runtime status
 - provider dictation transcription-session file/realtime transport and runtime behavior
 - managed/external chat hydration, managed stop, and external-agent approval/question transport behavior
@@ -234,6 +235,9 @@ Rows outside these slices are still pending.
   adds one concrete launcher-management validation gap (`LM-02`), two
   broader proof-gap rows (`ST-03`, `LM-01`), and two dormant mode-guard rows
   (`LM-03`, `LH-04`).
+- The workspace-launch slice adds no new concrete parity gap, but it does add
+  three broader proof-gap rows (`WL-01`, `WL-03`, `WL-04`) plus one dormant
+  mode-boundary row (`WL-05`).
 
 ## Project Names
 
@@ -649,6 +653,16 @@ Rows outside these slices are still pending.
 | `LH-03` | `openLauncherWorkspace` creates missing workspaces when requested, returns a bootstrap URL fragment plus normalized launch-path payload, uses backend default `settaHome` when omitted, rejects dot-segment create requests, and preserves the source `settaFilesLocation` / `profile` transport rules. | Source route: `backend/setta/routers/launcher_home.py::route_open_launcher_workspace`; source tests: `tests/routers/test_launcher_home_routes.py::{test_open_launcher_workspace_returns_bootstrap_fragment,test_open_launcher_workspace_uses_backend_setta_home_when_scope_is_omitted,test_open_launcher_workspace_rejects_dot_segments_for_create,test_open_launcher_workspace_profile_preserves_omitted_setta_files_location,test_open_launcher_workspace_explicit_auto_overrides_profile}`. | Impl: `internal/httpapi/launcher_home_routes.go::openLauncherWorkspaceHandler`; `internal/launcher/open_workspace.go::{OpenWorkspace,NormalizeSettaFilesLocationForLaunch}`; proof: `internal/httpapi/launcher_home_routes_test.go::{TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment,TestRegisterLauncherHomeRoutesOpenWorkspaceProfilePreservesOmittedSettaFilesLocation,TestRegisterLauncherHomeRoutesOpenWorkspaceExplicitAutoOverridesProfile}`; service proof: `internal/launcher/open_workspace_test.go::{TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState,TestOpenWorkspaceServiceRejectsDotSegmentsWhenCreateRequested,TestOpenWorkspaceServiceProfilePreservesOmittedSettaFilesLocation,TestOpenWorkspaceServiceExplicitAutoOverridesProfile}`. | `Proved` | This row only claims the local happy-path and normalization contract. Source trust-persistence and rollback-failure branches are left for a later workspace-launch boundary audit. |
 | `LH-04` | Launcher-home routes stay mounted and return `403` outside launcher mode. | Source test: `tests/routers/test_launcher_home_routes.py::test_launcher_home_routes_are_blocked_outside_launcher_mode`; source router uses `Depends(require_launcher_mode)` in `backend/setta/routers/launcher_home.py`. | Current Go wiring: `internal/httpapi/launcher_home_routes.go::RegisterLauncherHomeRoutes` returns without mounting outside launcher mode; proof: `internal/httpapi/launcher_home_routes_test.go::TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode`; current routing only serves the launcher page in launcher mode through `frontend/src/components/Pages/router.tsx`. | `Dormant / unproven caller` | Current active routing suppresses the path outside launcher mode, so this slice records the source/current transport delta without yet treating it as an active product gap. |
 
+## Workspace Launch Intents And Launch Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `WL-01` | `createWorkspaceLaunchIntent` validates the request/return-url boundary, stores a one-time session-bound launch payload plus return URL, and maps launch-intent store failures into typed error codes. | Source routes: `backend/setta/routers/launch.py::route_create_workspace_launch_intent`; source tests: `tests/routers/test_launch_routes.py::{test_create_launch_intent_rejects_missing_workspace_root,test_create_launch_intent_rejects_whitespace_workspace_root,test_create_launch_intent_returns_typed_store_unavailable_error,test_create_launch_intent_returns_store_unavailable_when_lock_path_is_invalid,test_create_launch_intent_returns_typed_store_state_error,test_create_launch_intent_returns_typed_capacity_error,test_create_launch_intent_route_rejects_missing_workspace_root,test_create_launch_intent_rejects_disallowed_return_url_origin,test_create_launch_intent_rejects_forged_origin_header_return_url,test_create_launch_intent_allows_session_trusted_return_url_origin}`; source store tests: `tests/routers/test_launch_intent_store.py`. | Impl: `internal/httpapi/workspace_launch_routes.go::createWorkspaceLaunchIntentHandler`; `internal/workspacelaunch/intents.go`; `internal/workspacelaunch/request.go`; proof: `internal/httpapi/workspace_launch_routes_test.go::{TestRegisterWorkspaceLaunchRoutesCreatesIntent,TestRegisterWorkspaceLaunchRoutesRejectsNestedIntentToken}`; service proof: `internal/workspacelaunch/intents_test.go::{TestIntentServiceCreateAndConsumeRoundTrip,TestIntentServiceAllowsTrustedReturnURL,TestIntentServiceRejectsNestedLaunchIntentToken}`. | `Implemented, proof incomplete` | Current Go clearly owns the launch-intent boundary, but this slice does not yet cite direct Go proof for the typed store-unavailable/state/capacity route mappings, replay/tamper/expiry branches, or the whitespace/missing-workspace variants from `main`. |
+| `WL-02` | `launch` requires `launchIntentToken` as the sole request field, consumes the stored launch request, uses request-origin `/home` as the safe fallback return URL on early failures, and reuses the stored return URL when the intent is consumed successfully. | Source route: `backend/setta/routers/launch.py::route_launch`; source tests: `tests/routers/test_launch_routes.py::{test_launch_requires_token_and_uses_origin_header_for_return_url_when_available,test_launch_intent_rejects_inline_overrides,test_launch_intent_roundtrip_uses_server_stored_request}`. | Impl: `internal/httpapi/workspace_launch_routes.go::launchWorkspaceHandler`; `internal/workspacelaunch/local_launch.go::{Launch,buildSafeLaunchReturnURL}`; proof: `internal/httpapi/workspace_launch_routes_test.go::{TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent,TestRegisterWorkspaceLaunchRoutesRequiresIntentToken,TestRegisterWorkspaceLaunchRoutesRejectsInlineOverrides}`; current caller evidence: `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx`; `frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx`; `frontend/tests/e2e/overview/workspace-launch/launch-contract.spec.ts`. | `Proved` | |
+| `WL-03` | Local workspace launch preserves the source `settaFilesLocation` / profile normalization contract, appends a signed launcher-origin handoff to the bootstrap URL, trusts the launched workspace origin for the current launcher session, and rolls back newly started local sessions when trust persistence fails. | Source routes/helpers: `backend/setta/routers/launch.py::{execute_launch_request,route_launch}`; source tests: `tests/routers/test_launch_routes.py::{test_launch_local_profile_preserves_omitted_setta_files_location,test_launch_local_without_profile_defaults_to_auto_location,test_launch_local_profile_without_setta_home_uses_runtime_and_lookup_homes,test_launch_local_profile_with_auto_keeps_explicit_auto_location,test_launch_route_appends_signed_launcher_origin_to_bootstrap_url,test_launch_route_trusts_launched_workspace_origin_for_launcher_session,test_launch_route_rolls_back_new_session_when_trust_persistence_fails,test_launch_route_returns_local_rollback_failed_when_new_session_cleanup_fails,test_launch_route_does_not_rollback_reused_session_when_trust_persistence_fails,test_launch_route_does_not_persist_last_used_workspace_when_trust_persistence_fails}`. | Impl: `internal/workspacelaunch/local_launch.go`; proof: `internal/workspacelaunch/local_launch_test.go::{TestLocalLaunchServiceLaunchesLocalWorkspaceAndTrustsLaunchedOrigin,TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches,TestLocalLaunchServiceRollsBackNewSessionWhenTrustPersistenceFails,TestLocalLaunchServiceReturnsLocalRollbackFailedWhenCleanupFails,TestLocalLaunchServiceDoesNotRollbackReusedSessionOnTrustFailure}`; route proof: `internal/httpapi/workspace_launch_routes_test.go::TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent`. | `Implemented, proof incomplete` | Current Go proves the core launcher-origin and rollback flow, but this slice does not yet cite direct Go proof for every local normalization/environment-isolation branch or for the exact "do not persist last-used workspace when trust persistence fails" variant from `main`. |
+| `WL-04` | Remote workspace launch preserves remote session/command/path payloads, requires `launcherOriginProof` before appending launcher-origin handoff metadata, trusts the launched origin for the current launcher session, and rolls back newly started remote sessions on trust-persistence failure with typed rollback errors. | Source route/helper: `backend/setta/routers/launch.py::{execute_launch_request,route_launch}`; source tests: `tests/routers/test_launch_routes.py::{test_launch_over_ssh_returns_bootstrap_url,test_launch_over_ssh_returns_resolved_remote_paths,test_launch_over_ssh_requires_remote_launcher_origin_proof,test_launch_over_ssh_uses_request_origin_for_handoff,test_launch_route_rolls_back_new_remote_session_when_trust_persistence_fails,test_launch_route_returns_rollback_failure_when_remote_cleanup_fails,test_launch_route_returns_remote_rollback_failed_for_tunnel_rollback_failures,test_launch_route_does_not_rollback_reused_remote_session_when_trust_persistence_fails}`. | Impl: `internal/workspacelaunch/local_launch.go::launchRemoteWorkspace`; proof: `internal/workspacelaunch/local_launch_test.go::{TestLocalLaunchServiceLaunchesRemoteWorkspaceAndTrustsLaunchedOrigin,TestLocalLaunchServiceRequiresRemoteLauncherOriginProof,TestLocalLaunchServiceRollsBackNewRemoteSessionWhenTrustPersistenceFails,TestLocalLaunchServiceReturnsRemoteRollbackFailedWhenRemoteCleanupFails}`; route proof: `internal/httpapi/workspace_launch_routes_test.go::TestRegisterWorkspaceLaunchRoutesLaunchesRemoteWorkspaceFromIntent`. | `Implemented, proof incomplete` | Current Go proves the main remote launcher-origin and rollback path, but this slice does not yet cite direct Go proof for the reused-remote-session or tunnel-rollback-specific variants from `main`. |
+| `WL-05` | The launch-intent / launch routes stay mounted but return `403` in share/deployment mode rather than disappearing from the transport surface. | Source route dependency: `backend/setta/routers/launch.py` uses `Depends(require_not_deployment_mode)`; source test: `tests/routers/test_launch_share_mode_block.py::test_launch_route_blocked_in_share_mode`. | Current Go wiring: `internal/httpapi/workspace_launch_routes.go::RegisterWorkspaceLaunchRoutes` returns without mounting when `deps.ModePolicy.IsDeployment()`; proof: `internal/httpapi/workspace_launch_routes_test.go::TestRegisterWorkspaceLaunchRoutesSkipsDeploymentMode`; current active callers stay behind IDE/launcher mode boundaries in `frontend/src/utils/serverModeBoundaryPolicy.ts` and `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx`. | `Dormant / unproven caller` | Current active UI does not issue these requests in deployment/share mode, so this slice records the mode-boundary transport delta without yet treating it as an active product gap. |
+
 ## Current Findings
 
 1. The matrix now contains sixteen concrete source-parity gaps:
@@ -717,12 +731,15 @@ Rows outside these slices are still pending.
     adds one real launcher-management validation gap (`LM-02`), two broader
     proof-gap rows (`ST-03`, `LM-01`), and two dormant mode-guard rows
     (`LM-03`, `LH-04`).
-21. Git route behavior is now largely proved, including literal pathspec
+21. The workspace-launch slice adds no new real behavior gap, but it does add
+    three broader proof-gap rows (`WL-01`, `WL-03`, `WL-04`) plus one dormant
+    mode-boundary row (`WL-05`).
+22. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-22. The remaining issues in the naming slice are still mostly proof gaps rather
+23. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-23. The next high-value steps are:
+24. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
       `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, and
       `LM-02` should be restored or documented as intentional divergences
@@ -730,9 +747,9 @@ Rows outside these slices are still pending.
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `AP-04`, `LM-03`, `LH-04`, `AS-02`, and `SM-04` can be
-      treated as fully dead legacy or share-only transports, or still need
-      explicit retained-boundary decisions
+    - decide whether `AP-04`, `LM-03`, `LH-04`, `WL-05`, `AS-02`, and
+      `SM-04` can be treated as fully dead legacy or share-only transports, or
+      still need explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
@@ -740,7 +757,8 @@ Rows outside these slices are still pending.
       binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
       `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
-      proof gaps (`ST-03`, `LM-01`), and the new transcription proof gaps
+      proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
+      (`WL-01`, `WL-03`, `WL-04`), and the new transcription proof gaps
       (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new chat/managed-stop
       proof gaps (`AH-02`, `MS-02`), plus the new managed-agent-run proof gap
       (`MA-05`), plus the new state-machine-run proof gap (`SM-05`), plus
