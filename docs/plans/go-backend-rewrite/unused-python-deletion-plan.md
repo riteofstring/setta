@@ -384,6 +384,13 @@ Current tree note:
   project/prompt/env paths. The dead-path Python coverage for optional
   deployment-manifest validation is gone too because current deployment
   manifest ownership and tests live on the Go side.
+- The dead generated Python clipboard union shim is also gone in the current
+  worktree: `backend/setta/types/generated/clipboard_data_unions.py` is no
+  longer generated because clipboard copy/paste transport and contract
+  ownership already live on the Go side under `internal/projectstate`,
+  `internal/httpapi`, and `internal/frontendbindings`, while the retained
+  Python code and tests only use `setta.types.clipboard` directly rather than
+  the unused generated union wrapper.
 - The dead Python websocket-shell tail is also smaller in the current
   worktree: `backend/setta/websockets/websocket_manager.py`,
   `backend/setta/websockets/msg_handlers/base.py`, and

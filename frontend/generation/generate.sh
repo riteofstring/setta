@@ -21,7 +21,6 @@ python -m generation.generate_settings_state
 python -m generation.generate_unions unions
 python -m generation.generate_effective_impls
 python -m generation.generate_unions websocket_unions
-python -m generation.generate_unions clipboard_data
 bash ./generation/generate_go_frontend_bindings.sh
 
 cd "${ROOT_DIR}"
