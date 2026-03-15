@@ -117,11 +117,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   websocket payload parsing and feature-specific dispatch,
   `frontend/src/state/actions/websocketIncomingProjectSnapshots.ts` now owns
   project/app snapshot routing, and
-  `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` now owns
-  `UISettingReveal` ACK handling that previously lived in
-  `frontend/src/state/actions/websocketReceive.ts`; future cleanup should keep
-  new incoming websocket event handlers on that dedicated module instead of
-  mixing them back into socket transport and outbound realtime send logic.
+  `frontend/src/state/actions/websocketIncomingUISettingRevealAck.ts` now owns
+  inbound `UISettingReveal` ACK fallback ids plus malformed-status
+  construction, `frontend/src/state/actions/websocketIncomingUISettingRevealExecution.ts`
+  now owns inbound reveal execution-context creation plus mismatch
+  normalization, and `frontend/src/state/actions/websocketIncomingUISettingReveal.ts`
+  is now the thin orchestration facade over that inbound reveal flow instead of
+  mixing it back into socket transport and outbound realtime send logic.
 - `frontend/src/state/actions/websocketBootstrap.ts` now owns socket-open
   connection registration, current-address sends, project-state or diagnostics
   bootstrap, and deployment listener-coverage bootstrap, while
@@ -436,16 +438,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 ## Current State (Observed)
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils`
-  and `utils` total about 90.1k lines of authored code in the sampled
-  directories.
+  and `utils` total about 105.5k authored lines including colocated tests, or
+  about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` at 216 lines
   - `frontend/src/state/actions/edgeHandles.ts` at 216 lines
   - `frontend/src/state/actions/gitStatusAndDiff.ts` at 215 lines
   - `frontend/src/state/actions/shareSessionState.ts` at 214 lines
   - `frontend/src/state/actions/runOrImportCode.ts` at 214 lines
   - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 213 lines
   - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
+  - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
+  - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
@@ -755,8 +758,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - frontend websocket payload parsing and feature-specific dispatch
 - `websocketIncomingProjectSnapshots.ts` now owns:
   - project/app snapshot routing for inbound websocket updates
-- `websocketIncomingUISettingReveal.ts` now owns:
-  - `UISettingReveal` ACK validation and failure-status construction
+- `websocketIncomingUISettingRevealAck.ts` now owns:
+  - `UISettingReveal` ACK fallback ids
+  - malformed-payload status construction
+  - result sends on the current websocket generation
+- `websocketIncomingUISettingRevealExecution.ts` now owns:
+  - execution-context creation for inbound reveal requests
+  - async reveal execution and failure normalization
+  - post-run websocket or project mismatch handling
+- `websocketIncomingUISettingReveal.ts` is now:
+  - the thin orchestration facade over inbound reveal ACK and execution owners
 - `sectionInfos.ts` is now:
   - a thin compatibility facade that re-exports the narrower section helper owners
   - the last place carrying the legacy `updateProjectState` helper

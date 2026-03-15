@@ -542,9 +542,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     payload parsing and feature-specific dispatch.
   - `state/actions/websocketIncomingProjectSnapshots.ts` owns project/app
     snapshot routing for inbound websocket updates.
-  - `state/actions/websocketIncomingUISettingReveal.ts` owns inbound
-    `UISettingReveal` ACK validation, failure-status construction, and result
-    sends.
+  - `state/actions/websocketIncomingUISettingRevealAck.ts` owns inbound
+    `UISettingReveal` ACK fallback ids, malformed-status construction, and
+    result sends.
+  - `state/actions/websocketIncomingUISettingRevealExecution.ts` owns inbound
+    `UISettingReveal` execution-context creation, async store writes, and
+    post-run websocket or project mismatch normalization.
+  - `state/actions/websocketIncomingUISettingReveal.ts` is now the thin
+    orchestration facade over those narrower inbound reveal owners.
   - `state/actions/websocketReceive.ts` is now a thin compatibility facade.
   - `state/actions/websocketLifecycleState.ts` owns last/current websocket
     target tracking plus open-connection status used by reconnect flows.
