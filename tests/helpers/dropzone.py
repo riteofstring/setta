@@ -1,4 +1,6 @@
-from setta.types.dropzone import dropzone_payload_to_value, parse_dropzone_value
+import json
+
+from setta.types.dropzone import parse_dropzone_value
 
 
 def normalize_dropzone_value(value: str, max_attachments: int | None) -> str:
@@ -16,4 +18,7 @@ def normalize_dropzone_value(value: str, max_attachments: int | None) -> str:
     payload = payload.model_copy(
         update={"attachments": payload.attachments[:max_attachments]}
     )
-    return dropzone_payload_to_value(payload)
+    if not payload.attachments:
+        return ""
+    data = payload.model_dump(exclude_none=True)
+    return json.dumps(data, separators=(",", ":"))

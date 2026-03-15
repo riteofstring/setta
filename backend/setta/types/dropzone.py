@@ -42,15 +42,6 @@ def parse_dropzone_value(value: str) -> DropzoneStoredValue | None:
         return DropzoneStoredValue.model_validate(payload)
     except ValidationError:
         return None
-
-
-def dropzone_payload_to_value(payload: DropzoneStoredValue) -> str:
-    if not payload.attachments:
-        return ""
-    data = payload.model_dump(exclude_none=True)
-    return json.dumps(data, separators=(",", ":"))
-
-
 def dropzone_value_to_attachments(
     value: str,
 ) -> list[dict[str, object]] | None:
