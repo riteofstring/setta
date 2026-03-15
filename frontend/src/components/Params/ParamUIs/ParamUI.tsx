@@ -454,7 +454,7 @@ function TextParamConfigured({
   waitingForResult: boolean;
   isSelectingParams: boolean;
 }) {
-  const borderClassName = `border-box border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "focus-within:!border-blue-400" : ""}`;
+  const borderClassName = `relative after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-setta-200/50 after:content-[''] dark:after:bg-setta-600/30 ${!isSelectingParams ? "focus-within:after:!bg-blue-400" : ""}`;
   const wrapperClassName = `section-value flex min-w-0 self-end ${borderClassName}`;
   return (
     <>

@@ -4127,3 +4127,37 @@ Append-only log for the section performance refactor.
   - Retry the narrow residual shared-row geometry candidate, or the closest equivalent label-root follow-up, on top of this hysteresis baseline.
   - Rerun the callable reorder/indent canary immediately after that geometry retry.
   - Compare untouched `main` versus worktree again on the shared-row geometry path before widening beyond threshold sizing.
+
+### 2026-03-18 111
+
+- Item: Retry the residual shared-row geometry step by moving only the value underline out of layout.
+- Status: `needs_more_work`
+- Details:
+  - Kept the candidate inside:
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
+  - Candidate shape:
+    - removed the value wrapper bottom border from layout
+    - redrew the underline with an out-of-flow `after` pseudo-element on the value wrapper
+    - left the editable key/name wrapper untouched
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `2 passed`
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/global-variables-kwargs.spec.ts`
+      - result: `4 passed`
+  - CDP worktree-only read on the live `smooth_hawk` callable scene:
+    - representative `mode`, `newline`, and `errors` rows now read `21px` high
+    - the touched value wrappers also read `21px`
+    - no obvious underline breakage was visible in the worktree screenshot
+  - Interpretation:
+    - this narrower residual-gap candidate survives the current shared-row and reorder canaries
+    - it still is not accepted against checkpoint 1 because the exact untouched-`main` versus worktree compare has not yet been rerun for this candidate
+  - Recorded the candidate in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-value-wrapper-underline-candidate.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Recreate or recover the untouched-`main` control scene for the exact shared-row compare.
+  - Measure this value-wrapper candidate against untouched `main` before deciding whether it becomes the new kept geometry baseline.
+  - If the main compare still shows a meaningful residual gap, keep this candidate only as partial recovery and continue with the next lower-seam read.
