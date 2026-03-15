@@ -34,6 +34,7 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 	if project.PreviewImgColor != "bg-blue-500/60 dark:bg-blue-600/30" {
 		t.Fatalf("unexpected preview image color %q", project.PreviewImgColor)
 	}
+	assertDefaultGeneratedPythonProjectScaffold(t, project)
 	if len(project.ViewModes) != 1 {
 		t.Fatalf("expected one initial view mode, got %#v", project.ViewModes)
 	}
@@ -44,6 +45,16 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 		t.Fatal("expected created project to start outside view editing mode")
 	}
 
+	normalizedDocument, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("expected created project document to normalize, got %v", err)
+	}
+	normalizedProject, err := normalizedDocument.ProjectByID(projectID)
+	if err != nil {
+		t.Fatalf("normalized ProjectByID returned error: %v", err)
+	}
+	assertDefaultGeneratedPythonProjectScaffold(t, normalizedProject)
+
 	viewMode, ok := project.ViewModes[project.ActiveViewModeID]
 	if !ok {
 		t.Fatalf("expected active view mode %q to exist", project.ActiveViewModeID)
@@ -53,6 +64,100 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 	}
 	if _, err := validateViewModeName(project, project.ActiveViewModeID, viewMode.Name); err != nil {
 		t.Fatalf("expected created view mode name to remain valid, got %q with error %v", viewMode.Name, err)
+	}
+	if !viewMode.VisibilityBySectionID[project.TopLevelSectionIDs[0]] {
+		t.Fatalf("expected initial view mode to show created generated section, got %#v", viewMode.VisibilityBySectionID)
+	}
+	if _, ok := viewMode.TopLevelSections[project.TopLevelSectionIDs[0]]; !ok {
+		t.Fatalf("expected initial view mode to include created generated section layout, got %#v", viewMode.TopLevelSections)
+	}
+}
+
+func assertDefaultGeneratedPythonProjectScaffold(t *testing.T, project Project) {
+	t.Helper()
+
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one default codegen target, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != string(CodeLanguagePython) {
+		t.Fatalf("expected default python codegen target, got %#v", project.CodegenTargets[0])
+	}
+	if project.GeneratedCodeBinding == nil {
+		t.Fatal("expected generated code binding")
+	}
+	if project.GeneratedCodeBinding.Path != GeneratedPythonCodeRelativePath(project.Name) {
+		t.Fatalf("unexpected generated code binding path %q", project.GeneratedCodeBinding.Path)
+	}
+	if project.GeneratedCodeBinding.AccessMode != CodeFileAccessModeWriteOnly {
+		t.Fatalf("expected generated code binding write_only, got %q", project.GeneratedCodeBinding.AccessMode)
+	}
+	if project.GeneratedMetadataBinding != nil {
+		t.Fatalf("expected no generated metadata binding by default, got %#v", project.GeneratedMetadataBinding)
+	}
+	if len(project.TopLevelSectionIDs) != 1 {
+		t.Fatalf("expected one top-level section, got %#v", project.TopLevelSectionIDs)
+	}
+	if len(project.TopLevelSections) != 1 {
+		t.Fatalf("expected one top-level section layout, got %#v", project.TopLevelSections)
+	}
+
+	sectionID := project.TopLevelSectionIDs[0]
+	layout, ok := project.TopLevelSections[sectionID]
+	if !ok {
+		t.Fatalf("expected top-level layout for %q, got %#v", sectionID, project.TopLevelSections)
+	}
+	if layout.X != 0 || layout.Y != 0 {
+		t.Fatalf("expected generated section layout at origin, got %#v", layout)
+	}
+	if layout.W != nil || layout.H != nil {
+		t.Fatalf("expected generated section layout without explicit size overrides, got %#v", layout)
+	}
+
+	section, ok := project.Sections[sectionID]
+	if !ok {
+		t.Fatalf("expected created generated section %q, got %#v", sectionID, project.Sections)
+	}
+	if section.Name != "Generated Python Code" {
+		t.Fatalf("expected generated section name, got %q", section.Name)
+	}
+	if len(section.VariantIDs) != 1 {
+		t.Fatalf("expected exactly one generated section variant, got %#v", section.VariantIDs)
+	}
+	if project.SectionVariantMap[sectionID] != section.DefaultVariantID {
+		t.Fatalf("expected section variant map %q to match default variant %q", project.SectionVariantMap[sectionID], section.DefaultVariantID)
+	}
+
+	variant, ok := project.SectionVariants[section.DefaultVariantID]
+	if !ok {
+		t.Fatalf("expected generated section variant %q, got %#v", section.DefaultVariantID, project.SectionVariants)
+	}
+	impl, ok := project.SectionImpls[variant.ImplID]
+	if !ok {
+		t.Fatalf("expected generated section impl %q, got %#v", variant.ImplID, project.SectionImpls)
+	}
+	if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
+		t.Fatalf("expected generated python code impl, got %#v", impl)
+	}
+
+	payload, err := rawObjectFromProjectPayload(impl.Payload)
+	if err != nil {
+		t.Fatalf("decode generated section payload: %v", err)
+	}
+	if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
+		t.Fatalf("expected generated section type GenPythonCode, got %q", got)
+	}
+	rawBinding, ok := payload["codeFileBinding"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected generated section codeFileBinding object, got %#v", payload["codeFileBinding"])
+	}
+	if got := payloadRawStringField(rawBinding, "canonical_path"); got != GeneratedPythonCodeRelativePath(project.Name) {
+		t.Fatalf("expected generated section binding path %q, got %q", GeneratedPythonCodeRelativePath(project.Name), got)
+	}
+	if got := payloadRawStringField(rawBinding, "access_mode"); got != string(CodeFileAccessModeWriteOnly) {
+		t.Fatalf("expected generated section binding access mode %q, got %q", CodeFileAccessModeWriteOnly, got)
+	}
+	if got, ok := rawBinding["autoBinding"].(bool); !ok || got {
+		t.Fatalf("expected generated section autoBinding=false, got %#v", rawBinding["autoBinding"])
 	}
 }
 

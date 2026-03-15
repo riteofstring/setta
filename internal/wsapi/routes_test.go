@@ -243,18 +243,25 @@ func TestRegisterRoutesFrontendConnectSendsIdentityAndRebroadcastsCurrentAddress
 
 	inventory := readUntilMessageType(t, secondFrontend, realtime.MessageTypeAllConnections, 2)
 	connections := decodeConnections(t, inventory.Content)
-	if len(connections) != 2 {
-		t.Fatalf("expected two frontend connections in inventory, got %d", len(connections))
+	if len(connections) != 3 {
+		t.Fatalf("expected two frontend connections plus the synthetic server inventory entry, got %d", len(connections))
 	}
 
 	projectConnections := 0
+	serverConnections := 0
 	for _, connection := range connections {
 		if connection.CurrentAddress == "/project" {
 			projectConnections++
 		}
+		if connection.Type == realtime.ConnectionTypeServer {
+			serverConnections++
+		}
 	}
 	if projectConnections != 1 {
 		t.Fatalf("expected one sanitized /project connection, got %d", projectConnections)
+	}
+	if serverConnections != 1 {
+		t.Fatalf("expected one synthetic server connection, got %d in %#v", serverConnections, connections)
 	}
 
 	if resolvedID, ok := hub.Registry().ResolveFrontendConnectionID(firstToken, ""); !ok || resolvedID == "" {

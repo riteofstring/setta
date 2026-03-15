@@ -42,6 +42,14 @@ type PythonCodegenTarget struct {
 	CodeObjValuePolicy RawJSON
 }
 
+func defaultProjectCodegenTargets() []ProjectCodegenTarget {
+	return []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+		},
+	}
+}
+
 func DecodePythonCodegenTarget(target ProjectCodegenTarget) (PythonCodegenTarget, error) {
 	if strings.TrimSpace(target.Language) != string(CodeLanguagePython) {
 		return PythonCodegenTarget{}, fmt.Errorf("%w: %s", ErrProjectCodegenPythonTargetLanguageMismatch, strings.TrimSpace(target.Language))

@@ -495,7 +495,7 @@ func TestAppSetDefaultProjectRouteBroadcastsMetadataUpdate(t *testing.T) {
 		t.Fatalf("expected persisted default project-beta, got %q", persistedDocument.DefaultProjectID)
 	}
 
-	metadataEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 4)
+	metadataEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
 	var metadataPayload projectshell.AllProjectMetadata
 	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
 		t.Fatalf("decode metadata payload: %v", err)
@@ -513,6 +513,7 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -578,6 +579,7 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 			if len(project.ViewModes) != 1 {
 				t.Fatalf("expected created project to have one view mode, got %#v", project.ViewModes)
 			}
+			assertAppDefaultGeneratedPythonProjectScaffold(t, project)
 		}
 	}
 	if createdProjectID == "" {
@@ -703,10 +705,66 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	}
 }
 
+func TestAppProjectRuntimeCreateProjectDefaultScaffold(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	snapshot, createdProjectID, _, err := app.ProjectStates().Main().CreateProject(
+		context.Background(),
+		"bg-orange-500/60 dark:bg-orange-600/30",
+	)
+	if err != nil {
+		t.Fatalf("create project through app runtime: %v", err)
+	}
+	project, err := snapshot.Document.ProjectByID(createdProjectID)
+	if err != nil {
+		t.Fatalf("lookup created project: %v", err)
+	}
+	assertAppDefaultGeneratedPythonProjectScaffold(t, project)
+}
+
+func assertAppDefaultGeneratedPythonProjectScaffold(t *testing.T, project projectstate.Project) {
+	t.Helper()
+
+	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != string(projectstate.CodeLanguagePython) {
+		t.Fatalf("expected created project to persist the default python codegen target, got %#v", project.CodegenTargets)
+	}
+	if project.GeneratedCodeBinding == nil {
+		t.Fatal("expected created project generated code binding")
+	}
+	if project.GeneratedCodeBinding.Path != projectstate.GeneratedPythonCodeRelativePath(project.Name) {
+		t.Fatalf("unexpected created project generated code path %q", project.GeneratedCodeBinding.Path)
+	}
+	if len(project.TopLevelSectionIDs) != 1 || len(project.TopLevelSections) != 1 {
+		t.Fatalf("expected created project to persist one top-level generated section, got ids=%#v layouts=%#v", project.TopLevelSectionIDs, project.TopLevelSections)
+	}
+	sectionID := project.TopLevelSectionIDs[0]
+	section, ok := project.Sections[sectionID]
+	if !ok {
+		t.Fatalf("expected persisted created section %q, got %#v", sectionID, project.Sections)
+	}
+	if section.Name != "Generated Python Code" {
+		t.Fatalf("expected persisted created section name Generated Python Code, got %q", section.Name)
+	}
+}
+
 func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -762,7 +820,7 @@ func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *t
 		t.Fatalf("expected create 200, got %d with body %q", createResponse.StatusCode, string(body))
 	}
 
-	metadataEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 4)
+	metadataEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
 	var metadataPayload projectshell.AllProjectMetadata
 	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
 		t.Fatalf("decode create metadata payload: %v", err)
@@ -788,7 +846,7 @@ func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *t
 		t.Fatalf("expected save-as 200, got %d with body %q", saveAsResponse.StatusCode, string(body))
 	}
 
-	metadataEnvelope = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 4)
+	metadataEnvelope = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
 	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
 		t.Fatalf("decode save-as metadata payload: %v", err)
 	}
@@ -821,7 +879,7 @@ func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *t
 		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.StatusCode, string(body))
 	}
 
-	metadataEnvelope = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 4)
+	metadataEnvelope = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
 	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
 		t.Fatalf("decode delete metadata payload: %v", err)
 	}

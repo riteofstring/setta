@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"sync"
 
 	"github.com/coder/websocket"
@@ -160,9 +161,17 @@ func (h *WebsocketHub) BroadcastJSON(ctx context.Context, message any, selection
 }
 
 func (h *WebsocketHub) BroadcastConnections(ctx context.Context) (int, error) {
+	connections := h.registry.Connections(Selection{})
+	connections = append(connections, Connection{
+		ID:   "main",
+		Type: ConnectionTypeServer,
+	})
+	sort.Slice(connections, func(i, j int) bool {
+		return connections[i].ID < connections[j].ID
+	})
 	return h.BroadcastJSON(
 		ctx,
-		NewAllConnectionsMessage(h.registry.Connections(Selection{})),
+		NewAllConnectionsMessage(connections),
 		Selection{Type: ConnectionTypeFrontend},
 	)
 }

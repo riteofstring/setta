@@ -1,6 +1,7 @@
 package projectview
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -297,6 +298,47 @@ func TestSingleConfigByProjectIDPrefersProjectGeneratedCodeBinding(t *testing.T)
 	}
 	if view.GenCodeBinding.AutoBinding {
 		t.Fatal("expected project binding autoBinding=false")
+	}
+}
+
+func TestSingleConfigByProjectIDIncludesCreatedProjectDefaultScaffold(t *testing.T) {
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	snapshot, projectID, _, err := runtime.CreateProject(context.Background(), "bg-orange-500/60 dark:bg-orange-600/30")
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	view, err := SingleConfigByProjectID(snapshot.Document, projectID)
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	if len(view.ProjectConfig.CodegenTargets) != 1 {
+		t.Fatalf("expected one default codegen target, got %#v", view.ProjectConfig.CodegenTargets)
+	}
+	if view.GenCodeBinding == nil {
+		t.Fatal("expected generated code binding")
+	}
+	if view.GenCodeBinding.CanonicalPath != projectstate.GeneratedPythonCodeRelativePath(view.ProjectConfig.Name) {
+		t.Fatalf("unexpected generated code binding path %q", view.GenCodeBinding.CanonicalPath)
+	}
+	if len(view.ProjectConfig.TopLevelSections) != 1 {
+		t.Fatalf("expected one top-level section layout, got %#v", view.ProjectConfig.TopLevelSections)
+	}
+	if len(view.Sections) != 1 {
+		t.Fatalf("expected one created section, got %#v", view.Sections)
+	}
+	if derefString(view.SingletonSections.GenPythonCode) == "" {
+		t.Fatalf("expected generated python singleton section, got %#v", view.SingletonSections)
 	}
 }
 

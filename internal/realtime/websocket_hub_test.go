@@ -142,8 +142,8 @@ func TestWebsocketHubBroadcastConnectionsIncludesSessionIDsAndRedactedAddress(t 
 	if err := json.Unmarshal(inventoryEnvelope.Content, &connections); err != nil {
 		t.Fatalf("decode connection inventory: %v", err)
 	}
-	if len(connections) != 2 {
-		t.Fatalf("expected two connections in inventory, got %d", len(connections))
+	if len(connections) != 3 {
+		t.Fatalf("expected two frontend connections plus the synthetic server inventory entry, got %d", len(connections))
 	}
 
 	byID := make(map[string]Connection, len(connections))
@@ -159,6 +159,9 @@ func TestWebsocketHubBroadcastConnectionsIncludesSessionIDsAndRedactedAddress(t 
 	}
 	if byID["frontend-a"].CurrentAddress != "/project" {
 		t.Fatalf("expected sanitized current address /project, got %q", byID["frontend-a"].CurrentAddress)
+	}
+	if byID["main"].Type != ConnectionTypeServer {
+		t.Fatalf("expected synthetic server inventory entry, got %#v", byID["main"])
 	}
 }
 
@@ -245,8 +248,8 @@ func TestWebsocketHubConnectCanSkipAndEnableConnectionBroadcasts(t *testing.T) {
 		if err := json.Unmarshal(envelope.Content, &connections); err != nil {
 			t.Fatalf("decode connection inventory: %v", err)
 		}
-		if len(connections) != 3 {
-			t.Fatalf("expected three connections in broadcast inventory, got %d", len(connections))
+		if len(connections) != 4 {
+			t.Fatalf("expected three frontend connections plus the synthetic server inventory entry, got %d", len(connections))
 		}
 	}
 }
@@ -289,8 +292,11 @@ func TestWebsocketHubDisconnectBroadcastsUpdatedInventory(t *testing.T) {
 	if err := json.Unmarshal(envelope.Content, &connections); err != nil {
 		t.Fatalf("decode connection inventory: %v", err)
 	}
-	if len(connections) != 1 || connections[0].ID != "frontend-a" {
-		t.Fatalf("expected only frontend-a after disconnect, got %#v", connections)
+	if len(connections) != 2 {
+		t.Fatalf("expected one frontend plus the synthetic server inventory entry after disconnect, got %#v", connections)
+	}
+	if connections[0].ID != "frontend-a" || connections[1].ID != "main" || connections[1].Type != ConnectionTypeServer {
+		t.Fatalf("expected frontend-a and synthetic server after disconnect, got %#v", connections)
 	}
 }
 

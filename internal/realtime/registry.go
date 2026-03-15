@@ -17,6 +17,7 @@ type ConnectionType string
 const (
 	ConnectionTypeFrontend ConnectionType = "frontend"
 	ConnectionTypeListener ConnectionType = "listener"
+	ConnectionTypeServer   ConnectionType = "SERVER"
 	ConnectionTypeTerminal ConnectionType = "terminal"
 )
 

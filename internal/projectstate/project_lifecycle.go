@@ -26,7 +26,27 @@ func (d *Document) CreateProject(previewImgColor string) (string, string, error)
 		ID:                      projectID,
 		Name:                    projectName,
 		AllowJSONSourceKeyEdits: true,
+		CodegenTargets:          defaultProjectCodegenTargets(),
 		PreviewImgColor:         strings.TrimSpace(previewImgColor),
+	}
+	if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+		return "", "", err
+	}
+	createSectionInput := CreateTopLevelSectionInput{
+		ImplType: "GenPythonCode",
+		Position: &Position{X: 0, Y: 0},
+	}
+	if project.GeneratedCodeBinding != nil {
+		createSectionInput.ImplOverrides = map[string]any{
+			"codeFileBinding": map[string]any{
+				"canonical_path": project.GeneratedCodeBinding.Path,
+				"access_mode":    string(project.GeneratedCodeBinding.AccessMode),
+				"autoBinding":    false,
+			},
+		}
+	}
+	if _, err := project.CreateTopLevelSection(createSectionInput, StructuralMutationSettings{}); err != nil {
+		return "", "", err
 	}
 	if _, err := project.CreateViewMode(); err != nil {
 		return "", "", err
