@@ -178,3 +178,6 @@ categorize them.
   the core scoped-read contract and more about adjacent UI-setting precedence
   and plugin-state availability branches unless a broader websocket or
   deployment slice becomes cheaper first
+- The workspace-launch intent-store reinitialization/single-use row is now
+  proved too; that trims the launch backlog down further toward the remaining
+  route-level launcher-home and local-launch ordering/error-swallowing slices
