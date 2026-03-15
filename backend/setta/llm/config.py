@@ -30,90 +30,19 @@ def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
     elif raw:
         config = AllLLMConfigs.model_validate(raw)
     else:
-        config = _build_default_llm_config()
+        config = AllLLMConfigs(
+            mcpServers={
+                SETTA_MCP_SERVER_ID: MCPServerConfig(
+                    transport="sse",
+                    url=f"{constants.C.BACKEND}/mcp",
+                )
+            },
+        )
         config = _ensure_setta_mcp_server_url(config)
         if allow_write:
             save_llm_config(config, dbe)
 
     config = _ensure_setta_mcp_server_url(config)
-    return _bootstrap_codex_mcp_servers_if_needed(
-        config,
-        dbe,
-        allow_write=allow_write,
-    )
-
-
-def save_llm_config(
-    config: AllLLMConfigs,
-    dbe: DBE,
-    *,
-    is_example: bool = False,
-) -> None:
-    """Persist the LLM configuration, writing canonical JSON."""
-    sanitized = _strip_temporary_configs(config)
-    payload = sanitized.model_dump(exclude_unset=True)
-    configs = payload.get("configs")
-    if isinstance(configs, dict):
-        for entry in configs.values():
-            if isinstance(entry, dict) and "id" in entry:
-                entry.pop("id")
-    if is_example:
-        dbe.write_llm_config_example(payload)
-    else:
-        dbe.write_llm_config(payload)
-
-
-def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
-    persisted: dict[str, Any] = {}
-    for config_id, entry in config.configs.items():
-        if entry.temporary:
-            continue
-        persisted[config_id] = entry
-    default_config_id = config.default_config_id
-    if default_config_id and default_config_id not in persisted:
-        default_config_id = None
-    return AllLLMConfigs(
-        configs=persisted,
-        mcpServers=config.mcpServers,
-        defaultMcpServerIds=config.defaultMcpServerIds,
-        default_config_id=default_config_id,
-        codexMcpImportedAt=config.codexMcpImportedAt,
-    )
-
-
-def _build_default_llm_config() -> AllLLMConfigs:
-    return AllLLMConfigs(
-        mcpServers={
-            SETTA_MCP_SERVER_ID: MCPServerConfig(
-                transport="sse",
-                url=f"{constants.C.BACKEND}/mcp",
-            )
-        },
-    )
-
-
-def _ensure_setta_mcp_server_url(config: AllLLMConfigs) -> AllLLMConfigs:
-    server = config.mcpServers.get(SETTA_MCP_SERVER_ID)
-    if server is None:
-        return config
-    if server.transport not in {"sse", "streamable_http"}:
-        return config
-    host = format_host_for_url(constants.C.HOST)
-    desired_url = f"http://{host}:{constants.C.PORT}/mcp"
-    if server.url == desired_url:
-        return config
-    config.mcpServers[SETTA_MCP_SERVER_ID] = server.model_copy(
-        update={"url": desired_url}
-    )
-    return config
-
-
-def _bootstrap_codex_mcp_servers_if_needed(
-    config: AllLLMConfigs,
-    dbe: DBE,
-    *,
-    allow_write: bool,
-) -> AllLLMConfigs:
     if config.codexMcpImportedAt:
         return config
     has_non_setta_servers = any(
@@ -140,3 +69,53 @@ def _bootstrap_codex_mcp_servers_if_needed(
     if allow_write:
         save_llm_config(updated, dbe)
     return updated
+
+
+def save_llm_config(
+    config: AllLLMConfigs,
+    dbe: DBE,
+    *,
+    is_example: bool = False,
+) -> None:
+    """Persist the LLM configuration, writing canonical JSON."""
+    persisted_configs: dict[str, Any] = {}
+    for config_id, entry in config.configs.items():
+        if entry.temporary:
+            continue
+        persisted_configs[config_id] = entry
+    default_config_id = config.default_config_id
+    if default_config_id and default_config_id not in persisted_configs:
+        default_config_id = None
+    sanitized = AllLLMConfigs(
+        configs=persisted_configs,
+        mcpServers=config.mcpServers,
+        defaultMcpServerIds=config.defaultMcpServerIds,
+        default_config_id=default_config_id,
+        codexMcpImportedAt=config.codexMcpImportedAt,
+    )
+    payload = sanitized.model_dump(exclude_unset=True)
+    configs = payload.get("configs")
+    if isinstance(configs, dict):
+        for entry in configs.values():
+            if isinstance(entry, dict) and "id" in entry:
+                entry.pop("id")
+    if is_example:
+        dbe.write_llm_config_example(payload)
+    else:
+        dbe.write_llm_config(payload)
+
+
+def _ensure_setta_mcp_server_url(config: AllLLMConfigs) -> AllLLMConfigs:
+    server = config.mcpServers.get(SETTA_MCP_SERVER_ID)
+    if server is None:
+        return config
+    if server.transport not in {"sse", "streamable_http"}:
+        return config
+    host = format_host_for_url(constants.C.HOST)
+    desired_url = f"http://{host}:{constants.C.PORT}/mcp"
+    if server.url == desired_url:
+        return config
+    config.mcpServers[SETTA_MCP_SERVER_ID] = server.model_copy(
+        update={"url": desired_url}
+    )
+    return config
