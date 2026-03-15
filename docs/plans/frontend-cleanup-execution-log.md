@@ -6766,3 +6766,51 @@ schedule settings` button still appears on the live task row.
     which is now the highest unresolved front-door hotspot in the current tree
     after `GitGraphOverlay.tsx` delegated its commit indexing and virtualized
     list ownership into sharp local git owners.
+
+## 2026-03-16 07:01:40 PDT
+
+- Slice completed: extracted project-chat engine-settings, hydration-selection,
+  and project-scoped aux-state owners out of
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` or
+  `frontend/src/components/App/appRegistry.tsx` because
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` was
+  still the highest unresolved chat/project-AI front door at the start of the
+  turn and still mixed engine/configuration session state, hydration metadata
+  derivation, and project-scoped aux/draft/thread writes into the same
+  coordinator contributors opened first to understand Project AI chat.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatEngineSettings.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationSelection.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationSelection.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.integration.test.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-engine-settings-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationSelection.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "project ai chat keeps aux views session-local across stale storage and reloads|project ai preserves unsent draft text across reloads|project ai waits for authoritative engine config metadata before hydrating a selected thread|project ai defers selected-thread hydration when engine config metadata is non-authoritative"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/useProjectChatEngineSettings.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationSelection.ts src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationSelection.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.integration.test.ts ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-engine-settings-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-engine-settings-2026-03-16.md`
+    with the before/after Project AI chat surface measurements for the new
+    engine-settings, hydration-selection, and aux-state owners.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `ProjectChat.tsx` dropped from `1185` to `646` lines, the measured Project
+    AI chat surface stayed at `262px` by `696px`, the conversation filter
+    stayed at `153px` by `25px`, the composer textarea stayed at `246px` by
+    `32px`, and there was no horizontal overflow at `1440x900` or `960x900`.
+- Commit hash:
+  - `c52dff9de9b0ed99f0909d757265243797311084`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`,
+    which is now the highest unresolved front-door hotspot in the current tree
+    after `ProjectChat.tsx` delegated engine/configuration session ownership,
+    hydration metadata selection, and project-scoped aux-state commands into
+    sharp local owners.
