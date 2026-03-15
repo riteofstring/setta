@@ -406,10 +406,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   state.
 - `frontend/src/state/storePersistStorage.ts` now owns the shared persisted-storage fallback used by the extracted store modules.
 - `frontend/src/state/storeDefinitions.ts` now owns the remaining local
-  cross-feature store definitions plus the atomic project-store publication
-  helpers, and `frontend/src/state/definitions.ts` is down to a 93-line shared
-  index/barrel over those local stores and the extracted domain-owned store
-  modules.
+  cross-feature store definitions, `frontend/src/state/atomicProjectStorePublication.ts`
+  now owns the staged project-store publication helpers, and
+  `frontend/src/state/definitions.ts` is down to a 93-line shared index/barrel
+  over those local stores and the extracted domain-owned store modules.
 - `frontend/src/state/activeSectionSelection.ts` now owns active-section
   selection reads/writes, snapshot sanitization, and UI-facing selection hooks;
   `frontend/src/state/activeSectionBackendSync.ts` now owns backend hydration
@@ -513,8 +513,8 @@ Notes:
 - Continue splitting the remaining cross-feature local store owners
   (`frontend/src/state/storeDefinitions.ts`) while keeping
   `frontend/src/state/definitions.ts` thin and continuing to retarget callers
-  onto extracted seams like `activeSectionSelection.ts` and
-  `activeSectionBackendSync.ts`.
+  onto extracted seams like `atomicProjectStorePublication.ts`,
+  `activeSectionSelection.ts`, and `activeSectionBackendSync.ts`.
 - Add selectors next to stores so components read derived data through named helpers instead of reconstructing it inline.
 - Reduce component-level `useStore.getState()` / `useStore.setState()` calls, especially in render-heavy UI surfaces.
 - Prefer named command functions for mutations so the write path is easy to locate.
@@ -584,7 +584,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/storeDefinitions.ts`, `state/utils/chatAppGeneration.ts`, `state/actions/aiLLMConfiguration.ts`, `state/actions/aiFollow.ts`, `state/actions/keyActivationHandlers.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/utils/chatAppGeneration.ts`, `state/actions/aiLLMConfiguration.ts`, `state/actions/aiFollow.ts`, `state/actions/keyActivationHandlers.ts`, `state/actions/aiTranscription.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

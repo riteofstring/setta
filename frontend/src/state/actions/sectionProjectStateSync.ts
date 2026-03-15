@@ -4,9 +4,9 @@ import _ from "lodash";
 import { unstable_batchedUpdates } from "react-dom";
 import { getReconciledActiveSectionUIStateFromBackend } from "state/activeSectionBackendSync";
 import { sanitizeProjectStateActiveIds } from "state/activeSectionSelection";
+import { runWithAtomicallyPublishedProjectStores } from "state/atomicProjectStorePublication";
 import {
   PendingOperation,
-  runWithAtomicallyPublishedProjectStores,
   useNodeInternals,
   usePendingOperations,
   useProjectState,

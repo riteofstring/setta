@@ -318,10 +318,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Shared state
 
   - `state/storeDefinitions.ts` now owns the remaining local cross-feature
-    Zustand stores plus the atomic project-store publication helpers on this
-    branch, while `state/definitions.ts` is down to a `93`-line shared index
-    and compatibility barrel over those local stores and the extracted
-    domain-owned store modules.
+    Zustand stores on this branch, while
+    `state/atomicProjectStorePublication.ts` owns the staged
+    project/node/active-section publication helpers and `state/definitions.ts`
+    stays a `93`-line shared index and compatibility barrel over those local
+    stores and the extracted domain-owned store modules.
   - `state/activeSectionSelection.ts` owns active-section selection reads,
     writes, snapshot sanitization, and UI-facing selection hooks.
   - `state/activeSectionBackendSync.ts` owns active-section backend hydration

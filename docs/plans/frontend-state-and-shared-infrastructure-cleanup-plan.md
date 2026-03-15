@@ -302,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/storeDefinitions.ts` at 338 lines
   - `frontend/src/state/utils/chatAppGeneration.ts` at 319 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
   - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
+  - `frontend/src/state/actions/aiTranscription.ts` at 300 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -443,11 +443,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - external agent approval transport
   - external agent question response transport
 - `storeDefinitions.ts` now owns the remaining local cross-feature Zustand
-  stores plus project-state atomic publication, artifact data, and realtime
-  helper ownership, while `definitions.ts` is now the thin shared barrel over
-  those local stores and the extracted AI/chat, app runtime, session/share,
-  browser, search, feedback, project-status, layout-interaction,
-  UI-preference, and editor-diagnostics stores.
+  stores plus artifact data and realtime helper ownership,
+  `atomicProjectStorePublication.ts` now owns staged project-state, node, and
+  active-section publication, and `definitions.ts` is now the thin shared
+  barrel over those local stores and the extracted AI/chat, app runtime,
+  session/share, browser, search, feedback, project-status,
+  layout-interaction, UI-preference, and editor-diagnostics stores.
 - `activeSectionSelection.ts` now owns:
   - active-section selection reads and writes
   - project-snapshot active-id sanitization

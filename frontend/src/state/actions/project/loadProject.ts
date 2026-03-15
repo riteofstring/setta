@@ -5,11 +5,8 @@ import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections"
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import { getHydratedActiveSectionUIState } from "state/activeSectionBackendSync";
 import { sanitizeProjectStateActiveIds } from "state/activeSectionSelection";
-import {
-  runWithAtomicallyPublishedProjectStores,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { runWithAtomicallyPublishedProjectStores } from "state/atomicProjectStorePublication";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { useActiveSectionUI } from "state/storeDefinitions";
 import { useAllProjectMetadata } from "state/stores/sessionStores";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";

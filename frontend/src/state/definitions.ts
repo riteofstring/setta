@@ -1,3 +1,4 @@
+export { runWithAtomicallyPublishedProjectStores } from "./atomicProjectStorePublication";
 export {
   useAppConfigs,
   useAppDefinition,
@@ -65,7 +66,6 @@ export type {
 
 export {
   NULL_PROJECT_CONFIG_ID,
-  runWithAtomicallyPublishedProjectStores,
   useActiveSectionUI,
   useArtifacts,
   useBrushStrokes,
