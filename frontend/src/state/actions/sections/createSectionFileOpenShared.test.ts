@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getValidSectionNameForOpenedFile } from "./createSectionFileOpeners";
+import { getValidSectionNameForOpenedFile } from "./createSectionFileOpenShared";
 
 describe("getValidSectionNameForOpenedFile", () => {
   it("keeps extensions as safe suffixes so names stay unique", () => {

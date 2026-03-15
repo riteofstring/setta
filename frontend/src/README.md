@@ -172,8 +172,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     creation commands plus empty-space add actions.
   - `state/actions/sections/createSectionPlacement.ts` owns smart placement
     context and empty-space placement helpers for new sections.
-  - `state/actions/sections/createSectionFileOpeners.ts` owns file-open
-    reuse/create flows and drop-to-section routing.
+  - `state/actions/sections/createSectionFileOpenShared.ts` owns opened-file
+    naming, existing-section reuse lookup, and shared focus or rename helpers.
+  - `state/actions/sections/createSectionFileOpenCommands.ts` owns per-impl
+    file-open commands for code, text, image, and spreadsheet sections.
+  - `state/actions/sections/createSectionFileDropRouting.ts` owns dropped-file
+    routing from file metadata into the correct section-open command.
+  - `state/actions/sections/createSectionFileOpeners.ts` is now a thin
+    compatibility facade over those file-open owners.
   - `state/actions/sections/createSectionImplDefaults.ts` owns per-impl create
     defaults such as text-block display-mode normalization.
 
@@ -414,14 +420,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sections/createSectionFileOpeners.ts` now owns the largest
-  remaining section-creation helper cluster, so any follow-up there should stay
-  local to file-open reuse and drop-routing instead of regrowing
-  `state/actions/sections/createSections.ts`.
 - `state/actions/windowSpaceWorkspaceRestoreRemap.ts` now owns the remaining
   restore remapping and reuse policy for saved window spaces, so any follow-up
   there should stay local to saved-layout remap helpers instead of regrowing
   `state/actions/windowSpaces.ts` or the restore planner.
+- `state/actions/sections/createSectionFileOpenCommands.ts` now owns the
+  remaining per-impl file-open command cluster, so any follow-up there should
+  stay local to opened-file section commands instead of regrowing the drop
+  router or `state/actions/sections/createSections.ts`.
 - `state/actions/projectChatWindowingWritePipeline.ts` is now the largest
   remaining project-chat windowing coordination surface, so follow-up windowing
   cleanup should stay local to the write pipeline or the new command modules

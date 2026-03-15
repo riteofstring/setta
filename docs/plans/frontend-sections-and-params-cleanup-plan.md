@@ -25,8 +25,14 @@ Make section chrome and param rendering easy to change without touching measurem
   section creation commands and empty-space add actions,
   `frontend/src/state/actions/sections/createSectionPlacement.ts` owns smart
   placement/empty-space helpers,
-  `frontend/src/state/actions/sections/createSectionFileOpeners.ts` owns
-  file-open/drop-to-section routing, and
+  `frontend/src/state/actions/sections/createSectionFileOpenShared.ts` owns
+  shared opened-file naming/reuse helpers,
+  `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` owns
+  per-impl file-open commands,
+  `frontend/src/state/actions/sections/createSectionFileDropRouting.ts` owns
+  drop-to-section routing, and
+  `frontend/src/state/actions/sections/createSectionFileOpeners.ts` is now a
+  thin compatibility facade,
   `frontend/src/state/actions/sections/createSectionImplDefaults.ts` owns
   per-impl create defaults.
 
@@ -36,8 +42,12 @@ Make section chrome and param rendering easy to change without touching measurem
 - Shared section-action ownership no longer defaults into one create surface:
   - `frontend/src/state/actions/sections/createSections.ts` is down to 140
     lines for top-level create orchestration
-  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` is 324
-    lines for file-open/drop routing
+  - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` is
+    195 lines for per-impl file-open commands
+  - `frontend/src/state/actions/sections/createSectionFileDropRouting.ts` is
+    93 lines for dropped-file routing
+  - `frontend/src/state/actions/sections/createSectionFileOpenShared.ts` is 82
+    lines for naming/reuse helpers
   - `frontend/src/state/actions/sections/createSectionPlacement.ts` is 72
     lines for smart placement helpers
 - Main shared hotspots include:

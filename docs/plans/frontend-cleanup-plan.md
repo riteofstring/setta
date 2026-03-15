@@ -93,8 +93,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   section creation commands plus empty-space add actions,
   `frontend/src/state/actions/sections/createSectionPlacement.ts` now owns
   smart placement context and empty-space placement helpers,
-  `frontend/src/state/actions/sections/createSectionFileOpeners.ts` now owns
-  file-open/drop-to-section routing plus reuse flows, and
+  `frontend/src/state/actions/sections/createSectionFileOpenShared.ts` now owns
+  opened-file naming, existing-section reuse lookup, and shared focus/rename
+  helpers, `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts`
+  now owns per-impl file-open commands,
+  `frontend/src/state/actions/sections/createSectionFileDropRouting.ts` now
+  owns dropped-file routing, and
+  `frontend/src/state/actions/sections/createSectionFileOpeners.ts` is now a
+  thin compatibility facade over those owners, while
   `frontend/src/state/actions/sections/createSectionImplDefaults.ts` now owns
   per-impl create defaults such as text-block display-mode normalization,
   reducing `frontend/src/state/actions/sections/createSections.ts` to 140

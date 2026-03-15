@@ -53,7 +53,7 @@ import {
   openFileInImageSection,
   openFileInSpreadsheetSection,
   openFileInTextSection,
-} from "state/actions/sections/createSectionFileOpeners";
+} from "state/actions/sections/createSectionFileOpenCommands";
 import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionScrollability";
 import { useShareCapabilities } from "state/hooks/share";

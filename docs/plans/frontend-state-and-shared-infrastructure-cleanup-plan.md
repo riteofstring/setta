@@ -196,21 +196,21 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 321 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
+  - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 321 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
+  - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -417,11 +417,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingWrites.ts` now owns:
   - the thin public mutation facade that composes write-state and write-pipeline helpers
 - `sections/createSections.ts`, `sections/createSectionPlacement.ts`,
-  `sections/createSectionFileOpeners.ts`, and
+  `sections/createSectionFileOpenShared.ts`,
+  `sections/createSectionFileOpenCommands.ts`,
+  `sections/createSectionFileDropRouting.ts`, and
   `sections/createSectionImplDefaults.ts` now split into:
   - `createSections.ts` for top-level create orchestration and empty-space add commands
   - `createSectionPlacement.ts` for smart placement context and empty-space positioning
-  - `createSectionFileOpeners.ts` for file-open reuse/create flows and drop-to-section routing
+  - `createSectionFileOpenShared.ts` for opened-file naming, reuse lookup, and shared rename/focus helpers
+  - `createSectionFileOpenCommands.ts` for per-impl file-open commands
+  - `createSectionFileDropRouting.ts` for dropped-file routing into the correct open command
   - `createSectionImplDefaults.ts` for per-impl create defaults such as text-block display-mode normalization
 - `projectChatWindowingCanvasBoot.ts` now owns:
   - DOM surface rect lookup for project chat windows
@@ -507,11 +511,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `sections/createSectionFileOpeners.ts` into narrower file-open helpers
+2. Split `windowSpaceWorkspaceRestoreRemap.ts` into narrower restore helpers
 
-- Separate file-open reuse logic from drop-routing and per-impl open behavior.
-- Keep naming explicit so agents can tell whether they are calling a file-open
-  reuse helper, a drop-router, or a new-section creation helper.
+- Separate floating-window reuse and owner-key resolution from the remaining
+  instance-remapping helpers.
+- Keep naming explicit so agents can tell whether they are calling a reuse
+  helper, a remapping helper, or a restore merge-policy function.
 
 3. Normalize optimistic mutation infrastructure
 
