@@ -4,6 +4,7 @@ import {
   PointerActivationConstraints,
   PointerSensor,
 } from "@dnd-kit/dom";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   DragDropProvider,
@@ -30,7 +31,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { FiColumns, FiList, FiPlus, FiTrash2 } from "react-icons/fi";
+import {
+  FiCalendar,
+  FiColumns,
+  FiList,
+  FiPlus,
+  FiTrash2,
+} from "react-icons/fi";
 import { MdOutlinePlaylistAdd, MdPlaylistRemove } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import {
@@ -52,7 +59,12 @@ import {
   createTaskBoardTask,
   SectionTypeEnum,
   TaskBoardColumn,
+  TaskBoardRecurringMonth,
+  TaskBoardRecurringMonthEnum,
+  TaskBoardRecurringWeekday,
+  TaskBoardRecurringWeekdayEnum,
   TaskBoardTask,
+  TaskBoardTaskRecurrence,
   TaskBoardTaskRecurrenceEnum,
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
@@ -66,14 +78,14 @@ import {
   type TaskBoardMutationKind,
   type TaskBoardState,
 } from "utils/taskBoard";
-import { shallow } from "zustand/shallow";
-import { TaskScheduleMenu } from "./taskBoardTaskSchedule";
 import {
-  formatTaskDueCardSummary,
-  formatTaskDueSummary,
-  formatTaskRecurrenceCardSummary,
-  formatTaskRecurrenceSummary,
-} from "./taskBoardTaskScheduleModel";
+  combineIsoDateAndTimeParts,
+  getLocalTodayIsoDate,
+  normalizeDateTimeToLocalIso,
+  normalizeDateToIso,
+  splitIsoDateAndTimeParts,
+} from "utils/textParamDateTime";
+import { shallow } from "zustand/shallow";
 
 const TASK_DND_PREFIX = "task-board-task:";
 const COLUMN_DND_PREFIX = "task-board-column:";
@@ -81,6 +93,60 @@ const TASK_BOARD_LIST_DROP_ID = "task-board-list-drop";
 const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
 const TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH = 240;
 const TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH = 180;
+
+const TASK_RECURRENCE_OPTIONS: Array<{
+  value: TaskBoardTaskRecurrence;
+  label: string;
+}> = [
+  { value: TaskBoardTaskRecurrenceEnum.none, label: "No repeat" },
+  { value: TaskBoardTaskRecurrenceEnum.hourly, label: "Hourly" },
+  { value: TaskBoardTaskRecurrenceEnum.daily, label: "Daily" },
+  {
+    value: TaskBoardTaskRecurrenceEnum.specified_days,
+    label: "Repeat specified days",
+  },
+  {
+    value: TaskBoardTaskRecurrenceEnum.specified_months,
+    label: "Repeat specified months",
+  },
+  {
+    value: TaskBoardTaskRecurrenceEnum.specified_years,
+    label: "Repeat specified years",
+  },
+];
+
+const WEEKDAY_OPTIONS: Array<{
+  value: TaskBoardRecurringWeekday;
+  label: string;
+}> = [
+  { value: TaskBoardRecurringWeekdayEnum.monday, label: "Mon" },
+  { value: TaskBoardRecurringWeekdayEnum.tuesday, label: "Tue" },
+  { value: TaskBoardRecurringWeekdayEnum.wednesday, label: "Wed" },
+  { value: TaskBoardRecurringWeekdayEnum.thursday, label: "Thu" },
+  { value: TaskBoardRecurringWeekdayEnum.friday, label: "Fri" },
+  { value: TaskBoardRecurringWeekdayEnum.saturday, label: "Sat" },
+  { value: TaskBoardRecurringWeekdayEnum.sunday, label: "Sun" },
+];
+
+const MONTH_OPTIONS: Array<{
+  value: TaskBoardRecurringMonth;
+  label: string;
+}> = [
+  { value: TaskBoardRecurringMonthEnum.january, label: "Jan" },
+  { value: TaskBoardRecurringMonthEnum.february, label: "Feb" },
+  { value: TaskBoardRecurringMonthEnum.march, label: "Mar" },
+  { value: TaskBoardRecurringMonthEnum.april, label: "Apr" },
+  { value: TaskBoardRecurringMonthEnum.may, label: "May" },
+  { value: TaskBoardRecurringMonthEnum.june, label: "Jun" },
+  { value: TaskBoardRecurringMonthEnum.july, label: "Jul" },
+  { value: TaskBoardRecurringMonthEnum.august, label: "Aug" },
+  { value: TaskBoardRecurringMonthEnum.september, label: "Sep" },
+  { value: TaskBoardRecurringMonthEnum.october, label: "Oct" },
+  { value: TaskBoardRecurringMonthEnum.november, label: "Nov" },
+  { value: TaskBoardRecurringMonthEnum.december, label: "Dec" },
+];
+
+type TaskDueMode = "date" | "date_time";
 
 type TaskLane = {
   column: TaskBoardColumn;
@@ -423,6 +489,13 @@ function resolveTaskDropTargetFromDelta({
   };
 }
 
+function getTaskDueMode(dueDateIso: string): TaskDueMode {
+  if (dueDateIso.includes("T")) {
+    return "date_time";
+  }
+  return "date";
+}
+
 function isDoneColumnName(columnName: string): boolean {
   return columnName.trim().toLowerCase() === "done";
 }
@@ -449,6 +522,26 @@ function findDoneColumnId(columns: TaskBoardColumn[]): string | null {
   return doneColumn.id;
 }
 
+function resolveTaskDateValue(dueDateIso: string): string {
+  const split = splitIsoDateAndTimeParts(dueDateIso);
+  if (split) {
+    return split.dateIso;
+  }
+  return normalizeDateToIso(dueDateIso, "iso");
+}
+
+function resolveTaskDateTimeValue(dueDateIso: string): string {
+  const normalized = normalizeDateTimeToLocalIso(dueDateIso);
+  if (normalized !== "") {
+    return normalized;
+  }
+  const normalizedDate = normalizeDateToIso(dueDateIso, "iso");
+  if (normalizedDate === "") {
+    return "";
+  }
+  return `${normalizedDate}T09:00`;
+}
+
 function toTaskBoardColumnId(
   task: TaskBoardTask,
   fallbackColumnId: string | null,
@@ -473,6 +566,151 @@ function toTaskBoardState({
     columns,
     tasks,
   };
+}
+
+function sortEnumValuesByOptionOrder<T extends string>(
+  values: T[],
+  orderedValues: T[],
+): T[] {
+  const order = new Map(orderedValues.map((value, index) => [value, index]));
+  return [...values].sort((left, right) => {
+    const leftOrder = order.get(left) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = order.get(right) ?? Number.MAX_SAFE_INTEGER;
+    return leftOrder - rightOrder;
+  });
+}
+
+function getEffectiveRecurrenceDays(
+  task: TaskBoardTask,
+): TaskBoardRecurringWeekday[] {
+  return sortEnumValuesByOptionOrder(
+    task.recurrenceDays,
+    WEEKDAY_OPTIONS.map((option) => option.value),
+  );
+}
+
+function getEffectiveRecurrenceMonths(
+  task: TaskBoardTask,
+): TaskBoardRecurringMonth[] {
+  return sortEnumValuesByOptionOrder(
+    task.recurrenceMonths,
+    MONTH_OPTIONS.map((option) => option.value),
+  );
+}
+
+function getEffectiveRecurrenceYears(task: TaskBoardTask): number[] {
+  if (task.recurrenceYears.length === 0) {
+    return [];
+  }
+  return [...new Set(task.recurrenceYears)].sort((left, right) => left - right);
+}
+
+function areNumberArraysEqual(left: number[], right: number[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function formatTaskDueSummary(dueDateIso: string): string | null {
+  if (dueDateIso.trim() === "") {
+    return null;
+  }
+  if (getTaskDueMode(dueDateIso) === "date_time") {
+    const value = resolveTaskDateTimeValue(dueDateIso);
+    if (value === "") {
+      return null;
+    }
+    return value.replace("T", " ");
+  }
+  const value = resolveTaskDateValue(dueDateIso);
+  return value === "" ? null : value;
+}
+
+function formatTaskDueCardSummary(dueDateIso: string): string | null {
+  if (dueDateIso.trim() === "") {
+    return null;
+  }
+  if (getTaskDueMode(dueDateIso) === "date_time") {
+    const value = resolveTaskDateTimeValue(dueDateIso);
+    if (value === "") {
+      return null;
+    }
+    return `Due: ${value.replace("T", " ")}`;
+  }
+  const value = resolveTaskDateValue(dueDateIso);
+  if (value === "") {
+    return null;
+  }
+  return `Due: ${value}`;
+}
+
+function formatTaskRecurrenceSummary(task: TaskBoardTask): string | null {
+  switch (task.recurrence) {
+    case TaskBoardTaskRecurrenceEnum.none:
+      return null;
+    case TaskBoardTaskRecurrenceEnum.hourly:
+      return "Hourly";
+    case TaskBoardTaskRecurrenceEnum.daily:
+      return "Daily";
+    case TaskBoardTaskRecurrenceEnum.specified_days: {
+      const days = getEffectiveRecurrenceDays(task);
+      if (days.length === 0) {
+        return "Repeat specified days";
+      }
+      return days
+        .map((day) => WEEKDAY_OPTIONS.find((option) => option.value === day))
+        .filter((option): option is (typeof WEEKDAY_OPTIONS)[number] =>
+          Boolean(option),
+        )
+        .map((option) => option.label)
+        .join(", ");
+    }
+    case TaskBoardTaskRecurrenceEnum.specified_months: {
+      const months = getEffectiveRecurrenceMonths(task);
+      if (months.length === 0) {
+        return "Repeat specified months";
+      }
+      return months
+        .map((month) => MONTH_OPTIONS.find((option) => option.value === month))
+        .filter((option): option is (typeof MONTH_OPTIONS)[number] =>
+          Boolean(option),
+        )
+        .map((option) => option.label)
+        .join(", ");
+    }
+    case TaskBoardTaskRecurrenceEnum.specified_years: {
+      const years = getEffectiveRecurrenceYears(task);
+      if (years.length === 0) {
+        return "Repeat specified years";
+      }
+      return years.join(", ");
+    }
+  }
+}
+
+function formatTaskRecurrenceCardSummary(task: TaskBoardTask): string | null {
+  const summary = formatTaskRecurrenceSummary(task);
+  if (summary === null) {
+    return null;
+  }
+  return `Repeat: ${summary}`;
+}
+
+function parseRecurrenceYears(raw: string): number[] {
+  if (raw.trim() === "") {
+    return [];
+  }
+  const parsed = raw
+    .split(",")
+    .map((token) => Number(token.trim()))
+    .filter((token) => Number.isInteger(token) && token > 0);
+  return [...new Set(parsed)].sort((left, right) => left - right);
 }
 
 export function TaskBoardArea({ sectionId }: { sectionId: string }) {
@@ -1746,6 +1984,321 @@ function TaskBoardKanbanTaskCard({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function TaskScheduleMenu({
+  task,
+  isDisabled,
+  dueSummary,
+  recurrenceSummary,
+  onChangePatch,
+}: {
+  task: TaskBoardTask;
+  isDisabled: boolean;
+  dueSummary: string | null;
+  recurrenceSummary: string | null;
+  onChangePatch: (patch: Partial<TaskBoardTask>) => void;
+}) {
+  return (
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          data-testid={`task-board-task-schedule-menu-${task.id}`}
+          aria-label="Task schedule settings"
+          className={`nodrag nopan ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
+          disabled={isDisabled}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <FiCalendar size={12} />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          data-testid={`task-board-task-schedule-content-${task.id}`}
+          align="end"
+          sideOffset={6}
+          className={`z-30 flex w-[280px] flex-col gap-2 rounded-md border border-setta-200 bg-white p-2 shadow-xl dark:border-setta-700 dark:bg-setta-900 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Due
+            </p>
+            <TaskDueInput
+              task={task}
+              isDisabled={isDisabled}
+              onChange={(nextDueDateIso) =>
+                onChangePatch({ dueDateIso: nextDueDateIso })
+              }
+            />
+            {dueSummary !== null ? (
+              <p className="truncate text-[10px] text-setta-500 dark:text-setta-400">
+                {dueSummary}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Repeat
+            </p>
+            <TaskRecurrenceInput
+              task={task}
+              isDisabled={isDisabled}
+              onChangePatch={onChangePatch}
+            />
+            {recurrenceSummary !== null ? (
+              <p className="truncate text-[10px] text-setta-500 dark:text-setta-400">
+                {recurrenceSummary}
+              </p>
+            ) : null}
+          </div>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function TaskDueInput({
+  task,
+  isDisabled,
+  onChange,
+}: {
+  task: TaskBoardTask;
+  isDisabled: boolean;
+  onChange: (nextDueDateIso: string) => void;
+}) {
+  const dueMode = getTaskDueMode(task.dueDateIso);
+  const dateValue = resolveTaskDateValue(task.dueDateIso);
+  const dateTimeValue = resolveTaskDateTimeValue(task.dueDateIso);
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <select
+        data-testid={`task-board-task-due-mode-${task.id}`}
+        value={dueMode}
+        onChange={(event) => {
+          const nextMode = event.target.value as TaskDueMode;
+          if (nextMode === "date_time") {
+            const normalizedDate =
+              dateValue !== "" ? dateValue : getLocalTodayIsoDate();
+            const combined = combineIsoDateAndTimeParts(
+              normalizedDate,
+              "09:00",
+            );
+            onChange(combined);
+            return;
+          }
+          onChange(dateValue);
+        }}
+        disabled={isDisabled}
+        className="w-[88px] shrink-0 rounded border border-setta-200 bg-white px-1 py-1 text-[10px] text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+      >
+        <option value="date">Date</option>
+        <option value="date_time">Date+Time</option>
+      </select>
+      <input
+        data-testid={`task-board-task-due-value-${task.id}`}
+        type={dueMode === "date_time" ? "datetime-local" : "date"}
+        value={dueMode === "date_time" ? dateTimeValue : dateValue}
+        onChange={(event) => {
+          if (dueMode === "date_time") {
+            onChange(normalizeDateTimeToLocalIso(event.target.value));
+            return;
+          }
+          onChange(normalizeDateToIso(event.target.value, "iso"));
+        }}
+        disabled={isDisabled}
+        className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+      />
+    </div>
+  );
+}
+
+function TaskRecurrenceInput({
+  task,
+  isDisabled,
+  onChangePatch,
+}: {
+  task: TaskBoardTask;
+  isDisabled: boolean;
+  onChangePatch: (patch: Partial<TaskBoardTask>) => void;
+}) {
+  const recurrenceMode = task.recurrence;
+  const recurrenceDays = getEffectiveRecurrenceDays(task);
+  const recurrenceMonths = getEffectiveRecurrenceMonths(task);
+  const recurrenceYears = getEffectiveRecurrenceYears(task);
+  const recurrenceYearsText = recurrenceYears.join(", ");
+  const [recurrenceYearsDraft, setRecurrenceYearsDraft] =
+    useState(recurrenceYearsText);
+
+  useEffect(() => {
+    setRecurrenceYearsDraft(recurrenceYearsText);
+  }, [recurrenceYearsText]);
+
+  const setRecurrenceMode = (nextMode: TaskBoardTaskRecurrence) => {
+    onChangePatch({
+      recurrence: nextMode,
+      recurrenceDays:
+        nextMode === TaskBoardTaskRecurrenceEnum.specified_days
+          ? recurrenceDays
+          : [],
+      recurrenceMonths:
+        nextMode === TaskBoardTaskRecurrenceEnum.specified_months
+          ? recurrenceMonths
+          : [],
+      recurrenceYears:
+        nextMode === TaskBoardTaskRecurrenceEnum.specified_years
+          ? recurrenceYears
+          : [],
+    });
+  };
+
+  const commitRecurrenceYears = useCallback(
+    (rawValue: string) => {
+      const nextYears = parseRecurrenceYears(rawValue);
+      const normalizedDraft = nextYears.join(", ");
+      setRecurrenceYearsDraft(normalizedDraft);
+      if (areNumberArraysEqual(nextYears, recurrenceYears)) {
+        return;
+      }
+      onChangePatch({
+        recurrence: TaskBoardTaskRecurrenceEnum.specified_years,
+        recurrenceYears: nextYears,
+        recurrenceDays: [],
+        recurrenceMonths: [],
+      });
+    },
+    [onChangePatch, recurrenceYears],
+  );
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <select
+        data-testid={`task-board-task-recurrence-mode-${task.id}`}
+        value={recurrenceMode}
+        onChange={(event) =>
+          setRecurrenceMode(event.target.value as TaskBoardTaskRecurrence)
+        }
+        disabled={isDisabled}
+        className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+      >
+        {TASK_RECURRENCE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+
+      {recurrenceMode === TaskBoardTaskRecurrenceEnum.specified_days ? (
+        <TaskRecurrenceChipSelector
+          testId={`task-board-task-recurrence-days-${task.id}`}
+          options={WEEKDAY_OPTIONS}
+          values={recurrenceDays}
+          disabled={isDisabled}
+          onChange={(nextDays) =>
+            onChangePatch({
+              recurrence: TaskBoardTaskRecurrenceEnum.specified_days,
+              recurrenceDays: sortEnumValuesByOptionOrder(
+                nextDays,
+                WEEKDAY_OPTIONS.map((option) => option.value),
+              ),
+              recurrenceMonths: [],
+              recurrenceYears: [],
+            })
+          }
+        />
+      ) : null}
+
+      {recurrenceMode === TaskBoardTaskRecurrenceEnum.specified_months ? (
+        <TaskRecurrenceChipSelector
+          testId={`task-board-task-recurrence-months-${task.id}`}
+          options={MONTH_OPTIONS}
+          values={recurrenceMonths}
+          disabled={isDisabled}
+          onChange={(nextMonths) =>
+            onChangePatch({
+              recurrence: TaskBoardTaskRecurrenceEnum.specified_months,
+              recurrenceMonths: sortEnumValuesByOptionOrder(
+                nextMonths,
+                MONTH_OPTIONS.map((option) => option.value),
+              ),
+              recurrenceDays: [],
+              recurrenceYears: [],
+            })
+          }
+        />
+      ) : null}
+
+      {recurrenceMode === TaskBoardTaskRecurrenceEnum.specified_years ? (
+        <input
+          type="text"
+          data-testid={`task-board-task-recurrence-years-${task.id}`}
+          value={recurrenceYearsDraft}
+          onChange={(event) => {
+            setRecurrenceYearsDraft(event.target.value);
+          }}
+          onBlur={(event) => {
+            commitRecurrenceYears(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") {
+              return;
+            }
+            event.preventDefault();
+            event.currentTarget.blur();
+          }}
+          disabled={isDisabled}
+          placeholder="2026, 2027"
+          className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function TaskRecurrenceChipSelector<T extends string>({
+  testId,
+  options,
+  values,
+  disabled,
+  onChange,
+}: {
+  testId: string;
+  options: Array<{ value: T; label: string }>;
+  values: T[];
+  disabled: boolean;
+  onChange: (nextValues: T[]) => void;
+}) {
+  const selected = new Set(values);
+  return (
+    <div data-testid={testId} className="flex flex-wrap gap-1">
+      {options.map((option) => {
+        const isSelected = selected.has(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            className={`nodrag nopan rounded border px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+              isSelected
+                ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
+                : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+            } disabled:opacity-50`}
+            onClick={() => {
+              if (selected.has(option.value)) {
+                onChange(values.filter((value) => value !== option.value));
+                return;
+              }
+              onChange([...values, option.value]);
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
