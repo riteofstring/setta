@@ -38,9 +38,7 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.utils.paths import normalize_state_path
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 from watchdog.observers.polling import PollingObserver
 
@@ -107,11 +105,7 @@ class TestApplyListenerEmitUpdates:
         )
 
         self.websocket_manager = WebsocketManager()
-        self.listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
         self.dbe = DBE(self.setta_root)
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)

@@ -354,6 +354,18 @@ This verdict holds under both of the only reasonable definitions:
   - `backend/setta/project_state/session_project_manager.py`
   - `backend/setta/project_state/project_manager_switcher.py`
   - `backend/setta/server_state.py`
+- The dead Python server-side listener realtime stack is gone:
+  - `backend/setta/websockets/listener_registry.py` was deleted
+  - `backend/setta/websockets/msg_handlers/python_script_sender.py` was deleted
+  - `backend/setta/websockets/realtime_event_hub.py` was deleted
+  - `backend/setta/server_state.py` no longer constructs `ListenerRegistry`,
+    `WMHPythonScriptSender`, or `RealtimeEventHub`
+  - `backend/setta/project_state/artifacts.py` and
+    `backend/setta/project_state/share_runtime_state.py` no longer thread that
+    listener-realtime path through share artifact/session state
+  - the legacy Python listener websocket route constant and websocket
+    connection kind were removed from `backend/setta/types/routes.py` and
+    `backend/setta/types/websocket.py`
 
 ### Verified retained Python boundaries
 
@@ -386,19 +398,20 @@ packaged/runtime path is predominantly Go-owned.
 
 No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
-explicit retained boundary list, most notably the still-in-tree Python plugin
-worker implementation/runtime path in `backend/setta/plugins/worker.py`. The
-deleted Python plugin-management path in `backend/setta/plugins/manager.py`,
-the removed plugin listener-endpoint path, the old top-level Python FastAPI
-app, the removed backend static-dir path, the old `setta.dev_start` shim, the
-old source-only Python startup/CLI helper surfaces, the legacy Python
-server-state startup path, the legacy Python project-state plugin-codegen
-owner, and the removed plugin language-server runtime/app/UI surface are no
-longer part of that blocker set, the old Python listener force-refresh
-route/sender path is no longer part of that blocker set, the dead Python
-project-manager/session-manager threading for `python_script_sender` is no
-longer part of that blocker set, and schema-backed plugin UI settings are no
-longer part of that blocker set either.
+explicit retained boundary list, now centered on the still-in-tree Python
+runtime/state support behind retained listener/share behavior rather than on
+the deleted plugin-worker or websocket sender stack. The old Python
+plugin-management path in `backend/setta/plugins/manager.py`, the removed
+plugin listener-endpoint path, the deleted Python plugin worker/runtime, the
+old top-level Python FastAPI app, the removed backend static-dir path, the old
+`setta.dev_start` shim, the old source-only Python startup/CLI helper
+surfaces, the dead Python listener force-refresh route/sender path, the dead
+project-manager/session-manager `python_script_sender` threading, and the dead
+server-side listener realtime stack are no longer part of that blocker set.
+What still remains is the broader Python runtime tail around
+`backend/setta/server_state.py`, `backend/setta/share/listener_runtime.py`,
+and the Python project-state/share support that still exists behind retained
+listener/share behavior.
 
 ### Test and smoke evidence executed
 
@@ -872,3 +885,15 @@ slice, the remaining Python websocket tail is narrower again: it no longer
 includes old inbound websocket message handling, and is now centered on the
 still-live outbound listener/share support plus the broader legacy
 `SettaFastAPIState` and Python project-state wiring.
+
+A later follow-up cleanup slice then removed that dead Python outbound
+listener-realtime stack too. The legacy `ListenerRegistry`,
+`WMHPythonScriptSender`, and `RealtimeEventHub` modules were deleted,
+`SettaFastAPIState` no longer constructs them, the Python project-state/share
+path no longer threads that realtime stack through artifacts or share-session
+state, and the old Python listener websocket route/connection type were
+removed from the Python route enums. The focused project-state/share/server
+pytest slice (`124 passed`) still passes after that deletion. After this step,
+the remaining Python rewrite blocker is no longer the deleted websocket
+sender/registry/event-hub path; it is the broader legacy Python runtime/state
+support that still exists behind retained listener/share behavior.

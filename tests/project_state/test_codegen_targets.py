@@ -50,9 +50,7 @@ from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.utils.constants import C
 from setta.utils.paths import normalize_state_path
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.setta_paths import temporary_setta_paths
 
@@ -203,11 +201,7 @@ class TestCodegenTargetsRunCommand:
             path.mkdir(parents=True, exist_ok=True)
 
         self.websocket_manager = WebsocketManager()
-        self.listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager, self.listener_registry
-        )
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
         self.lsp_writers = NoopLSPWriters()

@@ -4910,7 +4910,6 @@ class BaseProjectManager(ABC):
                 artifacts=artifact_payloads,
                 updateType="update",
             )
-            await self.artifacts.emit_realtime_image_updates(artifact_payloads)
 
     @enqueue_method
     async def apply_listener_emit_updates(

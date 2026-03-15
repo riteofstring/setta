@@ -56,7 +56,6 @@ class Route(str, Enum):
     TERMINAL = "/{projectConfigId}/{sectionId}/{id}"
     DELETE_TERMINALS = "/deleteTerminals"
     WEBSOCKET_FRONTEND = "/frontend"
-    WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}"
     WEBSOCKET_LISTENER = "/ws/listeners/{id}"
     SAVE_CODE_INFO = "/codeInfo/save"
     KILL_SUBPROCESSES = "/killSubprocesses"

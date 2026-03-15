@@ -11,9 +11,7 @@ from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -63,10 +61,6 @@ def _build_switcher(
     share_manager = ShareRuntimeState(dbe, root, frontend_sender)
     settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
     share_manager.initialize_share_state(settings_file)
-    WMHPythonScriptSender(
-        websocket_manager,
-        ListenerRegistry(),
-    )
     switcher = ProjectManagerSwitcher(
         share_runtime_state=share_manager,
         settings_file=settings_file,

@@ -56,9 +56,7 @@ from setta.utils.paths import normalize_state_path
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.utils.utils import GEN_CODE_META_FILENAME
 from setta.types.websocket import WebsocketConnectionType
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -848,10 +846,6 @@ class TestShareRuntimeState:
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
-            WMHPythonScriptSender(
-                websocket_manager,
-                ListenerRegistry(),
-            )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=manager,
                 settings_file=settings_file,
@@ -895,10 +889,6 @@ class TestShareRuntimeState:
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
-            WMHPythonScriptSender(
-                websocket_manager,
-                ListenerRegistry(),
-            )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=manager,
                 settings_file=settings_file,
@@ -950,10 +940,6 @@ class TestShareRuntimeState:
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
-            WMHPythonScriptSender(
-                websocket_manager,
-                ListenerRegistry(),
-            )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=manager,
                 settings_file=settings_file,
@@ -1063,10 +1049,6 @@ class TestShareRuntimeState:
             manager = ShareRuntimeState(dbe, root, frontend_sender)
 
             async def run_test() -> None:
-                WMHPythonScriptSender(
-                    websocket_manager,
-                    ListenerRegistry(),
-                )
                 settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
                 manager.initialize_share_state(settings_file)
                 switcher = ProjectManagerSwitcher(
@@ -1126,10 +1108,6 @@ class TestShareRuntimeState:
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
-            WMHPythonScriptSender(
-                websocket_manager,
-                ListenerRegistry(),
-            )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=manager,
                 settings_file=settings_file,

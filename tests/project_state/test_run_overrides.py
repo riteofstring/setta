@@ -33,8 +33,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
@@ -87,11 +85,7 @@ class TestRunOverride:
         self._stack = ExitStack()
         self._stack.enter_context(temporary_setta_paths(runtime_root=self._run_root))
         websocket_manager = WebsocketManager()
-        listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(websocket_manager)
-        self.python_script_sender = WMHPythonScriptSender(
-            websocket_manager, listener_registry
-        )
         self.specific_file_watcher = SpecificFileWatcher()
         self.dbe = DBE(root)
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)

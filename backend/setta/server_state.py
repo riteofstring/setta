@@ -61,10 +61,7 @@ from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
 )
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
 _T = TypeVar("_T")
@@ -123,7 +120,6 @@ async def cleanup_expired_share_sessions(
     session_manager_switcher: "ProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     terminals: "Terminals | None" = None,
-    realtime_event_hub: RealtimeEventHub | None = None,
 ) -> list[str]:
     expired_ids = share_session_store.cleanup_expired()
     for session_id in expired_ids:
@@ -131,8 +127,6 @@ async def cleanup_expired_share_sessions(
             await terminals.delete_terminals_for_share_session(session_id)
         if share_listener_runtime is not None:
             share_listener_runtime.drop_session_listener(session_id)
-        if realtime_event_hub is not None:
-            realtime_event_hub.drop_share_session_sequences(session_id)
         if share_runtime_state.has_session_state(session_id):
             share_runtime_state.delete_session_state(session_id)
         if session_manager_switcher is not None:
@@ -146,7 +140,6 @@ async def run_share_session_cleanup_loop(
     session_manager_switcher: "ProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     terminals: "Terminals | None" = None,
-    realtime_event_hub: RealtimeEventHub | None = None,
     *,
     interval_seconds: int = DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
 ) -> None:
@@ -157,7 +150,6 @@ async def run_share_session_cleanup_loop(
             session_manager_switcher,
             share_listener_runtime,
             terminals,
-            realtime_event_hub,
         )
         await asyncio.sleep(interval_seconds)
 
@@ -224,7 +216,6 @@ class SettaFastAPIState:
             self.share_deployment_root
         )
         self.websocket_manager = WebsocketManager()
-        self.listener_registry = ListenerRegistry()
         self.ui_setting_reveal_result_hub = UISettingRevealResultHub()
         self.dbe = DBE(
             self.share_deployment_root
@@ -255,12 +246,6 @@ class SettaFastAPIState:
             share_mode=self.deployment_mode,
         )
         self.detached_run_manager = DetachedRunManager(self.dbe)
-        self.wmh_python_script_sender = WMHPythonScriptSender(
-            self.websocket_manager,
-            self.listener_registry,
-            None if self.deployment_mode else self.dbe,
-        )
-        self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
         if self.deployment_mode or self.launcher_mode:
             self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
@@ -369,7 +354,6 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.specific_file_watcher,
                 self.dbe,
-                realtime_event_hub=self.realtime_event_hub,
             )
             self.code_files = CodeFiles(
                 self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
@@ -588,7 +572,6 @@ class SettaFastAPIState:
             self.share_deployment_root,
             self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,
-            realtime_event_hub=self.realtime_event_hub,
         )
         self.settings_file = SettingsFile(
             self.dbe,
@@ -642,7 +625,6 @@ class SettaFastAPIState:
                 self.project_manager_switcher,
                 share_listener_runtime=self.share_listener_runtime,
                 terminals=share_terminals,
-                realtime_event_hub=self.realtime_event_hub,
                 interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
             ),
             label="share-session-cleanup",
