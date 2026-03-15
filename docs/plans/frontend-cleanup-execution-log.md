@@ -2750,3 +2750,33 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/stateMachineRuns.ts`, now the largest
     authored/shared state hotspot at 354 lines, by separating run-history
     reads and selection state from optimistic run mutation commands.
+
+## 2026-03-15 04:55:02 PDT
+
+- Slice completed: split workflow run selection/polling ownership from
+  optimistic workflow run mutation commands
+- Key files touched:
+  - `frontend/src/state/actions/stateMachineRunSelection.ts`
+  - `frontend/src/state/actions/stateMachineRunMutations.ts`
+  - `frontend/src/state/actions/stateMachineRuns.ts`
+  - `frontend/src/state/actions/stateMachineRuns.test.ts`
+  - `frontend/src/components/Section/Layouts/StateMachineNodeArea.tsx`
+  - `frontend/src/components/Section/Layouts/stateMachineNodePresentation.ts`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/stateMachineRuns.test.ts src/components/Section/Layouts/StateMachineNodeArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/stateMachineRuns.ts src/state/actions/stateMachineRunSelection.ts src/state/actions/stateMachineRunMutations.ts src/state/actions/stateMachineRuns.test.ts src/components/Section/Layouts/StateMachineNodeArea.tsx src/components/Section/Layouts/stateMachineNodePresentation.ts src/components/Panes/Overview/RunInstructions.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `b06c730a2`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/gitGraphLog.ts`, now the largest
+    authored/shared state hotspot at 351 lines, by separating git graph
+    loading/filter state from the remaining overlay boot and all-refs refresh
+    behavior.
