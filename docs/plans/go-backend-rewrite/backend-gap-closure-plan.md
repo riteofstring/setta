@@ -60,6 +60,10 @@ categorize them.
 - The latest-state stale-`activeIds` load-normalization row is now proved via
   the default harness; the next likely latest-state queue is the remaining
   project/window-space load-normalization rows
+- The fail-closed missing-authoritative `projectChatWindowing` load row is now
+  proved via the default harness too; the next likely project/window-space
+  queue is the remaining title-clearing, dedupe, owner-validation, and
+  sort-index repair rows
 - The empty latest-state `windowSpaces` object-shape row is now proved too;
   keep prioritizing the remaining project/window-space `Missing` rows over
   additional shape-only proof slices
