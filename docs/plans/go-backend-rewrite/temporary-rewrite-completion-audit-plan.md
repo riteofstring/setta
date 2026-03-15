@@ -382,6 +382,11 @@ This verdict holds under both of the only reasonable definitions:
     `backend/setta/types/routes.py`
   - production code search no longer finds any `.websocket(...)` route
     definitions under `backend/setta/routers`
+- The dead Python LSP route surface is gone:
+  - `backend/setta/routers/lsp.py` was deleted after the retained listener
+    registry stopped importing it
+  - the old Python `Route.RESTART_LANGUAGE_SERVER` and `Route.TYPE_CHECK`
+    entries were removed from `backend/setta/types/routes.py`
 
 ### Verified retained Python boundaries
 
@@ -947,3 +952,11 @@ broader `project_manager`, `terminals`, and `lsp` routers. The focused
 listener registry/call tests (`10 passed`) still pass after that change. After
 this step, the remaining Python rewrite blocker is no longer inflated by the
 broader dormant built-in listener endpoint inventory.
+
+A later follow-up cleanup slice removed the dead Python LSP route surface too.
+`backend/setta/routers/lsp.py` was deleted, and the old Python
+`Route.RESTART_LANGUAGE_SERVER` / `Route.TYPE_CHECK` enum entries were removed
+from `backend/setta/types/routes.py`. The focused router/share/server/listener
+pytest slice (`65 passed`) still passes after that cleanup. After this step,
+the remaining Python rewrite blocker is narrower again: it no longer includes
+the dormant Python LSP route module.
