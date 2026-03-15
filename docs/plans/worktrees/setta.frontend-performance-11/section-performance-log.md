@@ -2668,3 +2668,94 @@ Append-only log for the section performance refactor.
   - This is still only a route-level history invalidation pass. The next serious `Phase S3` step should stay above this seam and target the remaining project-chat-only owner/error shell ownership in `StandaloneProjectSurfacePage.tsx`.
 - Next action:
   - Continue `Phase S3` by targeting the remaining project-chat-only owner/error shell ownership above `StandaloneProjectSurfacePage.tsx` without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, floating-body, standalone per-window, or standalone route-history seams unless a later trace proves it necessary.
+
+### 2026-03-17 76
+
+- Item: Accept `Phase S3` checkpoint 9 after isolating standalone chat routes from unrelated project-structure churn.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` so the shared standalone route parent now:
+    - keeps load / `404` handling, target resolution, outer-shell selection, and non-chat title handling
+    - stops owning project-chat-specific history, owner-key, error-state, and same-tab chat navigation wiring
+  - Moved standalone chat-route ownership behind `StandaloneProjectChatRouteSurface`, including:
+    - `agentRuns`-backed thread history lookup
+    - standalone thread-title resolution
+    - owner-key and error-state scoping
+    - same-tab `setProjectChatId(...)` navigation
+    - chat-route `chat_not_found` and `llm_disallowed` shells
+    - chat-route document-title updates
+  - Kept non-chat section/window-space authority reads inside `StandaloneNonChatRouteSurface` and then tightened that child to only the rendered target kinds:
+    - `section`
+    - `window_space`
+  - Extended `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` with focused invalidation coverage proving standalone project-chat thread routes stay stable when unrelated project-structure dictionaries churn:
+    - `projectConfig.windowSpaces`
+    - `projectConfig.sectionVariantMap`
+    - `sections`
+    - `sectionVariants`
+    - `sectionImpls`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - result: `4` files passed, `54` tests passed
+  - Re-ran representative Playwright coverage:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "same-tab standalone project chat navigation keeps llm_disallowed state scoped to the owning project config"`
+    - result: `1 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming/chat/shared-thread`
+    - worktree: `http://127.0.0.1:3011/tide_pike/chat/shared-thread`
+  - Used a new representative standalone chat-route replay because this checkpoint targets shared route-shell subscription breadth above the accepted standalone route-history and window-space seams:
+    - keep the direct thread route on `/{project}/chat/shared-thread`
+    - keep the viewport at `1400 x 900`
+    - mark the replay boundary at the standalone chat route
+    - clone only the unrelated project-structure dictionaries in `useProjectState.setState(...)`:
+      - `projectConfig.windowSpaces`
+      - `projectConfig.sectionVariantMap`
+      - `sections`
+      - `sectionVariants`
+      - `sectionImpls`
+    - wait two RAFs
+    - compare the marked `+100ms` route window
+  - Live CDP standalone-chat validation:
+    - both branches kept the same visible route shell after the replay:
+      - `Start a new thread`
+      - the provenance warning
+      - the composer controls
+    - both branches stayed on the same standalone thread route shape:
+      - worktree: `/tide_pike/chat/shared-thread`
+      - untouched `main`: `/dark_swimming/chat/shared-thread`
+    - both branches kept the same viewport:
+      - `1400 x 900`
+    - both branches kept the same post-replay document-title shape:
+      - worktree: `tide_pike · Chat shared-t`
+      - untouched `main`: `dark_swimming · Chat shared-t`
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint9/`
+  - Accepted marked `+100ms` trace-overlap totals from the standalone chat structure pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `19.369`
+      - `UpdateLayoutTree`: `0.000`
+      - `Layout`: `0.000`
+      - `Paint`: `0.000`
+      - `RunTask`: `28.969`
+      - `EventDispatch`: `0.000`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.151`
+      - `Commit`: `0.128`
+    - worktree
+      - `FunctionCall`: `0.000`
+      - `UpdateLayoutTree`: `0.000`
+      - `Layout`: `0.000`
+      - `Paint`: `0.000`
+      - `RunTask`: `3.049`
+      - `EventDispatch`: `0.000`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.000`
+      - `Commit`: `0.000`
+- Interpretation:
+  - Checkpoint 9 is accepted.
+  - The worktree materially improves the representative standalone chat-route structure-churn window on `FunctionCall`, `RunTask`, and `Commit`.
+  - `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `TimerFire` stayed flat at `0.000` on both branches in the marked window.
+  - `FireAnimationFrame` is small on `main` and disappears entirely on the worktree in the marked window.
+  - The stronger evidence is the new focused guardrail proving standalone project-chat thread routes no longer rerender when only unrelated project-structure dictionaries churn.
+  - This leaves `Phase S3` above the accepted standalone-route seam. The next serious move should be a fresh boundary read to decide whether any meaningful route-shell work remains above `StandaloneProjectSurfacePage.tsx`.
+- Next action:
+  - Continue `Phase S3` with a fresh boundary read above `StandaloneProjectSurfacePage.tsx` to decide whether another standalone-route shell seam still exists or whether `Phase S3` is structurally exhausted, without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, floating-body, standalone per-window, standalone route-history, or standalone chat-structure seams unless a later trace proves it necessary.

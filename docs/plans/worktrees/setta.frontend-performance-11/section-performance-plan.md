@@ -200,6 +200,26 @@ Immediate next step:
      - `Commit`
    - `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `TimerFire` stayed at `0.000` on both branches in the marked window, while `FireAnimationFrame` was only slightly higher on the worktree
    - the next serious `Phase S3` step should stay above this seam and target the remaining project-chat-only owner/error shell ownership in `StandaloneProjectSurfacePage.tsx`, not reopen the accepted standalone window-space or floating/window lower seams unless a later trace proves it necessary
+21. Current post-checkpoint-9 direction:
+   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` now keeps standalone project-chat owner/error/title wiring inside `StandaloneProjectChatRouteSurface`
+   - the shared standalone route parent now only owns:
+     - load and `404` handling
+     - target resolution
+     - shared outer shell selection
+     - non-chat title handling
+   - standalone chat routes no longer subscribe to unrelated project-structure dictionaries through the shared parent shell:
+     - `projectConfig.windowSpaces`
+     - `projectConfig.sectionVariantMap`
+     - `sections`
+     - `sectionVariants`
+     - `sectionImpls`
+   - focused invalidation coverage now proves standalone project-chat thread routes stay stable when unrelated project structure churn only clones those dictionaries
+   - the representative standalone chat-route structure trace now favors the worktree on:
+     - `FunctionCall`
+     - `RunTask`
+     - `Commit`
+   - `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `TimerFire` stayed at `0.000` on both branches in the marked window, and `FireAnimationFrame` dropped to `0.000` on the worktree
+   - the next serious `Phase S3` step should be a fresh boundary read above `StandaloneProjectSurfacePage.tsx` to decide whether any meaningful route-shell seam still remains or whether `Phase S3` is structurally exhausted, not a reopening of the accepted floating/window or standalone-route seams unless a later trace proves it necessary
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
