@@ -6103,3 +6103,50 @@ schedule settings` button still appears on the live task row.
     `frontend/src/components/Panes/Overview/RunInstructions.tsx` dropped to
     about 555 lines and delegated its codegen/snapshot settings ownership into
     feature-local modules.
+
+## 2026-03-16 00:03:26 PDT
+
+- Slice completed: extracted ProjectChat surface shells and conversation-search ownership
+- This was higher value than jumping straight to
+  `frontend/src/components/App/appRegistry.tsx` or
+  `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` because
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` was
+  still the top unresolved front-door hotspot at the start of the turn, and it
+  still mixed aux-surface routing, conversation-search state, header chrome,
+  engine-switch banner rendering, and inline/history/core render branching in
+  one first-hop file.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceChrome.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceBody.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewContent.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatConversationSearch.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-surface-shells-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/project-ai-combobox.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewContent.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceChrome.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceBody.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.test.ts src/components/Panes/Overview/ProjectLevelAI/useProjectChatConversationSearch.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-surface-shells-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-surface-shells-2026-03-16.md`
+    with before/after DOM and chrome metrics for the default Project AI Chat
+    view.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy` at
+    `1400x900` and `1024x720`; the default chat view kept the same DOM/nav
+    metrics before and after, the settings popover still routed into the
+    `Skills` aux surface with aux tabs plus return-to-chat chrome, and the
+    narrow viewport kept document horizontal overflow disabled.
+- Commit hash:
+  - `81e560157`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/App/appRegistry.tsx`, which is now the
+    top unresolved front-door hotspot after
+    `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+    dropped to about 1377 lines and delegated its surface chrome/body plus
+    conversation-search ownership into feature-local modules.
