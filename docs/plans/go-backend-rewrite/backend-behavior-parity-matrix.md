@@ -8,10 +8,10 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`3a9a202dbe3fabf1490a345ef21d2a34f9d70177`
+`712dd7950cc8f75f5347b3d1cc7aaca0dce99cf0`
 
-This is a partial matrix, not the finished matrix.
-It currently covers:
+This matrix covers the full current audit boundary pinned above.
+It covers:
 
 - project names
 - view mode names
@@ -104,8 +104,7 @@ It currently covers:
   behavior
 - desktop launcher bootstrap/install scripts, native installers, and release
   tooling behavior
-
-Rows outside these slices are still pending.
+- deployment listener manifest and per-session runtime behavior
 
 ## Status Meanings
 
@@ -153,6 +152,8 @@ Rows outside these slices are still pending.
   adds no new concrete gap.
 - The desktop-launcher bootstrap/native-installer/release-tooling slice mostly
   closes with proofs and adds no new concrete gap.
+- The deployment-listener manifest/runtime slice closes publish/defaulting
+  behavior, but it adds one real runtime gap (`DL-02`).
 - The chat-section persistence / stale-chat-cleanup slice mostly closes with
   proofs, but it adds two more caller-backed transport/policy gaps, one
   dormant direct-HTTP read boundary row, and one proof-gap row.
@@ -1237,16 +1238,23 @@ Rows outside these slices are still pending.
 | `LI-06` | Desktop-launcher release automation resolves installer version from one canonical source, checks out the repo before invoking repo scripts, builds launcher smoke assets plus native installers through the shared packaged-build helper, verifies native-installer `settaVersion` and launcher-status payloads in smoke scripts, and publishes release assets only after all smoke gates pass. | Source tests: `tests/start/test_desktop_launcher_install_scripts.py::{test_release_workflow_uses_single_installer_version_source,test_release_workflow_builds_launcher_smoke_package_with_go_binaries,test_release_workflow_builds_native_installer_package_with_go_binaries,test_native_installer_smoke_scripts_verify_expected_setta_version,test_release_workflow_checks_out_repo_before_running_repo_scripts,test_release_installer_version_resolver_defaults_dispatch_to_project_version,test_release_installer_version_resolver_prefers_explicit_dispatch_input,test_release_installer_version_resolver_uses_release_tag,test_release_installer_version_resolver_rejects_invalid_dispatch_version,test_release_installer_version_resolver_fails_when_version_file_is_invalid,test_release_workflow_publishes_assets_only_after_all_smoke_gates,test_native_installer_smoke_scripts_assert_launcher_status}`. | Impl: `.github/workflows/release-desktop-launcher.yml`; `scripts/release/resolve_installer_version.sh`; `scripts/release/build_launcher_bootstrap_assets.sh`; `scripts/release/{smoke_test_native_installer_macos.sh,smoke_test_native_installer_windows.ps1}`; proof: `tests/start/test_desktop_launcher_install_scripts.py::{test_release_workflow_uses_single_installer_version_source,test_release_workflow_builds_launcher_smoke_package_with_go_binaries,test_release_workflow_builds_native_installer_package_with_go_binaries,test_native_installer_smoke_scripts_verify_expected_setta_version,test_release_workflow_checks_out_repo_before_running_repo_scripts,test_release_installer_version_resolver_defaults_dispatch_to_project_version,test_release_installer_version_resolver_prefers_explicit_dispatch_input,test_release_installer_version_resolver_uses_release_tag,test_release_installer_version_resolver_rejects_invalid_dispatch_version,test_release_installer_version_resolver_fails_when_version_file_is_invalid,test_release_workflow_publishes_assets_only_after_all_smoke_gates,test_native_installer_smoke_scripts_assert_launcher_status}`. | `Proved` | The workflow now has a single installer-version resolution path shared by dispatch and release events. |
 | `LI-07` | The launcher smoke pipeline derives server mode from the launcher payload, requires the post-update relaunch to start a fresh session rather than reuse a stale one, and deliberately breaks then repairs a managed artifact before final cleanup verification. | Source tests: `tests/start/test_desktop_launcher_install_scripts.py::{test_launcher_smoke_script_derives_mode_from_launcher_payload,test_smoke_test_launcher_pipeline_breaks_post_update_artifact,test_smoke_test_launcher_pipeline_fails_when_relaunch_reuses_session}`. | Impl: `scripts/release/smoke_test_launcher_pipeline.sh`; proof: `tests/start/test_desktop_launcher_install_scripts.py::{test_launcher_smoke_script_derives_mode_from_launcher_payload,test_smoke_test_launcher_pipeline_breaks_post_update_artifact,test_smoke_test_launcher_pipeline_fails_when_relaunch_reuses_session}`. | `Proved` | This row covers the end-to-end launcher smoke contract itself, separate from the release workflow that invokes it. |
 
+## Deployment Listener Manifest And Runtime
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `DL-01` | Publishing share/app deployments preserves listener config, rewrites the listener entrypoint into the canonical `listener/app.py` deployment path, copies the listener file into the deployment root, and defaults `listener.enabled` to `true` when omitted from the deployment manifest. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; source model: `backend/setta/types/share_deployment.py::{DeploymentListenerConfig,DeploymentManifest}`; source retained runtime: `backend/setta/share/listener_runtime.py`. | Impl: `internal/deployments/{share_publish.go,app_publish.go,manifest.go}`; proof: `internal/deployments/share_publish_test.go::TestSharePublisherCopiesListenerEntrypoint`; `internal/deployments/app_publish_test.go::TestAppPublisherCopiesListenerEntrypoint`; `internal/deployments/runtime_test.go::TestLoadManifestDefaultsListenerEnabled`. | `Proved` | Current Go still carries listener metadata and copied listener files inside published deployment snapshots even though session runtime startup is tracked separately below. |
+| `DL-02` | The deployment listener runtime fails closed on a missing entrypoint or missing session id, keys listener handles by `(shareSessionId, projectConfigId)`, accepts either `build_listener` or `build_callbacks`, and drops stopped/completed per-session handles and loaded modules. | Source docs: `docs/reference/setta-listener-examples.md`; `docs/reference/sharing-mode-vs-ide-mode.md`; source retained runtime: `backend/setta/share/listener_runtime.py`; source tests: `tests/share/test_listener_runtime.py::{test_missing_entrypoint_raises,test_requires_session_id,test_uses_build_callbacks_fallback_when_build_listener_is_missing,test_stop_session_listener_and_stop_all,test_session_handles_are_scoped_by_config,test_completed_listener_task_drops_handle_and_module}`. | Current Go deployment runtime only manages overlays/sessions in `internal/deployments/runtime.go`; deployment HTTP bootstrap paths in `internal/httpapi/deployment_routes.go` create sessions but never launch a retained listener runtime; websocket wiring in `internal/wsapi/routes.go` still assumes a client-initiated listener websocket rather than a deployment-owned runtime manager. | `Missing` | `DP-08` separately tracks the missing auto-start/session-bootstrap behavior. This row captures the deeper retained-runtime lifecycle contract that still has no Go equivalent once a deployment listener is published. |
+
 ## Current Findings
 
-1. The matrix now contains forty-eight concrete source-parity gaps:
+1. The matrix now contains forty-nine concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, `SC-06`, and
-   `CG-04`.
+   `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, `SC-06`, `CG-04`,
+   and `DL-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1394,19 +1402,22 @@ Rows outside these slices are still pending.
     it adds no new real behavior gap.
 49. The desktop-launcher bootstrap/native-installer/release-tooling slice
     mostly closes with proofs, and it adds no new real behavior gap.
-50. Git route behavior is now largely proved, including literal pathspec
+50. The deployment-listener manifest/runtime slice closes publish/defaulting
+    behavior, but it adds one real runtime gap (`DL-02`) on top of the
+    already-missing deployment listener session bootstrap (`DP-08`).
+51. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-51. The remaining issues in the naming slice are still mostly proof gaps rather
+52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-52. The next high-value steps are:
+53. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
       `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`,
-      `CT-02`, `SC-05`, `SC-06`, and `CG-04` should be
+      `CT-02`, `SC-05`, `SC-06`, `CG-04`, and `DL-02` should be
       restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
@@ -1439,5 +1450,3 @@ Rows outside these slices are still pending.
       (`WS-02`, `WS-05`), plus the new local-session filtering proof gap
       (`SR-02`), plus the new param-value proof gap (`PV-02`), plus the new
       section-variant proof gap (`SV-02`)
-    - continue the matrix into the remaining deployment listener realtime /
-      runtime slice that is still outside this partial matrix
