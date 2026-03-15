@@ -7,6 +7,7 @@ from collections import defaultdict
 from collections.abc import Sequence as ABCSequence
 from dataclasses import MISSING, dataclass, fields, is_dataclass
 from enum import Enum
+from pathlib import Path
 from typing import (
     Annotated,
     Any,
@@ -25,6 +26,10 @@ from typing import (
 
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
+
+
+def resolve_generation_path(script_file: str, relative_path: Path) -> Path:
+    return (Path(script_file).resolve().parent / relative_path).resolve()
 
 
 def format_generated_code(output_file):

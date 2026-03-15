@@ -1,9 +1,7 @@
 from pathlib import Path
 from typing import get_args
 
-from setta.utils.utils import get_absolute_path
-
-from .utils import get_impl_classes, get_impl_unions
+from .utils import get_impl_classes, get_impl_unions, resolve_generation_path
 
 
 def generate_set_effective_impl_value_overload(impl_name: str, args_name: str) -> str:
@@ -85,17 +83,19 @@ def generate_effective_impl_overloads():
             section_impl_imports.append(cls.original_name)
         elif cls.is_for_code_obj:
             code_obj_impl_imports.append(cls.original_name)
-        args_imports.append(cls.args_name)
         args_imports.append(cls.args_with_callable_name)
     for u in sorted_union_names:
-        args_imports.append(u.replace("Union", "Args"))
         args_imports.append(u.replace("Union", "ArgsWithCallable"))
+
+    section_impl_imports = list(dict.fromkeys(section_impl_imports))
+    code_obj_impl_imports = list(dict.fromkeys(code_obj_impl_imports))
+    args_imports = list(dict.fromkeys(args_imports))
 
     # Generate imports using triple quotes
     imports = f"""# Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import overload, Any, TypeVar, Callable, Any
+from typing import Any, Callable, TypeVar, overload
 from pydantic import BaseModel
 
 from setta.types.core import Core, Variant
@@ -204,4 +204,4 @@ def main(output_folder: Path):
 
 
 if __name__ == "__main__":
-    main(get_absolute_path(__file__, Path("../../backend/setta/types/generated")))
+    main(resolve_generation_path(__file__, Path("../../backend/setta/types/generated")))

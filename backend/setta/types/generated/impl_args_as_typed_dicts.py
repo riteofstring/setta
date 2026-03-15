@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -30,9 +31,19 @@ from setta.types.code_obj_impls import (
     TimeDisplayFont,
     TimeDisplayFormat,
 )
-from setta.types.edges import EdgePort
+from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
+from setta.types.project_config import (
+    ProjectCodegenPluginTarget,
+    ProjectCodegenPythonTarget,
+    TopLevelSectionLayout,
+    ViewModeConfig,
+    Viewport,
+    WatchCodeFolder,
+    WatchCodeRegistryEntry,
+    WindowSpaceConfig,
+)
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
@@ -57,6 +68,7 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TypeErrorIgnoreState,
 )
+from setta.types.state_machine_edges import StateMachineEdge
 
 
 class CoreArgs(TypedDict):
@@ -209,6 +221,35 @@ class CoreArgs(TypedDict):
             ]
         ]
     ]
+
+
+class ProjectConfigArgs(TypedDict):
+    id: NotRequired[ID]
+    name: NotRequired[str]
+    showParamDisplayNames: NotRequired[bool]
+    allowJsonSourceKeyEdits: NotRequired[bool]
+    previewImgColor: NotRequired[str]
+    viewport: NotRequired[Viewport | None]
+    viewportInitialized: NotRequired[bool]
+    viewModes: NotRequired[dict[ID, ViewModeConfig]]
+    windowSpaces: NotRequired[dict[ID, WindowSpaceConfig]]
+    activeViewModeId: NotRequired[ID | None]
+    isEditingViewMode: NotRequired[bool]
+    codegenTargets: NotRequired[
+        list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
+    ]
+    entryCodeBlockId: NotRequired[ID | None]
+    topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
+    sectionVariantMap: NotRequired[dict[ID, ID]]
+    activeIds: NotRequired[list[ID]]
+    edges: NotRequired[list[Edge]]
+    agenticEdges: NotRequired[list[AgenticEdge]]
+    stateMachineEdges: NotRequired[list[StateMachineEdge]]
+    watchCodeEnabled: NotRequired[bool]
+    watchCodeFolders: NotRequired[list[WatchCodeFolder]]
+    watchCodeFiles: NotRequired[list[str]]
+    watchCodeRegistry: NotRequired[dict[str, WatchCodeRegistryEntry]]
+    watchCodeBaselineByPath: NotRequired[dict[str, list[str]]]
 
 
 class BaseSectionImplArgs(TypedDict):
@@ -872,28 +913,12 @@ class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     autoReloadOnExternalChange: NotRequired[bool | Callable[[bool], bool]]
 
 
-class BaseCodeObjImplArgs(TypedDict):
-    type: NotRequired[Any]
-    id: NotRequired[ID]
-    name: NotRequired[str]
-    description: NotRequired[str]
-    isPreset: NotRequired[bool]
-
-
 class BaseCodeObjImplArgsWithCallable(TypedDict):
     type: NotRequired[Any | Callable[[Any], Any]]
     id: NotRequired[ID | Callable[[ID], ID]]
     name: NotRequired[str | Callable[[str], str]]
     description: NotRequired[str | Callable[[str], str]]
     isPreset: NotRequired[bool | Callable[[bool], bool]]
-
-
-class BaseParamCodeObjImplArgs(BaseCodeObjImplArgs):
-    type: NotRequired[Any]
-    coreNameType: NotRequired[ParamNameType]
-    coreNameEditable: NotRequired[bool]
-    passingStyle: NotRequired[ParameterPassingStyle]
-    typeAnnotation: NotRequired[str]
 
 
 class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
@@ -906,30 +931,15 @@ class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     typeAnnotation: NotRequired[str | Callable[[str], str]]
 
 
-class BaseChildlessCodeObjImplArgs(BaseParamCodeObjImplArgs):
-    type: NotRequired[Any]
-    defaultVal: NotRequired[str]
-    value: NotRequired[str]
-
-
 class BaseChildlessCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     defaultVal: NotRequired[str | Callable[[str], str]]
     value: NotRequired[str | Callable[[str], str]]
 
 
-class BaseParentCodeObjImplArgs(BaseCodeObjImplArgs):
-    type: NotRequired[Any]
-    children: NotRequired[list[ID]]
-
-
 class BaseParentCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
-
-
-class CodeCallableCodeObjImplArgs(BaseParentCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.CodeCallable]]
 
 
 class CodeCallableCodeObjImplArgsWithCallable(BaseParentCodeObjImplArgsWithCallable):
@@ -941,20 +951,11 @@ class CodeCallableCodeObjImplArgsWithCallable(BaseParentCodeObjImplArgsWithCalla
     ]
 
 
-class CodeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.CodeParam]]
-
-
 class CodeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.CodeParam]
         | Callable[[Literal[CodeObjType.CodeParam]], Literal[CodeObjType.CodeParam]]
     ]
-
-
-class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.TextParam]]
-    uiType: NotRequired[TextParamInputUIType]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -965,15 +966,6 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     uiType: NotRequired[
         TextParamInputUIType | Callable[[TextParamInputUIType], TextParamInputUIType]
     ]
-
-
-class DateParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.DateParam]]
-    dateDisplayFormat: NotRequired[DateDisplayFormat]
-    dateControlMode: NotRequired[DateControlMode]
-    dateSelectionMode: NotRequired[DateSelectionMode]
-    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
-    dateIncludesTime: NotRequired[bool]
 
 
 class DateParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -996,15 +988,6 @@ class DateParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
 
 
-class TimeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.TimeParam]]
-    timeControlMode: NotRequired[TimeControlMode]
-    timeDisplayFormat: NotRequired[TimeDisplayFormat]
-    timeDisplayTransparent: NotRequired[bool]
-    timeDisplayScale: NotRequired[float]
-    timeDisplayFont: NotRequired[TimeDisplayFont]
-
-
 class TimeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.TimeParam]
@@ -1021,17 +1004,6 @@ class TimeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     timeDisplayFont: NotRequired[
         TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
     ]
-
-
-class ButtonParamCodeObjImplArgs(BaseParamCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.ButtonParam]]
-    label: NotRequired[str]
-    actionMode: NotRequired[ButtonActionMode]
-    requestMethod: NotRequired[HttpRequestMethod]
-    requestUrl: NotRequired[str]
-    requestHeaderKey: NotRequired[str]
-    requestHeaderValue: NotRequired[str]
-    requestBody: NotRequired[str]
 
 
 class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
@@ -1052,13 +1024,6 @@ class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallabl
     requestBody: NotRequired[str | Callable[[str], str]]
 
 
-class SliderParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.SliderParam]]
-    min: NotRequired[int]
-    max: NotRequired[int]
-    step: NotRequired[int]
-
-
 class SliderParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.SliderParam]
@@ -1067,13 +1032,6 @@ class SliderParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
     min: NotRequired[int | Callable[[int], int]]
     max: NotRequired[int | Callable[[int], int]]
     step: NotRequired[int | Callable[[int], int]]
-
-
-class RotaryParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.RotaryParam]]
-    min: NotRequired[float]
-    max: NotRequired[float]
-    step: NotRequired[float]
 
 
 class RotaryParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -1086,20 +1044,11 @@ class RotaryParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
     step: NotRequired[float | Callable[[float], float]]
 
 
-class SwitchParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.SwitchParam]]
-
-
 class SwitchParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.SwitchParam]
         | Callable[[Literal[CodeObjType.SwitchParam]], Literal[CodeObjType.SwitchParam]]
     ]
-
-
-class ColorPickerParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.ColorPickerParam]]
-    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
 class ColorPickerParamCodeObjImplArgsWithCallable(
@@ -1118,11 +1067,6 @@ class ColorPickerParamCodeObjImplArgsWithCallable(
     ]
 
 
-class DropdownParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.DropdownParam]]
-    choices: NotRequired[list[str]]
-
-
 class DropdownParamCodeObjImplArgsWithCallable(
     BaseChildlessCodeObjImplArgsWithCallable
 ):
@@ -1133,11 +1077,6 @@ class DropdownParamCodeObjImplArgsWithCallable(
         ]
     ]
     choices: NotRequired[list[str] | Callable[[list[str]], list[str]]]
-
-
-class PasswordParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.PasswordParam]]
-    hasSecret: NotRequired[bool]
 
 
 class PasswordParamCodeObjImplArgsWithCallable(
@@ -1152,10 +1091,6 @@ class PasswordParamCodeObjImplArgsWithCallable(
     hasSecret: NotRequired[bool | Callable[[bool], bool]]
 
 
-class TextAreaParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.TextAreaParam]]
-
-
 class TextAreaParamCodeObjImplArgsWithCallable(
     BaseChildlessCodeObjImplArgsWithCallable
 ):
@@ -1165,13 +1100,6 @@ class TextAreaParamCodeObjImplArgsWithCallable(
             [Literal[CodeObjType.TextAreaParam]], Literal[CodeObjType.TextAreaParam]
         ]
     ]
-
-
-class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.DropzoneParam]]
-    mode: NotRequired[DropzoneMode]
-    maxAttachments: NotRequired[int | None]
-    placeholder: NotRequired[str]
 
 
 class DropzoneParamCodeObjImplArgsWithCallable(
@@ -1186,10 +1114,6 @@ class DropzoneParamCodeObjImplArgsWithCallable(
     mode: NotRequired[DropzoneMode | Callable[[DropzoneMode], DropzoneMode]]
     maxAttachments: NotRequired[int | None | Callable[[int | None], int | None]]
     placeholder: NotRequired[str | Callable[[str], str]]
-
-
-class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.NestedParam]]
 
 
 class NestedParamCodeObjImplArgsWithCallable(

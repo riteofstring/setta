@@ -22,19 +22,12 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
-    ButtonParamCodeObjImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
-    CodeCallableCodeObjImplArgs,
-    CodeParamCodeObjImplArgs,
     CodeSectionImplArgs,
-    ColorPickerParamCodeObjImplArgs,
-    DateParamCodeObjImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
-    DropdownParamCodeObjImplArgs,
-    DropzoneParamCodeObjImplArgs,
     GenPythonCodeSectionImplArgs,
     GenPythonMetadataSectionImplArgs,
     GlobalVariablesSectionImplArgs,
@@ -43,41 +36,26 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    NestedParamCodeObjImplArgs,
-    PasswordParamCodeObjImplArgs,
     PluginSectionImplArgs,
     PromptSectionImplArgs,
-    RotaryParamCodeObjImplArgs,
-    SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
     SpreadsheetSectionImplArgs,
     StateMachineEndSectionImplArgs,
     StateMachineGateSectionImplArgs,
     StateMachineStartSectionImplArgs,
-    SwitchParamCodeObjImplArgs,
     TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
-    TextAreaParamCodeObjImplArgs,
     TextBlockSectionImplArgs,
-    TextParamCodeObjImplArgs,
-    TimeParamCodeObjImplArgs,
 )
 
 from tests.helpers.user_defaults import (
     UserDefaultBrowserSectionImpl,
-    UserDefaultButtonParamCodeObjImpl,
     UserDefaultCallableSectionImpl,
     UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
-    UserDefaultCodeCallableCodeObjImpl,
-    UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
-    UserDefaultColorPickerParamCodeObjImpl,
-    UserDefaultDateParamCodeObjImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
-    UserDefaultDropdownParamCodeObjImpl,
-    UserDefaultDropzoneParamCodeObjImpl,
     UserDefaultGenPythonCodeSectionImpl,
     UserDefaultGenPythonMetadataSectionImpl,
     UserDefaultGlobalVariablesSectionImpl,
@@ -86,24 +64,16 @@ from tests.helpers.user_defaults import (
     UserDefaultImageSectionImpl,
     UserDefaultListRootSectionImpl,
     UserDefaultMetaControlSectionImpl,
-    UserDefaultNestedParamCodeObjImpl,
-    UserDefaultPasswordParamCodeObjImpl,
     UserDefaultPluginSectionImpl,
     UserDefaultPromptSectionImpl,
-    UserDefaultRotaryParamCodeObjImpl,
-    UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSpreadsheetSectionImpl,
     UserDefaultStateMachineEndSectionImpl,
     UserDefaultStateMachineGateSectionImpl,
     UserDefaultStateMachineStartSectionImpl,
-    UserDefaultSwitchParamCodeObjImpl,
     UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
-    UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
-    UserDefaultTextParamCodeObjImpl,
-    UserDefaultTimeParamCodeObjImpl,
 )
 
 # Import implementation classes
@@ -335,126 +305,6 @@ def create_section_impl(
     defaults: UserDefaultSpreadsheetSectionImpl,
     overrides: SpreadsheetSectionImplArgs | None = None,
 ) -> SpreadsheetSectionImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.CodeCallable],
-    defaults: UserDefaultCodeCallableCodeObjImpl,
-    overrides: CodeCallableCodeObjImplArgs | None = None,
-) -> CodeCallableCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.CodeParam],
-    defaults: UserDefaultCodeParamCodeObjImpl,
-    overrides: CodeParamCodeObjImplArgs | None = None,
-) -> CodeParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.TextParam],
-    defaults: UserDefaultTextParamCodeObjImpl,
-    overrides: TextParamCodeObjImplArgs | None = None,
-) -> TextParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.DateParam],
-    defaults: UserDefaultDateParamCodeObjImpl,
-    overrides: DateParamCodeObjImplArgs | None = None,
-) -> DateParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.TimeParam],
-    defaults: UserDefaultTimeParamCodeObjImpl,
-    overrides: TimeParamCodeObjImplArgs | None = None,
-) -> TimeParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.ButtonParam],
-    defaults: UserDefaultButtonParamCodeObjImpl,
-    overrides: ButtonParamCodeObjImplArgs | None = None,
-) -> ButtonParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.SliderParam],
-    defaults: UserDefaultSliderParamCodeObjImpl,
-    overrides: SliderParamCodeObjImplArgs | None = None,
-) -> SliderParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.RotaryParam],
-    defaults: UserDefaultRotaryParamCodeObjImpl,
-    overrides: RotaryParamCodeObjImplArgs | None = None,
-) -> RotaryParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.SwitchParam],
-    defaults: UserDefaultSwitchParamCodeObjImpl,
-    overrides: SwitchParamCodeObjImplArgs | None = None,
-) -> SwitchParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.ColorPickerParam],
-    defaults: UserDefaultColorPickerParamCodeObjImpl,
-    overrides: ColorPickerParamCodeObjImplArgs | None = None,
-) -> ColorPickerParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.DropdownParam],
-    defaults: UserDefaultDropdownParamCodeObjImpl,
-    overrides: DropdownParamCodeObjImplArgs | None = None,
-) -> DropdownParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.PasswordParam],
-    defaults: UserDefaultPasswordParamCodeObjImpl,
-    overrides: PasswordParamCodeObjImplArgs | None = None,
-) -> PasswordParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.TextAreaParam],
-    defaults: UserDefaultTextAreaParamCodeObjImpl,
-    overrides: TextAreaParamCodeObjImplArgs | None = None,
-) -> TextAreaParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.DropzoneParam],
-    defaults: UserDefaultDropzoneParamCodeObjImpl,
-    overrides: DropzoneParamCodeObjImplArgs | None = None,
-) -> DropzoneParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.NestedParam],
-    defaults: UserDefaultNestedParamCodeObjImpl,
-    overrides: NestedParamCodeObjImplArgs | None = None,
-) -> NestedParamCodeObjImpl: ...
 
 
 def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None):

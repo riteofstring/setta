@@ -29,7 +29,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseParentCodeObjImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
-    CodeParamCodeObjImplArgs,
     MetaControlSectionImplArgsWithCallable,
 )
 from tests.helpers.impl_creation_fns import create_code_obj_impl
@@ -394,7 +393,7 @@ def create_kwarg_objs(
     new_impl = create_code_obj_impl(
         CodeObjType.CodeParam,
         settings.codeParamCodeObjDefault,
-        CodeParamCodeObjImplArgs(coreNameEditable=True),
+        {"coreNameEditable": True},
     )
     new_core = Core(name="")
 

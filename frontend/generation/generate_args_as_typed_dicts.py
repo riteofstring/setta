@@ -5,13 +5,13 @@ import setta.types.core
 import setta.types.project_config
 import setta.types.section_impls
 from setta.utils.format_code import ruff_format
-from setta.utils.utils import get_absolute_path
 
 from .utils import (
     BaseClassInfoForGeneration,
     ImplClassInfoForGeneration,
     get_impl_classes,
     python_type_to_str,
+    resolve_generation_path,
 )
 
 
@@ -99,9 +99,8 @@ def create_impl_model_args_as_typed_dict(
 
 def get_imports_str():
     return """
-from typing import TypedDict, Literal, Any, NotRequired, overload, Callable
+from typing import Any, Callable, Literal, NotRequired, TypedDict
 from setta.types.id import ID
-from setta.types.core import Core
 from setta.types.artifact import LineChartSettings, ScatterChartSettings
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
@@ -115,9 +114,7 @@ from setta.types.section_impls import (
     TextBlockFormat,
     PromptFormat,
     SectionType,
-    SectionSizeMode,
     BrowserAreaViewMode,
-    BrowserAreaItem,
     BrowserSavedSearch,
     ChatPermissionMode,
     ChatDictationMode,
@@ -156,7 +153,7 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
-from setta.types.project_config import NormalizedFloatingWindowBounds, ProjectCodegenPluginTarget, ProjectCodegenPythonTarget, ProjectConfig, TopLevelSectionLayout, Viewport, ViewModeConfig, WatchCodeFolder, WatchCodeRegistryEntry, WindowSpaceConfig, WindowSpaceState, WindowSpaceWindow
+from setta.types.project_config import ProjectCodegenPluginTarget, ProjectCodegenPythonTarget, TopLevelSectionLayout, Viewport, ViewModeConfig, WatchCodeFolder, WatchCodeRegistryEntry, WindowSpaceConfig
 from setta.types.generated.shared_modifier import SharedModifier
 
 """
@@ -181,15 +178,16 @@ def generate_impl_args_as_typed_dicts(
         is_base_class=True,
     )
     for c in classes.values():
-        code += create_impl_model_args_as_typed_dict(
-            c,
-            [
-                setta.types.section_impls.BaseSectionImpl,
-                setta.types.code_obj_impls.BaseCodeObjImpl,
-            ],
-            c.args_name,
-            c.parent_args_class_names,
-        )
+        if not c.is_for_code_obj:
+            code += create_impl_model_args_as_typed_dict(
+                c,
+                [
+                    setta.types.section_impls.BaseSectionImpl,
+                    setta.types.code_obj_impls.BaseCodeObjImpl,
+                ],
+                c.args_name,
+                c.parent_args_class_names,
+            )
 
         code += create_impl_model_args_as_typed_dict(
             c,
@@ -209,7 +207,7 @@ def generate_impl_args_as_typed_dicts(
 
 if __name__ == "__main__":
     generate_impl_args_as_typed_dicts(
-        get_absolute_path(
+        resolve_generation_path(
             __file__,
             Path("../../backend/setta/types/generated") / "impl_args_as_typed_dicts.py",
         ),
