@@ -11,13 +11,10 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
-import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { buildOverviewProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { Resizable } from "re-resizable";
 import {
   SetStateAction,
   useCallback,
@@ -26,9 +23,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { IoMdArrowRoundBack } from "react-icons/io";
-import { MdAdd, MdChevronLeft, MdChevronRight } from "react-icons/md";
-import { RiChatHistoryLine } from "react-icons/ri";
 import {
   getRunInputString,
   getRunLastUpdatedMs,
@@ -51,15 +45,13 @@ import {
 } from "state/definitions";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGenerationDetails";
-import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   BaseChatMessageUnion,
   EngineConfig,
   EngineTypeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
-import { ProjectAISettings } from "./ProjectAISettings";
-import { ProjectChatCore } from "./ProjectChatCore";
+import { ProjectChatAuxViewContent } from "./projectChatAuxViewContent";
 import {
   findPreferredProjectChatEngineId,
   resolveProjectChatEngineConfigIdForSelectedChat,
@@ -74,22 +66,17 @@ import {
   getDefaultProjectChatPermissionMode,
   type ProjectChatBlockedErrorCode,
 } from "./projectChatExecutionSettings";
-import { ProjectChatHistory } from "./ProjectChatHistory";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
-import { PROJECT_CHAT_INLINE_THREADS_MIN_WIDTH_PX } from "./projectChatInlineThreadsLayout";
-import {
-  ProjectChatSettingsPopover,
-  type ProjectDictationMode,
-} from "./projectChatSettingsPopover";
-import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
+import { type ProjectDictationMode } from "./projectChatSettingsPopover";
+import { ProjectChatSurfaceBody } from "./projectChatSurfaceBody";
+import { ProjectChatSurfaceChrome } from "./projectChatSurfaceChrome";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
+import { useProjectChatConversationSearch } from "./useProjectChatConversationSearch";
 import { useProjectChatInlineThreadsLayout } from "./useProjectChatInlineThreadsLayout";
 
 export { resolveProjectChatThreadBlockedErrorCodeForSelectedChat } from "./projectChatHydrationAuthority";
 
-type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none">;
-const PROJECT_CHAT_CONTENT_SHELL_CLASS = "mx-auto w-full max-w-[72rem] px-2";
 type DraftProjectThreadState =
   | { phase: "none" }
   | { phase: "idle" }
@@ -302,11 +289,18 @@ function ProjectChatSurface({
     string | null
   >(null);
   const [thinking, setThinking] = useState(true);
-  const [conversationFilterText, setConversationFilterText] = useState("");
-  const [conversationSearchMatchCount, setConversationSearchMatchCount] =
-    useState(0);
-  const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
-    useState<number | null>(null);
+  const {
+    conversationFilterText,
+    setConversationFilterText,
+    conversationSearchCounterText,
+    conversationSearchMatchCount,
+    conversationSearchMatchIndex,
+    hasConversationSearchTerms,
+    handleConversationSearchMatchCountChange,
+    handleStepConversationSearch,
+  } = useProjectChatConversationSearch({
+    chatId,
+  });
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
@@ -1090,82 +1084,6 @@ function ProjectChatSurface({
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
   const isAuxView = projectChatAuxView !== "none" || showThreadsOnlyView;
-  const showConversationFilter = !isAuxView;
-  const normalizedConversationSearchTerms = useMemo(
-    () => tokenizeConversationSearchQuery(conversationFilterText),
-    [conversationFilterText],
-  );
-  const hasConversationSearchTerms =
-    normalizedConversationSearchTerms.length > 0;
-  const conversationSearchQueryKey = useMemo(
-    () => normalizedConversationSearchTerms.join("\u0000"),
-    [normalizedConversationSearchTerms],
-  );
-  useEffect(() => {
-    if (!hasConversationSearchTerms) {
-      setConversationSearchMatchCount(0);
-      setConversationSearchMatchIndex(null);
-      return;
-    }
-    if (conversationSearchMatchCount === 0) {
-      setConversationSearchMatchIndex(null);
-      return;
-    }
-    setConversationSearchMatchIndex((current) =>
-      current === null ? 0 : current,
-    );
-  }, [
-    conversationSearchMatchCount,
-    conversationSearchQueryKey,
-    hasConversationSearchTerms,
-  ]);
-  useEffect(() => {
-    if (conversationSearchMatchCount === 0) {
-      setConversationSearchMatchIndex(null);
-      return;
-    }
-    setConversationSearchMatchIndex((current) => {
-      if (current === null) {
-        return 0;
-      }
-      if (current >= conversationSearchMatchCount) {
-        return conversationSearchMatchCount - 1;
-      }
-      return current;
-    });
-  }, [conversationSearchMatchCount]);
-  const conversationSearchCounterText =
-    conversationSearchMatchCount > 0 && conversationSearchMatchIndex !== null
-      ? `${conversationSearchMatchIndex + 1}/${conversationSearchMatchCount}`
-      : `0/${conversationSearchMatchCount}`;
-  const handleStepConversationSearch = useCallback(
-    (direction: "previous" | "next") => {
-      if (conversationSearchMatchCount === 0) {
-        return;
-      }
-      setConversationSearchMatchIndex((current) => {
-        const baseIndex = current ?? 0;
-        if (direction === "next") {
-          return (baseIndex + 1) % conversationSearchMatchCount;
-        }
-        return (
-          (baseIndex - 1 + conversationSearchMatchCount) %
-          conversationSearchMatchCount
-        );
-      });
-    },
-    [conversationSearchMatchCount],
-  );
-  const handleConversationSearchMatchCountChange = useCallback(
-    (nextCount: number) => {
-      setConversationSearchMatchCount((currentCount) =>
-        currentCount === nextCount ? currentCount : nextCount,
-      );
-    },
-    [],
-  );
-  const showReturnOnlyNav =
-    projectChatAuxView !== "none" || showThreadsOnlyView;
   const handleReturnToChat = useCallback(() => {
     if (projectChatAuxView !== "none") {
       setProjectChatAuxView("none");
@@ -1268,88 +1186,6 @@ function ProjectChatSurface({
     setChatId,
     showInlineThreads,
   ]);
-  const returnToChatTooltipHandlers = useMemo(
-    () =>
-      getFloatingBoxHandlers({
-        title: "Return to chat",
-        content:
-          projectChatAuxView === "skills"
-            ? "Leave Skills and reopen chat."
-            : projectChatAuxView === "mcp"
-              ? "Leave MCP and reopen chat."
-              : projectChatAuxView === "slash_commands"
-                ? "Leave Slash Commands and reopen chat."
-                : projectChatAuxView === "ai_settings"
-                  ? "Leave AI Settings and reopen chat."
-                  : "Close threads-only view and reopen chat.",
-      }),
-    [projectChatAuxView],
-  );
-  const showAuxTabs = projectChatAuxView !== "none";
-  const auxTabs = useMemo<
-    Array<{
-      id: ProjectChatAuxTabId;
-      label: string;
-      testId: string;
-      active: boolean;
-      onClick: () => void;
-    }>
-  >(
-    () => [
-      {
-        id: "skills",
-        label: "Skills",
-        testId: "project-chat-aux-tab-skills",
-        active: projectChatAuxView === "skills",
-        onClick: handleOpenSkillsAuxView,
-      },
-      {
-        id: "mcp",
-        label: "MCP",
-        testId: "project-chat-aux-tab-mcp",
-        active: projectChatAuxView === "mcp",
-        onClick: handleOpenMcpAuxView,
-      },
-      {
-        id: "slash_commands",
-        label: "Slash Commands",
-        testId: "project-chat-aux-tab-slash-commands",
-        active: projectChatAuxView === "slash_commands",
-        onClick: handleOpenSlashCommandsAuxView,
-      },
-      {
-        id: "ai_settings",
-        label: "AI Settings",
-        testId: "project-chat-aux-tab-ai-settings",
-        active: projectChatAuxView === "ai_settings",
-        onClick: handleOpenProjectSettingsAuxView,
-      },
-    ],
-    [
-      handleOpenMcpAuxView,
-      handleOpenProjectSettingsAuxView,
-      handleOpenSkillsAuxView,
-      handleOpenSlashCommandsAuxView,
-      projectChatAuxView,
-    ],
-  );
-  const newChatTooltipHandlers = useMemo(
-    () =>
-      getFloatingBoxHandlers({
-        title: "New chat",
-        content: "Start a new conversation in the selected group.",
-      }),
-    [],
-  );
-  const threadsTooltipHandlers = useMemo(() => {
-    const showingInlineThreads = viewThreads && showInlineThreads;
-    return getFloatingBoxHandlers({
-      title: showingInlineThreads ? "Hide threads" : "Threads",
-      content: showingInlineThreads
-        ? "Collapse the threads list."
-        : "Open the threads list.",
-    });
-  }, [showInlineThreads, viewThreads]);
   const handleDraftThreadStart = useCallback(() => {
     setDraftThreadState((current) => {
       if (current.phase === "none") {
@@ -1383,9 +1219,6 @@ function ProjectChatSurface({
     [draftThreadTargetGroupId, projectConfigId],
   );
   useEffect(() => {
-    setConversationFilterText("");
-  }, [chatId]);
-  useEffect(() => {
     if (
       draftThreadState.phase === "none" &&
       draftThreadContinuationSourceChatId !== null
@@ -1394,20 +1227,94 @@ function ProjectChatSurface({
     }
   }, [draftThreadContinuationSourceChatId, draftThreadState.phase]);
   const auxViewContent =
-    projectChatAuxView === "skills" ||
-    projectChatAuxView === "mcp" ||
-    projectChatAuxView === "slash_commands" ? (
-      <ProjectChatSkillsMcpViewer
+    projectChatAuxView === "none" ? null : (
+      <ProjectChatAuxViewContent
+        projectChatAuxView={projectChatAuxView}
         projectConfigId={projectConfigId}
         chatId={chatId}
         engineConfigId={effectiveEngineId}
         engineType={engineType}
         externalAgentToolType={externalAgentConfig?.toolType ?? null}
-        viewMode={projectChatAuxView}
       />
-    ) : projectChatAuxView === "ai_settings" ? (
-      <ProjectAISettings />
-    ) : null;
+    );
+  const settingsPopoverProps = {
+    engineGroups,
+    transcriptionProfileGroups,
+    availableConfigGroups,
+    selectedEngineId: effectiveEngineId,
+    selectedLLMConfigId,
+    llmSelectionUnavailableReason,
+    selectedTranscriptionProfileId: projectChatTranscriptionProfileId,
+    defaultLLMConfigId,
+    engineType,
+    noConfigsAvailable,
+    dictationMode: projectChatDictationMode,
+    activityAccordionOpenByDefault: projectChatActivityAccordionOpenByDefault,
+    activityChildrenOpenByDefault: projectChatActivityChildrenOpenByDefault,
+    providerDictationLikelySupported,
+    providerDictationUnavailableReason,
+    onOpenSkillsView: handleOpenSkillsAuxView,
+    onOpenMcpView: handleOpenMcpAuxView,
+    onOpenSlashCommandsView: handleOpenSlashCommandsAuxView,
+    onOpenProjectSettingsView: handleOpenProjectSettingsAuxView,
+    onEngineChange: handleEngineChange,
+    onLLMConfigChange: handleLLMConfigChange,
+    onTranscriptionProfileChange: handleTranscriptionProfileChange,
+    onPinDefaultModel: handlePinDefaultModel,
+    onDictationModeChange: handleDictationModeChange,
+    onActivityAccordionOpenByDefaultChange:
+      handleActivityAccordionOpenByDefaultChange,
+    onActivityChildrenOpenByDefaultChange:
+      handleActivityChildrenOpenByDefaultChange,
+  };
+  const historyProps = {
+    chatId,
+    setChatId,
+    runType: projectHistoryRunType,
+    engineConfigId: effectiveEngineId,
+    draftThread: draftThreadHint,
+    draftWaitingForResponse: selectedChatWaitingForResponse,
+    selectedGroupId: selectedThreadGroupId,
+    onSelectedGroupChange: setSelectedThreadGroupId,
+    onStartNewThread: handleNewChatClick,
+    onStartNewThreadInGroup: handleNewChatInThreadGroup,
+  };
+  const chatCoreProps = {
+    surfaceId: resolvedSurfaceId,
+    chatId,
+    draftMessage,
+    setDraftMessage,
+    placeholderText,
+    conversationFilterText,
+    requiresNewThreadContinuation: requiresNewThreadForEngineSwitch,
+    newThreadContinuationRequiredReason,
+    newThreadSeedChatId:
+      draftThreadState.phase === "none"
+        ? null
+        : draftThreadContinuationSourceChatId,
+    hydrationAuthority: selectedChatHydrationAuthority,
+    hydrationMetadataRevision: selectedChatHydrationMetadataRevision,
+    thinking,
+    engineConfigId: effectiveEngineId,
+    engineType,
+    hasLLMConfig,
+    externalEngineAvailable,
+    noLLMConfigsAvailable: noConfigsAvailable,
+    transcriptionProfileId: projectChatTranscriptionProfileId,
+    dictationMode: projectChatDictationMode,
+    providerDictationAvailable,
+    providerDictationLikelySupported,
+    setChatId,
+    onConversationSearchMatchCountChange:
+      handleConversationSearchMatchCountChange,
+    onStartNewChat: handleNewChatStartForSubmit,
+    onDraftThreadStart: handleDraftThreadStart,
+    onDraftThreadSettled: handleDraftThreadSettled,
+    onThinkingChange: setThinking,
+    onPermissionModeChange: setRuntimePermissionMode,
+    onBlockedErrorCodeChange,
+    activeConversationSearchMatchIndex: conversationSearchMatchIndex,
+  };
 
   return (
     apiKeysInitialLoadComplete &&
@@ -1417,431 +1324,53 @@ function ProjectChatSurface({
         ref={handleChatContainerRef}
         className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden @container"
       >
-        <nav className="flex flex-col border-b border-setta-100 dark:border-setta-800 [&_button]:cursor-pointer">
-          <div className="flex w-full min-w-0 items-stretch">
-            {showInlineThreads ? (
-              <div
-                ref={handleInlineThreadsHeaderShellRef}
-                className="shrink-0 overflow-hidden border-r border-setta-200 pb-2 dark:border-setta-800"
-                style={{ width: `${resolvedInlineThreadsWidth}px` }}
-              >
-                <div
-                  ref={handleInlineThreadsHeaderHostRef}
-                  className="h-full w-full min-w-0 @container"
-                  data-testid="project-chat-inline-threads-header-host"
-                />
-              </div>
-            ) : null}
-            <div
-              className={`min-w-0 flex-1 pb-2 @container ${showInlineThreads ? "pl-2" : ""}`}
-            >
-              <div className={PROJECT_CHAT_CONTENT_SHELL_CLASS}>
-                <div className="mt-2 grid w-full min-w-0 items-center gap-2 [grid-template-columns:auto_auto] @[16.25rem]:[grid-template-columns:auto_minmax(0,1fr)_auto]">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {showReturnOnlyNav ? (
-                      <button
-                        className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-                        onClick={handleReturnToChat}
-                        aria-label="Return to chat"
-                        {...returnToChatTooltipHandlers}
-                      >
-                        <IoMdArrowRoundBack />
-                        <span className="hidden @[46rem]:block">
-                          Return to chat
-                        </span>
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-                          aria-label="New Chat"
-                          onClick={handleNewChatClick}
-                          {...newChatTooltipHandlers}
-                        >
-                          <MdAdd size={15} />
-                          <span className="hidden @[46rem]:block">New</span>
-                        </button>
-                        <button
-                          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-                          onClick={handleToggleThreads}
-                          aria-label="View Threads"
-                          {...threadsTooltipHandlers}
-                        >
-                          {viewThreads && showInlineThreads ? (
-                            <>
-                              <RiChatHistoryLine size={15} />
-                              <span className="hidden @[46rem]:block">
-                                Hide Threads
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <RiChatHistoryLine size={15} />
-                              <span className="hidden @[46rem]:block">
-                                Threads
-                              </span>
-                            </>
-                          )}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {showAuxTabs ? (
-                    <div
-                      className="min-w-0 overflow-hidden @[16.25rem]:col-start-2"
-                      data-testid="project-chat-aux-tabs"
-                    >
-                      <div className="flex min-w-0 flex-wrap items-center gap-1">
-                        {auxTabs.map((tab) => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            data-testid={tab.testId}
-                            aria-current={tab.active ? "page" : undefined}
-                            className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors ${
-                              tab.active
-                                ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-100"
-                                : "text-setta-500 hover:bg-setta-100 hover:text-setta-800 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                            }`}
-                            onClick={tab.onClick}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  {!isAuxView ? (
-                    <div className="flex items-center justify-self-end @[16.25rem]:col-start-3">
-                      {showPlanModeBadge ? <PlanModeBadge /> : null}
-                      <ProjectChatSettingsPopover
-                        engineGroups={engineGroups}
-                        transcriptionProfileGroups={transcriptionProfileGroups}
-                        availableConfigGroups={availableConfigGroups}
-                        selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectedLLMConfigId}
-                        llmSelectionUnavailableReason={
-                          llmSelectionUnavailableReason
-                        }
-                        selectedTranscriptionProfileId={
-                          projectChatTranscriptionProfileId
-                        }
-                        defaultLLMConfigId={defaultLLMConfigId}
-                        engineType={engineType}
-                        noConfigsAvailable={noConfigsAvailable}
-                        dictationMode={projectChatDictationMode}
-                        activityAccordionOpenByDefault={
-                          projectChatActivityAccordionOpenByDefault
-                        }
-                        activityChildrenOpenByDefault={
-                          projectChatActivityChildrenOpenByDefault
-                        }
-                        providerDictationLikelySupported={
-                          providerDictationLikelySupported
-                        }
-                        providerDictationUnavailableReason={
-                          providerDictationUnavailableReason
-                        }
-                        onOpenSkillsView={handleOpenSkillsAuxView}
-                        onOpenMcpView={handleOpenMcpAuxView}
-                        onOpenSlashCommandsView={handleOpenSlashCommandsAuxView}
-                        onOpenProjectSettingsView={
-                          handleOpenProjectSettingsAuxView
-                        }
-                        onEngineChange={handleEngineChange}
-                        onLLMConfigChange={handleLLMConfigChange}
-                        onTranscriptionProfileChange={
-                          handleTranscriptionProfileChange
-                        }
-                        onPinDefaultModel={handlePinDefaultModel}
-                        onDictationModeChange={handleDictationModeChange}
-                        onActivityAccordionOpenByDefaultChange={
-                          handleActivityAccordionOpenByDefaultChange
-                        }
-                        onActivityChildrenOpenByDefaultChange={
-                          handleActivityChildrenOpenByDefaultChange
-                        }
-                      />
-                    </div>
-                  ) : null}
-                  {showConversationFilter ? (
-                    <search
-                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16.25rem]:col-span-1 @[16.25rem]:col-start-2 @[16.25rem]:row-start-1 @[44rem]:min-w-[11rem]"
-                      data-testid="project-chat-conversation-filter"
-                    >
-                      <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 pl-1">
-                        <i className="gg-sort-az !scale-[0.68] text-setta-300 dark:text-setta-600" />
-                      </span>
-                      <input
-                        type="text"
-                        aria-label="Search in conversation"
-                        data-testid="project-chat-conversation-filter-input"
-                        value={conversationFilterText}
-                        onChange={(event) => {
-                          setConversationFilterText(event.target.value);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            handleStepConversationSearch(
-                              event.shiftKey ? "previous" : "next",
-                            );
-                            return;
-                          }
-                          if (event.key !== "Escape") {
-                            return;
-                          }
-                          event.currentTarget.blur();
-                        }}
-                        placeholder="Search in conversation"
-                        className={`w-full min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent py-1 pl-5 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 dark:placeholder-setta-600 ${
-                          hasConversationSearchTerms ? "pr-16" : "pr-2"
-                        }`}
-                      />
-                      {hasConversationSearchTerms ? (
-                        <div className="absolute right-0.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5">
-                          <span className="min-w-[34px] px-0.5 text-center text-[10px] text-setta-400 dark:text-setta-500">
-                            {conversationSearchCounterText}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="Previous conversation match"
-                            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                            onClick={() =>
-                              handleStepConversationSearch("previous")
-                            }
-                            disabled={conversationSearchMatchCount === 0}
-                          >
-                            <MdChevronLeft />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Next conversation match"
-                            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                            onClick={() => handleStepConversationSearch("next")}
-                            disabled={conversationSearchMatchCount === 0}
-                          >
-                            <MdChevronRight />
-                          </button>
-                        </div>
-                      ) : null}
-                    </search>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        </nav>
-        {engineSwitchContinuationBannerText ? (
-          <div className="sticky top-0 z-10 border-b border-amber-300 bg-amber-50/95 px-2 py-2 text-xs text-amber-900 backdrop-blur dark:border-amber-600/70 dark:bg-amber-950/60 dark:text-amber-200">
-            <div
-              className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex items-center justify-between gap-2`}
-            >
-              <p
-                data-testid="project-chat-engine-switch-banner"
-                className="min-w-0 flex-1"
-              >
-                {engineSwitchContinuationBannerText}
-              </p>
-              <button
-                type="button"
-                data-testid="project-chat-engine-switch-continue-button"
-                onClick={handleContinueInNewThread}
-                className="shrink-0 rounded-md border border-amber-400/90 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900 transition-colors hover:bg-amber-200 dark:border-amber-500/80 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
-              >
-                Continue in new thread
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {showInlineThreads ? (
-          <div className="flex min-h-0 flex-1">
-            <Resizable
-              className="h-full shrink-0"
-              size={{ width: resolvedInlineThreadsWidth, height: "100%" }}
-              minWidth={PROJECT_CHAT_INLINE_THREADS_MIN_WIDTH_PX}
-              maxWidth={inlineThreadsMaxWidth}
-              boundsByDirection
-              enable={{
-                top: false,
-                right: canResizeInlineThreads,
-                bottom: false,
-                left: false,
-                topRight: false,
-                bottomRight: false,
-                bottomLeft: false,
-                topLeft: false,
-              }}
-              handleComponent={{
-                right: (
-                  <div
-                    data-testid="project-chat-inline-threads-resize-handle"
-                    className="h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-500/20"
-                  />
-                ),
-              }}
-              onResize={(_event, _direction, elementRef) => {
-                handleInlineThreadsResize(elementRef.offsetWidth);
-              }}
-              onResizeStop={(_event, _direction, elementRef) => {
-                handleInlineThreadsResizeStop(elementRef.offsetWidth);
-              }}
-            >
-              <div
-                ref={handleInlineThreadsResizableColumnRef}
-                className="h-full min-h-0"
-              >
-                <ProjectChatHistory
-                  chatId={chatId}
-                  setChatId={setChatId}
-                  runType={projectHistoryRunType}
-                  engineConfigId={effectiveEngineId}
-                  inline={true}
-                  closeOnSelect={false}
-                  draftThread={draftThreadHint}
-                  draftWaitingForResponse={selectedChatWaitingForResponse}
-                  selectedGroupId={selectedThreadGroupId}
-                  onSelectedGroupChange={setSelectedThreadGroupId}
-                  onStartNewThread={handleNewChatClick}
-                  onStartNewThreadInGroup={handleNewChatInThreadGroup}
-                  onCloseThreadsView={() => {
-                    setViewThreads(false);
-                  }}
-                  headerPortalTarget={inlineThreadsHeaderPortalTarget}
-                />
-              </div>
-            </Resizable>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-2">
-              {auxViewContent ? (
-                <div
-                  className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex min-h-0 flex-1 flex-col`}
-                  data-chat-width-shell="true"
-                >
-                  {auxViewContent}
-                </div>
-              ) : (
-                <ProjectChatCore
-                  surfaceId={resolvedSurfaceId}
-                  chatId={chatId}
-                  draftMessage={draftMessage}
-                  setDraftMessage={setDraftMessage}
-                  placeholderText={placeholderText}
-                  conversationFilterText={conversationFilterText}
-                  requiresNewThreadContinuation={
-                    requiresNewThreadForEngineSwitch
-                  }
-                  newThreadContinuationRequiredReason={
-                    newThreadContinuationRequiredReason
-                  }
-                  newThreadSeedChatId={
-                    draftThreadState.phase === "none"
-                      ? null
-                      : draftThreadContinuationSourceChatId
-                  }
-                  hydrationAuthority={selectedChatHydrationAuthority}
-                  hydrationMetadataRevision={
-                    selectedChatHydrationMetadataRevision
-                  }
-                  thinking={thinking}
-                  engineConfigId={effectiveEngineId}
-                  engineType={engineType}
-                  hasLLMConfig={hasLLMConfig}
-                  externalEngineAvailable={externalEngineAvailable}
-                  noLLMConfigsAvailable={noConfigsAvailable}
-                  transcriptionProfileId={projectChatTranscriptionProfileId}
-                  dictationMode={projectChatDictationMode}
-                  providerDictationAvailable={providerDictationAvailable}
-                  providerDictationLikelySupported={
-                    providerDictationLikelySupported
-                  }
-                  setChatId={setChatId}
-                  onConversationSearchMatchCountChange={
-                    handleConversationSearchMatchCountChange
-                  }
-                  onStartNewChat={handleNewChatStartForSubmit}
-                  onDraftThreadStart={handleDraftThreadStart}
-                  onDraftThreadSettled={handleDraftThreadSettled}
-                  onThinkingChange={setThinking}
-                  onPermissionModeChange={setRuntimePermissionMode}
-                  onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-                  activeConversationSearchMatchIndex={
-                    conversationSearchMatchIndex
-                  }
-                />
-              )}
-            </div>
-          </div>
-        ) : auxViewContent ? (
-          <div
-            className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex min-h-0 flex-1 flex-col`}
-            data-chat-width-shell="true"
-          >
-            {auxViewContent}
-          </div>
-        ) : viewThreads ? (
-          <ProjectChatHistory
-            chatId={chatId}
-            setChatId={setChatId}
-            runType={projectHistoryRunType}
-            engineConfigId={effectiveEngineId}
-            closeOnSelect={true}
-            draftThread={draftThreadHint}
-            draftWaitingForResponse={selectedChatWaitingForResponse}
-            selectedGroupId={selectedThreadGroupId}
-            onSelectedGroupChange={setSelectedThreadGroupId}
-            onStartNewThread={handleNewChatClick}
-            onStartNewThreadInGroup={handleNewChatInThreadGroup}
-            onCloseThreadsView={() => {
-              setViewThreads(false);
-            }}
-          />
-        ) : (
-          <>
-            <ProjectChatCore
-              surfaceId={resolvedSurfaceId}
-              chatId={chatId}
-              draftMessage={draftMessage}
-              setDraftMessage={setDraftMessage}
-              placeholderText={placeholderText}
-              conversationFilterText={conversationFilterText}
-              requiresNewThreadContinuation={requiresNewThreadForEngineSwitch}
-              newThreadContinuationRequiredReason={
-                newThreadContinuationRequiredReason
-              }
-              newThreadSeedChatId={
-                draftThreadState.phase === "none"
-                  ? null
-                  : draftThreadContinuationSourceChatId
-              }
-              hydrationAuthority={selectedChatHydrationAuthority}
-              hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
-              thinking={thinking}
-              engineConfigId={effectiveEngineId}
-              engineType={engineType}
-              hasLLMConfig={hasLLMConfig}
-              externalEngineAvailable={externalEngineAvailable}
-              noLLMConfigsAvailable={noConfigsAvailable}
-              transcriptionProfileId={projectChatTranscriptionProfileId}
-              dictationMode={projectChatDictationMode}
-              providerDictationAvailable={providerDictationAvailable}
-              providerDictationLikelySupported={
-                providerDictationLikelySupported
-              }
-              setChatId={setChatId}
-              onConversationSearchMatchCountChange={
-                handleConversationSearchMatchCountChange
-              }
-              onStartNewChat={handleNewChatStartForSubmit}
-              onDraftThreadStart={handleDraftThreadStart}
-              onDraftThreadSettled={handleDraftThreadSettled}
-              onThinkingChange={setThinking}
-              onPermissionModeChange={setRuntimePermissionMode}
-              onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-              activeConversationSearchMatchIndex={conversationSearchMatchIndex}
-            />
-          </>
-        )}
+        <ProjectChatSurfaceChrome
+          showInlineThreads={showInlineThreads}
+          handleInlineThreadsHeaderShellRef={handleInlineThreadsHeaderShellRef}
+          handleInlineThreadsHeaderHostRef={handleInlineThreadsHeaderHostRef}
+          resolvedInlineThreadsWidth={resolvedInlineThreadsWidth}
+          projectChatAuxView={projectChatAuxView}
+          isAuxView={isAuxView}
+          onReturnToChat={handleReturnToChat}
+          onNewChatClick={handleNewChatClick}
+          onToggleThreads={handleToggleThreads}
+          viewThreads={viewThreads}
+          showPlanModeBadge={showPlanModeBadge}
+          settingsPopoverProps={settingsPopoverProps}
+          conversationFilterText={conversationFilterText}
+          onConversationFilterTextChange={setConversationFilterText}
+          hasConversationSearchTerms={hasConversationSearchTerms}
+          conversationSearchCounterText={conversationSearchCounterText}
+          conversationSearchMatchCount={conversationSearchMatchCount}
+          onStepConversationSearch={handleStepConversationSearch}
+          onOpenSkillsAuxView={handleOpenSkillsAuxView}
+          onOpenMcpAuxView={handleOpenMcpAuxView}
+          onOpenSlashCommandsAuxView={handleOpenSlashCommandsAuxView}
+          onOpenProjectSettingsAuxView={handleOpenProjectSettingsAuxView}
+        />
+        <ProjectChatSurfaceBody
+          engineSwitchContinuationBannerText={
+            engineSwitchContinuationBannerText
+          }
+          onContinueInNewThread={handleContinueInNewThread}
+          showInlineThreads={showInlineThreads}
+          resolvedInlineThreadsWidth={resolvedInlineThreadsWidth}
+          inlineThreadsMaxWidth={inlineThreadsMaxWidth}
+          canResizeInlineThreads={canResizeInlineThreads}
+          handleInlineThreadsResize={handleInlineThreadsResize}
+          handleInlineThreadsResizeStop={handleInlineThreadsResizeStop}
+          handleInlineThreadsResizableColumnRef={
+            handleInlineThreadsResizableColumnRef
+          }
+          inlineThreadsHeaderPortalTarget={inlineThreadsHeaderPortalTarget}
+          historyProps={historyProps}
+          viewThreads={viewThreads}
+          onCloseThreadsView={() => {
+            setViewThreads(false);
+          }}
+          auxViewContent={auxViewContent}
+          chatCoreProps={chatCoreProps}
+        />
       </div>
     )
   );

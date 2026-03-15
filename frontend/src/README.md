@@ -9,11 +9,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Current Snapshot
 
-- Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1487`
+- Snapshot date: `2026-03-16`
+- Authored TS/TSX files under `frontend/src`: `1493`
 - Non-generated TS/TSX files at `1000+` lines: `38`
 - Biggest current front-door hotspots:
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1848`)
   - `components/App/appRegistry.tsx` (`1753`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
@@ -22,6 +21,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Git/GitGraphOverlay.tsx` (`1550`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`1471`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`1399`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1377`)
   - `components/Section/Layouts/BrowserArea.tsx` (`1302`)
 
 ## Module Map
@@ -185,6 +185,28 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns overview/chat-container width observation, inline-thread visibility
     sync, header-host sizing, and resize persistence used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.ts`
+    owns project-chat aux-tab descriptors, return/threads tooltip copy, and
+    conversation-search counter/index derivation used by the extracted
+    project-chat surface owners.
+  - `components/Panes/Overview/ProjectLevelAI/useProjectChatConversationSearch.ts`
+    owns project-chat conversation-search text, match-count/index sync, query
+    reset on chat change, and next/previous stepping used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSurfaceChrome.tsx`
+    owns the project-chat header shell, inline-thread header host, aux tabs,
+    settings-popover placement, and conversation-search UI used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatAuxViewContent.tsx`
+    owns Project AI settings vs skills/MCP/slash-command aux-surface routing
+    used by `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSurfaceBody.tsx`
+    owns the engine-switch banner plus inline-thread/history/aux/core render
+    branching used by `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now focuses on
+    store selection, engine/config/dictation/hydration derivation,
+    thread-session orchestration, and composition across those local
+    project-chat surface owners.
   - `components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx`
     owns workspace-root polling, python-signal probing, create-project starter
     prompt adaptation, and the project-chat empty-state shell used by

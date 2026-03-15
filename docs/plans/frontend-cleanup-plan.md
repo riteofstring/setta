@@ -54,11 +54,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1487 authored TS/TSX files under `frontend/src`.
+- There are 1493 authored TS/TSX files under `frontend/src`.
 - There are 38 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1848 lines after the local settings, engine-selection, and inline-thread layout extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1377 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, and conversation-search extractions
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1661 lines after the local slash-command extraction
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1658 lines after the local docked/floating/maximized surface extraction
   - `frontend/src/components/Chat/ChatInput.tsx` at 1606 lines after the local composer meta-controls extraction
@@ -95,8 +95,19 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.ts`
   plus
   `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts`,
+  conversation-search text plus match stepping to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatConversationSearch.ts`,
+  aux-tab/search/settings header rendering to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceChrome.tsx`,
+  aux-surface routing to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewContent.tsx`,
+  engine-switch banner plus inline-thread/history/aux/core branching to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceBody.tsx`,
+  and aux-tab/search tooltip or counter helpers to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.ts`,
   so the next default work in that cluster should continue from the remaining
-  front-door hotspots instead of re-cutting those new local owners immediately.
+  larger front-door hotspots unless a same-turn follow-through cut shortens the
+  remaining thread-session orchestration path.
 - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   now delegates root bootstrap, folder-request ownership, recursive-search
   crawl, preview URL refresh, and tree flatten/filter/sort state to
@@ -228,7 +239,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`,
   `ChatInput.tsx`, `ChatMessages.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
@@ -236,8 +246,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
@@ -903,9 +914,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration

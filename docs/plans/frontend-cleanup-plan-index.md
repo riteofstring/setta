@@ -41,10 +41,9 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 5. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
 6. Re-check the current tree before acting on any exact file-size or hotspot claim in these docs.
 
-## Current Default Starting Points (2026-03-15)
+## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
@@ -53,11 +52,13 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `ProjectChatCore.tsx`,
-  `ProjectChatHistory.tsx`, `ChatInput.tsx`, `ChatMessages.tsx`, and
-  `BrowserArea.tsx` are now second-order work unless the same slice directly
-  shortens one of the entry surfaces above.
+  `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx` are now
+  second-order work unless the same slice directly shortens one of the entry
+  surfaces above.
 - Local feature `README.md` files are useful once a root surface stabilizes,
   but they should not be the primary work item for a cleanup slice.
 
