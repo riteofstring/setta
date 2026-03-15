@@ -67,6 +67,9 @@ categorize them.
 - The section-bound project-chat/window-space title-clearing and dedupe rows
   are now proved too; the next likely project/window-space queue is the
   remaining owner-validation and duplicate-`sortIndex` load-normalization rows
+- The project-chat owner/mode fail-closed load row is now proved too; the next
+  likely project/window-space queue is the remaining window-space
+  owner-validation and duplicate-`sortIndex` load-normalization rows
 - The empty latest-state `windowSpaces` object-shape row is now proved too;
   keep prioritizing the remaining project/window-space `Missing` rows over
   additional shape-only proof slices
