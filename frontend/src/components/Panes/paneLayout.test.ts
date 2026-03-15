@@ -1,4 +1,4 @@
-import { useLocalStorage } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import { CLOSED_PANE_WIDTH, PaneNameEnum } from "utils/constants";
 import { beforeEach, describe, expect, it } from "vitest";
