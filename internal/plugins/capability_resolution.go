@@ -15,18 +15,32 @@ var (
 
 var (
 	resolverKnownPluginCapabilities = map[string]struct{}{
-		"registerSectionKinds":  {},
-		"registerPane":          {},
-		"registerCommand":       {},
-		"registerTopNavBarItem": {},
-		"registerContextMenu":   {},
-		"readProjectState":      {},
-		"subscribeProjectState": {},
-		"emitListenerEvents":    {},
-		"writeWorkspacePlugins": {},
+		"registerSectionKinds":         {},
+		"registerPane":                 {},
+		"registerCommand":              {},
+		"registerTopNavBarItem":        {},
+		"registerContextMenu":          {},
+		"readProjectState":             {},
+		"subscribeProjectState":        {},
+		"emitListenerEvents":           {},
+		"registerMcpTools":             {},
+		"registerLanguageServer":       {},
+		"registerExternalAgentAdapter": {},
+		"registerCodegenTarget":        {},
+		"registerRouter":               {},
+		"registerListenerEndpoint":     {},
+		"registerStaticDir":            {},
+		"writeWorkspacePlugins":        {},
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
-		"registerContextMenu": {},
+		"registerContextMenu":          {},
+		"registerMcpTools":             {},
+		"registerLanguageServer":       {},
+		"registerExternalAgentAdapter": {},
+		"registerCodegenTarget":        {},
+		"registerRouter":               {},
+		"registerListenerEndpoint":     {},
+		"registerStaticDir":            {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,

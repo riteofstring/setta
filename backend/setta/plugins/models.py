@@ -17,6 +17,13 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "readProjectState",
     "subscribeProjectState",
     "emitListenerEvents",
+    "registerMcpTools",
+    "registerLanguageServer",
+    "registerExternalAgentAdapter",
+    "registerCodegenTarget",
+    "registerRouter",
+    "registerListenerEndpoint",
+    "registerStaticDir",
     "writeWorkspacePlugins",
 )
 PLUGIN_CAPABILITIES_SET = frozenset(PLUGIN_CAPABILITIES)

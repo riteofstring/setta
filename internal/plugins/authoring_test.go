@@ -182,6 +182,25 @@ func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeHostVersionInvalid)
 }
 
+// Validate should accept known backend capability names even while the Go runtime still blocks them at execution time.
+func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-backend-capability-fixture", "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{
+			"registerMcpTools",
+			"registerRouter",
+			"registerStaticDir",
+		}
+	})
+
+	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate backend-capability scaffold: %v", err)
+	}
+}
+
 // Link should create a symlinked install with local metadata ownership and active runtime state.
 func TestServiceLinkCreatesSymlinkedInstallMetadata(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

@@ -211,6 +211,46 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeHostBlocksDeclaredBackendCapabilitiesUntilRuntimeLands(t *testing.T) {
+	// IDE runtime should accept backend capability vocabulary but expose it as host-blocked until the Go backend runtime exists.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{
+			"registerMcpTools",
+			"registerRouter",
+			"registerStaticDir",
+		}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 {
+		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 0 {
+		t.Fatalf("expected backend capabilities to stay blocked, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if len(statusEntry.RequestedCapabilities) != 3 {
+		t.Fatalf("expected requested backend capabilities, got %#v", statusEntry.RequestedCapabilities)
+	}
+	if len(statusEntry.BlockedCapabilities) != 3 {
+		t.Fatalf("expected three blocked backend capabilities, got %#v", statusEntry.BlockedCapabilities)
+	}
+	for _, blockedCapability := range statusEntry.BlockedCapabilities {
+		if blockedCapability.Reason != PluginBlockedCapabilityReasonHostPolicy {
+			t.Fatalf("expected host-policy block, got %#v", blockedCapability)
+		}
+	}
+}
+
 func TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles(t *testing.T) {
 	// Asset resolution should allow declared frontend files only.
 	roots := newFilesystemResolverTestRoots(t)
