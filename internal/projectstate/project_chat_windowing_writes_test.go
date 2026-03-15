@@ -211,6 +211,81 @@ func TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetWindowSpaceNameMatchesDocumentedFormatRules(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		input        string
+		expectedName string
+		expectError  bool
+	}{
+		{
+			name:         "accepts_explicit_home_route_word",
+			input:        "  home  ",
+			expectedName: "home",
+		},
+		{
+			name:        "rejects_path_separator",
+			input:       "bad/name",
+			expectError: true,
+		},
+		{
+			name:        "rejects_dotdot_segment",
+			input:       "bad..name",
+			expectError: true,
+		},
+		{
+			name:        "rejects_invalid_character",
+			input:       "bad@name",
+			expectError: true,
+		},
+		{
+			name:        "rejects_empty_slug_after_sanitization",
+			input:       "__",
+			expectError: true,
+		},
+		{
+			name:        "rejects_empty_after_trim",
+			input:       "   ",
+			expectError: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+			snapshot, err := runtime.SetWindowSpaceName(
+				context.Background(),
+				"project-alpha",
+				"space-a",
+				testCase.input,
+			)
+			if testCase.expectError {
+				if !IsInvalidWindowSpaceNameError(err) {
+					t.Fatalf("expected InvalidWindowSpaceNameError, got %v", err)
+				}
+				project := runtime.Snapshot().Document.Projects["project-alpha"]
+				if got := project.WindowSpaces["space-a"].Name; got != "Primary" {
+					t.Fatalf("expected rejected rename to keep Primary, got %q", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("SetWindowSpaceName returned error: %v", err)
+			}
+
+			project := snapshot.Document.Projects["project-alpha"]
+			if got := project.WindowSpaces["space-a"].Name; got != testCase.expectedName {
+				t.Fatalf("expected persisted window space name %q, got %q", testCase.expectedName, got)
+			}
+		})
+	}
+}
+
 func TestRuntimeWindowSpaceNameSortAndDeleteMutations(t *testing.T) {
 	t.Parallel()
 

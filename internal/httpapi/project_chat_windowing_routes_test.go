@@ -238,6 +238,47 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 	}
 }
 
+func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWindowSpaceName,
+		strings.NewReader(`{"projectConfigId":"project-alpha","windowSpaceId":"space-a","name":"bad/name"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 rename response, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode rename error response: %v", err)
+	}
+	if payload.Error.Code != "invalid_window_space_name" {
+		t.Fatalf("expected invalid_window_space_name, got %#v", payload)
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if got := project.WindowSpaces["space-a"].Name; got != "Primary" {
+		t.Fatalf("expected rejected rename to keep Primary, got %q", got)
+	}
+}
+
 func TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy(t *testing.T) {
 	t.Parallel()
 
