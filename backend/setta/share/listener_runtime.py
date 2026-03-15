@@ -55,9 +55,6 @@ class ShareListenerRuntime:
         if self._runtime_root is not None:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self._runtime_root))
 
-    def _is_enabled(self) -> bool:
-        return self._entrypoint_path is not None
-
     def _sanitize_module_suffix(self, value: str) -> str:
         sanitized = []
         for char in value:
@@ -96,7 +93,7 @@ class ShareListenerRuntime:
     async def ensure_listener_for_session(
         self, session_id: str | None, project_config_id: ID
     ) -> None:
-        if not self._is_enabled():
+        if self._entrypoint_path is None:
             return
         if session_id is None:
             raise KeyError("Share listener session id is required in share mode")
