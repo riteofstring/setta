@@ -17,7 +17,7 @@ import {
 import {
   normalizeProjectChatWindowingState,
   resolveDefaultFloatingChatBounds,
-} from "./projectChatWindowingSelectors";
+} from "./projectChatWindowingNormalization";
 
 export type CreateProjectChatWindowInstanceOptions = {
   instanceId?: string;

@@ -1,5 +1,5 @@
 import { denormalizeFloatingBounds } from "components/ChatWindowing/projectChatSnapLayout";
-import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingSelectors";
+import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingNormalization";
 import type { ZustandProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,

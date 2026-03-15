@@ -63,10 +63,10 @@ import {
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
 import {
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
-} from "state/actions/projectChatWindowingSelectors";
+} from "state/actions/projectChatWindowingNormalization";
+import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import {
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,

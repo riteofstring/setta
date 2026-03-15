@@ -60,6 +60,10 @@ import {
 import { bootProjectChatWindowToCanvasSection } from "./projectChatWindowingCanvasBoot";
 import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
 import {
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+} from "./projectChatWindowingNormalization";
+import {
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,
   maximizeProjectChatWindowInState,
@@ -74,8 +78,6 @@ import {
   getProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
 } from "./projectChatWindowingSelectors";
 import {
   moveProjectChatWindowToCanvasSectionInState,
