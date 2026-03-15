@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   queueBrushStrokeForSave,
   queueTransformsForSave,
-} from "state/actions/artifactSyncQueue";
+} from "state/actions/artifacts";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
@@ -15,7 +15,7 @@ import {
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
-import { setDrawAreaSectionSize } from "state/hooks/sectionAspectRatioSizing";
+import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import { bumpLocalRevisions } from "state/utils/revisions";
 import { route_append_draw_area_layer_item } from "utils/generatedEndpoints";
 import {
