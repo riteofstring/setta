@@ -301,7 +301,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
         sourcePath: "/tmp/setta-fixture-install",
         canonicalSourceKey: "pypi:setta-fixture-install",
         sourceDigestSha256: "sha256:fixture",
-        requestedCapabilities: ["registerPane", "registerMcpTools"],
+        requestedCapabilities: ["registerCodegenTarget", "registerPane"],
         trustStatus: "unverified",
         trustWarning: "Source is unverified. Install only from trusted owners.",
         components: ["backend", "frontend"],
@@ -334,7 +334,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
     ),
   ).toBeVisible();
   await expect(
-    confirmation.getByText("requested=registerMcpTools, registerPane"),
+    confirmation.getByText("requested=registerCodegenTarget, registerPane"),
   ).toBeVisible();
   await expect(
     confirmation.getByText("sourceDigestSha256=sha256:fixture"),
@@ -590,10 +590,10 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
         }
         return {
           ...plugin,
-          requestedCapabilities: ["registerMcpTools"],
+          requestedCapabilities: ["registerCodegenTarget"],
           effectiveCapabilities: [],
           blockedCapabilities: [
-            { capability: "registerMcpTools", reason: "mode_policy" },
+            { capability: "registerCodegenTarget", reason: "mode_policy" },
           ],
         };
       },
@@ -616,7 +616,7 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
 
   await expect(backendPluginCard.getByText("Capabilities")).toBeVisible();
   await expect(
-    backendPluginCard.getByText("registerMcpTools (mode_policy)"),
+    backendPluginCard.getByText("registerCodegenTarget (mode_policy)"),
   ).toBeVisible();
   await expect(
     page.getByText(

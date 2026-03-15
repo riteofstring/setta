@@ -27,7 +27,7 @@ func TestNewWorkerLauncherRequiresHost(t *testing.T) {
 
 // The first caller-facing launcher should start, initialize, and register a real worker through the Go host boundary.
 func TestWorkerLauncherStartAndRegisterWithPythonWorker(t *testing.T) {
-	host, registry := newWorkerRPCTestMCPHost(t)
+	host, registry := newWorkerRPCTestCodegenHost(t)
 	launcher, err := NewWorkerLauncher(WorkerLauncherOptions{Host: host})
 	if err != nil {
 		t.Fatalf("new worker launcher: %v", err)
@@ -58,29 +58,33 @@ func TestWorkerLauncherStartAndRegisterWithPythonWorker(t *testing.T) {
 
 	registrations := registry.Registrations()
 	if len(registrations) != 1 {
-		t.Fatalf("expected 1 registered mcp tool, got %#v", registrations)
+		t.Fatalf("expected 1 registered codegen target, got %#v", registrations)
 	}
-	if registrations[0].Name != workerRPCTestToolName {
-		t.Fatalf("expected %q registration, got %q", workerRPCTestToolName, registrations[0].Name)
+	if registrations[0].TargetID != "fixture-plugin:"+workerRPCTestCodegenTargetID {
+		t.Fatalf("unexpected target id %q", registrations[0].TargetID)
 	}
 
-	invokeResult, err := started.Session.Call(ctx, "plugin.invoke_mcp_tool", map[string]any{
-		"toolName": workerRPCTestToolName,
-		"kwargs": map[string]any{
-			"value": "gamma",
+	invokeResult, err := started.Session.Call(ctx, "plugin.invoke_codegen_target", map[string]any{
+		"handlerId":    workerRPCTestCodegenTargetID,
+		"projectState": map[string]any{"projectConfig": map[string]any{"name": "FixtureProject"}},
+		"targetOptions": map[string]any{
+			"className": "LauncherFixture",
 		},
 	})
 	if err != nil {
-		t.Fatalf("invoke registered mcp tool: %v", err)
+		t.Fatalf("invoke registered codegen target: %v", err)
 	}
-	var toolResult struct {
-		Result string `json:"result"`
+	var codegenResult struct {
+		Files []struct {
+			RelativePath string `json:"relativePath"`
+			Content      string `json:"content"`
+		} `json:"files"`
 	}
-	if err := json.Unmarshal(invokeResult, &toolResult); err != nil {
-		t.Fatalf("decode worker mcp tool result: %v", err)
+	if err := json.Unmarshal(invokeResult, &codegenResult); err != nil {
+		t.Fatalf("decode worker codegen result: %v", err)
 	}
-	if toolResult.Result != "fixture-plugin:gamma" {
-		t.Fatalf("expected fixture-plugin:gamma, got %q", toolResult.Result)
+	if len(codegenResult.Files) != 1 {
+		t.Fatalf("expected 1 generated file, got %#v", codegenResult.Files)
 	}
 }
 
@@ -187,7 +191,7 @@ func newWorkerLauncherTestSpec(t *testing.T) (BackendWorkerSpec, string) {
 		PluginRoot:            pluginRoot,
 		Entrypoint:            entrypoint,
 		ServerMode:            "share",
-		EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
+		EffectiveCapabilities: []string{CapabilityRegisterCodegenTarget},
 		Environment:           workerRPCTestEnv(repoRoot),
 		WorkingDirectory:      repoRoot,
 	}, pluginRoot

@@ -2,29 +2,18 @@ package app
 
 import (
 	"context"
-	"errors"
 	"sync"
 
-	"setta/internal/config"
 	"setta/internal/lsp"
-	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/tools"
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service          *plugins.Service
-	discovery        *plugins.DiscoveryService
-	runtimeProvider  plugins.WorkerRuntimeProvider
-	projectStateRead plugins.ProjectStateReader
-	serverMode       config.Mode
-	holder           *plugins.BackendRuntimeHolder
-	lspRouter        *lsp.Router
-	backendRegs      plugins.BackendRegistrationSource
+	service     *plugins.Service
+	lspRouter   *lsp.Router
+	backendRegs plugins.BackendRegistrationSource
 
-	mu              sync.Mutex
-	mcpServer       *mcpx.Server
-	pluginToolNames []string
+	mu sync.Mutex
 }
 
 type pluginMutationRuntimeService struct {
@@ -184,19 +173,8 @@ func (s *pluginMutationRuntimeService) Restart(ctx context.Context) (plugins.Plu
 	return s.base.Restart(ctx)
 }
 
-func (r *pluginBackendRuntimeRefresher) AttachMCPServer(server *mcpx.Server, toolNames []string) {
-	if r == nil {
-		return
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.mcpServer = server
-	r.pluginToolNames = append([]string(nil), toolNames...)
-}
-
 func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.DiscoverySnapshot, error) {
-	if r == nil || r.service == nil || r.discovery == nil || r.runtimeProvider == nil || r.holder == nil {
+	if r == nil || r.service == nil {
 		return plugins.DiscoverySnapshot{}, nil
 	}
 	if ctx == nil {
@@ -211,101 +189,21 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		return plugins.DiscoverySnapshot{}, err
 	}
 
-	nextRuntime, err := plugins.NewBackendRouteRuntime(ctx, plugins.BackendRouteRuntimeOptions{
-		DiscoveryService: r.discovery,
-		Snapshot:         &previewSnapshot,
-		RuntimeProvider:  r.runtimeProvider,
-		ProjectStateRead: r.projectStateRead,
-		ServerMode:       r.serverMode,
-	})
-	if err != nil {
-		return plugins.DiscoverySnapshot{}, err
-	}
-
-	var nextLanguageServerSpecs []lsp.LanguageServerSpec
 	if r.lspRouter != nil && r.backendRegs != nil {
-		nextLanguageServerSpecs, err = appLanguageServerSpecsForSnapshot(previewSnapshot, r.backendRegs)
+		nextLanguageServerSpecs, err := appLanguageServerSpecsForSnapshot(previewSnapshot, r.backendRegs)
 		if err != nil {
-			_ = nextRuntime.Close()
 			return plugins.DiscoverySnapshot{}, err
 		}
-	}
-
-	nextTools := pluginMCPToolRegistrations(nextRuntime)
-	nextToolNames := toolRegistrationNames(nextTools)
-	if r.mcpServer != nil {
-		if err := r.mcpServer.ReplaceTools(r.pluginToolNames, nextTools); err != nil {
-			_ = nextRuntime.Close()
-			return plugins.DiscoverySnapshot{}, err
-		}
-	}
-	if r.lspRouter != nil && r.backendRegs != nil {
 		if err := r.lspRouter.ReplaceAdditionalSpecs(ctx, nextLanguageServerSpecs); err != nil {
-			_ = nextRuntime.Close()
 			return plugins.DiscoverySnapshot{}, err
 		}
 	}
-
-	previousRuntime := r.holder.Swap(nextRuntime)
-	r.pluginToolNames = nextToolNames
 
 	snapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
-	var closeErr error
-	if previousRuntime != nil {
-		closeErr = previousRuntime.Close()
-	}
 	if commitErr != nil {
 		return snapshot, commitErr
 	}
-	if closeErr != nil {
-		return snapshot, closeErr
-	}
 	return snapshot, nil
-}
-
-func pluginMCPToolRegistrations(runtime *plugins.BackendRouteRuntime) []mcpx.ToolRegistration {
-	if runtime == nil {
-		return nil
-	}
-
-	registrations := make([]mcpx.ToolRegistration, 0, len(runtime.MCPTools()))
-	for _, registration := range runtime.MCPTools() {
-		toolRegistration := registration
-		registrations = append(registrations, mcpx.ToolRegistration{
-			Spec: tools.Spec{
-				Name:        toolRegistration.Name,
-				Description: toolRegistration.Description,
-				Metadata:    toolRegistration.Metadata,
-				Handler: func(ctx context.Context, arguments map[string]any) (any, error) {
-					result, err := runtime.InvokeMCPTool(ctx, toolRegistration.Name, arguments)
-					if err == nil {
-						return result, nil
-					}
-
-					var toolErr *plugins.BackendMCPToolCallError
-					if !errors.As(err, &toolErr) {
-						return nil, err
-					}
-					code := toolErr.Code
-					if code == "" {
-						code = "internal_error"
-					}
-					return nil, mcpx.NewToolError(code, "%s", toolErr.Message)
-				},
-			},
-			InputSchema:  toolRegistration.InputSchema,
-			OutputSchema: toolRegistration.OutputSchema,
-		})
-	}
-	return registrations
-}
-
-func toolRegistrationNames(registrations []mcpx.ToolRegistration) []string {
-	names := make([]string, 0, len(registrations))
-	for _, registration := range registrations {
-		names = append(names, registration.Spec.Name)
-	}
-	return names
 }
 
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {

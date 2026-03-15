@@ -95,7 +95,6 @@ type App struct {
 	boundCode     *boundcode.Service
 	mcpServer     *mcpx.Server
 	mcpClient     *mcpx.Client
-	pluginRoutes  *plugins.BackendRuntimeHolder
 	handler       http.Handler
 }
 
@@ -196,7 +195,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginStore           *plugins.Store
 		pluginDiscovery       *plugins.DiscoveryService
 		pluginBackendRegs     plugins.BackendRegistrationSource
-		pluginBackendRoutes   *plugins.BackendRuntimeHolder
 		pluginRuntimeRefresh  *pluginBackendRuntimeRefresher
 		pluginRouteService    httpapi.PluginRouteService
 		pythonPackages        *pythonenv.Runtime
@@ -1233,35 +1231,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 	}
 	if modePolicy.IsIDE() && pluginDiscovery != nil && pluginWorkerRuntime != nil {
-		pluginProjectStateReader, err := plugins.NewRuntimeProjectStateReader(plugins.RuntimeProjectStateReaderOptions{
-			ProjectState: projectRuntime,
-			Deployment:   deploymentRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		initialPluginRuntime, err := plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
-			DiscoveryService: pluginDiscovery,
-			RuntimeProvider:  pluginWorkerRuntime,
-			ProjectStateRead: pluginProjectStateReader,
-			ServerMode:       cfg.Server.Mode,
-			Logger:           logger,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		pluginBackendRoutes = plugins.NewBackendRuntimeHolder(initialPluginRuntime)
 		pluginRuntimeRefresh = &pluginBackendRuntimeRefresher{
-			service:          pluginMutationService,
-			discovery:        pluginDiscovery,
-			runtimeProvider:  pluginWorkerRuntime,
-			projectStateRead: pluginProjectStateReader,
-			serverMode:       cfg.Server.Mode,
-			holder:           pluginBackendRoutes,
-			lspRouter:        lspRouter,
-			backendRegs:      pluginBackendRegs,
+			service:     pluginMutationService,
+			lspRouter:   lspRouter,
+			backendRegs: pluginBackendRegs,
 		}
 		pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 			if pluginRuntimeRefresh == nil {
@@ -1300,24 +1273,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			_ = errors.Join(
 				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				closePluginBackendRoutes(pluginBackendRoutes),
 				terminalService.Close(context.Background()),
 			)
 			return nil, err
-		}
-	}
-	if mcpServer != nil && pluginBackendRoutes != nil {
-		registeredPluginToolNames, err := registerPluginMCPTools(mcpServer, pluginBackendRoutes.Current())
-		if err != nil {
-			_ = errors.Join(
-				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				closePluginBackendRoutes(pluginBackendRoutes),
-				terminalService.Close(context.Background()),
-			)
-			return nil, err
-		}
-		if pluginRuntimeRefresh != nil {
-			pluginRuntimeRefresh.AttachMCPServer(mcpServer, registeredPluginToolNames)
 		}
 	}
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
@@ -1327,7 +1285,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		_ = errors.Join(
 			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-			closePluginBackendRoutes(pluginBackendRoutes),
 			terminalService.Close(context.Background()),
 		)
 		return nil, err
@@ -1656,7 +1613,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		_ = errors.Join(
 			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-			closePluginBackendRoutes(pluginBackendRoutes),
 			terminalService.Close(context.Background()),
 		)
 		return nil, err
@@ -1688,7 +1644,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		boundCode:     boundCodeService,
 		mcpServer:     mcpServer,
 		mcpClient:     mcpClient,
-		pluginRoutes:  pluginBackendRoutes,
 		handler:       handler,
 	}, nil
 }
@@ -1727,20 +1682,6 @@ func (a *App) ShareSessions() modes.ShareSessionStore {
 
 func (a *App) MCPServer() *mcpx.Server {
 	return a.mcpServer
-}
-
-func registerPluginMCPTools(server *mcpx.Server, runtime *plugins.BackendRouteRuntime) ([]string, error) {
-	if server == nil || runtime == nil {
-		return nil, nil
-	}
-
-	registrations := pluginMCPToolRegistrations(runtime)
-	for _, registration := range registrations {
-		if _, err := server.RegisterTool(registration); err != nil {
-			return nil, err
-		}
-	}
-	return toolRegistrationNames(registrations), nil
 }
 
 func (a *App) MCPClient() *mcpx.Client {
@@ -1792,7 +1733,6 @@ func (a *App) Shutdown(ctx context.Context) error {
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),
-		closePluginBackendRoutes(a.pluginRoutes),
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
@@ -1832,13 +1772,6 @@ func (s infoService) RuntimeInfo(context.Context) httpapi.RuntimeInfo {
 
 func closeProjectResources(projectStates *projectstate.Registry, deploymentRuntime *deployments.Runtime) error {
 	return errors.Join(closeProjectStates(projectStates), closeDeploymentRuntime(deploymentRuntime))
-}
-
-func closePluginBackendRoutes(runtime *plugins.BackendRuntimeHolder) error {
-	if runtime == nil {
-		return nil
-	}
-	return runtime.Close()
 }
 
 func closeProjectStateServices(

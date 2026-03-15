@@ -439,10 +439,9 @@ had been failing only because they assumed `project-alpha` already existed in an
 otherwise empty IDE runtime. After explicitly seeding the empty project in the
 test fixture, both targeted reruns passed.
 
-A second follow-up rewrite step updated the stale app MCP tool-count baselines
-to match the canonical `internal/mcpx` server baseline (`79` base tools and
-`81` when the fixture plugin contributes two backend MCP tools). The targeted
-app and `internal/mcpx` reruns passed.
+A second follow-up rewrite step updated the stale app MCP tool-count baseline
+to match the canonical `internal/mcpx` server baseline (`79` base tools). The
+targeted app and `internal/mcpx` reruns passed.
 
 A third follow-up rewrite step fixed the share-mode artifact startup path. The
 app now constructs `chatattachments.Service` whenever a project runtime exists
@@ -703,8 +702,14 @@ static dirs or emits listener dependency events, the Go plugin runtime no
 longer captures either surface, and the Go app / backend-route / codegen
 runtime wiring no longer threads plugin-specific listener-producer state into
 worker hosts just to support the deleted listener-event bridge. The focused
-real-worker Go and Python tests now validate the retained worker boundary
-through MCP-tool registration and invocation instead. The remaining Python
-plugin worker blocker is narrower again: live backend ownership is now limited
-to MCP tools, codegen targets, language servers, external-agent adapters, and
-project-state reads.
+real-worker Go and Python tests then validated the retained worker boundary
+through MCP-tool registration and invocation.
+
+A later follow-up rewrite step removed the plugin-defined backend MCP-tool
+surface outright. The dedicated Go `BackendRouteRuntime` / `BackendRuntimeHolder`
+path is gone, the Python worker no longer advertises `host.register_mcp_tool`
+or `plugin.invoke_mcp_tool`, the backend MCP fixture was deleted, and the app
+no longer hot-swaps plugin-defined MCP registrations into the authenticated Go
+MCP server. The remaining Python plugin worker blocker is narrower again: live
+backend ownership is now limited to codegen targets, language servers,
+external-agent adapters, and project-state reads.

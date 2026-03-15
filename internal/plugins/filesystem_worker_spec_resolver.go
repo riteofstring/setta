@@ -40,7 +40,6 @@ var (
 		"readProjectState":             {},
 		"subscribeProjectState":        {},
 		"emitListenerEvents":           {},
-		"registerMcpTools":             {},
 		"registerLanguageServer":       {},
 		"registerExternalAgentAdapter": {},
 		"registerCodegenTarget":        {},

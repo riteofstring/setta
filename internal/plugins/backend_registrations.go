@@ -89,12 +89,6 @@ type backendRegistrationCacheEntry struct {
 	snapshot PluginBackendRegistrationSnapshot
 }
 
-type noopBackendMCPToolRegistrar struct{}
-
-func (noopBackendMCPToolRegistrar) RegisterMCPTool(context.Context, RegisteredMCPTool) error {
-	return nil
-}
-
 func NewLanguageServerRegistry() *LanguageServerRegistry {
 	return &LanguageServerRegistry{
 		byLanguage: map[string]RegisteredLanguageServer{},
@@ -324,7 +318,6 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		MCPToolRegistrar:              noopBackendMCPToolRegistrar{},
 		LanguageServerRegistrar:       languageServers,
 		ExternalAgentAdapterRegistrar: externalAgentAdapters,
 		CodegenTargetRegistrar:        codegenTargets,

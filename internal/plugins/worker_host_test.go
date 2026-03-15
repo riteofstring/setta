@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
-	"setta/internal/tools"
 )
 
 type workerHostEnvelope struct {
@@ -36,124 +34,6 @@ func TestNewWorkerHostRequiresService(t *testing.T) {
 	}
 	if !errors.Is(err, ErrWorkerHostServiceRequired) {
 		t.Fatalf("expected service-required error, got %v", err)
-	}
-}
-
-// MCP tool registration should require the explicit worker capability before mutating runtime state.
-func TestWorkerHostRegisterMCPToolRequiresCapability(t *testing.T) {
-	t.Parallel()
-
-	registry := NewMCPToolRegistry()
-	host, err := NewWorkerHost(WorkerHostOptions{
-		MCPToolRegistrar: registry,
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
-
-	err = host.RegisterMCPTool(context.Background(), WorkerContext{
-		PluginID: "fixture-plugin",
-	}, RegisterMCPToolRequest{
-		Tool: &workerMCPToolRegistrationPayload{
-			Name:        "fixture_tool",
-			Description: "fixture",
-			InputSchema: map[string]any{
-				"type": "object",
-			},
-			Metadata: &workerMCPToolMetadataDescriptor{
-				Kind:       "discoverable",
-				AccessType: "read",
-			},
-		},
-	})
-	if !errors.Is(err, ErrWorkerHostCapabilityDenied) {
-		t.Fatalf("expected capability-denied error, got %v", err)
-	}
-}
-
-// MCP tool registration should preserve schema and normalized metadata for later server registration.
-func TestWorkerHostRegisterMCPToolNormalizesRegistration(t *testing.T) {
-	t.Parallel()
-
-	registry := NewMCPToolRegistry()
-	host, err := NewWorkerHost(WorkerHostOptions{
-		MCPToolRegistrar: registry,
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
-
-	err = host.RegisterMCPTool(context.Background(), WorkerContext{
-		PluginID:              "fixture-plugin",
-		EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
-	}, RegisterMCPToolRequest{
-		Tool: &workerMCPToolRegistrationPayload{
-			Name:        "fixture_tool",
-			Description: "Fixture tool.",
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"value": map[string]any{
-						"type": "string",
-					},
-				},
-				"required": []any{"value"},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-			},
-			Metadata: &workerMCPToolMetadataDescriptor{
-				Kind:       "discoverable",
-				AccessType: "read",
-				IDPathsByType: map[string][]string{
-					"section": {"sectionId"},
-				},
-				ResultIDPathsByType: map[string][]string{
-					"codeObj": {"result.codeObjId"},
-				},
-				SearchTags:     []string{"fixture", "tool"},
-				SearchCategory: "project",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("register mcp tool: %v", err)
-	}
-
-	registrations := registry.Registrations()
-	if len(registrations) != 1 {
-		t.Fatalf("expected 1 registered mcp tool, got %#v", registrations)
-	}
-	registration := registrations[0]
-	if registration.PluginID != "fixture-plugin" {
-		t.Fatalf("expected fixture-plugin, got %q", registration.PluginID)
-	}
-	if registration.Name != "fixture_tool" {
-		t.Fatalf("expected fixture_tool name, got %q", registration.Name)
-	}
-	if registration.Description != "Fixture tool." {
-		t.Fatalf("expected Fixture tool. description, got %q", registration.Description)
-	}
-	if !reflect.DeepEqual(registration.InputSchema["required"], []any{"value"}) {
-		t.Fatalf("expected required field value, got %#v", registration.InputSchema["required"])
-	}
-	if registration.Metadata.Kind != tools.KindDiscoverable {
-		t.Fatalf("expected discoverable kind, got %#v", registration.Metadata.Kind)
-	}
-	if registration.Metadata.AccessType != tools.AccessTypeRead {
-		t.Fatalf("expected read access type, got %#v", registration.Metadata.AccessType)
-	}
-	if got := registration.Metadata.IDPathsByType[tools.IDTypeSection]; !reflect.DeepEqual(got, []string{"sectionId"}) {
-		t.Fatalf("expected section id paths, got %#v", got)
-	}
-	if got := registration.Metadata.ResultIDPathsByType[tools.IDTypeCodeObject]; !reflect.DeepEqual(got, []string{"result.codeObjId"}) {
-		t.Fatalf("expected result codeObj paths, got %#v", got)
-	}
-	if len(registration.Metadata.SearchTags) < 2 || registration.Metadata.SearchTags[0] != "fixture" || registration.Metadata.SearchTags[1] != "tool" {
-		t.Fatalf("expected explicit search tags prefix, got %#v", registration.Metadata.SearchTags)
-	}
-	if registration.Metadata.SearchCategory != "project" {
-		t.Fatalf("expected project search category, got %q", registration.Metadata.SearchCategory)
 	}
 }
 

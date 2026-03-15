@@ -23,9 +23,9 @@ type workerRPCTestProcess struct {
 	stderr *bytes.Buffer
 }
 
-// The Go transport should drive a real Python worker, capture MCP registration, and invoke the retained worker tool.
-func TestWorkerRPCClientCallWithPythonWorkerRegistersMCPTool(t *testing.T) {
-	host, registry := newWorkerRPCTestMCPHost(t)
+// The Go transport should drive a real Python worker, capture codegen registration, and invoke the retained worker target.
+func TestWorkerRPCClientCallWithPythonWorkerRegistersCodegenTarget(t *testing.T) {
+	host, registry := newWorkerRPCTestCodegenHost(t)
 	process := newWorkerRPCTestProcess(t, workerRPCTestProcessOptions{Host: host})
 	defer process.Close(t)
 
@@ -62,43 +62,53 @@ func TestWorkerRPCClientCallWithPythonWorkerRegistersMCPTool(t *testing.T) {
 
 	registrations := registry.Registrations()
 	if len(registrations) != 1 {
-		t.Fatalf("expected 1 registered mcp tool, got %#v", registrations)
+		t.Fatalf("expected 1 registered codegen target, got %#v", registrations)
 	}
 	registration := registrations[0]
 	if registration.PluginID != "fixture-plugin" {
 		t.Fatalf("expected fixture-plugin registration, got %q", registration.PluginID)
 	}
-	if registration.Name != workerRPCTestToolName {
-		t.Fatalf("expected %q tool registration, got %q", workerRPCTestToolName, registration.Name)
+	if registration.TargetID != "fixture-plugin:"+workerRPCTestCodegenTargetID {
+		t.Fatalf("unexpected target id %q", registration.TargetID)
 	}
-	if registration.Metadata.AccessType != "read" {
-		t.Fatalf("expected read access type, got %#v", registration.Metadata.AccessType)
+	if registration.HandlerID != workerRPCTestCodegenTargetID {
+		t.Fatalf("unexpected handler id %q", registration.HandlerID)
 	}
 
-	invokeResult, err := process.client.Call(ctx, "plugin.invoke_mcp_tool", map[string]any{
-		"toolName": workerRPCTestToolName,
-		"kwargs": map[string]any{
-			"value": "alpha",
+	invokeResult, err := process.client.Call(ctx, "plugin.invoke_codegen_target", map[string]any{
+		"handlerId":    workerRPCTestCodegenTargetID,
+		"projectState": map[string]any{"projectConfig": map[string]any{"name": "FixtureProject"}},
+		"targetOptions": map[string]any{
+			"className": "FixtureWorker",
 		},
 	})
 	if err != nil {
-		t.Fatalf("invoke worker mcp tool: %v\nstderr:\n%s", err, process.stderr.String())
+		t.Fatalf("invoke worker codegen target: %v\nstderr:\n%s", err, process.stderr.String())
 	}
-	var toolResult struct {
-		Result string `json:"result"`
+	var codegenResult struct {
+		Files []struct {
+			RelativePath string `json:"relativePath"`
+			Content      string `json:"content"`
+		} `json:"files"`
 	}
-	if err := json.Unmarshal(invokeResult, &toolResult); err != nil {
-		t.Fatalf("decode worker mcp tool result: %v", err)
+	if err := json.Unmarshal(invokeResult, &codegenResult); err != nil {
+		t.Fatalf("decode worker codegen result: %v", err)
 	}
-	if toolResult.Result != "fixture-plugin:alpha" {
-		t.Fatalf("expected fixture-plugin:alpha, got %q", toolResult.Result)
+	if len(codegenResult.Files) != 1 {
+		t.Fatalf("expected 1 generated file, got %#v", codegenResult.Files)
+	}
+	if codegenResult.Files[0].RelativePath != "fixture.ts" {
+		t.Fatalf("unexpected generated relative path %q", codegenResult.Files[0].RelativePath)
+	}
+	if !strings.Contains(codegenResult.Files[0].Content, "FixtureWorker") {
+		t.Fatalf("expected generated class name in content, got %q", codegenResult.Files[0].Content)
 	}
 }
 
 // Nested host failures should surface back through the worker as a typed Go RPC error.
 func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing.T) {
 	host, err := NewWorkerHost(WorkerHostOptions{
-		CodegenTargetRegistrar: NewCodegenTargetRegistry(),
+		LanguageServerRegistrar: NewLanguageServerRegistry(),
 	})
 	if err != nil {
 		t.Fatalf("new worker host: %v", err)
@@ -128,8 +138,8 @@ func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing
 	if rpcErr.Code != workerRPCRegisterFailedCode {
 		t.Fatalf("expected %q error code, got %q", workerRPCRegisterFailedCode, rpcErr.Code)
 	}
-	if !strings.Contains(rpcErr.Message, ErrWorkerHostMCPToolRegistrarRequired.Error()) {
-		t.Fatalf("expected mcp-tool-registrar-required message, got %q", rpcErr.Message)
+	if !strings.Contains(rpcErr.Message, ErrWorkerHostCodegenTargetRegistrarNeeded.Error()) {
+		t.Fatalf("expected codegen-target-registrar-needed message, got %q", rpcErr.Message)
 	}
 }
 
@@ -242,7 +252,7 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 		Host:   options.Host,
 		Worker: WorkerContext{
 			PluginID:              "fixture-plugin",
-			EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
+			EffectiveCapabilities: []string{CapabilityRegisterCodegenTarget},
 		},
 	})
 	if err != nil {
@@ -289,14 +299,14 @@ func (p *workerRPCTestProcess) Close(t *testing.T) {
 	}
 }
 
-const workerRPCTestToolName = "fixture_echo"
+const workerRPCTestCodegenTargetID = "fixture_codegen"
 
-func newWorkerRPCTestMCPHost(t *testing.T) (*WorkerHost, *MCPToolRegistry) {
+func newWorkerRPCTestCodegenHost(t *testing.T) (*WorkerHost, *CodegenTargetRegistry) {
 	t.Helper()
 
-	registry := NewMCPToolRegistry()
+	registry := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		MCPToolRegistrar: registry,
+		CodegenTargetRegistrar: registry,
 	})
 	if err != nil {
 		t.Fatalf("new worker RPC test host: %v", err)
@@ -307,7 +317,7 @@ func newWorkerRPCTestMCPHost(t *testing.T) (*WorkerHost, *MCPToolRegistry) {
 func newWorkerRPCTestHost(t *testing.T) *WorkerHost {
 	t.Helper()
 
-	host, _ := newWorkerRPCTestMCPHost(t)
+	host, _ := newWorkerRPCTestCodegenHost(t)
 	return host
 }
 
@@ -386,14 +396,20 @@ func workerRPCTestEnv(repoRoot string) []string {
 func workerRPCTestEntrypoint() string {
 	return strings.Join([]string{
 		"def register(plugin):",
-		"    def fixture_echo(*, value: str) -> str:",
-		"        return f\"{plugin.plugin_id}:{value}\"",
-		"",
-		"    plugin.register_mcp_tool(",
-		"        fixture_echo,",
-		fmt.Sprintf("        name=%q,", workerRPCTestToolName),
-		"        annotations={'accessType': 'read'},",
-		"    )",
+		"    plugin.register_codegen_target({",
+		fmt.Sprintf("        'id': %q,", workerRPCTestCodegenTargetID),
+		"        'name': 'Fixture TypeScript',",
+		"        'language': 'typescript',",
+		"        'defaultFileName': 'fixture.ts',",
+		"        'generate': lambda project_state, target_options: {",
+		"            'files': [",
+		"                {",
+		"                    'relativePath': 'fixture.ts',",
+		"                    'content': f\"export class {target_options['className']} {{}}\\n// {project_state['projectConfig']['name']}\\n\",",
+		"                }",
+		"            ]",
+		"        },",
+		"    })",
 		"",
 	}, "\n")
 }

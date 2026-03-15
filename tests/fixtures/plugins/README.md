@@ -11,12 +11,11 @@ Principles:
 
 Current fixtures:
 
-- `backend/`: backend-only plugin with Python entrypoint that registers MCP tools plus project-state reads.
+- `backend/`: backend-only plugin shell with a minimal Python entrypoint.
 - `backend-codegen/`: backend-only plugin that registers a worker-based codegen target.
 - `backend-external-agent/`: backend-only plugin that registers external agent adapters.
 - `backend-language-server/`: backend-only plugin that registers a language server.
 - `backend-language-server-e2e/`: backend-only plugin for end-to-end language server UI/behavior testing.
-- `backend-mcp-tools/`: backend-only plugin that registers multiple MCP tools.
 - `backend-worker-failure-transport/`: intentional failure fixture for worker transport/process-exit errors.
 - `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
 - `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
@@ -35,7 +34,7 @@ Target fixture catalog (coverage baseline):
 
 - Maintain at least 15 fixture plugins under `tests/fixtures/plugins/`.
 - Include fixtures for each category:
-- backend success paths (router/static/MCP/LSP/external-agent/codegen)
+- backend success paths (LSP/external-agent/codegen)
 - frontend success paths (sections/panes/commands/top-nav)
 - full-stack success paths
 - content-only paths

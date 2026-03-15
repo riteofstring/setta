@@ -8,8 +8,5 @@
   "backend": {
     "entrypoint": "backend/entrypoint.py"
   },
-  "capabilities": [
-    "registerMcpTools",
-    "readProjectState"
-  ]
+  "capabilities": []
 }

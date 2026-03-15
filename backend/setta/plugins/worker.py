@@ -8,16 +8,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from pydantic import BaseModel
-
 BACKEND_PLUGIN_API_VERSION = 1
 SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.initialize",
     "plugin.register",
     "plugin.shutdown",
-    "plugin.invoke_mcp_tool",
     "plugin.invoke_codegen_target",
-    "host.register_mcp_tool",
     "host.register_language_server",
     "host.register_external_agent_adapter",
     "host.register_codegen_target",
@@ -123,7 +119,6 @@ class _WorkerState:
     plugin_version: str
     entrypoint_path: Path
     module: Any | None = None
-    mcp_tools_by_name: dict[str, Callable[..., Any]] = field(default_factory=dict)
     codegen_target_generators: dict[str, Callable[..., Any]] = field(
         default_factory=dict
     )
@@ -159,231 +154,6 @@ class _WorkerState:
             "backendPluginApiVersion": BACKEND_PLUGIN_API_VERSION,
             "supportedRpcMethods": list(SUPPORTED_RPC_METHODS),
         }
-
-    def _register_mcp_tool(
-        self,
-        *,
-        func: Any,
-        name: str | None,
-        annotations: dict[str, Any] | None,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        if not callable(func):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin {self.plugin_id} passed a non-callable MCP tool.",
-            )
-        tool_name = name if isinstance(name, str) and name.strip() else func.__name__
-        if not isinstance(tool_name, str) or tool_name.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin {self.plugin_id} provided an invalid MCP tool name.",
-            )
-        self.mcp_tools_by_name[tool_name] = func
-        normalized_annotations: dict[str, Any] | None = None
-        if annotations is not None:
-            if not isinstance(annotations, dict):
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    f"Plugin {self.plugin_id} provided invalid MCP annotations payload.",
-                )
-            normalized_annotations = _ensure_json_serializable(
-                annotations,
-                plugin_id=self.plugin_id,
-                label="MCP annotations",
-            )
-        host_call(
-            "host.register_mcp_tool",
-            {
-                "tool": self._build_mcp_tool_registration_payload(
-                    func=func,
-                    tool_name=tool_name,
-                    annotations=normalized_annotations,
-                )
-            },
-        )
-
-    def _build_mcp_tool_registration_payload(
-        self,
-        *,
-        func: Callable[..., Any],
-        tool_name: str,
-        annotations: dict[str, Any] | None,
-    ) -> dict[str, Any]:
-        from mcp.server.fastmcp.tools import ToolManager
-
-        from setta.mcp.tool_metadata import (
-            SettaToolType,
-            ToolAccessMetadata,
-            attach_tool_access,
-        )
-        from setta.mcp.tool_registry import register_setta_tool
-
-        tool_fn = self._wrap_mcp_tool_with_name(func, tool_name)
-        if annotations is not None:
-            access_type = annotations.get("accessType")
-            if access_type in {"read", "write", "structural"}:
-                attach_tool_access(
-                    tool_fn,
-                    ToolAccessMetadata(accessType=access_type),
-                )
-
-        tool_manager = ToolManager()
-        tool = register_setta_tool(tool_manager, tool_fn, SettaToolType.discoverable)
-
-        annotations_payload: dict[str, Any] = {}
-        if isinstance(tool.annotations, BaseModel):
-            annotations_payload = tool.annotations.model_dump(
-                by_alias=True,
-                exclude_none=True,
-            )
-
-        payload: dict[str, Any] = {
-            "name": tool.name,
-            "description": tool.description or "",
-            "inputSchema": _ensure_json_serializable(
-                tool.parameters,
-                plugin_id=self.plugin_id,
-                label="MCP input schema",
-            ),
-            "metadata": self._build_mcp_tool_metadata_payload(annotations_payload),
-        }
-        if isinstance(tool.output_schema, dict):
-            payload["outputSchema"] = _ensure_json_serializable(
-                tool.output_schema,
-                plugin_id=self.plugin_id,
-                label="MCP output schema",
-            )
-        return payload
-
-    def _build_mcp_tool_metadata_payload(
-        self,
-        annotations_payload: dict[str, Any],
-    ) -> dict[str, Any]:
-        raw_result_metadata = annotations_payload.get("aiFollowToolResult")
-        result_id_paths_by_type: dict[str, list[str]] = {}
-        if isinstance(raw_result_metadata, dict):
-            result_id_paths_by_type = self._normalize_mcp_tool_id_paths(
-                raw_result_metadata.get("pathsByIdType"),
-            )
-
-        metadata = {
-            "kind": self._read_mcp_tool_string_metadata(
-                annotations_payload,
-                "settaToolType",
-                fallback="discoverable",
-            ),
-            "accessType": self._read_mcp_tool_string_metadata(
-                annotations_payload,
-                "accessType",
-                fallback="structural",
-            ),
-            "idPathsByType": self._normalize_mcp_tool_id_paths(
-                annotations_payload.get("idPathsByType"),
-            ),
-            "resultIdPathsByType": result_id_paths_by_type,
-            "searchTags": self._normalize_mcp_tool_string_list(
-                annotations_payload.get("searchTags"),
-            ),
-        }
-        default_target_singleton_section = self._read_mcp_tool_string_metadata(
-            annotations_payload,
-            "defaultTargetSingletonSection",
-        )
-        if default_target_singleton_section is not None:
-            metadata["defaultTargetSingletonSection"] = default_target_singleton_section
-        result_filter = self._read_mcp_tool_string_metadata(
-            annotations_payload,
-            "resultFilter",
-        )
-        if result_filter is not None:
-            metadata["resultFilter"] = result_filter
-        search_category = self._read_mcp_tool_string_metadata(
-            annotations_payload,
-            "searchCategory",
-        )
-        if search_category is not None:
-            metadata["searchCategory"] = search_category
-        return metadata
-
-    def _normalize_mcp_tool_id_paths(
-        self,
-        raw_value: Any,
-    ) -> dict[str, list[str]]:
-        if not isinstance(raw_value, dict):
-            return {}
-        normalized: dict[str, list[str]] = {}
-        for raw_id_type, raw_paths in raw_value.items():
-            if not isinstance(raw_id_type, str):
-                continue
-            id_type = raw_id_type.strip()
-            if id_type == "" or not isinstance(raw_paths, list):
-                continue
-            paths: list[str] = []
-            for raw_path in raw_paths:
-                if not isinstance(raw_path, str):
-                    continue
-                path = raw_path.strip()
-                if path:
-                    paths.append(path)
-            if paths:
-                normalized[id_type] = paths
-        return normalized
-
-    def _normalize_mcp_tool_string_list(self, raw_value: Any) -> list[str]:
-        if not isinstance(raw_value, list):
-            return []
-        normalized: list[str] = []
-        seen: set[str] = set()
-        for raw_entry in raw_value:
-            if not isinstance(raw_entry, str):
-                continue
-            entry = raw_entry.strip()
-            if entry == "" or entry in seen:
-                continue
-            seen.add(entry)
-            normalized.append(entry)
-        return normalized
-
-    def _read_mcp_tool_string_metadata(
-        self,
-        payload: dict[str, Any],
-        key: str,
-        *,
-        fallback: str | None = None,
-    ) -> str | None:
-        raw_value = payload.get(key)
-        if isinstance(raw_value, str):
-            normalized = raw_value.strip()
-            if normalized != "":
-                return normalized
-        return fallback
-
-    def _wrap_mcp_tool_with_name(
-        self,
-        func: Callable[..., Any],
-        tool_name: str,
-    ) -> Callable[..., Any]:
-        from functools import wraps
-
-        if getattr(func, "__name__", None) == tool_name:
-            return func
-
-        if inspect.iscoroutinefunction(func):
-
-            @wraps(func)
-            async def named_tool(*args: Any, **kwargs: Any) -> Any:
-                return await func(*args, **kwargs)
-
-        else:
-
-            @wraps(func)
-            def named_tool(*args: Any, **kwargs: Any) -> Any:
-                return func(*args, **kwargs)
-
-        named_tool.__name__ = tool_name
-        named_tool.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
-        return named_tool
 
     def _register_external_agent_adapter(
         self,
@@ -517,61 +287,6 @@ class _WorkerState:
             "host.register_codegen_target",
             {"target": target_payload},
         )
-
-    def _invoke_mcp_tool(self, params: Any) -> dict[str, Any]:
-        if not isinstance(params, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                "plugin.invoke_mcp_tool params must be an object.",
-            )
-        tool_name = params.get("toolName")
-        if not isinstance(tool_name, str) or tool_name.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "plugin.invoke_mcp_tool missing toolName.",
-            )
-        tool_fn = self.mcp_tools_by_name.get(tool_name)
-        if tool_fn is None:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin MCP tool not found: {tool_name}",
-            )
-
-        raw_args = params.get("args", [])
-        raw_kwargs = params.get("kwargs", {})
-        if not isinstance(raw_args, list):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "plugin.invoke_mcp_tool args must be an array.",
-            )
-        if not isinstance(raw_kwargs, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "plugin.invoke_mcp_tool kwargs must be an object.",
-            )
-
-        try:
-            result = tool_fn(*raw_args, **raw_kwargs)
-        except Exception as exc:
-            raise WorkerError(
-                "PLUGIN_BACKEND_MCP_TOOL_FAILED",
-                (
-                    f"Plugin MCP tool {tool_name} execution failed for "
-                    f"{self.plugin_id}: {exc}"
-                ),
-            ) from exc
-        if inspect.isawaitable(result):
-            result = self._run_awaitable(
-                result,
-                code="PLUGIN_BACKEND_MCP_TOOL_FAILED",
-                message_prefix=(
-                    f"Async plugin MCP tool {tool_name} execution failed for "
-                    f"{self.plugin_id}"
-                ),
-            )
-        return {
-            "result": result,
-        }
 
     def _invoke_codegen_target(self, params: Any) -> dict[str, Any]:
         if not isinstance(params, dict):
@@ -707,8 +422,6 @@ class _WorkerState:
         if method == "plugin.shutdown":
             self._close_async_loop()
             return {"ok": True}
-        if method == "plugin.invoke_mcp_tool":
-            return self._invoke_mcp_tool(params)
         if method == "plugin.invoke_codegen_target":
             return self._invoke_codegen_target(params)
         raise WorkerError(
@@ -726,20 +439,6 @@ class _WorkerBackendPluginContext:
         self._state = state
         self._host_call = host_call
         self.plugin_id = state.plugin_id
-
-    def register_mcp_tool(
-        self,
-        func: Any,
-        *,
-        name: str | None = None,
-        annotations: dict[str, Any] | None = None,
-    ) -> None:
-        self._state._register_mcp_tool(
-            func=func,
-            name=name,
-            annotations=annotations,
-            host_call=self._host_call,
-        )
 
     def register_external_agent_adapter(self, adapter: Any) -> None:
         self._state._register_external_agent_adapter(

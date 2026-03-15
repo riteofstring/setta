@@ -288,16 +288,11 @@ func workerHostDispatchErrorCode(err error) string {
 		return workerRPCTransportErrorCode
 	case errors.Is(err, ErrWorkerHostCapabilityDenied):
 		return workerRPCCapabilityDeniedCode
-	case errors.Is(err, ErrWorkerHostMCPToolRegistrarRequired),
-		errors.Is(err, ErrWorkerHostLanguageServerRegistrarRequired),
+	case errors.Is(err, ErrWorkerHostLanguageServerRegistrarRequired),
 		errors.Is(err, ErrWorkerHostExternalAgentRegistrarRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
 		errors.Is(err, ErrWorkerHostPluginIDRequired),
 		errors.Is(err, ErrWorkerHostPluginRootRequired),
-		errors.Is(err, ErrWorkerHostMCPToolRequired),
-		errors.Is(err, ErrWorkerHostMCPToolNameRequired),
-		errors.Is(err, ErrWorkerHostMCPToolInputSchemaRequired),
-		errors.Is(err, ErrWorkerHostMCPToolMetadataRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerLanguageRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerLanguageInvalid),
@@ -322,7 +317,6 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageNeeded),
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageInvalid),
 		errors.Is(err, ErrWorkerHostCodegenHandlerIDRequired),
-		errors.Is(err, ErrMCPToolRegistrationConflict),
 		errors.Is(err, ErrLanguageServerRegistrationConflict),
 		errors.Is(err, ErrExternalAgentAdapterRegistrationConflict),
 		errors.Is(err, ErrCodegenTargetRegistrationConflict):

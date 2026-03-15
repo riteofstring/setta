@@ -919,8 +919,7 @@ func writeBackendPluginFixture(t *testing.T, root string, pluginID string, name 
 			"entrypoint": "backend/entrypoint.py",
 		},
 		"capabilities": []string{
-			"registerMcpTools",
-			"readProjectState",
+			"registerCodegenTarget",
 		},
 	}
 	writePluginFixture(t, root, manifest, map[string]string{

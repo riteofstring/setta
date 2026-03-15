@@ -13,12 +13,3 @@ def register(plugin):
             "settingsKey": "fixtureDslLanguageServer",
         }
     )
-
-    def setta_fixture_backend_language_server_tool(*, value: str) -> str:
-        return f"language-server:{plugin.plugin_id}:{value}"
-
-    plugin.register_mcp_tool(
-        setta_fixture_backend_language_server_tool,
-        name="setta_fixture_backend_language_server_tool",
-        annotations={"accessType": "read"},
-    )

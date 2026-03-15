@@ -18,6 +18,14 @@ def _copy_backend_fixture(tmp_path: Path, fixture_name: str = "backend") -> Path
     return plugin_root
 
 
+def _write_read_project_state_entrypoint(plugin_root: Path) -> None:
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.read_project_state(project_config_id='fixture-project')\n",
+        encoding="utf-8",
+    )
+
+
 def _start_worker(
     plugin_root: Path,
 ) -> subprocess.Popen[str]:
@@ -167,43 +175,18 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert initialize_result["pluginVersion"] == "0.1.0"
         assert initialize_result["backendPluginApiVersion"] == 1
         assert "plugin.register" in initialize_result["supportedRpcMethods"]
-        assert "host.register_mcp_tool" in initialize_result["supportedRpcMethods"]
+        assert "host.register_codegen_target" in initialize_result["supportedRpcMethods"]
 
         host_method_calls: list[str] = []
-        host_requests: list[dict[str, Any]] = []
         register_response = _rpc_call(
             worker,
             request_id=2,
             method="plugin.register",
             host_method_calls=host_method_calls,
-            host_requests=host_requests,
         )
         assert register_response["id"] == 2
         assert register_response["result"] == {"ok": True}
-        assert host_method_calls == [
-            "host.register_mcp_tool",
-            "host.register_mcp_tool",
-        ]
-        mcp_tool_requests = [
-            request
-            for request in host_requests
-            if request.get("method") == "host.register_mcp_tool"
-        ]
-        assert len(mcp_tool_requests) == 2
-
-        read_payload = mcp_tool_requests[0]["params"]["tool"]
-        assert read_payload["name"] == "setta_fixture_backend_echo"
-        assert read_payload["description"] == ""
-        assert read_payload["inputSchema"]["type"] == "object"
-        assert read_payload["inputSchema"]["required"] == ["value"]
-        assert read_payload["metadata"]["kind"] == "discoverable"
-        assert read_payload["metadata"]["accessType"] == "read"
-
-        summary_payload = mcp_tool_requests[1]["params"]["tool"]
-        assert summary_payload["name"] == "setta_fixture_backend_project_summary"
-        assert summary_payload["inputSchema"]["type"] == "object"
-        assert summary_payload["metadata"]["accessType"] == "read"
-        assert summary_payload["metadata"]["searchCategory"] == "project"
+        assert host_method_calls == []
 
         shutdown_response = _rpc_call(
             worker,
@@ -265,22 +248,14 @@ def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
-def test_worker_register_supports_read_state_and_mcp_registration(
-    tmp_path: Path,
-) -> None:
-    # Worker register should support host read_project_state and retained MCP registration.
+def test_worker_register_supports_read_state(tmp_path: Path) -> None:
+    # Worker register should support host read_project_state during backend startup.
     plugin_root = _copy_backend_fixture(tmp_path)
     (plugin_root / "backend" / "entrypoint.py").write_text(
         "def register(plugin):\n"
         "    project_state = plugin.read_project_state(project_config_id='fixture-project', view='summary')\n"
         "    assert project_state['projectConfig']['id'] == 'fixture-project'\n"
-        "    def fixture_tool(*, value: str) -> str:\n"
-        "        return f\"{plugin.plugin_id}:{value}\"\n"
-        "    plugin.register_mcp_tool(\n"
-        "        fixture_tool,\n"
-        "        name='fixture_tool',\n"
-        "        annotations={'accessType': 'read'},\n"
-        "    )\n",
+        "    return None\n",
         encoding="utf-8",
     )
     worker = _start_worker(plugin_root)
@@ -327,10 +302,7 @@ def test_worker_register_supports_read_state_and_mcp_registration(
         )
         assert register_response["id"] == 2
         assert register_response["result"] == {"ok": True}
-        assert host_method_calls == [
-            "host.read_project_state",
-            "host.register_mcp_tool",
-        ]
+        assert host_method_calls == ["host.read_project_state"]
         read_request = next(
             request
             for request in host_requests
@@ -340,13 +312,6 @@ def test_worker_register_supports_read_state_and_mcp_registration(
             "projectConfigId": "fixture-project",
             "view": "summary",
         }
-        register_request = next(
-            request
-            for request in host_requests
-            if request["method"] == "host.register_mcp_tool"
-        )
-        assert register_request["params"]["tool"]["name"] == "fixture_tool"
-        assert register_request["params"]["tool"]["metadata"]["accessType"] == "read"
     finally:
         _stop_worker(worker)
 
@@ -541,13 +506,6 @@ def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
     [
         (
             "def register(plugin):\n"
-            "    def tool() -> str:\n"
-            "        return 'ok'\n"
-            "    plugin.register_mcp_tool(tool, annotations=['bad'])\n",
-            "invalid MCP annotations payload",
-        ),
-        (
-            "def register(plugin):\n"
             "    plugin.register_codegen_target({\n"
             "        'id': 'typescript',\n"
             "        'name': 'TypeScript',\n"
@@ -606,6 +564,7 @@ def test_worker_register_rejects_invalid_registration_contracts(
 def test_worker_register_surfaces_host_rpc_invalid_json_response(tmp_path: Path) -> None:
     # Host RPC invalid JSON responses should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
+    _write_read_project_state_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -631,6 +590,7 @@ def test_worker_register_surfaces_host_rpc_invalid_json_response(tmp_path: Path)
 def test_worker_register_surfaces_host_rpc_non_object_response(tmp_path: Path) -> None:
     # Host RPC responses that are valid JSON but not objects should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
+    _write_read_project_state_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -657,6 +617,7 @@ def test_worker_register_surfaces_host_rpc_non_object_response(tmp_path: Path) -
 def test_worker_register_surfaces_host_rpc_response_id_mismatch(tmp_path: Path) -> None:
     # Host RPC response id mismatches should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
+    _write_read_project_state_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -694,6 +655,7 @@ def test_worker_register_surfaces_host_rpc_response_id_mismatch(tmp_path: Path) 
 def test_worker_register_surfaces_host_rpc_missing_result_field(tmp_path: Path) -> None:
     # Host RPC responses without a result should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
+    _write_read_project_state_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -731,6 +693,7 @@ def test_worker_register_surfaces_host_rpc_invalid_error_payload(
 ) -> None:
     # Host RPC error payloads with invalid code/message types should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
+    _write_read_project_state_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -774,6 +737,7 @@ def test_worker_register_surfaces_host_rpc_invalid_error_payload(
 def test_worker_register_surfaces_host_rpc_transport_close(tmp_path: Path) -> None:
     # Host transport closure during nested host RPC should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
+    _write_read_project_state_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -854,227 +818,9 @@ def test_worker_register_codegen_target_and_invoke_codegen_target(
         _stop_worker(worker)
 
 
-def test_worker_invoke_mcp_tool_surfaces_execution_failure(tmp_path: Path) -> None:
-    # MCP tool runtime exceptions should map to deterministic MCP tool failure errors.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    (plugin_root / "backend" / "entrypoint.py").write_text(
-        "def register(plugin):\n"
-        "    def explode(*, value: str) -> str:\n"
-        "        raise RuntimeError(f'boom:{value}')\n\n"
-        "    plugin.register_mcp_tool(explode, name='explode_tool')\n",
-        encoding="utf-8",
-    )
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        _ = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-        )
-        invoke_response = _rpc_call(
-            worker,
-            request_id=3,
-            method="plugin.invoke_mcp_tool",
-            params={"toolName": "explode_tool", "args": [], "kwargs": {"value": "x"}},
-        )
-        assert invoke_response["error"]["code"] == "PLUGIN_BACKEND_MCP_TOOL_FAILED"
-    finally:
-        _stop_worker(worker)
-
-
-def test_worker_invoke_mcp_tool_success_and_validation_errors(tmp_path: Path) -> None:
-    # MCP tool invocation should support success and reject malformed payloads.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        _ = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-        )
-
-        success_response = _rpc_call(
-            worker,
-            request_id=3,
-            method="plugin.invoke_mcp_tool",
-            params={
-                "toolName": "setta_fixture_backend_echo",
-                "args": [],
-                "kwargs": {"value": "ok"},
-            },
-        )
-        assert success_response["id"] == 3
-        assert success_response["result"] == {"result": "setta-fixture-backend:ok"}
-
-        invalid_params_response = _rpc_call(
-            worker,
-            request_id=4,
-            method="plugin.invoke_mcp_tool",
-            params=[],
-        )
-        assert (
-            invalid_params_response["error"]["code"]
-            == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
-        )
-
-        missing_tool_name = _rpc_call(
-            worker,
-            request_id=5,
-            method="plugin.invoke_mcp_tool",
-            params={"args": [], "kwargs": {}},
-        )
-        assert missing_tool_name["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
-
-        missing_tool = _rpc_call(
-            worker,
-            request_id=6,
-            method="plugin.invoke_mcp_tool",
-            params={"toolName": "missing_tool", "args": [], "kwargs": {}},
-        )
-        assert missing_tool["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
-
-        invalid_args = _rpc_call(
-            worker,
-            request_id=7,
-            method="plugin.invoke_mcp_tool",
-            params={
-                "toolName": "setta_fixture_backend_echo",
-                "args": {},
-                "kwargs": {"value": "x"},
-            },
-        )
-        assert invalid_args["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
-
-        invalid_kwargs = _rpc_call(
-            worker,
-            request_id=8,
-            method="plugin.invoke_mcp_tool",
-            params={
-                "toolName": "setta_fixture_backend_echo",
-                "args": [],
-                "kwargs": [],
-            },
-        )
-        assert invalid_kwargs["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
-    finally:
-        _stop_worker(worker)
-
-
-def test_worker_invoke_mcp_tool_supports_async_tools(tmp_path: Path) -> None:
-    # MCP tool invocation should support async tools in worker mode.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    (plugin_root / "backend" / "entrypoint.py").write_text(
-        "def register(plugin):\n"
-        "    async def async_echo(*, value: str) -> str:\n"
-        "        return f'async:{value}'\n\n"
-        "    plugin.register_mcp_tool(async_echo, name='async_echo')\n",
-        encoding="utf-8",
-    )
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        _ = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-        )
-        response = _rpc_call(
-            worker,
-            request_id=3,
-            method="plugin.invoke_mcp_tool",
-            params={"toolName": "async_echo", "args": [], "kwargs": {"value": "ok"}},
-        )
-        assert response["id"] == 3
-        assert response["result"] == {"result": "async:ok"}
-    finally:
-        _stop_worker(worker)
-
-
-def test_worker_reuses_single_event_loop_for_async_tool_invocations(
-    tmp_path: Path,
-) -> None:
-    # Async worker calls should run on one persistent loop, not one loop per invocation.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    (plugin_root / "backend" / "entrypoint.py").write_text(
-        "import asyncio\n\n"
-        "_seen_loops = []\n\n"
-        "def register(plugin):\n"
-        "    async def async_loop_count(*, value: str) -> str:\n"
-        "        loop = asyncio.get_running_loop()\n"
-        "        _seen_loops.append(loop)\n"
-        "        unique_loop_count = len({id(item) for item in _seen_loops})\n"
-        "        return f'loop-count:{value}:{unique_loop_count}'\n\n"
-        "    plugin.register_mcp_tool(async_loop_count, name='async_loop_count')\n",
-        encoding="utf-8",
-    )
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        _ = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-        )
-        first = _rpc_call(
-            worker,
-            request_id=3,
-            method="plugin.invoke_mcp_tool",
-            params={
-                "toolName": "async_loop_count",
-                "args": [],
-                "kwargs": {"value": "first"},
-            },
-        )
-        second = _rpc_call(
-            worker,
-            request_id=4,
-            method="plugin.invoke_mcp_tool",
-            params={
-                "toolName": "async_loop_count",
-                "args": [],
-                "kwargs": {"value": "second"},
-            },
-        )
-        assert first["result"] == {"result": "loop-count:first:1"}
-        assert second["result"] == {"result": "loop-count:second:1"}
-    finally:
-        _stop_worker(worker)
-
-
 @pytest.mark.parametrize(
     ("entrypoint_source", "expected_payload_label"),
     [
-        (
-            "def register(plugin):\n"
-            "    class NotSerializable:\n"
-            "        pass\n\n"
-            "    def tool() -> str:\n"
-            "        return 'ok'\n\n"
-            "    plugin.register_mcp_tool(\n"
-            "        tool,\n"
-            "        name='tool_with_bad_annotations',\n"
-            "        annotations={'bad': NotSerializable()},\n"
-            "    )\n",
-            "MCP annotations payload",
-        ),
         (
             "def register(plugin):\n"
             "    class NotSerializable:\n"
