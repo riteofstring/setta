@@ -1,33 +1,29 @@
 import {
-  CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
   type ChatSlashCommandDefinition,
-  type ChatStarterPrompt,
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
-  resolveSlashCommandRequest,
   type ChatRuntimeActivityDetails,
+} from "components/Chat/ChatInput";
+import {
+  resolveSlashCommandRequest,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
   type ChatSubmitDispatchResult,
   type ChatSubmitOptions,
-} from "components/Chat/ChatInput";
+} from "components/Chat/chatInputSubmission";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   resolveAuthoritativeContextTelemetry,
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
-import {
-  resolveEffectiveThinking,
-  supportsThinkingExecutionControl,
-} from "components/Chat/engineUtils";
 import {
   Dispatch,
   SetStateAction,
@@ -42,41 +38,43 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
+import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import { stopProjectChatResponse } from "state/actions/aiChatControls";
+import { getDefaultChatDetails } from "state/actions/aiChatDetails";
+import { submitEditedMessage } from "state/actions/aiChatSubmissionEdits";
+import { submitMessage } from "state/actions/aiChatSubmissionMessages";
 import {
-  clearPendingChatDetails,
-  finalizePendingChatDetails,
-  getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-  initializePendingChatDetails,
-  loadAgentRuns,
-  stopProjectChatResponse,
-  submitEditedMessage,
-  submitMessage,
-  transcribeChatAudioWithProfile,
   type ChatHydrationErrorCode,
   type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
-} from "state/actions/ai";
-import { buildMessageBranchInfo } from "state/actions/aiBranches";
+} from "state/actions/aiHydration";
 import {
-  buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
-  type ChatRunType,
-} from "state/actions/chatHistory";
+  clearPendingChatDetails,
+  finalizePendingChatDetails,
+  initializePendingChatDetails,
+} from "state/actions/aiPendingChatMessageState";
+import { transcribeChatAudioWithProfile } from "state/actions/aiTranscriptionUpload";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import type {
+  ChatHistoryCompatibility,
+  ChatRunType,
+} from "state/actions/chatHistoryTypes";
 import {
   useAIStore,
-  useLocalStorage,
   useProjectState,
   type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   getDefaultChatAppGenerationDetails,
   resolveChatAppGenerationContextFromMessageState,
   type ChatAppGenerationContext,
   type ChatAppGenerationMessageState,
-} from "state/utils/chatAppGeneration";
+} from "state/utils/chatAppGenerationDetails";
 import { isImageAttachment } from "utils/attachmentPreview";
 import {
   hasPendingToolInteraction,
@@ -88,18 +86,15 @@ import {
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
 import {
-  route_get_file_browser_root,
-} from "utils/generatedEndpoints";
-import {
   AgentRun,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
-  EngineConfig,
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { ProjectChatEmptyState } from "./projectChatEmptyState";
 import {
   resolveProjectChatRunTypeForEngine,
   type ProjectChatHydrationAuthority,
@@ -114,17 +109,7 @@ import {
   type AgentRunsAuthorityState,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
-import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
-import {
-  loadWorkspacePythonSignal,
-  type WorkspacePythonSignalCache,
-} from "./workspacePythonSignals";
 
-const hasPythonInWorkspaceRootCache: WorkspacePythonSignalCache = new Map();
-const WORKSPACE_ROOT_FAST_POLL_MS = 5000;
-const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
-const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
-const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 const DEFAULT_CHAT_APP_GENERATION_DETAILS =
   getDefaultChatAppGenerationDetails();
 const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
@@ -638,15 +623,6 @@ export function resolveProjectChatContextTelemetry(
   return resolveAuthoritativeContextTelemetry(contextUsage);
 }
 
-export function resolveWorkspaceRootPollDelayMs(
-  stablePollCount: number,
-): number {
-  if (stablePollCount >= WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF) {
-    return WORKSPACE_ROOT_BACKOFF_POLL_MS;
-  }
-  return WORKSPACE_ROOT_FAST_POLL_MS;
-}
-
 type ProjectChatRuntimeActivityEntry =
   ChatRuntimeActivityDetails["activeBackgroundTerminals"][number];
 
@@ -794,222 +770,6 @@ export function resolveProjectChatProviderDictationTranscribeEnabled({
   providerDictationAvailable: boolean;
 }): boolean {
   return providerDictationAvailable;
-}
-
-function useWorkspaceRootIdentity(
-  enabled: boolean,
-  projectConfigId: string,
-): string | null {
-  const [workspaceRootIdentity, setWorkspaceRootIdentity] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    if (!enabled) {
-      setWorkspaceRootIdentity(null);
-      return;
-    }
-    setWorkspaceRootIdentity(null);
-    let cancelled = false;
-    let inFlight = false;
-    let stablePollCount = 0;
-    let lastResolvedRoot: string | null = null;
-    let timeoutId: number | null = null;
-
-    const clearScheduledPoll = () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-    };
-
-    const scheduleNextPoll = () => {
-      if (cancelled || document.visibilityState !== "visible") {
-        return;
-      }
-      const delay = resolveWorkspaceRootPollDelayMs(stablePollCount);
-      clearScheduledPoll();
-      timeoutId = window.setTimeout(() => {
-        void refreshRootIdentity();
-      }, delay);
-    };
-
-    const refreshRootIdentity = async () => {
-      if (cancelled || inFlight) {
-        return;
-      }
-      inFlight = true;
-      try {
-        const rootResponse = await route_get_file_browser_root();
-        if (cancelled) {
-          return;
-        }
-        if (
-          !rootResponse ||
-          rootResponse.status !== 200 ||
-          !rootResponse.data
-        ) {
-          stablePollCount = 0;
-          return;
-        }
-        let nextRoot: string | null = null;
-        const rootPath = rootResponse.data.rootPath.trim();
-        if (rootPath) {
-          nextRoot = rootPath;
-        }
-        if (nextRoot === lastResolvedRoot) {
-          stablePollCount += 1;
-        } else {
-          lastResolvedRoot = nextRoot;
-          stablePollCount = 0;
-        }
-        setWorkspaceRootIdentity((current) => {
-          if (current === nextRoot) {
-            return current;
-          }
-          return nextRoot;
-        });
-      } catch {
-        stablePollCount = 0;
-      } finally {
-        inFlight = false;
-        scheduleNextPoll();
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (cancelled) {
-        return;
-      }
-      if (document.visibilityState !== "visible") {
-        clearScheduledPoll();
-        return;
-      }
-      void refreshRootIdentity();
-    };
-
-    void refreshRootIdentity();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      cancelled = true;
-      clearScheduledPoll();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [enabled, projectConfigId]);
-
-  return workspaceRootIdentity;
-}
-
-function useHasPythonInWorkspaceRoot(
-  enabled: boolean,
-  workspaceRootIdentity: string | null,
-): boolean {
-  const [hasPython, setHasPython] = useState(false);
-  const [revalidationTick, setRevalidationTick] = useState(0);
-  const previousRootRef = useRef<string | null>(null);
-  const inFlightRootScanRef = useRef<Promise<void> | null>(null);
-  const pendingRootIdentityRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (workspaceRootIdentity === previousRootRef.current) {
-      return;
-    }
-    previousRootRef.current = workspaceRootIdentity;
-    setHasPython(false);
-  }, [workspaceRootIdentity]);
-
-  useEffect(() => {
-    if (!enabled || !workspaceRootIdentity) {
-      return;
-    }
-    let intervalId: number | null = null;
-
-    const clearRevalidationInterval = () => {
-      if (intervalId === null) {
-        return;
-      }
-      window.clearInterval(intervalId);
-      intervalId = null;
-    };
-
-    const startRevalidationInterval = () => {
-      clearRevalidationInterval();
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      intervalId = window.setInterval(() => {
-        setRevalidationTick((current) => current + 1);
-      }, WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        clearRevalidationInterval();
-        return;
-      }
-      setRevalidationTick((current) => current + 1);
-      startRevalidationInterval();
-    };
-
-    startRevalidationInterval();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      clearRevalidationInterval();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [enabled, workspaceRootIdentity]);
-
-  useEffect(() => {
-    if (!enabled || !workspaceRootIdentity) {
-      pendingRootIdentityRef.current = null;
-      setHasPython(false);
-      return;
-    }
-    if (inFlightRootScanRef.current !== null) {
-      pendingRootIdentityRef.current = workspaceRootIdentity;
-      return;
-    }
-    let cancelled = false;
-    const scannedRootIdentity = workspaceRootIdentity;
-
-    const load = async () => {
-      const rootPath = scannedRootIdentity;
-      pendingRootIdentityRef.current = null;
-      const hasPythonSignals = await loadWorkspacePythonSignal({
-        cache: hasPythonInWorkspaceRootCache,
-        rootPath,
-        revalidate: revalidationTick !== 0,
-      });
-      if (cancelled) {
-        return;
-      }
-      if (hasPythonSignals === null) {
-        if (!cancelled) {
-          setHasPython(false);
-        }
-        return;
-      }
-      setHasPython(hasPythonSignals);
-    };
-
-    const loadPromise = load().finally(() => {
-      if (inFlightRootScanRef.current === loadPromise) {
-        inFlightRootScanRef.current = null;
-      }
-      const pendingRootIdentity = pendingRootIdentityRef.current;
-      if (pendingRootIdentity && pendingRootIdentity !== scannedRootIdentity) {
-        setRevalidationTick((current) => current + 1);
-      }
-    });
-    inFlightRootScanRef.current = loadPromise;
-    void loadPromise;
-    return () => {
-      cancelled = true;
-      pendingRootIdentityRef.current = null;
-    };
-  }, [enabled, revalidationTick, workspaceRootIdentity]);
-
-  return hasPython;
 }
 
 function toSortedProjectHistoryEntries(
@@ -1241,35 +1001,6 @@ export function buildProjectChatSubmittedMessageHistory({
   return prompts;
 }
 
-function EmptyChatState({
-  starterPrompts,
-  disabled,
-  onStarterPrompt,
-}: {
-  starterPrompts: ChatStarterPrompt[];
-  disabled: boolean;
-  onStarterPrompt: (prompt: string) => void;
-}) {
-  const starterButtonClassName =
-    "cursor-pointer rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
-      {starterPrompts.map((starterPrompt) => (
-        <button
-          key={starterPrompt.id}
-          type="button"
-          className={starterButtonClassName}
-          onClick={() => onStarterPrompt(starterPrompt.prompt)}
-          disabled={disabled}
-        >
-          {starterPrompt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export const ProjectChatCore = memo(function ProjectChatCore({
   surfaceId,
   chatId,
@@ -1285,7 +1016,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
-  engineConfig,
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
@@ -1317,7 +1047,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
-  engineConfig: EngineConfig | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
@@ -1443,21 +1172,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }),
     [agentRuns, messages, projectConfigId],
   );
-  const workspaceRootIdentity = useWorkspaceRootIdentity(
-    showEmptyState,
-    projectConfigId,
-  );
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot(
-    showEmptyState,
-    workspaceRootIdentity,
-  );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const showThinkingExecutionControl =
-    supportsThinkingExecutionControl(engineConfig);
-  const effectiveThinking = resolveEffectiveThinking({
-    engineConfig,
-    requestedThinking: thinking,
-  });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
@@ -1569,26 +1284,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const hydrationStatusByKeyRef = useRef<
     Record<string, ProjectChatHydrationRetryEntry>
   >({});
-  const createProjectStarterPrompt = useMemo(
-    () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
-    [hasPythonInWorkspaceRoot],
-  );
-  const visibleStarterPrompts = useMemo(
-    () =>
-      CHAT_STARTER_PROMPTS.filter(
-        (starterPrompt) =>
-          !starterPrompt.requiresPython || hasPythonInWorkspaceRoot,
-      ).map((starterPrompt) => {
-        if (starterPrompt.id !== "create-project") {
-          return starterPrompt;
-        }
-        return {
-          ...starterPrompt,
-          prompt: createProjectStarterPrompt,
-        };
-      }),
-    [createProjectStarterPrompt, hasPythonInWorkspaceRoot],
-  );
 
   useEffect(() => {
     if (!agentRunsInitialLoadComplete) {
@@ -1986,7 +1681,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           chatId ?? null,
           message,
           attachments,
-          effectiveThinking,
+          thinking,
           engineConfigId,
           isExternalEngine,
           {
@@ -2011,6 +1706,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
+      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -2022,7 +1718,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       activeAppGeneration,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      effectiveThinking,
     ],
   );
 
@@ -2053,7 +1748,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId,
         message: text,
         attachments,
-        thinking: effectiveThinking,
+        thinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2082,9 +1777,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
+      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      effectiveThinking,
     ],
   );
 
@@ -2132,7 +1827,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId: sourceUserMessage.id,
         message: sourceText,
         attachments: sourceAttachments,
-        thinking: effectiveThinking,
+        thinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2164,8 +1859,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
+      thinking,
       waitingForResponse,
-      effectiveThinking,
     ],
   );
 
@@ -2240,9 +1935,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       ),
     [appGenerationByMessageId, messages],
   );
+  const showThinkingExecutionControl =
+    engineType === EngineTypeEnum.setta_llm ||
+    engineType === EngineTypeEnum.external_agent;
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: effectiveThinking,
+      thinkingEnabled: thinking,
       onThinkingEnabledChange: showThinkingExecutionControl
         ? onThinkingChange
         : undefined,
@@ -2252,7 +1950,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      effectiveThinking,
+      thinking,
       onThinkingChange,
       showThinkingExecutionControl,
       executionSettings.permissionMode,
@@ -2303,8 +2001,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           className={`${chatWidthShellClassName} flex min-h-0 flex-1 flex-col`}
           data-chat-width-shell="true"
         >
-          <EmptyChatState
-            starterPrompts={visibleStarterPrompts}
+          <ProjectChatEmptyState
+            projectConfigId={projectConfigId}
             disabled={isDisabled}
             onStarterPrompt={(prompt) => {
               void handleSubmit(prompt, []);

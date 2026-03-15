@@ -3,8 +3,12 @@ from typing import Any, Literal
 
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict, Field
-from setta.code_gen.dependency_graph import RenameReferenceChangedValue
+
 from setta.mcp.tool_metadata import FollowIdType
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithCompletedOpIds,
+    RenameRefactorBroadcastContent,
+)
 from setta.types.agentic import (
     AgentProfileList,
     AgentRun,
@@ -36,9 +40,8 @@ from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
-from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
+from setta.types.project_state import AllProjectMetadata
 from setta.types.prompt import PromptTemplateList
-from setta.types.settings_state import RenameRefactorMode
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -92,6 +95,7 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
 class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
+    PYTHON_SCRIPT = "PYTHON_SCRIPT"
     FRONTEND = "FRONTEND"
 
 
@@ -134,19 +138,6 @@ class WebsocketMsgAllConnections(FrontendWebsocketMsg):
 
 class FrontendIdentityContent(BaseModel):
     frontendAffinityToken: str
-
-
-class RenameRefactorBroadcastContent(BaseModel):
-    projectConfigId: ID
-    frontendOpId: str
-    renameMode: RenameRefactorMode
-    changedNodeValues: list[RenameReferenceChangedValue]
-
-
-class ProjectStateSingleConfigWithCompletedOpIds(BaseModel):
-    projectState: ProjectStateSingleConfig
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
 
 
 class WebsocketMsgFrontendIdentity(FrontendWebsocketMsg):

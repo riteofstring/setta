@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from itertools import islice
+from typing import TYPE_CHECKING
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -53,6 +54,7 @@ from setta.types.project_config import (
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
@@ -69,6 +71,9 @@ from setta.types.section_impls import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import replace_at_positions
+
+if TYPE_CHECKING:
+    from setta.database.db_objs import DBE
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +97,6 @@ class Node(ABC):
 @dataclass
 class SectionNode(Node):
     control_code_obj_type: CodeObjType | None = None
-    control_code_obj_id: ID | None = None
     control_code_obj_impl_id: ID | None = None
     control_value_representation: CodeObjValueRepresentationMode | None = None
     representation: SectionRepresentationMode = SectionRepresentationMode.expression
@@ -150,7 +154,8 @@ SectionExporter = Callable[[SectionExportContext], None]
 
 
 class DependencyGraph:
-    def __init__(self, p: ProjectStateSingleConfig):
+    def __init__(self, p: ProjectStateSingleConfig, *, dbe: "DBE | None" = None):
+        self.dbe = dbe
         self.section_exporters: dict[SectionType, SectionExporter] = {
             SectionType.Callable: self._export_callable_section,
             SectionType.Dict: self._export_dict_section,
@@ -368,6 +373,9 @@ class DependencyGraph:
         if not isinstance(section_impl, PromptSectionImpl):
             return
         prompt_text = section_impl.renderedText
+        if self.dbe is not None:
+            prompt_source = resolve_prompt_section_source(self.dbe, section_impl)
+            prompt_text = prompt_source.template
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
@@ -615,7 +623,6 @@ class DependencyGraph:
             isTopLevel=ctx.is_top_level,
             value=control_value,
             control_code_obj_type=control_impl.type,
-            control_code_obj_id=control_param_id,
             control_code_obj_impl_id=control_impl.id,
             control_value_representation=control_value_representation,
             deps={},

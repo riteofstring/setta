@@ -1,10 +1,10 @@
 import type { Connection } from "forks/xyflow/core/types";
-import { useLocalStorage } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
-  createAgenticEdgeFromConnection,
   isValidAgenticEdgeConnection,
   normalizeAgenticConnectionHandles,
-} from "./agenticEdges";
+} from "./agenticEdgeConnections";
+import { createAgenticEdgeFromConnection } from "./agenticEdgeShapeMutations";
 import {
   SHARED_CHAT_EDGE_HANDLE_IDS,
   type ChatSharedEdgeMode,
@@ -13,11 +13,9 @@ import {
   getConnectionDebugPayload,
   logWorkflowDebug,
 } from "./stateMachineDebug";
-import {
-  createStateMachineEdgeFromConnection,
-  isValidStateMachineEdgeConnection,
-  normalizeWorkflowConnectionHandles,
-} from "./stateMachineEdges";
+import { normalizeWorkflowConnectionHandles } from "./stateMachineEdgeCanonicalization";
+import { isValidStateMachineEdgeConnection } from "./stateMachineEdgeConnections";
+import { createStateMachineEdgeFromConnection } from "./stateMachineEdgeMutations";
 
 type SharedChatConnectionResolution = {
   family: ChatSharedEdgeMode;
