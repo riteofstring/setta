@@ -2,28 +2,28 @@ import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  type ZustandImages,
-  type ZustandProjectState,
   useDecodedImages,
   useImages,
+  useMisc,
   useNodeInternals,
   useProjectState,
-} from "state/storeDefinitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
+  ZustandImages,
+  ZustandProjectState,
+} from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
-import { debouncedDispatchViewportUpdate } from "./actions/projectStateCommands";
-import { getDisplayedSectionIdToChildren } from "./actions/sectionDisplayStructure";
-import { getCurrEffectiveSectionImpl } from "./actions/sectionEffectiveImpls";
 import {
+  debouncedDispatchViewportUpdate,
+  getActiveViewModeTopLevelSections,
+  getCurrEffectiveSectionImpl,
+  getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionViewModeVisibility,
-} from "./actions/sectionViewModeVisibility";
-import { getActiveViewModeTopLevelSections } from "./actions/topLevelSectionLayouts";
-import { decodeExistingRawImages } from "./hooks/artifactTransport";
+} from "./actions/sectionInfos";
+import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {
   useProjectState.subscribe(
