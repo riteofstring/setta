@@ -6,7 +6,6 @@ import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
-import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -54,6 +53,7 @@ import {
   SettaBackendLogEvent,
   SettaLspDiagnostic,
   SettaNotification,
+  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
   TranscriptionProfile,
@@ -683,6 +683,12 @@ export const useBackendLogEvents = withProjectState(
       filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
       unreadHighSeverityCount: 0,
     })),
+  ),
+);
+
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
   ),
 );
 
