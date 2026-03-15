@@ -4477,3 +4477,77 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep gesture-time shell compositor promotion out of `SectionContainerCore.tsx`.
   - If pan/zoom performance is revisited later, capture a fresh untouched-`main` versus worktree trace before trying any replacement.
+
+### 2026-03-18 119
+
+- Item: Accept the lower MetaControl date/time + password shell flattening without reopening the higher `sectionChrome` seam.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`
+  - The accepted lower-shell move is narrow:
+    - `PasswordControl(...)` no longer uses `single-cell-container`, `single-cell-child`, or the old `grid-cols-[1fr,auto]` wrapper
+    - `DateTimeControl(...)` now passes a flex/absolute lower shell into `TextParamDateTimeInput(...)` instead of the old two-column grid shell
+    - the lower underline now paints out of flow for the touched date/time path
+    - transparent display-only time mode keeps the transparent shell contract and still omits the underline
+  - Added focused direct coverage in:
+    - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - transparent display-only time shell stays transparent
+      - time input path no longer renders the two-column lower grid shell
+      - password path no longer renders the two-column lower grid shell
+    - `frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts`
+      - time display/input toggles keep the section size stable
+      - calendar/input toggles keep the section width stable
+      - the visible control stays inside the section bounds during those toggles
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `1` file passed, `7` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts`
+      - result: `11` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: `http://127.0.0.1:3087/sleet_taking`
+      - display-only time shell still reads:
+        - `single-cell-container`
+        - `grid`
+        - `grid-cols-[1fr,auto]`
+        - `single-cell-child`
+      - geometry:
+        - node `202 x 38.59`
+        - shell `200 x 36.59`
+        - outboard menu `22 x 22`
+    - worktree compare pages:
+      - existing worktree scene: `http://127.0.0.1:3011/salt_broad`
+      - isolated verification scene: `http://127.0.0.1:3011/empty_spare`
+    - worktree display-only time shell now reads:
+      - `relative`
+      - `flex`
+      - `items-stretch`
+      - no `single-cell-container`
+      - no `grid-cols-[1fr,auto]`
+      - no `single-cell-child`
+      - no `col-span-2`
+      - geometry:
+        - node `202 x 37.59`
+        - shell `200 x 35.59`
+        - outboard menu `22 x 22`
+    - isolated worktree sanity reads:
+      - time input mode kept:
+        - node `202 x 38.59`
+        - shell `200 x 36.59`
+        - input `123.85 x 18.59`
+      - password mode kept:
+        - node `202 x 34`
+        - password input `200 x 14`
+        - toggle `32 x 14`
+  - Interpretation:
+    - the lower MetaControl date/time + password slice is now accepted
+    - the higher `sectionChrome` `windowFlow` baseline stays closed
+    - the lower MetaControl seam is not exhausted yet
+    - the next pass should stay lower and decide between:
+      - the remaining MetaControl text/code shell in `TextInputControl(...)`
+      - the remaining MetaControl color-picker wrapper
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_meta-control-lower-shell-date-time-password.md`
+- Next action:
+  - Keep the accepted flex lower shell for MetaControl date/time + password.
+  - Re-read the remaining lower MetaControl `single-cell` consumers before widening upward again.
