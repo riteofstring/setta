@@ -233,6 +233,11 @@ categorize them.
   queue is no longer the shared remote-path/SSH-arg pass-through family; the
   remaining adjacent CLI backlog is the more involved foreground/verbose
   connect behavior or other similarly bounded proof-only owners elsewhere
+- Those remote `connect` foreground/verbose rows are now proved too, so the
+  next cheap queue should move off the shared SSH-helper CLI owner and onto
+  other bounded proof-only rows such as UI-setting/plugin-state,
+  workspace-launch local metadata persistence, or similarly narrow service and
+  route slices before returning to heavier missing surfaces
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
