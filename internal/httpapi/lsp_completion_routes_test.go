@@ -134,6 +134,27 @@ func TestRegisterLSPRoutesRejectsShareModeCompletionRequests(t *testing.T) {
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
+	assertDetailBody(t, response.Body.Bytes(), "Deployment mode disallows language server features.")
+}
+
+// Completion routes should preserve the source launcher detail body too.
+func TestRegisterLSPRoutesRejectsLauncherModeCompletionRequests(t *testing.T) {
+	t.Parallel()
+
+	handler := newLSPRouteTestHandler(t, config.ModeLauncher, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCodeAreaCompletion,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","fullText":"fixture.","position":8}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	assertDetailBody(t, response.Body.Bytes(), "Launcher mode does not allow this endpoint.")
 }
 
 func completionRouteTestRuntime(t *testing.T) *projectstate.Runtime {

@@ -117,6 +117,28 @@ func TestRegisterLSPRoutesRejectsShareModeRequests(t *testing.T) {
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
+	assertDetailBody(t, response.Body.Bytes(), "Deployment mode disallows language server features.")
+}
+
+// Launcher-mode diagnostics routes should preserve the source detail body
+// instead of the generic Go error envelope.
+func TestRegisterLSPRoutesRejectsLauncherModeRequests(t *testing.T) {
+	t.Parallel()
+
+	handler := newLSPRouteTestHandler(t, config.ModeLauncher, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestLSPDiagnostics,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	assertDetailBody(t, response.Body.Bytes(), "Launcher mode does not allow this endpoint.")
 }
 
 // Diagnostics ignore-state routes should persist the project-state mutation and
@@ -294,6 +316,106 @@ func TestRegisterLSPRoutesTypeChecksProject(t *testing.T) {
 	}
 }
 
+// The admin-side LSP routes follow the source full-runtime router policy:
+// deployment/share and launcher failures must return a plain detail body.
+func TestRegisterLSPRoutesAdminModeGuardsReturnSourceDetailBodies(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name           string
+		mode           config.Mode
+		path           string
+		body           string
+		expectedDetail string
+	}{
+		{
+			name:           "restart share",
+			mode:           config.ModeShare,
+			path:           RouteRestartLanguageServer,
+			body:           "null",
+			expectedDetail: "Deployment mode does not allow this endpoint.",
+		},
+		{
+			name:           "restart launcher",
+			mode:           config.ModeLauncher,
+			path:           RouteRestartLanguageServer,
+			body:           "null",
+			expectedDetail: "Launcher mode does not allow this endpoint.",
+		},
+		{
+			name:           "type check share",
+			mode:           config.ModeShare,
+			path:           RouteTypeCheck,
+			body:           `{"projectConfigId":"project-alpha"}`,
+			expectedDetail: "Deployment mode does not allow this endpoint.",
+		},
+		{
+			name:           "type check launcher",
+			mode:           config.ModeLauncher,
+			path:           RouteTypeCheck,
+			body:           `{"projectConfigId":"project-alpha"}`,
+			expectedDetail: "Launcher mode does not allow this endpoint.",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := newLSPRouteTestHandler(t, tc.mode, nil, nil, nil)
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			assertDetailBody(t, response.Body.Bytes(), tc.expectedDetail)
+		})
+	}
+}
+
+// Diagnostics mutation routes share the same project-manager policy as the
+// completion and snapshot routes, including the source detail text.
+func TestRegisterLSPRoutesMutationModeGuardsReturnSourceDetailBodies(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name           string
+		mode           config.Mode
+		expectedDetail string
+	}{
+		{
+			name:           "share",
+			mode:           config.ModeShare,
+			expectedDetail: "Deployment mode disallows language server features.",
+		},
+		{
+			name:           "launcher",
+			mode:           config.ModeLauncher,
+			expectedDetail: "Launcher mode does not allow this endpoint.",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := newLSPRouteTestHandler(t, tc.mode, nil, nil, nil)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetCodeSectionDiagnosticsMute,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1","mute":true}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			assertDetailBody(t, response.Body.Bytes(), tc.expectedDetail)
+		})
+	}
+}
+
 func newLSPRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
@@ -428,5 +550,19 @@ func testHTTPAPILSPDiagnostic(code string) projectstate.LSPDiagnostic {
 			End:   projectstate.LSPDiagnosticPosition{Line: 0, Character: 1},
 		},
 		URI: &uri,
+	}
+}
+
+func assertDetailBody(t *testing.T, body []byte, expected string) {
+	t.Helper()
+
+	var payload struct {
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode detail body: %v", err)
+	}
+	if payload.Detail != expected {
+		t.Fatalf("expected detail %q, got %#v", expected, payload)
 	}
 }

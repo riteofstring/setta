@@ -128,18 +128,60 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 		}
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRestartLanguageServer, restartLanguageServerHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTypeCheck, typeCheckHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteClearTextFieldCompletion, clearTextFieldCompletionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTextFieldCompletion, textFieldCompletionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteOutputAccessorCompletion, outputAccessorCompletionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCodeAreaCompletion, codeAreaCompletionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGenCodePrefixCompletion, genCodePrefixCompletionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGenCodeSuffixCompletion, genCodeSuffixCompletionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestLSPDiagnostics, getLatestLSPDiagnosticsHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionDiagnosticsMute, setCodeSectionDiagnosticsMuteHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionDiagnosticCodeSuppression, setCodeSectionDiagnosticCodeSuppressionHandler(deps))
+	router.Post(RouteRestartLanguageServer, withLSPAdminModeGuard(deps.ModePolicy, restartLanguageServerHandler(deps)))
+	router.Post(RouteTypeCheck, withLSPAdminModeGuard(deps.ModePolicy, typeCheckHandler(deps)))
+	router.Post(RouteClearTextFieldCompletion, withLSPProjectModeGuard(deps.ModePolicy, clearTextFieldCompletionHandler(deps)))
+	router.Post(RouteTextFieldCompletion, withLSPProjectModeGuard(deps.ModePolicy, textFieldCompletionHandler(deps)))
+	router.Post(RouteOutputAccessorCompletion, withLSPProjectModeGuard(deps.ModePolicy, outputAccessorCompletionHandler(deps)))
+	router.Post(RouteCodeAreaCompletion, withLSPProjectModeGuard(deps.ModePolicy, codeAreaCompletionHandler(deps)))
+	router.Post(RouteGenCodePrefixCompletion, withLSPProjectModeGuard(deps.ModePolicy, genCodePrefixCompletionHandler(deps)))
+	router.Post(RouteGenCodeSuffixCompletion, withLSPProjectModeGuard(deps.ModePolicy, genCodeSuffixCompletionHandler(deps)))
+	router.Post(RouteGetLatestLSPDiagnostics, withLSPProjectModeGuard(deps.ModePolicy, getLatestLSPDiagnosticsHandler(deps)))
+	router.Post(RouteSetCodeSectionDiagnosticsMute, withLSPProjectModeGuard(deps.ModePolicy, setCodeSectionDiagnosticsMuteHandler(deps)))
+	router.Post(RouteSetCodeSectionDiagnosticCodeSuppression, withLSPProjectModeGuard(deps.ModePolicy, setCodeSectionDiagnosticCodeSuppressionHandler(deps)))
 	return nil
+}
+
+func withLSPAdminModeGuard(policy modes.Policy, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := lspAdminModeDetail(policy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func withLSPProjectModeGuard(policy modes.Policy, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := lspProjectModeDetail(policy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func lspAdminModeDetail(policy modes.Policy) (string, bool) {
+	switch {
+	case policy.IsDeployment():
+		return "Deployment mode does not allow this endpoint.", true
+	case policy.IsLauncher():
+		return "Launcher mode does not allow this endpoint.", true
+	default:
+		return "", false
+	}
+}
+
+func lspProjectModeDetail(policy modes.Policy) (string, bool) {
+	switch {
+	case policy.IsDeployment():
+		return "Deployment mode disallows language server features.", true
+	case policy.IsLauncher():
+		return "Launcher mode does not allow this endpoint.", true
+	default:
+		return "", false
+	}
 }
 
 func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
