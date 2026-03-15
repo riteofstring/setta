@@ -164,3 +164,36 @@ def test_post_resolves_auth_headers_once_and_reuses_session_headers(
         "setta-auth=cached",
         "setta-auth=cached",
     ]
+
+
+def test_resolve_auth_headers_consumes_bootstrap_token(monkeypatch) -> None:
+    runner = SettaRunner(
+        base_url="http://127.0.0.1:8000",
+        bootstrap_token="  bootstrap-token  ",
+    )
+    observed_requests: list[tuple[str, dict[str, str]]] = []
+
+    def post(url: str, json: dict[str, str]) -> requests.Response:
+        observed_requests.append((url, json))
+        response = requests.Response()
+        response.status_code = 200
+        response.url = url
+        response._content = b"{}"
+        cookies = requests.cookies.RequestsCookieJar()
+        cookies.set(auth_cookie_name("session-a"), "cookie-value")
+        response.cookies = cookies
+        return response
+
+    monkeypatch.setattr(runner._session, "post", post)
+
+    # Bootstrap auth should consume the trimmed token against the backend
+    # bootstrap route and return the auth cookie header from that response.
+    assert runner._resolve_auth_headers() == {
+        "Cookie": f"{auth_cookie_name('session-a')}=cookie-value"
+    }
+    assert observed_requests == [
+        (
+            f"http://127.0.0.1:8000{runner_mod.Route.BOOTSTRAP_CONSUME.value}",
+            {"token": "bootstrap-token"},
+        )
+    ]

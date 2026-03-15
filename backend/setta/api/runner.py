@@ -305,7 +305,24 @@ class SettaRunner:
         if self._auth_headers is not None:
             return dict(self._auth_headers)
         if self._bootstrap_token is not None:
-            cookie_header = self._consume_bootstrap_token(self._bootstrap_token)
+            origin = origin_from_backend_url(self._base_url)
+            consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+            response = self._session.post(
+                consume_url,
+                json={"token": self._bootstrap_token},
+            )
+            response.raise_for_status()
+            cookie_map = response.cookies.get_dict()
+            cookie_names = list(cookie_map.keys())
+            if not cookie_names:
+                raise ValueError("Bootstrap response did not include auth cookie.")
+            cookie_name = select_auth_cookie_name(cookie_names)
+            if not cookie_name:
+                raise ValueError("Bootstrap response did not include auth cookie.")
+            cookie_value = cookie_map.get(cookie_name)
+            if not cookie_value:
+                raise ValueError("Bootstrap response did not include auth cookie.")
+            cookie_header = f"{cookie_name}={cookie_value}"
             return {"Cookie": cookie_header}
         session_info = load_current_session_secret()
         if session_info is not None:
@@ -320,23 +337,6 @@ class SettaRunner:
             "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
             "workspace)."
         )
-
-    def _consume_bootstrap_token(self, token: str) -> str:
-        origin = origin_from_backend_url(self._base_url)
-        consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
-        response = self._session.post(consume_url, json={"token": token})
-        response.raise_for_status()
-        cookie_map = response.cookies.get_dict()
-        cookie_names = list(cookie_map.keys())
-        if not cookie_names:
-            raise ValueError("Bootstrap response did not include auth cookie.")
-        cookie_name = select_auth_cookie_name(cookie_names)
-        if not cookie_name:
-            raise ValueError("Bootstrap response did not include auth cookie.")
-        cookie_value = cookie_map.get(cookie_name)
-        if not cookie_value:
-            raise ValueError("Bootstrap response did not include auth cookie.")
-        return f"{cookie_name}={cookie_value}"
 
     def _load_cookie_from_sessions(self) -> str | None:
         def normalize_host(host: str | None) -> str | None:
