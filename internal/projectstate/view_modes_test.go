@@ -157,6 +157,35 @@ func TestDocumentNormalizedRepairsViewModesAndProjectsActiveState(t *testing.T) 
 	}
 }
 
+func TestDocumentNormalizedPrunesStaleActiveIDs(t *testing.T) {
+	t.Parallel()
+
+	project := viewModesTestProject(t)
+	project.ActiveIDs = []string{
+		"standalone-section",
+		"stale-section",
+		"parent-section",
+	}
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize document: %v", err)
+	}
+
+	normalizedProject := normalized.Projects["project-alpha"]
+	if !reflect.DeepEqual(normalizedProject.ActiveIDs, []string{"standalone-section", "parent-section"}) {
+		t.Fatalf("expected stale active ids to be pruned, got %#v", normalizedProject.ActiveIDs)
+	}
+}
+
 func TestDocumentNormalizedViewportInitializedDefaultsFalseAndPreservesExplicitTrue(t *testing.T) {
 	t.Parallel()
 

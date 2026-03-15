@@ -1401,6 +1401,35 @@ class Route:
             },
         )
 
+    def test_summarize_latest_state_prunes_stale_active_ids_detects_pruning(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectState": {
+                "projectConfig": {
+                    "activeIds": ["section-a"],
+                }
+            }
+        }
+
+        summary = harness.summarize_latest_state_prunes_stale_active_ids(
+            http_status=200,
+            payload=payload,
+            valid_section_id="section-a",
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "httpStatus": 200,
+                "activeIDCount": 1,
+                "retainedValidSectionID": True,
+                "hasDeletedSectionID": False,
+            },
+        )
+
     def test_summarize_settings_project_deleted_active_view_mode_repair_detects_stable_projection(
         self,
     ) -> None:

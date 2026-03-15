@@ -588,6 +588,7 @@ func (p Project) Normalized() (Project, error) {
 	if err := normalized.normalizeViewModesOnLoad(); err != nil {
 		return Project{}, fmt.Errorf("normalize view modes: %w", err)
 	}
+	normalized.ActiveIDs = pruneStaleSectionIDs(normalized.ActiveIDs, normalized.Sections)
 
 	topLevelSeen := make(map[string]struct{}, len(normalized.TopLevelSectionIDs))
 	for _, sectionID := range normalized.TopLevelSectionIDs {
@@ -662,6 +663,21 @@ func (p Project) Normalized() (Project, error) {
 	}
 
 	return normalized, nil
+}
+
+func pruneStaleSectionIDs(sectionIDs []string, sections map[string]Section) []string {
+	if len(sectionIDs) == 0 {
+		return []string{}
+	}
+
+	pruned := make([]string, 0, len(sectionIDs))
+	for _, sectionID := range sectionIDs {
+		if _, ok := sections[sectionID]; !ok {
+			continue
+		}
+		pruned = append(pruned, sectionID)
+	}
+	return pruned
 }
 
 func (p Project) HasTopLevelSection(sectionID string) bool {

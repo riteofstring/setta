@@ -790,6 +790,8 @@ def execute_scenario(
         return execute_toggle_view_mode_broadcast(backend)
     if scenario.kind == "latest_state_after_create_project":
         return execute_latest_state_after_create_project(backend)
+    if scenario.kind == "latest_state_prunes_stale_active_ids":
+        return execute_latest_state_prunes_stale_active_ids(backend)
     if scenario.kind == "persisted_project_windowing_after_create":
         return execute_persisted_project_windowing_after_create(backend)
     if scenario.kind == "settings_project_shell":
@@ -974,6 +976,75 @@ def execute_latest_state_after_create_project(
     return summary, {
         "createdProjectName": created_name,
         "loadProjectConfig": loaded,
+        "latestProjectState": payload,
+    }
+
+
+def execute_latest_state_prunes_stale_active_ids(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    persisted_payload = read_persisted_project_document(backend)
+    projects = object_field(persisted_payload, "projects", allow_missing=True)
+    source_projects = object_field(
+        persisted_payload,
+        "projectConfigs",
+        allow_missing=True,
+    )
+    project = expect_object(
+        projects.get(project_id) or source_projects.get(project_id),
+        f"projects.{project_id}",
+    )
+
+    top_level_section_ids = expect_string_list(
+        project.get("topLevelSectionIds"),
+        f"projects.{project_id}.topLevelSectionIds",
+    )
+    if not top_level_section_ids:
+        top_level_sections = object_field(
+            project,
+            "topLevelSections",
+            allow_missing=True,
+        )
+        top_level_section_ids = list(top_level_sections.keys())
+    if not top_level_section_ids:
+        raise ParityHarnessError(
+            f"Expected project {project_id!r} to have at least one top-level section."
+        )
+
+    valid_section_id = top_level_section_ids[0]
+    project["activeIds"] = [valid_section_id, "deleted-section"]
+    if project_id in projects:
+        projects[project_id] = project
+        persisted_payload["projects"] = projects
+    else:
+        source_projects[project_id] = project
+        persisted_payload["projectConfigs"] = source_projects
+    write_json(backend.setta_files_root / PROJECT_FILE_NAME, persisted_payload)
+
+    restart_backend(backend)
+
+    response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    payload = normalize_response_json(response)
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {payload!r}"
+        )
+    summary = summarize_latest_state_prunes_stale_active_ids(
+        http_status=response.status_code,
+        payload=payload,
+        valid_section_id=valid_section_id,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "loadProjectConfig": loaded,
+        "persistedProjectDocumentAfterActiveIDCorruption": persisted_payload,
         "latestProjectState": payload,
     }
 
@@ -2120,6 +2191,25 @@ def summarize_latest_state_after_create_project(
             object_field(project_config, "topLevelSections", allow_missing=True)
         ),
         "shownParamEntryCount": len(shown_param_ids),
+    }
+
+
+def summarize_latest_state_prunes_stale_active_ids(
+    http_status: int,
+    payload: dict[str, Any],
+    valid_section_id: str,
+) -> dict[str, Any]:
+    project_state = object_field(payload, "projectState")
+    project_config = object_field(project_state, "projectConfig")
+    active_ids = expect_string_list(
+        project_config.get("activeIds"),
+        "projectState.projectConfig.activeIds",
+    )
+    return {
+        "httpStatus": http_status,
+        "activeIDCount": len(active_ids),
+        "retainedValidSectionID": valid_section_id in active_ids,
+        "hasDeletedSectionID": "deleted-section" in active_ids,
     }
 
 
