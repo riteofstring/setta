@@ -1573,6 +1573,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteToggleVariantJSONSource, toggleVariantJSONSourceHandler(deps))
 		router.With(shareGuard).Post(RouteSetVariantJSONSourceKeys, setVariantJSONSourceKeysHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionVariantName, setSectionVariantNameHandler(deps))
+		router.With(shareGuard).Post(RoutePrepareSectionsForCopy, prepareSectionsForCopyHandler(deps))
 		router.With(shareGuard).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 		router.With(shareGuard).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 		router.With(shareGuard).Post(RouteSetViewport, setViewportHandler(deps))
@@ -2641,12 +2642,17 @@ func prepareSectionsForCopyHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		response, err := deps.ProjectState.PrepareSectionsForCopy(r.Context(), projectID, payload.SectionIDs)
+		response, err := runtime.PrepareSectionsForCopy(r.Context(), projectID, payload.SectionIDs)
 		if err != nil {
 			writePrepareSectionsForCopyError(w, r, err)
 			return

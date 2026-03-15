@@ -160,9 +160,9 @@ It covers:
 - The project-chat-windowing / window-space slice adds no new concrete gap,
   but it does add two more proof-gap rows around layout-only thread-binding
   invariants and remaining window-space transport mapping.
-- The history/clipboard slice mostly closes with proofs, but it adds two more
-  clipboard parity gaps plus one more dormant deployment-mode route-boundary
-  row.
+- The history/clipboard slice mostly closes with proofs and now only retains
+  one more clipboard parity gap plus one more dormant deployment-mode
+  route-boundary row.
 - The view-mode layout / layout-presentation slice now closes with proofs and
   adds no new concrete gap.
 - The section-chrome / child-defaults / param-selection slice mostly closes
@@ -971,7 +971,7 @@ It covers:
 | `CB-01` | `prepareSectionsForCopy` returns a section-subtree clipboard payload containing the selected roots plus descendants and the section/code-object state needed to reconstruct that subtree on paste. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_prepare_sections_for_copy`; source manager method: `backend/setta/project_state/base_project_manager.py::prepare_sections_for_copy`; source helper: `backend/setta/types/helpers_lvl3.py::prepare_sections_for_copy`. | Impl: `internal/projectstate/clipboard_sections.go::{PrepareSectionsForCopy,prepareSectionsForCopy,prepareClipboardCoreWithVariants}`; proof: `internal/projectstate/clipboard_sections_test.go::TestProjectPrepareSectionsForCopyIncludesDescendantsAndActiveVariantMap`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState`. | `Proved` | The current Go proof also covers descendant active-variant preservation, which is tracked separately as a source-parity gap in `CB-03`. |
 | `CB-02` | Non-reference `pasteSections` clones nested section/code-object ids, preserves child hierarchy, positions pasted roots at the requested top-level coordinates, and clears copied password secrets/defaults while remapping nested references. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_paste_sections`; source manager method: `backend/setta/project_state/base_project_manager.py::paste_sections`; source helpers: `backend/setta/types/helpers_lvl3.py::{copy_sections_and_other_info,clear_copied_password_secrets,paste_sections}`. | Impl: `internal/projectstate/clipboard_sections.go::{PasteSections,cloneClipboardProjectState,mergeClipboardSections,remapCodeObjectImpls}`; proof: `internal/projectstate/clipboard_sections_test.go::TestDocumentPasteSectionsClonesNestedIDsAndClearsPasswordSecrets`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState`. | `Proved` | Current Go also preserves top-level layout z-order by assigning fresh creation indexes, which is compatible with the source helper contract for pasted roots. |
 | `CB-03` | The source clipboard payload only preserves explicit `sectionVariantMap` entries for the directly requested section ids, not every descendant copied into the subtree. | Source manager method: `backend/setta/project_state/base_project_manager.py::prepare_sections_for_copy`; source paste helper: `backend/setta/types/helpers_lvl3.py::paste_sections`. | Current Go builds `SectionVariantMap` for every copied section in `internal/projectstate/clipboard_sections.go::prepareClipboardCoreWithVariants`; proof: `internal/projectstate/clipboard_sections_test.go::TestProjectPrepareSectionsForCopyIncludesDescendantsAndActiveVariantMap`. | `Missing` | This is a real source-parity delta: descendant sections pasted from the current Go clipboard preserve non-default active variants that the pinned Python baseline would drop unless those descendants were explicitly selected roots. |
-| `CB-04` | In share/app sessions, `prepareSectionsForCopy` stays mounted and callable instead of disappearing with IDE-only route registration. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_prepare_sections_for_copy`. | Current Go mounts the route only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still calls the direct route without a deployment/share guard via `frontend/src/state/actions/copyPaste.ts::copy` and `frontend/src/state/actions/keyActivations.ts`. | `Missing` | This is an active parity gap: deployment/share copy remains wired in the current frontend, but the Go backend removed the route outside IDE instead of preserving the source clipboard read surface. |
+| `CB-04` | In share/app sessions, `prepareSectionsForCopy` stays mounted and callable instead of disappearing with IDE-only route registration. | Source docs: `docs/reference/keyboard-shortcuts.md`; source route: `backend/setta/routers/project_manager.py::route_prepare_sections_for_copy`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,prepareSectionsForCopyHandler}`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesPrepareSectionsForCopyUsesDeploymentOverlayWhenParamChangesAllowed,TestRegisterProjectRoutesPrepareSectionsForCopyRejectsDeploymentPolicyWhenParamChangesDisallowed}`. | `Proved` | Current Go now keeps the copy route mounted in deployment sessions, scopes reads to the active session overlay, and matches the source param-policy boundary with typed `403 param_changes_forbidden` responses when copying is disallowed. |
 | `CB-05` | In share/app sessions, `pasteSections` stays mounted but fails closed with deployment-mode `403` for structural writes instead of disappearing entirely. | Source route: `backend/setta/routers/project_manager.py::route_paste_sections`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_paste_sections_blocked`. | Current Go mounts the route only in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend short-circuits deployment paste before reading the clipboard in `frontend/src/state/actions/copyPaste.ts::paste`, with proof in `frontend/src/state/actions/copyPaste.test.ts::it(\"blocks paste in deployment mode before touching clipboard state\")`. | `Dormant / unproven caller` | The direct HTTP transport delta is real (`403` versus route absence), but this slice does not yet cite an active non-frontend deployment caller that still requires the source route-presence contract. |
 
 ## View-Mode Layout And Layout-Presentation Routes
@@ -1169,12 +1169,12 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains eighteen concrete source-parity gaps:
+1. The matrix now contains seventeen concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, and `DL-02`.
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
@@ -1267,8 +1267,8 @@ It covers:
 33. The project-chat-windowing / window-space slice adds no new real
     behavior gap, but it does add two broader proof-gap rows (`CW-02`,
     `CW-06`).
-34. The history/clipboard slice mostly closes with proofs, but it adds two
-    real clipboard-route/payload gaps (`CB-03`, `CB-04`) plus one dormant
+34. The history/clipboard slice mostly closes with proofs and now only
+    retains one real clipboard payload gap (`CB-03`) plus one dormant
     deployment-mode route-boundary row (`CB-05`).
 35. The view-mode layout / layout-presentation slice now closes with proofs
     and adds no real deployment-policy gap.
@@ -1320,7 +1320,7 @@ It covers:
       `WS-01`,
       `DP-08`,
       `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
-      `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
+      `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`,
       `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
