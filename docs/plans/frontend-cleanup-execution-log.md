@@ -3640,3 +3640,36 @@ module map and placement guide while this cleanup progresses.
 - Correction:
   - The slice commit hash for the AI chat streaming routing split is
     `cfc51918b3f393425e1cd8494b7cda2c9dcc1eae`.
+
+## 2026-03-15 09:28:03 PDT
+
+- Slice completed: split AI chat submission into message, edit, and response
+  owners
+- Key files touched:
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/aiChatSubmissionMessages.ts`
+  - `frontend/src/state/actions/aiChatSubmissionEdits.ts`
+  - `frontend/src/state/actions/aiChatSubmissionResponse.ts`
+  - `frontend/src/state/actions/aiSubmitMessage.test.ts`
+  - `frontend/src/state/actions/aiEditedMessage.test.ts`
+  - `frontend/src/state/actions/aiWebsocketAffinitySubmit.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiWebsocketAffinitySubmit.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx src/state/actions/aiChatPromotion.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatSubmission.ts src/state/actions/aiChatSubmissionResponse.ts src/state/actions/aiChatSubmissionMessages.ts src/state/actions/aiChatSubmissionEdits.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiWebsocketAffinitySubmit.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Section/Layouts/ChatArea.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `45ab04360f322a3bfbeea1539b57be30adc2c666`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/gitGraphPaginationState.ts`, now the
+    largest authored/shared hotspot at 204 lines, by separating load-more
+    request gating from appended-page merge or load-more error-state writes.
