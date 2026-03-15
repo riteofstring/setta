@@ -83,7 +83,7 @@
 
 ## Environment & Tooling
 
-- Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --all-extras` and activates the venv.
+- Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --extra source --extra dev --extra gemini` and activates the venv.
 - `dev_install.sh` is the one-stop local setup (runs `init_env.sh`, installs frontend deps, installs agent sidecars, then cleans). Source it if you want the venv to stay active: `. ./dev_install.sh`.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
@@ -119,6 +119,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 ## Generation & Cleanup
 
 - Use `pnpm generate` to regenerate frontend templates/bindings and backend generated types. This command can produce a large diff.
+- Use `pnpm -C frontend generate-go-frontend-bindings` when only the canonical Go-owned frontend route/type/endpoint outputs need regeneration; this path does not require Python activation.
 - Large diffs after `pnpm generate` are often expected: we frequently run cleanup (`pnpm gcf`/`./gcf.sh` and `pnpm full-cleanup`) that removes unused generated files, and `pnpm generate` brings them back.
 - `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root; `pnpm gcf` includes cleanup that can prune unused generated files.
 - `pnpm full-cleanup` runs Knip + a Python prune step and deletes unused generated files.
