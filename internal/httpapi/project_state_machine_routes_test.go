@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/config"
@@ -296,6 +297,52 @@ func TestRegisterProjectRoutesStateMachineMutationsRejectInvalidPayloads(t *test
 		EdgeIDs:   []string{"missing-edge"},
 	}, http.StatusNotFound, "")
 	stateMachineRouteErrorCode(t, missingDeleteResponse, "state_machine_edge_not_found")
+}
+
+func TestRegisterProjectRoutesStateMachineCreateEdgeRejectsMissingPromptTemplateReference(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": stateMachineRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	missingTemplateID := "missing-template"
+	response := stateMachineRouteRequest(t, handler, RouteCreateStateMachineEdge, CreateStateMachineEdgeRequest{
+		ProjectID:       "project-alpha",
+		ID:              stringPointer("edge-gate-chat"),
+		MachineGroupID:  "workflow-a",
+		SourceSectionID: "gate-section",
+		SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+		TargetSectionID: "chat-section",
+		TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+		TargetAction: &projectstate.StateMachineTargetAction{
+			Type:             projectstate.StateMachineTargetActionTypeSendPrompt,
+			PromptTemplateID: &missingTemplateID,
+		},
+	}, http.StatusUnprocessableEntity, "")
+	stateMachineRouteErrorCode(t, response, "state_machine_edge_invalid")
+	if !strings.Contains(response.Body.String(), "Prompt template missing-template not found") {
+		t.Fatalf("expected missing prompt template message, got %q", response.Body.String())
+	}
+
+	projectSnapshot := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(projectSnapshot.StateMachineEdges) != 0 {
+		t.Fatalf("expected missing prompt template edge creation to leave state machine edges empty, got %#v", projectSnapshot.StateMachineEdges)
+	}
 }
 
 func TestRegisterProjectRoutesStateMachineCreateEdgeMergesMachineGroups(t *testing.T) {

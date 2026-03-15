@@ -346,6 +346,86 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	}
 }
 
+func TestRegisterDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *testing.T) {
+	t.Parallel()
+
+	appSpecPath := appspec.DefaultPath()
+	appSpecPayload := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
+		AppSpecPath: appSpecPath,
+	}))
+	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
+		t.Fatalf("write app spec: %v", err)
+	}
+
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	fixture.setPublishedAt(time.Date(2026, 3, 8, 14, 0, 0, 0, time.UTC))
+	shareResponse := httptest.NewRecorder()
+	shareRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteShareDeployments,
+		strings.NewReader(`{"deploymentName":"demo-collision","projectConfigId":"project-alpha"}`),
+	)
+	shareRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(shareResponse, shareRequest)
+	if shareResponse.Code != http.StatusOK {
+		t.Fatalf("expected share publish 200, got %d with body %q", shareResponse.Code, shareResponse.Body.String())
+	}
+
+	fixture.setPublishedAt(time.Date(2026, 3, 8, 15, 0, 0, 0, time.UTC))
+	appResponse := httptest.NewRecorder()
+	appRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppDeployments,
+		strings.NewReader(`{"deploymentName":"demo-collision","projectConfigId":"project-alpha"}`),
+	)
+	appRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(appResponse, appRequest)
+	if appResponse.Code != http.StatusOK {
+		t.Fatalf("expected app publish 200, got %d with body %q", appResponse.Code, appResponse.Body.String())
+	}
+
+	shareLatestResponse := httptest.NewRecorder()
+	shareLatestRequest := httptest.NewRequest(http.MethodGet, "/api/share/deployments/demo-collision/latest", nil)
+	handler.ServeHTTP(shareLatestResponse, shareLatestRequest)
+	if shareLatestResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected share latest 404 when newest root is app-only, got %d with body %q", shareLatestResponse.Code, shareLatestResponse.Body.String())
+	}
+	deploymentIDERouteErrorCode(t, shareLatestResponse, "not_found")
+	if !strings.Contains(shareLatestResponse.Body.String(), "Share deployment not found") {
+		t.Fatalf("expected share latest route to explain missing share deployment, got %q", shareLatestResponse.Body.String())
+	}
+
+	appLatestResponse := httptest.NewRecorder()
+	appLatestRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-collision/latest", nil)
+	handler.ServeHTTP(appLatestResponse, appLatestRequest)
+	if appLatestResponse.Code != http.StatusOK {
+		t.Fatalf("expected app latest 200, got %d with body %q", appLatestResponse.Code, appLatestResponse.Body.String())
+	}
+
+	var appLatestPayload deploymentMetadataResponse
+	if err := json.Unmarshal(appLatestResponse.Body.Bytes(), &appLatestPayload); err != nil {
+		t.Fatalf("decode app latest payload: %v", err)
+	}
+	appManifest, err := deployments.LoadManifest(appLatestPayload.DeploymentRoot)
+	if err != nil {
+		t.Fatalf("load app latest manifest: %v", err)
+	}
+	if appManifest.DeploymentType != deployments.TypeApp {
+		t.Fatalf("expected app latest route to return app manifest, got %q", appManifest.DeploymentType)
+	}
+	if appLatestPayload.DeploymentVersion != "v2" {
+		t.Fatalf("expected app latest route to resolve newest app deployment v2, got %q", appLatestPayload.DeploymentVersion)
+	}
+}
+
 func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish(t *testing.T) {
 	t.Parallel()
 
