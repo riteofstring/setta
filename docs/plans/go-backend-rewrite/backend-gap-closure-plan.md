@@ -105,3 +105,7 @@ categorize them.
   config proof backlog is basically the platform-default Setta-home row plus
   the broader user-config validation row unless another shared-owner slice
   closes faster than the larger live-surface gaps
+- The broader user-config validation row is now proved too, which leaves the
+  platform-default Setta-home row as the only obvious small remaining config
+  proof slice before it is probably better to switch focus back to the larger
+  deployment, websocket, watch-code, external-agent, and packaged-CLI gaps
