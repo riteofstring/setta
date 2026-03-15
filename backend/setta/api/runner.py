@@ -14,7 +14,7 @@ from setta.project_state.project_manager_types import (
     RunDetachedResponse,
     RunStatusResponse,
 )
-from setta.sessions.registry import SessionRegistry
+from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -338,27 +338,18 @@ class SettaRunner:
         return f"{cookie_name}={cookie_value}"
 
     def _load_cookie_from_sessions(self) -> str | None:
-        sessions_root = resolve_sessions_root(self._workspace_root)
-        if sessions_root is None:
+        registry = self._build_session_registry()
+        if registry is None:
             return None
-        registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace(self._workspace_root)
         if not sessions:
             return None
-        parsed_base_url = urlparse(self._base_url)
-        base_host = _normalize_host(parsed_base_url.hostname)
-        base_port = parsed_base_url.port
+        base_host, base_port = _parse_base_url(self._base_url)
         if base_host is not None or base_port is not None:
             matching = [
                 session
                 for session in sessions
-                if (
-                    (base_port is None or session.port == base_port)
-                    and (
-                        base_host is None
-                        or _normalize_host(session.host) == base_host
-                    )
-                )
+                if _session_matches_base_url(session, base_host, base_port)
             ]
             if matching:
                 sessions = matching
@@ -370,6 +361,12 @@ class SettaRunner:
         secret = secret_path.read_bytes()
         token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
         return f"{auth_cookie_name(selected.id)}={token}"
+
+    def _build_session_registry(self) -> SessionRegistry | None:
+        sessions_root = resolve_sessions_root(self._workspace_root)
+        if sessions_root is None:
+            return None
+        return SessionRegistry(sessions_root=sessions_root)
 
     def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
         if workspace_root is None:
@@ -424,6 +421,13 @@ class SettaRunner:
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
         return self._project_configs
+
+
+def _parse_base_url(base_url: str) -> tuple[str | None, int | None]:
+    parsed = urlparse(base_url)
+    return _normalize_host(parsed.hostname), parsed.port
+
+
 def _normalize_host(host: str | None) -> str | None:
     if host is None:
         return None
@@ -435,3 +439,13 @@ def _normalize_host(host: str | None) -> str | None:
     if cleaned == "::":
         return "::1"
     return cleaned
+
+
+def _session_matches_base_url(
+    session: SessionMetadata, base_host: str | None, base_port: int | None
+) -> bool:
+    if base_port is not None and session.port != base_port:
+        return False
+    if base_host is None:
+        return True
+    return _normalize_host(session.host) == base_host
