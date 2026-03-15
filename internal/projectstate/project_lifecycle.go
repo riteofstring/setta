@@ -31,6 +31,7 @@ func (d *Document) CreateProject(previewImgColor string) (string, string, error)
 	if _, err := project.CreateViewMode(); err != nil {
 		return "", "", err
 	}
+	project.IsEditingViewMode = false
 
 	d.Projects[projectID] = project
 	d.reconcileDefaultProjectID()

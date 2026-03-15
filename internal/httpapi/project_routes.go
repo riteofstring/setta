@@ -3892,14 +3892,19 @@ func createViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		_, viewModeID, err := deps.ProjectState.CreateViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID)
+		snapshot, viewModeID, err := runtime.CreateViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID)
 		if err != nil {
 			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, viewModeID)
@@ -3934,8 +3939,13 @@ func setActiveViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetActiveViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, activeViewModeID); err != nil {
+		snapshot, err := runtime.SetActiveViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, activeViewModeID)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3955,13 +3965,19 @@ func toggleIsEditingViewModeHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleIsEditingViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID); err != nil {
+		snapshot, err := runtime.ToggleIsEditingViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID)
+		if err != nil {
 			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3981,13 +3997,19 @@ func toggleSectionVisibilityHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleSectionVisibility(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs); err != nil {
+		snapshot, err := runtime.ToggleSectionVisibility(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4078,13 +4100,19 @@ func toggleViewModeUserFacingHandler(deps ProjectRouteDependencies) http.Handler
 			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleViewModeUserFacing(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID); err != nil {
+		snapshot, err := runtime.ToggleViewModeUserFacing(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4109,13 +4137,19 @@ func toggleViewModeTabHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleViewModeTab(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID); err != nil {
+		snapshot, err := runtime.ToggleViewModeTab(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4140,13 +4174,19 @@ func setViewModeNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetViewModeName(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID, payload.Name); err != nil {
+		snapshot, err := runtime.SetViewModeName(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID, payload.Name)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4166,13 +4206,19 @@ func setViewModeSortOrderHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetViewModeSortOrder(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.OrderedViewModeIDs); err != nil {
+		snapshot, err := runtime.SetViewModeSortOrder(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.OrderedViewModeIDs)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4197,13 +4243,19 @@ func deleteViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.DeleteViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID); err != nil {
+		snapshot, err := runtime.DeleteViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID)
+		if err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

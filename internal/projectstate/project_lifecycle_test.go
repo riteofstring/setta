@@ -40,6 +40,9 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 	if project.ActiveViewModeID == "" {
 		t.Fatal("expected active view mode id")
 	}
+	if project.IsEditingViewMode {
+		t.Fatal("expected created project to start outside view editing mode")
+	}
 
 	viewMode, ok := project.ViewModes[project.ActiveViewModeID]
 	if !ok {

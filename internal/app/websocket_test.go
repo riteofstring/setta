@@ -1934,6 +1934,8 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 		}
 	})
 
+	// Seed a project that is already in view-edit mode so the route has to
+	// persist the exit and push the updated project state back to the frontend.
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
@@ -2238,6 +2240,8 @@ func TestAppSetStateMachineSectionSettingsRouteBroadcastsProjectStateUpdate(t *t
 		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
 	}
 
+	// The overview pane does not apply a local optimistic patch for this toggle,
+	// so the websocket update is what clears the stale eye/hide affordances live.
 	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
 	var content realtime.ProjectStateUpdateContent
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
@@ -2258,6 +2262,118 @@ func TestAppSetStateMachineSectionSettingsRouteBroadcastsProjectStateUpdate(t *t
 	}
 	if len(content.PendingOpIDs) != 0 {
 		t.Fatalf("expected no pending op ids after successful workflow update, got %#v", content.PendingOpIDs)
+	}
+}
+
+func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:                "project-alpha",
+			Name:              "Alpha",
+			ActiveViewModeID:  "focus",
+			IsEditingViewMode: true,
+			Sections:          map[string]projectstate.Section{"section-a": {ID: "section-a", Name: "Section A"}},
+			TopLevelSections:  map[string]projectstate.TopLevelSectionLayout{},
+			WindowSpaces:      map[string]projectstate.WindowSpaceConfig{},
+			ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+				InstancesByID: map[string]projectstate.ProjectChatWindowInstance{},
+				Order:         []string{},
+			},
+			ViewModes: map[string]projectstate.ViewMode{
+				"focus": {
+					ID:                    "focus",
+					Name:                  "Focus",
+					SortIndex:             0,
+					VisibilityBySectionID: map[string]bool{"section-a": true},
+					TopLevelSections:      map[string]projectstate.TopLevelSectionLayout{},
+				},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed view mode project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteToggleIsEditingViewMode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"toggle-view-mode-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new toggle view mode request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post toggle view mode: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if content.ProjectState.ProjectConfig.IsEditingViewMode {
+		t.Fatal("expected websocket update to leave project outside view editing mode")
+	}
+	completedToggleOp := false
+	for _, completedOpID := range content.CompletedOpIDs {
+		if completedOpID == "toggle-view-mode-op" {
+			completedToggleOp = true
+			break
+		}
+	}
+	if !completedToggleOp {
+		t.Fatalf("expected completed toggle op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+	if len(content.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending op ids after toggle, got %#v", content.PendingOpIDs)
+	}
+
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	if project.IsEditingViewMode {
+		t.Fatal("expected persisted project state to exit view editing mode")
 	}
 }
 
