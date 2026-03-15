@@ -97,11 +97,15 @@ class AgentRunChatStore(ChatStore):
             status=AgentRunStatus.completed,
             startedAt=now,
             finishedAt=now,
-            inputs=_build_inputs_payload(
-                chat_id=None,
-                llm_config=llm_config,
-                project_config_id=project_config_id,
-            ),
+            inputs={
+                "runType": SCRIPTABLE_CHAT_RUN_TYPE,
+                "llmConfig": llm_config.model_dump(mode="json"),
+                **(
+                    {"projectConfigId": str(project_config_id)}
+                    if project_config_id is not None
+                    else {}
+                ),
+            },
             outputs={
                 "messages": [copied_message.model_dump(mode="json")],
                 "systemPrompt": None,
@@ -157,23 +161,6 @@ class AgentRunChatStore(ChatStore):
 
     def delete_chat(self, chat_id: ID) -> None:
         delete_agent_run(self.dbe, chat_id)
-
-
-def _build_inputs_payload(
-    *,
-    chat_id: ID | None,
-    llm_config: LLMConfig,
-    project_config_id: ID | None,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "runType": SCRIPTABLE_CHAT_RUN_TYPE,
-        "llmConfig": llm_config.model_dump(mode="json"),
-    }
-    if chat_id is not None:
-        payload["chatId"] = str(chat_id)
-    if project_config_id is not None:
-        payload["projectConfigId"] = str(project_config_id)
-    return payload
 
 
 def _build_chat_from_run(run: AgentRun) -> Chat | None:
@@ -268,12 +255,6 @@ def _copy_chat_message(message: BaseChatMessageUnion) -> BaseChatMessageUnion:
     return BaseChatMessageTypeAdapter.validate_python(payload)
 
 
-def _copy_chat_messages(
-    messages: list[BaseChatMessageUnion],
-) -> list[BaseChatMessageUnion]:
-    return [_copy_chat_message(message) for message in messages]
-
-
 def _append_messages(
     messages: list[BaseChatMessageUnion],
     additions: list[BaseChatMessageUnion],
@@ -284,5 +265,5 @@ def _append_messages(
     new_messages = [message for message in additions if message.id not in existing_ids]
     if not new_messages:
         return False
-    messages.extend(_copy_chat_messages(new_messages))
+    messages.extend(_copy_chat_message(message) for message in new_messages)
     return True
