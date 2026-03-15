@@ -20,12 +20,14 @@ type ListenerBroadcasterOptions struct {
 	WebsocketHub *WebsocketHub
 	Registry     *ListenerRegistry
 	Sequencer    *Sequencer
+	TemporaryIDs ListenerTemporaryIDStore
 }
 
 type ListenerBroadcaster struct {
 	websocketHub *WebsocketHub
 	registry     *ListenerRegistry
 	sequencer    *Sequencer
+	temporaryIDs ListenerTemporaryIDStore
 }
 
 type EmitRealtimeDeltasParams struct {
@@ -88,6 +90,7 @@ func NewListenerBroadcaster(options ListenerBroadcasterOptions) *ListenerBroadca
 		websocketHub: websocketHub,
 		registry:     registry,
 		sequencer:    sequencer,
+		temporaryIDs: options.TemporaryIDs,
 	}
 }
 
@@ -351,65 +354,116 @@ func (b *ListenerBroadcaster) DropShareSession(shareSessionID string) {
 }
 
 func (b *ListenerBroadcaster) sendMessageToTargets(ctx context.Context, message any, connectionIDs []string) (int, error) {
-	payload, err := json.Marshal(message)
-	if err != nil {
-		return 0, err
+	type sendResult struct {
+		delivered bool
+		err       error
 	}
 
-	results := make(chan bool, len(connectionIDs))
+	results := make(chan sendResult, len(connectionIDs))
 	var wg sync.WaitGroup
 	for _, connectionID := range connectionIDs {
 		wg.Add(1)
 		go func(connectionID string) {
 			defer wg.Done()
+			payload, err := b.listenerPayloadForConnection(connectionID, message)
+			if err != nil {
+				results <- sendResult{err: err}
+				return
+			}
 			delivered := b.websocketHub.sendFrame(ctx, websocket.MessageText, payload, connectionID)
 			if !delivered {
 				b.registry.RemoveConnection(connectionID)
 			}
-			results <- delivered
+			results <- sendResult{delivered: delivered}
 		}(connectionID)
 	}
 	wg.Wait()
 	close(results)
 
 	delivered := 0
-	for wasDelivered := range results {
-		if wasDelivered {
+	var firstErr error
+	for result := range results {
+		if result.err != nil && firstErr == nil {
+			firstErr = result.err
+		}
+		if result.delivered {
 			delivered++
 		}
+	}
+	if firstErr != nil {
+		return 0, firstErr
 	}
 	return delivered, nil
 }
 
 func (b *ListenerBroadcaster) sendBinaryMessageToTargets(ctx context.Context, message any, binaryPayload []byte, connectionIDs []string) (int, error) {
-	frame, err := EncodeBinaryFrame(message, binaryPayload)
-	if err != nil {
-		return 0, err
+	type sendResult struct {
+		delivered bool
+		err       error
 	}
 
-	results := make(chan bool, len(connectionIDs))
+	results := make(chan sendResult, len(connectionIDs))
 	var wg sync.WaitGroup
 	for _, connectionID := range connectionIDs {
 		wg.Add(1)
 		go func(connectionID string) {
 			defer wg.Done()
+			frame, err := b.listenerBinaryFrameForConnection(connectionID, message, binaryPayload)
+			if err != nil {
+				results <- sendResult{err: err}
+				return
+			}
 			delivered := b.websocketHub.sendFrame(ctx, websocket.MessageBinary, frame, connectionID)
 			if !delivered {
 				b.registry.RemoveConnection(connectionID)
 			}
-			results <- delivered
+			results <- sendResult{delivered: delivered}
 		}(connectionID)
 	}
 	wg.Wait()
 	close(results)
 
 	delivered := 0
-	for wasDelivered := range results {
-		if wasDelivered {
+	var firstErr error
+	for result := range results {
+		if result.err != nil && firstErr == nil {
+			firstErr = result.err
+		}
+		if result.delivered {
 			delivered++
 		}
 	}
+	if firstErr != nil {
+		return 0, firstErr
+	}
 	return delivered, nil
+}
+
+func (b *ListenerBroadcaster) listenerPayloadForConnection(connectionID string, message any) ([]byte, error) {
+	translated, err := b.listenerMessageForConnection(connectionID, message)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(translated)
+}
+
+func (b *ListenerBroadcaster) listenerBinaryFrameForConnection(connectionID string, message any, binaryPayload []byte) ([]byte, error) {
+	translated, err := b.listenerMessageForConnection(connectionID, message)
+	if err != nil {
+		return nil, err
+	}
+	return EncodeBinaryFrame(translated, binaryPayload)
+}
+
+func (b *ListenerBroadcaster) listenerMessageForConnection(connectionID string, message any) (any, error) {
+	if b.temporaryIDs == nil {
+		return message, nil
+	}
+	bootstrap, ok := b.registry.Bootstrap(connectionID)
+	if !ok || !bootstrap.UseTemporaryIDs {
+		return message, nil
+	}
+	return translateListenerMessageToTemporary(message, b.temporaryIDs)
 }
 
 func cloneListenerDeltas(deltas []ListenerRealtimeDelta) []ListenerRealtimeDelta {

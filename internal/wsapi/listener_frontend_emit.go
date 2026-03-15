@@ -167,6 +167,22 @@ func handleListenerFrontendEmit(
 
 	projectID := registration.ProjectID
 	receivedProjectID := strings.TrimSpace(content.ProjectConfigID)
+	if listenerUsesTemporaryIDs(deps, connectionID) {
+		resolvedProjectID, err := resolveListenerProjectIDFromTemporary(receivedProjectID, deps.TemporaryIDs)
+		if err != nil {
+			var temporaryIDError *listenerTemporaryIDError
+			if errors.As(err, &temporaryIDError) {
+				return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+					Error: "listener_invalid_id",
+					Details: map[string]any{
+						"message": temporaryIDError.Error(),
+					},
+				}, deps)
+			}
+			return err
+		}
+		receivedProjectID = resolvedProjectID
+	}
 	if receivedProjectID != projectID {
 		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
 			Error: "project_config_mismatch",

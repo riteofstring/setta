@@ -24,6 +24,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
@@ -806,6 +807,84 @@ func TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh(t *
 	assertRouteListenerForceRefresh(t, forceRefresh, "project-target", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-target"))
 }
 
+func TestRegisterRoutesListenerInitAcceptsTemporaryProjectIDAndTranslatesForceRefresh(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	temporaryIDs := newRouteTemporaryIDs(t)
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+		TemporaryIDs: temporaryIDs,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	sectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	temporaryProjectID, err := temporaryIDs.EnsureTemporaryID("project-a")
+	if err != nil {
+		t.Fatalf("ensure temporary project id: %v", err)
+	}
+	temporarySectionID, err := temporaryIDs.EnsureTemporaryID(sectionID)
+	if err != nil {
+		t.Fatalf("ensure temporary section id: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		TemporaryIDs:        temporaryIDs,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-temp"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"`+temporaryProjectID+`","useTemporaryIds":true}}`)); err != nil {
+		t.Fatalf("write temporary listener init: %v", err)
+	}
+
+	forceRefresh := decodeRouteListenerForceRefreshContent(t, readNextMessage(t, conn))
+	if forceRefresh.ProjectConfigID != temporaryProjectID {
+		t.Fatalf("expected temporary project id %q, got %q", temporaryProjectID, forceRefresh.ProjectConfigID)
+	}
+	var projectState struct {
+		ProjectConfig struct {
+			ID string `json:"id"`
+		} `json:"projectConfig"`
+	}
+	if err := json.Unmarshal(forceRefresh.ProjectState, &projectState); err != nil {
+		t.Fatalf("decode temporary force refresh project state: %v", err)
+	}
+	if projectState.ProjectConfig.ID != temporaryProjectID {
+		t.Fatalf("expected temporary project state id %q, got %q", temporaryProjectID, projectState.ProjectConfig.ID)
+	}
+	foundCatalogEntry := false
+	for _, entry := range forceRefresh.DependencyCatalog.Entries {
+		if entry.DependencyKey != temporarySectionID {
+			continue
+		}
+		foundCatalogEntry = true
+		break
+	}
+	if !foundCatalogEntry {
+		t.Fatalf("expected temporary dependency catalog entry for %q, got %#v", temporarySectionID, forceRefresh.DependencyCatalog.Entries)
+	}
+	foundRenderedValue := false
+	for _, entry := range forceRefresh.DependencyValues.Entries {
+		if entry.DependencyKey != temporarySectionID {
+			continue
+		}
+		foundRenderedValue = true
+		break
+	}
+	if !foundRenderedValue {
+		t.Fatalf("expected temporary dependency value entry for %q, got %#v", temporarySectionID, forceRefresh.DependencyValues.Entries)
+	}
+}
+
 func TestRegisterRoutesListenerInitIncludesDependencyCatalog(t *testing.T) {
 	t.Parallel()
 
@@ -1081,6 +1160,112 @@ func TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit(t *te
 	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-target", "")
 }
 
+func TestRegisterRoutesListenerRegisterAndLiveMessagesUseTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	temporaryIDs := newRouteTemporaryIDs(t)
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+		TemporaryIDs: temporaryIDs,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	dictSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Dict", "inputs")
+	_, addParamResult, err := projectRuntime.AddKwarg(context.Background(), "project-a", dictSectionID)
+	if err != nil {
+		t.Fatalf("add dict param: %v", err)
+	}
+	temporaryProjectID, err := temporaryIDs.EnsureTemporaryID("project-a")
+	if err != nil {
+		t.Fatalf("ensure temporary project id: %v", err)
+	}
+	temporarySectionID, err := temporaryIDs.EnsureTemporaryID(dictSectionID)
+	if err != nil {
+		t.Fatalf("ensure temporary section id: %v", err)
+	}
+	temporaryCodeObjID, err := temporaryIDs.EnsureTemporaryID(addParamResult.CodeObjID)
+	if err != nil {
+		t.Fatalf("ensure temporary code object id: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		TemporaryIDs:        temporaryIDs,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-temp"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"`+temporaryProjectID+`","useTemporaryIds":true}}`)); err != nil {
+		t.Fatalf("write temporary listener init: %v", err)
+	}
+	_ = readNextMessage(t, conn)
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"projectConfigId":"`+temporaryProjectID+`","callbacks":{"cb-a":{"dependencies":[{"type":"SectionParam","sectionId":"`+temporarySectionID+`","codeObjId":"`+temporaryCodeObjID+`"},{"type":"Section","sectionId":"`+temporarySectionID+`"}],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write temporary listener register: %v", err)
+	}
+
+	assertListenerRegisterAck(t, readNextMessage(t, conn), temporaryProjectID, "")
+
+	sequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), realtime.EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+		Deltas: []realtime.ListenerRealtimeDelta{
+			{
+				Dependency: dictSectionID + "." + addParamResult.CodeObjID,
+				Value:      json.RawMessage(`"value-1"`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit temporary realtime delta: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected one translated realtime delivery, got sequence=%d delivered=%d", sequence, delivered)
+	}
+	assertRouteListenerRealtimeEvent(
+		t,
+		readNextMessage(t, conn),
+		temporaryProjectID,
+		"",
+		1,
+		temporarySectionID+"."+temporaryCodeObjID,
+		`"value-1"`,
+	)
+
+	sequence, delivered, err = broadcaster.EmitDependencyEvents(context.Background(), realtime.EmitDependencyEventsParams{
+		ProjectID: "project-a",
+		DependencyEvents: []realtime.ListenerDependencyEvent{
+			{
+				DependencyKey: dictSectionID,
+				Payload:       json.RawMessage(`{"clicked":true}`),
+				TimestampMS:   456,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit temporary dependency event: %v", err)
+	}
+	if sequence != 2 || delivered != 1 {
+		t.Fatalf("expected one translated dependency delivery, got sequence=%d delivered=%d", sequence, delivered)
+	}
+	assertRouteListenerDependencyEvent(
+		t,
+		readNextMessage(t, conn),
+		temporaryProjectID,
+		"",
+		2,
+		temporarySectionID,
+		`{"clicked":true}`,
+	)
+}
+
 func TestRegisterRoutesListenerAcceptsPythonRegisterPayloadAndEmitsStructuredDependencyKeys(t *testing.T) {
 	t.Parallel()
 
@@ -1205,6 +1390,76 @@ func TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFront
 		t.Fatalf("effective payload after listener emit: %v", err)
 	}
 	if payload["text"] != "updated from listener" {
+		t.Fatalf("expected updated text block payload, got %#v", payload)
+	}
+}
+
+func TestRegisterRoutesListenerFrontendEmitAcceptsTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	temporaryIDs := newRouteTemporaryIDs(t)
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+		TemporaryIDs: temporaryIDs,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	textSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	temporaryProjectID, err := temporaryIDs.EnsureTemporaryID("project-a")
+	if err != nil {
+		t.Fatalf("ensure temporary project id: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		TemporaryIDs:        temporaryIDs,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-temp"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"`+temporaryProjectID+`","useTemporaryIds":true}}`)); err != nil {
+		t.Fatalf("write temporary listener init: %v", err)
+	}
+	_ = readNextMessage(t, listener)
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write temporary listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), temporaryProjectID, "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", textSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"`+temporaryProjectID+`","dependencyValues":{"`+dependencyName+`":"updated from temporary listener"}}}`)); err != nil {
+		t.Fatalf("write temporary listener frontend emit: %v", err)
+	}
+
+	update := readUntilMessageType(t, frontend, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	assertRouteProjectStateUpdate(t, update, "project-a")
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project after temporary listener emit: %v", err)
+	}
+	section, variant, _, err := project.ResolveSection(textSectionID)
+	if err != nil {
+		t.Fatalf("resolve text section after temporary listener emit: %v", err)
+	}
+	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
+	if err != nil {
+		t.Fatalf("effective payload after temporary listener emit: %v", err)
+	}
+	if payload["text"] != "updated from temporary listener" {
 		t.Fatalf("expected updated text block payload, got %#v", payload)
 	}
 }
@@ -1677,6 +1932,80 @@ func TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpoint(t *testing.
 	}
 	if builtInInvoker.calls[0].payload["projectConfigId"] != "project-a" || builtInInvoker.calls[0].payload["sectionId"] != "fixture-section" {
 		t.Fatalf("unexpected built-in payload %#v", builtInInvoker.calls[0].payload)
+	}
+}
+
+func TestRegisterRoutesListenerEndpointCallAcceptsTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	temporaryIDs := newRouteTemporaryIDs(t)
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+		TemporaryIDs: temporaryIDs,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	builtInInvoker := &routeBuiltInListenerEndpointInvoker{
+		invoke: func(info ConnectionInfo, endpointName string, payload map[string]any) (any, bool, error) {
+			return map[string]any{
+				"handledBy":       "built-in",
+				"endpointName":    endpointName,
+				"projectConfigId": payload["projectConfigId"],
+			}, true, nil
+		},
+	}
+	temporaryProjectID, err := temporaryIDs.EnsureTemporaryID("project-a")
+	if err != nil {
+		t.Fatalf("ensure temporary project id: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:           projectRuntime,
+		WebsocketHub:           hub,
+		ListenerBroadcaster:    broadcaster,
+		BuiltInListenerInvoker: builtInInvoker,
+		TemporaryIDs:           temporaryIDs,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-temp"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"`+temporaryProjectID+`","useTemporaryIds":true}}`)); err != nil {
+		t.Fatalf("write temporary listener init: %v", err)
+	}
+	_ = readNextMessage(t, conn)
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write temporary listener register: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, conn), temporaryProjectID, "")
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"`+temporaryProjectID+`","callId":"call-temp","endpointName":"route_get_chat_section_chat_id","payload":{}}}`)); err != nil {
+		t.Fatalf("write temporary listener router endpoint call: %v", err)
+	}
+
+	result := readNextMessage(t, conn)
+	assertListenerRouterEndpointResult(t, result, realtime.ListenerRouterEndpointResultContent{
+		ProjectConfigID: temporaryProjectID,
+		CallID:          "call-temp",
+		OK:              true,
+		Result: map[string]any{
+			"handledBy":       "built-in",
+			"endpointName":    "route_get_chat_section_chat_id",
+			"projectConfigId": "project-a",
+		},
+	}, nil)
+
+	if len(builtInInvoker.calls) != 1 {
+		t.Fatalf("expected one temporary built-in listener endpoint call, got %#v", builtInInvoker.calls)
+	}
+	if builtInInvoker.calls[0].payload["projectConfigId"] != "project-a" {
+		t.Fatalf("expected canonical project id in built-in payload, got %#v", builtInInvoker.calls[0].payload)
 	}
 }
 
@@ -2282,6 +2611,16 @@ func newRouteProjectRuntimeWithDocument(t *testing.T, document projectstate.Docu
 		}
 	})
 	return runtime
+}
+
+func newRouteTemporaryIDs(t *testing.T) *mcpx.TemporaryIDStore {
+	t.Helper()
+
+	store, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(t.TempDir()))
+	if err != nil {
+		t.Fatalf("open temporary id store: %v", err)
+	}
+	return store
 }
 
 func createRouteTopLevelSection(

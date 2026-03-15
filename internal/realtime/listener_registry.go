@@ -27,9 +27,10 @@ type ListenerCallback struct {
 }
 
 type ListenerBootstrap struct {
-	ConnectionID   string
-	ProjectID      string
-	ShareSessionID string
+	ConnectionID    string
+	ProjectID       string
+	ShareSessionID  string
+	UseTemporaryIDs bool
 }
 
 type ListenerRegistration struct {
@@ -71,9 +72,10 @@ func (r *ListenerRegistry) RecordBootstrap(bootstrap ListenerBootstrap) error {
 	defer r.mu.Unlock()
 
 	r.bootstraps[connectionID] = ListenerBootstrap{
-		ConnectionID:   connectionID,
-		ProjectID:      projectID,
-		ShareSessionID: strings.TrimSpace(bootstrap.ShareSessionID),
+		ConnectionID:    connectionID,
+		ProjectID:       projectID,
+		ShareSessionID:  strings.TrimSpace(bootstrap.ShareSessionID),
+		UseTemporaryIDs: bootstrap.UseTemporaryIDs,
 	}
 	return nil
 }

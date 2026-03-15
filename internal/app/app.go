@@ -672,6 +672,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 	}
 	var agentRunService *agentruns.Service
+	var temporaryIDs *mcpx.TemporaryIDStore
 	var pluginMutationService *plugins.Service
 	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
 		Store:            pluginStore,
@@ -789,7 +790,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
+		temporaryIDs, err = mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
@@ -1107,6 +1108,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
+		TemporaryIDs: temporaryIDs,
 	})
 	uiSettingRevealResults := realtime.NewUISettingRevealResultHub()
 	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
@@ -1311,6 +1313,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				BuiltInListenerInvoker: listenerBuiltInInvoker,
 				ListenerProducer:       listenerProducer,
 				Terminals:              terminalService,
+				TemporaryIDs:           temporaryIDs,
 			}); err != nil {
 				panic(err)
 			}

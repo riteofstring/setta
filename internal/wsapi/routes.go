@@ -47,6 +47,7 @@ type RouteDependencies struct {
 	BuiltInListenerInvoker BuiltInListenerEndpointInvoker
 	ListenerProducer       *realtime.ListenerProducer
 	Terminals              *terminals.Service
+	TemporaryIDs           realtime.ListenerTemporaryIDStore
 	FrontendIDSource       func() (string, error)
 }
 
@@ -704,7 +705,24 @@ func handleListenerRegister(
 	content realtime.ListenerRegisterContent,
 	deps RouteDependencies,
 ) error {
+	useTemporaryIDs := listenerUsesTemporaryIDs(deps, connectionID)
 	requestedProjectID := strings.TrimSpace(content.ProjectConfigID)
+	if useTemporaryIDs && requestedProjectID != "" {
+		resolvedProjectID, err := resolveListenerProjectIDFromTemporary(requestedProjectID, deps.TemporaryIDs)
+		if err != nil {
+			var temporaryIDError *listenerTemporaryIDError
+			if errors.As(err, &temporaryIDError) {
+				return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+					Error: "listener_invalid_id",
+					Details: map[string]any{
+						"message": temporaryIDError.Error(),
+					},
+				}, deps)
+			}
+			return err
+		}
+		requestedProjectID = resolvedProjectID
+	}
 	if requestedProjectID != "" {
 		if bootstrap, ok := deps.ListenerBroadcaster.Registry().Bootstrap(connectionID); ok && bootstrap.ProjectID != requestedProjectID {
 			return &CloseError{Code: CloseCodeBadRequest, Reason: "project config mismatch"}
@@ -714,8 +732,27 @@ func handleListenerRegister(
 	callbacks := make(map[string]realtime.ListenerCallback, len(content.Callbacks))
 	ackStatuses := make(map[string]realtime.ListenerRegisterAckStatus, len(content.Callbacks))
 	for callbackID, callback := range content.Callbacks {
+		dependencies := append([]string(nil), callback.Dependencies...)
+		if useTemporaryIDs {
+			for index, dependency := range dependencies {
+				resolvedDependency, err := resolveListenerDependencyKeyFromTemporary(dependency, deps.TemporaryIDs)
+				if err != nil {
+					var temporaryIDError *listenerTemporaryIDError
+					if errors.As(err, &temporaryIDError) {
+						return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+							Error: "listener_invalid_id",
+							Details: map[string]any{
+								"message": temporaryIDError.Error(),
+							},
+						}, deps)
+					}
+					return err
+				}
+				dependencies[index] = resolvedDependency
+			}
+		}
 		callbacks[callbackID] = realtime.ListenerCallback{
-			Dependencies:   append([]string(nil), callback.Dependencies...),
+			Dependencies:   dependencies,
 			DependencyMode: callback.DependencyMode,
 		}
 		ackStatuses[callbackID] = realtime.ListenerRegisterAckStatus{Status: "accepted"}
@@ -729,11 +766,15 @@ func handleListenerRegister(
 	if !ok {
 		return fmt.Errorf("listener registration was not retained for websocket %s", connectionID)
 	}
+	responseProjectID, err := listenerProjectIDForResponse(connectionID, registration.ProjectID, deps)
+	if err != nil {
+		return err
+	}
 
-	_, err := deps.WebsocketHub.SendJSON(
+	_, err = deps.WebsocketHub.SendJSON(
 		ctx,
 		realtime.NewListenerRegisterAckMessage(realtime.ListenerRegisterAckContent{
-			ProjectConfigID: registration.ProjectID,
+			ProjectConfigID: responseProjectID,
 			ShareSessionID:  registration.ShareSessionID,
 			Callbacks:       ackStatuses,
 		}),
@@ -758,12 +799,28 @@ func handleListenerInit(
 	deps RouteDependencies,
 ) error {
 	if content.UseTemporaryIDs {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "listener_invalid_id",
-			Details: map[string]any{
-				"message": "Temporary listener ids are unsupported on the Go listener route.",
-			},
-		}, deps)
+		if deps.TemporaryIDs == nil {
+			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+				Error: "listener_invalid_id",
+				Details: map[string]any{
+					"message": "Temporary listener ids are unavailable on this Setta server.",
+				},
+			}, deps)
+		}
+		resolvedProjectID, err := resolveListenerProjectIDFromTemporary(content.ProjectConfigID, deps.TemporaryIDs)
+		if err != nil {
+			var temporaryIDError *listenerTemporaryIDError
+			if errors.As(err, &temporaryIDError) {
+				return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+					Error: "listener_invalid_id",
+					Details: map[string]any{
+						"message": temporaryIDError.Error(),
+					},
+				}, deps)
+			}
+			return err
+		}
+		content.ProjectConfigID = resolvedProjectID
 	}
 
 	projectID, snapshotPayload, details, err := resolveListenerBootstrap(
@@ -784,9 +841,10 @@ func handleListenerInit(
 	}
 
 	if err := deps.ListenerBroadcaster.Registry().RecordBootstrap(realtime.ListenerBootstrap{
-		ConnectionID:   connectionID,
-		ProjectID:      projectID,
-		ShareSessionID: requestInfo.ShareSessionID,
+		ConnectionID:    connectionID,
+		ProjectID:       projectID,
+		ShareSessionID:  requestInfo.ShareSessionID,
+		UseTemporaryIDs: content.UseTemporaryIDs,
 	}); err != nil {
 		return err
 	}
@@ -892,15 +950,38 @@ func handleListenerRouterEndpointCall(
 
 	projectID := registration.ProjectID
 	receivedProjectID := strings.TrimSpace(content.ProjectConfigID)
+	if listenerUsesTemporaryIDs(deps, connectionID) {
+		resolvedProjectID, err := resolveListenerProjectIDFromTemporary(receivedProjectID, deps.TemporaryIDs)
+		if err != nil {
+			var temporaryIDError *listenerTemporaryIDError
+			if errors.As(err, &temporaryIDError) {
+				return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+					ProjectConfigID: strings.TrimSpace(content.ProjectConfigID),
+					CallID:          strings.TrimSpace(content.CallID),
+					OK:              false,
+					Error:           "listener_invalid_id",
+					Details: map[string]any{
+						"message": temporaryIDError.Error(),
+					},
+				}, deps)
+			}
+			return err
+		}
+		receivedProjectID = resolvedProjectID
+	}
+	responseProjectID, err := listenerProjectIDForResponse(connectionID, projectID, deps)
+	if err != nil {
+		return err
+	}
 	if receivedProjectID != projectID {
 		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
-			ProjectConfigID: projectID,
+			ProjectConfigID: responseProjectID,
 			CallID:          strings.TrimSpace(content.CallID),
 			OK:              false,
 			Error:           "project_config_mismatch",
 			Details: map[string]any{
-				"expectedProjectConfigId": projectID,
-				"receivedProjectConfigId": receivedProjectID,
+				"expectedProjectConfigId": responseProjectID,
+				"receivedProjectConfigId": strings.TrimSpace(content.ProjectConfigID),
 			},
 		}, deps)
 	}
@@ -908,7 +989,7 @@ func handleListenerRouterEndpointCall(
 	endpointName := strings.TrimSpace(content.EndpointName)
 	if endpointName == "" {
 		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
-			ProjectConfigID: projectID,
+			ProjectConfigID: responseProjectID,
 			CallID:          strings.TrimSpace(content.CallID),
 			OK:              false,
 			Error:           "listener_call_invalid_operation",
@@ -924,23 +1005,46 @@ func handleListenerRouterEndpointCall(
 	}
 	if rawProjectID, ok := payload["projectConfigId"]; !ok {
 		payload["projectConfigId"] = projectID
-	} else if payloadProjectID, ok := rawProjectID.(string); ok && strings.TrimSpace(payloadProjectID) != projectID {
-		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
-			ProjectConfigID: projectID,
-			CallID:          strings.TrimSpace(content.CallID),
-			OK:              false,
-			Error:           "project_config_mismatch",
-			Details: map[string]any{
-				"expectedProjectConfigId": projectID,
-				"receivedProjectConfigId": strings.TrimSpace(payloadProjectID),
-			},
-		}, deps)
+	} else if payloadProjectID, ok := rawProjectID.(string); ok {
+		receivedPayloadProjectID := strings.TrimSpace(payloadProjectID)
+		if listenerUsesTemporaryIDs(deps, connectionID) {
+			resolvedPayloadProjectID, err := resolveListenerProjectIDFromTemporary(receivedPayloadProjectID, deps.TemporaryIDs)
+			if err != nil {
+				var temporaryIDError *listenerTemporaryIDError
+				if errors.As(err, &temporaryIDError) {
+					return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+						ProjectConfigID: responseProjectID,
+						CallID:          strings.TrimSpace(content.CallID),
+						OK:              false,
+						Error:           "listener_invalid_id",
+						Details: map[string]any{
+							"message": temporaryIDError.Error(),
+						},
+					}, deps)
+				}
+				return err
+			}
+			receivedPayloadProjectID = resolvedPayloadProjectID
+		}
+		if receivedPayloadProjectID != projectID {
+			return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+				ProjectConfigID: responseProjectID,
+				CallID:          strings.TrimSpace(content.CallID),
+				OK:              false,
+				Error:           "project_config_mismatch",
+				Details: map[string]any{
+					"expectedProjectConfigId": responseProjectID,
+					"receivedProjectConfigId": strings.TrimSpace(payloadProjectID),
+				},
+			}, deps)
+		}
+		payload["projectConfigId"] = projectID
 	}
 
 	result, err := invokeListenerEndpoint(ctx, info, endpointName, payload, deps)
 	if err != nil {
 		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
-			ProjectConfigID: projectID,
+			ProjectConfigID: responseProjectID,
 			CallID:          strings.TrimSpace(content.CallID),
 			OK:              false,
 			Error:           "listener_call_failed",
@@ -951,7 +1055,7 @@ func handleListenerRouterEndpointCall(
 	}
 
 	if err := sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
-		ProjectConfigID: projectID,
+		ProjectConfigID: responseProjectID,
 		CallID:          strings.TrimSpace(content.CallID),
 		OK:              true,
 		Result:          result,
