@@ -49,7 +49,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1038 authored TS/TSX files under `frontend/src`.
+- There are 1096 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
@@ -59,15 +59,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2445 lines
-- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4990 lines
+- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4994 lines
 - The file/browser and section layout path has similar coupling:
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2325 lines
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2323 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1975 lines
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1974 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 2304 lines
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
-  - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
+  - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
 - `frontend/src/state/actions/aiChatStreaming.ts` is now 391 lines and owns top-level streaming chunk routing plus chat-detail side effects, while `frontend/src/state/actions/aiChatStreamingMessages.ts` owns shared message delta/finalized reducers, `frontend/src/state/actions/aiChatStreamingSectionState.ts` owns managed chat-section reconciliation, and `frontend/src/state/actions/aiChatStreamingTools.ts` owns tool-preview stores, tool-call placeholder reconciliation, and app-spec/app-definition tool handling after retiring `frontend/src/state/actions/ai.ts`.
 - `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
@@ -191,8 +191,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
   `frontend/src/state/actions/windowSpaceSnapshots.ts` owns floating
-  snapshot/restore conversion, `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`
-  now owns workspace-restore planning plus restored-instance remapping,
+  snapshot/restore conversion, `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts`
+  now owns restored-instance remapping, floating-window reuse, and deduped
+  restore merge policy, `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`
+  now owns workspace-restore planning plus the combined next-windowing result,
   `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts` now owns
   restored git-pane visibility reconciliation, and
   `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` is now a thin

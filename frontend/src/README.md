@@ -9,12 +9,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Current Snapshot
 
-- Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1038`
+- Snapshot date: `2026-03-15`
+- Authored TS/TSX files under `frontend/src`: `1096`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4990`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4994`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
@@ -23,7 +23,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2379`)
-  - `components/Section/Layouts/BrowserArea.tsx` (`2325`)
+  - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
 
 ## Module Map
 
@@ -319,9 +319,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     delete/create mutations plus optimistic persistence flow.
   - `state/actions/windowSpaceSnapshots.ts` owns floating window-space snapshot
     building and conversion back into project-chat windowing state.
+  - `state/actions/windowSpaceWorkspaceRestoreRemap.ts` owns restored-instance
+    remapping, floating-window reuse, section-host collision drops, and deduped
+    merge policy for saved window-space restores.
   - `state/actions/windowSpaceWorkspaceRestoreLayout.ts` owns workspace-restore
-    planning, restored-instance remapping, deduped merge policy, and the
-    combined next-windowing result for saved window spaces.
+    planning and the combined next-windowing result for saved window spaces.
   - `state/actions/windowSpaceWorkspaceRestoreVisibility.ts` owns restored
     git-pane visibility reconciliation for saved window-space restores.
   - `state/actions/windowSpaceWorkspaceRestorePlan.ts` is now a thin facade
@@ -412,14 +414,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns the remaining
-  restore planning and remapping policy for saved window spaces, so follow-up
-  cleanup there should stay local to restore-layout helpers instead of
-  regrowing `state/actions/windowSpaces.ts`.
 - `state/actions/sections/createSectionFileOpeners.ts` now owns the largest
   remaining section-creation helper cluster, so any follow-up there should stay
   local to file-open reuse and drop-routing instead of regrowing
   `state/actions/sections/createSections.ts`.
+- `state/actions/windowSpaceWorkspaceRestoreRemap.ts` now owns the remaining
+  restore remapping and reuse policy for saved window spaces, so any follow-up
+  there should stay local to saved-layout remap helpers instead of regrowing
+  `state/actions/windowSpaces.ts` or the restore planner.
 - `state/actions/projectChatWindowingWritePipeline.ts` is now the largest
   remaining project-chat windowing coordination surface, so follow-up windowing
   cleanup should stay local to the write pipeline or the new command modules
