@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`b0b7382933baa91f80a00edec7bdfccf05ab7d26`
+`b0f818d8a3e060ed375a18255e9ecb1b061c9941`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -59,6 +59,7 @@ It currently covers:
 - state-machine run start/get/stop/reset transport and control behavior
 - workflow signal reporting, signal-tool transport, and `AgentRunUpdated`
   websocket delivery
+- agent-profile HTTP read/CRUD, MCP read-tool, and realtime update behavior
 
 Rows outside these slices are still pending.
 
@@ -89,7 +90,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Fourteen concrete parity gaps are already visible:
+- Fifteen concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -137,6 +138,10 @@ Rows outside these slices are still pending.
     `runId` for `report_state_machine_signal`
   - current Go drops `runId` from that request-body transport, so direct HTTP
     signal-tool calls cannot satisfy the source contract
+  - source-baseline `getAgentProfiles` / `getAgentProfile` remain available
+    anywhere LLM access is allowed, including share/deployment reads
+  - current Go hard-gates every agent-profile route to IDE mode even though
+    current share/deployment UI still hydrates profile reads
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -216,6 +221,8 @@ Rows outside these slices are still pending.
     transport (`WS-04`)
   - two more proof-gap clusters around signal-routing edge variants and
     websocket broadcast proof (`WS-02`, `WS-05`)
+- The agent-profile slice mostly closes with proofs, but it adds one concrete
+  share-read gap (`AP-02`) plus one dormant realtime watcher row (`AP-04`).
 
 ## Project Names
 
@@ -607,11 +614,20 @@ Rows outside these slices are still pending.
 | `WS-04` | Stateless `POST /__setta__/tools/call` transport preserves `agenticContext.runId` for `report_state_machine_signal`, so direct tool calls can report signals without a prior session `set_agentic_context`; the source route also threaded `share_session_id` when present. | `tests/routers/test_mcp_tools_call_agentic_scope_enforcement.py::{test_tools_call_report_state_machine_signal_uses_agentic_run_context,test_tools_call_report_state_machine_signal_threads_share_session_id,test_tools_call_report_state_machine_signal_requires_active_child_run}`; source route: `backend/setta/routers/mcp_tools.py::route_tools_call`. | Current Go stateless tool-call transport drops `runId` from request-body agentic context: `internal/httpapi/mcp_tool_routes.go::agenticContextMeta`; current Go docs for `/__setta__/tools/call` also omit `runId` from the documented body/header context inputs: `docs/reference/mcp-system-overview.md` agentic-context section. | `Missing` | Persistent Go MCP sessions can still carry run context via `set_agentic_context`, but the source stateless HTTP tool-call contract is not preserved. |
 | `WS-05` | Workflow run updates are broadcast as `AgentRunUpdated` websocket messages carrying the updated `AgentRun`, and current frontend workflow state consumes that payload without forcing an extra refresh poll. | Source websocket type/sender: `backend/setta/types/websocket.py::WebsocketMsgAgentRunUpdated`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_agent_run_update`; source workflow test: `tests/routers/test_state_machine_run_routes.py::test_state_machine_runner_broadcasts_parent_update_when_child_run_completes`; source/current frontend caller handling: `frontend/src/state/actions/websocketReceive.ts`; `frontend/tests/e2e/sections/state-machine-sections.spec.ts`. | Impl: `internal/app/app.go` agent-run `AddAfterSaveListener`; `internal/realtime/messages.go::NewAgentRunUpdatedMessage`; proof: `internal/realtime/messages_test.go::{TestNewAgentRunUpdatedMessageClonesContent,TestNewAgentRunUpdatedMessageJSONIncludesEmptySlices}`; current caller proof: `frontend/src/state/actions/websocketReceive.test.ts::it("merges workflow run websocket updates into the agent run store", ...)`; `frontend/tests/e2e/sections/state-machine-sections.spec.ts::test("updates workflow status from websocket run updates without periodic workflow polling", ...)`. | `Implemented, proof incomplete` | Current caller-facing reducer and e2e behavior are proved, but this slice does not yet cite a direct Go app/websocket test that a saved workflow run actually emits the broadcast. |
 
+## Agent Profiles
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `AP-01` | In IDE mode, `getAgentProfiles`, `getAgentProfile`, `createAgentProfile`, `updateAgentProfile`, and `deleteAgentProfile` roundtrip the full profile payload, preserve persisted order, and normalize empty `toolAllowlist` to `[]`. | Source route flow: `tests/routers/test_agentic_routes.py`; source routes: `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile,route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}`; source model: `backend/setta/types/agentic.py::AgentProfile`. | Impl: `internal/httpapi/agent_profile_routes.go`; `internal/agentprofiles/store.go`; proof: `internal/httpapi/agent_profile_routes_test.go::{TestRegisterAgentProfileRoutesListsProfiles,TestRegisterAgentProfileRoutesReturnsEmptyList,TestRegisterAgentProfileRoutesGetsProfile,TestRegisterAgentProfileRoutesCreatesProfile,TestRegisterAgentProfileRoutesUpdatesProfile,TestRegisterAgentProfileRoutesDeletesProfile}`; store proof: `internal/agentprofiles/store_test.go::{TestStoreWriteListAndGetRoundTrip,TestStoreCreateUpdateAndDeleteRoundTrip}`. | `Proved` | Current callers still hydrate and mutate profiles through `frontend/src/state/actions/ai.ts` and `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`. |
+| `AP-02` | Agent-profile reads are LLM-gated rather than IDE-gated, so share/deployment surfaces with allowed LLM access can still load profile lists/details even though mutations remain IDE-only. | Source read routes: `backend/setta/routers/agentic.py::{route_get_agent_profiles,route_get_agent_profile}`; source mutation routes: `backend/setta/routers/agentic.py::{route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}`; source/current frontend caller evidence: `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`; `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`. | Current Go wiring: `internal/httpapi/agent_profile_routes.go::RegisterAgentProfileRoutes` wraps every route in `RequireIDEMode`; current caller proof: `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`; `frontend/src/state/actions/ai.ts::loadAgentProfiles`. | `Missing` | Current share/deployment UI still performs profile-hydration reads, so this is a caller-backed read regression rather than a dormant source path. |
+| `AP-03` | MCP read tools `list_agent_profiles` and `get_agent_profile` list/fetch persisted profiles with read access metadata. | Source tools: `backend/setta/mcp/tools/agentic_tools.py::{list_agent_profiles,get_agent_profile}`. | Proof: `internal/mcpx/server_test.go::TestServerListAgentProfilesAndGetAgentProfile`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsAgentProfileReadToolsOverAuthenticatedSSE`. | `Proved` | |
+| `AP-04` | External edits to the stored agent-profile file push `AgentProfilesUpdated` websocket messages so connected frontends can refresh without an explicit reload. | Source watcher/broadcast path: `backend/setta/agentic/profile_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_agent_profiles_update`; source/current frontend receiver: `frontend/src/state/actions/websocketReceive.ts`. | Current Go evidence only retains the websocket enum in `internal/frontendbindings/websocket_support.go`; current frontend still has the receiver in `frontend/src/state/actions/websocketReceive.ts`, but current Go app/runtime has no equivalent watcher or broadcaster. | `Dormant / unproven caller` | Current frontend already hydrates profiles on load and applies optimistic create/update/delete updates locally, so this slice does not yet prove that external file-edit realtime remains required in the Go-era product. |
+
 ## Current Findings
 
-1. The matrix now contains fourteen concrete source-parity gaps:
+1. The matrix now contains fifteen concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
-   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, and `WS-04`.
+   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, and `AP-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -668,22 +684,24 @@ Rows outside these slices are still pending.
 18. The workflow-signal / AgentRunUpdated slice closes the scoped MCP-session
     contract, but it adds two real behavior gaps (`WS-01`, `WS-04`) plus two
     more proof-gap clusters (`WS-02`, `WS-05`).
-19. Git route behavior is now largely proved, including literal pathspec
+19. The agent-profile slice mostly closes with proofs, but it adds one real
+    behavior gap (`AP-02`) plus one dormant realtime row (`AP-04`).
+20. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-20. The remaining issues in the naming slice are still mostly proof gaps rather
+21. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-21. The next high-value steps are:
+22. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
-      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, and `WS-04` should be
-      restored or documented as intentional divergences
+      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, and `AP-02`
+      should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `AS-02` and `SM-04` can be treated as fully dead legacy
-      or share-only transports, or still need explicit retained-boundary
-      decisions
+    - decide whether `AP-04`, `AS-02`, and `SM-04` can be treated as fully
+      dead legacy or share-only transports, or still need explicit
+      retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
