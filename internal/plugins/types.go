@@ -87,6 +87,15 @@ type PluginRegisteredCodegenTarget struct {
 	DefaultFileName string `json:"defaultFileName"`
 }
 
+type PluginRegisteredLanguageServer struct {
+	PluginID    string   `json:"pluginId"`
+	Name        string   `json:"name"`
+	Language    string   `json:"language"`
+	Command     string   `json:"command"`
+	Args        []string `json:"args"`
+	SettingsKey *string  `json:"settingsKey,omitempty"`
+}
+
 type PluginRegisteredBackendRoute struct {
 	Path    string   `json:"path"`
 	Methods []string `json:"methods"`
@@ -183,6 +192,7 @@ type DiscoveredPlugin struct {
 	EnablementSource            *PluginEnablementSource
 	RestartRequired             bool
 	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget
+	RegisteredLanguageServers   []PluginRegisteredLanguageServer
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
 	RegisteredStaticDirs        []PluginRegisteredStaticDir
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint

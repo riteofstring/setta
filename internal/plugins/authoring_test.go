@@ -191,6 +191,7 @@ func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
 		payload["capabilities"] = []string{
 			"registerCodegenTarget",
+			"registerLanguageServer",
 			"registerMcpTools",
 			"registerRouter",
 			"registerStaticDir",

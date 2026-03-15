@@ -218,6 +218,7 @@ func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
 		payload["capabilities"] = []string{
 			"registerCodegenTarget",
+			"registerLanguageServer",
 			"registerMcpTools",
 			"registerRouter",
 			"registerStaticDir",
@@ -235,19 +236,20 @@ func TestServiceRuntimeEnablesBackendTransportCapabilitiesInIDE(t *testing.T) {
 	if len(runtimeResponse.List.Plugins) != 1 {
 		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
 	}
-	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 5 {
+	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 6 {
 		t.Fatalf("expected backend transport capabilities to be effective, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
 	if runtimeResponse.List.Plugins[0].EffectiveCapabilities[0] != "registerCodegenTarget" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[1] != "registerMcpTools" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[2] != "registerRouter" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[3] != "registerStaticDir" ||
-		runtimeResponse.List.Plugins[0].EffectiveCapabilities[4] != "registerListenerEndpoint" {
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[1] != "registerLanguageServer" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[2] != "registerMcpTools" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[3] != "registerRouter" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[4] != "registerStaticDir" ||
+		runtimeResponse.List.Plugins[0].EffectiveCapabilities[5] != "registerListenerEndpoint" {
 		t.Fatalf("unexpected effective backend capabilities %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
-	if len(statusEntry.RequestedCapabilities) != 5 {
+	if len(statusEntry.RequestedCapabilities) != 6 {
 		t.Fatalf("expected requested backend capabilities, got %#v", statusEntry.RequestedCapabilities)
 	}
 	if len(statusEntry.BlockedCapabilities) != 0 {

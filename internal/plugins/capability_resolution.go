@@ -34,7 +34,6 @@ var (
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":          {},
-		"registerLanguageServer":       {},
 		"registerExternalAgentAdapter": {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{

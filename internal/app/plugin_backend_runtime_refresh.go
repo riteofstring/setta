@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 )
@@ -17,6 +18,8 @@ type pluginBackendRuntimeRefresher struct {
 	runtimeRoot string
 	mcpServer   *mcpx.Server
 	runtime     *pluginBackendMCPRuntime
+	lspRouter   *lsp.Router
+	lspSpecs    []lsp.LanguageServerSpec
 
 	mu sync.Mutex
 }
@@ -215,6 +218,10 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(snapshot)
+	if err != nil {
+		return err
+	}
 	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
 	if err != nil {
 		return err
@@ -223,7 +230,15 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 		_ = nextRuntime.Close(context.Background())
 		return err
 	}
+	if err := r.replaceLSPSpecsLocked(ctx, nil, nextLSPSpecs); err != nil {
+		if rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, nil); rollbackErr != nil && r.logger != nil {
+			r.logger.Error("rollback plugin backend MCP tools after LSP initialization failure", "error", rollbackErr)
+		}
+		_ = nextRuntime.Close(context.Background())
+		return err
+	}
 	r.runtime = nextRuntime
+	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	return nil
 }
 
@@ -247,12 +262,25 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	if err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
+	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(previewSnapshot)
+	if err != nil {
+		_ = nextRuntime.Close(context.Background())
+		return plugins.DiscoverySnapshot{}, err
+	}
+	previousRuntime := r.runtime
+	previousLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
 	if err := r.replaceRuntimeToolsLocked(r.runtime, nextRuntime); err != nil {
 		_ = nextRuntime.Close(context.Background())
 		return plugins.DiscoverySnapshot{}, err
 	}
+	if err := r.replaceLSPSpecsLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
+		if rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime); rollbackErr != nil && r.logger != nil {
+			r.logger.Error("rollback plugin backend MCP tools after LSP refresh failure", "error", rollbackErr)
+		}
+		_ = nextRuntime.Close(context.Background())
+		return plugins.DiscoverySnapshot{}, err
+	}
 
-	previousRuntime := r.runtime
 	r.runtime = nextRuntime
 	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
 	if commitErr != nil {
@@ -260,11 +288,16 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		if rollbackErr != nil && r.logger != nil {
 			r.logger.Error("rollback plugin backend MCP tools failed", "error", rollbackErr)
 		}
+		if rollbackErr := r.replaceLSPSpecsLocked(context.Background(), nextLSPSpecs, previousLSPSpecs); rollbackErr != nil && r.logger != nil {
+			r.logger.Error("rollback plugin backend language servers failed", "error", rollbackErr)
+		}
 		r.runtime = previousRuntime
+		r.lspSpecs = previousLSPSpecs
 		_ = nextRuntime.Close(context.Background())
 		return committedSnapshot, commitErr
 	}
 
+	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	if previousRuntime != nil {
 		_ = previousRuntime.Close(context.Background())
 	}
@@ -318,6 +351,27 @@ func (r *pluginBackendRuntimeRefresher) replaceRuntimeToolsLocked(previous *plug
 	return nil
 }
 
+func (r *pluginBackendRuntimeRefresher) replaceLSPSpecsLocked(
+	ctx context.Context,
+	previous []lsp.LanguageServerSpec,
+	next []lsp.LanguageServerSpec,
+) error {
+	if r == nil || r.lspRouter == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := r.lspRouter.ReplaceAdditionalSpecs(ctx, next); err != nil {
+		rollbackCtx := context.Background()
+		if rollbackErr := r.lspRouter.ReplaceAdditionalSpecs(rollbackCtx, previous); rollbackErr != nil && r.logger != nil {
+			r.logger.Error("rollback plugin backend language servers after refresh failure", "error", rollbackErr)
+		}
+		return fmt.Errorf("replace plugin backend language servers: %w", err)
+	}
+	return nil
+}
+
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {
 	for _, entry := range entries {
 		if entry.PluginID == pluginID && entry.Scope == scope {
@@ -337,6 +391,31 @@ func findHighestPrecedencePlugin(entries []plugins.DiscoveredPlugin, pluginID st
 }
 
 func cloneOptionalDigest(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := strings.TrimSpace(*value)
+	return &cloned
+}
+
+func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServerSpec {
+	if len(specs) == 0 {
+		return nil
+	}
+	cloned := make([]lsp.LanguageServerSpec, 0, len(specs))
+	for _, spec := range specs {
+		cloned = append(cloned, lsp.LanguageServerSpec{
+			Name:        spec.Name,
+			LanguageID:  spec.LanguageID,
+			Command:     spec.Command,
+			Args:        append([]string(nil), spec.Args...),
+			SettingsKey: cloneOptionalString(spec.SettingsKey),
+		})
+	}
+	return cloned
+}
+
+func cloneOptionalString(value *string) *string {
 	if value == nil {
 		return nil
 	}

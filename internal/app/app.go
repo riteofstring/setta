@@ -1180,6 +1180,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			service:     pluginMutationService,
 			logger:      logger,
 			runtimeRoot: cfg.Paths.RuntimeRoot,
+			lspRouter:   lspRouter,
 		}
 		pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 			if pluginRuntimeRefresh == nil {

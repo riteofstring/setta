@@ -9069,6 +9069,110 @@ func TestAppLinkedPluginCodegenTargetsBecomeAvailableAfterLink(t *testing.T) {
 	}
 }
 
+func TestAppStartsWithPluginLanguageServerCompletion(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		"project-alpha",
+		"runner",
+		"fixture.",
+		8,
+	)
+	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
+		t.Fatalf("unexpected startup plugin completions %#v", completions)
+	}
+}
+
+func TestAppLinkedPluginLanguageServerBecomesAvailableAfterLink(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
+	localPluginRoot := filepath.Join(t.TempDir(), "backend")
+	copyAppTestDir(t, sourceRoot, localPluginRoot)
+	rewriteAppPluginManifest(t, localPluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8)
+	if len(completions) != 0 {
+		t.Fatalf("expected no plugin completions before link, got %#v", completions)
+	}
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"localPluginRoot": localPluginRoot,
+		"scope":           "workspace",
+		"enable":          true,
+		"force":           true,
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsLink, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins link request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins link: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins link 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+
+	completions = requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8)
+	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
+		t.Fatalf("unexpected linked plugin completions %#v", completions)
+	}
+}
+
 func TestAppServesSetProjectConfigCodegenTargetsRouteForPython(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -9864,10 +9968,16 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 func seedAppLSPCodeSectionProject(t *testing.T, app *App) {
 	t.Helper()
 
-	seedAppLSPCodeSectionProjectWithSource(t, app, "print('runner')\n")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "print('runner')\n")
 }
 
 func seedAppLSPCodeSectionProjectWithSource(t *testing.T, app *App, source string) {
+	t.Helper()
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, source)
+}
+
+func seedAppLSPCodeSectionProjectWithLanguage(t *testing.T, app *App, language projectstate.CodeLanguage, source string) {
 	t.Helper()
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -9896,13 +10006,13 @@ func seedAppLSPCodeSectionProjectWithSource(t *testing.T, app *App, source strin
 					ID:   "runner-impl",
 					Kind: projectstate.SectionKindCode,
 					Code: &projectstate.CodeSectionImpl{
-						Language: projectstate.CodeLanguagePython,
+						Language: language,
 					},
 					Payload: mustAppJSON(t, map[string]any{
 						"id":           "runner-impl",
 						"type":         "Code",
 						"code":         source,
-						"codeLanguage": "python",
+						"codeLanguage": string(language),
 						"children":     []string{},
 					}),
 				},
@@ -10044,6 +10154,23 @@ func prepareAppLSPFixture(t *testing.T) {
 	t.Setenv("SETTA_LSP_COMMAND", appTestWorkerPython(t, repoRoot))
 	t.Setenv(
 		"SETTA_LSP_ARGS",
+		filepath.Join(
+			repoRoot,
+			"tests",
+			"fixtures",
+			"lsp",
+			"mini_language_server.py",
+		),
+	)
+}
+
+func prepareAppPluginLanguageServerFixture(t *testing.T) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv("SETTA_PLUGIN_FIXTURE_PYTHON", appTestWorkerPython(t, repoRoot))
+	t.Setenv(
+		"SETTA_PLUGIN_FIXTURE_LSP_SCRIPT",
 		filepath.Join(
 			repoRoot,
 			"tests",
@@ -10241,6 +10368,76 @@ func installAppPluginFixture(t *testing.T, cfg config.Config, fixtureName string
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
 	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
+func rewriteAppPluginManifest(t *testing.T, pluginRoot string, mutate func(map[string]any)) {
+	t.Helper()
+
+	manifestPath := filepath.Join(pluginRoot, "setta.plugin.json")
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read plugin manifest %s: %v", manifestPath, err)
+	}
+
+	var manifest map[string]any
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatalf("decode plugin manifest %s: %v", manifestPath, err)
+	}
+	mutate(manifest)
+
+	encoded, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin manifest %s: %v", manifestPath, err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(manifestPath, encoded, 0o644); err != nil {
+		t.Fatalf("write plugin manifest %s: %v", manifestPath, err)
+	}
+}
+
+type appCompletionItem struct {
+	Label string `json:"label"`
+}
+
+func requestAppCodeAreaCompletion(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+	projectID string,
+	sectionID string,
+	fullText string,
+	position int,
+) []appCompletionItem {
+	t.Helper()
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"projectConfigId": projectID,
+		"sectionId":       sectionID,
+		"fullText":        fullText,
+		"position":        position,
+	})
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RouteCodeAreaCompletion, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new code area completion request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post code area completion: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected code area completion 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+
+	var payload []appCompletionItem
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode code area completion payload: %v", err)
+	}
+	return payload
 }
 
 func appTestRepoRoot(t *testing.T) string {

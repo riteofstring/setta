@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"setta/internal/projectstate"
+	"setta/internal/statefs"
 )
 
 const (
@@ -20,6 +23,7 @@ const (
 type backendProbeResponse struct {
 	SchemaVersion     int                                `json:"schemaVersion"`
 	CodegenTargets    []PluginRegisteredCodegenTarget    `json:"codegenTargets"`
+	LanguageServers   []PluginRegisteredLanguageServer   `json:"languageServers"`
 	Routes            []PluginRegisteredBackendRoute     `json:"routes"`
 	StaticDirs        []PluginRegisteredStaticDir        `json:"staticDirs"`
 	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints"`
@@ -28,7 +32,7 @@ type backendProbeResponse struct {
 func backendProbeRequired(capabilities []string) bool {
 	for _, capability := range capabilities {
 		switch capability {
-		case "registerCodegenTarget", "registerRouter", "registerStaticDir", "registerListenerEndpoint":
+		case "registerCodegenTarget", "registerLanguageServer", "registerRouter", "registerStaticDir", "registerListenerEndpoint":
 			return true
 		}
 	}
@@ -97,6 +101,9 @@ func decodeBackendProbeResponse(output []byte) (backendProbeResponse, error) {
 	if probe.CodegenTargets == nil {
 		probe.CodegenTargets = []PluginRegisteredCodegenTarget{}
 	}
+	if probe.LanguageServers == nil {
+		probe.LanguageServers = []PluginRegisteredLanguageServer{}
+	}
 	if probe.Routes == nil {
 		probe.Routes = []PluginRegisteredBackendRoute{}
 	}
@@ -138,6 +145,34 @@ func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe bac
 			return -1
 		}
 		if left.TargetID > right.TargetID {
+			return 1
+		}
+		return 0
+	})
+
+	languageServers := map[string]struct{}{}
+	for index, registration := range probe.LanguageServers {
+		normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, pluginID, registration)
+		if err != nil {
+			return backendProbeResponse{}, fmt.Errorf("language server %d: %w", index, err)
+		}
+		probe.LanguageServers[index] = normalized
+		if _, exists := languageServers[normalized.Language]; exists {
+			return backendProbeResponse{}, fmt.Errorf("duplicate language server language %s", normalized.Language)
+		}
+		languageServers[normalized.Language] = struct{}{}
+	}
+	slices.SortFunc(probe.LanguageServers, func(left PluginRegisteredLanguageServer, right PluginRegisteredLanguageServer) int {
+		if left.Language < right.Language {
+			return -1
+		}
+		if left.Language > right.Language {
+			return 1
+		}
+		if left.Name < right.Name {
+			return -1
+		}
+		if left.Name > right.Name {
 			return 1
 		}
 		return 0
@@ -262,6 +297,61 @@ func normalizeBackendCodegenTargetRegistration(pluginID string, target PluginReg
 		Language:        language,
 		Name:            name,
 		DefaultFileName: defaultFileName,
+	}, nil
+}
+
+func normalizeBackendLanguageServerRegistration(pluginRoot string, pluginID string, registration PluginRegisteredLanguageServer) (PluginRegisteredLanguageServer, error) {
+	name := strings.TrimSpace(registration.Name)
+	if name == "" {
+		return PluginRegisteredLanguageServer{}, fmt.Errorf("name is required")
+	}
+
+	language := strings.ToLower(strings.TrimSpace(registration.Language))
+	if language == "" {
+		return PluginRegisteredLanguageServer{}, fmt.Errorf("language is required")
+	}
+	if language == string(projectstate.CodeLanguagePython) {
+		return PluginRegisteredLanguageServer{}, fmt.Errorf("language servers cannot target python")
+	}
+
+	command := strings.TrimSpace(registration.Command)
+	if command == "" {
+		return PluginRegisteredLanguageServer{}, fmt.Errorf("command is required")
+	}
+	if strings.HasPrefix(command, "./") || strings.HasPrefix(command, "../") {
+		resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
+		if err != nil {
+			return PluginRegisteredLanguageServer{}, err
+		}
+		command = resolved
+	}
+
+	args := make([]string, 0, len(registration.Args))
+	for _, rawArg := range registration.Args {
+		arg := strings.TrimSpace(rawArg)
+		if arg == "" {
+			return PluginRegisteredLanguageServer{}, fmt.Errorf("args must be non-empty")
+		}
+		args = append(args, arg)
+	}
+
+	settingsKey := cloneOptionalString(registration.SettingsKey)
+	if settingsKey != nil {
+		trimmed := strings.TrimSpace(*settingsKey)
+		if trimmed == "" {
+			settingsKey = nil
+		} else {
+			settingsKey = &trimmed
+		}
+	}
+
+	return PluginRegisteredLanguageServer{
+		PluginID:    strings.TrimSpace(pluginID),
+		Name:        name,
+		Language:    language,
+		Command:     command,
+		Args:        append([]string(nil), args...),
+		SettingsKey: cloneOptionalString(settingsKey),
 	}, nil
 }
 

@@ -7,6 +7,11 @@ import (
 	"testing"
 )
 
+const (
+	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
+	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
+)
+
 type filesystemPluginScope string
 
 const (
@@ -139,4 +144,25 @@ func copyBackendCodegenFixtureDir(t *testing.T, sourceRoot string, targetRoot st
 			t.Fatalf("write fixture file %s: %v", targetPath, err)
 		}
 	}
+}
+
+func preparePluginLanguageServerFixture(t *testing.T) (string, string) {
+	t.Helper()
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	pythonCandidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+	}
+	for _, pythonPath := range pythonCandidates {
+		if _, err := os.Stat(pythonPath); err == nil {
+			scriptPath := filepath.Join(repoRoot, "tests", "fixtures", "lsp", "mini_language_server.py")
+			t.Setenv(pluginFixturePythonEnv, pythonPath)
+			t.Setenv(pluginFixtureLSPScriptEnv, scriptPath)
+			return pythonPath, scriptPath
+		}
+	}
+
+	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
+	return "", ""
 }

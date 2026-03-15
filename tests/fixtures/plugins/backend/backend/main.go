@@ -6,12 +6,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 const (
-	backendProbeArg   = "--setta-plugin-backend-probe"
-	backendRuntimeArg = "--setta-plugin-backend-runtime"
+	backendProbeArg           = "--setta-plugin-backend-probe"
+	backendRuntimeArg         = "--setta-plugin-backend-runtime"
+	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
+	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
+	pluginFixtureLanguageName = "setta-fixture-backend:fixturedsl"
+	pluginFixtureLanguageID   = "fixturedsl"
+	pluginFixtureSettingsKey  = "fixtureDslLanguageServer"
 )
 
 type backendRequestContext struct {
@@ -73,6 +80,10 @@ func main() {
 
 	switch os.Args[1] {
 	case backendProbeArg:
+		languageServers := []map[string]any{}
+		if registration, ok := resolveLanguageServerRegistration(); ok {
+			languageServers = append(languageServers, registration)
+		}
 		writeJSON(map[string]any{
 			"schemaVersion": 1,
 			"codegenTargets": []map[string]any{
@@ -83,6 +94,7 @@ func main() {
 					"defaultFileName": "fixture_state.ts",
 				},
 			},
+			"languageServers": languageServers,
 			"routes": []map[string]any{
 				{
 					"path":    "/health",
@@ -108,6 +120,53 @@ func main() {
 	case backendRuntimeArg:
 		handleRuntime()
 	}
+}
+
+func resolveLanguageServerRegistration() (map[string]any, bool) {
+	command := strings.TrimSpace(os.Getenv(pluginFixturePythonEnv))
+	switch {
+	case command != "":
+		resolved, err := resolveCommand(command)
+		if err != nil {
+			return nil, false
+		}
+		command = resolved
+	default:
+		for _, candidate := range []string{"python3", "python"} {
+			resolved, err := exec.LookPath(candidate)
+			if err == nil {
+				command = resolved
+				break
+			}
+		}
+	}
+	if command == "" {
+		return nil, false
+	}
+
+	scriptPath := strings.TrimSpace(os.Getenv(pluginFixtureLSPScriptEnv))
+	if scriptPath == "" {
+		return nil, false
+	}
+	absoluteScriptPath, err := filepath.Abs(scriptPath)
+	if err != nil {
+		return nil, false
+	}
+
+	return map[string]any{
+		"name":        pluginFixtureLanguageName,
+		"language":    pluginFixtureLanguageID,
+		"command":     command,
+		"args":        []string{absoluteScriptPath},
+		"settingsKey": pluginFixtureSettingsKey,
+	}, true
+}
+
+func resolveCommand(command string) (string, error) {
+	if strings.ContainsRune(command, filepath.Separator) {
+		return filepath.Abs(command)
+	}
+	return exec.LookPath(command)
 }
 
 func handleRuntime() {
