@@ -1231,37 +1231,6 @@ class SettaListener:
             projectConfigId=self._require_project_id(), callbacks=callbacks
         )
 
-    def _resolve_dependency_spec(
-        self,
-        dependency_metadata: ListenerDependencyMetadata,
-        dependency: ListenerDependencySpec,
-    ) -> BaseDependencyKeyUnion:
-        if isinstance(dependency, ListenerDependencyId):
-            dep_key = create_dep_key(
-                sectionId=dependency.sectionId,
-                codeObjId=dependency.paramInfoId,
-            )
-        elif isinstance(dependency, (SectionDependencyKey, SectionParamDependencyKey)):
-            dep_key = dependency
-        elif isinstance(dependency, str):
-            try:
-                dep_key = dependency_metadata.dependency_key(dependency)
-            except KeyError as error:
-                raise KeyError(
-                    f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
-                ) from error
-        else:
-            raise TypeError(
-                "Listener dependencies must be a name, dependency id, or dependency key"
-            )
-        try:
-            dependency_metadata.entry_for_key(dep_key)
-        except KeyError as error:
-            raise KeyError(
-                f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
-            ) from error
-        return dep_key
-
     def _refresh_callback_dependency_metadata(
         self, dependency_metadata: ListenerDependencyMetadata
     ) -> None:
@@ -1269,12 +1238,34 @@ class SettaListener:
             if spec.declared_dependencies and not spec.structured_dependencies:
                 structured: list[BaseDependencyKeyUnion] = []
                 for dependency in spec.declared_dependencies:
-                    structured.append(
-                        self._resolve_dependency_spec(
-                            dependency_metadata,
-                            dependency,
+                    if isinstance(dependency, ListenerDependencyId):
+                        dep_key = create_dep_key(
+                            sectionId=dependency.sectionId,
+                            codeObjId=dependency.paramInfoId,
                         )
-                    )
+                    elif isinstance(
+                        dependency,
+                        (SectionDependencyKey, SectionParamDependencyKey),
+                    ):
+                        dep_key = dependency
+                    elif isinstance(dependency, str):
+                        try:
+                            dep_key = dependency_metadata.dependency_key(dependency)
+                        except KeyError as error:
+                            raise KeyError(
+                                f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
+                            ) from error
+                    else:
+                        raise TypeError(
+                            "Listener dependencies must be a name, dependency id, or dependency key"
+                        )
+                    try:
+                        dependency_metadata.entry_for_key(dep_key)
+                    except KeyError as error:
+                        raise KeyError(
+                            f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
+                        ) from error
+                    structured.append(dep_key)
                 spec.structured_dependencies = tuple(structured)
             if not spec.structured_dependencies:
                 spec.dependency_names = ()
