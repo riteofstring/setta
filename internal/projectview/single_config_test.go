@@ -227,6 +227,51 @@ func TestSingleConfigByProjectIDIncludesWindowingFields(t *testing.T) {
 	}
 }
 
+func TestSingleConfigByProjectIDIncludesEmptyShownParamIDsForCallableWithoutRoot(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.SectionVariantMap["empty-callable-section"] = "empty-callable-variant"
+	project.Sections["empty-callable-section"] = projectstate.Section{
+		ID:               "empty-callable-section",
+		Name:             "Empty Callable Section",
+		VariantIDs:       []string{"empty-callable-variant"},
+		DefaultVariantID: "empty-callable-variant",
+	}
+	project.SectionVariants["empty-callable-variant"] = projectstate.SectionVariant{
+		ID:     "empty-callable-variant",
+		Name:   "Empty Callable Variant",
+		ImplID: "empty-callable-impl",
+	}
+	project.SectionImpls["empty-callable-impl"] = projectstate.SectionImpl{
+		ID:      "empty-callable-impl",
+		Kind:    projectstate.SectionKind("frontend"),
+		Payload: mustRawJSON(t, map[string]any{"id": "empty-callable-impl", "type": "Callable", "callable": nil, "codeObjVariantMap": map[string]any{}}),
+	}
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	shown, ok := view.ShownParamIDs["empty-callable-variant"]
+	if !ok {
+		t.Fatalf("expected empty callable shown params entry, got %#v", view.ShownParamIDs)
+	}
+	if !reflect.DeepEqual(shown.Pinned.TopLevelParamIDs, []string{}) {
+		t.Fatalf("expected empty pinned top-level params, got %#v", shown.Pinned.TopLevelParamIDs)
+	}
+	if !reflect.DeepEqual(shown.Unpinned.TopLevelParamIDs, []string{}) {
+		t.Fatalf("expected empty unpinned top-level params, got %#v", shown.Unpinned.TopLevelParamIDs)
+	}
+	if len(shown.Pinned.RequiredParamIDsToPaths) != 0 {
+		t.Fatalf("expected empty pinned path map, got %#v", shown.Pinned.RequiredParamIDsToPaths)
+	}
+	if len(shown.Unpinned.RequiredParamIDsToPaths) != 0 {
+		t.Fatalf("expected empty unpinned path map, got %#v", shown.Unpinned.RequiredParamIDsToPaths)
+	}
+}
+
 func TestSingleConfigByProjectIDPrefersProjectGeneratedCodeBinding(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

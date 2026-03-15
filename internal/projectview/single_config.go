@@ -332,15 +332,22 @@ func deriveShownParamIDs(project projectstate.Project) (map[string]ShownParamIDs
 			if err != nil {
 				return nil, fmt.Errorf("project %q section %q variant %q: %w", project.ID, sectionID, variantID, err)
 			}
+			sectionType := stringField(effectiveSection, "type")
+			if !isSectionWithParamsType(sectionType) {
+				continue
+			}
+			shownParamIDs := emptyShownParamIDs()
 			codeObjVariantMap := stringMapField(effectiveSection, "codeObjVariantMap")
 			if len(codeObjVariantMap) == 0 {
+				output[variantID] = shownParamIDs
 				continue
 			}
 			topLevelParamIDs, ok, err := topLevelParamIDs(project, codeObjVariantMap, effectiveSection)
 			if err != nil {
 				return nil, fmt.Errorf("project %q section %q variant %q top-level params: %w", project.ID, sectionID, variantID, err)
 			}
-			if !ok {
+			if !ok || len(topLevelParamIDs) == 0 {
+				output[variantID] = shownParamIDs
 				continue
 			}
 			paramIDs, idToPath, childrenMap, err := traverseParamHierarchy(project, codeObjVariantMap, topLevelParamIDs)
@@ -352,6 +359,28 @@ func deriveShownParamIDs(project projectstate.Project) (map[string]ShownParamIDs
 		}
 	}
 	return output, nil
+}
+
+func emptyShownParamIDs() ShownParamIDs {
+	return ShownParamIDs{
+		Pinned: ShownParamIDDetails{
+			RequiredParamIDsToPaths: map[string][]string{},
+			TopLevelParamIDs:        []string{},
+		},
+		Unpinned: ShownParamIDDetails{
+			RequiredParamIDsToPaths: map[string][]string{},
+			TopLevelParamIDs:        []string{},
+		},
+	}
+}
+
+func isSectionWithParamsType(sectionType string) bool {
+	switch sectionType {
+	case "Callable", "Dict", "GlobalVariables":
+		return true
+	default:
+		return false
+	}
 }
 
 func deriveRequiredDecodedImages(project projectstate.Project) []string {
