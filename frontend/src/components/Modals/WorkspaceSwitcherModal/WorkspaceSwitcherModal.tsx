@@ -3,21 +3,16 @@ import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLaunc
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { useServerMode } from "state/definitions";
+import { useServerMode } from "state/stores/sessionStores";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_workspace_launch_intent,
   route_get_setta_home_info,
 } from "utils/generatedEndpoints";
-import type {
-  CreateWorkspaceLaunchIntentResponse,
-  LaunchRequestInput,
-  SettaHomeInfoResponse,
+import {
+  type LaunchRequestInput,
+  type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
@@ -41,10 +36,6 @@ type CreatePendingWorkspaceLaunchResult =
   | { ok: true; pendingLaunch: PendingWorkspaceLaunch }
   | { ok: false; message: string };
 
-type CreateWorkspaceLaunchIntentRouteResponse =
-  ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>;
-type SettaHomeInfoRouteResponse = ResponseDataAndStatus<SettaHomeInfoResponse>;
-
 export async function createPendingWorkspaceLaunchFromIntent({
   launchRequest,
   returnUrl,
@@ -52,11 +43,10 @@ export async function createPendingWorkspaceLaunchFromIntent({
   launchRequest: LaunchRequestInput;
   returnUrl: string;
 }): Promise<CreatePendingWorkspaceLaunchResult> {
-  const response: CreateWorkspaceLaunchIntentRouteResponse =
-    await route_create_workspace_launch_intent({
+  const response = await route_create_workspace_launch_intent({
     launchRequest,
     returnUrl,
-    });
+  });
   if (!res200(response) || !response.data) {
     const detail = getErrorDetail(response.data);
     return {
@@ -143,8 +133,7 @@ export function WorkspaceSwitcherModal() {
         return;
       }
 
-      const response: SettaHomeInfoRouteResponse =
-        await route_get_setta_home_info();
+      const response = await route_get_setta_home_info();
       if (!isMounted) {
         return;
       }

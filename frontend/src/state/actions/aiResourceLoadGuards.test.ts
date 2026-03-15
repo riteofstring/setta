@@ -27,9 +27,9 @@ vi.mock("utils/generatedEndpoints", async () => {
 });
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let loadAgentRuns: typeof import("state/actions/ai").loadAgentRuns;
-let loadLLMApiKeys: typeof import("state/actions/ai").loadLLMApiKeys;
-let loadLLMConfig: typeof import("state/actions/ai").loadLLMConfig;
+let loadAgentRuns: typeof import("state/actions/aiAgentRuns").loadAgentRuns;
+let loadLLMApiKeys: typeof import("state/actions/aiManagedApiKeyState").loadLLMApiKeys;
+let loadLLMConfig: typeof import("state/actions/aiLLMConfiguration").loadLLMConfig;
 let memoryStorage: Storage;
 
 describe("AI resource load guards", () => {
@@ -55,10 +55,14 @@ describe("AI resource load guards", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
-    const ai = await import("state/actions/ai");
-    loadAgentRuns = ai.loadAgentRuns;
-    loadLLMConfig = ai.loadLLMConfig;
-    loadLLMApiKeys = ai.loadLLMApiKeys;
+    const aiAgentRuns = await import("state/actions/aiAgentRuns");
+    const aiLLMConfiguration = await import("state/actions/aiLLMConfiguration");
+    const aiManagedApiKeyState = await import(
+      "state/actions/aiManagedApiKeyState"
+    );
+    loadAgentRuns = aiAgentRuns.loadAgentRuns;
+    loadLLMConfig = aiLLMConfiguration.loadLLMConfig;
+    loadLLMApiKeys = aiManagedApiKeyState.loadLLMApiKeys;
   });
 
   beforeEach(() => {
@@ -178,6 +182,35 @@ describe("AI resource load guards", () => {
     expect(state.apiKeysLoadError).toBe(
       "Managed API key store is unavailable.",
     );
+  });
+
+  it("marks api keys authoritative on corrupt-store errors and keeps revision metadata", async () => {
+    useAIStore.setState({
+      apiKeys: { OPENAI_API_KEY: "stale-local-key" },
+      apiKeysRevision: 5,
+      apiKeysAuthoritative: false,
+    });
+    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
+      .route_get_llm_api_keys as unknown as vi.Mock;
+    route_get_llm_api_keys.mockResolvedValue({
+      status: 409,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "managed_api_keys_store_corrupt",
+          message: "Managed API key store is corrupt.",
+          revision: 8,
+        },
+      },
+    });
+
+    await loadLLMApiKeys();
+
+    const state = useAIStore.getState();
+    expect(state.apiKeys).toEqual({});
+    expect(state.apiKeysRevision).toBe(8);
+    expect(state.apiKeysAuthoritative).toBe(true);
+    expect(state.apiKeysLoadError).toBe("Managed API key store is corrupt.");
   });
 
   it("deduplicates in-flight agent run loads", async () => {
