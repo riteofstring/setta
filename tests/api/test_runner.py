@@ -10,9 +10,44 @@ from setta.auth.cookies import auth_cookie_name
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.section_impls import TextBlockSectionImpl
+
+
+def _build_project_state() -> ProjectStateSingleConfig:
+    section_impl = TextBlockSectionImpl(
+        id=ID("section-impl"),
+        name="Welcome",
+        text="Hello",
+    )
+    section_variant = Variant(
+        id=ID("section-variant"),
+        name="Welcome Variant",
+        impl=section_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+    )
+    section_core = Core(
+        id=ID("section-welcome"),
+        name="Welcome",
+        variants=[section_variant.id],
+        defaultVariant=section_variant.id,
+    )
+    project_config = ProjectConfig(
+        id=ID("project-1"),
+        name="Demo Project",
+        sectionVariantMap={section_core.id: section_variant.id},
+        topLevelSections={section_core.id: TopLevelSectionLayout()},
+    )
+    return ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections={section_core.id: section_core},
+        sectionImpls={section_impl.id: section_impl},
+        sectionVariants={section_variant.id: section_variant},
+    )
 
 
 def test_encode_param_overrides_accepts_dependency_key() -> None:
@@ -51,6 +86,37 @@ def test_resolve_project_config_id_raises_on_unknown() -> None:
 
     with pytest.raises(KeyError):
         runner._resolve_project_config_id("Missing")
+
+
+def test_summary_loads_latest_project_state_for_default_config(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com")
+    project_state = _build_project_state()
+    observed_requests: list[tuple[runner_mod.Route, dict]] = []
+
+    def post(route: runner_mod.Route, payload: dict) -> dict:
+        observed_requests.append((route, payload))
+        return {"projectState": project_state.model_dump(mode="json")}
+
+    monkeypatch.setattr(runner, "_post", post)
+    monkeypatch.setattr(
+        runner,
+        "_resolve_project_config_id",
+        lambda _ref: project_state.projectConfig.id,
+    )
+
+    # Runner summary should fetch the latest project state for the resolved
+    # default project config and then expose that state through RunnerSummary.
+    summary = runner.summary()
+
+    assert summary.section("Welcome").id == ID("section-welcome")
+    assert observed_requests == [
+        (
+            runner_mod.Route.GET_LATEST_PROJECT_STATE,
+            {"projectConfigId": project_state.projectConfig.id},
+        )
+    ]
 
 
 def test_resolve_auth_headers_loads_cookie_from_matching_workspace_session(

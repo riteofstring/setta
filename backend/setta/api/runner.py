@@ -250,7 +250,12 @@ class SettaRunner:
         self._default_project_config_id: ID | None = None
 
     def summary(self) -> RunnerSummary:
-        project_state = self._get_project_state()
+        project_config_id = self._resolve_project_config_id(None)
+        data = self._post(
+            Route.GET_LATEST_PROJECT_STATE,
+            {"projectConfigId": project_config_id},
+        )
+        project_state = ProjectStateSingleConfig(**data["projectState"])
         return RunnerSummary(project_state)
 
     def run_detached(
@@ -383,14 +388,6 @@ class SettaRunner:
         secret = secret_path.read_bytes()
         token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
         return f"{auth_cookie_name(selected.id)}={token}"
-
-    def _get_project_state(self) -> ProjectStateSingleConfig:
-        project_config_id = self._resolve_project_config_id(None)
-        data = self._post(
-            Route.GET_LATEST_PROJECT_STATE,
-            {"projectConfigId": project_config_id},
-        )
-        return ProjectStateSingleConfig(**data["projectState"])
 
     def _resolve_project_config_id(self, ref: str | None) -> ID:
         project_name = ref or self._project_name
