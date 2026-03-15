@@ -39,6 +39,7 @@ type PluginRootRouteDependencies struct {
 
 type PluginAssetService interface {
 	ResolveAssetPath(pluginID string, assetPath string) (string, error)
+	ResolveRegisteredStaticAssetPath(requestPath string) (string, bool, error)
 }
 
 type PluginRouteService interface {
@@ -91,6 +92,8 @@ func RegisterPluginRootRoutes(router chi.Router, deps PluginRootRouteDependencie
 	}
 
 	router.Get(RoutePluginsAssetWildcard, pluginAssetHandler(deps))
+	router.Get("/*", pluginStaticDirHandler(deps))
+	router.Head("/*", pluginStaticDirHandler(deps))
 	return nil
 }
 
@@ -399,6 +402,28 @@ func pluginAssetHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
 		if isImmutablePluginAssetVersion(r.URL.Query().Get("v")) {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
+		http.ServeFile(w, r, resolvedPath)
+	}
+}
+
+func pluginStaticDirHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestPath, err := url.PathUnescape(r.URL.EscapedPath())
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, string(plugins.ServiceErrorCodeAssetInvalidPath), "Invalid plugin backend static asset path.")
+			return
+		}
+
+		resolvedPath, matched, err := deps.Service.ResolveRegisteredStaticAssetPath(requestPath)
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		if !matched {
+			writeError(w, r, http.StatusNotFound, "not_found", "Route not found.")
+			return
+		}
+
 		http.ServeFile(w, r, resolvedPath)
 	}
 }

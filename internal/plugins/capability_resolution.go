@@ -39,7 +39,6 @@ var (
 		"registerCodegenTarget":        {},
 		"registerRouter":               {},
 		"registerListenerEndpoint":     {},
-		"registerStaticDir":            {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,

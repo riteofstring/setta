@@ -1174,6 +1174,76 @@ func TestRegisterPluginRootRoutesRejectsTraversalAndUnknownPlugins(t *testing.T)
 	}
 }
 
+func TestRegisterPluginRootRoutesServesRegisteredBackendStaticDirs(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend")
+	rewriteRoutePluginManifest(filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerStaticDir"}
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/static/fixture.txt", nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected backend static asset 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "backend static fixture" {
+		t.Fatalf("unexpected backend static asset body %q", response.Body.String())
+	}
+}
+
+func TestRegisterPluginRootRoutesRejectsTraversalForRegisteredBackendStaticDirs(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend")
+	rewriteRoutePluginManifest(filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerStaticDir"}
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/static/%2E%2E/main.go", nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected traversal 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode traversal payload: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeAssetInvalidPath) {
+		t.Fatalf("expected asset invalid path code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRootRoutesLeavesUnknownPathsAsRouteNotFoundWithoutRegisteredStaticDir(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/static/fixture.txt", nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected unknown static path 404, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode not found payload: %v", err)
+	}
+	if payload.Error.Code != "not_found" {
+		t.Fatalf("expected generic not_found code, got %q", payload.Error.Code)
+	}
+}
+
 type pluginRouteTestRoots struct {
 	workspaceRoot  string
 	settaFilesRoot string

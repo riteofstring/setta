@@ -41,6 +41,10 @@ func (s *pluginMutationRuntimeService) ResolveAssetPath(pluginID string, assetPa
 	return s.base.ResolveAssetPath(pluginID, assetPath)
 }
 
+func (s *pluginMutationRuntimeService) ResolveRegisteredStaticAssetPath(requestPath string) (string, bool, error) {
+	return s.base.ResolveRegisteredStaticAssetPath(requestPath)
+}
+
 func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, error) {
 	snapshot, err := s.base.Rescan()
 	if err != nil || s.refresher == nil {

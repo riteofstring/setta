@@ -211,8 +211,8 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	}
 }
 
-func TestServiceRuntimeEnablesBackendMCPToolsWhileBlockingOtherBackendCapabilities(t *testing.T) {
-	// IDE runtime should expose backend MCP tools as active while keeping the remaining backend transport surfaces host-blocked.
+func TestServiceRuntimeEnablesBackendMCPToolsAndStaticDirsWhileBlockingOtherBackendCapabilities(t *testing.T) {
+	// IDE runtime should expose backend MCP tools and static dirs as active while keeping the remaining backend transport surfaces host-blocked.
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
 	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
@@ -233,21 +233,25 @@ func TestServiceRuntimeEnablesBackendMCPToolsWhileBlockingOtherBackendCapabiliti
 	if len(runtimeResponse.List.Plugins) != 1 {
 		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
 	}
-	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 1 || runtimeResponse.List.Plugins[0].EffectiveCapabilities[0] != "registerMcpTools" {
-		t.Fatalf("expected backend MCP tools to be effective, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 2 {
+		t.Fatalf("expected backend MCP tools and static dirs to be effective, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+	}
+	if runtimeResponse.List.Plugins[0].EffectiveCapabilities[0] != "registerMcpTools" || runtimeResponse.List.Plugins[0].EffectiveCapabilities[1] != "registerStaticDir" {
+		t.Fatalf("unexpected effective backend capabilities %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
 	if len(statusEntry.RequestedCapabilities) != 3 {
 		t.Fatalf("expected requested backend capabilities, got %#v", statusEntry.RequestedCapabilities)
 	}
-	if len(statusEntry.BlockedCapabilities) != 2 {
-		t.Fatalf("expected two blocked backend capabilities, got %#v", statusEntry.BlockedCapabilities)
+	if len(statusEntry.BlockedCapabilities) != 1 {
+		t.Fatalf("expected one blocked backend capability, got %#v", statusEntry.BlockedCapabilities)
 	}
-	for _, blockedCapability := range statusEntry.BlockedCapabilities {
-		if blockedCapability.Reason != PluginBlockedCapabilityReasonHostPolicy {
-			t.Fatalf("expected host-policy block, got %#v", blockedCapability)
-		}
+	if statusEntry.BlockedCapabilities[0].Capability != "registerRouter" {
+		t.Fatalf("expected registerRouter blocked, got %#v", statusEntry.BlockedCapabilities[0])
+	}
+	if statusEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonHostPolicy {
+		t.Fatalf("expected host-policy block, got %#v", statusEntry.BlockedCapabilities[0])
 	}
 }
 
