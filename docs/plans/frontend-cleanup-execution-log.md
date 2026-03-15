@@ -5490,3 +5490,58 @@ in `frontend/src/README.md` and the cleanup plans.
     which is now the next unresolved default-priority front-door hotspot after
     `FileBrowserPane.tsx` delegated tree-data ownership to feature-local
     owners.
+
+## 2026-03-15 19:24:05 PDT
+
+- Slice completed: extracted the project-chat docked, floating, and maximized
+  window render shells out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was
+    still the active default-priority front-door hotspot in the README and
+    windowing companion plan after the file-browser tree-data slice.
+  - Its largest remaining mixed responsibility was no longer the interaction
+    math but the placement-shell rendering itself: docked panels, floating
+    windows, maximized windows, and their repeated action-spec assembly still
+    lived inline inside the main coordinator.
+  - This was higher value than jumping ahead to
+    `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+    because the existing dock-layout, resize, floating-interaction, pill-strip,
+    and shared-window-shell seams already made it possible to remove one whole
+    render responsibility cleanly in one turn, cutting
+    `ProjectChatBottomDock.tsx` from about `2400` lines to about `1658`.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockTypes.ts`
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatDockedWindowsSurface.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatFloatingWindowsLayer.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatMaximizedWindowSurface.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-bottom-dock-window-surfaces-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/components/ChatWindowing/projectChatBottomDockPillStrip.test.tsx src/components/ChatWindowing/projectChatWindowShell.test.tsx`
+  - `pnpm -C frontend exec vite build`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat bottom dock auto-creates a chat and supports creating additional windows|project chat windows support floating drag/resize, z-order focus, and maximize restore"`
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/ProjectChatDockedWindowsSurface.tsx src/components/ChatWindowing/ProjectChatFloatingWindowsLayer.tsx src/components/ChatWindowing/ProjectChatMaximizedWindowSurface.tsx src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.tsx src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.test.tsx src/components/ChatWindowing/projectChatBottomDockTypes.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-bottom-dock-window-surfaces-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-bottom-dock-window-surfaces-2026-03-15.md`
+    with the before/after CDP trace for the same docked-window undock flow.
+  - DevTools inline trace summary for `Undock Chat Window 1` reported `344ms`
+    observed INP before the extraction and `362ms` after; that stayed in the
+    same range for this single headed-CDP run and did not show a visible
+    regression.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that the extracted floating window still renders after undocking,
+    maximizing from that floating surface still shows the restore/dock controls,
+    and the canvas-visibility toggle still appears while maximized.
+- Commit hash:
+  - `611db33dbf27b5c01e8280e3fa0538445ef0096c`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`,
+    which is now the next unresolved default-priority front-door hotspot in the
+    README and chat/windowing companion plan after `ProjectChatBottomDock.tsx`
+    delegated the placement shells to local owners.
