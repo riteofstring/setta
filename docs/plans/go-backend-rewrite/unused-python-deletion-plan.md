@@ -251,11 +251,13 @@ Current tree note:
   Go `runs`/project-state runtime.
 - The superseded Python project-state manager/runtime cluster is also gone in
   the current worktree: `backend/setta/project_state/*` now retains only
-  `project_manager_types.py`, `project_state_summary_types.py`, and
-  `settings_project.py` as Python support modules still imported by retained
-  Python APIs or type helpers. The deleted runtime ownership already lives in
-  Go under `internal/projectstate`, `internal/projectview`,
-  `internal/watchcode`, `internal/httpapi`, and `internal/frontendbindings`.
+  `project_manager_types.py` and `project_state_summary_types.py`. The older
+  Python `settings_project.py` helper is also gone because current
+  settings-project materialization and view-mode normalization already live in
+  Go under `internal/settingsstate`, `internal/projectstate`, and
+  `internal/httpapi`. The deleted runtime ownership already lives in Go under
+  `internal/projectstate`, `internal/projectview`, `internal/watchcode`,
+  `internal/httpapi`, and `internal/frontendbindings`.
 - `backend/setta/binary/*` is also gone in the current worktree because the
   old Python binary store was only used by the superseded Python project-state
   runtime; current binary content ownership already lives in Go under
@@ -306,6 +308,12 @@ Current tree note:
   `setta.api.chat_toolkit.ChatToolRunnerClient` path to the Go-owned
   `route_run_mcp_tools` surface, while Go now owns the live status/runtime
   transport for the old Python status snapshot slice.
+- The dead Python static project-state helper tail is also smaller in the
+  current worktree: `backend/setta/types/helpers_lvl3.py` is gone because
+  project-summary shaping, temporary-ID/project-summary translation, attached
+  terminal/window-space normalization, and scoped LSP diagnostics filtering
+  already live in Go under `internal/projectview`, `internal/projectstate`,
+  `internal/mcpx`, and `internal/frontendbindings`.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
