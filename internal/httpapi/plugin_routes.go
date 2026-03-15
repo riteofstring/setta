@@ -628,6 +628,10 @@ func isImmutablePluginAssetVersion(value string) bool {
 func writePluginRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	var serviceErr *plugins.ServiceError
 	if errors.As(err, &serviceErr) {
+		if serviceErr.Status != 0 {
+			writeError(w, r, serviceErr.Status, string(serviceErr.Code), serviceErr.Message)
+			return
+		}
 		switch serviceErr.Code {
 		case plugins.ServiceErrorCodeNotFound, plugins.ServiceErrorCodeAssetNotFound, plugins.ServiceErrorCodeLockfileNotFound:
 			writeError(w, r, http.StatusNotFound, string(serviceErr.Code), serviceErr.Message)

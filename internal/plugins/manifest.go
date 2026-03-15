@@ -184,10 +184,28 @@ func readStrictJSONFile[T any](path string) (T, error) {
 	decoder := json.NewDecoder(bytes.NewReader(content))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&value); err != nil {
-		return value, err
+		return value, &strictJSONFileError{err: err}
 	}
 	if decoder.More() {
-		return value, fmt.Errorf("trailing JSON content")
+		return value, &strictJSONFileError{err: fmt.Errorf("trailing JSON content")}
 	}
 	return value, nil
+}
+
+type strictJSONFileError struct {
+	err error
+}
+
+func (e *strictJSONFileError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *strictJSONFileError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
 }

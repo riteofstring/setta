@@ -5,9 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -180,7 +182,13 @@ func (s *Store) LoadPluginsState() (PluginsStateFile, error) {
 	}
 	state, err := readOptionalJSONFile[PluginsStateFile](s.pluginsStatePath)
 	if err != nil {
-		return PluginsStateFile{}, fmt.Errorf("load plugins state: %w", err)
+		return PluginsStateFile{}, pluginStoreLoadError(
+			err,
+			"plugins state",
+			s.pluginsStatePath,
+			ServiceErrorCodeStateInvalid,
+			"Invalid plugins state file: %s",
+		)
 	}
 	return normalizePluginsStateFile(state), nil
 }
@@ -199,7 +207,13 @@ func (s *Store) LoadPluginsGlobalState() (PluginsGlobalStateFile, error) {
 	}
 	state, err := readOptionalJSONFile[PluginsGlobalStateFile](s.pluginsGlobalStatePath)
 	if err != nil {
-		return PluginsGlobalStateFile{}, fmt.Errorf("load plugins global state: %w", err)
+		return PluginsGlobalStateFile{}, pluginStoreLoadError(
+			err,
+			"plugins global state",
+			s.pluginsGlobalStatePath,
+			ServiceErrorCodeGlobalStateInvalid,
+			"Invalid plugins global state file: %s",
+		)
 	}
 	return normalizePluginsGlobalStateFile(state), nil
 }
@@ -218,11 +232,22 @@ func (s *Store) LoadInstallMetadata() (PluginInstallMetadataFile, error) {
 	}
 	metadata, err := readOptionalJSONFile[PluginInstallMetadataFile](s.installMetadataPath)
 	if err != nil {
-		return PluginInstallMetadataFile{}, fmt.Errorf("load plugin install metadata: %w", err)
+		return PluginInstallMetadataFile{}, pluginStoreLoadError(
+			err,
+			"plugin install metadata",
+			s.installMetadataPath,
+			ServiceErrorCodeInstallMetadataInvalid,
+			"Invalid plugin install metadata file: %s",
+		)
 	}
 	normalized, err := normalizeInstallMetadataFile(metadata)
 	if err != nil {
-		return PluginInstallMetadataFile{}, fmt.Errorf("load plugin install metadata: %w", err)
+		return PluginInstallMetadataFile{}, newServiceErrorWithStatus(
+			http.StatusUnprocessableEntity,
+			ServiceErrorCodeInstallMetadataInvalid,
+			"Invalid plugin install metadata file: %s",
+			s.installMetadataPath,
+		)
 	}
 	return normalized, nil
 }
@@ -485,6 +510,20 @@ func sortedUniqueStrings(values []string) []string {
 	}
 	slices.Sort(normalized)
 	return normalized
+}
+
+func pluginStoreLoadError(
+	err error,
+	label string,
+	path string,
+	code ServiceErrorCode,
+	messageFormat string,
+) error {
+	var strictErr *strictJSONFileError
+	if errors.As(err, &strictErr) {
+		return newServiceErrorWithStatus(http.StatusUnprocessableEntity, code, messageFormat, path)
+	}
+	return fmt.Errorf("load %s: %w", label, err)
 }
 
 func readOptionalJSONFile[T any](path string) (T, error) {

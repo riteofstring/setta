@@ -12,7 +12,9 @@ const (
 	ServiceErrorCodeConfigInvalid           ServiceErrorCode = "PLUGIN_CONFIG_INVALID"
 	ServiceErrorCodeConfigSchemaInvalid     ServiceErrorCode = "PLUGIN_CONFIG_SCHEMA_INVALID"
 	ServiceErrorCodeInstallerUnavailable    ServiceErrorCode = "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE"
+	ServiceErrorCodeInstallMetadataInvalid  ServiceErrorCode = "PLUGIN_INSTALL_METADATA_INVALID"
 	ServiceErrorCodeManagedExternally       ServiceErrorCode = "PLUGIN_MANAGED_EXTERNALLY"
+	ServiceErrorCodeGlobalStateInvalid      ServiceErrorCode = "PLUGIN_GLOBAL_STATE_INVALID"
 	ServiceErrorCodeHostVersionInvalid      ServiceErrorCode = "PLUGIN_HOST_VERSION_INVALID"
 	ServiceErrorCodeInitInvalidID           ServiceErrorCode = "PLUGIN_INIT_INVALID_ID"
 	ServiceErrorCodeInitTargetExists        ServiceErrorCode = "PLUGIN_INIT_TARGET_EXISTS"
@@ -31,6 +33,7 @@ const (
 	ServiceErrorCodeRestartFailed           ServiceErrorCode = "PLUGIN_RESTART_FAILED"
 	ServiceErrorCodeRollbackUnavailable     ServiceErrorCode = "PLUGIN_ROLLBACK_UNAVAILABLE"
 	ServiceErrorCodeScopeInvalid            ServiceErrorCode = "PLUGIN_SCOPE_INVALID"
+	ServiceErrorCodeStateInvalid            ServiceErrorCode = "PLUGIN_STATE_INVALID"
 	ServiceErrorCodeSourceArchiveTraversal  ServiceErrorCode = "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL"
 	ServiceErrorCodeSourceAmbiguousRoot     ServiceErrorCode = "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT"
 	ServiceErrorCodeSourceFetchFailed       ServiceErrorCode = "PLUGIN_SOURCE_FETCH_FAILED"
@@ -49,6 +52,7 @@ const (
 type ServiceError struct {
 	Code    ServiceErrorCode
 	Message string
+	Status  int
 }
 
 func (e *ServiceError) Error() string {
@@ -62,5 +66,13 @@ func newServiceError(code ServiceErrorCode, format string, args ...any) error {
 	return &ServiceError{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),
+	}
+}
+
+func newServiceErrorWithStatus(status int, code ServiceErrorCode, format string, args ...any) error {
+	return &ServiceError{
+		Code:    code,
+		Message: fmt.Sprintf(format, args...),
+		Status:  status,
 	}
 }

@@ -174,6 +174,164 @@ func TestRegisterPluginRoutesReturnsRescanSummary(t *testing.T) {
 	}
 }
 
+// Runtime and rescan should preserve the typed malformed-state contract instead of collapsing to internal_error.
+func TestRegisterPluginRoutesMapMalformedPersistedStateForRuntimeAndRescan(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	if err := os.WriteFile(
+		filepath.Join(roots.settaFilesRoot, "plugins_state.json"),
+		[]byte(`{"enabledPluginIds":`),
+		0o644,
+	); err != nil {
+		t.Fatalf("seed malformed plugins state: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "runtime", method: http.MethodGet, path: RoutePluginsRuntime},
+		{name: "rescan", method: http.MethodPost, path: RoutePluginsRescan},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(testCase.method, "/api"+testCase.path, nil)
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected malformed plugins state 422, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode malformed plugins state response: %v", err)
+			}
+			if payload.Error.Code != string(plugins.ServiceErrorCodeStateInvalid) {
+				t.Fatalf("expected state invalid code, got %q", payload.Error.Code)
+			}
+			expectedMessage := "Invalid plugins state file: " + filepath.Join(roots.settaFilesRoot, "plugins_state.json")
+			if payload.Error.Message != expectedMessage {
+				t.Fatalf("expected malformed state message %q, got %q", expectedMessage, payload.Error.Message)
+			}
+		})
+	}
+}
+
+// The shared plugin route mapper should preserve explicit service-provided HTTP status, code, and message.
+func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(t *testing.T) {
+	t.Parallel()
+
+	const injectedMessage = "Injected route failure for mapping test."
+	injectedError := &plugins.ServiceError{
+		Code:    plugins.ServiceErrorCode("PLUGIN_TEST_ERROR"),
+		Message: injectedMessage,
+		Status:  http.StatusTeapot,
+	}
+
+	testCases := []struct {
+		name    string
+		method  string
+		path    string
+		body    string
+		service pluginRouteServiceStub
+	}{
+		{
+			name:   "link",
+			method: http.MethodPost,
+			path:   RoutePluginsLink,
+			body:   `{"localPluginRoot":"/tmp/plugin","scope":"workspace","enable":true,"force":false}`,
+			service: pluginRouteServiceStub{
+				linkFunc: func(plugins.LinkOptions) (plugins.PluginInstallResult, error) {
+					return plugins.PluginInstallResult{}, injectedError
+				},
+			},
+		},
+		{
+			name:   "enable",
+			method: http.MethodPost,
+			path:   RoutePluginsEnable,
+			body:   `{"pluginId":"setta-fixture-frontend"}`,
+			service: pluginRouteServiceStub{
+				enableFunc: func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+					return plugins.PluginEnableDisableResult{}, injectedError
+				},
+			},
+		},
+		{
+			name:   "disable",
+			method: http.MethodPost,
+			path:   RoutePluginsDisable,
+			body:   `{"pluginId":"setta-fixture-frontend"}`,
+			service: pluginRouteServiceStub{
+				disableFunc: func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+					return plugins.PluginEnableDisableResult{}, injectedError
+				},
+			},
+		},
+		{
+			name:   "config",
+			method: http.MethodPost,
+			path:   RoutePluginsConfig,
+			body:   `{"pluginId":"setta-fixture-frontend","config":{"enabled":true}}`,
+			service: pluginRouteServiceStub{
+				writeConfigFunc: func(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+					return plugins.PluginConfigWriteResult{}, injectedError
+				},
+			},
+		},
+		{
+			name:   "lock write",
+			method: http.MethodPost,
+			path:   RoutePluginsLockWrite,
+			service: pluginRouteServiceStub{
+				writeLockfileFunc: func() (plugins.PluginLockWriteResult, error) {
+					return plugins.PluginLockWriteResult{}, injectedError
+				},
+			},
+		},
+		{
+			name:   "lock apply",
+			method: http.MethodPost,
+			path:   RoutePluginsLockApply,
+			body:   `{"check":false}`,
+			service: pluginRouteServiceStub{
+				applyLockfileFunc: func(context.Context, bool) (plugins.PluginLockApplyResult, error) {
+					return plugins.PluginLockApplyResult{}, injectedError
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			handler := newPluginRouteTestHandler(t, config.ModeIDE, testCase.service)
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(testCase.method, "/api"+testCase.path, strings.NewReader(testCase.body))
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusTeapot {
+				t.Fatalf("expected custom plugin error status 418, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode custom plugin error response: %v", err)
+			}
+			if payload.Error.Code != "PLUGIN_TEST_ERROR" {
+				t.Fatalf("expected injected error code, got %q", payload.Error.Code)
+			}
+			if payload.Error.Message != injectedMessage {
+				t.Fatalf("expected injected error message %q, got %q", injectedMessage, payload.Error.Message)
+			}
+		})
+	}
+}
+
 func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
 	t.Parallel()
 
@@ -1388,13 +1546,13 @@ func newPluginRouteTestServiceWithRestartCallback(t *testing.T, mode config.Mode
 	return service, roots
 }
 
-func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service *plugins.Service) http.Handler {
+func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service PluginRouteService) http.Handler {
 	t.Helper()
 
 	return newPluginRouteTestHandlerWithAuth(t, mode, service, nil)
 }
 
-func newPluginRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, service *plugins.Service, authService *auth.Service) http.Handler {
+func newPluginRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, service PluginRouteService, authService *auth.Service) http.Handler {
 	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
@@ -1423,6 +1581,153 @@ func newPluginRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, service *
 		t.Fatalf("new plugin route handler: %v", err)
 	}
 	return handler
+}
+
+type pluginRouteServiceStub struct {
+	runtimeFunc                          func(plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
+	rescanFunc                           func() (plugins.DiscoverySnapshot, error)
+	installFunc                          func(context.Context, plugins.InstallOptions) (plugins.PluginInstallResult, error)
+	linkFunc                             func(plugins.LinkOptions) (plugins.PluginInstallResult, error)
+	uninstallFunc                        func(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResult, error)
+	updateFunc                           func(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
+	rollbackFunc                         func(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
+	enableFunc                           func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
+	disableFunc                          func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
+	writeConfigFunc                      func(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
+	writeLockfileFunc                    func() (plugins.PluginLockWriteResult, error)
+	applyLockfileFunc                    func(context.Context, bool) (plugins.PluginLockApplyResult, error)
+	restartFunc                          func(context.Context) (plugins.PluginRestartResult, error)
+	resolveAssetPathFunc                 func(string, string) (string, error)
+	resolveRegisteredStaticAssetPathFunc func(string) (string, bool, error)
+	lookupRegisteredBackendRouteFunc     func(string, string) (plugins.BackendRouteLookup, error)
+	dispatchRegisteredBackendRouteFunc   func(context.Context, plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error)
+	invokeRegisteredListenerEndpointFunc func(context.Context, plugins.BackendListenerEndpointRequest) (any, bool, error)
+}
+
+func (s pluginRouteServiceStub) Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+	if s.runtimeFunc != nil {
+		return s.runtimeFunc(options)
+	}
+	return plugins.RuntimeResponse{}, nil
+}
+
+func (s pluginRouteServiceStub) Rescan() (plugins.DiscoverySnapshot, error) {
+	if s.rescanFunc != nil {
+		return s.rescanFunc()
+	}
+	return plugins.DiscoverySnapshot{}, nil
+}
+
+func (s pluginRouteServiceStub) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error) {
+	if s.installFunc != nil {
+		return s.installFunc(ctx, options)
+	}
+	return plugins.PluginInstallResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Link(options plugins.LinkOptions) (plugins.PluginInstallResult, error) {
+	if s.linkFunc != nil {
+		return s.linkFunc(options)
+	}
+	return plugins.PluginInstallResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error) {
+	if s.uninstallFunc != nil {
+		return s.uninstallFunc(ctx, options)
+	}
+	return plugins.PluginUninstallResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error) {
+	if s.updateFunc != nil {
+		return s.updateFunc(ctx, options)
+	}
+	return plugins.PluginUpdateResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error) {
+	if s.rollbackFunc != nil {
+		return s.rollbackFunc(ctx, options)
+	}
+	return plugins.PluginRollbackResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+	if s.enableFunc != nil {
+		return s.enableFunc(ctx, options)
+	}
+	return plugins.PluginEnableDisableResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+	if s.disableFunc != nil {
+		return s.disableFunc(ctx, options)
+	}
+	return plugins.PluginEnableDisableResult{}, nil
+}
+
+func (s pluginRouteServiceStub) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+	if s.writeConfigFunc != nil {
+		return s.writeConfigFunc(ctx, options)
+	}
+	return plugins.PluginConfigWriteResult{}, nil
+}
+
+func (s pluginRouteServiceStub) WriteLockfile() (plugins.PluginLockWriteResult, error) {
+	if s.writeLockfileFunc != nil {
+		return s.writeLockfileFunc()
+	}
+	return plugins.PluginLockWriteResult{}, nil
+}
+
+func (s pluginRouteServiceStub) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResult, error) {
+	if s.applyLockfileFunc != nil {
+		return s.applyLockfileFunc(ctx, check)
+	}
+	return plugins.PluginLockApplyResult{}, nil
+}
+
+func (s pluginRouteServiceStub) Restart(ctx context.Context) (plugins.PluginRestartResult, error) {
+	if s.restartFunc != nil {
+		return s.restartFunc(ctx)
+	}
+	return plugins.PluginRestartResult{}, nil
+}
+
+func (s pluginRouteServiceStub) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
+	if s.resolveAssetPathFunc != nil {
+		return s.resolveAssetPathFunc(pluginID, assetPath)
+	}
+	return "", nil
+}
+
+func (s pluginRouteServiceStub) ResolveRegisteredStaticAssetPath(requestPath string) (string, bool, error) {
+	if s.resolveRegisteredStaticAssetPathFunc != nil {
+		return s.resolveRegisteredStaticAssetPathFunc(requestPath)
+	}
+	return "", false, nil
+}
+
+func (s pluginRouteServiceStub) LookupRegisteredBackendRoute(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+	if s.lookupRegisteredBackendRouteFunc != nil {
+		return s.lookupRegisteredBackendRouteFunc(method, requestPath)
+	}
+	return plugins.BackendRouteLookup{}, nil
+}
+
+func (s pluginRouteServiceStub) DispatchRegisteredBackendRoute(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+	if s.dispatchRegisteredBackendRouteFunc != nil {
+		return s.dispatchRegisteredBackendRouteFunc(ctx, request)
+	}
+	return plugins.BackendHTTPResponse{}, false, nil
+}
+
+func (s pluginRouteServiceStub) InvokeRegisteredListenerEndpoint(ctx context.Context, request plugins.BackendListenerEndpointRequest) (any, bool, error) {
+	if s.invokeRegisteredListenerEndpointFunc != nil {
+		return s.invokeRegisteredListenerEndpointFunc(ctx, request)
+	}
+	return nil, false, nil
 }
 
 func copyPluginRouteFixtureToWorkspace(t *testing.T, workspaceRoot string, fixtureName string) {

@@ -2,6 +2,8 @@ package plugins
 
 import (
 	"encoding/json"
+	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +160,81 @@ func TestStoreRejectsInvalidInstallMetadataEntries(t *testing.T) {
 
 	if _, err := store.LoadInstallMetadata(); err == nil {
 		t.Fatalf("expected invalid install metadata error")
+	}
+}
+
+// Malformed persisted plugin JSON should surface the same typed service errors the HTTP routes expose.
+func TestStoreLoadPersistedPluginFilesReturnTypedValidationErrors(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name         string
+		path         string
+		content      string
+		expectedCode ServiceErrorCode
+		load         func() error
+	}{
+		{
+			name:         "plugins state",
+			path:         store.PluginsStatePath(),
+			content:      `{"enabledPluginIds":`,
+			expectedCode: ServiceErrorCodeStateInvalid,
+			load: func() error {
+				_, err := store.LoadPluginsState()
+				return err
+			},
+		},
+		{
+			name:         "plugins global state",
+			path:         store.PluginsGlobalStatePath(),
+			content:      `{"autoEnabledPluginIds":`,
+			expectedCode: ServiceErrorCodeGlobalStateInvalid,
+			load: func() error {
+				_, err := store.LoadPluginsGlobalState()
+				return err
+			},
+		},
+		{
+			name:         "plugin install metadata",
+			path:         store.InstallMetadataPath(),
+			content:      `{"entries":{"workspace:broken":{"pluginId":"","scope":"workspace"}}}`,
+			expectedCode: ServiceErrorCodeInstallMetadataInvalid,
+			load: func() error {
+				_, err := store.LoadInstallMetadata()
+				return err
+			},
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := os.WriteFile(testCase.path, []byte(testCase.content), 0o644); err != nil {
+				t.Fatalf("seed malformed persisted plugin file: %v", err)
+			}
+
+			err := testCase.load()
+			if err == nil {
+				t.Fatal("expected typed persisted plugin file error")
+			}
+
+			var serviceErr *ServiceError
+			if !errors.As(err, &serviceErr) {
+				t.Fatalf("expected service error, got %T: %v", err, err)
+			}
+			if serviceErr.Code != testCase.expectedCode {
+				t.Fatalf("expected service error code %q, got %q", testCase.expectedCode, serviceErr.Code)
+			}
+			if serviceErr.Status != http.StatusUnprocessableEntity {
+				t.Fatalf("expected service error status 422, got %d", serviceErr.Status)
+			}
+		})
 	}
 }
 
