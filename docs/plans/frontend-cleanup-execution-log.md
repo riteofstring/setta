@@ -5437,3 +5437,56 @@ in `frontend/src/README.md` and the cleanup plans.
     which is now the highest unresolved front-door hotspot in
     `frontend/src/README.md` after `ProjectChatSkillsMcpViewer.tsx` delegated
     slash-command ownership to a local view owner.
+
+## 2026-03-15 19:07:57 PDT
+
+- Slice completed: extracted the file-browser tree-data transport and view
+  model out of `FileBrowserPane.tsx`
+- Why this slice now:
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+    was still the highest unresolved front-door hotspot in the current README
+    and cleanup-plan priority order after the project-AI slash-command
+    extraction.
+  - The tree-data branch was its clearest mixed responsibility: it combined
+    root bootstrap, per-folder request ownership, recursive-search crawling,
+    preview URL refresh, tree flatten/filter/sort derivation, and navigation
+    view state inside the same entry surface that also owns transfer commands,
+    keyboard handling, and row/filter render shells.
+  - This was higher value than jumping ahead to
+    `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` because
+    it removed one whole transport/view-model subsystem from the active
+    file-browser front door, cut `FileBrowserPane.tsx` from about `2403` lines
+    to about `1392`, and made the new tree-data owners obvious from the caller.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts`
+  - `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts`
+  - `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.integration.test.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+  - `perf/reports/frontend/file-browser-pane-tree-data-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/FileBrowser/FileBrowserPane.test.ts src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.integration.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserWorkspace.test.ts src/components/Panes/Overview/FileBrowser/FileBrowserUniversalPreview.test.ts src/components/Section/Layouts/BrowserArea.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-path-navigation.spec.ts frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts --grep "overview file browser shows dotfiles and supports breadcrumb up-navigation|browser sections support breadcrumb and go-up navigation|browser list moves files/folders by drag and ignores file shortcuts while filter is focused"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx src/components/Panes/Overview/FileBrowser/FileBrowserPane.test.ts src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.integration.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-panes-and-authoring-cleanup-plan.md ../perf/reports/frontend/file-browser-pane-tree-data-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/file-browser-pane-tree-data-2026-03-15.md`
+    with the before/after CDP trace for the same overview explorer interaction.
+  - DevTools inline trace summary for `Expand folder frontend` reported `80ms`
+    observed INP before the extraction and `83ms` after, so the slice stayed
+    effectively flat on the measured interaction.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that the overview explorer still loads the workspace root,
+    expands `frontend` to reveal nested rows like `src`, and keeps the search
+    scope popover anchored with both `Recursive search` and `Local search`
+    options visible.
+- Commit hash:
+  - `f36f09857edf5b1e6f2a0150c27bdb8f7f997b00`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`,
+    which is now the next unresolved default-priority front-door hotspot after
+    `FileBrowserPane.tsx` delegated tree-data ownership to feature-local
+    owners.
