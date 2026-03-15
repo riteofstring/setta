@@ -5,12 +5,28 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from setta.agentic.node_runtime import resolve_node_command
+
+
+def _resolve_node_command() -> str:
+    bundled_root = (
+        Path(__file__).resolve().parents[2] / "backend" / "setta" / "vendor" / "node"
+    )
+    for candidate in (
+        bundled_root / "darwin-arm64" / "node",
+        bundled_root / "darwin-x64" / "node",
+        bundled_root / "linux-arm64" / "node",
+        bundled_root / "linux-x64" / "node",
+        bundled_root / "win-arm64" / "node.exe",
+        bundled_root / "win-x64" / "node.exe",
+    ):
+        if candidate.exists():
+            return str(candidate)
+    return "node"
 
 
 class TestOpenCodeQuestionMap:
     def test_resolves_question_id_from_tool_call(self) -> None:
-        node_command = resolve_node_command(None)
+        node_command = _resolve_node_command()
         node_path = shutil.which(node_command) or (
             node_command if Path(node_command).exists() else None
         )

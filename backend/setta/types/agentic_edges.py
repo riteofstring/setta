@@ -1,9 +1,7 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 
 
 class AgenticEdgeKind(str, Enum):
