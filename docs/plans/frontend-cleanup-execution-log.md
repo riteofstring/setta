@@ -2129,3 +2129,33 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared state hotspot, by separating public window
     lifecycle/focus commands from the remaining bounds and tracked git-pane
     coordination helpers.
+
+## 2026-03-15 02:24:26 PDT
+
+- Slice completed: split public project-chat window lifecycle/focus commands
+  away from placement/bounds commands
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowLayoutCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.tsx`
+  - `frontend/src/components/Section/Container/SectionWindowPlaceholder.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/windowSpaces.test.ts src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.test.tsx src/components/Section/Container/SectionWindowPlaceholder.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowCommands.ts src/state/actions/projectChatWindowLifecycleCommands.ts src/state/actions/projectChatWindowLayoutCommands.ts src/state/actions/projectChatWindowing.ts src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.tsx src/components/Section/Container/SectionWindowPlaceholder.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `c9f5790db`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionEffectiveImplSelectors.ts`, now
+    the largest authored/shared state hotspot at 205 lines, by separating
+    typed current-section/current-code-object selectors from the remaining
+    managed-chat and param display-name helpers.
