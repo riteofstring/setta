@@ -13,7 +13,10 @@ from anyio.streams.memory import (
     MemoryObjectReceiveStream,
     MemoryObjectSendStream,
 )
-from litellm.types.llms.openai import ChatCompletionToolParam
+from litellm.types.llms.openai import (
+    ChatCompletionToolParam,
+    ChatCompletionToolParamFunctionChunk,
+)
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -60,6 +63,28 @@ class MissingMCPEnvVarError(ValueError):
         self.var_name = var_name
 
 
+def _resolve_env_placeholders(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        var_name = match.group(1)
+        if var_name not in os.environ:
+            raise MissingMCPEnvVarError(var_name)
+        return os.environ[var_name]
+
+    if "${" not in value:
+        return value
+    return _ENV_PLACEHOLDER.sub(replace, value)
+
+
+def _resolve_env_args(args: list[str]) -> list[str]:
+    return [_resolve_env_placeholders(arg) for arg in args]
+
+
+def _resolve_env_mapping(env: dict[str, str] | None) -> dict[str, str] | None:
+    if env is None:
+        return None
+    return {key: _resolve_env_placeholders(value) for key, value in env.items()}
+
+
 @dataclass
 class BridgeConfig:
     backend_url: str
@@ -68,12 +93,102 @@ class BridgeConfig:
     bootstrap_url: str | None = field(default=None, repr=False)
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="setta.mcp.client",
+        description="Connect to Setta's MCP endpoint or run the stdio bridge.",
+    )
+    parser.add_argument(
+        "--backend",
+        default=f"{C.BACKEND}/mcp",
+        help="Full URL to the Setta MCP endpoint (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging for the bridge.",
+    )
+    parser.add_argument(
+        "--token",
+        dest="bootstrap_token",
+        help="Bootstrap token for MCP authentication.",
+    )
+    parser.add_argument(
+        "--bootstrap-url",
+        help="Bootstrap URL containing a token fragment or query parameter.",
+    )
+    return parser
+
+
+def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    return BridgeConfig(
+        backend_url=args.backend,
+        verbose=args.verbose,
+        bootstrap_token=args.bootstrap_token,
+        bootstrap_url=args.bootstrap_url,
+    )
+
+
+def _resolve_bridge_token(config: BridgeConfig) -> str | None:
+    if config.bootstrap_token:
+        token = config.bootstrap_token.strip()
+        return token if token else None
+    if config.bootstrap_url:
+        return extract_token_from_bootstrap_url(config.bootstrap_url)
+    return None
+
+
+async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
+    origin = origin_from_backend_url(backend_url)
+    consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+    async with create_mcp_http_client() as client:
+        response = await client.post(consume_url, json={"token": token})
+        response.raise_for_status()
+    cookie_map = {cookie.name: cookie.value for cookie in response.cookies.jar}
+    cookie_names = list(cookie_map.keys())
+    if not cookie_names:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    cookie_name = select_auth_cookie_name(cookie_names)
+    if not cookie_name:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    cookie_value = cookie_map.get(cookie_name)
+    if not cookie_value:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    return f"{cookie_name}={cookie_value}"
+
+
+async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
+    token = _resolve_bridge_token(config)
+    if token:
+        cookie_header = await _consume_bootstrap_token(config.backend_url, token)
+        return {"Cookie": cookie_header}
+    session_info = load_current_session_secret()
+    if session_info is None:
+        raise ValueError(
+            "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID "
+            "(and SETTA_SESSIONS_ROOT if running outside the session workspace)."
+        )
+    session_metadata, secret = session_info
+    cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+    return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+
+
 @dataclass
 class _ServerToolCache:
     init_tools: dict[str, ChatCompletionToolParam]
     discoverable_tools: dict[str, ChatCompletionToolParam]
     annotations: dict[str, SettaToolAnnotations | None]
     routing: dict[str, tuple[str, str]]
+
+
+def _resolve_server_endpoint(config: MCPServerConfig) -> str:
+    if config.url is not None and config.url.strip() != "":
+        return config.url
+    if config.command is not None and config.command.strip() != "":
+        return config.command
+    return "(no endpoint)"
 
 
 class MultiMCPClient:
@@ -100,16 +215,11 @@ class MultiMCPClient:
         self.routing: dict[str, tuple[str, str]] = {}
         self._server_runtime_statuses: dict[str, MCPServerRuntimeStatus] = {}
         for server_id, config in self.server_configs.items():
-            endpoint = "(no endpoint)"
-            if config.url is not None and config.url.strip() != "":
-                endpoint = config.url
-            elif config.command is not None and config.command.strip() != "":
-                endpoint = config.command
             self._server_runtime_statuses[server_id] = MCPServerRuntimeStatus(
                 serverId=server_id,
                 source="setta_mcp",
                 transport=config.transport,
-                endpoint=endpoint,
+                endpoint=_resolve_server_endpoint(config),
                 state=(
                     MCPServerRuntimeState.disabled
                     if self.disabled
@@ -165,6 +275,22 @@ class MultiMCPClient:
             updates["toolCount"] = tool_count
         self._server_runtime_statuses[server_id] = status.model_copy(update=updates)
 
+    def _mark_connecting(self, server_id: str) -> None:
+        self._mark_server_state(
+            server_id,
+            state=MCPServerRuntimeState.connecting,
+            update_attempt=True,
+        )
+
+    def _mark_connected(self, server_id: str, *, tool_count: int) -> None:
+        self._mark_server_state(
+            server_id,
+            state=MCPServerRuntimeState.connected,
+            update_connected=True,
+            tool_count=tool_count,
+            reset_failure_count=True,
+        )
+
     def _mark_failure(
         self,
         server_id: str,
@@ -184,16 +310,26 @@ class MultiMCPClient:
             tool_count=0,
         )
 
+    def _mark_retrying(self, server_id: str) -> None:
+        self._mark_server_state(
+            server_id,
+            state=MCPServerRuntimeState.retrying,
+            tool_count=0,
+        )
+
+    def _mark_disabled(self, server_id: str) -> None:
+        self._mark_server_state(
+            server_id,
+            state=MCPServerRuntimeState.disabled,
+            tool_count=0,
+            reset_failure_count=True,
+            clear_failure_metadata=True,
+        )
+
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if self.disabled:
             for server_id in self._server_runtime_statuses:
-                self._mark_server_state(
-                    server_id,
-                    state=MCPServerRuntimeState.disabled,
-                    tool_count=0,
-                    reset_failure_count=True,
-                    clear_failure_metadata=True,
-                )
+                self._mark_disabled(server_id)
             return
         if self._connection_tasks:
             logger.warning("MCP client already running; skipping duplicate start")
@@ -231,13 +367,7 @@ class MultiMCPClient:
         try:
             return await session.call_tool(tool_id, tool_args, meta=meta)
         except anyio.ClosedResourceError:
-            annotations = self.tool_annotations_by_name.get(tool_name)
-            should_retry = (
-                annotations is not None
-                and annotations.accessType == "read"
-                and getattr(annotations, "retryOnDisconnect", True) is True
-            )
-            if not should_retry:
+            if not self._should_retry_after_disconnect(tool_name):
                 logger.warning(
                     "MCP session for server '%s' closed during tool call '%s'; not retrying because the tool is not retryable after disconnect",
                     server_id,
@@ -266,6 +396,15 @@ class MultiMCPClient:
             )
             return await reconnected_session.call_tool(tool_id, tool_args, meta=meta)
 
+    def _should_retry_after_disconnect(self, tool_name: str) -> bool:
+        annotations = self.tool_annotations_by_name.get(tool_name)
+        if annotations is None:
+            return False
+        return (
+            annotations.accessType == "read"
+            and getattr(annotations, "retryOnDisconnect", True) is True
+        )
+
     async def _wait_for_session_reconnect(
         self,
         server_id: str,
@@ -287,13 +426,7 @@ class MultiMCPClient:
     async def stop(self) -> None:
         if self.disabled:
             for server_id in self._server_runtime_statuses:
-                self._mark_server_state(
-                    server_id,
-                    state=MCPServerRuntimeState.disabled,
-                    tool_count=0,
-                    reset_failure_count=True,
-                    clear_failure_metadata=True,
-                )
+                self._mark_disabled(server_id)
             return
         self._is_shutting_down = True
         tasks = list(self._connection_tasks.values())
@@ -310,13 +443,7 @@ class MultiMCPClient:
         self._server_tool_cache.clear()
         self._rebuild_tool_cache()
         for server_id in self._server_runtime_statuses:
-            self._mark_server_state(
-                server_id,
-                state=MCPServerRuntimeState.disabled,
-                tool_count=0,
-                reset_failure_count=True,
-                clear_failure_metadata=True,
-            )
+            self._mark_disabled(server_id)
         logger.info("MCP client resources cleaned up successfully")
 
     def init_tool_definitions_for_servers(
@@ -324,31 +451,43 @@ class MultiMCPClient:
     ) -> dict[str, ChatCompletionToolParam]:
         if self.disabled:
             return {}
-        return {
-            name: payload
-            for name, payload in self.init_tool_definitions.items()
-            if self._tool_belongs_to_server(name, server_ids)
-        }
+        return self._filter_tool_definitions(self.init_tool_definitions, server_ids)
 
     def discoverable_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
         if self.disabled:
             return {}
-        return {
-            name: payload
-            for name, payload in self.discoverable_tool_definitions.items()
-            if self._tool_belongs_to_server(name, server_ids)
-        }
+        return self._filter_tool_definitions(
+            self.discoverable_tool_definitions, server_ids
+        )
 
     def tool_annotations_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, SettaToolAnnotations | None]:
         if self.disabled:
             return {}
+        return self._filter_tool_annotations(self.tool_annotations_by_name, server_ids)
+
+    def _filter_tool_definitions(
+        self,
+        definitions: dict[str, ChatCompletionToolParam],
+        server_ids: set[str],
+    ) -> dict[str, ChatCompletionToolParam]:
         return {
             name: payload
-            for name, payload in self.tool_annotations_by_name.items()
+            for name, payload in definitions.items()
+            if self._tool_belongs_to_server(name, server_ids)
+        }
+
+    def _filter_tool_annotations(
+        self,
+        annotations: dict[str, SettaToolAnnotations | None],
+        server_ids: set[str],
+    ) -> dict[str, SettaToolAnnotations | None]:
+        return {
+            name: payload
+            for name, payload in annotations.items()
             if self._tool_belongs_to_server(name, server_ids)
         }
 
@@ -405,11 +544,7 @@ class MultiMCPClient:
             should_mark_retrying = True
             try:
                 logger.info("Attempting to connect to %s", server_id)
-                self._mark_server_state(
-                    server_id,
-                    state=MCPServerRuntimeState.connecting,
-                    update_attempt=True,
-                )
+                self._mark_connecting(server_id)
                 await self._connect_server_once(server_id, config)
             except asyncio.CancelledError:
                 await asyncio.shield(self._cleanup_server(server_id))
@@ -451,11 +586,7 @@ class MultiMCPClient:
             if self._is_shutting_down:
                 return
             if should_mark_retrying:
-                self._mark_server_state(
-                    server_id,
-                    state=MCPServerRuntimeState.retrying,
-                    tool_count=0,
-                )
+                self._mark_retrying(server_id)
                 await asyncio.sleep(retry_delay)
                 continue
             return
@@ -475,13 +606,7 @@ class MultiMCPClient:
         await session.initialize()
         logger.info("Connected to %s", server_id)
         response = await session.list_tools()
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.connected,
-            update_connected=True,
-            tool_count=len(response.tools),
-            reset_failure_count=True,
-        )
+        self._mark_connected(server_id, tool_count=len(response.tools))
         self._update_tool_cache_for_server(server_id, list(response.tools))
         await self._keep_alive(server_id)
 
@@ -491,31 +616,10 @@ class MultiMCPClient:
         server_id: str,
         config: MCPServerConfig,
     ):
-        def resolve_env_placeholders(value: str) -> str:
-            def replace(match: re.Match[str]) -> str:
-                var_name = match.group(1)
-                if var_name not in os.environ:
-                    raise MissingMCPEnvVarError(var_name)
-                return os.environ[var_name]
-
-            if "${" not in value:
-                return value
-            return _ENV_PLACEHOLDER.sub(replace, value)
-
-        http_headers: dict[str, str] = {}
-        if config.http_headers:
-            http_headers.update(config.http_headers)
-        if server_id == SETTA_MCP_SERVER_ID:
-            session_info = load_current_session_secret()
-            if session_info is not None:
-                session_metadata, secret = session_info
-                cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-                http_headers["Cookie"] = (
-                    f"{auth_cookie_name(session_metadata.id)}={cookie_value}"
-                )
+        http_headers = self._build_http_headers(server_id, config)
         if config.transport == "sse":
             read_stream, write_stream = await exit_stack.enter_async_context(
-                sse_client(url=config.url or "", headers=http_headers or None)
+                sse_client(url=config.url or "", headers=http_headers)
             )
             return read_stream, write_stream
         if config.transport == "streamable_http":
@@ -532,15 +636,8 @@ class MultiMCPClient:
             return read_stream, write_stream
         params = StdioServerParameters(
             command=config.command or "",
-            args=[resolve_env_placeholders(arg) for arg in list(config.args)],
-            env=(
-                {
-                    key: resolve_env_placeholders(value)
-                    for key, value in config.env.items()
-                }
-                if config.env is not None
-                else None
-            ),
+            args=_resolve_env_args(list(config.args)),
+            env=_resolve_env_mapping(config.env),
             cwd=config.cwd,
             encoding=config.encoding,
             encoding_error_handler=config.encoding_error_handler,
@@ -549,6 +646,29 @@ class MultiMCPClient:
             stdio_client(params)
         )
         return read_stream, write_stream
+
+    def _build_http_headers(
+        self,
+        server_id: str,
+        config: MCPServerConfig,
+    ) -> dict[str, str] | None:
+        combined_headers: dict[str, str] = {}
+        if config.http_headers:
+            combined_headers.update(config.http_headers)
+        auth_headers = self._build_setta_auth_headers(server_id)
+        if auth_headers:
+            combined_headers.update(auth_headers)
+        return combined_headers or None
+
+    def _build_setta_auth_headers(self, server_id: str) -> dict[str, str] | None:
+        if server_id != SETTA_MCP_SERVER_ID:
+            return None
+        session_info = load_current_session_secret()
+        if session_info is None:
+            return None
+        session_metadata, secret = session_info
+        cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
 
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)
@@ -595,14 +715,9 @@ class MultiMCPClient:
                     annotations = SettaToolAnnotations.model_validate(raw_annotations)
                     tool_type = SettaToolType(annotations.settaToolType)
             namespaced_name = build_namespaced_tool_name(server_id, tool.name)
-            definition: ChatCompletionToolParam = {
-                "type": "function",
-                "function": {
-                    "name": namespaced_name,
-                    "description": tool.description or "",
-                    "parameters": tool.inputSchema or {},
-                },
-            }
+            definition = self._convert_tool_to_llm_definition(
+                tool, namespaced_name=namespaced_name
+            )
             if tool_type == SettaToolType.init:
                 init_tools[namespaced_name] = definition
             else:
@@ -634,60 +749,22 @@ class MultiMCPClient:
         self.tool_annotations_by_name = annotations_by_name
         self.routing = routing
 
+    @staticmethod
+    def _convert_tool_to_llm_definition(
+        tool: Tool, *, namespaced_name: str
+    ) -> ChatCompletionToolParam:
+        function_payload: ChatCompletionToolParamFunctionChunk = {
+            "name": namespaced_name,
+            "description": tool.description or "",
+            "parameters": tool.inputSchema or {},
+        }
+        return {"type": "function", "function": function_payload}
+
 
 async def run_stdio_bridge(config: BridgeConfig) -> None:
     logger.debug("Starting stdio bridge with config: %s", config)
-
-    async def forward_stream(
-        label: str,
-        source: MemoryObjectReceiveStream[SessionMessage | Exception],
-        destination: MemoryObjectSendStream[SessionMessage],
-    ) -> None:
-        async with source:
-            async for payload in source:
-                if isinstance(payload, Exception):
-                    logger.error("[%s] transport exception: %s", label, payload)
-                    continue
-                await destination.send(payload)
-        await destination.aclose()
-        logger.info("[%s] stream closed", label)
-
     async with AsyncExitStack() as stack:
-        token: str | None = None
-        if config.bootstrap_token:
-            trimmed_token = config.bootstrap_token.strip()
-            token = trimmed_token if trimmed_token else None
-        elif config.bootstrap_url:
-            token = extract_token_from_bootstrap_url(config.bootstrap_url)
-        if token:
-            origin = origin_from_backend_url(config.backend_url)
-            consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
-            async with create_mcp_http_client() as client:
-                response = await client.post(consume_url, json={"token": token})
-                response.raise_for_status()
-            cookie_map = {cookie.name: cookie.value for cookie in response.cookies.jar}
-            cookie_names = list(cookie_map.keys())
-            if not cookie_names:
-                raise ValueError("Bootstrap response did not include auth cookie.")
-            cookie_name = select_auth_cookie_name(cookie_names)
-            if not cookie_name:
-                raise ValueError("Bootstrap response did not include auth cookie.")
-            cookie_value = cookie_map.get(cookie_name)
-            if not cookie_value:
-                raise ValueError("Bootstrap response did not include auth cookie.")
-            auth_headers = {"Cookie": f"{cookie_name}={cookie_value}"}
-        else:
-            session_info = load_current_session_secret()
-            if session_info is None:
-                raise ValueError(
-                    "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID "
-                    "(and SETTA_SESSIONS_ROOT if running outside the session workspace)."
-                )
-            session_metadata, secret = session_info
-            cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-            auth_headers = {
-                "Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"
-            }
+        auth_headers = await _resolve_stdio_bridge_headers(config)
         stdio_read, stdio_write = await stack.enter_async_context(stdio_server())
         backend_read, backend_write = await stack.enter_async_context(
             sse_client(url=config.backend_url, headers=auth_headers)
@@ -695,14 +772,13 @@ async def run_stdio_bridge(config: BridgeConfig) -> None:
         logger.info("Connected to Setta backend at %s", config.backend_url)
         async with asyncio.TaskGroup() as tg:
             tg.create_task(
-                forward_stream(
-                    "stdio->backend",
+                _forward_stdio_to_backend(
                     stdio_read,
                     backend_write,
                 )
             )
             tg.create_task(
-                forward_stream(
+                _forward_messages(
                     "backend->stdio",
                     backend_read,
                     stdio_write,
@@ -710,37 +786,37 @@ async def run_stdio_bridge(config: BridgeConfig) -> None:
             )
 
 
+async def _forward_messages(
+    label: str,
+    source: MemoryObjectReceiveStream[SessionMessage | Exception],
+    destination: MemoryObjectSendStream[SessionMessage],
+) -> None:
+    async with source:
+        async for payload in source:
+            if isinstance(payload, Exception):
+                logger.error("[%s] transport exception: %s", label, payload)
+                continue
+            await destination.send(payload)
+    await destination.aclose()
+    logger.info("[%s] stream closed", label)
+
+
+async def _forward_stdio_to_backend(
+    source: MemoryObjectReceiveStream[SessionMessage | Exception],
+    destination: MemoryObjectSendStream[SessionMessage],
+) -> None:
+    async with source:
+        async for payload in source:
+            if isinstance(payload, Exception):
+                logger.error("[stdio->backend] transport exception: %s", payload)
+                continue
+            await destination.send(payload)
+    await destination.aclose()
+    logger.info("[stdio->backend] stream closed")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="setta.mcp.client",
-        description="Connect to Setta's MCP endpoint or run the stdio bridge.",
-    )
-    parser.add_argument(
-        "--backend",
-        default=f"{C.BACKEND}/mcp",
-        help="Full URL to the Setta MCP endpoint (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable debug logging for the bridge.",
-    )
-    parser.add_argument(
-        "--token",
-        dest="bootstrap_token",
-        help="Bootstrap token for MCP authentication.",
-    )
-    parser.add_argument(
-        "--bootstrap-url",
-        help="Bootstrap URL containing a token fragment or query parameter.",
-    )
-    args = parser.parse_args(argv)
-    config = BridgeConfig(
-        backend_url=args.backend,
-        verbose=args.verbose,
-        bootstrap_token=args.bootstrap_token,
-        bootstrap_url=args.bootstrap_url,
-    )
+    config = parse_args(argv)
     configure_stdio_bridge_logging(config.verbose)
     try:
         asyncio.run(run_stdio_bridge(config))
