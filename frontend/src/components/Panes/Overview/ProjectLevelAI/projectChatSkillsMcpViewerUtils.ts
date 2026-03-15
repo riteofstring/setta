@@ -76,7 +76,7 @@ export function filterSkills(
 
 type SkillActivityState = "active" | "inactive" | "unknown";
 
-export type SkillStatus = {
+type SkillStatus = {
   isApplicable: boolean;
   applicabilityReason: string;
   activityState: SkillActivityState;
@@ -456,7 +456,7 @@ export function buildSkillStatusBySkillId({
   return statusesBySkillId;
 }
 
-export type SkillsByRootPath = {
+type SkillsByRootPath = {
   rootPath: string;
   rootLabel: string;
   skills: AppGenSkillEntry[];

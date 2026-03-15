@@ -148,15 +148,15 @@ export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 setta_path_flags_apply_env
 
 NEEDS_DEV_INSTALL=0
-if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then
-  NEEDS_DEV_INSTALL=1
-fi
 if [ ! -d "${ROOT_DIR}/frontend/node_modules" ]; then
   NEEDS_DEV_INSTALL=1
 fi
+if ! "${ROOT_DIR}/scripts/go.sh" version >/dev/null 2>&1; then
+  NEEDS_DEV_INSTALL=1
+fi
 if [ "${NEEDS_DEV_INSTALL}" -eq 1 ]; then
-  echo "Missing dev dependencies; running . ./dev_install.sh" >&2
-  (cd "${ROOT_DIR}" && . ./dev_install.sh)
+  echo "Missing default dev dependencies; running ./dev_install.sh" >&2
+  (cd "${ROOT_DIR}" && ./dev_install.sh)
 fi
 
 if [ "${RUN_MODE}" = "startr" ]; then

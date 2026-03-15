@@ -3,15 +3,13 @@
 import "testUtils/reactRefreshPreamble";
 import { describe, expect, it } from "vitest";
 
-import { hasRetainedImageAttachmentFromImageModeThread } from "./projectChatConversationModel";
-import {
-  buildProjectChatSubmitReadinessKey,
-  resolveProjectChatSubmitAppGeneration,
-} from "./projectChatExecutionSettings";
 import {
   buildProjectChatHydrationCacheKey,
+  buildProjectChatSubmitReadinessKey,
   clearProjectChatHydrationCacheEntriesForChat,
-} from "./projectChatHydrationRuntime";
+  hasRetainedImageAttachmentFromImageModeThread,
+  resolveProjectChatSubmitAppGeneration,
+} from "./ProjectChatCore";
 
 type HydrationCacheEntry = {
   attempt: number;
