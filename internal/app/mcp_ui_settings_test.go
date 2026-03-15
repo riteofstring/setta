@@ -568,7 +568,16 @@ func ackNextAppUISettingReveal(t *testing.T, conn *websocket.Conn, expectedSecti
 	if content.ActiveSectionID == nil || *content.ActiveSectionID != expectedSectionID {
 		return io.ErrUnexpectedEOF
 	}
+	if strings.TrimSpace(content.RequestID) == "" {
+		return io.ErrUnexpectedEOF
+	}
 	if len(content.Reveals) != 1 || content.Reveals[0].SettingID != "core.project.show_param_display_names" {
+		return io.ErrUnexpectedEOF
+	}
+	if content.Reveals[0].Strategy != "dom_anchor" {
+		return io.ErrUnexpectedEOF
+	}
+	if content.Reveals[0].AnchorID == nil || *content.Reveals[0].AnchorID != "core.project.show_param_display_names" {
 		return io.ErrUnexpectedEOF
 	}
 

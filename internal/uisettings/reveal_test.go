@@ -112,6 +112,154 @@ func TestRevealServiceDispatchesToAffinitySelectedFrontendAndReturnsSuccess(t *t
 	}
 }
 
+// Structured reveal dispatch must preserve the frontend-facing target payload,
+// including strategy, activation steps, and request correlation.
+func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token"),
+	})
+	connection, err := registry.Register(realtime.RegisterParams{
+		ID:   "frontend-1",
+		Type: realtime.ConnectionTypeFrontend,
+	})
+	if err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+	token, ok := registry.FrontendAffinityToken(connection.ID)
+	if !ok {
+		t.Fatal("expected frontend affinity token")
+	}
+
+	revealRegistry, err := New([]RuntimeEntry{
+		{
+			Metadata: Entry{
+				SettingID:   "core.project.activation_steps",
+				Title:       "Activation Steps",
+				Description: "Reveal target with activation steps.",
+				Location: Location{
+					Side:                     SideRight,
+					UIEditorTabName:          "QuickInfoConfig",
+					RequiresSectionSelection: true,
+				},
+				Highlight: Highlight{
+					Strategy: HighlightStrategyDOMAnchor,
+					AnchorID: "core.project.activation_steps",
+				},
+				RevealActivationSteps: []RevealActivationStep{
+					{
+						Type:      RevealActivationRunInstructions,
+						ItemValue: "python",
+					},
+					{
+						Type:      RevealActivationProjectAIAccordion,
+						ItemValue: "skills",
+					},
+				},
+				Source:     SourceCore,
+				Mutability: MutabilityWritable,
+				ValueSchema: ValueSchema{
+					Type: ValueTypeBoolean,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new reveal registry: %v", err)
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if revealMessage.MessageType != realtime.MessageTypeUISettingReveal {
+			t.Fatalf("expected message type %q, got %q", realtime.MessageTypeUISettingReveal, revealMessage.MessageType)
+		}
+		if revealMessage.Content.RequestID != "request-steps-1" {
+			t.Fatalf("expected requestId request-steps-1, got %q", revealMessage.Content.RequestID)
+		}
+		if len(revealMessage.Content.Reveals) != 1 {
+			t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
+		}
+		target := revealMessage.Content.Reveals[0]
+		if target.SettingID != "core.project.activation_steps" {
+			t.Fatalf("expected activation-steps setting id, got %#v", target.SettingID)
+		}
+		if target.Strategy != string(HighlightStrategyDOMAnchor) {
+			t.Fatalf("expected strategy %q, got %q", HighlightStrategyDOMAnchor, target.Strategy)
+		}
+		if target.AnchorID == nil || *target.AnchorID != "core.project.activation_steps" {
+			t.Fatalf("expected anchor id core.project.activation_steps, got %#v", target.AnchorID)
+		}
+		if len(target.RevealActivationSteps) != 2 {
+			t.Fatalf("expected two activation steps, got %#v", target.RevealActivationSteps)
+		}
+		if target.RevealActivationSteps[0].Type != string(RevealActivationRunInstructions) || target.RevealActivationSteps[0].ItemValue != "python" {
+			t.Fatalf("unexpected first activation step %#v", target.RevealActivationSteps[0])
+		}
+		if target.RevealActivationSteps[1].Type != string(RevealActivationProjectAIAccordion) || target.RevealActivationSteps[1].ItemValue != "skills" {
+			t.Fatalf("unexpected second activation step %#v", target.RevealActivationSteps[1])
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID:    "core.project.activation_steps",
+					Status:       "revealed",
+					ErrorCode:    nil,
+					ErrorMessage: nil,
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected reveal result resolution to succeed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-steps-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           revealTestProjectView(t, "callable-section", "Callable", nil),
+		Registry:              revealRegistry,
+		SettingID:             "core.project.activation_steps",
+		SectionIDToActivate:   "callable-section",
+		FrontendAffinityToken: token,
+		DurationMS:            1500,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if result.RequestID != "request-steps-1" {
+		t.Fatalf("expected request-steps-1 request id, got %q", result.RequestID)
+	}
+	if result.EmittedRevealCount != 1 {
+		t.Fatalf("expected emittedRevealCount=1, got %d", result.EmittedRevealCount)
+	}
+	if len(result.Statuses) != 1 || result.Statuses[0].Status != "revealed" {
+		t.Fatalf("expected single revealed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Target == nil || len(result.Statuses[0].Target.RevealActivationSteps) != 2 {
+		t.Fatalf("expected success status target with activation steps, got %#v", result.Statuses[0].Target)
+	}
+}
+
 func TestRevealServiceRejectsMissingActiveSectionForRightPaneReveal(t *testing.T) {
 	t.Parallel()
 

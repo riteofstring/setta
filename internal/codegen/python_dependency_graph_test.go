@@ -530,6 +530,217 @@ func TestBuildPythonDependencyGraphSectionValueModes(t *testing.T) {
 	})
 }
 
+// Prompt exports plus Chat/Draw/Image file-mode branches should preserve the documented payloads and fallbacks end to end.
+func TestBuildPythonDependencyGraphSectionValueModesCoverPromptAndFileModeMatrix(t *testing.T) {
+	t.Parallel()
+
+	chatFallbackLiteral := renderPythonLiteral(map[string]any{
+		"messages":           []any{map[string]any{"role": "user", "content": "Hello"}},
+		"inputText":          "Draft",
+		"waitingForResponse": true,
+		"toolCallArguments":  map[string]any{"tool.alpha": map[string]any{"count": 2}},
+		"activeBranchId":     "branch-main",
+		"branches":           map[string]any{"branch-main": map[string]any{"title": "Main"}},
+	})
+
+	testCases := []struct {
+		name                   string
+		sectionName            string
+		sectionPayload         projectstate.RawJSON
+		pythonTargetPayload    projectstate.RawJSON
+		expectedRepresentation projectstate.PythonSectionRepresentationMode
+		expectedValueKind      string
+		expectedPayload        string
+	}{
+		{
+			name:                   "prompt rendered text literal",
+			sectionName:            "Prompt Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Prompt","renderedText":"Hello \"Ada\"\nSecond line"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Prompt", projectstate.PythonSectionRepresentationExpression),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        "Hello \"Ada\"\nSecond line",
+		},
+		{
+			name:                   "chat file path happy path",
+			sectionName:            "Chat Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Chat","chatId":"chat-123","messages":[],"inputText":"","waitingForResponse":false,"toolCallArguments":{},"branches":{}}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Chat", projectstate.PythonSectionRepresentationFilePath),
+			expectedRepresentation: projectstate.PythonSectionRepresentationFilePath,
+			expectedValueKind:      "literal",
+			expectedPayload:        "setta_files/chats/chat-123.json",
+		},
+		{
+			name:        "chat file path fallback",
+			sectionName: "Chat Section",
+			sectionPayload: mustRawJSON(
+				t,
+				`{
+					"id":"section-impl-1",
+					"type":"Chat",
+					"messages":[{"role":"user","content":"Hello"}],
+					"inputText":"Draft",
+					"waitingForResponse":true,
+					"toolCallArguments":{"tool.alpha":{"count":2}},
+					"activeBranchId":"branch-main",
+					"branches":{"branch-main":{"title":"Main"}}
+				}`,
+			),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Chat", projectstate.PythonSectionRepresentationFilePath),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        chatFallbackLiteral,
+		},
+		{
+			name:                   "chat file read happy path",
+			sectionName:            "Chat Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Chat","chatId":"chat-456","messages":[],"inputText":"","waitingForResponse":false,"toolCallArguments":{},"branches":{}}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Chat", projectstate.PythonSectionRepresentationFileRead),
+			expectedRepresentation: projectstate.PythonSectionRepresentationFileRead,
+			expectedValueKind:      "file_read",
+			expectedPayload:        "setta_files/chats/chat-456.json",
+		},
+		{
+			name:        "chat file read fallback",
+			sectionName: "Chat Section",
+			sectionPayload: mustRawJSON(
+				t,
+				`{
+					"id":"section-impl-1",
+					"type":"Chat",
+					"messages":[{"role":"user","content":"Hello"}],
+					"inputText":"Draft",
+					"waitingForResponse":true,
+					"toolCallArguments":{"tool.alpha":{"count":2}},
+					"activeBranchId":"branch-main",
+					"branches":{"branch-main":{"title":"Main"}}
+				}`,
+			),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Chat", projectstate.PythonSectionRepresentationFileRead),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        chatFallbackLiteral,
+		},
+		{
+			name:                   "draw file path happy path",
+			sectionName:            "Draw Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Draw","renderedImagePath":"artifacts/draw-path.png"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Draw", projectstate.PythonSectionRepresentationFilePath),
+			expectedRepresentation: projectstate.PythonSectionRepresentationFilePath,
+			expectedValueKind:      "literal",
+			expectedPayload:        "artifacts/draw-path.png",
+		},
+		{
+			name:                   "draw file path fallback",
+			sectionName:            "Draw Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Draw"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Draw", projectstate.PythonSectionRepresentationFilePath),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        "None",
+		},
+		{
+			name:                   "draw file read happy path",
+			sectionName:            "Draw Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Draw","renderedImagePath":"artifacts/draw-read.png"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Draw", projectstate.PythonSectionRepresentationFileRead),
+			expectedRepresentation: projectstate.PythonSectionRepresentationFileRead,
+			expectedValueKind:      "file_read",
+			expectedPayload:        "artifacts/draw-read.png",
+		},
+		{
+			name:                   "draw file read fallback",
+			sectionName:            "Draw Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Draw"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Draw", projectstate.PythonSectionRepresentationFileRead),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        "None",
+		},
+		{
+			name:                   "image file path happy path",
+			sectionName:            "Image Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Image","imagePath":"artifacts/image-path.png"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Image", projectstate.PythonSectionRepresentationFilePath),
+			expectedRepresentation: projectstate.PythonSectionRepresentationFilePath,
+			expectedValueKind:      "literal",
+			expectedPayload:        "artifacts/image-path.png",
+		},
+		{
+			name:                   "image file path fallback",
+			sectionName:            "Image Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Image"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Image", projectstate.PythonSectionRepresentationFilePath),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        "None",
+		},
+		{
+			name:                   "image file read happy path",
+			sectionName:            "Image Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Image","imagePath":"artifacts/image-read.png"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Image", projectstate.PythonSectionRepresentationFileRead),
+			expectedRepresentation: projectstate.PythonSectionRepresentationFileRead,
+			expectedValueKind:      "file_read",
+			expectedPayload:        "artifacts/image-read.png",
+		},
+		{
+			name:                   "image file read fallback",
+			sectionName:            "Image Section",
+			sectionPayload:         mustRawJSON(t, `{"id":"section-impl-1","type":"Image"}`),
+			pythonTargetPayload:    mustPythonSectionTypePolicyPayload(t, "Image", projectstate.PythonSectionRepresentationFileRead),
+			expectedRepresentation: projectstate.PythonSectionRepresentationExpression,
+			expectedValueKind:      "literal",
+			expectedPayload:        "None",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := singleSectionProject(
+				t,
+				testCase.sectionName,
+				testCase.sectionPayload,
+				testCase.pythonTargetPayload,
+				nil,
+			)
+			exported := mustPythonCodegenExport(t, project)
+			graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+			if err != nil {
+				t.Fatalf("build dependency graph: %v", err)
+			}
+
+			node := mustSectionNode(t, graph, PythonSectionDependencyKey("section-1"))
+			if node.Representation != testCase.expectedRepresentation {
+				t.Fatalf("expected representation %q, got %q", testCase.expectedRepresentation, node.Representation)
+			}
+			switch testCase.expectedValueKind {
+			case "literal":
+				literal, ok := node.Value.(LiteralDependencyValue)
+				if !ok {
+					t.Fatalf("expected literal value, got %#v", node.Value)
+				}
+				if literal.Payload != testCase.expectedPayload {
+					t.Fatalf("expected literal payload %q, got %q", testCase.expectedPayload, literal.Payload)
+				}
+			case "file_read":
+				fileRead, ok := node.Value.(FileReadDependencyValue)
+				if !ok {
+					t.Fatalf("expected file_read value, got %#v", node.Value)
+				}
+				if fileRead.Path != testCase.expectedPayload {
+					t.Fatalf("expected file_read path %q, got %q", testCase.expectedPayload, fileRead.Path)
+				}
+			default:
+				t.Fatalf("unsupported expected value kind %q", testCase.expectedValueKind)
+			}
+		})
+	}
+}
+
 // Password params should only count as present when the graph builder is given a non-empty secret for that impl id.
 func TestBuildPythonDependencyGraphPasswordParamHonorsProvidedSecrets(t *testing.T) {
 	t.Parallel()
@@ -992,4 +1203,24 @@ func mustJSONString(t *testing.T, value string) string {
 		t.Fatalf("marshal json string: %v", err)
 	}
 	return string(encoded)
+}
+
+func mustPythonSectionTypePolicyPayload(
+	t *testing.T,
+	sectionType string,
+	representation projectstate.PythonSectionRepresentationMode,
+) projectstate.RawJSON {
+	t.Helper()
+
+	return mustRawJSON(
+		t,
+		`{
+			"language":"python",
+			"sectionPolicy":{
+				"typePolicies":{
+					"`+sectionType+`":{"mode":"include","representation":"`+string(representation)+`"}
+				}
+			}
+		}`,
+	)
 }

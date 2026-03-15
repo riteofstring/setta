@@ -153,6 +153,181 @@ func TestResolvePythonCodeObjValuePolicyUsesDefaultsAndValidation(t *testing.T) 
 	}
 }
 
+// The documented code-object representation matrix should stay in lockstep with the Go policy validator for every supported type.
+func TestResolvePythonCodeObjValuePolicyMatchesDocumentedTypeMatrix(t *testing.T) {
+	t.Parallel()
+
+	allRepresentations := []PythonCodeObjValueRepresentationMode{
+		PythonCodeObjValueRepresentationExpression,
+		PythonCodeObjValueRepresentationJSONParsed,
+		PythonCodeObjValueRepresentationString,
+		PythonCodeObjValueRepresentationFilePath,
+		PythonCodeObjValueRepresentationFileRead,
+	}
+	supportedRepresentations := func(
+		values ...PythonCodeObjValueRepresentationMode,
+	) map[PythonCodeObjValueRepresentationMode]bool {
+		result := make(map[PythonCodeObjValueRepresentationMode]bool, len(values))
+		for _, value := range values {
+			result[value] = true
+		}
+		return result
+	}
+
+	testCases := []struct {
+		codeObjType           string
+		defaultRepresentation PythonCodeObjValueRepresentationMode
+		supported             map[PythonCodeObjValueRepresentationMode]bool
+	}{
+		{
+			codeObjType:           "ButtonParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationExpression),
+		},
+		{
+			codeObjType:           "CodeCallable",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationExpression),
+		},
+		{
+			codeObjType:           "CodeParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported: supportedRepresentations(
+				PythonCodeObjValueRepresentationExpression,
+				PythonCodeObjValueRepresentationString,
+			),
+		},
+		{
+			codeObjType:           "ColorPickerParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationString,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationString),
+		},
+		{
+			codeObjType:           "DateParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationString,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationString),
+		},
+		{
+			codeObjType:           "DropdownParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported: supportedRepresentations(
+				PythonCodeObjValueRepresentationExpression,
+				PythonCodeObjValueRepresentationString,
+			),
+		},
+		{
+			codeObjType:           "DropzoneParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationFilePath,
+			supported: supportedRepresentations(
+				PythonCodeObjValueRepresentationFilePath,
+				PythonCodeObjValueRepresentationFileRead,
+			),
+		},
+		{
+			codeObjType:           "NestedParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationExpression),
+		},
+		{
+			codeObjType:           "PasswordParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationString,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationString),
+		},
+		{
+			codeObjType:           "RotaryParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported: supportedRepresentations(
+				PythonCodeObjValueRepresentationExpression,
+				PythonCodeObjValueRepresentationString,
+			),
+		},
+		{
+			codeObjType:           "SliderParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported: supportedRepresentations(
+				PythonCodeObjValueRepresentationExpression,
+				PythonCodeObjValueRepresentationJSONParsed,
+				PythonCodeObjValueRepresentationString,
+			),
+		},
+		{
+			codeObjType:           "SwitchParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationExpression,
+			supported: supportedRepresentations(
+				PythonCodeObjValueRepresentationExpression,
+				PythonCodeObjValueRepresentationString,
+			),
+		},
+		{
+			codeObjType:           "TextAreaParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationString,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationString),
+		},
+		{
+			codeObjType:           "TextParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationString,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationString),
+		},
+		{
+			codeObjType:           "TimeParam",
+			defaultRepresentation: PythonCodeObjValueRepresentationString,
+			supported:             supportedRepresentations(PythonCodeObjValueRepresentationString),
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.codeObjType, func(t *testing.T) {
+			t.Parallel()
+
+			defaultPolicy := DefaultPythonCodeObjValuePolicy()
+			defaultResolved, err := ResolvePythonCodeObjValuePolicy(
+				defaultPolicy,
+				"default-"+testCase.codeObjType,
+				testCase.codeObjType,
+			)
+			if err != nil {
+				t.Fatalf("resolve default representation: %v", err)
+			}
+			if defaultResolved.Representation != testCase.defaultRepresentation {
+				t.Fatalf(
+					"expected default representation %q, got %q",
+					testCase.defaultRepresentation,
+					defaultResolved.Representation,
+				)
+			}
+
+			for _, representation := range allRepresentations {
+				policy := DefaultPythonCodeObjValuePolicy()
+				policy.TypePolicies[testCase.codeObjType] = PythonCodeObjTypeValuePolicy{
+					Representation: representation,
+				}
+				resolved, err := ResolvePythonCodeObjValuePolicy(
+					policy,
+					"override-"+testCase.codeObjType+"-"+string(representation),
+					testCase.codeObjType,
+				)
+				if testCase.supported[representation] {
+					if err != nil {
+						t.Fatalf("expected %q to support %q, got %v", testCase.codeObjType, representation, err)
+					}
+					if resolved.Representation != representation {
+						t.Fatalf(
+							"expected resolved representation %q, got %q",
+							representation,
+							resolved.Representation,
+						)
+					}
+					continue
+				}
+				if !errors.Is(err, ErrPythonCodeObjValueRepresentationUnsupported) {
+					t.Fatalf("expected %q + %q to be rejected, got %v", testCase.codeObjType, representation, err)
+				}
+			}
+		})
+	}
+}
+
 // The export surface should merge effective section/code-object state and expose resolved policies without re-parsing raw JSON in callers.
 func TestProjectPythonCodegenExportResolvesEffectiveSectionAndCodeObject(t *testing.T) {
 	t.Parallel()

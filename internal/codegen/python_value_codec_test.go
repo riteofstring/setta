@@ -411,6 +411,159 @@ func TestPythonValueCodecFormatsSectionsByRepresentation(t *testing.T) {
 	})
 }
 
+// Prompt literals plus Chat/Draw/Image file-mode branches should render exactly as the dependency graph expects callers to consume them.
+func TestPythonValueCodecFormatsPromptAndFileModeSections(t *testing.T) {
+	t.Parallel()
+
+	chatExpressionPayload := renderPythonLiteral(map[string]any{
+		"messages":           []any{map[string]any{"role": "user", "content": "Hello"}},
+		"inputText":          "Draft",
+		"waitingForResponse": true,
+		"toolCallArguments":  map[string]any{"tool.alpha": map[string]any{"count": 2}},
+		"activeBranchId":     "branch-main",
+		"branches":           map[string]any{"branch-main": map[string]any{"title": "Main"}},
+	})
+
+	testCases := []struct {
+		name               string
+		mode               PythonValueMode
+		sectionType        string
+		representation     projectstate.PythonSectionRepresentationMode
+		value              PythonDependencyValue
+		expected           string
+		expectHelperImport bool
+	}{
+		{
+			name:           "prompt literal",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Prompt",
+			representation: projectstate.PythonSectionRepresentationExpression,
+			value:          LiteralDependencyValue{Payload: "Hello \"Ada\"\nSecond line"},
+			expected:       renderPythonStringLiteral("Hello \"Ada\"\nSecond line"),
+		},
+		{
+			name:           "chat expression fallback",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Chat",
+			representation: projectstate.PythonSectionRepresentationExpression,
+			value:          LiteralDependencyValue{Payload: chatExpressionPayload},
+			expected:       chatExpressionPayload,
+		},
+		{
+			name:           "chat file path",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Chat",
+			representation: projectstate.PythonSectionRepresentationFilePath,
+			value:          LiteralDependencyValue{Payload: "setta_files/chats/chat-123.json"},
+			expected:       "'setta_files/chats/chat-123.json'",
+		},
+		{
+			name:               "chat file read",
+			mode:               PythonValueModePackagedRuntime,
+			sectionType:        "Chat",
+			representation:     projectstate.PythonSectionRepresentationFileRead,
+			value:              FileReadDependencyValue{Path: "setta_files/chats/chat-123.json"},
+			expected:           "_helpers.read_file_value('setta_files/chats/chat-123.json')",
+			expectHelperImport: true,
+		},
+		{
+			name:           "draw file path",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Draw",
+			representation: projectstate.PythonSectionRepresentationFilePath,
+			value:          LiteralDependencyValue{Payload: "artifacts/draw-path.png"},
+			expected:       "'artifacts/draw-path.png'",
+		},
+		{
+			name:               "draw file read",
+			mode:               PythonValueModePackagedRuntime,
+			sectionType:        "Draw",
+			representation:     projectstate.PythonSectionRepresentationFileRead,
+			value:              FileReadDependencyValue{Path: "artifacts/draw-read.png"},
+			expected:           "_helpers.read_file_value('artifacts/draw-read.png')",
+			expectHelperImport: true,
+		},
+		{
+			name:           "draw expression fallback",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Draw",
+			representation: projectstate.PythonSectionRepresentationExpression,
+			value:          LiteralDependencyValue{Payload: "None"},
+			expected:       "None",
+		},
+		{
+			name:           "image file path",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Image",
+			representation: projectstate.PythonSectionRepresentationFilePath,
+			value:          LiteralDependencyValue{Payload: "artifacts/image-path.png"},
+			expected:       "'artifacts/image-path.png'",
+		},
+		{
+			name:               "image file read",
+			mode:               PythonValueModePackagedRuntime,
+			sectionType:        "Image",
+			representation:     projectstate.PythonSectionRepresentationFileRead,
+			value:              FileReadDependencyValue{Path: "artifacts/image-read.png"},
+			expected:           "_helpers.read_file_value('artifacts/image-read.png')",
+			expectHelperImport: true,
+		},
+		{
+			name:           "image expression fallback",
+			mode:           PythonValueModeLiveRuntime,
+			sectionType:    "Image",
+			representation: projectstate.PythonSectionRepresentationExpression,
+			value:          LiteralDependencyValue{Payload: "None"},
+			expected:       "None",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{
+				Mode:              testCase.mode,
+				HelperModuleAlias: "_helpers",
+			})
+			node := &PythonSectionNode{
+				PythonDependencyNodeBase: PythonDependencyNodeBase{
+					ID:               "section",
+					Name:             "Section",
+					FullPathName:     "section",
+					Deps:             map[PythonDependencyKey]bool{},
+					IncludeInCodegen: true,
+					Value:            testCase.value,
+				},
+				SectionType:    testCase.sectionType,
+				Representation: testCase.representation,
+			}
+
+			rendered, handled, err := codec.FormatSection(node)
+			if err != nil {
+				t.Fatalf("format section: %v", err)
+			}
+			if !handled {
+				t.Fatal("expected section to be handled")
+			}
+			if rendered != testCase.expected {
+				t.Fatalf("expected rendered value %q, got %q", testCase.expected, rendered)
+			}
+			imports := codec.RequiredImports()
+			if testCase.expectHelperImport {
+				if len(imports) != 1 || imports[0] != "from setta.code_gen.python import value_helpers as _helpers" {
+					t.Fatalf("unexpected helper imports %#v", imports)
+				}
+				return
+			}
+			if len(imports) != 0 {
+				t.Fatalf("did not expect helper imports, got %#v", imports)
+			}
+		})
+	}
+}
+
 func TestPythonValueCodecFormatsDropzoneRepresentations(t *testing.T) {
 	t.Parallel()
 

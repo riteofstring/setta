@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -390,6 +391,40 @@ func TestRunLauncherRootReportsMissingBoundTarget(t *testing.T) {
 	errorPayload := payload["error"].(map[string]any)
 	if got := errorPayload["code"]; got != "LauncherTargetMissing" {
 		t.Fatalf("expected LauncherTargetMissing, got %#v", got)
+	}
+}
+
+func TestRunLauncherRootFallsBackToBrowserWhenChromeAppOpenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	capturedRequestedMode := launcher.LauncherOpenMode("")
+	capturedURL := ""
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		openURLWithMode: func(rawURL string, requested launcher.LauncherOpenMode, _ io.Writer) launcher.LauncherOpenMode {
+			capturedRequestedMode = requested
+			capturedURL = rawURL
+			return launcher.LauncherOpenModeBrowser
+		},
+	})
+
+	stdout, stderr, err := runLauncherRootWithDeps(t, []string{"--workspace", workspaceRoot}, globalFlags{}, deps)
+	if err != nil {
+		t.Fatalf("run launcher root: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if capturedRequestedMode != launcher.LauncherOpenModeChromeApp {
+		t.Fatalf("expected requested open mode chrome-app, got %q", capturedRequestedMode)
+	}
+	if !strings.Contains(capturedURL, "/__setta__/bootstrap") {
+		t.Fatalf("expected bootstrap URL to be opened, got %q", capturedURL)
+	}
+	expectedLine := "Opened Setta (browser) for workspace " + workspaceRoot
+	if strings.TrimSpace(stdout) != expectedLine {
+		t.Fatalf("expected fallback browser output %q, got %q", expectedLine, stdout)
 	}
 }
 
