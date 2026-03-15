@@ -20,9 +20,9 @@ Current status:
 - Active plan: sections-wide section-shell simplification
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
-- Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 8 isolates standalone section and window-space routes from unrelated project-chat history churn
-- Current `Phase S3` state: checkpoint 8 accepted; the next serious step is remaining project-chat-only route-shell ownership above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space/route-history seams
+- Active phase: `Phase S3` is structurally exhausted after nine accepted checkpoints
+- Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
+- Current `Phase S3` state: the standalone route-shell boundary read above `StandaloneProjectSurfacePage.tsx` is complete; no stronger section-shell-specific seam remains above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space/route-history/chat-structure seams without expanding scope into general app shells
 
 Non-negotiable constraints:
 
@@ -220,6 +220,24 @@ Immediate next step:
      - `Commit`
    - `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `TimerFire` stayed at `0.000` on both branches in the marked window, and `FireAnimationFrame` dropped to `0.000` on the worktree
    - the next serious `Phase S3` step should be a fresh boundary read above `StandaloneProjectSurfacePage.tsx` to decide whether any meaningful route-shell seam still remains or whether `Phase S3` is structurally exhausted, not a reopening of the accepted floating/window or standalone-route seams unless a later trace proves it necessary
+22. Fresh boundary read after checkpoint 9:
+   - reviewed the remaining ownership above the accepted standalone route seam in:
+     - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+     - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePage.tsx`
+     - `frontend/src/components/Pages/router.tsx`
+     - `frontend/src/components/Modals/ModalContainer.tsx`
+     - `frontend/src/components/Pages/GlobalWrapper.tsx`
+   - the remaining wrappers above `StandaloneProjectSurfacePage.tsx` are:
+     - general mode routing
+     - share-mode wrapping
+     - modal hosting
+     - global app/bootstrap shells
+   - those owners do not form another meaningful standalone section-shell simplification seam:
+     - they are not standalone-route-specific project-state subscribers
+     - they are not the accepted shared section frame/window-space/chat-route owners this plan has been flattening
+     - the accepted checkpoint-9 representative trace already leaves the worktree marked route window close to idle
+   - treat `Phase S3` as structurally exhausted for the current section-shell scope
+   - do not continue implementation work under this plan unless a new untouched-`main` vs worktree trace identifies another meaningful section-shell-specific hotspot
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 

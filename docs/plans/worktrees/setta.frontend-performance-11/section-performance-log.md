@@ -2759,3 +2759,29 @@ Append-only log for the section performance refactor.
   - This leaves `Phase S3` above the accepted standalone-route seam. The next serious move should be a fresh boundary read to decide whether any meaningful route-shell work remains above `StandaloneProjectSurfacePage.tsx`.
 - Next action:
   - Continue `Phase S3` with a fresh boundary read above `StandaloneProjectSurfacePage.tsx` to decide whether another standalone-route shell seam still exists or whether `Phase S3` is structurally exhausted, without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, floating-body, standalone per-window, standalone route-history, or standalone chat-structure seams unless a later trace proves it necessary.
+
+### 2026-03-17 77
+
+- Item: Conclude the post-checkpoint-9 boundary read above `StandaloneProjectSurfacePage.tsx`.
+- Status: `done`
+- Details:
+  - Reviewed the remaining ownership above the accepted standalone route seam in:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePage.tsx`
+    - `frontend/src/components/Pages/router.tsx`
+    - `frontend/src/components/Modals/ModalContainer.tsx`
+    - `frontend/src/components/Pages/GlobalWrapper.tsx`
+  - Confirmed the remaining wrappers above the accepted standalone route seam are:
+    - global mode routing
+    - share-mode wrapping
+    - modal hosting
+    - app/bootstrap shells
+  - Confirmed those remaining owners are not another meaningful `Phase S3` standalone section-shell seam:
+    - they do not own standalone-route-specific project-state subscriptions
+    - they are outside the accepted section frame / floating window / standalone route shell cluster this plan was flattening
+    - the accepted checkpoint-9 marked standalone chat trace already leaves the worktree route window close to idle
+  - Conclusion:
+    - treat `Phase S3` as structurally exhausted for the current section-shell scope
+    - do not continue implementation work under this plan unless a new untouched-`main` vs worktree trace identifies another section-shell-specific hotspot
+- Next action:
+  - No further implementation step is justified under the current section-shell plan without new trace evidence.
