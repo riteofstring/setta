@@ -435,8 +435,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal
     orchestration, `uiSettingRevealMutationOwnership.ts` owns lease sequence and
     touched-field ownership, `uiSettingRevealMutationCapture.ts` owns snapshot
-    capture plus failure-result assembly, `uiSettingRevealMutationRestore.ts`
-    owns rollback and owned restore application,
+    capture plus failure-result assembly, `uiSettingRevealMutationRecordRestore.ts`
+    owns shared owned-record revert helpers, `uiSettingRevealMutationLocalStorageRestore.ts`
+    owns local-storage rollback, `uiSettingRevealMutationProjectStateRestore.ts`
+    owns project-state active-section rollback, and
+    `uiSettingRevealMutationRestore.ts` is now the thin restore orchestrator,
     `uiSettingRevealMutationSnapshots.ts` is now the compatibility facade,
     `uiSettingRevealActivation.ts` owns pane activation writes,
     `uiSettingRevealDom.ts` owns DOM anchor/highlight behavior, and
@@ -529,9 +532,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   of those owners instead of regrowing `state/actions/agenticEdges.ts`.
 - `state/actions/uiSettingRevealMutationCapture.ts` now owns reveal snapshot
   capture plus failure-result assembly, while
-  `state/actions/uiSettingRevealMutationRestore.ts` now owns rollback and owned
-  restore helpers; follow-up cleanup there should stay local to one of those
-  owners instead of regrowing `state/actions/uiSettingRevealMutationSnapshots.ts`.
+  `state/actions/uiSettingRevealMutationLocalStorageRestore.ts`,
+  `state/actions/uiSettingRevealMutationProjectStateRestore.ts`, and
+  `state/actions/uiSettingRevealMutationRecordRestore.ts` now own the narrowed
+  rollback helpers with `state/actions/uiSettingRevealMutationRestore.ts` as
+  the thin orchestrator; follow-up cleanup there should stay local to one of
+  those owners instead of regrowing
+  `state/actions/uiSettingRevealMutationSnapshots.ts`.
 - `state/actions/aiChatSubmission.ts` and
   `state/actions/aiChatSubmissionPayload.ts` now split pending-surface
   submission orchestration from request payload assembly; follow-up cleanup

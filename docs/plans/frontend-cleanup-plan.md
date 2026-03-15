@@ -76,7 +76,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external hydration route probes plus outcome classification, `frontend/src/state/actions/aiHydrationApply.ts` now owns managed/external chat hydration store reconciliation plus chat-section persistence sync, and `frontend/src/state/actions/aiHydration.ts` is now the thin public hydration facade.
 - `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry derivation and chat label normalization, `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical plus scoped chat provenance resolution, `frontend/src/state/actions/chatHistoryShared.ts` now owns shared run filtering/grouping helpers, `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history filter/provenance types, and `frontend/src/state/actions/chatHistory.ts` is now a thin compatibility facade.
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge handle normalization, connection validation, and kind resolution, `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic create/update/delete/selection commands, and `frontend/src/state/actions/agenticEdges.ts` is now the thin compatibility facade.
-- `frontend/src/state/actions/uiSettingRevealMutationCapture.ts` now owns reveal snapshot capture plus failure-result assembly, `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` now owns rollback and owned restore application, and `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` is now the thin compatibility facade.
+- `frontend/src/state/actions/uiSettingRevealMutationCapture.ts` now owns
+  reveal snapshot capture plus failure-result assembly,
+  `frontend/src/state/actions/uiSettingRevealMutationRecordRestore.ts` now
+  owns shared owned-record revert helpers,
+  `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts`
+  now owns local-storage rollback,
+  `frontend/src/state/actions/uiSettingRevealMutationProjectStateRestore.ts`
+  now owns project-state active-section rollback,
+  `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` is now the
+  thin restore orchestrator, and
+  `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` is now the
+  thin compatibility facade.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
 - `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration plus pending-surface coordination, and `frontend/src/state/actions/aiChatSubmissionPayload.ts` now owns request payload assembly, app-generation request metadata, and edited-chat engine fallback resolution.
 - `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiExternalAgentStop.ts`, `frontend/src/state/actions/aiChatStopState.ts`, and `frontend/src/state/actions/aiExternalAgentResponses.ts` now own public stop orchestration, external stop/recovery, local stop snapshot/reconciliation, and external approval/question responses.
@@ -512,7 +523,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/uiSettingRevealMutationRestore.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/projectChatThreadGroupMutations.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

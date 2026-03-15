@@ -1,6 +1,7 @@
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { cloneStringArrayRecord } from "./uiSettingRevealMutationRecordRestore";
 import { restoreRevealMutationSnapshotsIfOwned } from "./uiSettingRevealMutationRestore";
 import type {
   RevealLocalStorageSnapshot,
@@ -70,14 +71,4 @@ export function captureRevealProjectStateSnapshot(): RevealProjectStateSnapshot 
     projectConfigId: state.projectConfig.id,
     activeIds: [...getActiveSectionUIIds()],
   };
-}
-
-function cloneStringArrayRecord(
-  value: Record<string, Array<string>>,
-): Record<string, Array<string>> {
-  const cloned: Record<string, Array<string>> = {};
-  for (const [recordKey, recordValue] of Object.entries(value)) {
-    cloned[recordKey] = [...recordValue];
-  }
-  return cloned;
 }

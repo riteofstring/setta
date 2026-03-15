@@ -230,9 +230,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   high-level reveal orchestration, `uiSettingRevealMutationOwnership.ts` owns
   lease sequence and touched-field ownership,
   `uiSettingRevealMutationCapture.ts` owns snapshot capture plus
-  failure-result assembly, `uiSettingRevealMutationRestore.ts` owns rollback
-  and owned restore application, `uiSettingRevealMutationSnapshots.ts` is now
-  the compatibility facade, `uiSettingRevealActivation.ts` owns
+  failure-result assembly, `uiSettingRevealMutationRecordRestore.ts` now owns
+  shared owned-record revert helpers,
+  `uiSettingRevealMutationLocalStorageRestore.ts` now owns local-storage
+  rollback, `uiSettingRevealMutationProjectStateRestore.ts` now owns
+  project-state active-section rollback,
+  `uiSettingRevealMutationRestore.ts` is now the thin restore orchestrator,
+  `uiSettingRevealMutationSnapshots.ts` is now the compatibility facade,
+  `uiSettingRevealActivation.ts` owns
   pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
   lookup and highlighting, and `uiSettingRevealShared.ts` owns
   execution-context/status helpers.
@@ -258,18 +263,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
-  - `frontend/src/state/actions/sections/moveSectionState.ts` at 252 lines
+  - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
+  - `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts` at 190 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
   - `frontend/src/state/actions/sections/moveSectionState.ts` at 252 lines
+  - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
