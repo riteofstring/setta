@@ -90,27 +90,6 @@ async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
     return f"{cookie_name}={cookie_value}"
 
 
-async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
-    token: str | None = None
-    if config.bootstrap_token:
-        trimmed_token = config.bootstrap_token.strip()
-        token = trimmed_token if trimmed_token else None
-    elif config.bootstrap_url:
-        token = extract_token_from_bootstrap_url(config.bootstrap_url)
-    if token:
-        cookie_header = await _consume_bootstrap_token(config.backend_url, token)
-        return {"Cookie": cookie_header}
-    session_info = load_current_session_secret()
-    if session_info is None:
-        raise ValueError(
-            "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID "
-            "(and SETTA_SESSIONS_ROOT if running outside the session workspace)."
-        )
-    session_metadata, secret = session_info
-    cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
-
-
 @dataclass
 class _ServerToolCache:
     init_tools: dict[str, ChatCompletionToolParam]
@@ -715,7 +694,27 @@ class MultiMCPClient:
 async def run_stdio_bridge(config: BridgeConfig) -> None:
     logger.debug("Starting stdio bridge with config: %s", config)
     async with AsyncExitStack() as stack:
-        auth_headers = await _resolve_stdio_bridge_headers(config)
+        token: str | None = None
+        if config.bootstrap_token:
+            trimmed_token = config.bootstrap_token.strip()
+            token = trimmed_token if trimmed_token else None
+        elif config.bootstrap_url:
+            token = extract_token_from_bootstrap_url(config.bootstrap_url)
+        if token:
+            cookie_header = await _consume_bootstrap_token(config.backend_url, token)
+            auth_headers = {"Cookie": cookie_header}
+        else:
+            session_info = load_current_session_secret()
+            if session_info is None:
+                raise ValueError(
+                    "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID "
+                    "(and SETTA_SESSIONS_ROOT if running outside the session workspace)."
+                )
+            session_metadata, secret = session_info
+            cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+            auth_headers = {
+                "Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"
+            }
         stdio_read, stdio_write = await stack.enter_async_context(stdio_server())
         backend_read, backend_write = await stack.enter_async_context(
             sse_client(url=config.backend_url, headers=auth_headers)
