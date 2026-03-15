@@ -4665,3 +4665,52 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted flex/absolute lower shell for MetaControl color picker.
   - Re-read the shared color-picker wrapper consumers in `ParamUI.tsx`, `appRegistry.tsx`, and `DrawAreaControls.tsx` before moving upward again.
+
+### 2026-03-18 122
+
+- Item: Accept the shared callable/app/draw color-picker wrapper flattening outside `MetaControl`.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/App/appRegistry.tsx`
+    - `frontend/src/components/Section/Layouts/DrawArea/DrawAreaControls.tsx`
+  - The accepted shared-wrapper move is narrow:
+    - the callable param wrapper no longer uses `single-cell-container`
+    - the mirrored app-mode wrapper no longer uses `single-cell-container`
+    - the draw-toolbar color wrapper no longer uses `single-cell-container`
+    - the touched shared rendering paths no longer rely on `single-cell-child` for the visible color-input shell
+  - Added focused direct coverage in:
+    - `frontend/tests/e2e/params/color-picker-param-shell.spec.ts`
+      - callable color picker stays inside the compact value shell
+      - the touched callable row no longer exposes the old single-cell wrapper helpers
+    - `frontend/tests/e2e/app/app-mode-colorpicker-dropzone-theme.spec.ts`
+      - strengthened the existing app-mode themed choice-trigger guardrail so the touched wrapper no longer exposes the old single-cell helpers
+    - `frontend/tests/e2e/sections/draw-color-picker-shell.spec.ts`
+      - new draw-toolbar guardrail keeps the color control inside the toolbar bounds and off the old single-cell helpers
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - result: `1` file passed, `2` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/color-picker-param-shell.spec.ts frontend/tests/e2e/app/app-mode-colorpicker-dropzone-theme.spec.ts frontend/tests/e2e/sections/draw-color-picker-shell.spec.ts`
+      - result: `3` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `dry_saying` on `http://127.0.0.1:3087/dry_saying`
+      - callable wrapper still reads `section-value single-cell-container ...`
+      - draw-toolbar wrapper still reads `single-cell-container justify-self-start ...`
+      - both touched control paths still expose `single-cell-child`
+    - worktree: disposable compare project `brewing_safe` on `http://127.0.0.1:3011/brewing_safe`
+      - callable wrapper now reads `section-value relative flex ... items-stretch`
+      - draw-toolbar wrapper now reads `relative flex h-full ... items-stretch`
+      - the visible color-input path now reads `absolute inset-0 flex ...`
+      - the touched wrapper shells no longer expose `single-cell-container`
+      - the touched visible color-input path no longer exposes `single-cell-child`
+  - Interpretation:
+    - the shared color-picker wrapper seam is now accepted for callable, app-mode, and draw
+    - the accepted MetaControl lower shell stays closed
+    - the current shared callable/app/draw color-picker inventory is exhausted
+    - the only remaining `ColorPickerInput` `single-cell` callers are the out-of-scope UI-editor pane settings pair
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_shared-color-picker-wrapper-shells.md`
+- Next action:
+  - Keep the accepted shared color-picker wrappers for `ParamUI.tsx`, `appRegistry.tsx`, and `DrawAreaControls.tsx`.
+  - Decide whether the out-of-scope UI-editor pane color settings pair belongs in this plan before widening upward again.
