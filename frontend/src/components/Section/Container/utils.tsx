@@ -6,8 +6,7 @@ import {
   getAllowedChatIdsForProject,
   hasSectionIdInProject,
 } from "state/aiFollowUtils";
-import { useAIFollow, useProjectState } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";

@@ -3,7 +3,7 @@ import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/Project
 import { useEffect, useMemo, useState } from "react";
 import { FiGrid, FiList } from "react-icons/fi";
 import { closeModal } from "state/actions/modal";
-import type { HomeProjectGalleryViewMode } from "state/stores/uiPreferenceStores";
+import { type HomeProjectGalleryViewMode } from "state/definitions";
 import { ObjectValues, ProjectConfig } from "utils/generatedTypes";
 import { FileNameInput } from "./FileNameInput";
 
