@@ -7931,6 +7931,10 @@ func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8114,6 +8118,10 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8467,6 +8475,10 @@ func TestAppServesDeleteTerminalsRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8632,16 +8644,18 @@ func TestAppServesRunCodeRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cookie name: %v", err)
 	}
+	authCookie := &http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	}
+	linkAppBackendCodegenFixture(t, server.URL, authCookie)
 
 	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","runSnapshotMode":"never"}`))
 	if err != nil {
 		t.Fatalf("new request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(&http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	})
+	request.AddCookie(authCookie)
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
@@ -8688,10 +8702,53 @@ func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 		}
 	})
 
-	seedAppRunCodeProject(t, app, cfg, "print('APP_PLUGIN_RUN_OK')\n")
+	codeRoot := filepath.Join(cfg.Paths.SettaFilesRoot, "code")
+	if err := os.MkdirAll(codeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir code root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.sh"), []byte("echo APP_PLUGIN_RUN_OK\n"), 0o644); err != nil {
+		t.Fatalf("write run.sh: %v", err)
+	}
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		project := document.Projects["project-alpha"]
+		project := projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			EntryCodeBlockID: "code-section",
+			TopLevelSectionIDs: []string{
+				"code-section",
+			},
+			SectionVariantMap: map[string]string{
+				"code-section": "code-bash-variant",
+			},
+			Sections: map[string]projectstate.Section{
+				"code-section": {
+					ID:               "code-section",
+					Name:             "Runner",
+					VariantIDs:       []string{"code-bash-variant"},
+					DefaultVariantID: "code-bash-variant",
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"code-bash-variant": {
+					ID:     "code-bash-variant",
+					ImplID: "code-bash-impl",
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"code-bash-impl": {
+					ID:   "code-bash-impl",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguageBash,
+						Binding: &projectstate.CodeFileBinding{
+							Path:       "code/run.sh",
+							AccessMode: projectstate.CodeFileAccessModeReadWrite,
+						},
+					},
+				},
+			},
+		}
 		project.CodegenTargets = []projectstate.ProjectCodegenTarget{
 			{
 				Language: "setta-fixture-backend-codegen:typescript",
@@ -8704,6 +8761,7 @@ func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 			},
 		}
 		document.Projects["project-alpha"] = project
+		document.DefaultProjectID = "project-alpha"
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate project runtime: %v", err)
@@ -8746,7 +8804,7 @@ func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
 	}
 
-	matches, err := filepath.Glob(filepath.Join(outputRoot, "*", "setta_gen.ts"))
+	matches, err := filepath.Glob(filepath.Join(outputRoot, "*", "fixture_state.ts"))
 	if err != nil {
 		t.Fatalf("glob plugin codegen output: %v", err)
 	}
@@ -8772,7 +8830,7 @@ func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 	}
 }
 
-func TestAppMainRuntimeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
+func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputsToCanonicalPath(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -8786,23 +8844,28 @@ func TestAppMainRuntimeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) 
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-
-	seedAppRunCodeProject(t, app, cfg, "print('APP_SAVE_OK')\n")
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	linkAppBackendCodegenFixture(t, server.URL, newAppTestAuthCookie(t, app))
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		project := document.Projects["project-alpha"]
-		project.CodegenTargets = []projectstate.ProjectCodegenTarget{
-			{
-				Language: "setta-fixture-backend-codegen:typescript",
-				Payload: mustAppJSON(t, map[string]any{
-					"language": "setta-fixture-backend-codegen:typescript",
-					"options": map[string]any{
-						"className": "DirectSaveState",
-					},
-				}),
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: "setta-fixture-backend-codegen:typescript",
+					Payload: mustAppJSON(t, map[string]any{
+						"language": "setta-fixture-backend-codegen:typescript",
+						"options": map[string]any{
+							"className":  "DirectSaveState",
+							"outputPath": "./nested//setta_gen.ts",
+						},
+					}),
+				},
 			},
 		}
-		document.Projects["project-alpha"] = project
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate project runtime: %v", err)
@@ -8812,12 +8875,77 @@ func TestAppMainRuntimeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) 
 		t.Fatalf("save project runtime: %v", err)
 	}
 
-	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "nested", "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("glob plugin codegen output: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one plugin codegen output after main save, got %v", matches)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read plugin codegen output: %v", err)
+	}
+	if !strings.Contains(string(content), "export class DirectSaveState") {
+		t.Fatalf("expected materialized plugin codegen output, got %q", string(content))
+	}
+}
+
+func TestAppMainRuntimeSaveRejectsAbsolutePluginCodegenOutputPath(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	linkAppBackendCodegenFixture(t, server.URL, newAppTestAuthCookie(t, app))
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: "setta-fixture-backend-codegen:typescript",
+					Payload: mustAppJSON(t, map[string]any{
+						"language": "setta-fixture-backend-codegen:typescript",
+						"options": map[string]any{
+							"className":  "DirectSaveState",
+							"outputPath": "C:/outside.ts",
+						},
+					}),
+				},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
+	}
+
+	_, err = app.ProjectStates().Main().Save(context.Background())
+	if err == nil {
+		t.Fatal("expected plugin codegen absolute-path rejection")
+	}
+	if !strings.Contains(err.Error(), "cannot be absolute") {
+		t.Fatalf("expected absolute-path rejection, got %v", err)
+	}
+
+	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "*"))
 	if err != nil {
 		t.Fatalf("glob plugin codegen output: %v", err)
 	}
 	if len(matches) != 0 {
-		t.Fatalf("expected no plugin codegen output after main save, got %v", matches)
+		t.Fatalf("expected no plugin codegen output after failed save, got %v", matches)
 	}
 }
 
@@ -10443,6 +10571,41 @@ func rewriteAppPluginManifest(t *testing.T, pluginRoot string, mutate func(map[s
 	encoded = append(encoded, '\n')
 	if err := os.WriteFile(manifestPath, encoded, 0o644); err != nil {
 		t.Fatalf("write plugin manifest %s: %v", manifestPath, err)
+	}
+}
+
+func linkAppBackendCodegenFixture(t *testing.T, serverURL string, authCookie *http.Cookie) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
+	localPluginRoot := filepath.Join(t.TempDir(), "backend")
+	copyAppTestDir(t, sourceRoot, localPluginRoot)
+	rewriteAppPluginManifest(t, localPluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerCodegenTarget"}
+	})
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"localPluginRoot": localPluginRoot,
+		"scope":           "workspace",
+		"enable":          true,
+		"force":           true,
+	})
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RoutePluginsLink, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins link request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins link: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins link 200, got %d with body %q", response.StatusCode, string(body))
 	}
 }
 

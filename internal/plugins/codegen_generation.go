@@ -7,22 +7,18 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-)
 
-type ResolvedPluginCodegenTarget struct {
-	Language          string
-	DefaultFileName   string
-	ImplementationKey string
-}
+	"setta/internal/codegencontracts"
+)
 
 var windowsDrivePrefixPattern = regexp.MustCompile(`^[A-Za-z]:`)
 
 func (s *Service) ResolvePluginCodegenTarget(
 	_ context.Context,
 	language string,
-) (ResolvedPluginCodegenTarget, bool, error) {
+) (codegencontracts.PluginTargetResolution, bool, error) {
 	if s == nil {
-		return ResolvedPluginCodegenTarget{}, false, ErrWorkspaceRootRequired
+		return codegencontracts.PluginTargetResolution{}, false, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -30,18 +26,17 @@ func (s *Service) ResolvePluginCodegenTarget(
 
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return ResolvedPluginCodegenTarget{}, false, err
+		return codegencontracts.PluginTargetResolution{}, false, err
 	}
 
 	match, ok, err := findRegisteredCodegenTargetMatch(snapshot.Plugins, language)
 	if err != nil {
-		return ResolvedPluginCodegenTarget{}, false, err
+		return codegencontracts.PluginTargetResolution{}, false, err
 	}
 	if !ok {
-		return ResolvedPluginCodegenTarget{}, false, nil
+		return codegencontracts.PluginTargetResolution{}, false, nil
 	}
-	return ResolvedPluginCodegenTarget{
-		Language:          match.Target.Language,
+	return codegencontracts.PluginTargetResolution{
 		DefaultFileName:   match.Target.DefaultFileName,
 		ImplementationKey: registeredCodegenTargetImplementationKey(match),
 	}, true, nil
@@ -52,7 +47,7 @@ func (s *Service) GeneratePluginCodegenTarget(
 	language string,
 	projectState map[string]any,
 	targetOptions map[string]any,
-) ([]GeneratedCodegenFile, error) {
+) ([]codegencontracts.PluginGeneratedFile, error) {
 	if s == nil {
 		return nil, ErrWorkspaceRootRequired
 	}
@@ -103,8 +98,8 @@ func registeredCodegenTargetImplementationKey(match registeredCodegenTargetMatch
 func normalizeGeneratedCodegenFiles(
 	target PluginRegisteredCodegenTarget,
 	files []backendRuntimeCodegenFile,
-) ([]GeneratedCodegenFile, error) {
-	normalizedFiles := make([]GeneratedCodegenFile, 0, len(files))
+) ([]codegencontracts.PluginGeneratedFile, error) {
+	normalizedFiles := make([]codegencontracts.PluginGeneratedFile, 0, len(files))
 	seenPaths := make(map[string]struct{}, len(files))
 	for _, file := range files {
 		relativePath := ""
@@ -130,7 +125,7 @@ func normalizeGeneratedCodegenFiles(
 				normalizedPath,
 			)
 		}
-		normalizedFiles = append(normalizedFiles, GeneratedCodegenFile{
+		normalizedFiles = append(normalizedFiles, codegencontracts.PluginGeneratedFile{
 			RelativePath: normalizedPath,
 			Content:      *file.Content,
 		})

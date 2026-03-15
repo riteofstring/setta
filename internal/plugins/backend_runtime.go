@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"setta/internal/codegencontracts"
 	"setta/internal/config"
 )
 
@@ -56,11 +57,6 @@ type BackendCodegenTargetRequest struct {
 	TargetID      string         `json:"targetId"`
 	ProjectState  map[string]any `json:"projectState"`
 	TargetOptions map[string]any `json:"targetOptions"`
-}
-
-type GeneratedCodegenFile struct {
-	RelativePath string
-	Content      string
 }
 
 type backendRuntimeRequest struct {
@@ -442,7 +438,7 @@ func invokeGoBackendCodegenTarget(
 	target PluginRegisteredCodegenTarget,
 	projectState map[string]any,
 	targetOptions map[string]any,
-) ([]GeneratedCodegenFile, error) {
+) ([]codegencontracts.PluginGeneratedFile, error) {
 	runtimeRequest := backendRuntimeRequest{
 		SchemaVersion: backendRuntimeSchemaVersion,
 		Kind:          backendRuntimeKindCodegen,

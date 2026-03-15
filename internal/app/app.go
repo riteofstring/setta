@@ -137,6 +137,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspCompletion         *lspcompletion.Service
 		lspSignature          *lspsignature.Service
 		pythonMaterializer    *codegen.PythonMaterializer
+		pluginMaterializer    *codegen.PluginMaterializer
 		watchCodeService      *watchcode.Service
 		boundCodeService      *boundcode.Service
 		externalAgentChats    *externalagents.Service
@@ -193,6 +194,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		promptTemplateStore   *prompttemplates.Store
 		pluginStore           *plugins.Store
 		pluginDiscovery       *plugins.DiscoveryService
+		pluginMutationService *plugins.Service
 		pluginRuntimeRefresh  *pluginBackendRuntimeRefresher
 		pluginRouteService    httpapi.PluginRouteService
 		pythonPackages        *pythonenv.Runtime
@@ -318,6 +320,31 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
+			Store:            pluginStore,
+			DiscoveryService: pluginDiscovery,
+			WorkspaceRoot:    cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot:   cfg.Paths.SettaFilesRoot,
+			SettaHome:        cfg.Paths.SettaHome,
+			ServerMode:       cfg.Server.Mode,
+			CandidateProvider: plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
+				PackageManagerRuntime: pythonPackages,
+				SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
+			}),
+			PackageManagerRuntime: pythonPackages,
+		})
+		if err != nil {
+			return nil, err
+		}
+		pluginMaterializer, err = codegen.NewPluginMaterializer(codegen.PluginMaterializerOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			Generator:      pluginMutationService,
+		})
+		if err != nil {
+			return nil, err
+		}
+		codegenValidator = pluginMutationService
+		pluginRouteService = pluginMutationService
 		lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{
 			OnChange: func(payload projectstate.LSPDiagnosticsPayload) {
 				_, _ = websocketHub.BroadcastJSON(
@@ -394,6 +421,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					}
 					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
 						return err
+					}
+					if pluginMaterializer != nil {
+						if err := pluginMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+							return err
+						}
 					}
 					if err := projectLSPSyncer.MaterializeDocument(ctx, snapshot.Document); err != nil {
 						return err
@@ -680,26 +712,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	var agentRunService *agentruns.Service
 	var temporaryIDs *mcpx.TemporaryIDStore
-	var pluginMutationService *plugins.Service
-	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-		Store:            pluginStore,
-		DiscoveryService: pluginDiscovery,
-		WorkspaceRoot:    cfg.Paths.WorkspaceRoot,
-		SettaFilesRoot:   cfg.Paths.SettaFilesRoot,
-		SettaHome:        cfg.Paths.SettaHome,
-		ServerMode:       cfg.Server.Mode,
-		CandidateProvider: plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
-			PackageManagerRuntime: pythonPackages,
-			SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
-		}),
-		PackageManagerRuntime: pythonPackages,
-	})
-	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
-	}
-	codegenValidator = pluginMutationService
-	pluginRouteService = pluginMutationService
 	if modePolicy.IsIDE() && projectRuntime != nil {
 		engineStore, err = agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
