@@ -3199,3 +3199,24 @@ Append-only log for the section performance refactor.
 - Next action:
   - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
   - Use that trace to decide whether checkpoint 1 can be accepted, whether another lower activation pass is still justified, or whether the plan should finally move upward.
+
+### 2026-03-17 88
+
+- Item: Distinguish browser health from the current Codex session's dead DevTools bridge.
+- Status: `blocked`
+- Details:
+  - Rechecked the browser-side environment after fresh `./aireset.sh` runs on:
+    - this worktree
+    - untouched `main`
+  - Browser-side confirmation from the current worktree:
+    - `pnpm -C frontend cdp-port` returned `9233`
+    - `curl -sf http://127.0.0.1:9233/json/version` returned a live Chrome instance (`Chrome/146.0.7680.80`)
+    - local `chrome-devtools-mcp` processes are running against `--browserUrl=http://127.0.0.1:9233`
+  - Current Codex-session tooling state:
+    - the built-in `chrome-devtools-mcp` tool still fails immediately on `list_pages`
+    - failure remains `Transport closed`
+  - Conclusion:
+    - the active checkpoint is not blocked by stale browser instances anymore
+    - it is blocked by the current Codex session's dead DevTools bridge, so the required untouched-`main` vs worktree activation trace still cannot be captured from this session
+- Next action:
+  - Re-establish the current Codex session's `chrome-devtools-mcp` bridge, then rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
