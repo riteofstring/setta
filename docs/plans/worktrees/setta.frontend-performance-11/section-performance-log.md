@@ -4773,3 +4773,63 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted `Section Config` color-picker wrappers for `SectionStyleColorSettings.tsx` and `SectionTagColorSettings.tsx`.
   - Return to the remaining section-owned lower shell and re-read `frontend/src/components/Section/SectionParts/Search.tsx` before widening upward again.
+
+### 2026-03-18 124
+
+- Item: Accept the callable search shell flattening and close the remaining `single-cell` search overlay in `SectionSearch`.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/SectionParts/Search.tsx`
+  - The accepted lower-shell move is narrow:
+    - the outer callable search row no longer uses `single-cell-container`
+    - the dummy editor root no longer uses `single-cell-child`
+    - the real editor root no longer uses `single-cell-child`
+    - the right-side ready/error indicator wrapper no longer uses `single-cell-child`
+    - the touched search shell keeps the same compact `200 x 26` row and `196 x 26` editor geometry on the representative path
+  - Added focused direct coverage in:
+    - `frontend/tests/e2e/sections/callable-search-shell.spec.ts`
+      - the callable search shell no longer exposes `single-cell-container`
+      - the dummy and real editor roots no longer expose `single-cell-child`
+      - the right-side ready/error indicator wrapper stays off the old single-cell helpers after activation
+    - existing callable/search guardrails stayed green:
+      - `frontend/tests/e2e/sections/agentic-edge-callable-handle-alignment.spec.ts`
+      - `frontend/tests/e2e/sections/agentic-edge-listroot-child-handles.spec.ts`
+      - `frontend/tests/e2e/sections/minimized-callable-edge-handles.spec.ts`
+      - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+      - result: `1` file passed, `5` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/callable-search-shell.spec.ts frontend/tests/e2e/sections/agentic-edge-callable-handle-alignment.spec.ts frontend/tests/e2e/sections/agentic-edge-listroot-child-handles.spec.ts frontend/tests/e2e/sections/minimized-callable-edge-handles.spec.ts frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+      - result: `6` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `tall_grove` on `http://127.0.0.1:3087/tall_grove`
+      - search row still reads `section-search single-cell-container relative w-full`
+      - dummy editor root still reads `single-cell-child ...`
+      - geometry:
+        - search row `200 x 26`
+        - dummy editor `196 x 26`
+        - source handle `14 x 14`
+        - target handle `14 x 14`
+    - worktree: disposable compare project `leaving_buying` on `http://127.0.0.1:3011/leaving_buying`
+      - search row now reads `section-search relative flex w-full min-w-0 items-stretch`
+      - dummy editor root now reads `min-w-0 flex-1 self-stretch ...`
+      - real editor root now reads `min-w-0 flex-1 self-stretch ...`
+      - the touched search markup no longer exposes `single-cell-container`
+      - the touched search markup no longer exposes `single-cell-child`
+      - geometry:
+        - search row `200 x 26`
+        - editor `196 x 26`
+        - source handle `14 x 14`
+        - target handle `14 x 14`
+  - Interpretation:
+    - the callable search shell is now accepted
+    - the shared color-picker seam stays closed
+    - the higher `sectionChrome` baseline stays closed
+    - the next pass should return to the remaining section-owned lower shell in `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_callable-search-shell.md`
+- Next action:
+  - Keep the accepted callable search shell closed.
+  - Re-read `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam.
