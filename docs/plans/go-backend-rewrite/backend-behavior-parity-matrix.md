@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`6ff7da4ea0116bdff1697084eaed1c76a4154e03`
+`7e31019305e1fd209e256852751b462fdb81163c`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -52,6 +52,8 @@ It currently covers:
 - app-gen skill discovery/content/upsert behavior
 - Project AI viewer support routes for setta-home info, MCP runtime status, and path reveal
 - auth bootstrap, cookie-session refresh/CORS, and share-session transport
+  behavior
+- deployment publish/catalog and deployment session bootstrap/state/project-config
   behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
@@ -98,7 +100,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Twenty-two concrete parity gaps are already visible:
+- Twenty-four concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -176,6 +178,15 @@ Rows outside these slices are still pending.
   - source-baseline auth-cookie refresh also extends trusted frontend-origin
     expiry for the current session
   - current Go refreshes the cookie without updating the trusted-origin store
+  - source publish and deployment project-config request models reject unknown
+    extra JSON fields
+  - current Go deployment publish/project-config handlers use permissive JSON
+    decoding and silently accept those extra fields
+  - source deployment sessions auto-start enabled `listener/app.py`
+    entrypoints on deployment websocket/state bootstrap
+  - current Go publishes listener metadata and still documents that behavior,
+    but it never launches a retained loader or equivalent per deployment
+    session
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -276,6 +287,12 @@ Rows outside these slices are still pending.
     trusted-origin expiry refresh (`AU-11`)
   - one more proof gap around header-based bootstrap-token consume transport
     (`AU-04`)
+- The deployment publish/session slice mostly closes with proofs, but it adds:
+  - two real behavior gaps around permissive unknown-field acceptance and
+    missing deployment-listener autostart (`DP-06`, `DP-08`)
+  - one broader proof-gap row around typed publish validation/error mapping
+    (`DP-05`)
+  - two dormant transport/mode-boundary rows (`DP-02`, `DP-07`)
 
 ## Project Names
 
@@ -694,6 +711,19 @@ Rows outside these slices are still pending.
 | `AU-12` | IDE websocket connections accept either the auth cookie or an `Authorization: Bearer` bootstrap token, and unauthorized sockets close with code `4401`. | Source docs: `docs/reference/auth-and-sessions.md`; source websocket auth: `backend/setta/routers/websocket.py::_authenticate_websocket`; source test: `tests/auth/test_websocket_auth.py::test_websocket_closes_with_auth_code`. | Impl: `internal/wsapi/wsapi.go::ResolveConnection`; proof: `internal/wsapi/wsapi_test.go::{TestAuthenticatedHandlerClosesUnauthorizedWebsocket,TestAuthenticatedHandlerAcceptsBootstrapBearerToken,TestAuthenticatedHandlerAcceptsAuthCookie}`. | `Proved` | |
 | `AU-13` | Share-mode HTTP and websocket transports accept `shareSessionId` via header/cookie/query, prefer header over cookie over query, touch the active session, and map missing/unknown sessions to typed HTTP or close-code errors. | Source docs: `docs/reference/auth-and-sessions.md` share-session section. | Impl: `internal/modes/share_session.go`; `internal/httpapi/httpapi.go::RequireShareSession`; `internal/wsapi/wsapi.go::ResolveConnection`; proof: `internal/modes/modes_test.go::{TestMaybeShareSessionIDFromRequestPrefersHeaderThenCookieThenQuery,TestResolverUsesCookieWhenHeaderMissing,TestResolverReturnsMissingAndUnknownShareSessionErrors}`; route proof: `internal/httpapi/httpapi_test.go::{TestHandlerShareSessionMiddlewareInjectsContext,TestHandlerShareSessionMiddlewareRejectsMissingAndUnknownSessions}`; websocket proof: `internal/wsapi/wsapi_test.go::{TestAuthenticatedHandlerResolvesShareSessionInDeploymentMode,TestAuthenticatedHandlerClosesMissingAndUnknownShareSession}`. | `Proved` | |
 
+## Deployment Publish, Catalog, And Session Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `DP-01` | `POST /share/deployments/current/session` and `POST /app/deployments/current/session` create or reuse a deployment session, replace unknown requested session ids, and return deployment identity, session metadata, project metadata, policy, and manifest payloads. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md` deployment session lifecycle; source helpers/routes: `backend/setta/deployments/router_utils.py::get_or_create_share_session_id`; `backend/setta/routers/share_deployments.py::route_create_share_session_current`; `backend/setta/routers/app_deployments.py::route_create_app_session_current`; source tests: `tests/routers/test_share_sessions.py::test_current_session_uses_active_deployment`; `tests/routers/test_app_sessions.py::test_create_session_and_fetch_state_and_config`. | Impl: `internal/httpapi/deployment_routes.go::{currentDeploymentSession,currentShareDeploymentSessionHandler,currentAppDeploymentSessionHandler}`; proof: `internal/httpapi/deployment_routes_test.go::{TestRegisterDeploymentRoutesCreatesShareSession,TestRegisterDeploymentRoutesReusesExistingShareSessionFromHeader,TestRegisterDeploymentRoutesReplacesUnknownShareSessionID,TestRegisterDeploymentRoutesCreatesAppSessionResponse}`; current caller evidence: `frontend/src/state/actions/share.ts`; `frontend/src/state/actions/app.ts`. | `Proved` | |
+| `DP-02` | Explicit versioned session bootstrap routes remain available at `/share/deployments/{deploymentName}/{version}/session` and `/app/deployments/{deploymentName}/{version}/session`, validating deployment match in addition to the newer `current/session` routes. | Source route inventory: `backend/setta/types/routes.py::{SHARE_DEPLOYMENT_SESSION,APP_DEPLOYMENT_SESSION}`; source routes: `backend/setta/routers/share_deployments.py::route_create_share_session`; `backend/setta/routers/app_deployments.py::route_create_app_session`; source tests: `tests/routers/test_share_sessions.py::test_deployment_mismatch_returns_404`; `tests/routers/test_app_sessions.py::test_create_session_and_fetch_state_and_config`. | Current Go route inventory only keeps `internal/httpapi/deployment_routes.go::{RouteShareDeploymentCurrentSession,RouteAppDeploymentCurrentSession}`; current generated bindings/callers only target `route_create_share_session_current` / `route_create_app_session_current`: `frontend/src/utils/generatedEndpoints.ts`; `frontend/src/state/actions/share.ts`; `frontend/src/state/actions/app.ts`. | `Dormant / unproven caller` | Current evidence only shows the `current/session` transport as a live caller requirement. |
+| `DP-03` | Deployment state/project-config routes require a live `shareSessionId`, enforce deployment-name/version match, read from the session overlay, and app responses include `appDefinition` plus resolved `appSpec`. | Source routes: `backend/setta/routers/share_deployments.py::{route_get_share_deployment_state,route_load_share_project_config}`; `backend/setta/routers/app_deployments.py::{route_get_app_deployment_state,route_load_app_project_config}`; source tests: `tests/routers/test_share_sessions.py::{test_create_session_and_fetch_state,test_state_requires_share_session_id,test_session_loads_multiple_project_configs,test_unknown_session_id_returns_404}`; `tests/routers/test_app_sessions.py::{test_create_session_and_fetch_state_and_config,test_state_requires_share_session_id}`. | Impl: `internal/httpapi/deployment_routes.go::{shareDeploymentStateHandler,shareDeploymentProjectConfigHandler,appDeploymentStateHandler,appDeploymentProjectConfigHandler,currentDeploymentSnapshot}`; proof: `internal/httpapi/deployment_routes_test.go::{TestRegisterDeploymentRoutesLoadsShareDeploymentStateFromOverlaySession,TestRegisterDeploymentRoutesLoadsShareDeploymentProjectConfig,TestRegisterDeploymentRoutesShareStateRequiresSession,TestRegisterDeploymentRoutesShareProjectConfigRejectsUnknownConfig,TestRegisterDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec,TestRegisterDeploymentRoutesLoadsAppDeploymentProjectConfig}`. | `Proved` | Current frontend deployment-state loaders still use these routes in `frontend/src/state/actions/share.ts` and `frontend/src/state/actions/app.ts`. |
+| `DP-04` | In IDE mode, deployment publish/list routes remain the active modal caller surface: publish writes deployment metadata plus manifest/policy/listener/app-spec payloads, and list returns catalog metadata for existing share/app deployments. | Source routes: `backend/setta/routers/share_deployments.py::route_publish_share_deployment`; `backend/setta/routers/app_deployments.py::route_publish_app_deployment`; source tests: `tests/routers/test_share_deployments.py::{test_publish_share_deployment_writes_manifest_and_policy,test_list_versions_and_latest}`; `tests/routers/test_app_deployments.py::{test_publishes_app_deployment_with_spec_and_policy,test_publishes_app_deployment_with_listener_entrypoint}`; current caller evidence: `frontend/src/components/Modals/ShareDeploymentsModal/PublishShareDeploymentModal.tsx`; `frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal.tsx`. | Impl: `internal/httpapi/deployment_ide_routes.go`; proof: `internal/httpapi/deployment_ide_routes_test.go::{TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersions,TestRegisterDeploymentIDERoutesPublishesAppDeployment}`; app proof: `internal/app/deployment_ide_test.go::TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP`. | `Proved` | Current active modal callers use `list` and `publish`; `versions/latest` are classified separately below. |
+| `DP-05` | Publish transport preserves typed validation/error mapping for missing project config, invalid deployment names/policies, missing app definition, and missing/invalid app spec inputs. | Source routes: `backend/setta/routers/share_deployments.py::route_publish_share_deployment`; `backend/setta/routers/app_deployments.py::route_publish_app_deployment`; source tests: `tests/routers/test_app_deployments.py::{test_requires_app_definition,test_requires_app_spec_path}`. | Impl: `internal/httpapi/deployment_ide_routes.go::handleDeploymentPublishError`; publish services: `internal/deployments/share_publish.go`; `internal/deployments/app_publish.go`. | `Implemented, proof incomplete` | Current Go code has the typed branches, but this slice does not yet cite direct Go route tests for those error mappings. |
+| `DP-06` | Publish and deployment project-config request bodies reject unknown extra JSON fields instead of accepting them silently. | Source request models use `extra=\"forbid\"`: `backend/setta/routers/share_deployments.py::{PublishShareDeploymentRequest,LoadShareProjectConfigRequest}`; `backend/setta/routers/app_deployments.py::{PublishAppDeploymentRequest,LoadAppProjectConfigRequest}`. | Current Go publish/project-config handlers all use permissive `decodeJSONBody`: `internal/httpapi/deployment_ide_routes.go::{publishShareDeploymentHandler,publishAppDeploymentHandler}`; `internal/httpapi/deployment_routes.go::{shareDeploymentProjectConfigHandler,appDeploymentProjectConfigHandler}`; decoder: `internal/httpapi/httpapi.go::decodeJSONBody`. | `Missing` | Unlike the strict launcher setup decoder, current Go silently accepts unknown fields on these deployment request bodies. |
+| `DP-07` | Source catalog surfaces keep `versions/latest` mounted and, in deployment mode, block list/version reads with `403` while returning redacted `latest` metadata for the active deployment. | Source routes: `backend/setta/routers/share_deployments.py::{route_list_share_deployments,route_list_share_deployment_versions,route_get_latest_share_deployment}`; `backend/setta/routers/app_deployments.py::{route_list_app_deployments,route_list_app_deployment_versions,route_get_latest_app_deployment}`; source tests: `tests/routers/test_share_sessions.py::{test_share_mode_blocks_deployment_lists,test_share_mode_latest_redacts_paths}`. | Current Go only mounts catalog routes in IDE mode via `internal/httpapi/deployment_ide_routes.go::RegisterDeploymentIDERoutes`; outside IDE they disappear rather than returning source-style `403`/redacted payloads; current active modal callers stay in IDE: `frontend/src/components/Modals/ShareDeploymentsModal/PublishShareDeploymentModal.tsx`; `frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal.tsx`. | `Dormant / unproven caller` | Current active UI does not rely on deployment-mode `list/version/latest`, so this slice records the transport delta without yet classifying it as a live product gap. |
+| `DP-08` | Enabled deployment listener entrypoints (`listener/app.py`) auto-start per deployment session on deployment frontend/state bootstrap and bind to the session-scoped Go listener websocket transport. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; `docs/reference/setta-listener-examples.md`; source bootstrap paths: `backend/setta/routers/share_deployments.py::{route_get_share_deployment_state,route_load_share_project_config}`; `backend/setta/routers/websocket.py::{route_websocket_frontend,route_websocket_share_frontend}`; source retained loader/tests: `backend/setta/share/listener_runtime.py`; `tests/share/test_listener_runtime.py`. | Current Go still publishes listener metadata and exposes the retained listener websocket protocol, but there is no deployment-session loader path: `internal/httpapi/deployment_ide_routes.go::{publishShareDeploymentHandler,publishAppDeploymentHandler}` copies listener config; `internal/wsapi/routes.go` only handles client-initiated `ListenerInit`; `internal/app/app.go` wires deployment runtime plus listener broadcaster without any retained Python loader/runtime invocation. | `Missing` | Current docs and publish modals still expose deployment listener entrypoints, but current Go never launches a retained loader or equivalent runtime per share/app deployment session. |
+
 ## Status, Server Mode, And Launcher Surfaces
 
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
@@ -737,10 +767,11 @@ Rows outside these slices are still pending.
 
 ## Current Findings
 
-1. The matrix now contains twenty-two concrete source-parity gaps:
+1. The matrix now contains twenty-four concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
    `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
-   `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and `AU-11`.
+   `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and
+   `AU-11`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -813,23 +844,27 @@ Rows outside these slices are still pending.
 23. The auth/bootstrap/share-session slice mostly closes with proofs, but it
     adds four real auth/session gaps (`AU-07`, `AU-09`, `AU-10`, `AU-11`)
     plus one broader consume-transport proof gap (`AU-04`).
-24. Git route behavior is now largely proved, including literal pathspec
+24. The deployment publish/session slice mostly closes with proofs, but it
+    adds two real behavior gaps (`DP-06`, `DP-08`), one broader publish-error
+    proof gap (`DP-05`), and two dormant transport/mode-boundary rows
+    (`DP-02`, `DP-07`).
+25. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-25. The remaining issues in the naming slice are still mostly proof gaps rather
+26. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-26. The next high-value steps are:
+27. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
       `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
-      `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and `AU-11` should be
-      restored or documented as intentional divergences
+      `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and
+      `AU-11` should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `AP-04`, `LM-03`, `LH-04`, `WL-05`, `AS-02`, and
-      `SM-04` can be treated as fully dead legacy or share-only transports, or
-      still need explicit retained-boundary decisions
+    - decide whether `DP-02`, `DP-07`, `AP-04`, `LM-03`, `LH-04`, `WL-05`,
+      `AS-02`, and `SM-04` can be treated as fully dead legacy or share-only
+      transports, or still need explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
@@ -838,12 +873,12 @@ Rows outside these slices are still pending.
       `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
-      (`WL-01`, `WL-03`, `WL-04`), the new plugin proof gap (`PL-08`), the
-      new auth/bootstrap proof gap (`AU-04`), and the new transcription
-      proof gaps
-      (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new chat/managed-stop
-      proof gaps (`AH-02`, `MS-02`), plus the new managed-agent-run proof gap
-      (`MA-05`), plus the new state-machine-run proof gap (`SM-05`), plus
-      the new workflow-signal/websocket proof gaps (`WS-02`, `WS-05`)
+      (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),
+      the new plugin proof gap (`PL-08`), the new auth/bootstrap proof gap
+      (`AU-04`), and the new transcription proof gaps (`TS-02`, `TS-04`,
+      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gaps (`AH-02`,
+      `MS-02`), plus the new managed-agent-run proof gap (`MA-05`), plus the
+      new state-machine-run proof gap (`SM-05`), plus the new
+      workflow-signal/websocket proof gaps (`WS-02`, `WS-05`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
