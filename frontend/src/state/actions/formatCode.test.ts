@@ -1,6 +1,10 @@
 import { useActiveSectionUI } from "state/activeSectionUI";
-import { useProjectState, useShareSession } from "state/definitions";
-import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
+import {
+  useActiveSectionUI,
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { route_format_code, route_set_code } from "utils/generatedEndpoints";
 import {
@@ -14,7 +18,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { queueCodeUpdate } from "./codeUpdates";
 import { formatActiveCodeSection } from "./formatCode";
-import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnosticsState";
+import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnostics";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", () => ({
