@@ -75,55 +75,12 @@ def _resolve_env_placeholders(value: str) -> str:
     return _ENV_PLACEHOLDER.sub(replace, value)
 
 
-def _resolve_env_args(args: list[str]) -> list[str]:
-    return [_resolve_env_placeholders(arg) for arg in args]
-
-
-def _resolve_env_mapping(env: dict[str, str] | None) -> dict[str, str] | None:
-    if env is None:
-        return None
-    return {key: _resolve_env_placeholders(value) for key, value in env.items()}
-
-
 @dataclass
 class BridgeConfig:
     backend_url: str
     verbose: bool
     bootstrap_token: str | None = field(default=None, repr=False)
     bootstrap_url: str | None = field(default=None, repr=False)
-
-
-def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
-    parser = argparse.ArgumentParser(
-        prog="setta.mcp.client",
-        description="Connect to Setta's MCP endpoint or run the stdio bridge.",
-    )
-    parser.add_argument(
-        "--backend",
-        default=f"{C.BACKEND}/mcp",
-        help="Full URL to the Setta MCP endpoint (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable debug logging for the bridge.",
-    )
-    parser.add_argument(
-        "--token",
-        dest="bootstrap_token",
-        help="Bootstrap token for MCP authentication.",
-    )
-    parser.add_argument(
-        "--bootstrap-url",
-        help="Bootstrap URL containing a token fragment or query parameter.",
-    )
-    args = parser.parse_args(argv)
-    return BridgeConfig(
-        backend_url=args.backend,
-        verbose=args.verbose,
-        bootstrap_token=args.bootstrap_token,
-        bootstrap_url=args.bootstrap_url,
-    )
 
 
 async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
@@ -174,14 +131,6 @@ class _ServerToolCache:
     routing: dict[str, tuple[str, str]]
 
 
-def _resolve_server_endpoint(config: MCPServerConfig) -> str:
-    if config.url is not None and config.url.strip() != "":
-        return config.url
-    if config.command is not None and config.command.strip() != "":
-        return config.command
-    return "(no endpoint)"
-
-
 class MultiMCPClient:
     """Unified interface for multi-server MCP access."""
 
@@ -206,11 +155,16 @@ class MultiMCPClient:
         self.routing: dict[str, tuple[str, str]] = {}
         self._server_runtime_statuses: dict[str, MCPServerRuntimeStatus] = {}
         for server_id, config in self.server_configs.items():
+            endpoint = "(no endpoint)"
+            if config.url is not None and config.url.strip() != "":
+                endpoint = config.url
+            elif config.command is not None and config.command.strip() != "":
+                endpoint = config.command
             self._server_runtime_statuses[server_id] = MCPServerRuntimeStatus(
                 serverId=server_id,
                 source="setta_mcp",
                 transport=config.transport,
-                endpoint=_resolve_server_endpoint(config),
+                endpoint=endpoint,
                 state=(
                     MCPServerRuntimeState.disabled
                     if self.disabled
@@ -627,8 +581,15 @@ class MultiMCPClient:
             return read_stream, write_stream
         params = StdioServerParameters(
             command=config.command or "",
-            args=_resolve_env_args(list(config.args)),
-            env=_resolve_env_mapping(config.env),
+            args=[_resolve_env_placeholders(arg) for arg in list(config.args)],
+            env=(
+                {
+                    key: _resolve_env_placeholders(value)
+                    for key, value in config.env.items()
+                }
+                if config.env is not None
+                else None
+            ),
             cwd=config.cwd,
             encoding=config.encoding,
             encoding_error_handler=config.encoding_error_handler,
@@ -807,7 +768,36 @@ async def _forward_stdio_to_backend(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    config = parse_args(argv)
+    parser = argparse.ArgumentParser(
+        prog="setta.mcp.client",
+        description="Connect to Setta's MCP endpoint or run the stdio bridge.",
+    )
+    parser.add_argument(
+        "--backend",
+        default=f"{C.BACKEND}/mcp",
+        help="Full URL to the Setta MCP endpoint (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging for the bridge.",
+    )
+    parser.add_argument(
+        "--token",
+        dest="bootstrap_token",
+        help="Bootstrap token for MCP authentication.",
+    )
+    parser.add_argument(
+        "--bootstrap-url",
+        help="Bootstrap URL containing a token fragment or query parameter.",
+    )
+    args = parser.parse_args(argv)
+    config = BridgeConfig(
+        backend_url=args.backend,
+        verbose=args.verbose,
+        bootstrap_token=args.bootstrap_token,
+        bootstrap_url=args.bootstrap_url,
+    )
     configure_stdio_bridge_logging(config.verbose)
     try:
         asyncio.run(run_stdio_bridge(config))
