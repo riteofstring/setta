@@ -148,6 +148,122 @@ func TestRunStopRemoteForwardsLauncherServerMode(t *testing.T) {
 	}
 }
 
+func TestRunStopRemoteRejectsConflictingSettaFilesInputs(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, filepath.Join(t.TempDir(), "ssh-command.log"))
+
+	stdout, stderr, err := runCLIWithOSEnv(t.TempDir(),
+		"--setta-files-root", "/tmp/state",
+		"--setta-files-location", "local",
+		"stop", "user@host",
+		"--workspace", "/remote/workspace",
+		"--latest",
+	)
+	if err == nil {
+		t.Fatal("expected conflicting setta-files error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "Cannot pass both --setta-files-root and --setta-files-location for remote commands." {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
+func TestRunStopRemoteForwardsDocumentedRemoteCommandAndPathFlags(t *testing.T) {
+	testCases := []struct {
+		name         string
+		pathArgs     []string
+		wantPathFlag string
+	}{
+		{
+			name:         "setta_files_root",
+			pathArgs:     []string{"--setta-files-root", "/remote/state-root"},
+			wantPathFlag: "--setta-files-root /remote/state-root",
+		},
+		{
+			name:         "setta_files_location",
+			pathArgs:     []string{"--setta-files-location", "global"},
+			wantPathFlag: "--setta-files-location global",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			repoRoot := testRepoRootForSettacli(t)
+			sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+			session := createRemoteSSHStubSession(
+				t,
+				sessionsRoot,
+				"/remote/workspace",
+				61234,
+				time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC),
+				string(sshx.RemoteServerModeIDE),
+			)
+			commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+			configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+			argvLogPath := filepath.Join(t.TempDir(), "ssh-argv.log")
+			t.Setenv("SETTA_SSH_BIN", writeSettacliSSHArgLoggingWrapper(t, repoRoot, argvLogPath))
+
+			args := []string{
+				"--profile", "missing",
+				"--setta-home", "/remote/setta-home",
+				"--runtime-root", "/remote/runtime-root",
+			}
+			args = append(args, testCase.pathArgs...)
+			args = append(args,
+				"stop", "user@host",
+				"--workspace", "/remote/workspace",
+				"--session", session.ID,
+				"--ssh-args", "-p 2222 -o StrictHostKeyChecking=no",
+				"--remote-cmd", "custom-setta",
+			)
+
+			stdout, stderr, err := runCLIWithOSEnv(t.TempDir(), args...)
+			if err != nil {
+				t.Fatalf("run remote stop with forwarded flags: %v", err)
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+			if stdout != "Stopped session "+session.ID+".\n" {
+				t.Fatalf("unexpected stdout %q", stdout)
+			}
+
+			commandLog := readSettacliCommandLog(t, commandLogPath)
+			if !strings.Contains(commandLog, "custom-setta --profile missing --setta-home /remote/setta-home") {
+				t.Fatalf("expected remote command and setta-home forwarding, got %q", commandLog)
+			}
+			if !strings.Contains(commandLog, testCase.wantPathFlag) {
+				t.Fatalf("expected remote path forwarding %q, got %q", testCase.wantPathFlag, commandLog)
+			}
+			if !strings.Contains(commandLog, "--runtime-root /remote/runtime-root") {
+				t.Fatalf("expected runtime-root forwarding, got %q", commandLog)
+			}
+
+			argvLog := readSettacliCommandLog(t, argvLogPath)
+			if !strings.Contains(argvLog, "-p 2222 -o StrictHostKeyChecking=no") {
+				t.Fatalf("expected ssh-args forwarding, got %q", argvLog)
+			}
+			if !strings.Contains(argvLog, "user@host") {
+				t.Fatalf("expected ssh target in argv log, got %q", argvLog)
+			}
+		})
+	}
+}
+
 func TestSelectRemoteStopTargetsRequiresSelectorForMultipleSessions(t *testing.T) {
 	_, err := selectRemoteStopTargets([]sshx.RemoteSessionSummary{
 		{
@@ -313,4 +429,18 @@ func readSettacliCommandLog(t *testing.T, path string) string {
 		t.Fatalf("read ssh command log %q: %v", path, err)
 	}
 	return string(content)
+}
+
+func writeSettacliSSHArgLoggingWrapper(t *testing.T, repoRoot string, argvLogPath string) string {
+	t.Helper()
+
+	wrapperPath := filepath.Join(t.TempDir(), "ssh-wrapper.sh")
+	script := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$*\" >> \"$SETTA_SSH_STUB_ARGV_LOG_FILE\"\n" +
+		"exec \"" + filepath.Join(repoRoot, "scripts", "test", "ssh") + "\" \"$@\"\n"
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write ssh wrapper: %v", err)
+	}
+	t.Setenv("SETTA_SSH_STUB_ARGV_LOG_FILE", argvLogPath)
+	return wrapperPath
 }
