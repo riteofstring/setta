@@ -1,10 +1,9 @@
 # backend
 
-Go-backed success fixture plugin.
+Backend success fixture plugin.
 
-- Purpose: backend plugin install/link/status coverage while the Go-native
-  backend runtime is still under rewrite.
-- Capabilities: none. This fixture is a minimal Go backend plugin shell.
+- Purpose: router + MCP registration coverage.
+- Capabilities: `registerRouter`, `registerMcpTools`.
 
 Manual smoke:
 
