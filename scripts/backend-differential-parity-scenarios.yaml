@@ -43,6 +43,10 @@ scenarios:
     kind: windowing_scoped_per_project_config
     seed: none
     description: Restarting with distinct persisted windowing for two projects should keep live project-chat windowing and saved window spaces scoped to each project config.
+  - name: project_chat_window_chat_id_route_contract
+    kind: project_chat_window_chat_id_route_contract
+    seed: none
+    description: The direct project-chat chatId route should persist bindings for project_ai windows while rejecting non-project_ai and missing window targets with the source transport contract.
   - name: settings_project_shell
     kind: settings_project_shell
     seed: none

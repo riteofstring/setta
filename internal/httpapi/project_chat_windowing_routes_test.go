@@ -182,6 +182,97 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFronte
 	}
 }
 
+func TestRegisterProjectRoutesProjectChatWindowChatIDRejectsInvalidTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	layoutRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectChatWindowingState,
+		strings.NewReader(`{"projectConfigId":"project-alpha","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before"},"section-window":{"instanceId":"section-window","placement":"canvas_section","mode":"section_mode","sectionIdOrNull":"section-a"}},"order":["project-chat-window-1","section-window"],"nextInstanceNumber":3}}`),
+	)
+	layoutRequest.Header.Set("Content-Type", "application/json")
+	layoutResponse := httptest.NewRecorder()
+	handler.ServeHTTP(layoutResponse, layoutRequest)
+	if layoutResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 layout response, got %d with body %q", layoutResponse.Code, layoutResponse.Body.String())
+	}
+
+	invalidRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectChatWindowChatID,
+		strings.NewReader(`{"projectConfigId":"project-alpha","instanceId":"section-window","chatId":"chat-after"}`),
+	)
+	invalidRequest.Header.Set("Content-Type", "application/json")
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalidRequest)
+	if invalidResponse.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 invalid-target response, got %d with body %q", invalidResponse.Code, invalidResponse.Body.String())
+	}
+
+	var invalidPayload map[string]string
+	if err := json.Unmarshal(invalidResponse.Body.Bytes(), &invalidPayload); err != nil {
+		t.Fatalf("decode invalid-target response: %v", err)
+	}
+	if invalidPayload["detail"] != "Project chat window section-window must use project_ai_mode to bind chatId." {
+		t.Fatalf("expected detail-style invalid-target response, got %#v", invalidPayload)
+	}
+
+	missingRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectChatWindowChatID,
+		strings.NewReader(`{"projectConfigId":"project-alpha","instanceId":"missing-window","chatId":"chat-after"}`),
+	)
+	missingRequest.Header.Set("Content-Type", "application/json")
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 missing-window response, got %d with body %q", missingResponse.Code, missingResponse.Body.String())
+	}
+
+	var missingPayload map[string]string
+	if err := json.Unmarshal(missingResponse.Body.Bytes(), &missingPayload); err != nil {
+		t.Fatalf("decode missing-window response: %v", err)
+	}
+	if missingPayload["detail"] != "Project chat window missing-window not found." {
+		t.Fatalf("expected detail-style missing-window response, got %#v", missingPayload)
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var latestPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
+		t.Fatalf("decode latest response: %v", err)
+	}
+	if latestPayload.ProjectState.ProjectChatWindowing.InstancesByID["section-window"].ChatID != nil {
+		t.Fatalf(
+			"expected rejected section-window binding to keep nil chatId, got %#v",
+			latestPayload.ProjectState.ProjectChatWindowing.InstancesByID["section-window"].ChatID,
+		)
+	}
+}
+
 func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads(t *testing.T) {
 	t.Parallel()
 

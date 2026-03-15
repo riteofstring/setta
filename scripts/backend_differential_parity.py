@@ -46,6 +46,7 @@ ROUTE_CREATE_PROJECT_CONFIG = "/api/createProjectConfig"
 ROUTE_LOAD_ALL_PROJECT_METADATA = "/api/loadAllProjectMetadata"
 ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
+ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID = "/api/setProjectChatWindowChatId"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_SAVE_PROJECT = "/api/saveProject"
@@ -808,6 +809,8 @@ def execute_scenario(
         return execute_window_spaces_invalid_owner_mode_combos_on_load(backend)
     if scenario.kind == "windowing_scoped_per_project_config":
         return execute_windowing_scoped_per_project_config(backend)
+    if scenario.kind == "project_chat_window_chat_id_route_contract":
+        return execute_project_chat_window_chat_id_route_contract(backend)
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1441,6 +1444,99 @@ def execute_windowing_scoped_per_project_config(
         "secondLoadProjectConfig": second_load_payload,
         "secondLatestProjectStateStatus": second_latest_http_status,
         "secondLatestProjectState": second_latest_payload,
+    }
+
+
+def execute_project_chat_window_chat_id_route_contract(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    project_config = object_field(loaded, "projectConfig")
+    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    if not top_level_sections:
+        raise ParityHarnessError(
+            f"Expected created project {project_id!r} to have at least one top-level section."
+        )
+    section_id = next(iter(top_level_sections))
+
+    persisted_payload = read_persisted_project_document(backend)
+    seeded_payload = seed_project_chat_window_chat_id_route_payload_in_store(
+        persisted_payload,
+        project_id=project_id,
+        section_id=section_id,
+    )
+    write_json(backend.setta_files_root / PROJECT_FILE_NAME, seeded_payload)
+
+    restart_backend(backend)
+
+    valid_bind_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID,
+        payload={
+            "projectConfigId": project_id,
+            "instanceId": "project-ai-window",
+            "chatId": "chat-after",
+        },
+    )
+    valid_bind_payload = normalize_response_json_allow_status(valid_bind_response)
+
+    invalid_mode_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID,
+        payload={
+            "projectConfigId": project_id,
+            "instanceId": "section-window",
+            "chatId": "chat-after",
+        },
+    )
+    invalid_mode_payload = normalize_response_json_allow_status(invalid_mode_response)
+
+    missing_window_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID,
+        payload={
+            "projectConfigId": project_id,
+            "instanceId": "missing-window",
+            "chatId": "chat-after",
+        },
+    )
+    missing_window_payload = normalize_response_json_allow_status(missing_window_response)
+
+    latest_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    latest_payload = normalize_response_json_allow_status(latest_response)
+
+    summary = summarize_project_chat_window_chat_id_route_contract(
+        valid_bind_http_status=valid_bind_response.status_code,
+        valid_bind_payload=valid_bind_payload,
+        invalid_mode_http_status=invalid_mode_response.status_code,
+        invalid_mode_payload=invalid_mode_payload,
+        missing_window_http_status=missing_window_response.status_code,
+        missing_window_payload=missing_window_payload,
+        latest_http_status=latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "seededProjectDocument": seeded_payload,
+        "validBindStatus": valid_bind_response.status_code,
+        "validBindPayload": valid_bind_payload,
+        "invalidModeStatus": invalid_mode_response.status_code,
+        "invalidModePayload": invalid_mode_payload,
+        "missingWindowStatus": missing_window_response.status_code,
+        "missingWindowPayload": missing_window_payload,
+        "latestProjectStateStatus": latest_response.status_code,
+        "latestProjectState": latest_payload,
     }
 
 
@@ -2797,6 +2893,55 @@ def summarize_windowing_scoped_per_project_config(
     return summary
 
 
+def summarize_project_chat_window_chat_id_route_contract(
+    valid_bind_http_status: int,
+    valid_bind_payload: Any,
+    invalid_mode_http_status: int,
+    invalid_mode_payload: Any,
+    missing_window_http_status: int,
+    missing_window_payload: Any,
+    latest_http_status: int,
+    latest_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "validBindHttpStatus": valid_bind_http_status,
+        "invalidModeHttpStatus": invalid_mode_http_status,
+        "missingWindowHttpStatus": missing_window_http_status,
+        "latestHttpStatus": latest_http_status,
+    }
+    if valid_bind_http_status == 200 and isinstance(valid_bind_payload, dict):
+        summary["validBindChatID"] = project_chat_window_chat_id_from_windowing_payload(
+            valid_bind_payload,
+            "project-ai-window",
+        )
+    else:
+        summary["validBindErrorSummary"] = normalize_error_summary(valid_bind_payload)
+
+    if invalid_mode_http_status != 200:
+        summary["invalidModeErrorCode"] = normalize_error_code(invalid_mode_payload)
+        summary["invalidModeErrorSummary"] = normalize_error_summary(invalid_mode_payload)
+
+    if missing_window_http_status != 200:
+        summary["missingWindowErrorCode"] = normalize_error_code(missing_window_payload)
+        summary["missingWindowErrorSummary"] = normalize_error_summary(
+            missing_window_payload
+        )
+
+    if latest_http_status == 200 and isinstance(latest_payload, dict):
+        latest_single_config = object_field(latest_payload, "projectState")
+        summary["latestProjectAIChatID"] = project_chat_window_chat_id_from_single_config(
+            latest_single_config,
+            "project-ai-window",
+        )
+        summary["latestSectionModeChatID"] = project_chat_window_chat_id_from_single_config(
+            latest_single_config,
+            "section-window",
+        )
+    else:
+        summary["latestErrorSummary"] = normalize_error_summary(latest_payload)
+    return summary
+
+
 def summarize_single_config_windowing_scope(
     payload: dict[str, Any],
     prefix: str,
@@ -2891,6 +3036,41 @@ def summarize_single_config_windowing_section_binding_state(
         f"{prefix}WindowSpaceSectionWindowIDs": sorted(space_windows.keys()),
         f"{prefix}WindowSpaceSectionWindowTitles": space_titles,
     }
+
+
+def project_chat_window_chat_id_from_single_config(
+    payload: dict[str, Any],
+    instance_id: str,
+) -> str | None:
+    project_chat_windowing = expect_object(
+        payload.get("projectChatWindowing"),
+        "projectChatWindowing",
+        allow_missing=True,
+    )
+    return project_chat_window_chat_id_from_windowing_payload(
+        project_chat_windowing,
+        instance_id,
+    )
+
+
+def project_chat_window_chat_id_from_windowing_payload(
+    payload: dict[str, Any],
+    instance_id: str,
+) -> str | None:
+    project_chat_instances = object_field(
+        payload,
+        "instancesById",
+        allow_missing=True,
+    )
+    instance = expect_object(
+        project_chat_instances.get(instance_id),
+        f"instancesById.{instance_id}",
+        allow_missing=True,
+    )
+    chat_id = instance.get("chatId")
+    if chat_id is None:
+        return None
+    return normalized_string(chat_id)
 
 
 def summarize_settings_project_shell(
@@ -5251,6 +5431,51 @@ def seed_distinct_windowing_per_project_in_store_payload(
     )
 
 
+def seed_project_chat_window_chat_id_route_payload_in_store(
+    payload: dict[str, Any],
+    project_id: str,
+    section_id: str,
+) -> dict[str, Any]:
+    project_chat_windowing = {
+        "instancesById": {
+            "project-ai-window": {
+                "instanceId": "project-ai-window",
+                "placement": "floating",
+                "mode": "project_ai_mode",
+            },
+            "section-window": {
+                "instanceId": "section-window",
+                "placement": "canvas_section",
+                "mode": "section_mode",
+                "sectionIdOrNull": section_id,
+            },
+        },
+        "order": ["project-ai-window", "section-window"],
+        "nextInstanceNumber": 3,
+    }
+
+    projects = object_field(payload, "projects", allow_missing=True)
+    if project_id in projects:
+        project = expect_object(projects[project_id], f"projects.{project_id}")
+        project["projectChatWindowing"] = project_chat_windowing
+        projects[project_id] = project
+        payload["projects"] = projects
+        return payload
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if project_id in source_projects:
+        raw_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        raw_windowing_by_id[project_id] = project_chat_windowing
+        payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
+        return payload
+
+    raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
+
+
 def read_persisted_settings_project_document(backend: BackendSession) -> dict[str, Any]:
     project_path = backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME
     try:
@@ -5414,6 +5639,20 @@ def normalize_error_summary(payload: Any) -> str:
         if isinstance(code, str):
             return code.strip()
     return normalized_string(str(payload))
+
+
+def normalize_error_code(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return normalized_string(str(payload))
+    error = payload.get("error")
+    if isinstance(error, dict):
+        code = error.get("code")
+        if isinstance(code, str):
+            return code.strip()
+    code = payload.get("code")
+    if isinstance(code, str):
+        return code.strip()
+    return normalize_error_summary(payload)
 
 
 def normalize_backend_error_summary(error_text: str) -> str:

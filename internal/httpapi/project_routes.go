@@ -6685,12 +6685,12 @@ func setProjectChatWindowChatIDHandler(deps ProjectRouteDependencies) http.Handl
 			payload.ChatID,
 		)
 		if err != nil {
-			writeProjectChatWindowingMutationError(w, r, err)
+			writeProjectChatWindowChatIDMutationError(w, r, err)
 			return
 		}
 		project, err := snapshot.Document.ProjectByID(projectID)
 		if err != nil {
-			writeProjectChatWindowingMutationError(w, r, err)
+			writeProjectChatWindowChatIDMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, projectstate.ProjectChatWindowingOrDefault(project.ProjectChatWindowing))
@@ -7692,6 +7692,27 @@ func writeProjectChatWindowingMutationError(
 		writeError(w, r, http.StatusNotFound, "project_chat_window_not_found", "Project chat window not found.")
 	case projectstate.IsInvalidProjectChatWindowingError(err):
 		writeError(w, r, http.StatusUnprocessableEntity, "invalid_project_chat_windowing", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeProjectChatWindowChatIDMutationError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectChatWindowIDRequired):
+		writeError(w, r, http.StatusBadRequest, "instance_id_required", "Instance id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrProjectChatWindowNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]string{"detail": err.Error()})
+	case projectstate.IsInvalidProjectChatWindowingError(err):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

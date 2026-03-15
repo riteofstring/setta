@@ -222,6 +222,65 @@ func TestRuntimeSetProjectChatWindowChatIDRequiresExistingProjectAIWindow(t *tes
 	}
 }
 
+func TestRuntimeSetProjectChatWindowChatIDRejectsSectionModeWindows(t *testing.T) {
+	t.Parallel()
+
+	runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+	_, err := runtime.SetProjectChatWindowingState(
+		context.Background(),
+		"project-alpha",
+		ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-chat-window-1": {
+					InstanceID: "project-chat-window-1",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+					ChatID:     stringPointer("chat-before"),
+				},
+				"git-graph-window": {
+					InstanceID: "git-graph-window",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeGitGraph,
+				},
+				"section-window": {
+					InstanceID:      "section-window",
+					Placement:       ChatWindowPlacementCanvasSection,
+					Mode:            ChatWindowModeSection,
+					SectionIDOrNull: stringPointer("section-a"),
+				},
+			},
+			Order: []string{
+				"project-chat-window-1",
+				"git-graph-window",
+				"section-window",
+			},
+			NextInstanceNumber: 4,
+		},
+	)
+	if err != nil {
+		t.Fatalf("seed section-mode window: %v", err)
+	}
+
+	_, err = runtime.SetProjectChatWindowChatID(
+		context.Background(),
+		"project-alpha",
+		"section-window",
+		stringPointer("chat-bound"),
+	)
+	if err == nil || err.Error() != "Project chat window section-window must use project_ai_mode to bind chatId." {
+		t.Fatalf("expected project_ai_mode validation error, got %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	if project.ProjectChatWindowing.InstancesByID["section-window"].ChatID != nil {
+		t.Fatalf(
+			"expected rejected section-mode window to keep nil chatId, got %#v",
+			project.ProjectChatWindowing.InstancesByID["section-window"].ChatID,
+		)
+	}
+}
+
 func TestRuntimeCreateWindowSpacePersistsNormalizedState(t *testing.T) {
 	t.Parallel()
 

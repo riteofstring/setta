@@ -2357,6 +2357,55 @@ class Route:
             },
         )
 
+    def test_summarize_project_chat_window_chat_id_route_contract(self) -> None:
+        harness = load_harness_module()
+
+        valid_bind_payload = {
+            "instancesById": {
+                "project-ai-window": {
+                    "chatId": "chat-after",
+                },
+                "section-window": {
+                    "chatId": None,
+                },
+            }
+        }
+        latest_payload = {
+            "projectState": {
+                "projectChatWindowing": valid_bind_payload,
+            }
+        }
+
+        self.assertEqual(
+            harness.summarize_project_chat_window_chat_id_route_contract(
+                valid_bind_http_status=200,
+                valid_bind_payload=valid_bind_payload,
+                invalid_mode_http_status=422,
+                invalid_mode_payload={
+                    "detail": "Project chat window section-window must use project_ai_mode to bind chatId."
+                },
+                missing_window_http_status=404,
+                missing_window_payload={
+                    "detail": "Project chat window missing-window not found."
+                },
+                latest_http_status=200,
+                latest_payload=latest_payload,
+            ),
+            {
+                "validBindHttpStatus": 200,
+                "invalidModeHttpStatus": 422,
+                "missingWindowHttpStatus": 404,
+                "latestHttpStatus": 200,
+                "validBindChatID": "chat-after",
+                "invalidModeErrorCode": "Project chat window section-window must use project_ai_mode to bind chatId.",
+                "invalidModeErrorSummary": "Project chat window section-window must use project_ai_mode to bind chatId.",
+                "missingWindowErrorCode": "Project chat window missing-window not found.",
+                "missingWindowErrorSummary": "Project chat window missing-window not found.",
+                "latestProjectAIChatID": "chat-after",
+                "latestSectionModeChatID": None,
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

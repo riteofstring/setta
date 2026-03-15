@@ -59,6 +59,21 @@ func (e *InvalidProjectChatWindowingError) Error() string {
 	return e.Message
 }
 
+type ProjectChatWindowNotFoundError struct {
+	InstanceID string
+}
+
+func (e *ProjectChatWindowNotFoundError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return fmt.Sprintf("Project chat window %s not found.", e.InstanceID)
+}
+
+func (e *ProjectChatWindowNotFoundError) Is(target error) bool {
+	return target == ErrProjectChatWindowNotFound
+}
+
 func (p *Project) SetProjectChatWindowingState(state ProjectChatWindowingState) error {
 	current := ProjectChatWindowingOrDefault(p.ProjectChatWindowing)
 	next := state.Clone()
@@ -111,7 +126,7 @@ func (p *Project) SetProjectChatWindowChatID(instanceID string, chatID *string) 
 	windowing := ProjectChatWindowingOrDefault(p.ProjectChatWindowing)
 	instance, ok := windowing.InstancesByID[trimmedInstanceID]
 	if !ok {
-		return fmt.Errorf("%w: %q", ErrProjectChatWindowNotFound, trimmedInstanceID)
+		return &ProjectChatWindowNotFoundError{InstanceID: trimmedInstanceID}
 	}
 	if instance.Mode != ChatWindowModeProjectAI {
 		return &InvalidProjectChatWindowingError{
