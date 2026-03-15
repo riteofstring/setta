@@ -32,8 +32,8 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgs,
     MetaControlSectionImplArgsWithCallable,
 )
-from setta.types.generated.impl_creation_fns import create_code_obj_impl
-from setta.types.generated.settings_state import (
+from tests.helpers.impl_creation_fns import create_code_obj_impl
+from tests.helpers.settings_state import (
     SettingsState,
     get_user_default_code_obj_from_settings,
 )

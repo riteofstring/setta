@@ -2,7 +2,7 @@ from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.project_config import (
     CodeObjValueOverride,

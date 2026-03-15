@@ -13,7 +13,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant
 from setta.types.dropzone import parse_dropzone_value
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,

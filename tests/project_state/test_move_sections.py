@@ -1,5 +1,5 @@
 import pytest
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType

@@ -1,10 +1,8 @@
-# Auto-generated SettingsState class - DO NOT EDIT MANUALLY
-# Generated from SectionType and CodeObjType enums
+# Test helper copy of the former generated settings state model.
 
 from pydantic import BaseModel, Field
 
-# Import all UserDefault classes
-from setta.types.generated.user_defaults import (
+from tests.helpers.user_defaults import (
     UserDefaultBrowserSectionImpl,
     UserDefaultButtonParamCodeObjImpl,
     UserDefaultCallableSectionImpl,
@@ -54,8 +52,6 @@ from setta.types.settings_state import (
     SettingsShortcuts,
     get_default_language_server_settings,
 )
-
-
 class SettingsState(BaseModel, extra="forbid"):
     """Application settings state including all user defaults."""
 

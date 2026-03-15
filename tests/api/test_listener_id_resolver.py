@@ -9,7 +9,7 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.core import Core, Variant
 from setta.types.dependency_key import SectionParamDependencyKey, create_dep_key
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.id import ID

@@ -14,7 +14,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeCallableCodeObjImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
 )
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,

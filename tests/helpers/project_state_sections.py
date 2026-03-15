@@ -9,13 +9,13 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseParentSectionImplArgsWithCallable,
     CoreArgs,
 )
-from setta.types.generated.impl_creation_fns import create_section_impl
-from setta.types.generated.settings_state import (
+from tests.helpers.impl_creation_fns import create_section_impl
+from tests.helpers.settings_state import (
     SettingsState,
     get_user_default_section_from_settings,
 )
 from setta.types.generated.unions import BaseSectionImplArgsUnion
-from setta.types.generated.user_defaults import UserDefaultTaskBoardSectionImpl
+from tests.helpers.user_defaults import UserDefaultTaskBoardSectionImpl
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,

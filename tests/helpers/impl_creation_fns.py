@@ -1,5 +1,4 @@
-# Auto-generated creation functions - DO NOT EDIT MANUALLY
-# Generated from section and code obj implementations
+# Test helper copy of the former generated implementation builders.
 
 from typing import Any, Literal, overload
 
@@ -64,8 +63,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     TimeParamCodeObjImplArgs,
 )
 
-# Import user default classes
-from setta.types.generated.user_defaults import (
+from tests.helpers.user_defaults import (
     UserDefaultBrowserSectionImpl,
     UserDefaultButtonParamCodeObjImpl,
     UserDefaultCallableSectionImpl,

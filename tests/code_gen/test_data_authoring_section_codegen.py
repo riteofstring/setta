@@ -4,7 +4,7 @@ from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl1 import set_curr_effective_section_impl_value
 from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig, default_section_allowlist

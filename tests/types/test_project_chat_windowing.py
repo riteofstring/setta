@@ -1,5 +1,5 @@
 import pytest
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.project_chat_windowing import (
     normalize_project_chat_windowing,
 )

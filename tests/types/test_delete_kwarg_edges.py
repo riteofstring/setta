@@ -1,7 +1,7 @@
 import pytest
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.edges import Edge
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,

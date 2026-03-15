@@ -2,7 +2,7 @@ from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import FileReadDependencyValue, LiteralDependencyValue
 from setta.types.generated.impl_args_as_typed_dicts import DrawSectionImplArgsWithCallable
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.helpers_lvl1 import set_curr_effective_section_impl_value
 from setta.types.project_config import (
     Position,

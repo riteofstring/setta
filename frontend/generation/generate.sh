@@ -15,9 +15,6 @@ python -m generation.generate_unions chat_messages
 python -m generation.generate_shared_modifier
 python -m generation.generate_impl_field_literals
 python -m generation.generate_args_as_typed_dicts
-python -m generation.generate_user_default_impls
-python -m generation.generate_impl_creation_fns
-python -m generation.generate_settings_state
 python -m generation.generate_unions unions
 python -m generation.generate_effective_impls
 python -m generation.generate_unions websocket_unions

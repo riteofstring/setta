@@ -1,5 +1,4 @@
-# Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
-# Generated from section and code obj implementations
+# Test helper copy of the former generated user default models.
 
 from typing import Any
 
