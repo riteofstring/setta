@@ -251,13 +251,26 @@ Current tree note:
   Go `runs`/project-state runtime.
 - The superseded Python project-state manager/runtime cluster is also gone in
   the current worktree: `backend/setta/project_state/*` now retains only
-  `project_manager_types.py` and `project_state_summary_types.py`. The older
-  Python `settings_project.py` helper is also gone because current
-  settings-project materialization and view-mode normalization already live in
-  Go under `internal/settingsstate`, `internal/projectstate`, and
-  `internal/httpapi`. The deleted runtime ownership already lives in Go under
-  `internal/projectstate`, `internal/projectview`, `internal/watchcode`,
-  `internal/httpapi`, and `internal/frontendbindings`.
+  `project_manager_types.py`. The older Python
+  `project_state_summary_types.py` and `settings_project.py` helpers are also
+  gone because current summary shaping, settings-project materialization, and
+  view-mode normalization already live in Go under `internal/projectview`,
+  `internal/settingsstate`, `internal/projectstate`, and `internal/httpapi`.
+- The dead Python codegen renderer/metadata/contracts leaf batch is also gone
+  in the current worktree:
+  `backend/setta/code_gen/python/code_generator.py`,
+  `backend/setta/code_gen/python/meta_generator.py`,
+  `backend/setta/types/app_deployment.py`, `backend/setta/types/git.py`,
+  `backend/setta/types/server_mode.py`, `backend/setta/utils/attachment_paths.py`,
+  and `tests/code_gen/test_code_generator_formatting.py` were deleted because
+  the active code renderer/materializer path plus deployment/git/server-mode
+  contract ownership already live in Go under `internal/codegen`,
+  `internal/projectstate`, `internal/projectview`, `internal/httpapi`, and
+  `internal/frontendbindings`.
+- `backend/setta/code_gen/python/value_helpers.py` remains intentionally
+  retained because Go-generated packaged Python output still imports it for
+  file-read, binary-read, and password-secret helpers through
+  `internal/codegen/python_value_codec.go`.
 - `backend/setta/binary/*` is also gone in the current worktree because the
   old Python binary store was only used by the superseded Python project-state
   runtime; current binary content ownership already lives in Go under

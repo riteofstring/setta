@@ -166,7 +166,7 @@ From the Go-owned git route/service path:
 - Backend:
   - `internal/httpapi/git_routes.go`
   - `internal/gitread/service.go`
-  - `backend/setta/types/git.py`
+  - `internal/frontendbindings/git_support.go`
 - Frontend:
   - `frontend/src/components/Panes/Overview/Git/GitPane.tsx`
   - `frontend/src/components/Git/GitOverlayLayer.tsx`
