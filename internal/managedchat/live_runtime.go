@@ -197,14 +197,7 @@ func (r *LiveRuntime) ApplyChunk(ctx context.Context, params StreamChunkParams) 
 	if trimmedChatID := strings.TrimSpace(params.ChatID); trimmedChatID != "" {
 		nextRunState.ChatID = trimmedChatID
 	}
-	if previousKey, ok := current.followKey(); ok {
-		if nextKey, nextOK := nextRunState.followKey(); !nextOK || nextKey != previousKey {
-			if entry, exists := r.followByChat[previousKey]; exists && entry.RunID == runID {
-				delete(r.followByChat, previousKey)
-			}
-		}
-	}
-	r.applyManagedAIFollowUpdateLocked(runID, nextRunState, params.Chunk)
+	followBroadcasts := r.applyManagedAIFollowUpdateLocked(runID, current, nextRunState, params.Chunk)
 	r.active[runID] = nextRunState
 	r.mu.Unlock()
 
@@ -217,7 +210,19 @@ func (r *LiveRuntime) ApplyChunk(ctx context.Context, params StreamChunkParams) 
 		SectionID:       cloneStringPointer(params.SectionID),
 		ProjectConfigID: cloneStringPointer(params.ProjectConfigID),
 	}), realtime.Selection{Type: realtime.ConnectionTypeFrontend})
-	return err
+	if err != nil {
+		return err
+	}
+	for _, content := range followBroadcasts {
+		if _, err := r.broadcaster.BroadcastJSON(
+			ctx,
+			realtime.NewAIFollowToolArgumentsUpdateMessage(content),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *liveRunState) followKey() (managedAIFollowChatKey, bool) {
@@ -235,32 +240,61 @@ func (s *liveRunState) followKey() (managedAIFollowChatKey, bool) {
 	}, true
 }
 
-func (r *LiveRuntime) applyManagedAIFollowUpdateLocked(runID string, state *liveRunState, chunk any) {
-	if r == nil || state == nil {
-		return
+func (r *LiveRuntime) applyManagedAIFollowUpdateLocked(
+	runID string,
+	previousState *liveRunState,
+	nextState *liveRunState,
+	chunk any,
+) []realtime.AIFollowToolArgumentsUpdateContent {
+	if r == nil || nextState == nil {
+		return nil
 	}
-	key, ok := state.followKey()
-	if !ok {
-		return
+
+	broadcasts := []realtime.AIFollowToolArgumentsUpdateContent{}
+	previousKey, previousOK := previousState.followKey()
+	nextKey, nextOK := nextState.followKey()
+	if previousOK && (!nextOK || nextKey != previousKey) {
+		if entry, exists := r.followByChat[previousKey]; exists && entry.RunID == runID {
+			delete(r.followByChat, previousKey)
+			broadcasts = append(broadcasts, realtime.AIFollowToolArgumentsUpdateContent{
+				ProjectConfigID: previousKey.ProjectConfigID,
+				ChatID:          previousKey.ChatID,
+				IDsByType:       map[string][]string{},
+			})
+		}
 	}
+
 	idsByType, ok := extractManagedAIFollowIDsByType(chunk)
-	if !ok {
-		return
+	if !ok || !nextOK {
+		return broadcasts
 	}
-	current, exists := r.followByChat[key]
+
+	current, exists := r.followByChat[nextKey]
 	if len(idsByType) == 0 {
 		if exists && current.RunID == runID {
-			delete(r.followByChat, key)
+			delete(r.followByChat, nextKey)
+			broadcasts = append(broadcasts, realtime.AIFollowToolArgumentsUpdateContent{
+				ProjectConfigID: nextKey.ProjectConfigID,
+				ChatID:          nextKey.ChatID,
+				IDsByType:       map[string][]string{},
+			})
 		}
-		return
+		return broadcasts
 	}
 	if exists && current.RunID == runID && stringSliceMapsEqual(current.IDsByType, idsByType) {
-		return
+		return broadcasts
 	}
-	r.followByChat[key] = managedAIFollowEntry{
+
+	r.followByChat[nextKey] = managedAIFollowEntry{
 		RunID:     runID,
 		IDsByType: cloneStringSliceMap(idsByType),
 	}
+	broadcasts = append(broadcasts, realtime.AIFollowToolArgumentsUpdateContent{
+		ProjectConfigID: nextKey.ProjectConfigID,
+		ChatID:          nextKey.ChatID,
+		IDsByType:       cloneStringSliceMap(idsByType),
+	})
+	return broadcasts
 }
 
 func extractManagedAIFollowIDsByType(chunk any) (map[string][]string, bool) {

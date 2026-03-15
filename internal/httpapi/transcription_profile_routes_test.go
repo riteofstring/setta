@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -9,12 +10,15 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 	"setta/internal/transcriptionprofiles"
 )
 
@@ -212,6 +216,110 @@ func TestRegisterTranscriptionProfileRoutesDeletesProfile(t *testing.T) {
 	}
 	if len(profiles) != 0 {
 		t.Fatalf("expected no profiles after delete, got %#v", profiles)
+	}
+}
+
+func TestRegisterTranscriptionProfileRoutesBroadcastsSnapshotUpdates(t *testing.T) {
+	service := newTranscriptionProfileRouteTestService(t, []transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-1",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+		"openai-realtime": {
+			ID:       "openai-realtime",
+			Model:    "gpt-4o-transcribe",
+			Provider: "openai",
+		},
+	})
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	server := newTranscriptionProfileRouteTestWebsocketServer(t, hub)
+	defer server.Close()
+
+	conn := dialTranscriptionProfileRouteTestWebsocketClient(t, server.URL)
+	defer conn.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, hub, "frontend-a")
+
+	handler := newTranscriptionProfileRouteTestHandlerWithHub(t, config.ModeIDE, service, hub, nil)
+
+	createRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTranscriptionProfile,
+		strings.NewReader(`{"name":"Realtime","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":1200}`),
+	)
+	createResponse := httptest.NewRecorder()
+	handler.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected create 200, got %d with body %q", createResponse.Code, createResponse.Body.String())
+	}
+
+	createEnvelope := readTranscriptionProfileRouteTestEnvelope(t, conn)
+	if createEnvelope.MessageType != realtime.MessageTypeTranscriptionProfilesUpdated {
+		t.Fatalf("expected transcription profiles updated message type, got %q", createEnvelope.MessageType)
+	}
+	var createPayload realtime.TranscriptionProfilesUpdatedContent
+	if err := json.Unmarshal(createEnvelope.Content, &createPayload); err != nil {
+		t.Fatalf("decode create websocket payload: %v", err)
+	}
+	if len(createPayload.Profiles) != 2 {
+		t.Fatalf("expected two profiles after create, got %#v", createPayload.Profiles)
+	}
+	if createPayload.Profiles[1].ID == "" || createPayload.Profiles[1].Name != "Realtime" {
+		t.Fatalf("expected created transcription profile in snapshot, got %#v", createPayload.Profiles)
+	}
+
+	updateRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateTranscriptionProfile,
+		strings.NewReader(`{"profile":{"id":"profile-1","name":"Realtime v2","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":1600}}`),
+	)
+	updateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected update 200, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	updateEnvelope := readTranscriptionProfileRouteTestEnvelope(t, conn)
+	var updatePayload realtime.TranscriptionProfilesUpdatedContent
+	if err := json.Unmarshal(updateEnvelope.Content, &updatePayload); err != nil {
+		t.Fatalf("decode update websocket payload: %v", err)
+	}
+	if len(updatePayload.Profiles) != 2 {
+		t.Fatalf("expected two profiles after update, got %#v", updatePayload.Profiles)
+	}
+	if updatePayload.Profiles[0].Name != "Realtime v2" {
+		t.Fatalf("expected updated profile name in snapshot, got %#v", updatePayload.Profiles[0])
+	}
+
+	deleteRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteTranscriptionProfile,
+		strings.NewReader(`{"profileId":"profile-1"}`),
+	)
+	deleteResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
+	}
+
+	deleteEnvelope := readTranscriptionProfileRouteTestEnvelope(t, conn)
+	var deletePayload realtime.TranscriptionProfilesUpdatedContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deletePayload); err != nil {
+		t.Fatalf("decode delete websocket payload: %v", err)
+	}
+	if len(deletePayload.Profiles) != 1 {
+		t.Fatalf("expected one profile after delete, got %#v", deletePayload.Profiles)
+	}
+	if deletePayload.Profiles[0].Name != "Realtime" {
+		t.Fatalf("expected deleted snapshot to keep remaining profile, got %#v", deletePayload.Profiles)
 	}
 }
 
@@ -692,6 +800,42 @@ func newTranscriptionProfileRouteTestHandler(t *testing.T, mode config.Mode, ser
 	return handler
 }
 
+func newTranscriptionProfileRouteTestHandlerWithHub(
+	t *testing.T,
+	mode config.Mode,
+	service *transcriptionprofiles.Service,
+	websocketHub *realtime.WebsocketHub,
+	deploymentRuntime *deployments.Runtime,
+) http.Handler {
+	t.Helper()
+
+	if deploymentRuntime == nil && (mode == config.ModeShare || mode == config.ModeApp) {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Policy: map[string]any{"allowLLM": true},
+		})
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
+		ModePolicy: modes.NewPolicy(mode),
+		Register: func(r chi.Router) {
+			if err := RegisterTranscriptionProfileRoutes(r, TranscriptionProfileRouteDependencies{
+				ModePolicy:   modes.NewPolicy(mode),
+				Profiles:     service,
+				Deployment:   deploymentRuntime,
+				WebsocketHub: websocketHub,
+			}); err != nil {
+				t.Fatalf("register transcription profile routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+	return handler
+}
+
 func newTranscriptionProfileRouteTestService(t *testing.T, profiles []transcriptionprofiles.Profile, configs map[string]llmconfig.Config) *transcriptionprofiles.Service {
 	t.Helper()
 
@@ -717,4 +861,83 @@ func newTranscriptionProfileRouteTestService(t *testing.T, profiles []transcript
 		t.Fatalf("new service: %v", err)
 	}
 	return service
+}
+
+func newTranscriptionProfileRouteTestWebsocketServer(t *testing.T, hub *realtime.WebsocketHub) *httptest.Server {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("accept websocket connection: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		connection, err := hub.Connect(r.Context(), conn, realtime.ConnectParams{
+			ID:                   "frontend-a",
+			Type:                 realtime.ConnectionTypeFrontend,
+			BroadcastConnections: false,
+		})
+		if err != nil {
+			t.Errorf("connect websocket hub connection: %v", err)
+			return
+		}
+		defer hub.Disconnect(context.Background(), connection.ID, false)
+
+		for {
+			if _, _, err := conn.Read(context.Background()); err != nil {
+				return
+			}
+		}
+	})
+	return httptest.NewServer(mux)
+}
+
+func dialTranscriptionProfileRouteTestWebsocketClient(t *testing.T, serverURL string) *websocket.Conn {
+	t.Helper()
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(serverURL, "http")+"/ws", nil)
+	if err != nil {
+		t.Fatalf("dial transcription profile websocket: %v", err)
+	}
+	return conn
+}
+
+func waitForTranscriptionProfileRouteTestHubConnection(t *testing.T, hub *realtime.WebsocketHub, connectionID string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, ok := hub.Connection(connectionID); ok {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for hub connection %q", connectionID)
+}
+
+func readTranscriptionProfileRouteTestEnvelope(t *testing.T, conn *websocket.Conn) struct {
+	MessageType string          `json:"messageType"`
+	Content     json.RawMessage `json:"content"`
+} {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read websocket message: %v", err)
+	}
+
+	var envelope struct {
+		MessageType string          `json:"messageType"`
+		Content     json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		t.Fatalf("decode websocket envelope: %v", err)
+	}
+	return envelope
 }

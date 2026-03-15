@@ -468,6 +468,36 @@ func TestRegisterAIRoutesReturnsManagedValidationErrors(t *testing.T) {
 		wantError string
 	}{
 		{
+			name: "missing permission mode",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Missing permission mode"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "permission_mode_invalid",
+		},
+		{
+			name: "missing search enabled",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Missing search enabled"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal"
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "invalid_json",
+		},
+		{
 			name: "missing scoped section id",
 			body: `{
 				"chatId":null,
@@ -678,6 +708,36 @@ func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
 		wantError string
 	}{
 		{
+			name: "missing permission mode",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Missing permission mode"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "permission_mode_invalid",
+		},
+		{
+			name: "missing search enabled",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Missing search enabled"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal"
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "invalid_json",
+		},
+		{
 			name: "missing scoped section id",
 			body: `{
 				"chatId":null,
@@ -768,6 +828,80 @@ func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
 				t.Fatalf("expected error %q, got %#v", testCase.wantError, payload)
 			}
 		})
+	}
+}
+
+func TestRegisterAIRoutesRejectsStrictUnknownFieldsOnGetLLMResponse(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+			"engineConfigId":"engine-managed",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false,
+			"unexpectedField":true
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRejectsMissingThinkingFieldOnGetLLMResponse(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+			"engineConfigId":"engine-managed",
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json, got %#v", payload)
 	}
 }
 
@@ -5082,6 +5216,99 @@ func TestRegisterAIRoutesRejectsMissingChatID(t *testing.T) {
 	}
 	if payload.Error.Code != "chat_id_required" {
 		t.Fatalf("expected chat_id_required, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRejectsOmittedProjectConfigIDFieldOnChatHydration(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	testCases := []struct {
+		name  string
+		route string
+		body  string
+	}{
+		{
+			name:  "managed chat hydration",
+			route: RouteGetLLMChat,
+			body:  `{"chatId":"chat-managed"}`,
+		},
+		{
+			name:  "external chat hydration",
+			route: RouteGetExternalAgentChat,
+			body:  `{"chatId":"chat-external"}`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+testCase.route,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "project_config_id_required" {
+				t.Fatalf("expected project_config_id_required, got %#v", payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAIRoutesAllowsExplicitNullProjectConfigIDOnChatHydration(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	fixture.seedManagedHydrationRun(t)
+	fixture.seedHydrationRun(t)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	testCases := []struct {
+		name  string
+		route string
+		body  string
+	}{
+		{
+			name:  "managed chat hydration",
+			route: RouteGetLLMChat,
+			body:  `{"chatId":"chat-managed","projectConfigId":null}`,
+		},
+		{
+			name:  "external chat hydration",
+			route: RouteGetExternalAgentChat,
+			body:  `{"chatId":"chat-external","projectConfigId":null}`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+testCase.route,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+		})
 	}
 }
 

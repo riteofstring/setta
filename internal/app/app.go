@@ -1591,9 +1591,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
-				ModePolicy: modePolicy,
-				Profiles:   transcriptionProfiles,
-				Deployment: deploymentRuntime,
+				ModePolicy:   modePolicy,
+				Profiles:     transcriptionProfiles,
+				Deployment:   deploymentRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}

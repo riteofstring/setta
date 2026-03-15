@@ -160,9 +160,13 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 
 func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[GetLLMResponseRequest](r)
+		payload, err := decodeStrictJSONBodyWithRequiredFields[GetLLMResponseRequest](
+			r,
+			strictJSONFieldRequirement{Field: "thinking"},
+			strictJSONFieldRequirement{Field: "searchEnabled"},
+		)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeGetLLMResponseDecodeError(w, r, err)
 			return
 		}
 		if deps.ManagedChats == nil || deps.ExternalAgentSend == nil {
@@ -232,9 +236,12 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func getLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[GetLLMChatRequest](r)
+		payload, err := decodeStrictJSONBodyWithRequiredFields[GetLLMChatRequest](
+			r,
+			strictJSONFieldRequirement{Field: "projectConfigId", AllowNull: true},
+		)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeChatHydrationDecodeError(w, r, err)
 			return
 		}
 
@@ -295,9 +302,12 @@ func stopLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 
 func getExternalAgentChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[GetExternalAgentChatRequest](r)
+		payload, err := decodeStrictJSONBodyWithRequiredFields[GetExternalAgentChatRequest](
+			r,
+			strictJSONFieldRequirement{Field: "projectConfigId", AllowNull: true},
+		)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeChatHydrationDecodeError(w, r, err)
 			return
 		}
 
@@ -599,4 +609,25 @@ func writeGetLLMResponseError(w http.ResponseWriter, r *http.Request, err error)
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
+}
+
+func writeGetLLMResponseDecodeError(w http.ResponseWriter, r *http.Request, err error) {
+	var missingFieldErr *strictJSONMissingFieldError
+	if errors.As(err, &missingFieldErr) {
+		switch missingFieldErr.Field {
+		case "thinking", "searchEnabled":
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+	}
+	writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+}
+
+func writeChatHydrationDecodeError(w http.ResponseWriter, r *http.Request, err error) {
+	var missingFieldErr *strictJSONMissingFieldError
+	if errors.As(err, &missingFieldErr) && missingFieldErr.Field == "projectConfigId" {
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+		return
+	}
+	writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 }

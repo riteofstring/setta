@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/deployments"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 	"setta/internal/transcriptionprofiles"
 )
 
@@ -19,9 +21,10 @@ const RouteUpdateTranscriptionProfile = "/updateTranscriptionProfile"
 const RouteDeleteTranscriptionProfile = "/deleteTranscriptionProfile"
 
 type TranscriptionProfileRouteDependencies struct {
-	ModePolicy modes.Policy
-	Profiles   *transcriptionprofiles.Service
-	Deployment *deployments.Runtime
+	ModePolicy   modes.Policy
+	Profiles     *transcriptionprofiles.Service
+	Deployment   *deployments.Runtime
+	WebsocketHub *realtime.WebsocketHub
 }
 
 type createTranscriptionProfileRequest struct {
@@ -186,6 +189,10 @@ func createTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencie
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastTranscriptionProfilesUpdated(r.Context(), service, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, created)
 	}
 }
@@ -223,6 +230,10 @@ func updateTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencie
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastTranscriptionProfilesUpdated(r.Context(), service, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, updated)
 	}
 }
@@ -254,8 +265,32 @@ func deleteTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencie
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastTranscriptionProfilesUpdated(r.Context(), service, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func broadcastTranscriptionProfilesUpdated(
+	ctx context.Context,
+	service *transcriptionprofiles.Service,
+	websocketHub *realtime.WebsocketHub,
+) error {
+	if websocketHub == nil || service == nil {
+		return nil
+	}
+	profiles, err := service.List()
+	if err != nil {
+		return err
+	}
+	_, err = websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewTranscriptionProfilesUpdatedMessage(profiles),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
 }
 
 func writeTranscriptionProfileServiceError(w http.ResponseWriter, r *http.Request, err error) bool {

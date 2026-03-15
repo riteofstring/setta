@@ -32,6 +32,7 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/wsapi"
 )
 
@@ -1255,6 +1256,155 @@ func TestAppEngineConfigMutationsBroadcastSnapshotUpdates(t *testing.T) {
 	}
 	if len(deletedSnapshot.Configs) != 0 {
 		t.Fatalf("expected empty engine config list after delete, got %#v", deletedSnapshot.Configs)
+	}
+}
+
+func TestAppTranscriptionProfileMutationsBroadcastTranscriptionProfilesUpdated(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:       "openai-file",
+				Model:    "whisper-1",
+				Provider: "openai",
+			},
+			"openai-realtime": {
+				ID:       "openai-realtime",
+				Model:    "gpt-4o-transcribe",
+				Provider: "openai",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("seed llm config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	createRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteCreateTranscriptionProfile,
+		strings.NewReader(`{"name":"Realtime","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":1200}`),
+	)
+	if err != nil {
+		t.Fatalf("new create transcription profile request: %v", err)
+	}
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.AddCookie(authCookie)
+
+	createResponse, err := http.DefaultClient.Do(createRequest)
+	if err != nil {
+		t.Fatalf("post create transcription profile: %v", err)
+	}
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+	var created transcriptionprofiles.Profile
+	if err := json.NewDecoder(createResponse.Body).Decode(&created); err != nil {
+		t.Fatalf("decode create transcription profile response: %v", err)
+	}
+
+	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeTranscriptionProfilesUpdated, 4)
+	var createdSnapshot realtime.TranscriptionProfilesUpdatedContent
+	if err := json.Unmarshal(createEnvelope.Content, &createdSnapshot); err != nil {
+		t.Fatalf("decode transcription profile websocket create payload: %v", err)
+	}
+	if len(createdSnapshot.Profiles) != 1 {
+		t.Fatalf("expected one transcription profile after create, got %#v", createdSnapshot.Profiles)
+	}
+	if createdSnapshot.Profiles[0].ID != created.ID {
+		t.Fatalf("expected created transcription profile id %q in websocket payload, got %#v", created.ID, createdSnapshot.Profiles)
+	}
+
+	updateRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteUpdateTranscriptionProfile,
+		strings.NewReader(`{"profile":{"id":"`+created.ID+`","name":"Realtime v2","transcriptionLlmConfigId":"openai-realtime","transportMode":"realtime","chunkMs":1600}}`),
+	)
+	if err != nil {
+		t.Fatalf("new update transcription profile request: %v", err)
+	}
+	updateRequest.Header.Set("Content-Type", "application/json")
+	updateRequest.AddCookie(authCookie)
+
+	updateResponse, err := http.DefaultClient.Do(updateRequest)
+	if err != nil {
+		t.Fatalf("post update transcription profile: %v", err)
+	}
+	defer updateResponse.Body.Close()
+	if updateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(updateResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", updateResponse.StatusCode, string(body))
+	}
+
+	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeTranscriptionProfilesUpdated, 4)
+	var updatedSnapshot realtime.TranscriptionProfilesUpdatedContent
+	if err := json.Unmarshal(updateEnvelope.Content, &updatedSnapshot); err != nil {
+		t.Fatalf("decode transcription profile websocket update payload: %v", err)
+	}
+	if len(updatedSnapshot.Profiles) != 1 {
+		t.Fatalf("expected one transcription profile after update, got %#v", updatedSnapshot.Profiles)
+	}
+	if updatedSnapshot.Profiles[0].Name != "Realtime v2" {
+		t.Fatalf("expected updated transcription profile name, got %#v", updatedSnapshot.Profiles[0])
+	}
+
+	deleteRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteDeleteTranscriptionProfile,
+		strings.NewReader(`{"profileId":"`+created.ID+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new delete transcription profile request: %v", err)
+	}
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteRequest.AddCookie(authCookie)
+
+	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
+	if err != nil {
+		t.Fatalf("post delete transcription profile: %v", err)
+	}
+	defer deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", deleteResponse.StatusCode, string(body))
+	}
+
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeTranscriptionProfilesUpdated, 4)
+	var deletedSnapshot realtime.TranscriptionProfilesUpdatedContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deletedSnapshot); err != nil {
+		t.Fatalf("decode transcription profile websocket delete payload: %v", err)
+	}
+	if len(deletedSnapshot.Profiles) != 0 {
+		t.Fatalf("expected empty transcription profile snapshot after delete, got %#v", deletedSnapshot.Profiles)
 	}
 }
 

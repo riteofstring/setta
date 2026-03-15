@@ -10,6 +10,7 @@ import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/prompttemplates"
+	"setta/internal/transcriptionprofiles"
 )
 
 func TestNewUpdateArtifactsMessage(t *testing.T) {
@@ -284,6 +285,40 @@ func TestNewPromptTemplatesUpdatedMessageJSONIncludesEmptyTemplateArray(t *testi
 	}
 	if !strings.Contains(string(payload), `"templates":[]`) {
 		t.Fatalf("expected templates array in marshaled payload, got %s", string(payload))
+	}
+}
+
+func TestNewTranscriptionProfilesUpdatedMessageClonesSlice(t *testing.T) {
+	t.Parallel()
+
+	profiles := []transcriptionprofiles.Profile{
+		{
+			ID:   "profile-1",
+			Name: "Realtime",
+		},
+	}
+	message := NewTranscriptionProfilesUpdatedMessage(profiles)
+	profiles[0].Name = "mutated"
+
+	if message.MessageType != MessageTypeTranscriptionProfilesUpdated {
+		t.Fatalf("expected transcription profiles updated message type, got %q", message.MessageType)
+	}
+	if got := message.Content.Profiles[0].Name; got != "Realtime" {
+		t.Fatalf("expected cloned transcription profile name Realtime, got %q", got)
+	}
+}
+
+func TestNewTranscriptionProfilesUpdatedMessageJSONIncludesEmptyProfileArray(t *testing.T) {
+	t.Parallel()
+
+	message := NewTranscriptionProfilesUpdatedMessage(nil)
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal transcription profiles updated message: %v", err)
+	}
+	if !strings.Contains(string(payload), `"profiles":[]`) {
+		t.Fatalf("expected profiles array in marshaled payload, got %s", string(payload))
 	}
 }
 

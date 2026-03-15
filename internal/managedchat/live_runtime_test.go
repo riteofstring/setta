@@ -10,16 +10,20 @@ import (
 )
 
 type captureStreamBroadcaster struct {
-	messages   []realtime.LLMStreamingResponseMessage
-	selections []realtime.Selection
+	messages       []realtime.LLMStreamingResponseMessage
+	followMessages []realtime.AIFollowToolArgumentsUpdateMessage
+	selections     []realtime.Selection
 }
 
 func (c *captureStreamBroadcaster) BroadcastJSON(_ context.Context, message any, selection realtime.Selection) (int, error) {
-	typed, ok := message.(realtime.LLMStreamingResponseMessage)
-	if !ok {
+	switch typed := message.(type) {
+	case realtime.LLMStreamingResponseMessage:
+		c.messages = append(c.messages, typed)
+	case realtime.AIFollowToolArgumentsUpdateMessage:
+		c.followMessages = append(c.followMessages, typed)
+	default:
 		return 0, nil
 	}
-	c.messages = append(c.messages, typed)
 	c.selections = append(c.selections, selection)
 	return 1, nil
 }
@@ -218,6 +222,73 @@ func TestLiveRuntimeAIFollowSnapshotDedupesAndClears(t *testing.T) {
 	snapshot = runtime.AIFollowSnapshot("project-alpha")
 	if len(snapshot) != 0 {
 		t.Fatalf("expected cleared snapshot, got %#v", snapshot)
+	}
+}
+
+func TestLiveRuntimeApplyChunkBroadcastsManagedAIFollowUpdates(t *testing.T) {
+	t.Parallel()
+
+	broadcaster := &captureStreamBroadcaster{}
+	runtime := NewLiveRuntime(LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatRun(t, managedChatRunOptions{
+		chatID:          "chat-follow",
+		projectConfigID: "project-alpha",
+		engineConfigID:  "engine-managed",
+		startedAt:       time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC),
+		status:          agentruns.RunStatusRunning,
+		inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+	})
+	runtime.ActivateRun(run)
+
+	if err := runtime.ApplyChunk(context.Background(), StreamChunkParams{
+		RunID:           run.ID,
+		ChatID:          "chat-follow",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-1",
+			ToolCallID:      "tool-call-1",
+			ToolName:        "setta__set_param_value",
+			ArgumentsDelta:  `{"sectionId":"section-2","codeObjId":"param-b"}`,
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{"section": {"section-2", "section-1", "section-2"}, "codeObj": {"param-b", "param-a", "param-b"}},
+		},
+	}); err != nil {
+		t.Fatalf("apply preview chunk: %v", err)
+	}
+	if len(broadcaster.followMessages) != 1 {
+		t.Fatalf("expected one follow broadcast, got %#v", broadcaster.followMessages)
+	}
+	if got := broadcaster.followMessages[0].Content.IDsByType["section"]; len(got) != 2 || got[0] != "section-1" || got[1] != "section-2" {
+		t.Fatalf("unexpected section ids %#v", broadcaster.followMessages[0].Content.IDsByType)
+	}
+	if got := broadcaster.followMessages[0].Content.IDsByType["codeObj"]; len(got) != 2 || got[0] != "param-a" || got[1] != "param-b" {
+		t.Fatalf("unexpected codeObj ids %#v", broadcaster.followMessages[0].Content.IDsByType)
+	}
+
+	if err := runtime.ApplyChunk(context.Background(), StreamChunkParams{
+		RunID:           run.ID,
+		ChatID:          "chat-follow",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-1",
+			ToolCallID:      "tool-call-1",
+			ToolName:        "setta__set_param_value",
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{},
+		},
+	}); err != nil {
+		t.Fatalf("apply clearing preview chunk: %v", err)
+	}
+	if len(broadcaster.followMessages) != 2 {
+		t.Fatalf("expected second follow broadcast, got %#v", broadcaster.followMessages)
+	}
+	if len(broadcaster.followMessages[1].Content.IDsByType) != 0 {
+		t.Fatalf("expected cleared follow ids, got %#v", broadcaster.followMessages[1].Content.IDsByType)
+	}
+	if got := broadcaster.selections[len(broadcaster.selections)-1]; got.Type != realtime.ConnectionTypeFrontend {
+		t.Fatalf("expected frontend selection, got %#v", broadcaster.selections)
 	}
 }
 

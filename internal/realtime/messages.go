@@ -10,33 +10,35 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/settingsstate"
+	"setta/internal/transcriptionprofiles"
 )
 
 const (
-	MessageTypeNotification                = "Notification"
-	MessageTypeAllProjectMetadata          = "AllProjectMetadata"
-	MessageTypeAllConnections              = "AllConnections"
-	MessageTypeFrontendIdentity            = "FrontendIdentity"
-	MessageTypeListenerCoverageSnapshot    = "ListenerCoverageSnapshot"
-	MessageTypeUpdateArtifacts             = "UpdateArtifacts"
-	MessageTypeLLMStreamingResponse        = "LLMStreamingResponse"
-	MessageTypeAIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
-	MessageTypeAIFollowToolResultUpdate    = "AIFollowToolResultUpdate"
-	MessageTypeUISettingReveal             = "UISettingReveal"
-	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
-	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
-	MessageTypeNameValidationErrors        = "NameValidationErrors"
-	MessageTypeLLMConfigUpdated            = "LLMConfigUpdated"
-	MessageTypeLLMAPIKeysUpdated           = "LLMApiKeysUpdated"
-	MessageTypeExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
-	MessageTypeEngineConfigsUpdated        = "EngineConfigsUpdated"
-	MessageTypeAgentRunUpdated             = "AgentRunUpdated"
-	MessageTypePromptTemplatesUpdated      = "PromptTemplatesUpdated"
-	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
-	MessageTypeUpdateSettings              = "UpdateSettings"
-	MessageTypeReturnRenameRefactorResults = "ReturnRenameRefactorResults"
-	MessageTypeRealtimeUIChange            = "RealtimeUIChange"
-	MessageTypeRealtimeDependencyEvent     = "RealtimeDependencyEvent"
+	MessageTypeNotification                 = "Notification"
+	MessageTypeAllProjectMetadata           = "AllProjectMetadata"
+	MessageTypeAllConnections               = "AllConnections"
+	MessageTypeFrontendIdentity             = "FrontendIdentity"
+	MessageTypeListenerCoverageSnapshot     = "ListenerCoverageSnapshot"
+	MessageTypeUpdateArtifacts              = "UpdateArtifacts"
+	MessageTypeLLMStreamingResponse         = "LLMStreamingResponse"
+	MessageTypeAIFollowToolArgumentsUpdate  = "AIFollowToolArgumentsUpdate"
+	MessageTypeAIFollowToolResultUpdate     = "AIFollowToolResultUpdate"
+	MessageTypeUISettingReveal              = "UISettingReveal"
+	MessageTypeUISettingRevealResult        = "UISettingRevealResult"
+	MessageTypeLSPDiagnostics               = "LSPDiagnostics"
+	MessageTypeNameValidationErrors         = "NameValidationErrors"
+	MessageTypeLLMConfigUpdated             = "LLMConfigUpdated"
+	MessageTypeLLMAPIKeysUpdated            = "LLMApiKeysUpdated"
+	MessageTypeExternalAgentConfigsUpdated  = "ExternalAgentConfigsUpdated"
+	MessageTypeEngineConfigsUpdated         = "EngineConfigsUpdated"
+	MessageTypeAgentRunUpdated              = "AgentRunUpdated"
+	MessageTypePromptTemplatesUpdated       = "PromptTemplatesUpdated"
+	MessageTypeTranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
+	MessageTypeUpdateFrontendProjectState   = "UpdateFrontendProjectState"
+	MessageTypeUpdateSettings               = "UpdateSettings"
+	MessageTypeReturnRenameRefactorResults  = "ReturnRenameRefactorResults"
+	MessageTypeRealtimeUIChange             = "RealtimeUIChange"
+	MessageTypeRealtimeDependencyEvent      = "RealtimeDependencyEvent"
 )
 
 type NotificationType string
@@ -302,6 +304,15 @@ type PromptTemplatesUpdatedMessage struct {
 	Content     PromptTemplatesUpdatedContent `json:"content"`
 }
 
+type TranscriptionProfilesUpdatedContent struct {
+	Profiles []transcriptionprofiles.Profile `json:"profiles"`
+}
+
+type TranscriptionProfilesUpdatedMessage struct {
+	MessageType string                              `json:"messageType"`
+	Content     TranscriptionProfilesUpdatedContent `json:"content"`
+}
+
 type AgentRunUpdatedMessage struct {
 	ID          *string       `json:"id"`
 	MessageType string        `json:"messageType"`
@@ -506,6 +517,19 @@ func NewPromptTemplatesUpdatedMessage(content []prompttemplates.Template) Prompt
 		MessageType: MessageTypePromptTemplatesUpdated,
 		Content: PromptTemplatesUpdatedContent{
 			Templates: templates,
+		},
+	}
+}
+
+func NewTranscriptionProfilesUpdatedMessage(content []transcriptionprofiles.Profile) TranscriptionProfilesUpdatedMessage {
+	profiles := append([]transcriptionprofiles.Profile(nil), content...)
+	if profiles == nil {
+		profiles = []transcriptionprofiles.Profile{}
+	}
+	return TranscriptionProfilesUpdatedMessage{
+		MessageType: MessageTypeTranscriptionProfilesUpdated,
+		Content: TranscriptionProfilesUpdatedContent{
+			Profiles: profiles,
 		},
 	}
 }
