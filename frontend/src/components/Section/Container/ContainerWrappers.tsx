@@ -2,7 +2,7 @@ import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { useHighlightDroppable } from "forks/dnd-kit/useDndUtils";
 import _ from "lodash";
 import React from "react";
-import { getAncestorSameVisibility } from "state/actions/sectionViewModeVisibility";
+import { getAncestorSameVisibility } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
