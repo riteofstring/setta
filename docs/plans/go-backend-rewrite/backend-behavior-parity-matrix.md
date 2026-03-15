@@ -28,6 +28,7 @@ It currently covers:
 - listener realtime/force-refresh transport behavior
 - listener coverage route and coverage-update contracts
 - listener frontend emit dependency/artifact update behavior
+- listener router-endpoint call transport behavior
 
 Rows outside these slices are still pending.
 
@@ -175,6 +176,16 @@ Rows outside these slices are still pending.
 | `LS-16` | Listener frontend emit validation rejects unknown dependencies plus invalid/unsupported dependency or artifact payload shapes with typed listener errors. | `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_unknown_dependency`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_invalid_value`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_reports_artifact_errors_from_manager`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_blank_artifact_paths`; `tests/websockets/test_python_script_receiver.py::test_listener_frontend_emit_rejects_type_mismatches`. | Impl: `internal/wsapi/listener_frontend_emit.go`; partial proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitRejectsInvalidArtifactUpdate`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedArtifactUpdate`. | `Implemented, proof incomplete` | Go currently proves the unknown-dependency and some artifact-validation branches. The source-baseline invalid-value, blank-path/type-mismatch, and manager-propagated artifact-error variants still need direct Go proof in this slice. |
 | `LS-17` | Listener transport supports `use_temporary_ids`: temporary project ids are accepted on init/register and outbound ack/force-refresh payload ids are remapped back to temporary ids. | `docs/reference/setta-listener-examples.md`; `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_init`; `backend/setta/websockets/msg_handlers/python_script_sender.py::send_force_refresh`; `tests/websockets/test_python_script_receiver.py::test_listener_register_ack_uses_temporary_project_id`; `tests/websockets/test_python_script_receiver.py::test_listener_init_maps_temporary_project_id`. | Current Go behavior: `internal/wsapi/routes.go::handleListenerInit` rejects `UseTemporaryIDs` with `listener_invalid_id`. | `Missing` | This is a concrete parity gap, not a documented divergence. The current rewrite docs still advertise `SettaListener(..., use_temporary_ids=True)` in `docs/reference/setta-listener-examples.md`. |
 
+## Listener Router Endpoint Calls
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `LR-01` | Listener router-endpoint calls require prior registration and return `listener_not_registered` as a result payload instead of closing the socket. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_router_endpoint_call`; retained client preconditions in `backend/setta/api/listener.py::_call_router_endpoint`. | Impl/proof: `internal/wsapi/routes.go::handleListenerRouterEndpointCall`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerEndpointCallRequiresRegistration`. | `Proved` | |
+| `LR-02` | Listener router-endpoint dispatch injects `projectConfigId` into payloads that omit it and rejects payload project mismatches with `project_config_mismatch`. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_prepare_listener_router_payload_data`; `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_dispatches_plugin_endpoint`; `tests/api/test_listener_router_endpoint_calls.py::test_call_router_endpoint_serializes_payload_and_returns_result`. | Impl: `internal/wsapi/routes.go::handleListenerRouterEndpointCall`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpoint`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerEndpointCallRejectsPayloadProjectMismatch`. | `Proved` | Current Go proves payload injection through the built-in invoker and mismatch rejection at the transport boundary. |
+| `LR-03` | Listener router-endpoint calls can dispatch both built-in and plugin-owned endpoints, and the listener result preserves `projectConfigId`, `callId`, and structured result payloads. | `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_dispatches_plugin_endpoint`; `tests/api/test_listener_router_endpoint_calls.py::test_call_router_endpoint_serializes_payload_and_returns_result`; `backend/setta/websockets/msg_handlers/python_script_receiver.py::_dispatch_listener_router_endpoint_call`. | Impl: `internal/wsapi/routes.go::invokeListenerEndpoint`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpoint`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint`; `internal/app/websocket_test.go::TestAppListenerWebsocketDispatchesPluginListenerEndpoint`. | `Proved` | |
+| `LR-04` | Unknown listener endpoints fail with `listener_call_failed` and return error details in `ListenerRouterEndpointResult`, which the retained listener client surfaces. | `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_returns_error_for_unknown_plugin_endpoint`; `tests/api/test_listener_router_endpoint_calls.py::test_call_router_endpoint_surfaces_error_details`; `backend/setta/api/listener.py::_handle_router_endpoint_result`. | Impl/proof: `internal/wsapi/routes.go::handleListenerRouterEndpointCall`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerEndpointCallReturnsUnknownEndpointError`. | `Proved` | |
+| `LR-05` | Empty listener router-endpoint names fail with `listener_call_invalid_operation` and do not dispatch. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_router_endpoint_call`. | Impl: `internal/wsapi/routes.go::handleListenerRouterEndpointCall`. | `Implemented, proof incomplete` | Current Go has the same empty-endpoint guard, but this slice has no direct Go test yet. |
+
 ## Current Findings
 
 1. The matrix now contains four concrete source-parity gaps:
@@ -182,9 +193,9 @@ Rows outside these slices are still pending.
 2. The project-shell slice also surfaced one source behavior that is still
    unproven on the current Go architecture:
    `PS-06`.
-3. The listener slice added four more rows that are implemented in Go but
+3. The listener transport slices added five more rows that are implemented in Go but
    still under-proved relative to `main`:
-   `LS-04`, `LS-12`, `LS-13`, and `LS-16`.
+   `LS-04`, `LS-12`, `LS-13`, `LS-16`, and `LR-05`.
 4. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
 5. The next high-value steps are:
@@ -195,6 +206,6 @@ Rows outside these slices are still pending.
    - close proof gaps for project/view-mode/window-space/section format-rule
      variants
    - close the remaining listener proof gaps (`LS-04`, `LS-12`, `LS-13`,
-     `LS-16`)
+     `LS-16`, `LR-05`)
    - continue the matrix into the remaining realtime/runtime slices that are
      still outside this partial matrix
