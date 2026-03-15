@@ -5813,65 +5813,136 @@ func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 
-	for _, requestSpec := range []struct {
-		route        string
-		body         string
-		expectedCode int
-		expectedBody string
-	}{
-		{
-			route:        RouteToggleGroupOrientation,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section"}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"group_section_required"`,
-		},
-		{
-			route:        RouteSetSpreadsheetFilePath,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","filePath":"data.csv","activeSheet":null}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"spreadsheet_section_required"`,
-		},
-		{
-			route:        RouteSetSpreadsheetSectionSettings,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":false,"showRowNumbers":true,"density":"dense","autoReloadOnExternalChange":false}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"spreadsheet_grid_density_invalid"`,
-		},
-		{
-			route:        RouteSetTaskBoardSectionState,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","viewMode":"kanban","columns":[],"tasks":[]}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"task_board_section_required"`,
-		},
-		{
-			route:        RouteSetTaskBoardSectionState,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"calendar","columns":[],"tasks":[]}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"task_board_view_mode_invalid"`,
-		},
-		{
-			route:        RouteSetImageAreaImagePath,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","imagePath":"/tmp/image.png"}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"image_section_required"`,
-		},
-		{
-			route:        RouteSetSocialURL,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","url":"https://example.com"}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"social_section_required"`,
-		},
-	} {
-		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		name                string
+		route               string
+		body                string
+		expectedCode        int
+		expectedErrorCode   string
+		expectedMessagePart string
+	}{
+		{
+			name:                "group_orientation_requires_group_section",
+			route:               RouteToggleGroupOrientation,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "group_section_required",
+			expectedMessagePart: "Section must resolve to a group section.",
+		},
+		{
+			name:                "spreadsheet_path_requires_spreadsheet_section",
+			route:               RouteSetSpreadsheetFilePath,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","filePath":"data.csv","activeSheet":null}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "spreadsheet_section_required",
+			expectedMessagePart: "Section must resolve to a spreadsheet section.",
+		},
+		{
+			name:                "spreadsheet_density_rejects_unknown_literal_at_transport",
+			route:               RouteSetSpreadsheetSectionSettings,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":false,"showRowNumbers":true,"density":"dense","autoReloadOnExternalChange":false}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid density value "dense".`,
+		},
+		{
+			name:                "spreadsheet_density_rejects_padded_literal_without_trimming",
+			route:               RouteSetSpreadsheetSectionSettings,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":false,"showRowNumbers":true,"density":" comfortable ","autoReloadOnExternalChange":false}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid density value " comfortable ".`,
+		},
+		{
+			name:                "task_board_requires_task_board_section",
+			route:               RouteSetTaskBoardSectionState,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","viewMode":"kanban","columns":[],"tasks":[]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "task_board_section_required",
+			expectedMessagePart: "Section must resolve to a task board section.",
+		},
+		{
+			name:                "task_board_view_mode_rejects_unknown_literal_at_transport",
+			route:               RouteSetTaskBoardSectionState,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"calendar","columns":[],"tasks":[]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid viewMode value "calendar".`,
+		},
+		{
+			name:                "task_board_view_mode_rejects_padded_literal_without_trimming",
+			route:               RouteSetTaskBoardSectionState,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":" task_list ","columns":[],"tasks":[]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid viewMode value " task_list ".`,
+		},
+		{
+			name:                "image_path_requires_image_section",
+			route:               RouteSetImageAreaImagePath,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","imagePath":"/tmp/image.png"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "image_section_required",
+			expectedMessagePart: "Section must resolve to an image section.",
+		},
+		{
+			name:                "social_url_requires_social_section",
+			route:               RouteSetSocialURL,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","url":"https://example.com"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "social_section_required",
+			expectedMessagePart: "Section must resolve to a social section.",
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
 		if response.Code != requestSpec.expectedCode {
-			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("%s: expected %d for %s, got %d with body %q", requestSpec.name, requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
 		}
-		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
-			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+
+		var payload errorResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("%s: decode error payload: %v", requestSpec.name, err)
 		}
+		if payload.Error.Code != requestSpec.expectedErrorCode {
+			t.Fatalf("%s: expected error code %q, got %#v", requestSpec.name, requestSpec.expectedErrorCode, payload)
+		}
+		if !strings.Contains(payload.Error.Message, requestSpec.expectedMessagePart) {
+			t.Fatalf("%s: expected error message to contain %q, got %#v", requestSpec.name, requestSpec.expectedMessagePart, payload)
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	spreadsheetVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["spreadsheet-section"]
+	spreadsheetImplID := payload.ProjectState.SectionVariants[spreadsheetVariantID].Impl
+	spreadsheetImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[spreadsheetImplID])
+	if got := spreadsheetImplPayload["density"]; got != "compact" {
+		t.Fatalf("expected rejected density requests to leave spreadsheet density unchanged, got %#v", got)
+	}
+
+	taskBoardVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["task-board-section"]
+	taskBoardImplID := payload.ProjectState.SectionVariants[taskBoardVariantID].Impl
+	taskBoardImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[taskBoardImplID])
+	if got := taskBoardImplPayload["viewMode"]; got != "kanban" {
+		t.Fatalf("expected rejected task-board viewMode requests to leave viewMode unchanged, got %#v", got)
 	}
 }
 

@@ -926,6 +926,34 @@ type SetTaskBoardSectionStateRequest struct {
 	Tasks        []projectstate.TaskBoardTask   `json:"tasks"`
 }
 
+func validateSpreadsheetDensityRequestValue(density projectstate.SpreadsheetGridDensity) error {
+	switch density {
+	case projectstate.SpreadsheetGridDensityCompact, projectstate.SpreadsheetGridDensityComfortable:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid density value %q. Expected one of: %q, %q.",
+			string(density),
+			projectstate.SpreadsheetGridDensityCompact,
+			projectstate.SpreadsheetGridDensityComfortable,
+		)
+	}
+}
+
+func validateTaskBoardViewModeRequestValue(viewMode projectstate.TaskBoardViewMode) error {
+	switch viewMode {
+	case projectstate.TaskBoardViewModeTaskList, projectstate.TaskBoardViewModeKanban:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid viewMode value %q. Expected one of: %q, %q.",
+			string(viewMode),
+			projectstate.TaskBoardViewModeTaskList,
+			projectstate.TaskBoardViewModeKanban,
+		)
+	}
+}
+
 type SetImageAreaImagePathRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -5163,6 +5191,10 @@ func setSpreadsheetSectionSettingsHandler(deps ProjectRouteDependencies) http.Ha
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
+		if err := validateSpreadsheetDensityRequestValue(payload.Density); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+			return
+		}
 		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
 			return
 		}
@@ -5205,6 +5237,10 @@ func setTaskBoardSectionStateHandler(deps ProjectRouteDependencies) http.Handler
 		sectionID := strings.TrimSpace(payload.SectionID)
 		if sectionID == "" {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if err := validateTaskBoardViewModeRequestValue(payload.ViewMode); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
 			return
 		}
 		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
