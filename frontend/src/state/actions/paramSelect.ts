@@ -1,4 +1,4 @@
-import { useMisc } from "../definitions";
+import { useMisc } from "../stores/layoutInteractionStores";
 
 export function activateParamSelect() {
   useMisc.setState({ isSelectingParams: true });

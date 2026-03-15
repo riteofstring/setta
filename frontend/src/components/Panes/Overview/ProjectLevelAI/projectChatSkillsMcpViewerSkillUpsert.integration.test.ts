@@ -8,7 +8,7 @@ import {
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
   upsertAppGenSkillEntry,
-} from "./ProjectChatSkillsMcpViewer";
+} from "./projectChatSkillsViewModel";
 
 describe("project chat skills viewer upsert response integration", () => {
   it("updates the saved skill cache and draft without disturbing a newer selection", () => {

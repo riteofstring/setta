@@ -1,9 +1,46 @@
+import {
+  getErrorDetail,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import type {
   PluginBlockedCapability,
   PluginInstallResponse,
   PluginListEntry,
   PluginStatusEntry,
 } from "utils/generatedTypes";
+
+type PluginRegisteredLanguageServer =
+  PluginStatusEntry["registeredLanguageServers"][number];
+type PluginRegisteredExternalAgentAdapter =
+  PluginStatusEntry["registeredExternalAgentAdapters"][number];
+type PluginRegisteredCodegenTarget =
+  PluginStatusEntry["registeredCodegenTargets"][number];
+
+const cachedLanguageServersByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredLanguageServer[]
+>();
+const cachedExternalAgentAdaptersByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredExternalAgentAdapter[]
+>();
+const cachedCodegenTargetsByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredCodegenTarget[]
+>();
+const cachedFormattedCapabilitiesText = new WeakMap<
+  readonly string[],
+  string
+>();
+const cachedCapabilitiesTooltipText = new WeakMap<readonly string[], string>();
+const cachedFormattedBlockedCapabilitiesText = new WeakMap<
+  readonly PluginBlockedCapability[],
+  string
+>();
+const cachedBlockedCapabilitiesTooltipText = new WeakMap<
+  readonly PluginBlockedCapability[],
+  string
+>();
 
 type PluginCapabilityStatus =
   | "effective"
@@ -59,6 +96,57 @@ export function buildCapabilityStatusIndex({
     capabilityStatusByCapability,
     blockedReasonByCapability,
   };
+}
+
+export function getRegisteredLanguageServers(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredLanguageServer[] {
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedLanguageServersByStatus,
+    (entry) => entry.registeredLanguageServers,
+    (a, b) => {
+      const byLanguage = a.language.localeCompare(b.language);
+      if (byLanguage !== 0) {
+        return byLanguage;
+      }
+      return a.name.localeCompare(b.name);
+    },
+  );
+}
+
+export function getRegisteredExternalAgentAdapters(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredExternalAgentAdapter[] {
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedExternalAgentAdaptersByStatus,
+    (entry) => entry.registeredExternalAgentAdapters,
+    (a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.adapterId.localeCompare(b.adapterId);
+    },
+  );
+}
+
+export function getRegisteredCodegenTargets(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredCodegenTarget[] {
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedCodegenTargetsByStatus,
+    (entry) => entry.registeredCodegenTargets,
+    (a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.targetId.localeCompare(b.targetId);
+    },
+  );
 }
 
 function getCachedSortedRegistrations<TRegistration>(
@@ -132,6 +220,76 @@ export function parsePluginConfigDraft(rawValue: string): {
 
 export function formatPluginConfigDraft(value: unknown): string {
   return formatJsonObjectDraft(value);
+}
+
+export function parseLanguageServerSettingsDraft(rawValue: string): {
+  value: Record<string, unknown>;
+  error: string | null;
+} {
+  return parseJsonObjectDraft(
+    rawValue,
+    "Language server settings must be a JSON object.",
+    "Language server settings JSON is invalid.",
+  );
+}
+
+export function formatLanguageServerSettingsDraft(value: unknown): string {
+  return formatJsonObjectDraft(value);
+}
+
+export function getLanguageServerSettingsValue(
+  settings: Record<string, unknown>,
+  settingsKey: string,
+): unknown {
+  const path = settingsKey
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (path.length === 0) {
+    return {};
+  }
+  let current: unknown = settings;
+  for (const segment of path) {
+    if (!isPlainObject(current)) {
+      return {};
+    }
+    current = current[segment];
+  }
+  return current ?? {};
+}
+
+export function setLanguageServerSettingsValue(
+  settings: Record<string, unknown>,
+  settingsKey: string,
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  const path = settingsKey
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (path.length === 0) {
+    return { ...settings };
+  }
+  const [head, ...tail] = path;
+  if (!head) {
+    return { ...settings };
+  }
+  if (tail.length === 0) {
+    return {
+      ...settings,
+      [head]: { ...value },
+    };
+  }
+  const existing = settings[head];
+  const nextChild = setLanguageServerSettingsValue(
+    isPlainObject(existing) ? existing : {},
+    tail.join("."),
+    value,
+  );
+  return {
+    ...settings,
+    [head]: nextChild,
+  };
 }
 
 export function getPluginCapabilityStatus(
@@ -287,6 +445,154 @@ export function buildBusyPluginIdSet(actionKeys: Set<string>): Set<string> {
     ids.add(actionKey.slice(separatorIndex + 1));
   }
   return ids;
+}
+
+export function buildPluginActionError<T>(
+  actionLabel: string,
+  response: ResponseDataAndStatus<T>,
+): string {
+  if (!response.hasResponse) {
+    return `${actionLabel} failed: network error.`;
+  }
+  const detailMessage = getErrorDetail(response.data);
+  if (detailMessage) {
+    return `${actionLabel} failed: ${detailMessage}`;
+  }
+  if (response.data && typeof response.data === "object") {
+    const record = response.data as Record<string, unknown>;
+    const detailValue = record.detail;
+    if (detailValue && typeof detailValue === "object") {
+      const detailRecord = detailValue as Record<string, unknown>;
+      const code = detailRecord.code;
+      const message = detailRecord.message;
+      if (typeof code === "string" && typeof message === "string") {
+        return `${actionLabel} failed: ${code} - ${message}`;
+      }
+    }
+  }
+  return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
+}
+
+export function buildPluginActionThrownError(
+  actionLabel: string,
+  error: unknown,
+): string {
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message.length > 0) {
+      return `${actionLabel} failed: ${message}`;
+    }
+  }
+  return `${actionLabel} failed: unexpected error.`;
+}
+
+export function formatCapabilitiesForTable(
+  capabilities: readonly string[],
+): string {
+  if (capabilities.length === 0) {
+    return "none";
+  }
+  return [...capabilities].sort((a, b) => a.localeCompare(b)).join(", ");
+}
+
+export function formatCapabilitiesForTableCached(
+  capabilities: readonly string[],
+): string {
+  const cached = cachedFormattedCapabilitiesText.get(capabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted = formatCapabilitiesForTable(capabilities);
+  cachedFormattedCapabilitiesText.set(capabilities, formatted);
+  return formatted;
+}
+
+export function formatCapabilitiesTooltip(
+  capabilities: readonly string[],
+): string {
+  const cached = cachedCapabilitiesTooltipText.get(capabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted =
+    capabilities.length === 0 ? "none" : capabilities.join(", ");
+  cachedCapabilitiesTooltipText.set(capabilities, formatted);
+  return formatted;
+}
+
+export function formatBlockedCapabilitiesForTable(
+  blockedCapabilities: readonly PluginBlockedCapability[],
+): string {
+  if (blockedCapabilities.length === 0) {
+    return "none";
+  }
+  return [...blockedCapabilities]
+    .sort((a, b) => {
+      const byCapability = a.capability.localeCompare(b.capability);
+      if (byCapability !== 0) {
+        return byCapability;
+      }
+      return a.reason.localeCompare(b.reason);
+    })
+    .map(
+      (blockedCapability) =>
+        `${blockedCapability.capability} (${blockedCapability.reason})`,
+    )
+    .join(", ");
+}
+
+export function formatBlockedCapabilitiesForTableCached(
+  blockedCapabilities: readonly PluginBlockedCapability[],
+): string {
+  const cached =
+    cachedFormattedBlockedCapabilitiesText.get(blockedCapabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted = formatBlockedCapabilitiesForTable(blockedCapabilities);
+  cachedFormattedBlockedCapabilitiesText.set(blockedCapabilities, formatted);
+  return formatted;
+}
+
+export function formatBlockedCapabilitiesTooltip(
+  blockedCapabilities: readonly PluginBlockedCapability[],
+): string {
+  const cached = cachedBlockedCapabilitiesTooltipText.get(blockedCapabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted =
+    blockedCapabilities.length === 0
+      ? "none"
+      : blockedCapabilities
+          .map(
+            (blockedCapability) =>
+              `${blockedCapability.capability} (${blockedCapability.reason})`,
+          )
+          .join(", ");
+  cachedBlockedCapabilitiesTooltipText.set(blockedCapabilities, formatted);
+  return formatted;
+}
+
+export function getActionStatusClassName(
+  type: "error" | "success" | "warning",
+): string {
+  if (type === "error") {
+    return (
+      "border-red-300 bg-red-50 text-red-700 " +
+      "dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
+    );
+  }
+  if (type === "warning") {
+    return (
+      "border-yellow-300 bg-yellow-50 text-yellow-800 " +
+      "dark:border-yellow-900/50 dark:bg-yellow-950/40 dark:text-yellow-200"
+    );
+  }
+  return (
+    "border-green-300 bg-green-50 text-green-700 " +
+    "dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-300"
+  );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

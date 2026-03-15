@@ -6,12 +6,11 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { setSectionSize } from "state/actions/sections/sectionSizes";
-import { useProjectState, useSectionRefs } from "state/definitions";
-import {
-  route_set_group_overflow_mode,
-  route_set_section_sizes,
-} from "utils/generatedEndpoints";
+import { sendSectionSizes } from "state/actions/sections/sectionSizePersistence";
+import { setSectionSize } from "state/actions/sections/sectionSizeState";
+import { useProjectState } from "state/definitions";
+import { useSectionRefs } from "state/stores/layoutInteractionStores";
+import { route_set_group_overflow_mode } from "utils/generatedEndpoints";
 import {
   createSectionSize,
   SectionSize,
@@ -89,8 +88,7 @@ export function ToggleGroupOverflowMode({
       },
       send: (frontendOpId) => {
         if (nextSize) {
-          void route_set_section_sizes({
-            projectConfigId: getCurrProjectConfigId(),
+          void sendSectionSizes({
             sectionSizes: { [sectionId]: nextSize },
           });
         }

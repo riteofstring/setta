@@ -1,7 +1,7 @@
 import { EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { buildProjectChatHydrationCacheKey } from "./ProjectChatCore";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
+import { buildProjectChatHydrationCacheKey } from "./projectChatHydrationRuntime";
 
 describe("project chat hydration authority integration", () => {
   const resolvedEngineConfigId = "engine-llm-resolved";

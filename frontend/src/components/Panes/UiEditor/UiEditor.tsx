@@ -10,9 +10,10 @@ import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
