@@ -106,13 +106,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
-
-def _hosts_equivalent(left: str, right: str) -> bool:
-    if left == right:
-        return True
-    return {left, right} <= {"127.0.0.1", "localhost", "::1"}
-
-
 # Listener callbacks may either complete synchronously or return an awaitable.
 ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 ListenerCallbackBuilder = Callable[["SettaListener"], None]
@@ -736,7 +729,11 @@ class SettaListener:
         if session_info is None:
             return None
         session_metadata, secret = session_info
-        if not _hosts_equivalent(session_metadata.host, self._host):
+        if (
+            session_metadata.host != self._host
+            and not {session_metadata.host, self._host}
+            <= {"127.0.0.1", "localhost", "::1"}
+        ):
             return None
         if session_metadata.port != self._port:
             return None
