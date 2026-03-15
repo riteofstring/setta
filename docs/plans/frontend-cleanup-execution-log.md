@@ -2537,3 +2537,36 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/chatMergeUtils.ts`, now the largest
     authored/shared state hotspot at 380 lines, by separating chat-run merge
     normalization from the remaining branch/thread reconciliation helpers.
+
+## 2026-03-15 04:02:15 PDT
+
+- Slice completed: split generic chat message merge normalization away from
+  hydration-time local-vs-backend reconciliation
+- Key files touched:
+  - `frontend/src/state/actions/chatMessageMerge.ts`
+  - `frontend/src/state/actions/chatHydrationMerge.ts`
+  - `frontend/src/state/actions/chatMergeUtils.ts`
+  - `frontend/src/state/actions/chatMessageMerge.test.ts`
+  - `frontend/src/state/actions/chatHydrationMerge.test.ts`
+  - `frontend/src/state/actions/aiHydrationApply.ts`
+  - `frontend/src/state/actions/aiPendingChatState.ts`
+  - `frontend/src/state/actions/chatBranches.ts`
+  - `frontend/src/state/actions/sectionStreamingMerge.ts`
+  - `frontend/src/state/actions/sectionInfos.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/chatMessageMerge.test.ts src/state/actions/chatHydrationMerge.test.ts src/state/actions/sectionStreamingMerge.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/aiSectionStateSync.test.ts src/state/actions/aiStopProjectChat.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/chatMergeUtils.ts src/state/actions/chatMessageMerge.ts src/state/actions/chatHydrationMerge.ts src/state/actions/chatMessageMerge.test.ts src/state/actions/chatHydrationMerge.test.ts src/state/actions/aiHydrationApply.ts src/state/actions/aiPendingChatState.ts src/state/actions/chatBranches.ts src/state/actions/sectionStreamingMerge.ts src/state/actions/sectionInfos.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `833d79124`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sections/createSectionsHelper.ts`, now
+    the largest authored/shared state hotspot at 375 lines, by separating
+    section factory defaults from the remaining section creation command
+    helpers.
