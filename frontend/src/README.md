@@ -548,6 +548,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     project-chat windowing recording plus ephemeral follow-up reconciliation.
   - `state/actions/sectionProjectStateSync.ts` is now the thin orchestration
     facade over those project-state snapshot owners.
+  - `state/actions/lspDiagnosticsState.ts` owns formatter-aware diagnostics
+    merge rules plus diagnostics snapshot publication to the editor stores.
+  - `state/actions/lspDiagnosticsCommands.ts` owns mute and suppressed-code
+    transport commands for code-section diagnostics.
+  - `state/actions/lspDiagnostics.ts` is now the thin compatibility facade
+    over those diagnostics owners.
   - `state/actions/sectionDisplayStructure.ts` owns top-level display
     selection, displayed-child tree derivation, node-map creation, and DnD
     child reset used by section rendering and project-state bootstrap flows.

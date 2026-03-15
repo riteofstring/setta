@@ -14,7 +14,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { queueCodeUpdate } from "./codeUpdates";
 import { formatActiveCodeSection } from "./formatCode";
-import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnostics";
+import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnosticsState";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", () => ({

@@ -1,6 +1,6 @@
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import { setFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
-import { processLspDiagnostics } from "state/actions/lspDiagnostics";
+import { processLspDiagnostics } from "state/actions/lspDiagnosticsState";
 import { processNameValidationErrors } from "state/actions/nameValidation";
 import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 import { setWebsocketConnections } from "state/actions/websocketConnectionList";

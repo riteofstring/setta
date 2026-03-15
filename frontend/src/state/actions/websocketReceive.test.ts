@@ -26,7 +26,7 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_get_latest_lsp_diagnostics: vi.fn(),
 }));
 
-vi.mock("state/actions/lspDiagnostics", () => ({
+vi.mock("state/actions/lspDiagnosticsState", () => ({
   processLspDiagnostics: vi.fn(),
 }));
 
@@ -227,7 +227,7 @@ describe("openWebSocket", () => {
     const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
       await import("utils/generatedEndpoints");
     const { processLspDiagnostics } = await import(
-      "state/actions/lspDiagnostics"
+      "state/actions/lspDiagnosticsState"
     );
     const { requestAIFollowSnapshot } = await import("state/actions/aiFollow");
     const { openWebSocket } = await import("state/actions/websocketReceive");

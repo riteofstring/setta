@@ -7,7 +7,7 @@ import { TbBell, TbBellOff, TbSortDescending2 } from "react-icons/tb";
 import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
-} from "state/actions/lspDiagnostics";
+} from "state/actions/lspDiagnosticsCommands";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,

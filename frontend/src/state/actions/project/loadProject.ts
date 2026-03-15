@@ -29,7 +29,7 @@ import {
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
-import { processLspDiagnostics } from "../lspDiagnostics";
+import { processLspDiagnostics } from "../lspDiagnosticsState";
 import { recordAuthoritativeProjectChatWindowingState } from "../projectChatWindowingAuthoritative";
 import {
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects,

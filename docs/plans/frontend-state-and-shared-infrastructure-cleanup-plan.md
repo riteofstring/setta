@@ -76,6 +76,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   importers on `frontend/src/state/actions/sectionProjectStateSync.ts` as the
   dedicated orchestration entrypoint instead of routing snapshot handling back
   through the query/mutation surface.
+- `frontend/src/state/actions/lspDiagnosticsState.ts` now owns
+  formatter-aware diagnostics merge rules plus diagnostics snapshot
+  publication to the editor stores, while
+  `frontend/src/state/actions/lspDiagnosticsCommands.ts` now owns mute and
+  suppressed-code transport commands for code-section diagnostics, reducing
+  `frontend/src/state/actions/lspDiagnostics.ts` to a thin compatibility
+  facade.
 - `frontend/src/state/actions/projectStateCommands.ts` now owns shared
   project-state command entrypoints for section delete/group flows, param
   selection, viewport persistence, and all-project-metadata updates that
@@ -477,7 +484,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
   - `frontend/src/state/actions/edges.ts` at 208 lines
@@ -487,6 +493,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` at 205 lines
   - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` at 205 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 205 lines
+  - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
   - `frontend/src/state/actions/projectChatThreadMutations.ts` at 204 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
@@ -860,6 +867,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - project-chat windowing ephemeral reconciliation after authoritative sync
 - `sectionProjectStateSync.ts` is now:
   - the thin orchestration facade over the project-state snapshot sync owners
+- `lspDiagnosticsState.ts` now owns:
+  - formatter-aware diagnostics merge rules for section and gen-code snapshots
+  - diagnostics snapshot publication to the editor diagnostics stores
+- `lspDiagnosticsCommands.ts` now owns:
+  - mute transport for code-section diagnostics
+  - suppressed-code transport for code-section diagnostics
+- `lspDiagnostics.ts` is now:
+  - the thin compatibility facade over diagnostics snapshot and command owners
 - `projectStateCommands.ts` now owns:
   - shared section delete/group/ungroup commands
   - param selection and unselect-all command entrypoints

@@ -1,5 +1,5 @@
 import { buildFrontendAffinityCurrentAddress } from "state/actions/frontendWebsocketAffinity";
-import { processLspDiagnostics } from "state/actions/lspDiagnostics";
+import { processLspDiagnostics } from "state/actions/lspDiagnosticsState";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { addWebsocketConnection } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";

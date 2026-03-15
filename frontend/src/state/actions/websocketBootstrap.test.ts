@@ -16,7 +16,7 @@ vi.mock("state/actions/sectionProjectStateSync", () => ({
   processProjectStateUpdateFromBackend: vi.fn(),
 }));
 
-vi.mock("state/actions/lspDiagnostics", () => ({
+vi.mock("state/actions/lspDiagnosticsState", () => ({
   processLspDiagnostics: vi.fn(),
 }));
 
@@ -55,7 +55,7 @@ describe("websocketBootstrap", () => {
       "state/actions/sectionProjectStateSync"
     );
     const { processLspDiagnostics } = await import(
-      "state/actions/lspDiagnostics"
+      "state/actions/lspDiagnosticsState"
     );
     const { requestAIFollowSnapshot } = await import("state/actions/aiFollow");
     const { loadAgentRuns } = await import("state/actions/aiAgentRuns");

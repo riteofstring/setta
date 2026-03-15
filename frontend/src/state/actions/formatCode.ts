@@ -13,7 +13,7 @@ import {
   flushPendingCodeUpdate,
   flushPendingGenCodeUpdates,
 } from "./codeUpdates";
-import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnostics";
+import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnosticsState";
 import { addTemporaryNotification } from "./notifications";
 import {
   getCurrEffectiveSectionImpl,
