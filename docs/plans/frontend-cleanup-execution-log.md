@@ -3603,3 +3603,34 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared hotspot at 278 lines, by separating chunk-context
     or chat-id lookup resolution from per-chunk section persistence,
     tool-preview cleanup, and scope-violation notification handling.
+
+## 2026-03-15 09:13:59 PDT
+
+- Slice completed: split AI chat streaming routing into chunk-context and
+  section-routing owners
+- Key files touched:
+  - `frontend/src/state/actions/aiChatStreamingChunkContext.ts`
+  - `frontend/src/state/actions/aiChatStreamingSectionRouting.ts`
+  - `frontend/src/state/actions/aiChatStreamingRouting.ts`
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/aiChatStreamingChunkContext.test.ts`
+  - `frontend/src/state/actions/aiChatStreamingSectionRouting.test.ts`
+  - `frontend/src/state/actions/aiSectionStreaming.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiChatStreamingChunkContext.test.ts src/state/actions/aiChatStreamingSectionRouting.test.ts src/state/actions/aiSectionStreaming.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatStreaming.ts src/state/actions/aiChatStreamingRouting.ts src/state/actions/aiChatStreamingChunkContext.ts src/state/actions/aiChatStreamingSectionRouting.ts src/state/actions/aiChatStreamingChunkContext.test.ts src/state/actions/aiChatStreamingSectionRouting.test.ts src/state/actions/aiSectionStreaming.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `cfc51918bfb9852ff3f40a9473ce5f42e9966375`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatSubmission.ts`, now the largest
+    authored/shared hotspot at 268 lines, by separating shared response-send
+    plus hydration-refresh handling from pending-chat lifecycle orchestration
+    and edited-section chatId reset or restore behavior.
