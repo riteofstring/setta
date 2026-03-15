@@ -6632,3 +6632,45 @@ schedule settings` button still appears on the live task row.
     which is now the highest unresolved front-door hotspot in the current tree
     after `BrowserArea.tsx` dropped below the 800-line review threshold and
     delegated its folder/session ownership into a sharp local browser owner.
+
+## 2026-03-16 06:11:28 PDT
+
+- Slice completed: extracted the project-chat core hydration-session owner out
+  of `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Chat/ChatMessages.tsx` or
+  `frontend/src/components/Git/GitGraphOverlay.tsx` because
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  was still the recorded next unresolved front-door hotspot at the start of
+  the turn and still mixed selected-thread hydration retry state, timer
+  cleanup, and blocked-code orchestration into the first project-AI core file
+  contributors opened.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-core-hydration-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "project ai keeps selected threads usable when hydration reports terminal metadata errors|project ai retries transient metadata failures and hydrates after authority recovery|project ai waits for authoritative provenance before hydrating a selected thread"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.ts src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreHydrationSession.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-core-hydration-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-core-hydration-session-2026-03-16.md`
+    with the before/after Project AI chat measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `ProjectChatCore.tsx` dropped from `1225` to `1019` lines while the
+    measured visible Project AI chat surface stayed flat at `58` nodes with
+    the same `11` buttons, the same `2` textboxes, the same `153px`
+    conversation-filter width, the same `246px` by `32px` composer textarea,
+    the same `274px` by `716px` surface geometry, and no horizontal overflow
+    at `1440x900` or `960x900`.
+- Commit hash:
+  - `5713d0d17960cbe7ca1da88f0d0a61d9203f1499`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Chat/ChatMessages.tsx`, which is now the
+    highest unresolved front-door hotspot after `ProjectChatCore.tsx`
+    delegated its hydration retry/timer ownership into a sharp local hook.
