@@ -3138,3 +3138,35 @@ Append-only log for the section performance refactor.
     - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
     - narrower placeholder-cursor handling scoped to the mounted editor
     - avoiding unnecessary first-click selection dispatch when no valid CodeMirror position is resolved
+
+### 2026-03-17 86
+
+- Item: Tighten the remaining `getOnCreateEditor.ts` activation work while CDP is still blocked.
+- Status: `needs_more_work`
+- Details:
+  - Landed the next lower-seam activation slice in:
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.test.ts`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+  - The follow-up changed the touched row-input contract by:
+    - scoping the placeholder cursor hack to the mounted editor root instead of using a document-wide selector
+    - skipping placeholder cursor height work unless the field is actually showing placeholder content and the canvas zoom is not `1`
+    - avoiding the first-click selection dispatch when `posAtCoords(...)` cannot resolve a valid editor position
+    - adding focused unit coverage for the null-position path plus the zoomed/non-zoomed placeholder-cursor cases
+  - Focused Vitest result:
+    - `13` files passed
+    - `34` tests passed
+  - Representative Playwright result:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - `6 passed`
+  - Chrome DevTools rerun status:
+    - retried `chrome-devtools-mcp` before the code slice
+    - the transport still closes immediately on `list_pages`
+    - no fresh untouched-`main` vs worktree activation trace could be captured in this pass
+  - Conclusion:
+    - the remaining obvious local `getOnCreateEditor.ts` seam is now landed and covered
+    - checkpoint 1 is still not accepted because the required untouched-`main` vs worktree cold-activation trace remains unavailable
+    - there is no stronger lower-seam bootstrap slice to keep taking blindly while CDP is offline; the next decision should come from a fresh trace once DevTools returns
+- Next action:
+  - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+  - If the rerun is still only mixed, use the fresh trace to decide whether any further lower activation pass is justified before moving upward.
