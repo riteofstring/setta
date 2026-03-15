@@ -11,7 +11,7 @@ import {
 } from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
+import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandlePositionScheduler";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getCodeObjCore,

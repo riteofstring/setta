@@ -441,7 +441,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/edgeHandles.ts` at 216 lines
   - `frontend/src/state/actions/gitStatusAndDiff.ts` at 215 lines
   - `frontend/src/state/actions/shareSessionState.ts` at 214 lines
   - `frontend/src/state/actions/runOrImportCode.ts` at 214 lines
@@ -449,11 +448,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
-  - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
-  - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
-  - `frontend/src/state/actions/edges.ts` at 208 lines
   - `frontend/src/state/actions/edges.ts` at 208 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
@@ -508,6 +504,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/agenticEdgeMutations.ts` is now a thin
   compatibility facade, and `frontend/src/state/actions/agenticEdges.ts` is
   now a thin compatibility facade.
+- `frontend/src/state/actions/edgeHandleKeys.ts` now owns pure edge-handle key
+  derivation, `frontend/src/state/actions/edgeHandleRegistration.ts` now owns
+  registry/shared-element registration writes,
+  `frontend/src/state/actions/edgeHandlePositionState.ts` now owns direct
+  handle-position recompute/update helpers,
+  `frontend/src/state/actions/edgeHandlePositionScheduler.ts` now owns
+  RAF-batched section-scoped position refreshes, and
+  `frontend/src/state/actions/edgeHandles.ts` is now the thin compatibility
+  facade over those narrower owners.
 - `frontend/src/state/actions/stateMachineDraftValidationGraph.ts` now owns
   machine-section and workflow-edge graph reads,
   `frontend/src/state/actions/stateMachineDraftValidationWarnings.ts` now owns
@@ -758,6 +763,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - frontend websocket payload parsing and feature-specific dispatch
 - `websocketIncomingProjectSnapshots.ts` now owns:
   - project/app snapshot routing for inbound websocket updates
+- `edgeHandleKeys.ts` now owns:
+  - pure edge-handle key derivation for registry lookups
+- `edgeHandleRegistration.ts` now owns:
+  - registry writes for mounted and shared-element handles
+  - handle unregister cleanup
+- `edgeHandlePositionState.ts` now owns:
+  - direct handle-position recompute/update helpers
+  - section-filtered position refreshes used by layout changes
+- `edgeHandlePositionScheduler.ts` now owns:
+  - RAF-batched section-scoped handle-position refreshes
+- `edgeHandles.ts` is now:
+  - the thin compatibility facade over the narrower edge-handle owners
 - `websocketIncomingUISettingRevealAck.ts` now owns:
   - `UISettingReveal` ACK fallback ids
   - malformed-payload status construction

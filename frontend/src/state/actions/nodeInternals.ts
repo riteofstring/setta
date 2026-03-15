@@ -10,7 +10,7 @@ import {
 } from "state/definitions";
 import { useMisc, useSectionRefs } from "state/stores/layoutInteractionStores";
 import { Position } from "utils/generatedTypes";
-import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
+import { scheduleEdgeHandlePositionUpdate } from "./edgeHandlePositionScheduler";
 import { getSectionDescendants } from "./sectionHierarchy";
 import { debounced_route_set_top_level_section_layout } from "./topLevelLayoutPersistence";
 

@@ -808,6 +808,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
   are now thin compatibility facades; follow-up cleanup there should stay
   local to one of those owners instead of regrowing
   `state/actions/agenticEdges.ts`.
+- `state/actions/edgeHandleKeys.ts` now owns pure edge-handle key derivation,
+  `state/actions/edgeHandleRegistration.ts` now owns registry/shared-element
+  registration writes, `state/actions/edgeHandlePositionState.ts` now owns
+  direct handle-position recompute/update helpers, and
+  `state/actions/edgeHandlePositionScheduler.ts` now owns RAF-batched
+  section-scoped position refreshes. `state/actions/edgeHandles.ts` is now a
+  thin compatibility facade, so follow-up cleanup there should stay local to
+  one of those owners instead of regrowing `state/actions/edgeHandles.ts`.
 - `state/actions/uiSettingRevealMutationCapture.ts` now owns reveal snapshot
   capture plus failure-result assembly, while
   `state/actions/uiSettingRevealMutationApply.ts` now owns high-level reveal

@@ -1,4 +1,4 @@
-import { makeEdgeHandleKey } from "state/actions/edgeHandles";
+import { makeEdgeHandleKey } from "state/actions/edgeHandleKeys";
 import { useEdgeHandleRegistry } from "state/stores/layoutInteractionStores";
 import { useReactFlow } from "../store";
 import type { ReactFlowState } from "../types";

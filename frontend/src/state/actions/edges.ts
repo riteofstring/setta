@@ -1,5 +1,5 @@
 import type { Connection } from "forks/xyflow/core/types";
-import { makeEdgeHandleKey } from "state/actions/edgeHandles";
+import { makeEdgeHandleKey } from "state/actions/edgeHandleKeys";
 import {
   useEdgeHandleRegistry,
   useProjectState,

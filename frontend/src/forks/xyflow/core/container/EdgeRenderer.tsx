@@ -1,10 +1,8 @@
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect } from "react";
-import {
-  makeEdgeHandleKey,
-  recomputeEdgeHandlePositions,
-} from "state/actions/edgeHandles";
+import { makeEdgeHandleKey } from "state/actions/edgeHandleKeys";
+import { recomputeEdgeHandlePositions } from "state/actions/edgeHandlePositionState";
 import { reconnectEdgeFromConnection } from "state/actions/edges";
 import { useProjectState } from "state/definitions";
 import { useEdgeHandleRegistry } from "state/stores/layoutInteractionStores";
