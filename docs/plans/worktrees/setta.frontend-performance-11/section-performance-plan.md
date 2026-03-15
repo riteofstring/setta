@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 7 isolates standalone window-space window surfaces from unrelated sibling focus and local thread churn
-- Current `Phase S3` state: checkpoint 7 accepted; the next serious step is route-level or remaining shared floating/window ownership above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space seams
+- Latest accepted checkpoint: `Phase S3` checkpoint 8 isolates standalone section and window-space routes from unrelated project-chat history churn
+- Current `Phase S3` state: checkpoint 8 accepted; the next serious step is remaining project-chat-only route-shell ownership above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space/route-history seams
 
 Non-negotiable constraints:
 
@@ -188,6 +188,18 @@ Immediate next step:
      - `Commit`
    - `Layout`, `Paint`, `EventDispatch`, and `FireAnimationFrame` are slightly higher on the worktree, but not enough to reject the pass
    - the next serious `Phase S3` step should move outward into route-level or remaining shared floating/window ownership above `StandaloneWindowSpaceSurface.tsx`, not reopen the accepted per-window memo seam unless a later trace proves it necessary
+20. Current post-checkpoint-8 direction:
+   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` now keeps the project-chat history lookup fully gated to `target.kind === "project_chat_thread"`
+   - standalone `window_space` and `section` routes no longer subscribe to unrelated `useAIStore(...agentRuns...)` churn through the shared route shell
+   - focused invalidation coverage now proves standalone routes stay stable when unrelated project-chat history changes:
+     - `/windowspace/...`
+     - `/section/...`
+   - the representative standalone route trace now favors the worktree on:
+     - `FunctionCall`
+     - `RunTask`
+     - `Commit`
+   - `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `TimerFire` stayed at `0.000` on both branches in the marked window, while `FireAnimationFrame` was only slightly higher on the worktree
+   - the next serious `Phase S3` step should stay above this seam and target the remaining project-chat-only owner/error shell ownership in `StandaloneProjectSurfacePage.tsx`, not reopen the accepted standalone window-space or floating/window lower seams unless a later trace proves it necessary
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 

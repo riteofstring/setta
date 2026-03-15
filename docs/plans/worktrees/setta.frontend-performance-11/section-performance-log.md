@@ -2585,3 +2585,86 @@ Append-only log for the section performance refactor.
   - This is still only a standalone window-space consumer pass. The next serious `Phase S3` step should move outward into route-level or remaining shared floating/window ownership above the accepted per-window seam.
 - Next action:
   - Continue `Phase S3` by targeting route-level or remaining shared floating/window ownership above `StandaloneWindowSpaceSurface.tsx` without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, floating-body, or standalone per-window seams unless a later trace proves it necessary.
+
+### 2026-03-17 75
+
+- Item: Accept `Phase S3` checkpoint 8 after isolating standalone section and window-space routes from unrelated project-chat history churn.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` so the shared standalone route shell now:
+    - keeps the `agentRuns` subscription behind `target.kind === "project_chat_thread"`
+    - short-circuits `buildChatHistoryEntries(...)` to `[]` for standalone `window_space` and `section` routes
+    - preserves the existing project-chat-thread path, including live history recomputation for direct thread routes
+  - Extended `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` with focused invalidation coverage proving:
+    - standalone `window_space` routes do not rerender their shared surface when unrelated `agentRuns` changes land
+    - standalone `section` routes do not rerender their shared surface when unrelated `agentRuns` changes land
+    - standalone project-chat thread routes still recompute history when `agentRuns` changes
+  - Tightened the route test harness to match production selector semantics:
+    - replaced the inert `useAIStore` selector stub with a real Zustand-backed store mock
+    - switched the `state/definitions` mock to a partial mock so unrelated store exports stay intact
+    - stubbed `useProjectSurfaceGlobalListeners` to keep the focused route invalidation tests off unrelated global shortcut state
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - result: `4` files passed, `53` tests passed
+  - Re-ran representative Playwright coverage:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "keeps standalone project surfaces isolated from workspace selection and windowing state"`
+    - result: `1 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Used a new representative standalone route replay because this checkpoint targets route-shell invalidation above `StandaloneWindowSpaceSurface`, not window focus or resize:
+    - inject the same saved standalone window-space config into live project state on untouched `main` and the worktree with:
+      - one `S0 Dict` section window
+      - normalized bounds `{ x: 0.12, y: 0.12, width: 0.55, height: 0.55 }`
+    - keep the route on `/{project}/windowspace/perf_focus_space`
+    - mark the replay boundary with `performance.mark("s3-standalone-agent-runs-start")`
+    - inject one unrelated unscoped project-chat run with `createAgentRun(...)`
+    - wait two RAFs and mark `performance.mark("s3-standalone-agent-runs-after-raf")`
+    - compare the target renderer from `s3-standalone-agent-runs-start` through `+100ms`
+  - Live CDP standalone-route validation:
+    - both branches kept the same standalone route content:
+      - `S0 Dict`
+      - `ARGS`
+      - filter value `gamma`
+      - visible `beta` and `gamma` rows
+    - both branches kept the same standalone frame geometry:
+      - `x 168`
+      - `y 108`
+      - `width 770`
+      - `height 495`
+      - surface `1400 x 900`
+    - both branches kept the same post-replay document title:
+      - worktree: `tide_pike · Perf Focus Space`
+      - untouched `main`: `dark_swimming · Perf Focus Space`
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint8/`
+  - Accepted marked target-renderer totals from the standalone agent-history pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `7.950`
+      - `UpdateLayoutTree`: `0.000`
+      - `Layout`: `0.000`
+      - `Paint`: `0.000`
+      - `RunTask`: `2.415`
+      - `EventDispatch`: `0.000`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.186`
+      - `Commit`: `0.094`
+    - worktree
+      - `FunctionCall`: `0.066`
+      - `UpdateLayoutTree`: `0.000`
+      - `Layout`: `0.000`
+      - `Paint`: `0.000`
+      - `RunTask`: `2.403`
+      - `EventDispatch`: `0.000`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.282`
+      - `Commit`: `0.075`
+- Interpretation:
+  - Checkpoint 8 is accepted.
+  - The worktree materially improves the representative standalone route history-update window on `FunctionCall`, with smaller but still favorable movement on `RunTask` and `Commit`.
+  - `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `TimerFire` stayed flat at `0.000` on both branches in the marked window.
+  - `FireAnimationFrame` is slightly higher on the worktree, but the absolute delta is tiny relative to the scripting reduction.
+  - The stronger evidence is the new focused guardrail proving standalone `window_space` and `section` routes no longer rerender when only unrelated project-chat history changes.
+  - This is still only a route-level history invalidation pass. The next serious `Phase S3` step should stay above this seam and target the remaining project-chat-only owner/error shell ownership in `StandaloneProjectSurfacePage.tsx`.
+- Next action:
+  - Continue `Phase S3` by targeting the remaining project-chat-only owner/error shell ownership above `StandaloneProjectSurfacePage.tsx` without reopening the accepted controller, chrome, area-switch, active-shell, shared surface-chrome, floating-body, standalone per-window, or standalone route-history seams unless a later trace proves it necessary.
