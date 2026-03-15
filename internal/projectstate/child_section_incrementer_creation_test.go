@@ -78,6 +78,35 @@ func TestProjectCreateChildSectionsViaIncrementerInsertsAfterCalledByChild(t *te
 	}
 }
 
+func TestProjectCreateChildSectionsViaIncrementerSupportsExpandedChildTypes(t *testing.T) {
+	t.Parallel()
+
+	project := testIncrementerProject()
+
+	result, err := project.CreateChildSectionsViaIncrementer(CreateChildSectionsViaIncrementerInput{
+		CalledBy:    "child-a",
+		ImplType:    "Browser",
+		NumChildren: 1,
+	}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+	if err != nil {
+		t.Fatalf("create browser child sections via incrementer: %v", err)
+	}
+	if len(result.SectionIDs) != 1 {
+		t.Fatalf("expected one created browser child id, got %#v", result.SectionIDs)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionIDs[0], project.SectionVariantMap[result.SectionIDs[0]])
+	if err != nil {
+		t.Fatalf("browser payload: %v", err)
+	}
+	if got := payloadStringField(payload, "type"); got != "Browser" {
+		t.Fatalf("expected Browser payload type, got %q", got)
+	}
+	if got := payloadStringField(payload, "viewMode"); got != string(BrowserAreaViewModeList) {
+		t.Fatalf("expected browser view mode %q, got %q", BrowserAreaViewModeList, got)
+	}
+}
+
 func TestProjectCreateChildSectionsViaIncrementerRejectsUnsupportedCallerState(t *testing.T) {
 	t.Parallel()
 

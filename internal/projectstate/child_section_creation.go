@@ -33,9 +33,12 @@ type CreateChildSectionsResult struct {
 }
 
 type createdChildSectionState struct {
-	section Section
-	variant SectionVariant
-	impl    SectionImpl
+	section              Section
+	variant              SectionVariant
+	impl                 SectionImpl
+	metaControlParamCore *CodeObject
+	metaControlParamVar  *CodeObjectVariant
+	metaControlParamImpl *CodeObjectImpl
 }
 
 func (d *Document) CreateChildSections(
@@ -172,12 +175,26 @@ func (p *Project) CreateChildSections(
 	if p.SectionVariantMap == nil {
 		p.SectionVariantMap = map[string]string{}
 	}
+	if p.CodeObjs == nil {
+		p.CodeObjs = map[string]CodeObject{}
+	}
+	if p.CodeObjVariants == nil {
+		p.CodeObjVariants = map[string]CodeObjectVariant{}
+	}
+	if p.CodeObjImpls == nil {
+		p.CodeObjImpls = map[string]CodeObjectImpl{}
+	}
 
 	for _, created := range createdChildren {
 		p.Sections[created.section.ID] = created.section
 		p.SectionVariants[created.variant.ID] = created.variant
 		p.SectionImpls[created.impl.ID] = created.impl
 		p.SectionVariantMap[created.section.ID] = created.variant.ID
+		if created.metaControlParamCore != nil && created.metaControlParamVar != nil && created.metaControlParamImpl != nil {
+			p.CodeObjs[created.metaControlParamCore.ID] = *created.metaControlParamCore
+			p.CodeObjVariants[created.metaControlParamVar.ID] = *created.metaControlParamVar
+			p.CodeObjImpls[created.metaControlParamImpl.ID] = *created.metaControlParamImpl
+		}
 	}
 
 	nextChildren := insertStringSlice(parentChildren, startIdx, createdIDs)
@@ -226,12 +243,8 @@ func normalizeCreateChildSectionsInput(input CreateChildSectionsInput) (CreateCh
 }
 
 func isSupportedChildSectionImplType(implType string) bool {
-	switch implType {
-	case "Chat", "Code", "Dict", "Group", "Terminal", "TextBlock":
-		return true
-	default:
-		return false
-	}
+	_, err := normalizeDefaultChildSectionType(implType)
+	return err == nil
 }
 
 func validateCreateChildSectionsParent(
@@ -277,7 +290,7 @@ func newCreatedChildSectionState(
 		return createdChildSectionState{}, err
 	}
 
-	impl, _, _, _, err := buildCreatedTopLevelSectionImpl(implID, CreateTopLevelSectionInput{
+	impl, metaControlParamCore, metaControlParamVar, metaControlParamImpl, err := buildCreatedTopLevelSectionImpl(implID, CreateTopLevelSectionInput{
 		ImplType: implType,
 	})
 	if err != nil {
@@ -305,7 +318,10 @@ func newCreatedChildSectionState(
 			ImplID:           impl.ID,
 			NonPresetImplIDs: []string{impl.ID},
 		},
-		impl: impl,
+		impl:                 impl,
+		metaControlParamCore: metaControlParamCore,
+		metaControlParamVar:  metaControlParamVar,
+		metaControlParamImpl: metaControlParamImpl,
 	}, nil
 }
 

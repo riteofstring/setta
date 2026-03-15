@@ -4771,6 +4771,93 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesChildSectionMutationsSupportExpandedTypes(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	createBrowserResponse := post(RouteCreateChildSections, `{"projectConfigId":"project-alpha","parentId":"group-parent","implType":"Browser","numChildren":1}`)
+	if createBrowserResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for browser child create, got %d with body %q", createBrowserResponse.Code, createBrowserResponse.Body.String())
+	}
+	var createBrowserPayload projectstate.CreateChildSectionsResult
+	if err := json.Unmarshal(createBrowserResponse.Body.Bytes(), &createBrowserPayload); err != nil {
+		t.Fatalf("decode browser child create response: %v", err)
+	}
+	if len(createBrowserPayload.SectionIDs) != 1 {
+		t.Fatalf("expected one browser child id, got %#v", createBrowserPayload.SectionIDs)
+	}
+
+	createMetaControlResponse := post(RouteCreateChildSectionsViaIncrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","implType":"MetaControl","numChildren":1}`)
+	if createMetaControlResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for meta control incrementer create, got %d with body %q", createMetaControlResponse.Code, createMetaControlResponse.Body.String())
+	}
+	var createMetaControlPayload projectstate.CreateChildSectionsResult
+	if err := json.Unmarshal(createMetaControlResponse.Body.Bytes(), &createMetaControlPayload); err != nil {
+		t.Fatalf("decode meta control incrementer response: %v", err)
+	}
+	if len(createMetaControlPayload.SectionIDs) != 1 {
+		t.Fatalf("expected one meta control child id, got %#v", createMetaControlPayload.SectionIDs)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project snapshot: %v", err)
+	}
+
+	_, _, browserImpl, err := project.ResolveSection(createBrowserPayload.SectionIDs[0])
+	if err != nil {
+		t.Fatalf("resolve browser child: %v", err)
+	}
+	browserPayload := decodeProjectRouteRawObject(t, browserImpl.Payload)
+	if got, _ := browserPayload["type"].(string); got != "Browser" {
+		t.Fatalf("expected browser payload type Browser, got %q", got)
+	}
+	if got, _ := browserPayload["viewMode"].(string); got != string(projectstate.BrowserAreaViewModeList) {
+		t.Fatalf("expected browser view mode %q, got %q", projectstate.BrowserAreaViewModeList, got)
+	}
+
+	_, _, metaControlImpl, err := project.ResolveSection(createMetaControlPayload.SectionIDs[0])
+	if err != nil {
+		t.Fatalf("resolve meta control child: %v", err)
+	}
+	metaControlPayload := decodeProjectRouteRawObject(t, metaControlImpl.Payload)
+	if got, _ := metaControlPayload["type"].(string); got != "MetaControl" {
+		t.Fatalf("expected meta control payload type MetaControl, got %q", got)
+	}
+	metaControlParamID, _ := metaControlPayload["metaControlParamId"].(string)
+	if strings.TrimSpace(metaControlParamID) == "" {
+		t.Fatalf("expected meta control child param id, got %#v", metaControlPayload)
+	}
+	if _, ok := project.CodeObjs[metaControlParamID]; !ok {
+		t.Fatalf("expected meta control code object %q to exist, got %#v", metaControlParamID, project.CodeObjs)
+	}
+}
+
 func TestRegisterProjectRoutesChildSectionMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 

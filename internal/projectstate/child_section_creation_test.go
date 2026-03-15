@@ -276,6 +276,104 @@ func TestProjectCreateChildSectionsCreatesAttachedTerminalForCodeParent(t *testi
 	}
 }
 
+func TestProjectCreateChildSectionsSupportsExpandedActiveTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		implType string
+		assert   func(*testing.T, Project, string, map[string]any)
+	}{
+		{
+			name:     "callable",
+			implType: "Callable",
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "Callable" {
+					t.Fatalf("expected Callable payload type, got %q", got)
+				}
+				if got := payloadRawStringField(payload, "paramFilter"); got != "" {
+					t.Fatalf("expected empty paramFilter, got %q", got)
+				}
+			},
+		},
+		{
+			name:     "browser",
+			implType: "Browser",
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "viewMode"); got != string(BrowserAreaViewModeList) {
+					t.Fatalf("expected browser view mode %q, got %q", BrowserAreaViewModeList, got)
+				}
+			},
+		},
+		{
+			name:     "spreadsheet",
+			implType: "Spreadsheet",
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "density"); got != string(SpreadsheetGridDensityCompact) {
+					t.Fatalf("expected spreadsheet density %q, got %q", SpreadsheetGridDensityCompact, got)
+				}
+			},
+		},
+		{
+			name:     "plugin",
+			implType: "Plugin",
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "kind"); got != "default" {
+					t.Fatalf("expected default plugin kind, got %q", got)
+				}
+			},
+		},
+		{
+			name:     "meta control",
+			implType: "MetaControl",
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any) {
+				t.Helper()
+				paramID := payloadStringField(payload, "metaControlParamId")
+				if paramID == "" {
+					t.Fatalf("expected meta control param id, got payload %#v", payload)
+				}
+				codeObj, ok := project.CodeObjs[paramID]
+				if !ok {
+					t.Fatalf("expected created code object %q, got %#v", paramID, project.CodeObjs)
+				}
+				codeObjPayload, _, _, _, err := project.ResolveSectionCodeObject(sectionID, codeObj.ID)
+				if err != nil {
+					t.Fatalf("resolve meta control code object: %v", err)
+				}
+				if got := payloadStringField(codeObjPayload, "type"); got != "SliderParam" {
+					t.Fatalf("expected default control type SliderParam, got %q", got)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		project := testIncrementerProject()
+
+		result, err := project.CreateChildSections(CreateChildSectionsInput{
+			ParentID:    "parent",
+			ImplType:    tc.implType,
+			NumChildren: 1,
+		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		if err != nil {
+			t.Fatalf("create %s child section: %v", tc.name, err)
+		}
+		if len(result.SectionIDs) != 1 {
+			t.Fatalf("expected one created %s child id, got %#v", tc.name, result.SectionIDs)
+		}
+
+		payload, err := effectiveSectionPayload(project, result.SectionIDs[0], project.SectionVariantMap[result.SectionIDs[0]])
+		if err != nil {
+			t.Fatalf("effective payload for %s: %v", tc.name, err)
+		}
+		tc.assert(t, project, result.SectionIDs[0], payload)
+	}
+}
+
 func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.T) {
 	t.Parallel()
 
