@@ -30,7 +30,6 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 		"README.md",
 		filepath.Join(".github", "workflows", "release.yml"),
 		filepath.Join("frontend", "dist", "index.js"),
-		filepath.Join("backend", "entrypoint.py"),
 		filepath.Join("content", "blueprints", "starter-blueprint.json"),
 	} {
 		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); err != nil {
@@ -47,6 +46,17 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	}
 	if !strings.Contains(string(workflowPayload), "setta plugins validate .") {
 		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
+	}
+
+	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load scaffold manifest: %v", err)
+	}
+	if manifest.Backend != nil {
+		t.Fatalf("expected full scaffold to omit backend manifest, got %#v", manifest.Backend)
+	}
+	if manifest.Frontend == nil || manifest.Content == nil {
+		t.Fatalf("expected full scaffold to include frontend and content, got %#v", manifest)
 	}
 
 	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
@@ -76,6 +86,22 @@ func TestServiceInitTemplateRejectsInvalidIDsAndExistingTarget(t *testing.T) {
 		OutDir:   roots.workspaceRoot,
 	})
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInitTargetExists)
+}
+
+// Init should reject the removed Python-backend scaffold so new authoring does not target that path.
+func TestServiceInitTemplateRejectsBackendTemplate(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	_, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: "setta-backend-fixture",
+		Template: "backend",
+		OutDir:   roots.workspaceRoot,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceInvalid)
+	if !strings.Contains(err.Error(), "backend scaffolding is no longer supported") {
+		t.Fatalf("expected backend scaffold rejection message, got %v", err)
+	}
 }
 
 // Validate should reject unsupported capability values, schema versions, metadata mismatches, and invalid host versions.
@@ -189,7 +215,7 @@ func TestServiceLinkBackendReplacementRequiresRestart(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 
-	backendRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-local-backend-plugin", "backend")
+	backendRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "backend")
 	initial, err := service.Link(LinkOptions{
 		LocalPluginRoot: backendRoot,
 		Enable:          true,
@@ -204,8 +230,8 @@ func TestServiceLinkBackendReplacementRequiresRestart(t *testing.T) {
 
 	replacementRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-frontend-replacement", "frontend")
 	rewritePluginManifest(t, replacementRoot, func(payload map[string]any) {
-		payload["id"] = "setta-local-backend-plugin"
-		payload["name"] = "setta-local-backend-plugin"
+		payload["id"] = "setta-fixture-backend"
+		payload["name"] = "setta-fixture-backend"
 	})
 
 	replaced, err := service.Link(LinkOptions{
@@ -276,4 +302,14 @@ func mustInitAuthoringTestPlugin(t *testing.T, service *Service, outDir string, 
 		t.Fatalf("init authoring test plugin %s: %v", pluginID, err)
 	}
 	return pluginRoot
+}
+
+func mustCopyAuthoringFixturePlugin(t *testing.T, outDir string, fixtureName string) string {
+	t.Helper()
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
+	targetRoot := filepath.Join(outDir, fixtureName)
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+	return targetRoot
 }

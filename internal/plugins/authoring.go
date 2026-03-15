@@ -72,11 +72,6 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 	}
 
 	switch template {
-	case "backend":
-		if err := scaffoldBackendTemplate(root); err != nil {
-			return "", err
-		}
-		manifest.Backend = &PluginBackendManifest{Entrypoint: "backend/entrypoint.py"}
 	case "frontend":
 		if err := scaffoldFrontendTemplate(root); err != nil {
 			return "", err
@@ -95,16 +90,12 @@ func (s *Service) InitTemplate(options InitTemplateOptions) (string, error) {
 			PromptsDir:          "content/prompts",
 		}
 	case "full":
-		if err := scaffoldBackendTemplate(root); err != nil {
-			return "", err
-		}
 		if err := scaffoldFrontendTemplate(root); err != nil {
 			return "", err
 		}
 		if err := scaffoldContentTemplate(root); err != nil {
 			return "", err
 		}
-		manifest.Backend = &PluginBackendManifest{Entrypoint: "backend/entrypoint.py"}
 		manifest.Frontend = &PluginFrontendManifest{
 			Entrypoint: "frontend/dist/index.js",
 			Style:      "frontend/dist/index.css",
@@ -587,8 +578,13 @@ func normalizeInitTemplate(raw string) (string, error) {
 		return "full", nil
 	}
 	switch trimmed {
-	case "backend", "frontend", "full", "content":
+	case "frontend", "full", "content":
 		return trimmed, nil
+	case "backend":
+		return "", newServiceError(
+			ServiceErrorCodeSourceInvalid,
+			"Plugin backend scaffolding is no longer supported. Use --template frontend, --template content, or --template full.",
+		)
 	default:
 		return "", newServiceError(ServiceErrorCodeSourceInvalid, "Invalid plugin init template: %q", raw)
 	}
@@ -603,17 +599,6 @@ func resolveInitTemplateRoot(workspaceRoot string, pluginID string, outDir strin
 		return "", err
 	}
 	return filepath.Join(resolvedOutDir, pluginID), nil
-}
-
-func scaffoldBackendTemplate(root string) error {
-	backendDir := filepath.Join(root, "backend")
-	if err := os.MkdirAll(backendDir, 0o755); err != nil {
-		return fmt.Errorf("create backend template directory: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(backendDir, "entrypoint.py"), []byte("def register(plugin):\n    return None\n"), 0o644); err != nil {
-		return fmt.Errorf("write backend entrypoint: %w", err)
-	}
-	return nil
 }
 
 func scaffoldFrontendTemplate(root string) error {
@@ -665,7 +650,6 @@ func buildInitTemplatePyproject(pluginID string) string {
 		"py-modules = []\n\n" +
 		"[tool.setuptools.data-files]\n" +
 		"\".\" = [\"setta.plugin.json\", \"README.md\"]\n" +
-		"\"backend\" = [\"backend/*.py\"]\n" +
 		"\"frontend/dist\" = [\"frontend/dist/*\"]\n" +
 		"\"content/blueprints\" = [\"content/blueprints/*\"]\n" +
 		"\"content/project_templates\" = [\"content/project_templates/*\"]\n" +

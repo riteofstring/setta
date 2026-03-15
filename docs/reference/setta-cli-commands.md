@@ -274,8 +274,9 @@ Scope selection notes:
 
 Subcommands:
 
-- `setta plugins init <plugin_id> [--template backend|frontend|full|content] [--out PATH]`
+- `setta plugins init <plugin_id> [--template frontend|full|content] [--out PATH]`
   - Scaffold a plugin package with `setta.plugin.json`, `pyproject.toml`, and template files.
+  - `full` scaffolds frontend + content files; backend scaffolding is intentionally not generated.
   - Ownership: Go.
 - `setta plugins validate <plugin_folder>`
   - Validate a plugin manifest/folder contract.

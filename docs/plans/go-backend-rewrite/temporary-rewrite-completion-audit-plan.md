@@ -612,3 +612,15 @@ implementation itself. `backend/setta/plugins/manager.py`,
 worker plus surrounding agentic suites still pass. This removes the standalone
 Python plugin manager from the blocker set and leaves the Python plugin worker
 implementation as the primary remaining backend-ownership tail in this area.
+
+A twenty-fourth follow-up rewrite step removed the live CLI scaffolding path
+that still generated new Python backend plugins. `internal/plugins/authoring.go`
+no longer accepts `--template backend`, `--template full` now scaffolds only
+frontend + content files, the generated `pyproject.toml` no longer packages
+`backend/*.py`, and the canonical authoring docs now stop directing users to
+`backend/entrypoint.py`. Focused `internal/plugins` and `internal/settacmd`
+tests pass after moving the restart-required regression check onto the existing
+backend fixture instead of a generated backend scaffold. This does not remove
+the remaining Python plugin worker runtime, but it does stop the active Go CLI
+from creating new Python backend authoring surfaces while that runtime tail is
+being removed.

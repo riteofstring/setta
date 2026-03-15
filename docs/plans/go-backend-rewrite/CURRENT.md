@@ -40,6 +40,9 @@ These are intentional exceptions, not open-ended compatibility obligations:
 
 Everything else should default to Go ownership. That includes dev startup or
 reload wrappers and any remaining listener-side dependency-graph rebuilding.
+The Go-owned plugin authoring path should not scaffold new Python backend
+plugins; treat any remaining Python backend plugin runtime as rewrite debt
+rather than a retained authoring surface.
 
 ## Read Order
 

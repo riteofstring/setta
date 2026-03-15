@@ -300,6 +300,30 @@ func TestRunPluginsInitAndValidateText(t *testing.T) {
 	}
 }
 
+// Plugins init should reject the removed backend scaffold instead of generating new Python backend templates.
+func TestRunPluginsInitRejectsBackendTemplate(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "init", "setta-cli-init-fixture", "--template", "backend", "--out", cwd)
+	if err == nil {
+		t.Fatal("expected backend template rejection")
+	}
+	if ExitCode(err) != 1 {
+		t.Fatalf("expected exit code 1, got %d", ExitCode(err))
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if got := DisplayError(err); !strings.Contains(got, "PLUGIN_SOURCE_INVALID: Plugin backend scaffolding is no longer supported.") {
+		t.Fatalf("unexpected backend template error %q", got)
+	}
+}
+
 // Plugins link JSON should expose the Go-owned local-link payload, including trust metadata.
 func TestRunPluginsLinkJSONIncludesInstallPayload(t *testing.T) {
 	t.Parallel()
