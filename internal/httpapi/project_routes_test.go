@@ -5448,45 +5448,111 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *tes
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 
-	for _, requestSpec := range []struct {
-		route        string
-		body         string
-		expectedCode int
-		expectedBody string
-	}{
-		{
-			route:        RouteSetBrowserHideColumn,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","hideColumn":true}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"browser_section_required"`,
-		},
-		{
-			route:        RouteSetBrowserAreaViewMode,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"grid"}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"browser_area_view_mode_invalid"`,
-		},
-		{
-			route:        RouteSetBrowserSavedSearches,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"bad","searchScope":"global"}]}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"browser_search_scope_invalid"`,
-		},
-	} {
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
 		request := httptest.NewRequest(
 			http.MethodPost,
-			"/api"+requestSpec.route,
-			strings.NewReader(requestSpec.body),
+			"/api"+route,
+			strings.NewReader(body),
 		)
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		name                string
+		route               string
+		body                string
+		expectedCode        int
+		expectedErrorCode   string
+		expectedMessagePart string
+	}{
+		{
+			name:                "browser_mutation_requires_browser_section",
+			route:               RouteSetBrowserHideColumn,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","hideColumn":true}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "browser_section_required",
+			expectedMessagePart: "Section must resolve to a browser section.",
+		},
+		{
+			name:                "view_mode_rejects_unknown_literal_at_transport",
+			route:               RouteSetBrowserAreaViewMode,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"grid"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid viewMode value "grid".`,
+		},
+		{
+			name:                "view_mode_rejects_padded_literal_without_trimming",
+			route:               RouteSetBrowserAreaViewMode,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":" thumbnail "}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid viewMode value " thumbnail ".`,
+		},
+		{
+			name:                "saved_search_scope_rejects_unknown_literal_at_transport",
+			route:               RouteSetBrowserSavedSearches,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"bad","searchScope":"global"}]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid searchScope value "global".`,
+		},
+		{
+			name:                "saved_search_scope_rejects_blank_present_field",
+			route:               RouteSetBrowserSavedSearches,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"bad","searchScope":""}]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid searchScope value "".`,
+		},
+		{
+			name:                "saved_search_scope_rejects_padded_present_field",
+			route:               RouteSetBrowserSavedSearches,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"bad","searchScope":" local "} ]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid searchScope value " local ".`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
 		if response.Code != requestSpec.expectedCode {
-			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("%s: expected %d for %s, got %d with body %q", requestSpec.name, requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
 		}
-		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
-			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+
+		var payload errorResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("%s: decode error payload: %v", requestSpec.name, err)
 		}
+		if payload.Error.Code != requestSpec.expectedErrorCode {
+			t.Fatalf("%s: expected error code %q, got %#v", requestSpec.name, requestSpec.expectedErrorCode, payload)
+		}
+		if !strings.Contains(payload.Error.Message, requestSpec.expectedMessagePart) {
+			t.Fatalf("%s: expected error message to contain %q, got %#v", requestSpec.name, requestSpec.expectedMessagePart, payload)
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	browserVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["browser-section"]
+	browserImplID := payload.ProjectState.SectionVariants[browserVariantID].Impl
+	browserImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[browserImplID])
+	if got := browserImplPayload["viewMode"]; got != "list" {
+		t.Fatalf("expected rejected browser view-mode requests to leave viewMode unchanged, got %#v", got)
+	}
+	if got := browserImplPayload["savedSearches"]; !reflect.DeepEqual(got, []any{}) {
+		t.Fatalf("expected rejected saved-search requests to leave savedSearches unchanged, got %#v", got)
 	}
 }
 

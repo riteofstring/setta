@@ -899,6 +899,104 @@ type SetBrowserSavedSearchesRequest struct {
 	SavedSearches []projectstate.BrowserSavedSearch `json:"savedSearches"`
 }
 
+type browserSavedSearchRequestRaw struct {
+	ID          string                                      `json:"id"`
+	Name        string                                      `json:"name"`
+	Query       string                                      `json:"query"`
+	SearchScope *json.RawMessage                            `json:"searchScope"`
+	TypeFilters *projectstate.BrowserSavedSearchTypeFilters `json:"typeFilters"`
+	Color       string                                      `json:"color"`
+	QuickInfo   string                                      `json:"quickInfo"`
+}
+
+type setBrowserSavedSearchesRequestRaw struct {
+	FrontendOpID  *string                        `json:"frontendOpId"`
+	ProjectID     string                         `json:"projectConfigId"`
+	SectionID     string                         `json:"sectionId"`
+	SavedSearches []browserSavedSearchRequestRaw `json:"savedSearches"`
+}
+
+type browserRequestValidationError struct {
+	message string
+}
+
+func (e *browserRequestValidationError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
+func validateBrowserAreaViewModeRequestValue(mode projectstate.BrowserAreaViewMode) error {
+	switch mode {
+	case projectstate.BrowserAreaViewModeList, projectstate.BrowserAreaViewModeThumbnail, projectstate.BrowserAreaViewModeCarousel:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid viewMode value %q. Expected one of: %q, %q, %q.",
+			string(mode),
+			projectstate.BrowserAreaViewModeList,
+			projectstate.BrowserAreaViewModeThumbnail,
+			projectstate.BrowserAreaViewModeCarousel,
+		)
+	}
+}
+
+func validateBrowserSearchScopeRequestValue(scope projectstate.BrowserSearchScope) error {
+	switch scope {
+	case projectstate.BrowserSearchScopeRecursive, projectstate.BrowserSearchScopeLocal:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid searchScope value %q. Expected one of: %q, %q.",
+			string(scope),
+			projectstate.BrowserSearchScopeRecursive,
+			projectstate.BrowserSearchScopeLocal,
+		)
+	}
+}
+
+func decodeBrowserSavedSearchesRequest(r *http.Request) (SetBrowserSavedSearchesRequest, error) {
+	rawPayload, err := decodeJSONBody[setBrowserSavedSearchesRequestRaw](r)
+	if err != nil {
+		return SetBrowserSavedSearchesRequest{}, err
+	}
+
+	payload := SetBrowserSavedSearchesRequest{
+		FrontendOpID: rawPayload.FrontendOpID,
+		ProjectID:    rawPayload.ProjectID,
+		SectionID:    rawPayload.SectionID,
+	}
+	if len(rawPayload.SavedSearches) == 0 {
+		payload.SavedSearches = []projectstate.BrowserSavedSearch{}
+		return payload, nil
+	}
+
+	payload.SavedSearches = make([]projectstate.BrowserSavedSearch, len(rawPayload.SavedSearches))
+	for idx, rawSearch := range rawPayload.SavedSearches {
+		savedSearch := projectstate.BrowserSavedSearch{
+			ID:          rawSearch.ID,
+			Name:        rawSearch.Name,
+			Query:       rawSearch.Query,
+			TypeFilters: rawSearch.TypeFilters,
+			Color:       rawSearch.Color,
+			QuickInfo:   rawSearch.QuickInfo,
+		}
+		if rawSearch.SearchScope != nil {
+			var scope string
+			if err := json.Unmarshal(*rawSearch.SearchScope, &scope); err != nil {
+				return SetBrowserSavedSearchesRequest{}, err
+			}
+			savedSearch.SearchScope = projectstate.BrowserSearchScope(scope)
+			if err := validateBrowserSearchScopeRequestValue(savedSearch.SearchScope); err != nil {
+				return SetBrowserSavedSearchesRequest{}, &browserRequestValidationError{message: err.Error()}
+			}
+		}
+		payload.SavedSearches[idx] = savedSearch
+	}
+	return payload, nil
+}
+
 type SetSpreadsheetFilePathRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -5026,6 +5124,10 @@ func setBrowserAreaViewModeHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
+		if err := validateBrowserAreaViewModeRequestValue(payload.ViewMode); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+			return
+		}
 		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
 			return
 		}
@@ -5092,8 +5194,13 @@ func setBrowserHideColumnHandler(deps ProjectRouteDependencies) http.HandlerFunc
 
 func setBrowserSavedSearchesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[SetBrowserSavedSearchesRequest](r)
+		payload, err := decodeBrowserSavedSearchesRequest(r)
 		if err != nil {
+			var validationErr *browserRequestValidationError
+			if errors.As(err, &validationErr) {
+				writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", validationErr.Error())
+				return
+			}
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
