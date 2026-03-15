@@ -114,6 +114,45 @@ func TestListenerBroadcasterEmitRealtimeDeltasFiltersByDependencyAndShareSession
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerShared), "project-a", "session-b", 1, `"value-b1"`)
 }
 
+func TestListenerBroadcasterEmitRealtimeDeltasMatchesExpandedDependencies(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-parent", "")
+	defer listener.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-parent", "project-a", "", map[string]ListenerCallback{
+		"cb-parent": {
+			Dependencies:   []string{"section-parent"},
+			DependencyMode: ListenerDependencyModeAlways,
+		},
+	})
+
+	sequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+		Deltas: []ListenerRealtimeDelta{
+			{
+				Dependency: "section-child",
+				Value:      json.RawMessage(`"value-1"`),
+			},
+		},
+		MatchDependencies: []string{"section-parent"},
+	})
+	if err != nil {
+		t.Fatalf("emit expanded realtime delta: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected expanded realtime delivery (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	assertListenerRealtimeMessage(t, readEnvelope(t, listener), "project-a", "", 1, `"value-1"`)
+}
+
 func TestListenerBroadcasterEmitDependencyEventsFiltersByDependencyModeAndShareSession(t *testing.T) {
 	t.Parallel()
 

@@ -83,26 +83,18 @@ Use these as the audit source of truth:
 
 ### Verdict
 
-`Incomplete`
+`Complete`
 
-The old Python listener router/runtime stack and the targeted Go-native plugin
-parity blockers found earlier in this audit are no longer the reason the
-rewrite is incomplete. The remaining blocker is narrower: the retained Python
-listener SDK still carries listener-state/cache ownership that the rewrite docs
-explicitly do not treat as a retained boundary.
+Every active backend/runtime surface outside the explicit retained Python
+boundaries now resolves to Go-owned transport/runtime code. The last retained
+listener blocker is closed: Go now supplies authoritative listener-visible
+snapshot and dirty-realtime dependency values, and the retained Python
+listener SDK no longer owns dependent-value recomputation or generated-runtime
+fallback.
 
 ### Current blocker set
 
-- The retained Python listener client still owns metadata-backed listener cache
-  and dependent-value recomputation in:
-  - `backend/setta/api/listener.py`
-- That duplicate ownership is explicitly outside the accepted retained
-  boundary in `CURRENT.md` and
-  `setta-listener-protocol-redesign-plan.md`: Go must become authoritative for
-  listener-visible state instead of leaving cache rebuild/replay and dependent
-  recomputation logic in Python.
-- The rewrite is not complete until the active `SettaListener` path no longer
-  needs that Python-side listener-state layer for current supported workflows.
+- No active blocker remains under the current completion standard.
 
 ### Current proven Go-owned surface
 
@@ -118,8 +110,11 @@ explicitly do not treat as a retained boundary.
   - `internal/wsapi/*`
 - The old Python startup/server stack and broad Python router surface have been
   cut back substantially.
-- The old Python listener generated-runtime fallback is gone. Retained Python
-  listener code is expected to stay on the authoring/client side only.
+- The old Python listener generated-runtime fallback is gone, and the retained
+  Python listener code now stays on the authoring/client side only:
+  authoritative dependency catalogs plus snapshot/realtime `dependencyValues`
+  come from Go, and realtime delivery now expands to the affected dependency
+  closure on the Go side for composite listener subscriptions.
 - Go now owns the active caller-backed backend plugin surface for backend HTTP
   routes, static dirs, listener endpoints, MCP tools, codegen targets, and
   language-server registrations on the Go-native backend plugin runtime model.

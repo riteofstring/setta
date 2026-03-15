@@ -156,6 +156,99 @@ func TestListenerProducerEmitDependencyEventSendsBinaryFrame(t *testing.T) {
 	}
 }
 
+func TestListenerProducerEmitUIChangeIncludesRealtimeDependencyValues(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-a",
+		Projects: map[string]projectstate.Project{
+			"project-a": {
+				ID:   "project-a",
+				Name: "Project A",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	name := "note"
+	_, created, err := projectRuntime.CreateTopLevelSection(
+		context.Background(),
+		"project-a",
+		projectstate.CreateTopLevelSectionInput{
+			ImplType: "TextBlock",
+			Name:     &name,
+		},
+		projectstate.StructuralMutationSettings{},
+	)
+	if err != nil {
+		t.Fatalf("create top-level section: %v", err)
+	}
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	producer := NewListenerProducer(ListenerProducerOptions{
+		Broadcaster:  broadcaster,
+		ProjectState: projectRuntime,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-a", "")
+	defer listener.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-a", "project-a", "", map[string]ListenerCallback{
+		"cb-a": {
+			Dependencies:   []string{created.SectionID},
+			DependencyMode: ListenerDependencyModeAlways,
+		},
+	})
+
+	dependencyKey := json.RawMessage(
+		`{"type":"Section","sectionId":"` + created.SectionID + `"}`,
+	)
+	sequence, delivered, err := producer.EmitUIChange(context.Background(), EmitUIChangeParams{
+		ProjectID:     "project-a",
+		DependencyKey: dependencyKey,
+		Value:         json.RawMessage(`{"type":"Literal","payload":"Updated from producer"}`),
+	})
+	if err != nil {
+		t.Fatalf("emit ui change: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected realtime delivery (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	envelope := readEnvelope(t, listener)
+	if envelope.MessageType != MessageTypeListenerRealtimeEvent {
+		t.Fatalf("expected listener realtime event, got %q", envelope.MessageType)
+	}
+
+	var content ListenerRealtimeEventContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode listener realtime event content: %v", err)
+	}
+	if content.DependencyValues == nil {
+		t.Fatal("expected realtime dependency values")
+	}
+
+	byKey := map[string]string{}
+	for _, entry := range content.DependencyValues.Entries {
+		byKey[entry.DependencyKey] = entry.RenderedValue
+	}
+	if got := byKey[created.SectionID]; got != "'Updated from producer'" {
+		t.Fatalf("expected rendered dependency value %q, got %q", "'Updated from producer'", got)
+	}
+}
+
 func newListenerProducerDeploymentRuntime(t *testing.T) *deployments.Runtime {
 	t.Helper()
 

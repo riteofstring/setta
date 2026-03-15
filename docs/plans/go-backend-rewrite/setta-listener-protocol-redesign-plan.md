@@ -78,34 +78,31 @@ Current state:
     `ctx.values.by_id(...)`, and `ctx.changed_by_id`, including cached
     snapshot replay
   - Go listener bootstrap/force-refresh snapshots now also carry rendered
-    dependency values, and retained Python uses those values first for
-    metadata-backed cache rebuild and cached snapshot replay when the generated
-    runtime instance is unavailable
+    dependency values, and retained Python now uses those authoritative Go
+    values directly for metadata-backed cache rebuild and cached snapshot
+    replay instead of recomputing parent values from catalog edges
   - Go listener dependency catalogs now also carry the direct value-codec
     metadata the retained Python client needs for active realtime delta
     hydration, so no-runtime listener callbacks can apply metadata-expressible
     direct deltas without rebuilding the local Python dependency graph
-  - Go listener dependency catalogs now also carry canonical child dependency
-    edges and node names, and retained Python uses that metadata to recompute
-    dict/list-style composite cached values after no-runtime realtime child
-    deltas instead of mutating the local Python dependency graph
+  - Go listener realtime events now also carry authoritative dirty
+    `dependencyValues`, and retained Python uses those Go-authored values plus
+    direct delta hydration metadata instead of locally recomputing composite
+    cache state after child realtime deltas
   - when Go bootstrap/force-refresh snapshots include authoritative
     `dependencyValues`, retained Python now rebuilds no-runtime snapshot/replay
-    cache state from those values plus catalog edges instead of falling back to
-    local dependency-graph cache construction
+    cache state directly from those values instead of falling back to local
+    dependency-graph cache construction or parent-value recomputation
   - when a no-runtime snapshot/replay arrives without authoritative Go
     `dependencyValues`, the retained Python listener now stays fail-closed
     instead of rebuilding cache state from the local dependency graph
   - listener callbacks now always receive the metadata-backed state view,
     using authoritative cached dependency values only and failing closed when a
     required value is unresolved
-  - runtime-present realtime deltas now recompute cached metadata dependents
-    too, so the metadata-backed callback state does not serve stale composite
-    values after child updates
-  - realtime callbacks declared on metadata-recomputable composite listener
-    dependencies now fire after child realtime deltas in both the
-    runtime-present and metadata-only listener-state paths, instead of only
-    waking callbacks declared on the direct child dependency key
+  - Go-owned realtime delivery now expands matching to the affected dependency
+    closure for authoritative dirty values, so callbacks declared on composite
+    listener dependencies receive child-driven realtime updates without a
+    retained Python-side recompute/delivery layer
   - Go listener snapshot `dependencyValues` now carry literal password and
     meta-control-password values from the Go password secret store instead of
     Python helper-call expressions, so metadata-backed no-runtime listener
@@ -323,6 +320,10 @@ Current stop point:
 - Current repo listener tests/callers do not show a concrete callable-section
   listener-state dependency that justifies preserving any broader Python
   listener-state runtime.
+- Go now also supplies authoritative dirty realtime dependency values for the
+  affected dependency closure, so the retained Python listener no longer owns
+  dependent-value recomputation in either snapshot replay or live realtime
+  application.
 
 ### Step 4. Finish Active Endpoint Authority Without Recreating Dormant Surface
 

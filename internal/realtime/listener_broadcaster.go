@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 
@@ -28,9 +29,11 @@ type ListenerBroadcaster struct {
 }
 
 type EmitRealtimeDeltasParams struct {
-	ProjectID      string
-	ShareSessionID string
-	Deltas         []ListenerRealtimeDelta
+	ProjectID         string
+	ShareSessionID    string
+	Deltas            []ListenerRealtimeDelta
+	DependencyValues  *ListenerRenderedDependencyValues
+	MatchDependencies []string
 }
 
 type EmitDependencyEventsParams struct {
@@ -40,10 +43,12 @@ type EmitDependencyEventsParams struct {
 }
 
 type EmitRealtimeDeltasBinaryParams struct {
-	ProjectID      string
-	ShareSessionID string
-	Deltas         []ListenerRealtimeDelta
-	BinaryPayload  []byte
+	ProjectID         string
+	ShareSessionID    string
+	Deltas            []ListenerRealtimeDelta
+	DependencyValues  *ListenerRenderedDependencyValues
+	MatchDependencies []string
+	BinaryPayload     []byte
 }
 
 type EmitDependencyEventsBinaryParams struct {
@@ -95,12 +100,9 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltas(ctx context.Context, params Emi
 		return 0, 0, ErrEmptyRealtimeDeltas
 	}
 
-	dependencyKeys := make([]string, 0, len(params.Deltas))
-	for _, delta := range params.Deltas {
-		if strings.TrimSpace(delta.Dependency) == "" {
-			return 0, 0, ErrEmptyListenerDependency
-		}
-		dependencyKeys = append(dependencyKeys, strings.TrimSpace(delta.Dependency))
+	dependencyKeys, err := listenerRealtimeMatchDependencies(params.Deltas, params.MatchDependencies)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	scope := Scope{
@@ -124,10 +126,11 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltas(ctx context.Context, params Emi
 	delivered, err := b.sendMessageToTargets(
 		ctx,
 		NewListenerRealtimeEventMessage(ListenerRealtimeEventContent{
-			ProjectConfigID: params.ProjectID,
-			ShareSessionID:  params.ShareSessionID,
-			Deltas:          cloneListenerDeltas(params.Deltas),
-			Sequence:        sequence,
+			ProjectConfigID:  params.ProjectID,
+			ShareSessionID:   params.ShareSessionID,
+			Deltas:           cloneListenerDeltas(params.Deltas),
+			DependencyValues: cloneListenerRenderedDependencyValues(params.DependencyValues),
+			Sequence:         sequence,
 		}),
 		targetConnectionIDs,
 	)
@@ -142,12 +145,9 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltasBinary(ctx context.Context, para
 		return 0, 0, ErrEmptyRealtimeDeltas
 	}
 
-	dependencyKeys := make([]string, 0, len(params.Deltas))
-	for _, delta := range params.Deltas {
-		if strings.TrimSpace(delta.Dependency) == "" {
-			return 0, 0, ErrEmptyListenerDependency
-		}
-		dependencyKeys = append(dependencyKeys, strings.TrimSpace(delta.Dependency))
+	dependencyKeys, err := listenerRealtimeMatchDependencies(params.Deltas, params.MatchDependencies)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	scope := Scope{
@@ -171,10 +171,11 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltasBinary(ctx context.Context, para
 	delivered, err := b.sendBinaryMessageToTargets(
 		ctx,
 		NewListenerRealtimeEventMessage(ListenerRealtimeEventContent{
-			ProjectConfigID: params.ProjectID,
-			ShareSessionID:  params.ShareSessionID,
-			Deltas:          cloneListenerDeltas(params.Deltas),
-			Sequence:        sequence,
+			ProjectConfigID:  params.ProjectID,
+			ShareSessionID:   params.ShareSessionID,
+			Deltas:           cloneListenerDeltas(params.Deltas),
+			DependencyValues: cloneListenerRenderedDependencyValues(params.DependencyValues),
+			Sequence:         sequence,
 		}),
 		params.BinaryPayload,
 		targetConnectionIDs,
@@ -438,6 +439,33 @@ func cloneListenerRenderedDependencyValues(values *ListenerRenderedDependencyVal
 		clonedEntries = append(clonedEntries, entry)
 	}
 	return &ListenerRenderedDependencyValues{Entries: clonedEntries}
+}
+
+func listenerRealtimeMatchDependencies(
+	deltas []ListenerRealtimeDelta,
+	matchDependencies []string,
+) ([]string, error) {
+	dependencySet := map[string]struct{}{}
+	for _, dependencyKey := range matchDependencies {
+		dependencyKey = strings.TrimSpace(dependencyKey)
+		if dependencyKey == "" {
+			continue
+		}
+		dependencySet[dependencyKey] = struct{}{}
+	}
+	for _, delta := range deltas {
+		dependencyKey := strings.TrimSpace(delta.Dependency)
+		if dependencyKey == "" {
+			return nil, ErrEmptyListenerDependency
+		}
+		dependencySet[dependencyKey] = struct{}{}
+	}
+	dependencyKeys := make([]string, 0, len(dependencySet))
+	for dependencyKey := range dependencySet {
+		dependencyKeys = append(dependencyKeys, dependencyKey)
+	}
+	sort.Strings(dependencyKeys)
+	return dependencyKeys, nil
 }
 
 func cloneConnectionIDs(connectionIDs []string) []string {

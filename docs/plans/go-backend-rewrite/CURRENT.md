@@ -1,8 +1,8 @@
 # Rewrite Working Set
 
-Last verified: `2026-03-14`
+Last verified: `2026-03-15`
 
-Read this file first for active Go backend rewrite work.
+Read this file first when touching repo areas tracked under the Go backend rewrite.
 
 ## Rewrite Target
 
@@ -14,9 +14,9 @@ Read this file first for active Go backend rewrite work.
   unless a current repo workflow explicitly requires a bounded exception.
 - Progress is tracked in the two checklist docs, not by how much Python source
   has been deleted from this branch.
-- The rewrite is in late-stage cleanup. Once a Python surface is provably dead
-  or behaviorally replaced by Go, delete the Python code/tests instead of
-  keeping them around as rewrite history.
+- The backend rewrite now satisfies the completion audit. Remaining Python
+  files should be treated as either explicit retained boundaries or cleanup/
+  reference tail, not as active backend ownership.
 - Do not treat required plugin capabilities as deletable just because their
   Python implementation is going away. Full plugin support remains in scope;
   only the implementation language/runtime is changing.
@@ -37,15 +37,15 @@ These are intentional exceptions, not open-ended compatibility obligations:
   route at `/ws/listeners/{listenerID}`; legacy `/pythonScript/{id}` is no
   longer the active caller path
 - the retained Python listener boundary is the authoring/client surface only;
-  local dependency-graph rebuilding, Python codegen, and generated-runtime
-  fallback inside `setta.api.listener` are not retained end state
+  listener-visible backend state, snapshot values, and dirty realtime values
+  are Go-owned
 - external tool/provider runtimes and generic stdio MCP servers intentionally
   executed by Go; legacy Python subprocesses that only exist because backend
   or plugin ownership has not yet moved to Go are transitional, not retained
   boundaries
 
 Everything else should default to Go ownership. That includes dev startup or
-reload wrappers and any remaining listener-side dependency-graph rebuilding.
+reload wrappers.
 The Go-owned plugin authoring path should not scaffold new Python backend
 plugins; treat any remaining Python backend plugin runtime as rewrite debt
 rather than a retained authoring surface. That does not make backend plugin

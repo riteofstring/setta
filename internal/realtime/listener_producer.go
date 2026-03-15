@@ -95,19 +95,37 @@ func (p *ListenerProducer) EmitUIChange(ctx context.Context, params EmitUIChange
 		Value:         cloneRawMessage(params.Value),
 		BinaryPayload: cloneBytes(params.BinaryPayload),
 	}
+	project, err := p.projectForScope(projectID, params.ShareSessionID)
+	if err != nil {
+		return 0, 0, err
+	}
+	dependencyValues, err := BuildListenerRealtimeDependencyValues(project, []ListenerRealtimeDelta{delta})
+	if err != nil {
+		return 0, 0, err
+	}
 	if params.BinaryPayload != nil {
 		return p.broadcaster.EmitRealtimeDeltasBinary(ctx, EmitRealtimeDeltasBinaryParams{
-			ProjectID:      projectID,
-			ShareSessionID: strings.TrimSpace(params.ShareSessionID),
-			Deltas:         []ListenerRealtimeDelta{delta},
-			BinaryPayload:  cloneBytes(params.BinaryPayload),
+			ProjectID:        projectID,
+			ShareSessionID:   strings.TrimSpace(params.ShareSessionID),
+			Deltas:           []ListenerRealtimeDelta{delta},
+			DependencyValues: dependencyValues,
+			MatchDependencies: listenerRealtimeMatchDependenciesForValues(
+				[]ListenerRealtimeDelta{delta},
+				dependencyValues,
+			),
+			BinaryPayload: cloneBytes(params.BinaryPayload),
 		})
 	}
 
 	return p.broadcaster.EmitRealtimeDeltas(ctx, EmitRealtimeDeltasParams{
-		ProjectID:      projectID,
-		ShareSessionID: strings.TrimSpace(params.ShareSessionID),
-		Deltas:         []ListenerRealtimeDelta{delta},
+		ProjectID:        projectID,
+		ShareSessionID:   strings.TrimSpace(params.ShareSessionID),
+		Deltas:           []ListenerRealtimeDelta{delta},
+		DependencyValues: dependencyValues,
+		MatchDependencies: listenerRealtimeMatchDependenciesForValues(
+			[]ListenerRealtimeDelta{delta},
+			dependencyValues,
+		),
 	})
 }
 
@@ -183,6 +201,10 @@ func (p *ListenerProducer) EmitSectionBinaryDeltas(ctx context.Context, params E
 	if err != nil {
 		return err
 	}
+	project, err := p.projectForScope(projectID, params.ShareSessionID)
+	if err != nil {
+		return err
+	}
 
 	shareSessionID := strings.TrimSpace(params.ShareSessionID)
 	type groupedDeltas struct {
@@ -232,11 +254,20 @@ func (p *ListenerProducer) EmitSectionBinaryDeltas(ctx context.Context, params E
 
 	for _, contentID := range groupOrder {
 		group := groups[contentID]
+		dependencyValues, err := BuildListenerRealtimeDependencyValues(project, group.deltas)
+		if err != nil {
+			return err
+		}
 		if _, _, err := p.broadcaster.EmitRealtimeDeltasBinary(ctx, EmitRealtimeDeltasBinaryParams{
-			ProjectID:      projectID,
-			ShareSessionID: shareSessionID,
-			Deltas:         group.deltas,
-			BinaryPayload:  cloneBytes(group.payload),
+			ProjectID:        projectID,
+			ShareSessionID:   shareSessionID,
+			Deltas:           group.deltas,
+			DependencyValues: dependencyValues,
+			MatchDependencies: listenerRealtimeMatchDependenciesForValues(
+				group.deltas,
+				dependencyValues,
+			),
+			BinaryPayload: cloneBytes(group.payload),
 		}); err != nil {
 			return err
 		}
@@ -271,6 +302,21 @@ func (p *ListenerProducer) requireProjectScope(projectID string, shareSessionID 
 	return projectID, nil
 }
 
+func (p *ListenerProducer) projectForScope(projectID string, shareSessionID string) (projectstate.Project, error) {
+	if p.deployment != nil {
+		snapshot, err := p.deployment.SessionSnapshot(shareSessionID)
+		if err != nil {
+			return projectstate.Project{}, err
+		}
+		return snapshot.Document.ProjectByID(projectID)
+	}
+
+	if p.projectState == nil {
+		return projectstate.Project{}, fmt.Errorf("listener producer project runtime is required")
+	}
+	return p.projectState.Snapshot().Document.ProjectByID(projectID)
+}
+
 func marshalBinaryDependencyValue(ref binarypayload.ContentRef) (json.RawMessage, error) {
 	payload, err := json.Marshal(struct {
 		Type    string                   `json:"type"`
@@ -293,4 +339,32 @@ func cloneBytes(payload []byte) []byte {
 	cloned := make([]byte, len(payload))
 	copy(cloned, payload)
 	return cloned
+}
+
+func listenerRealtimeMatchDependenciesForValues(
+	deltas []ListenerRealtimeDelta,
+	dependencyValues *ListenerRenderedDependencyValues,
+) []string {
+	dependencySet := map[string]struct{}{}
+	for _, delta := range deltas {
+		dependency := strings.TrimSpace(delta.Dependency)
+		if dependency == "" {
+			continue
+		}
+		dependencySet[dependency] = struct{}{}
+	}
+	if dependencyValues != nil {
+		for _, entry := range dependencyValues.Entries {
+			dependency := strings.TrimSpace(entry.DependencyKey)
+			if dependency == "" {
+				continue
+			}
+			dependencySet[dependency] = struct{}{}
+		}
+	}
+	dependencies := make([]string, 0, len(dependencySet))
+	for dependency := range dependencySet {
+		dependencies = append(dependencies, dependency)
+	}
+	return dependencies
 }

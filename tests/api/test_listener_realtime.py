@@ -1330,7 +1330,7 @@ class TestSettaListenerBootstrapFailure:
             ("From Go snapshot", {"Welcome": "From Go snapshot"})
         ]
 
-    async def test_bootstrap_recomputes_composite_cache_from_go_snapshot_values(
+    async def test_bootstrap_uses_authoritative_composite_cache_from_go_snapshot_values(
         self,
     ) -> None:
         project_state, section_id, param_id = _build_nested_controls_project_state(
@@ -1370,7 +1370,11 @@ class TestSettaListenerBootstrapFailure:
                 ListenerRenderedDependencyValue(
                     dependencyKey=count_key,
                     renderedValue="5",
-                )
+                ),
+                ListenerRenderedDependencyValue(
+                    dependencyKey=section_key,
+                    renderedValue="{'count': 5}",
+                ),
             ]
         )
 
@@ -1542,7 +1546,7 @@ class TestSettaListenerBootstrapFailure:
         assert switch_events == [(True, True)]
         assert listener._get_last_realtime_sequence() == 1
 
-    async def test_realtime_recomputes_composite_cache_from_metadata_when_runtime_state_is_unavailable(
+    async def test_realtime_uses_authoritative_composite_values_when_runtime_state_is_unavailable(
         self,
     ) -> None:
         project_state, section_id, param_id = _build_nested_controls_project_state(
@@ -1587,6 +1591,18 @@ class TestSettaListenerBootstrapFailure:
         listener._refresh_callback_dependency_metadata(
             listener._runtime_state.dependency_metadata
         )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=count_key,
+                    renderedValue="5",
+                ),
+                ListenerRenderedDependencyValue(
+                    dependencyKey=section_key,
+                    renderedValue="{'count': 5}",
+                ),
+            ]
+        )
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
@@ -1597,6 +1613,7 @@ class TestSettaListenerBootstrapFailure:
                         value=LiteralDependencyValue("5"),
                     )
                 ],
+                dependencyValues=dependency_values,
                 sequence=1,
             )
         )
@@ -1611,7 +1628,7 @@ class TestSettaListenerBootstrapFailure:
         ]
         assert listener._get_last_realtime_sequence() == 1
 
-    async def test_realtime_triggers_composite_listener_when_runtime_state_is_unavailable(
+    async def test_realtime_triggers_composite_listener_from_authoritative_values_when_runtime_state_is_unavailable(
         self,
     ) -> None:
         project_state, section_id, param_id = _build_nested_controls_project_state(
@@ -1646,6 +1663,18 @@ class TestSettaListenerBootstrapFailure:
         listener._refresh_callback_dependency_metadata(
             listener._runtime_state.dependency_metadata
         )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=count_key,
+                    renderedValue="5",
+                ),
+                ListenerRenderedDependencyValue(
+                    dependencyKey=section_key,
+                    renderedValue="{'count': 5}",
+                ),
+            ]
+        )
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
@@ -1656,6 +1685,7 @@ class TestSettaListenerBootstrapFailure:
                         value=LiteralDependencyValue("5"),
                     )
                 ],
+                dependencyValues=dependency_values,
                 sequence=1,
             )
         )
@@ -1669,7 +1699,7 @@ class TestSettaListenerBootstrapFailure:
         ]
         assert listener._get_last_realtime_sequence() == 1
 
-    async def test_realtime_recomputes_cached_composites_when_runtime_state_exists(
+    async def test_realtime_uses_authoritative_composite_values_when_runtime_state_exists(
         self,
     ) -> None:
         project_state, section_id, param_id = _build_nested_controls_project_state(
@@ -1702,6 +1732,18 @@ class TestSettaListenerBootstrapFailure:
         listener._refresh_callback_dependency_metadata(
             listener._runtime_state.dependency_metadata
         )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=count_key,
+                    renderedValue="5",
+                ),
+                ListenerRenderedDependencyValue(
+                    dependencyKey=section_key,
+                    renderedValue="{'count': 5}",
+                ),
+            ]
+        )
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
@@ -1712,6 +1754,7 @@ class TestSettaListenerBootstrapFailure:
                         value=LiteralDependencyValue("5"),
                     )
                 ],
+                dependencyValues=dependency_values,
                 sequence=1,
             )
         )
@@ -1726,7 +1769,7 @@ class TestSettaListenerBootstrapFailure:
         ]
         assert listener._get_last_realtime_sequence() == 1
 
-    async def test_realtime_triggers_composite_listener_when_runtime_state_exists(
+    async def test_realtime_triggers_composite_listener_from_authoritative_values_when_runtime_state_exists(
         self,
     ) -> None:
         project_state, section_id, param_id = _build_nested_controls_project_state(
@@ -1758,6 +1801,18 @@ class TestSettaListenerBootstrapFailure:
         listener._refresh_callback_dependency_metadata(
             listener._runtime_state.dependency_metadata
         )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=count_key,
+                    renderedValue="5",
+                ),
+                ListenerRenderedDependencyValue(
+                    dependencyKey=section_key,
+                    renderedValue="{'count': 5}",
+                ),
+            ]
+        )
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
@@ -1768,6 +1823,7 @@ class TestSettaListenerBootstrapFailure:
                         value=LiteralDependencyValue("5"),
                     )
                 ],
+                dependencyValues=dependency_values,
                 sequence=1,
             )
         )

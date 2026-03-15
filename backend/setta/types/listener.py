@@ -44,6 +44,7 @@ class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: ID
     shareSessionId: str | None = None
     deltas: list["ListenerRealtimeDelta"]
+    dependencyValues: "ListenerRenderedDependencyValues | None" = None
     sequence: int
 
 

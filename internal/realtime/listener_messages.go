@@ -122,10 +122,11 @@ type ListenerDependencyEvent struct {
 }
 
 type ListenerRealtimeEventContent struct {
-	ProjectConfigID string                  `json:"projectConfigId"`
-	ShareSessionID  string                  `json:"shareSessionId,omitempty"`
-	Deltas          []ListenerRealtimeDelta `json:"deltas"`
-	Sequence        uint64                  `json:"sequence"`
+	ProjectConfigID  string                            `json:"projectConfigId"`
+	ShareSessionID   string                            `json:"shareSessionId,omitempty"`
+	Deltas           []ListenerRealtimeDelta           `json:"deltas"`
+	DependencyValues *ListenerRenderedDependencyValues `json:"dependencyValues,omitempty"`
+	Sequence         uint64                            `json:"sequence"`
 }
 
 type ListenerRealtimeEventMessage struct {

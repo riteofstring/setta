@@ -1464,7 +1464,7 @@ class SettaListener:
         previous_cache = dict(self._dependency_cache)
         (
             rendered_snapshot_values,
-            rendered_snapshot_value_keys,
+            _rendered_snapshot_value_keys,
         ) = self._build_dependency_cache_from_snapshot_values(
             dependency_values,
             runtime_state.dependency_metadata,
@@ -1477,12 +1477,6 @@ class SettaListener:
                     "leaving dependency cache on the fail-closed path"
                 ),
                 self._log_identifier,
-            )
-        else:
-            self._recompute_metadata_dependents(
-                runtime_state.dependency_metadata,
-                updated_cache,
-                set(rendered_snapshot_value_keys),
             )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
@@ -1898,17 +1892,33 @@ class SettaListener:
         if not dirty_dependency_keys:
             return
 
-        self._recompute_metadata_dependents(
-            runtime_state.dependency_metadata,
-            updated_cache,
-            dirty_dependency_keys,
-        )
-        changed_metadata_dependents = self._collect_changed_metadata_dependents(
-            runtime_state.dependency_metadata,
-            previous_cache,
-            updated_cache,
-            dirty_dependency_keys,
-        )
+        authoritative_dependency_keys: set[BaseDependencyKeyUnion] = set()
+        if content.dependencyValues is not None:
+            (
+                rendered_dependency_values,
+                _rendered_dependency_keys,
+            ) = self._build_dependency_cache_from_snapshot_values(
+                content.dependencyValues,
+                runtime_state.dependency_metadata,
+            )
+            for entry in content.dependencyValues.entries:
+                try:
+                    dependency = runtime_state.dependency_metadata.dependency_name(
+                        entry.dependencyKey
+                    )
+                except KeyError:
+                    logger.debug(
+                        "Listener %s ignoring realtime authoritative value for unknown dependency key %s",
+                        self._log_identifier,
+                        entry.dependencyKey,
+                    )
+                    continue
+                authoritative_dependency_keys.add(entry.dependencyKey)
+                if dependency in rendered_dependency_values:
+                    updated_cache[dependency] = rendered_dependency_values[dependency]
+                    continue
+                updated_cache.pop(dependency, None)
+            dirty_dependency_keys.update(authoritative_dependency_keys)
         self._dependency_cache = updated_cache
 
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
@@ -1927,8 +1937,6 @@ class SettaListener:
                     if dependency in updated_cache:
                         changed[dependency] = updated_cache[dependency]
                     continue
-                if dep_key in changed_metadata_dependents:
-                    changed[dependency] = changed_metadata_dependents[dep_key]
 
             if changed:
                 callbacks_to_run.append((spec, changed))
@@ -2319,137 +2327,6 @@ class SettaListener:
             expression=expression,
         )
 
-    def _build_metadata_cached_dependency_value(
-        self,
-        dependency_metadata: ListenerDependencyMetadata,
-        dep_key: BaseDependencyKeyUnion,
-        cache_by_name: dict[str, Any],
-        values_by_key: dict[BaseDependencyKeyUnion, Any],
-        visiting: set[BaseDependencyKeyUnion],
-    ) -> Any:
-        if dep_key in values_by_key:
-            return values_by_key[dep_key]
-        if dep_key in visiting:
-            return _UNAVAILABLE
-        entry = dependency_metadata.entry_for_key(dep_key)
-        if not entry.dependencies:
-            if entry.fullPathName not in cache_by_name:
-                return _UNAVAILABLE
-            values_by_key[dep_key] = cache_by_name[entry.fullPathName]
-            return values_by_key[dep_key]
-
-        visiting.add(dep_key)
-        try:
-            if entry.codeObjType is CodeObjType.NestedParam or entry.sectionType in {
-                SectionType.Dict,
-                SectionType.Group,
-            }:
-                payload: dict[str, Any] = {}
-                for child_dep_key in entry.dependencies:
-                    child_entry = dependency_metadata.entry_for_key(child_dep_key)
-                    child_value = self._build_metadata_cached_dependency_value(
-                        dependency_metadata,
-                        child_dep_key,
-                        cache_by_name,
-                        values_by_key,
-                        visiting,
-                    )
-                    if child_value is _UNAVAILABLE:
-                        return _UNAVAILABLE
-                    payload[child_entry.name] = child_value
-                values_by_key[dep_key] = payload
-                return payload
-            if entry.sectionType is SectionType.ListRoot:
-                items: list[Any] = []
-                for child_dep_key in entry.dependencies:
-                    child_value = self._build_metadata_cached_dependency_value(
-                        dependency_metadata,
-                        child_dep_key,
-                        cache_by_name,
-                        values_by_key,
-                        visiting,
-                    )
-                    if child_value is _UNAVAILABLE:
-                        return _UNAVAILABLE
-                    items.append(child_value)
-                values_by_key[dep_key] = items
-                return items
-            return _UNAVAILABLE
-        finally:
-            visiting.discard(dep_key)
-
-    def _recompute_metadata_dependents(
-        self,
-        dependency_metadata: ListenerDependencyMetadata,
-        cache_by_name: dict[str, Any],
-        dirty_dependency_keys: set[BaseDependencyKeyUnion],
-    ) -> None:
-        if not dirty_dependency_keys:
-            return
-        queue = list(dirty_dependency_keys)
-        queued = set(dirty_dependency_keys)
-        while queue:
-            child_dep_key = queue.pop(0)
-            for parent_dep_key in dependency_metadata.dependents(child_dep_key):
-                parent_entry = dependency_metadata.entry_for_key(parent_dep_key)
-                previous_value = cache_by_name.get(parent_entry.fullPathName, _MISSING)
-                next_value = self._build_metadata_cached_dependency_value(
-                    dependency_metadata,
-                    parent_dep_key,
-                    cache_by_name,
-                    values_by_key={},
-                    visiting=set(),
-                )
-                if next_value is _UNAVAILABLE:
-                    cache_by_name.pop(parent_entry.fullPathName, None)
-                else:
-                    cache_by_name[parent_entry.fullPathName] = next_value
-                current_value = cache_by_name.get(parent_entry.fullPathName, _MISSING)
-                if previous_value == current_value:
-                    continue
-                if parent_dep_key in queued:
-                    continue
-                queue.append(parent_dep_key)
-                queued.add(parent_dep_key)
-
-    def _collect_changed_metadata_dependents(
-        self,
-        dependency_metadata: ListenerDependencyMetadata,
-        previous_cache: dict[str, Any],
-        cache_by_name: dict[str, Any],
-        dirty_dependency_keys: set[BaseDependencyKeyUnion],
-    ) -> dict[BaseDependencyKeyUnion, Any]:
-        if not dirty_dependency_keys:
-            return {}
-
-        changed: dict[BaseDependencyKeyUnion, Any] = {}
-        queue: list[BaseDependencyKeyUnion] = []
-        queued: set[BaseDependencyKeyUnion] = set()
-        for child_dep_key in dirty_dependency_keys:
-            for parent_dep_key in dependency_metadata.dependents(child_dep_key):
-                if parent_dep_key in queued:
-                    continue
-                queue.append(parent_dep_key)
-                queued.add(parent_dep_key)
-
-        while queue:
-            parent_dep_key = queue.pop(0)
-            parent_entry = dependency_metadata.entry_for_key(parent_dep_key)
-            current_value = cache_by_name.get(parent_entry.fullPathName, _MISSING)
-            if current_value is _MISSING:
-                continue
-            previous_value = previous_cache.get(parent_entry.fullPathName, _MISSING)
-            if previous_value == current_value:
-                continue
-            changed[parent_dep_key] = current_value
-            for next_parent_dep_key in dependency_metadata.dependents(parent_dep_key):
-                if next_parent_dep_key in queued:
-                    continue
-                queue.append(next_parent_dep_key)
-                queued.add(next_parent_dep_key)
-
-        return changed
-
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(
             changed: dict[str, Any], events: list[DependencyEvent]
@@ -2615,7 +2492,7 @@ class SettaListener:
 
         (
             rendered_snapshot_values,
-            rendered_snapshot_value_keys,
+            _rendered_snapshot_value_keys,
         ) = self._build_dependency_cache_from_snapshot_values(
             self._latest_dependency_snapshot_values,
             runtime_state.dependency_metadata,
@@ -2628,12 +2505,6 @@ class SettaListener:
                     "snapshot values; leaving dependency cache on the fail-closed path"
                 ),
                 self._log_identifier,
-            )
-        else:
-            self._recompute_metadata_dependents(
-                runtime_state.dependency_metadata,
-                updated_cache,
-                set(rendered_snapshot_value_keys),
             )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
