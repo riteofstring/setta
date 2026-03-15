@@ -2,6 +2,8 @@ package mcpx
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -807,6 +809,150 @@ func TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin(t *testing
 	errorPayload := mustStructuredMap(t, payload["error"])
 	if errorPayload["code"] != string(uisettings.ErrorCodePluginUnavailable) {
 		t.Fatalf("expected plugin_unavailable for disabled plugin setting, got %#v", errorPayload["code"])
+	}
+}
+
+func TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingDistinct(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	schemaPath := filepath.Join(
+		roots.workspaceRoot,
+		".setta_plugins",
+		"setta-fixture-full",
+		"content",
+		"config",
+		"schema.json",
+	)
+	schemaPayload, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatalf("read plugin schema: %v", err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(schemaPayload, &schema); err != nil {
+		t.Fatalf("decode plugin schema: %v", err)
+	}
+	rawEntries, ok := schema["x-setta-ui-settings"].([]any)
+	if !ok || len(rawEntries) == 0 {
+		t.Fatalf("expected x-setta-ui-settings entries, got %#v", schema["x-setta-ui-settings"])
+	}
+	firstEntry, ok := rawEntries[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first ui setting entry to be an object, got %#v", rawEntries[0])
+	}
+	duplicateEntry := make(map[string]any, len(firstEntry))
+	for key, value := range firstEntry {
+		duplicateEntry[key] = value
+	}
+	schema["x-setta-ui-settings"] = append(rawEntries, duplicateEntry)
+	encodedSchema, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin schema: %v", err)
+	}
+	encodedSchema = append(encodedSchema, '\n')
+	if err := os.WriteFile(schemaPath, encodedSchema, 0o644); err != nil {
+		t.Fatalf("write plugin schema: %v", err)
+	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan plugin runtime after duplicate setting injection: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "full fixture enabled",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call duplicate-setting search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected duplicate-setting search_ui_settings success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	searchResultIDs := make([]string, 0, len(searchResults))
+	for _, rawResult := range searchResults {
+		searchResultIDs = append(searchResultIDs, mustStructuredMap(t, rawResult)["settingId"].(string))
+	}
+	for _, settingID := range searchResultIDs {
+		if settingID == "plugin::setta-fixture-full::enabled" {
+			t.Fatalf("expected duplicated setting id to be omitted from search results, got %#v", searchResultIDs)
+		}
+	}
+	foundLabel := false
+	for _, settingID := range searchResultIDs {
+		if settingID == "plugin::setta-fixture-full::label" {
+			foundLabel = true
+			break
+		}
+	}
+	if !foundLabel {
+		t.Fatalf("expected healthy plugin setting to remain searchable, got %#v", searchResultIDs)
+	}
+
+	knownInvalidResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call duplicated plugin setting get_ui_setting_value: %v", err)
+	}
+	if knownInvalidResult.IsError {
+		t.Fatalf("expected structured duplicated-setting response, got %#v", knownInvalidResult.StructuredContent)
+	}
+	knownInvalidPayload := mustStructuredMap(t, knownInvalidResult.StructuredContent)
+	knownInvalidError := mustStructuredMap(t, knownInvalidPayload["error"])
+	if knownInvalidError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for duplicated plugin setting, got %#v", knownInvalidError["code"])
+	}
+
+	unknownResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::unknown_setting",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call unknown plugin setting get_ui_setting_value: %v", err)
+	}
+	if unknownResult.IsError {
+		t.Fatalf("expected structured unknown-setting response, got %#v", unknownResult.StructuredContent)
+	}
+	unknownPayload := mustStructuredMap(t, unknownResult.StructuredContent)
+	unknownError := mustStructuredMap(t, unknownPayload["error"])
+	if unknownError["code"] != string(uisettings.ErrorCodeSettingNotFound) {
+		t.Fatalf("expected setting_not_found for unknown plugin setting, got %#v", unknownError["code"])
 	}
 }
 

@@ -176,6 +176,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var rescanPluginsTool *sdkmcp.Tool
 	var updatePluginTool *sdkmcp.Tool
 	var rollbackPluginTool *sdkmcp.Tool
+	var getAppCatalogTool *sdkmcp.Tool
+	var listAppComponentsTool *sdkmcp.Tool
 	var getAppDefinitionTool *sdkmcp.Tool
 	var validateAppDefinitionTool *sdkmcp.Tool
 	var setAppDefinitionTool *sdkmcp.Tool
@@ -295,6 +297,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "rollback_plugin" {
 			rollbackPluginTool = tool
+		}
+		if tool.Name == "get_app_catalog" {
+			getAppCatalogTool = tool
+		}
+		if tool.Name == "list_app_components" {
+			listAppComponentsTool = tool
 		}
 		if tool.Name == "get_app_definition" {
 			getAppDefinitionTool = tool
@@ -576,6 +584,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if rollbackPluginTool == nil {
 		t.Fatal("expected rollback_plugin tool")
+	}
+	if getAppCatalogTool == nil {
+		t.Fatal("expected get_app_catalog tool")
+	}
+	if listAppComponentsTool == nil {
+		t.Fatal("expected list_app_components tool")
 	}
 	if getAppDefinitionTool == nil {
 		t.Fatal("expected get_app_definition tool")
@@ -945,6 +959,20 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if paths, ok := rollbackPluginMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected rollback_plugin to have no id target paths, got %#v", paths)
+	}
+	getAppCatalogMeta := mustStructuredMap(t, getAppCatalogTool.Meta[toolMetaNamespace])
+	if getAppCatalogMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for get_app_catalog, got %#v", getAppCatalogMeta["accessType"])
+	}
+	if paths, ok := getAppCatalogMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected get_app_catalog to have no id target paths, got %#v", paths)
+	}
+	listAppComponentsMeta := mustStructuredMap(t, listAppComponentsTool.Meta[toolMetaNamespace])
+	if listAppComponentsMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for list_app_components, got %#v", listAppComponentsMeta["accessType"])
+	}
+	if paths, ok := listAppComponentsMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected list_app_components to have no id target paths, got %#v", paths)
 	}
 	getAppDefinitionMeta := mustStructuredMap(t, getAppDefinitionTool.Meta[toolMetaNamespace])
 	if getAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
