@@ -118,8 +118,8 @@ func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedSSE(t *tes
 	if uninstallPayload["pluginId"] != "setta-fixture-backend" {
 		t.Fatalf("expected setta-fixture-backend plugin id, got %#v", uninstallPayload["pluginId"])
 	}
-	if uninstallPayload["restartRequired"] != true {
-		t.Fatalf("expected restartRequired=true for backend uninstall, got %#v", uninstallPayload["restartRequired"])
+	if uninstallPayload["restartRequired"] != false {
+		t.Fatalf("expected restartRequired=false after IDE auto-refresh backend uninstall, got %#v", uninstallPayload["restartRequired"])
 	}
 
 	installResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -139,8 +139,8 @@ func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedSSE(t *tes
 	if installPayload["pluginId"] != "setta-fixture-backend" {
 		t.Fatalf("expected setta-fixture-backend plugin id, got %#v", installPayload["pluginId"])
 	}
-	if installPayload["restartRequired"] != true {
-		t.Fatalf("expected restartRequired=true for backend install, got %#v", installPayload["restartRequired"])
+	if installPayload["restartRequired"] != false {
+		t.Fatalf("expected restartRequired=false after IDE auto-refresh backend install, got %#v", installPayload["restartRequired"])
 	}
 }
 
@@ -234,8 +234,8 @@ func TestAppIDEMCPToolCallRouteSupportsPluginManagementTools(t *testing.T) {
 	if uninstallPayload.IsError {
 		t.Fatalf("expected uninstall_plugin success, got %#v", uninstallPayload.StructuredContent)
 	}
-	if mustStructuredMapValue(t, uninstallPayload.StructuredContent)["restartRequired"] != true {
-		t.Fatalf("expected backend uninstall restartRequired=true, got %#v", uninstallPayload.StructuredContent)
+	if mustStructuredMapValue(t, uninstallPayload.StructuredContent)["restartRequired"] != false {
+		t.Fatalf("expected backend uninstall restartRequired=false after IDE auto-refresh, got %#v", uninstallPayload.StructuredContent)
 	}
 
 	installResponse, err := client.Post(

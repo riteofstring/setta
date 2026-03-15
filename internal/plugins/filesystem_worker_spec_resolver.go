@@ -48,6 +48,7 @@ var (
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":      {},
+		"registerLanguageServer":   {},
 		"registerListenerEndpoint": {},
 		"registerStaticDir":        {},
 	}

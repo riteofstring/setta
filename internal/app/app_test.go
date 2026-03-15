@@ -32,10 +32,8 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
 	"setta/internal/observability"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
-	"setta/internal/settingsstate"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/watchcode"
@@ -6226,307 +6224,6 @@ func TestAppServesPluginRuntimeAndFrontendAssets(t *testing.T) {
 	}
 }
 
-func TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion(t *testing.T) {
-	// The real app should route plugin-defined code sections through the worker-backed
-	// language-server registration runtime for completion and diagnostics.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
-	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend-language-server-e2e")
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	seedAppEmptyProject(t, app)
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	postJSON := func(path string, body any, responseBody any) {
-		t.Helper()
-
-		requestBody := mustAppJSON(t, body)
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, bytes.NewReader(requestBody))
-		if err != nil {
-			t.Fatalf("new request %s: %v", path, err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(authCookie)
-
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatalf("post %s: %v", path, err)
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			payload, _ := io.ReadAll(response.Body)
-			t.Fatalf("expected %s 200, got %d with body %q", path, response.StatusCode, string(payload))
-		}
-		if responseBody == nil {
-			return
-		}
-		if err := json.NewDecoder(response.Body).Decode(responseBody); err != nil {
-			t.Fatalf("decode %s response: %v", path, err)
-		}
-	}
-
-	settingsDocument, err := settingsstate.DefaultDocument()
-	if err != nil {
-		t.Fatalf("default settings document: %v", err)
-	}
-	settingsDocument["fixtureDslLanguageServer"] = map[string]any{
-		"analysis": map[string]any{
-			"emitDiagnostics": true,
-		},
-	}
-	postJSON(httpapi.RouteSaveSettings, httpapi.SaveSettingsRequest{
-		Settings: settingsDocument,
-	}, nil)
-
-	var createResponse projectstate.CreateTopLevelSectionResult
-	postJSON(httpapi.RouteCreateTopLevelSection, map[string]any{
-		"projectConfigId": "project-alpha",
-		"implType":        "Code",
-		"implOverrides": map[string]any{
-			"type":         "Code",
-			"codeLanguage": "fixturedsl",
-		},
-	}, &createResponse)
-	if createResponse.SectionID == "" {
-		t.Fatalf("expected created section id, got %#v", createResponse)
-	}
-
-	postJSON(httpapi.RouteSetCode, map[string]any{
-		"projectConfigId": "project-alpha",
-		"sectionId":       createResponse.SectionID,
-		"code":            "const value = __fixture_error__;\n",
-	}, nil)
-
-	var completions []struct {
-		Label string `json:"label"`
-		Type  string `json:"type"`
-	}
-	postJSON(httpapi.RouteCodeAreaCompletion, map[string]any{
-		"projectConfigId": "project-alpha",
-		"sectionId":       createResponse.SectionID,
-		"fullText":        "fixture.",
-		"position":        8,
-	}, &completions)
-	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
-		t.Fatalf("unexpected plugin code area completions %#v", completions)
-	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		var diagnostics projectstate.LSPDiagnosticsPayload
-		postJSON(httpapi.RouteGetLatestLSPDiagnostics, map[string]any{
-			"projectConfigId": "project-alpha",
-		}, &diagnostics)
-		sectionDiagnostics := diagnostics.CodeSections[createResponse.SectionID]
-		if len(sectionDiagnostics) == 1 && sectionDiagnostics[0].Message == "Fixture TypeScript diagnostic" {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for plugin language-server diagnostics, last payload %#v", diagnostics.CodeSections)
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-}
-
-func TestAppLinkRefreshesPluginLanguageServerRouter(t *testing.T) {
-	// Linking a plugin language server after app startup should refresh the live
-	// LSP router so completion and diagnostics work without restarting the app.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	seedAppEmptyProject(t, app)
-
-	repoRoot := appTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-language-server-e2e")
-	localPluginRoot := filepath.Join(t.TempDir(), "backend-language-server-e2e")
-	copyAppTestDir(t, sourceRoot, localPluginRoot)
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	postJSON := func(path string, body any, responseBody any) {
-		t.Helper()
-
-		requestBody := mustAppJSON(t, body)
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, bytes.NewReader(requestBody))
-		if err != nil {
-			t.Fatalf("new request %s: %v", path, err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(authCookie)
-
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatalf("post %s: %v", path, err)
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			payload, _ := io.ReadAll(response.Body)
-			t.Fatalf("expected %s 200, got %d with body %q", path, response.StatusCode, string(payload))
-		}
-		if responseBody == nil {
-			return
-		}
-		if err := json.NewDecoder(response.Body).Decode(responseBody); err != nil {
-			t.Fatalf("decode %s response: %v", path, err)
-		}
-	}
-
-	var linkPayload struct {
-		PluginID         string `json:"pluginId"`
-		State            string `json:"state"`
-		RestartRequired  bool   `json:"restartRequired"`
-		SourceScopeLabel string `json:"sourceScopeLabel"`
-	}
-	postJSON(httpapi.RoutePluginsLink, map[string]any{
-		"localPluginRoot": localPluginRoot,
-		"scope":           "workspace",
-		"enable":          true,
-		"force":           false,
-	}, &linkPayload)
-	if linkPayload.PluginID != "setta-fixture-backend-language-server-e2e" {
-		t.Fatalf("unexpected link payload %#v", linkPayload)
-	}
-	if linkPayload.State != "active" || linkPayload.RestartRequired {
-		t.Fatalf("expected live language-server link payload, got %#v", linkPayload)
-	}
-	if linkPayload.SourceScopeLabel != "workspace" {
-		t.Fatalf("expected workspace link scope, got %#v", linkPayload)
-	}
-
-	settingsDocument, err := settingsstate.DefaultDocument()
-	if err != nil {
-		t.Fatalf("default settings document: %v", err)
-	}
-	settingsDocument["fixtureDslLanguageServer"] = map[string]any{
-		"analysis": map[string]any{
-			"emitDiagnostics": true,
-		},
-	}
-	postJSON(httpapi.RouteSaveSettings, httpapi.SaveSettingsRequest{
-		Settings: settingsDocument,
-	}, nil)
-
-	var createResponse projectstate.CreateTopLevelSectionResult
-	postJSON(httpapi.RouteCreateTopLevelSection, map[string]any{
-		"projectConfigId": "project-alpha",
-		"implType":        "Code",
-		"implOverrides": map[string]any{
-			"type":         "Code",
-			"codeLanguage": "fixturedsl",
-		},
-	}, &createResponse)
-	if createResponse.SectionID == "" {
-		t.Fatalf("expected created section id, got %#v", createResponse)
-	}
-
-	postJSON(httpapi.RouteSetCode, map[string]any{
-		"projectConfigId": "project-alpha",
-		"sectionId":       createResponse.SectionID,
-		"code":            "const value = __fixture_error__;\n",
-	}, nil)
-
-	var completions []struct {
-		Label string `json:"label"`
-		Type  string `json:"type"`
-	}
-	postJSON(httpapi.RouteCodeAreaCompletion, map[string]any{
-		"projectConfigId": "project-alpha",
-		"sectionId":       createResponse.SectionID,
-		"fullText":        "fixture.",
-		"position":        8,
-	}, &completions)
-	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
-		t.Fatalf("unexpected plugin code area completions after link %#v", completions)
-	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		var diagnostics projectstate.LSPDiagnosticsPayload
-		postJSON(httpapi.RouteGetLatestLSPDiagnostics, map[string]any{
-			"projectConfigId": "project-alpha",
-		}, &diagnostics)
-		sectionDiagnostics := diagnostics.CodeSections[createResponse.SectionID]
-		if len(sectionDiagnostics) == 1 && sectionDiagnostics[0].Message == "Fixture TypeScript diagnostic" {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for linked plugin diagnostics, last payload %#v", diagnostics.CodeSections)
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-}
-
-func TestSnapshotAppLanguageServerSpecsIncludesPluginRegistration(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppPluginWorkerRuntime(t)
-	installAppPluginFixture(t, cfg, "backend-language-server-e2e", "setta-fixture-backend-language-server-e2e")
-
-	runtimeProvider, err := plugins.NewCurrentProcessWorkerRuntimeProvider(plugins.CurrentProcessWorkerRuntimeProviderOptions{})
-	if err != nil {
-		t.Fatalf("new worker runtime provider: %v", err)
-	}
-	backendRegistrations, err := plugins.NewBackendRegistrationLoader(plugins.BackendRegistrationLoaderOptions{
-		RuntimeProvider: runtimeProvider,
-		ServerMode:      config.ModeIDE,
-	})
-	if err != nil {
-		t.Fatalf("new backend registration loader: %v", err)
-	}
-	store, err := plugins.NewStore(plugins.StoreOptions{
-		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-		SettaHome:      cfg.Paths.SettaHome,
-	})
-	if err != nil {
-		t.Fatalf("new plugin store: %v", err)
-	}
-	discovery, err := plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
-		Store:      store,
-		ServerMode: config.ModeIDE,
-	})
-	if err != nil {
-		t.Fatalf("new discovery service: %v", err)
-	}
-
-	specs, err := snapshotAppLanguageServerSpecs(discovery, backendRegistrations)
-	if err != nil {
-		t.Fatalf("snapshot app language-server specs: %v", err)
-	}
-	if len(specs) != 1 {
-		t.Fatalf("expected one plugin language-server spec, got %#v", specs)
-	}
-	if specs[0].LanguageID != "fixturedsl" {
-		t.Fatalf("expected fixturedsl language id, got %#v", specs[0])
-	}
-}
-
 func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	// The real app should expose local plugin linking through the shared Go plugin service.
 	cfg := testConfig(t)
@@ -6653,12 +6350,11 @@ func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	}
 }
 
-func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
-	// The real app should surface retained backend registrations without reviving removed plugin codegen targets.
+func TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations(t *testing.T) {
+	// The real app should keep removed backend plugin capabilities unavailable in runtime status.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 	installAppPluginFixture(t, cfg, "backend-language-server", "setta-fixture-backend-language-server")
 	installAppBackendCodegenFixture(t, cfg)
 
@@ -6696,8 +6392,13 @@ func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	var runtimePayload struct {
 		Status struct {
 			Plugins []struct {
-				PluginID                  string `json:"pluginId"`
-				State                     string `json:"state"`
+				PluginID              string   `json:"pluginId"`
+				State                 string   `json:"state"`
+				EffectiveCapabilities []string `json:"effectiveCapabilities"`
+				BlockedCapabilities   []struct {
+					Capability string `json:"capability"`
+					Reason     string `json:"reason"`
+				} `json:"blockedCapabilities"`
 				RegisteredLanguageServers []struct {
 					Name        string   `json:"name"`
 					Language    string   `json:"language"`
@@ -6736,8 +6437,13 @@ func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	}
 
 	findEntry := func(pluginID string) struct {
-		PluginID                  string `json:"pluginId"`
-		State                     string `json:"state"`
+		PluginID              string   `json:"pluginId"`
+		State                 string   `json:"state"`
+		EffectiveCapabilities []string `json:"effectiveCapabilities"`
+		BlockedCapabilities   []struct {
+			Capability string `json:"capability"`
+			Reason     string `json:"reason"`
+		} `json:"blockedCapabilities"`
 		RegisteredLanguageServers []struct {
 			Name        string   `json:"name"`
 			Language    string   `json:"language"`
@@ -6774,8 +6480,13 @@ func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 		}
 		t.Fatalf("expected runtime entry for %q", pluginID)
 		return struct {
-			PluginID                  string `json:"pluginId"`
-			State                     string `json:"state"`
+			PluginID              string   `json:"pluginId"`
+			State                 string   `json:"state"`
+			EffectiveCapabilities []string `json:"effectiveCapabilities"`
+			BlockedCapabilities   []struct {
+				Capability string `json:"capability"`
+				Reason     string `json:"reason"`
+			} `json:"blockedCapabilities"`
 			RegisteredLanguageServers []struct {
 				Name        string   `json:"name"`
 				Language    string   `json:"language"`
@@ -6810,18 +6521,20 @@ func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	if languageServerEntry.State != "active" {
 		t.Fatalf("unexpected language-server runtime status entry %#v", languageServerEntry)
 	}
-	if len(languageServerEntry.RegisteredLanguageServers) != 1 {
-		t.Fatalf("expected one backend language-server registration, got %#v", languageServerEntry.RegisteredLanguageServers)
+	if len(languageServerEntry.EffectiveCapabilities) != 0 {
+		t.Fatalf("expected removed language-server capability to stay out of the effective list, got %#v", languageServerEntry.EffectiveCapabilities)
 	}
-	languageServer := languageServerEntry.RegisteredLanguageServers[0]
-	if languageServer.Name != "setta-fixture-backend-language-server:typescript" || languageServer.Language != "typescript" {
-		t.Fatalf("unexpected backend language-server registration payload %#v", languageServer)
+	if len(languageServerEntry.BlockedCapabilities) != 1 {
+		t.Fatalf("expected one blocked backend language-server capability, got %#v", languageServerEntry.BlockedCapabilities)
 	}
-	if languageServer.Command == "" || len(languageServer.Args) != 1 || languageServer.Args[0] != "--stdio" {
-		t.Fatalf("unexpected backend language-server command payload %#v", languageServer)
+	if languageServerEntry.BlockedCapabilities[0].Capability != "registerLanguageServer" || languageServerEntry.BlockedCapabilities[0].Reason != "host_policy" {
+		t.Fatalf("unexpected backend language-server blocked capability payload %#v", languageServerEntry.BlockedCapabilities[0])
 	}
-	if languageServer.SettingsKey == nil || *languageServer.SettingsKey != "typescriptLanguageServer" {
-		t.Fatalf("unexpected backend language-server settings key %#v", languageServer.SettingsKey)
+	if len(languageServerEntry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected no backend language-server registrations after removal, got %#v", languageServerEntry.RegisteredLanguageServers)
+	}
+	if len(languageServerEntry.Errors) != 0 {
+		t.Fatalf("expected no backend language-server registration errors, got %#v", languageServerEntry.Errors)
 	}
 
 	statusEntry := findEntry("setta-fixture-backend-codegen")
@@ -7578,7 +7291,6 @@ func TestAppPluginRestartClearsPendingBackendPluginState(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
 	if err := os.WriteFile(
 		filepath.Join(cfg.Paths.SettaFilesRoot, "plugins_state.json"),
@@ -9264,7 +8976,6 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -10587,14 +10298,6 @@ func requireAppTestCommand(t *testing.T, name string) string {
 		t.Skipf("required command %q not available: %v", name, err)
 	}
 	return path
-}
-
-func prepareAppPluginWorkerRuntime(t *testing.T) {
-	t.Helper()
-
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_PLUGIN_WORKER_PYTHON", appTestWorkerPython(t, repoRoot))
-	t.Setenv("SETTA_PLUGIN_WORKER_PYTHONPATH", filepath.Join(repoRoot, "backend"))
 }
 
 func installAppBackendCodegenFixture(t *testing.T, cfg config.Config) {

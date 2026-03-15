@@ -2,16 +2,14 @@ package app
 
 import (
 	"context"
+	"strings"
 	"sync"
 
-	"setta/internal/lsp"
 	"setta/internal/plugins"
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service     *plugins.Service
-	lspRouter   *lsp.Router
-	backendRegs plugins.BackendRegistrationSource
+	service *plugins.Service
 
 	mu sync.Mutex
 }
@@ -57,7 +55,7 @@ func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plug
 		result.State = entry.State
 		result.Version = entry.Version
 		result.SourcePath = entry.SourcePath
-		result.SourceDigestSHA256 = cloneOptionalString(entry.SourceDigestSHA256)
+		result.SourceDigestSHA256 = cloneOptionalDigest(entry.SourceDigestSHA256)
 	}
 	result.RestartRequired = false
 	return result, nil
@@ -76,7 +74,7 @@ func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugin
 		result.State = entry.State
 		result.Version = entry.Version
 		result.SourcePath = entry.SourcePath
-		result.SourceDigestSHA256 = cloneOptionalString(entry.SourceDigestSHA256)
+		result.SourceDigestSHA256 = cloneOptionalDigest(entry.SourceDigestSHA256)
 	}
 	result.RestartRequired = false
 	return result, nil
@@ -184,19 +182,8 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
-	if err != nil {
+	if _, err := r.service.PreviewBackendRuntimeRefresh(); err != nil {
 		return plugins.DiscoverySnapshot{}, err
-	}
-
-	if r.lspRouter != nil && r.backendRegs != nil {
-		nextLanguageServerSpecs, err := appLanguageServerSpecsForSnapshot(previewSnapshot, r.backendRegs)
-		if err != nil {
-			return plugins.DiscoverySnapshot{}, err
-		}
-		if err := r.lspRouter.ReplaceAdditionalSpecs(ctx, nextLanguageServerSpecs); err != nil {
-			return plugins.DiscoverySnapshot{}, err
-		}
 	}
 
 	snapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
@@ -222,4 +209,12 @@ func findHighestPrecedencePlugin(entries []plugins.DiscoveredPlugin, pluginID st
 		}
 	}
 	return plugins.DiscoveredPlugin{}, false
+}
+
+func cloneOptionalDigest(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := strings.TrimSpace(*value)
+	return &cloned
 }

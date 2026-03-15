@@ -373,15 +373,16 @@ packaged/runtime path is predominantly Go-owned.
 
 No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
-explicit retained boundary list, most notably the still-active Python plugin
+explicit retained boundary list, most notably the still-in-tree Python plugin
 worker implementation/runtime path in `backend/setta/plugins/worker.py`. The
 deleted Python plugin-management path in `backend/setta/plugins/manager.py`,
 the removed plugin listener-endpoint path, the old top-level Python FastAPI
 app, the removed backend static-dir path, the old `setta.dev_start` shim, the
 old source-only Python startup/CLI helper surfaces, the legacy Python
-server-state startup path, and the legacy Python project-state plugin-codegen
-owner are no longer part of that blocker set, and schema-backed plugin UI
-settings are no longer part of that blocker set either.
+server-state startup path, the legacy Python project-state plugin-codegen
+owner, and the removed plugin language-server runtime/app/UI surface are no
+longer part of that blocker set, and schema-backed plugin UI settings are no
+longer part of that blocker set either.
 
 ### Test and smoke evidence executed
 
@@ -390,7 +391,7 @@ settings are no longer part of that blocker set either.
   - `pnpm -C frontend exec vitest run src/utils/requestTransport.test.ts src/utils/backendOriginTransport.test.ts src/utils/transportRouteConstants.test.ts src/utils/endpointUtils.test.ts src/utils/generatedEndpoints.test.ts src/state/hooks/terminals/websocketUrl.test.ts src/state/actions/websocketReceive.test.ts`
   - `source activate.sh && ./scripts/go.sh test ./internal/settacli ./internal/sshx ./internal/codeformat -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection$' -count=1`
-  - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion|TestAppLinkRefreshesPluginLanguageServerRouter)$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppServesPluginRuntimeWithoutRemovedBackendRegistrations|TestAppLinksPluginRoutesAndServesRuntime|TestAppPluginRestartClearsPendingBackendPluginState|TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink)$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/mcpx -run '^TestServerListsToolsAndScopesToolCalls$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerRegistersPluginBackendMCPTools)$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^(TestRegisterStateMachineRunRoutesUsesActiveShareSessionForGet|TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode|TestRegisterStateMachineRunRoutesAllowsDeploymentRegistrationWithoutRuntime|TestRegisterAttachmentRoutesIncludesShareSessionForDeployment)$' -count=1`
@@ -750,3 +751,13 @@ RunInstructions and PluginsPane callers no longer expose plugin codegen target
 selection or registration UI, and the dedicated Playwright coverage for plugin
 codegen target selection was deleted. After that slice, the remaining Python
 plugin worker blocker is limited to language servers.
+
+A later follow-up rewrite step removed the active plugin language-server
+surface too. The Go app no longer loads plugin-supplied additional LSP specs at
+startup or after plugin mutations, `registerLanguageServer` is now blocked by
+host policy in plugin capability resolution, plugin runtime/status no longer
+advertises backend language-server registrations, and the PluginsPane plus the
+dedicated plugin language-server Playwright coverage no longer present that
+path as an active product feature. That removes the last active plugin-worker
+language-server product/runtime surface even though the transitional Python
+worker implementation still remains in-tree for cleanup.

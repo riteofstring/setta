@@ -202,19 +202,13 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	}
 }
 
-func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
-	// Runtime should surface retained backend registrations without reviving removed plugin codegen targets.
+func TestServiceRuntimeBlocksRemovedBackendPluginCapabilities(t *testing.T) {
+	// Runtime should not surface removed backend plugin capabilities or registrations.
 	roots := newFilesystemResolverTestRoots(t)
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-language-server")
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
 
-	service := mustNewPluginMutationServiceWithCodegenRuntime(
-		t,
-		roots,
-		nil,
-		config.ModeIDE,
-		mustNewBackendRegistrationLoader(t, config.ModeIDE),
-	)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 	runtimeResponse, err := service.Runtime(RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
@@ -239,21 +233,23 @@ func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
 	if languageServerEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active backend language-server plugin, got %#v", languageServerEntry.State)
 	}
-	if len(languageServerEntry.RegisteredLanguageServers) != 1 {
-		t.Fatalf("expected one registered language server, got %#v", languageServerEntry.RegisteredLanguageServers)
+	if len(languageServerEntry.EffectiveCapabilities) != 0 {
+		t.Fatalf("expected removed language-server capability to stay out of the effective list, got %#v", languageServerEntry.EffectiveCapabilities)
 	}
-	languageServer := languageServerEntry.RegisteredLanguageServers[0]
-	if languageServer.Name != "setta-fixture-backend-language-server:typescript" {
-		t.Fatalf("unexpected language server registration name %#v", languageServer.Name)
+	if len(languageServerEntry.BlockedCapabilities) != 1 {
+		t.Fatalf("expected one blocked language-server capability, got %#v", languageServerEntry.BlockedCapabilities)
 	}
-	if languageServer.Language != "typescript" || languageServer.Command == "" {
-		t.Fatalf("unexpected language server registration %#v", languageServer)
+	if languageServerEntry.BlockedCapabilities[0].Capability != "registerLanguageServer" {
+		t.Fatalf("expected registerLanguageServer blocked, got %#v", languageServerEntry.BlockedCapabilities[0])
 	}
-	if len(languageServer.Args) != 1 || languageServer.Args[0] != "--stdio" {
-		t.Fatalf("unexpected language server args %#v", languageServer.Args)
+	if languageServerEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonHostPolicy {
+		t.Fatalf("expected host-policy block, got %#v", languageServerEntry.BlockedCapabilities[0].Reason)
 	}
-	if languageServer.SettingsKey == nil || *languageServer.SettingsKey != "typescriptLanguageServer" {
-		t.Fatalf("unexpected language server settings key %#v", languageServer.SettingsKey)
+	if len(languageServerEntry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected no registered language servers after removal, got %#v", languageServerEntry.RegisteredLanguageServers)
+	}
+	if len(languageServerEntry.Errors) != 0 {
+		t.Fatalf("expected no backend registration errors for language-server-only plugin, got %#v", languageServerEntry.Errors)
 	}
 
 	statusEntry := findEntry("setta-fixture-backend-codegen")

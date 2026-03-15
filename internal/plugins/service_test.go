@@ -674,49 +674,6 @@ func mustNewPluginMutationServiceWithStore(t *testing.T, roots filesystemResolve
 	return service
 }
 
-func mustNewPluginMutationServiceWithCodegenRuntime(
-	t *testing.T,
-	roots filesystemResolverTestRoots,
-	provider CandidateProvider,
-	mode config.Mode,
-	backendRuntime BackendRegistrationSource,
-) *Service {
-	t.Helper()
-
-	service, err := NewService(ServiceOptions{
-		WorkspaceRoot:               roots.workspaceRoot,
-		SettaFilesRoot:              roots.settaFilesRoot,
-		SettaHome:                   roots.settaHome,
-		ServerMode:                  mode,
-		CandidateProvider:           provider,
-		BackendRuntimeRegistrations: backendRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new plugin mutation service: %v", err)
-	}
-	return service
-}
-
-func mustNewBackendRegistrationLoader(t *testing.T, mode config.Mode) *BackendRegistrationLoader {
-	t.Helper()
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	loader, err := NewBackendRegistrationLoader(BackendRegistrationLoaderOptions{
-		RuntimeProvider: WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
-			return WorkerRuntime{
-				CommandPrefix:    workerRPCTestCommandPrefix(t, repoRoot),
-				Environment:      workerRPCTestEnv(repoRoot),
-				WorkingDirectory: repoRoot,
-			}, nil
-		}),
-		ServerMode: mode,
-	})
-	if err != nil {
-		t.Fatalf("new backend registration loader: %v", err)
-	}
-	return loader
-}
-
 func pluginScopePointer(scope PluginScope) *PluginScope {
 	return &scope
 }

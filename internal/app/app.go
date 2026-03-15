@@ -190,10 +190,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		transcriptionSessions *transcriptionsessions.Service
 		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
-		pluginWorkerRuntime   plugins.WorkerRuntimeProvider
 		pluginStore           *plugins.Store
 		pluginDiscovery       *plugins.DiscoveryService
-		pluginBackendRegs     plugins.BackendRegistrationSource
 		pluginRuntimeRefresh  *pluginBackendRuntimeRefresher
 		pluginRouteService    httpapi.PluginRouteService
 		pythonPackages        *pythonenv.Runtime
@@ -285,11 +283,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		artifactsRoot = deploymentRuntime.Paths().ArtifactsRoot
 		shareSessions = deploymentRuntime
 	} else {
-		workerRuntimeProvider, err := plugins.NewCurrentProcessWorkerRuntimeProvider(plugins.CurrentProcessWorkerRuntimeProviderOptions{})
-		if err != nil {
-			return nil, err
-		}
-		pluginWorkerRuntime = workerRuntimeProvider
 		pythonMaterializer, err = codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
@@ -317,15 +310,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
-		if pluginWorkerRuntime != nil {
-			pluginBackendRegs, err = plugins.NewBackendRegistrationLoader(plugins.BackendRegistrationLoaderOptions{
-				RuntimeProvider: pluginWorkerRuntime,
-				ServerMode:      cfg.Server.Mode,
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
 		lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{
 			OnChange: func(payload projectstate.LSPDiagnosticsPayload) {
 				_, _ = websocketHub.BroadcastJSON(
@@ -335,10 +319,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				)
 			},
 		})
-		languageServerSpecs, err := snapshotAppLanguageServerSpecs(pluginDiscovery, pluginBackendRegs)
-		if err != nil {
-			return nil, err
-		}
 		lspRouter, err = lsp.NewRouter(lsp.RouterOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 			LookupEnv:     os.LookupEnv,
@@ -350,7 +330,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				document := settingsStateRuntime.Snapshot().Document.Clone()
 				return map[string]any(document)
 			},
-			AdditionalSpecs: languageServerSpecs,
 		})
 		if err != nil {
 			return nil, err
@@ -681,13 +660,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	var agentRunService *agentruns.Service
 	var pluginMutationService *plugins.Service
 	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-		Store:                       pluginStore,
-		DiscoveryService:            pluginDiscovery,
-		BackendRuntimeRegistrations: pluginBackendRegs,
-		WorkspaceRoot:               cfg.Paths.WorkspaceRoot,
-		SettaFilesRoot:              cfg.Paths.SettaFilesRoot,
-		SettaHome:                   cfg.Paths.SettaHome,
-		ServerMode:                  cfg.Server.Mode,
+		Store:            pluginStore,
+		DiscoveryService: pluginDiscovery,
+		WorkspaceRoot:    cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot:   cfg.Paths.SettaFilesRoot,
+		SettaHome:        cfg.Paths.SettaHome,
+		ServerMode:       cfg.Server.Mode,
 		CandidateProvider: plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
 			PackageManagerRuntime: pythonPackages,
 			SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
@@ -1195,11 +1173,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 	}
-	if modePolicy.IsIDE() && pluginDiscovery != nil && pluginWorkerRuntime != nil {
+	if modePolicy.IsIDE() && pluginDiscovery != nil {
 		pluginRuntimeRefresh = &pluginBackendRuntimeRefresher{
-			service:     pluginMutationService,
-			lspRouter:   lspRouter,
-			backendRegs: pluginBackendRegs,
+			service: pluginMutationService,
 		}
 		pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 			if pluginRuntimeRefresh == nil {
