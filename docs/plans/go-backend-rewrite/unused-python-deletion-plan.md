@@ -202,6 +202,9 @@ Expected candidate clusters include:
   - package-root trusted-origin residue:
     - `backend/setta/trusted_frontend_origins.py`
     - `tests/auth/test_trusted_frontend_origins.py`
+  - terminal runtime residue:
+    - `backend/setta/terminals/*`
+    - `tests/terminals/*`
   - `backend/setta/project_state/*` except retained typed support
   - `backend/setta/llm/*` except retained `llm/chat_toolkit/*`
   - `backend/setta/agentic/*` except explicit sidecar assets
@@ -240,6 +243,12 @@ Current tree note:
   handling, and workspace-launch trust now live in Go under
   `internal/frontendorigins`, `internal/workspacelaunch`, and
   `internal/httpapi`.
+- `backend/setta/terminals/*` and `tests/terminals/*` are also gone in the
+  current worktree because terminal PTY runtime, terminal websocket
+  attach/history/resize behavior, terminal cleanup routes, and `runCode`
+  execution all already live in Go under `internal/terminals`,
+  `internal/wsapi/routes.go`, `internal/httpapi/terminal_routes.go`, and the
+  Go `runs`/project-state runtime.
 - Recompute the remaining Step 3 batch from live imports before deleting more
   websocket helpers. `backend/setta/websockets/binary_frames.py` remains tied
   to the retained Python listener SDK, while `websocket_manager.py` and
