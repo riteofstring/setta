@@ -5,11 +5,11 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { buildChatHistoryEntries } from "./chatHistoryEntries";
 import {
+  buildChatHistoryEntries,
   buildChatProvenanceByChatId,
   resolveScopedChatProvenanceForChatId,
-} from "./chatHistoryProvenance";
+} from "./chatHistory";
 
 function buildRun({
   chatId,

@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { useShareSession } from "state/stores/sessionStores";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import {
+  useLocalStorage,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createSettingsState, type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
