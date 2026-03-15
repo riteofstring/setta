@@ -288,7 +288,6 @@ func workerHostDispatchErrorCode(err error) string {
 	case errors.Is(err, ErrWorkerHostCapabilityDenied):
 		return workerRPCCapabilityDeniedCode
 	case errors.Is(err, ErrWorkerHostLanguageServerRegistrarRequired),
-		errors.Is(err, ErrWorkerHostExternalAgentRegistrarRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
 		errors.Is(err, ErrWorkerHostPluginIDRequired),
 		errors.Is(err, ErrWorkerHostPluginRootRequired),
@@ -299,16 +298,6 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostLanguageServerCommandInvalid),
 		errors.Is(err, ErrWorkerHostLanguageServerArgsInvalid),
 		errors.Is(err, ErrWorkerHostLanguageServerSettingsKeyInvalid),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterRequired),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterIDRequired),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterNameRequired),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterRunModesRequired),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterRunModeInvalid),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterCommandRequired),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterCommandInvalid),
-		errors.Is(err, ErrWorkerHostExternalAgentAdapterArgsInvalid),
-		errors.Is(err, ErrWorkerHostExternalAgentEnvWhitelistInvalid),
-		errors.Is(err, ErrWorkerHostExternalAgentDefaultModelInvalid),
 		errors.Is(err, ErrWorkerHostCodegenTargetRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetIDRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetIDInvalid),
@@ -317,7 +306,6 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageInvalid),
 		errors.Is(err, ErrWorkerHostCodegenHandlerIDRequired),
 		errors.Is(err, ErrLanguageServerRegistrationConflict),
-		errors.Is(err, ErrExternalAgentAdapterRegistrationConflict),
 		errors.Is(err, ErrCodegenTargetRegistrationConflict):
 		return workerRPCRegisterFailedCode
 	default:

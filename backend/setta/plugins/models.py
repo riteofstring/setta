@@ -18,7 +18,6 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "subscribeProjectState",
     "emitListenerEvents",
     "registerLanguageServer",
-    "registerExternalAgentAdapter",
     "registerCodegenTarget",
     "registerListenerEndpoint",
     "registerStaticDir",

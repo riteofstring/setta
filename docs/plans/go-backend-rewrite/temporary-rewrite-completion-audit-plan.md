@@ -721,3 +721,11 @@ plugins, and the dedicated project-state-reader helper plus worker-specific
 tests were deleted. The remaining Python plugin worker blocker is narrower
 again: live backend ownership is now limited to codegen targets, language
 servers, and external-agent adapters.
+
+A later follow-up rewrite step removed the Python worker
+`register_external_agent_adapter` path as well. The worker no longer
+advertises that host RPC, the Go worker host/runtime no longer normalizes or
+captures plugin external-agent adapter registrations, and the direct plugin
+runtime/app/plugin worker coverage for that backend plugin surface was deleted.
+The remaining Python plugin worker blocker is now limited to codegen targets
+and language servers.

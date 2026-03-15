@@ -26,7 +26,6 @@ link_fixture "full" "workspace"
 link_fixture "backend" "workspace"
 link_fixture "backend-static-router" "workspace"
 link_fixture "backend-language-server" "workspace"
-link_fixture "backend-external-agent" "workspace"
 link_fixture "backend-codegen" "workspace"
 
 # Scope/precedence fixtures.
@@ -56,7 +55,7 @@ Suggested manual checks:
    - GET `/api/plugins/setta-fixture-backend-static-router/info`
    - GET `/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt`
 6. Validate retained backend worker fixtures after restart:
-   - plugin cards show language-server / external-agent / codegen capabilities
+   - plugin cards show language-server / codegen capabilities
    - `setta plugins list` reports those fixtures as active
 7. Validate scope precedence:
    - `setta plugins list`

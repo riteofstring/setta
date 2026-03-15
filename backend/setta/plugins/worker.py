@@ -15,7 +15,6 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.shutdown",
     "plugin.invoke_codegen_target",
     "host.register_language_server",
-    "host.register_external_agent_adapter",
     "host.register_codegen_target",
 )
 _PROTOCOL_STDOUT = sys.stdout
@@ -153,23 +152,6 @@ class _WorkerState:
             "backendPluginApiVersion": BACKEND_PLUGIN_API_VERSION,
             "supportedRpcMethods": list(SUPPORTED_RPC_METHODS),
         }
-
-    def _register_external_agent_adapter(
-        self,
-        *,
-        adapter: Any,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        host_call(
-            "host.register_external_agent_adapter",
-            {
-                "adapter": _ensure_json_serializable(
-                    adapter,
-                    plugin_id=self.plugin_id,
-                    label="external agent adapter",
-                )
-            },
-        )
 
     def _register_language_server(
         self,
@@ -438,12 +420,6 @@ class _WorkerBackendPluginContext:
         self._state = state
         self._host_call = host_call
         self.plugin_id = state.plugin_id
-
-    def register_external_agent_adapter(self, adapter: Any) -> None:
-        self._state._register_external_agent_adapter(
-            adapter=adapter,
-            host_call=self._host_call,
-        )
 
     def register_language_server(self, provider: Any) -> None:
         self._state._register_language_server(

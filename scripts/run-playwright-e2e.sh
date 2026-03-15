@@ -278,7 +278,6 @@ trap 'log "Error on line ${LINENO}: ${BASH_COMMAND}"' ERR
 
 readonly WORKSPACE_SEED_FIXTURES=(
   "backend-language-server-e2e"
-  "backend-external-agent"
   "backend-codegen"
 )
 

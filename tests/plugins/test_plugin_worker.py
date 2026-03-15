@@ -717,18 +717,15 @@ def test_worker_register_codegen_target_and_invoke_codegen_target(
             "def register(plugin):\n"
             "    class NotSerializable:\n"
             "        pass\n\n"
-            "    plugin.register_external_agent_adapter(\n"
+            "    plugin.register_language_server(\n"
             "        {\n"
-            "            'id': 'fixture-agent',\n"
-            "            'name': 'Fixture Agent',\n"
-            "            'runModes': ['sdk'],\n"
+            "            'language': 'typescript',\n"
             "            'command': 'python',\n"
             "            'args': ['agent.py'],\n"
-            "            'envVarWhitelist': ['OPENAI_API_KEY'],\n"
-            "            'defaultModel': NotSerializable(),\n"
+            "            'settingsKey': NotSerializable(),\n"
             "        }\n"
             "    )\n",
-            "external agent adapter payload",
+            "language server payload",
         ),
     ],
 )

@@ -32,20 +32,19 @@ var (
 
 var (
 	resolverKnownPluginCapabilities = map[string]struct{}{
-		"registerSectionKinds":         {},
-		"registerPane":                 {},
-		"registerCommand":              {},
-		"registerTopNavBarItem":        {},
-		"registerContextMenu":          {},
-		"readProjectState":             {},
-		"subscribeProjectState":        {},
-		"emitListenerEvents":           {},
-		"registerLanguageServer":       {},
-		"registerExternalAgentAdapter": {},
-		"registerCodegenTarget":        {},
-		"registerListenerEndpoint":     {},
-		"registerStaticDir":            {},
-		"writeWorkspacePlugins":        {},
+		"registerSectionKinds":     {},
+		"registerPane":             {},
+		"registerCommand":          {},
+		"registerTopNavBarItem":    {},
+		"registerContextMenu":      {},
+		"readProjectState":         {},
+		"subscribeProjectState":    {},
+		"emitListenerEvents":       {},
+		"registerLanguageServer":   {},
+		"registerCodegenTarget":    {},
+		"registerListenerEndpoint": {},
+		"registerStaticDir":        {},
+		"writeWorkspacePlugins":    {},
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":      {},

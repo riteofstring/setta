@@ -19,10 +19,9 @@ type BackendRegistrationSource interface {
 }
 
 type PluginBackendRegistrationSnapshot struct {
-	LanguageServers       []PluginRegisteredLanguageServer
-	ExternalAgentAdapters []PluginRegisteredExternalAgentAdapter
-	CodegenTargets        []PluginRegisteredCodegenTarget
-	Errors                []PluginErrorInfo
+	LanguageServers []PluginRegisteredLanguageServer
+	CodegenTargets  []PluginRegisteredCodegenTarget
+	Errors          []PluginErrorInfo
 }
 
 type BackendLanguageServerRegistrar interface {
@@ -44,27 +43,6 @@ type LanguageServerRegistry struct {
 	byLanguage    map[string]RegisteredLanguageServer
 }
 
-type BackendExternalAgentAdapterRegistrar interface {
-	RegisterExternalAgentAdapter(context.Context, RegisteredExternalAgentAdapter) error
-}
-
-type RegisteredExternalAgentAdapter struct {
-	AdapterID       string
-	PluginID        string
-	Name            string
-	RunModes        []string
-	Command         string
-	Args            []string
-	EnvVarWhitelist []string
-	DefaultModel    *string
-}
-
-type ExternalAgentAdapterRegistry struct {
-	mu            sync.Mutex
-	registrations []RegisteredExternalAgentAdapter
-	byID          map[string]RegisteredExternalAgentAdapter
-}
-
 type BackendRegistrationLoaderOptions struct {
 	RuntimeProvider WorkerRuntimeProvider
 	ServerMode      config.Mode
@@ -81,7 +59,6 @@ type BackendRegistrationLoader struct {
 var (
 	ErrBackendRegistrationRuntimeProviderRequired = errors.New("plugins: backend registration runtime provider is required")
 	ErrLanguageServerRegistrationConflict         = errors.New("plugins: duplicate language server registration")
-	ErrExternalAgentAdapterRegistrationConflict   = errors.New("plugins: duplicate external agent adapter registration")
 )
 
 type backendRegistrationCacheEntry struct {
@@ -147,68 +124,6 @@ func (r *LanguageServerRegistry) Registrations() []RegisteredLanguageServer {
 	return registrations
 }
 
-func NewExternalAgentAdapterRegistry() *ExternalAgentAdapterRegistry {
-	return &ExternalAgentAdapterRegistry{
-		byID: map[string]RegisteredExternalAgentAdapter{},
-	}
-}
-
-func (r *ExternalAgentAdapterRegistry) RegisterExternalAgentAdapter(_ context.Context, registration RegisteredExternalAgentAdapter) error {
-	if r == nil {
-		return ErrWorkerHostExternalAgentRegistrarRequired
-	}
-
-	adapterID := strings.TrimSpace(registration.AdapterID)
-	if adapterID == "" {
-		return ErrWorkerHostExternalAgentAdapterIDRequired
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, exists := r.byID[adapterID]; exists {
-		return fmt.Errorf("%w: %s", ErrExternalAgentAdapterRegistrationConflict, adapterID)
-	}
-
-	cloned := RegisteredExternalAgentAdapter{
-		AdapterID:       registration.AdapterID,
-		PluginID:        registration.PluginID,
-		Name:            registration.Name,
-		RunModes:        append([]string(nil), registration.RunModes...),
-		Command:         registration.Command,
-		Args:            append([]string(nil), registration.Args...),
-		EnvVarWhitelist: append([]string(nil), registration.EnvVarWhitelist...),
-		DefaultModel:    cloneOptionalString(registration.DefaultModel),
-	}
-	r.byID[adapterID] = cloned
-	r.registrations = append(r.registrations, cloned)
-	return nil
-}
-
-func (r *ExternalAgentAdapterRegistry) Registrations() []RegisteredExternalAgentAdapter {
-	if r == nil {
-		return nil
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	registrations := make([]RegisteredExternalAgentAdapter, len(r.registrations))
-	for index, registration := range r.registrations {
-		registrations[index] = RegisteredExternalAgentAdapter{
-			AdapterID:       registration.AdapterID,
-			PluginID:        registration.PluginID,
-			Name:            registration.Name,
-			RunModes:        append([]string(nil), registration.RunModes...),
-			Command:         registration.Command,
-			Args:            append([]string(nil), registration.Args...),
-			EnvVarWhitelist: append([]string(nil), registration.EnvVarWhitelist...),
-			DefaultModel:    cloneOptionalString(registration.DefaultModel),
-		}
-	}
-	return registrations
-}
-
 func NewBackendRegistrationLoader(options BackendRegistrationLoaderOptions) (*BackendRegistrationLoader, error) {
 	if options.RuntimeProvider == nil {
 		return nil, ErrBackendRegistrationRuntimeProviderRequired
@@ -266,7 +181,6 @@ func shouldLoadBackendRegistrations(entry DiscoveredPlugin) bool {
 		return false
 	}
 	return containsCapability(entry.EffectiveCapabilities, CapabilityRegisterLanguageServer) ||
-		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterExternalAgentAdapter) ||
 		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterCodegenTarget)
 }
 
@@ -315,12 +229,10 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 	}
 
 	languageServers := NewLanguageServerRegistry()
-	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		LanguageServerRegistrar:       languageServers,
-		ExternalAgentAdapterRegistrar: externalAgentAdapters,
-		CodegenTargetRegistrar:        codegenTargets,
+		LanguageServerRegistrar: languageServers,
+		CodegenTargetRegistrar:  codegenTargets,
 	})
 	if err != nil {
 		return pluginBackendRegistrationFailureSnapshot(entry, err)
@@ -347,9 +259,8 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 	}
 
 	snapshot := PluginBackendRegistrationSnapshot{
-		LanguageServers:       serializeRegisteredLanguageServers(languageServers.Registrations()),
-		ExternalAgentAdapters: serializeRegisteredExternalAgentAdapters(externalAgentAdapters.Registrations()),
-		CodegenTargets:        serializeRegisteredCodegenTargets(codegenTargets.Registrations()),
+		LanguageServers: serializeRegisteredLanguageServers(languageServers.Registrations()),
+		CodegenTargets:  serializeRegisteredCodegenTargets(codegenTargets.Registrations()),
 	}
 	if closeErr := started.Close(); closeErr != nil {
 		snapshot.Errors = append(snapshot.Errors, pluginBackendRegistrationError(entry, closeErr))
@@ -378,30 +289,6 @@ func serializeRegisteredLanguageServers(registrations []RegisteredLanguageServer
 	return serialized
 }
 
-func serializeRegisteredExternalAgentAdapters(registrations []RegisteredExternalAgentAdapter) []PluginRegisteredExternalAgentAdapter {
-	if len(registrations) == 0 {
-		return []PluginRegisteredExternalAgentAdapter{}
-	}
-
-	serialized := make([]PluginRegisteredExternalAgentAdapter, 0, len(registrations))
-	for _, registration := range registrations {
-		serialized = append(serialized, PluginRegisteredExternalAgentAdapter{
-			AdapterID:       registration.AdapterID,
-			PluginID:        registration.PluginID,
-			Name:            registration.Name,
-			RunModes:        append([]string(nil), registration.RunModes...),
-			Command:         registration.Command,
-			Args:            append([]string(nil), registration.Args...),
-			EnvVarWhitelist: append([]string(nil), registration.EnvVarWhitelist...),
-			DefaultModel:    cloneOptionalString(registration.DefaultModel),
-		})
-	}
-	sort.Slice(serialized, func(left int, right int) bool {
-		return serialized[left].AdapterID < serialized[right].AdapterID
-	})
-	return serialized
-}
-
 func serializeRegisteredCodegenTargets(registrations []RegisteredCodegenTarget) []PluginRegisteredCodegenTarget {
 	if len(registrations) == 0 {
 		return []PluginRegisteredCodegenTarget{}
@@ -425,9 +312,8 @@ func serializeRegisteredCodegenTargets(registrations []RegisteredCodegenTarget) 
 
 func pluginBackendRegistrationFailureSnapshot(entry DiscoveredPlugin, err error) PluginBackendRegistrationSnapshot {
 	return PluginBackendRegistrationSnapshot{
-		LanguageServers:       []PluginRegisteredLanguageServer{},
-		ExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
-		CodegenTargets:        []PluginRegisteredCodegenTarget{},
+		LanguageServers: []PluginRegisteredLanguageServer{},
+		CodegenTargets:  []PluginRegisteredCodegenTarget{},
 		Errors: []PluginErrorInfo{
 			pluginBackendRegistrationError(entry, err),
 		},
@@ -443,9 +329,8 @@ func pluginBackendRegistrationError(entry DiscoveredPlugin, err error) PluginErr
 
 func clonePluginBackendRegistrationSnapshot(snapshot PluginBackendRegistrationSnapshot) PluginBackendRegistrationSnapshot {
 	return PluginBackendRegistrationSnapshot{
-		LanguageServers:       append([]PluginRegisteredLanguageServer(nil), snapshot.LanguageServers...),
-		ExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), snapshot.ExternalAgentAdapters...),
-		CodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), snapshot.CodegenTargets...),
-		Errors:                append([]PluginErrorInfo(nil), snapshot.Errors...),
+		LanguageServers: append([]PluginRegisteredLanguageServer(nil), snapshot.LanguageServers...),
+		CodegenTargets:  append([]PluginRegisteredCodegenTarget(nil), snapshot.CodegenTargets...),
+		Errors:          append([]PluginErrorInfo(nil), snapshot.Errors...),
 	}
 }

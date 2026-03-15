@@ -203,10 +203,9 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 }
 
 func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
-	// Runtime should surface worker-registered backend language-server, external-agent, and codegen registrations.
+	// Runtime should surface worker-registered backend language-server and codegen registrations.
 	roots := newFilesystemResolverTestRoots(t)
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-language-server")
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-external-agent")
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
 
 	service := mustNewPluginMutationServiceWithCodegenRuntime(
@@ -221,8 +220,8 @@ func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
 		t.Fatalf("load runtime payload: %v", err)
 	}
 
-	if len(runtimeResponse.Status.Plugins) != 3 {
-		t.Fatalf("expected three status plugins, got %#v", runtimeResponse.Status.Plugins)
+	if len(runtimeResponse.Status.Plugins) != 2 {
+		t.Fatalf("expected two status plugins, got %#v", runtimeResponse.Status.Plugins)
 	}
 
 	findEntry := func(pluginID string) StatusEntry {
@@ -255,33 +254,6 @@ func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
 	}
 	if languageServer.SettingsKey == nil || *languageServer.SettingsKey != "typescriptLanguageServer" {
 		t.Fatalf("unexpected language server settings key %#v", languageServer.SettingsKey)
-	}
-
-	externalAgentEntry := findEntry("setta-fixture-backend-external-agent")
-	if externalAgentEntry.State != PluginRuntimeStateActive {
-		t.Fatalf("expected active backend external-agent plugin, got %#v", externalAgentEntry.State)
-	}
-	if len(externalAgentEntry.RegisteredExternalAgentAdapters) != 1 {
-		t.Fatalf("expected one registered external agent adapter, got %#v", externalAgentEntry.RegisteredExternalAgentAdapters)
-	}
-	externalAgent := externalAgentEntry.RegisteredExternalAgentAdapters[0]
-	if externalAgent.AdapterID != "setta-fixture-backend-external-agent:fixture-agent" {
-		t.Fatalf("unexpected external agent adapter id %#v", externalAgent.AdapterID)
-	}
-	if externalAgent.PluginID != "setta-fixture-backend-external-agent" || externalAgent.Name != "Fixture External Agent" {
-		t.Fatalf("unexpected external agent registration %#v", externalAgent)
-	}
-	if len(externalAgent.RunModes) != 1 || externalAgent.RunModes[0] != "sdk" {
-		t.Fatalf("unexpected external agent run modes %#v", externalAgent.RunModes)
-	}
-	if externalAgent.Command == "" || len(externalAgent.Args) != 1 {
-		t.Fatalf("unexpected external agent command payload %#v", externalAgent)
-	}
-	if len(externalAgent.EnvVarWhitelist) != 1 || externalAgent.EnvVarWhitelist[0] != "FIXTURE_EXTERNAL_AGENT_TOKEN" {
-		t.Fatalf("unexpected external agent env whitelist %#v", externalAgent.EnvVarWhitelist)
-	}
-	if externalAgent.DefaultModel == nil || *externalAgent.DefaultModel != "fixture-model" {
-		t.Fatalf("unexpected external agent default model %#v", externalAgent.DefaultModel)
 	}
 
 	statusEntry := findEntry("setta-fixture-backend-codegen")

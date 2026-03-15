@@ -262,16 +262,14 @@ func (s *Service) loadStatusRuntimeDetailsLocked(snapshot DiscoverySnapshot) map
 		}
 		snapshot := s.backendRuntime.SnapshotBackendRegistrations(context.Background(), entry)
 		if len(snapshot.LanguageServers) == 0 &&
-			len(snapshot.ExternalAgentAdapters) == 0 &&
 			len(snapshot.CodegenTargets) == 0 &&
 			len(snapshot.Errors) == 0 {
 			continue
 		}
 		detailsByPluginID[entry.PluginID] = pluginStatusRuntimeDetails{
-			registeredLanguageServers:       cloneRegisteredLanguageServersOrEmpty(snapshot.LanguageServers),
-			registeredExternalAgentAdapters: cloneRegisteredExternalAgentAdaptersOrEmpty(snapshot.ExternalAgentAdapters),
-			registeredCodegenTargets:        cloneRegisteredCodegenTargetsOrEmpty(snapshot.CodegenTargets),
-			errors:                          clonePluginErrorsOrEmpty(snapshot.Errors),
+			registeredLanguageServers: cloneRegisteredLanguageServersOrEmpty(snapshot.LanguageServers),
+			registeredCodegenTargets:  cloneRegisteredCodegenTargetsOrEmpty(snapshot.CodegenTargets),
+			errors:                    clonePluginErrorsOrEmpty(snapshot.Errors),
 		}
 	}
 	return detailsByPluginID

@@ -77,7 +77,6 @@
           "subscribeProjectState",
           "emitListenerEvents",
           "registerLanguageServer",
-          "registerExternalAgentAdapter",
           "registerCodegenTarget",
           "registerListenerEndpoint",
           "registerStaticDir",
