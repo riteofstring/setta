@@ -4,7 +4,6 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
-from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.agentic_edges import (
     AgenticEdge,
     AgenticEdgeContextMode,
@@ -65,6 +64,12 @@ from setta.types.state_machine_edges import (
     StateMachineTargetAction,
 )
 from setta.utils.constants import C
+
+
+class SignatureHelpStatus(str, Enum):
+    MATCHED = "matched"
+    NO_MATCH = "no_match"
+    SKIPPED = "skipped"
 
 
 class ProjectManagerRequestWithFrontendOp(BaseModel):
@@ -129,10 +134,6 @@ class RunCodeRequest(BaseModel):
     terminalSectionId: ID | None = Field(
         default=None,
         description="Optional terminal section to stream run output.",
-    )
-    cliId: str | None = Field(
-        default=None,
-        description="CLI client id to stream run output.",
     )
     runSnapshotMode: RunSnapshotMode | None = Field(
         default=None,
@@ -565,10 +566,6 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
 
 class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
     """Request the latest parsed LSP diagnostics payload for a project config."""
-
-
-class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
-    pass
 
 
 class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):

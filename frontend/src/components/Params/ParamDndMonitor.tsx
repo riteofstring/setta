@@ -31,25 +31,25 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
-import { orderParamIdsByParent } from "state/actions/params/paramMoveOrdering";
-import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
 import {
-  getRootSelectedParamIds,
-  getSharedParentId,
-  isDescendantOfSelection,
-  resolveFullIndexForVisibleInsertion,
-} from "state/actions/params/paramTreeSelection";
+  moveParamsWithBackend,
+  orderParamIdsByParent,
+  selectOnlyParam,
+} from "state/actions/params/moveParams";
 import {
   buildParamParentMap,
   buildParamTreeView,
   getParamRootId,
-} from "state/actions/params/paramTreeStructure";
+  getRootSelectedParamIds,
+  getSharedParentId,
+  isDescendantOfSelection,
+  resolveFullIndexForVisibleInsertion,
+} from "state/actions/params/paramTree";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrShownParamIds,
 } from "state/actions/sectionInfos";
-import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import {
   useMisc,
   useProjectState,
