@@ -648,6 +648,93 @@ func TestLoadRejectsInvalidAutoModeInUserConfig(t *testing.T) {
 	}
 }
 
+func TestLoadUserConfigRejectsRemovedLegacyKeys(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	writeUserConfig(t, settaHome, map[string]any{
+		"openWorkspaceFallback": "global",
+	})
+
+	_, err := loadUserConfig(settaHome)
+	if err == nil {
+		t.Fatal("expected removed legacy-key error")
+	}
+	if got := err.Error(); !strings.Contains(got, "openWorkspaceFallback/defaultCreateLocation") {
+		t.Fatalf("expected removed legacy-key error, got %q", got)
+	}
+}
+
+func TestLoadUserConfigRejectsMalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(settaHome, "config.json"), []byte("{\n"), 0o644); err != nil {
+		t.Fatalf("write malformed config: %v", err)
+	}
+
+	_, err := loadUserConfig(settaHome)
+	if err == nil {
+		t.Fatal("expected malformed json error")
+	}
+	if got := err.Error(); !strings.Contains(got, "invalid json in setta config") {
+		t.Fatalf("expected malformed json error, got %q", got)
+	}
+}
+
+func TestLoadUserConfigRejectsNonObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	settaHome := filepath.Join(t.TempDir(), ".setta")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(settaHome, "config.json"), []byte("[1, 2, 3]\n"), 0o644); err != nil {
+		t.Fatalf("write non-object config: %v", err)
+	}
+
+	_, err := loadUserConfig(settaHome)
+	if err == nil {
+		t.Fatal("expected non-object json error")
+	}
+	if got := err.Error(); !strings.Contains(got, "invalid json in setta config") {
+		t.Fatalf("expected non-object json error, got %q", got)
+	}
+}
+
+func TestLoadUserConfigRejectsFileBackedGlobalSettaFilesBase(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	settaHome := filepath.Join(tmpDir, ".setta")
+	globalBaseFile := filepath.Join(tmpDir, "not-a-directory")
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+	if err := os.WriteFile(globalBaseFile, []byte("file\n"), 0o644); err != nil {
+		t.Fatalf("write file-backed global base: %v", err)
+	}
+
+	writeUserConfig(t, settaHome, map[string]any{
+		"globalSettaFilesBase": globalBaseFile,
+	})
+
+	_, err := loadUserConfig(settaHome)
+	if err == nil {
+		t.Fatal("expected file-backed globalSettaFilesBase error")
+	}
+	if got := err.Error(); !strings.Contains(got, "globalSettaFilesBase is not a directory") {
+		t.Fatalf("expected file-backed globalSettaFilesBase error, got %q", got)
+	}
+}
+
 func TestLoadRejectsMissingWorkspace(t *testing.T) {
 	t.Parallel()
 
