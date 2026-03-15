@@ -92,7 +92,7 @@ Auth matters for real APIs, but we should keep the UI simple while avoiding secr
 - `backend/setta/types/code_obj_impls.py`
 - `backend/setta/project_state/project_code.py`
 - `backend/setta/project_state/base_project_manager.py`
-- `backend/setta/routers/project_manager.py`
+- `internal/httpapi/project_routes.go`
 - `frontend/src/components/Section/Layouts/HttpRequestArea.tsx`
 - `frontend/src/components/Panes/UiEditor/SectionConfig/HttpRequestSettings.tsx`
 - `frontend/src/state/actions/sections/createSectionsHelper.ts`
