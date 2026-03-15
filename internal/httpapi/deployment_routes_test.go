@@ -67,6 +67,18 @@ func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
 	if len(payload.ProjectMetadata) != 2 {
 		t.Fatalf("expected two project metadata entries, got %#v", payload.ProjectMetadata)
 	}
+	if payload.ProjectMetadata[0].ID != "project-alpha" || payload.ProjectMetadata[1].ID != "project-beta" {
+		t.Fatalf("unexpected share project metadata order %#v", payload.ProjectMetadata)
+	}
+	if payload.SharePolicy.AllowRun {
+		t.Fatalf("expected default share policy to disallow runs, got %#v", payload.SharePolicy)
+	}
+	if payload.Manifest == nil {
+		t.Fatal("expected share bootstrap manifest")
+	}
+	if payload.Manifest.DeploymentType != deployments.TypeShare {
+		t.Fatalf("expected share bootstrap manifest type %q, got %#v", deployments.TypeShare, payload.Manifest)
+	}
 	if !deploymentRuntime.HasSession(payload.ShareSessionID) {
 		t.Fatal("expected created share session to exist in deployment runtime")
 	}
@@ -173,7 +185,12 @@ func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntime(t, config.ModeApp, &now, "generated-app")
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:           config.ModeApp,
+		Now:            &now,
+		GeneratedID:    "generated-app",
+		DeploymentName: "demo-app",
+	})
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -206,8 +223,26 @@ func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
 	if payload.ShareSessionID != "generated-app" {
 		t.Fatalf("expected generated app session id, got %q", payload.ShareSessionID)
 	}
+	if payload.DeploymentName != "demo-app" || payload.DeploymentVersion != "v1" {
+		t.Fatalf("unexpected app deployment identity %#v", payload)
+	}
+	if payload.DefaultProjectConfigID != "project-alpha" {
+		t.Fatalf("expected default app project id project-alpha, got %q", payload.DefaultProjectConfigID)
+	}
+	if len(payload.ProjectMetadata) != 2 {
+		t.Fatalf("expected two app project metadata entries, got %#v", payload.ProjectMetadata)
+	}
+	if payload.ProjectMetadata[0].ID != "project-alpha" || payload.ProjectMetadata[1].ID != "project-beta" {
+		t.Fatalf("unexpected app project metadata order %#v", payload.ProjectMetadata)
+	}
 	if !payload.AppPolicy.AllowRun {
 		t.Fatal("expected app policy to allow runs")
+	}
+	if payload.Manifest == nil {
+		t.Fatal("expected app bootstrap manifest")
+	}
+	if payload.Manifest.DeploymentType != deployments.TypeApp {
+		t.Fatalf("expected app bootstrap manifest type %q, got %#v", deployments.TypeApp, payload.Manifest)
 	}
 }
 
