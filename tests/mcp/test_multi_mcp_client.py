@@ -518,7 +518,11 @@ class TestMultiMCPClientRuntimeStatus:
             }
         )
 
-        client._mark_connecting("github")
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.connecting,
+            update_attempt=True,
+        )
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.connecting
         assert statuses["github"].lastAttemptAt is not None
@@ -534,7 +538,11 @@ class TestMultiMCPClientRuntimeStatus:
         assert statuses["github"].missingEnvVar == "GITHUB_TOKEN"
         assert statuses["github"].consecutiveFailures == 1
 
-        client._mark_retrying("github")
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.retrying,
+            tool_count=0,
+        )
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.retrying
 
@@ -549,7 +557,13 @@ class TestMultiMCPClientRuntimeStatus:
         )
 
         client._mark_failure("github", error=RuntimeError("fail"))
-        client._mark_connected("github", tool_count=5)
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.connected,
+            update_connected=True,
+            tool_count=5,
+            reset_failure_count=True,
+        )
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.connected
@@ -568,7 +582,13 @@ class TestMultiMCPClientRuntimeStatus:
             }
         )
 
-        client._mark_connected("github", tool_count=2)
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.connected,
+            update_connected=True,
+            tool_count=2,
+            reset_failure_count=True,
+        )
         await client.stop()
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
@@ -648,10 +668,37 @@ class TestMultiMCPClientRuntimeStatus:
             _record_sleep,
         )
 
-        def _record_retry(server_id: str) -> None:
-            retry_marks.append(server_id)
+        original_mark_server_state = client._mark_server_state
 
-        monkeypatch.setattr(client, "_mark_retrying", _record_retry)
+        def _record_retry_state(
+            server_id: str,
+            *,
+            state: MCPServerRuntimeState,
+            update_attempt: bool = False,
+            update_connected: bool = False,
+            update_failure: bool = False,
+            error: str | None = None,
+            missing_env_var: str | None = None,
+            tool_count: int | None = None,
+            reset_failure_count: bool = False,
+            clear_failure_metadata: bool = False,
+        ) -> None:
+            if state == MCPServerRuntimeState.retrying:
+                retry_marks.append(server_id)
+            original_mark_server_state(
+                server_id,
+                state=state,
+                update_attempt=update_attempt,
+                update_connected=update_connected,
+                update_failure=update_failure,
+                error=error,
+                missing_env_var=missing_env_var,
+                tool_count=tool_count,
+                reset_failure_count=reset_failure_count,
+                clear_failure_metadata=clear_failure_metadata,
+            )
+
+        monkeypatch.setattr(client, "_mark_server_state", _record_retry_state)
 
         await client._connect_server_loop("github", config, retry_delay=1)
 

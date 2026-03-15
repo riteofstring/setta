@@ -165,22 +165,6 @@ class MultiMCPClient:
             updates["toolCount"] = tool_count
         self._server_runtime_statuses[server_id] = status.model_copy(update=updates)
 
-    def _mark_connecting(self, server_id: str) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.connecting,
-            update_attempt=True,
-        )
-
-    def _mark_connected(self, server_id: str, *, tool_count: int) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.connected,
-            update_connected=True,
-            tool_count=tool_count,
-            reset_failure_count=True,
-        )
-
     def _mark_failure(
         self,
         server_id: str,
@@ -197,13 +181,6 @@ class MultiMCPClient:
             update_failure=True,
             error=message,
             missing_env_var=missing_env_var,
-            tool_count=0,
-        )
-
-    def _mark_retrying(self, server_id: str) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.retrying,
             tool_count=0,
         )
 
@@ -424,7 +401,11 @@ class MultiMCPClient:
             should_mark_retrying = True
             try:
                 logger.info("Attempting to connect to %s", server_id)
-                self._mark_connecting(server_id)
+                self._mark_server_state(
+                    server_id,
+                    state=MCPServerRuntimeState.connecting,
+                    update_attempt=True,
+                )
                 await self._connect_server_once(server_id, config)
             except asyncio.CancelledError:
                 await asyncio.shield(self._cleanup_server(server_id))
@@ -466,7 +447,11 @@ class MultiMCPClient:
             if self._is_shutting_down:
                 return
             if should_mark_retrying:
-                self._mark_retrying(server_id)
+                self._mark_server_state(
+                    server_id,
+                    state=MCPServerRuntimeState.retrying,
+                    tool_count=0,
+                )
                 await asyncio.sleep(retry_delay)
                 continue
             return
@@ -486,7 +471,13 @@ class MultiMCPClient:
         await session.initialize()
         logger.info("Connected to %s", server_id)
         response = await session.list_tools()
-        self._mark_connected(server_id, tool_count=len(response.tools))
+        self._mark_server_state(
+            server_id,
+            state=MCPServerRuntimeState.connected,
+            update_connected=True,
+            tool_count=len(response.tools),
+            reset_failure_count=True,
+        )
         self._update_tool_cache_for_server(server_id, list(response.tools))
         await self._keep_alive(server_id)
 
