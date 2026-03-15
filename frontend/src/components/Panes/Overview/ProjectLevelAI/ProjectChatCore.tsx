@@ -12,13 +12,15 @@ import {
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
-  resolveSlashCommandRequest,
   type ChatRuntimeActivityDetails,
+} from "components/Chat/ChatInput";
+import {
+  resolveSlashCommandRequest,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
   type ChatSubmitDispatchResult,
   type ChatSubmitOptions,
-} from "components/Chat/ChatInput";
+} from "components/Chat/chatInputSubmission";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   resolveAuthoritativeContextTelemetry,

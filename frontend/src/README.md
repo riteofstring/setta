@@ -10,18 +10,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1413`
-- Non-generated TS/TSX files at `1000+` lines: `44`
+- Authored TS/TSX files under `frontend/src`: `1412`
+- Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
-  - `components/Chat/ChatInput.tsx` (`3121`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2933`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2860`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
+  - `components/Chat/ChatInput.tsx` (`2597`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2379`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2381`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
 
 ## Module Map
@@ -79,6 +79,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Chat/chatCopyText.ts` owns the shared clipboard-notification
     helper used by `components/Chat/ChatMessages.tsx` and
     `components/Chat/chatAssistantActivityCard.tsx`.
+  - `components/Chat/chatInputSubmission.ts` owns slash-command parsing,
+    queued-draft replay snapshots, queued-draft replay signatures, and the
+    submit or replay state machine used by `components/Chat/ChatInput.tsx`.
+  - `components/Chat/ChatInput.tsx` now focuses on composer state, attachment
+    manager wiring, draft restore or history selection, dictation or
+    transcription controls, execution settings, and the composer render shells
+    over that local submission owner.
   - `components/Chat/ChatMessages.tsx` now focuses on list assembly, grouped
     activity-only message stitching, assistant/user/system bubble shells, and
     message-level interaction wiring across those local chat owners.

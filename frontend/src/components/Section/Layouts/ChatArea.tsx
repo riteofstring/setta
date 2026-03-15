@@ -1,8 +1,4 @@
-import {
-  ChatInput,
-  type ChatSlashCommand,
-  type ChatSlashCommandResult,
-} from "components/Chat/ChatInput";
+import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
@@ -12,6 +8,10 @@ import {
   type ChatPermissionModeValue,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
+import {
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+} from "components/Chat/chatInputSubmission";
 import { resolveAuthoritativeContextTelemetry } from "components/Chat/contextTelemetry";
 import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import {

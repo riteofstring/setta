@@ -54,20 +54,20 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1413 authored TS/TSX files under `frontend/src`.
-- There are 44 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 1412 authored TS/TSX files under `frontend/src`.
+- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 2933 lines
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 2860 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2721 lines
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2379 lines
+  - `frontend/src/components/Chat/ChatInput.tsx` at 2597 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2444 lines
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2381 lines
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2323 lines
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1974 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 2304 lines
 - App and plugin runtime remain cleanup hotspots:
@@ -82,11 +82,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Future cleanup should default to the remaining giant render-heavy hotspots,
   not to more taxonomic splitting of already smaller `state/actions` modules.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`

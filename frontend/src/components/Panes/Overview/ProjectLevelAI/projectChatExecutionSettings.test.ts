@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputSubmission";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
