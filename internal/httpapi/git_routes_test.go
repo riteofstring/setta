@@ -450,6 +450,46 @@ func TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff(t *testing.T) 
 	}
 }
 
+func TestRegisterGitRoutesRejectRepoEscapePathsAndInvalidCommitHashes(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	diffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":"../tracked.txt","mode":"unstaged"}`))
+	diffRequest.Header.Set("Content-Type", "application/json")
+	diffResponse := httptest.NewRecorder()
+	handler.ServeHTTP(diffResponse, diffRequest)
+	if diffResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid path 400, got %d with body %q", diffResponse.Code, diffResponse.Body.String())
+	}
+	if !strings.Contains(diffResponse.Body.String(), `"code":"invalid_request"`) || !strings.Contains(diffResponse.Body.String(), "Path must not contain '..'.") {
+		t.Fatalf("unexpected invalid path response %q", diffResponse.Body.String())
+	}
+
+	detailsRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitDetails, strings.NewReader(`{"commitHash":"not-a-commit"}`))
+	detailsRequest.Header.Set("Content-Type", "application/json")
+	detailsResponse := httptest.NewRecorder()
+	handler.ServeHTTP(detailsResponse, detailsRequest)
+	if detailsResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid commit 400, got %d with body %q", detailsResponse.Code, detailsResponse.Body.String())
+	}
+	if !strings.Contains(detailsResponse.Body.String(), `"code":"invalid_commit_hash"`) || !strings.Contains(detailsResponse.Body.String(), "Invalid commit hash.") {
+		t.Fatalf("unexpected invalid commit response %q", detailsResponse.Body.String())
+	}
+
+	commitDiffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"not-a-commit","path":"tracked.txt"}`))
+	commitDiffRequest.Header.Set("Content-Type", "application/json")
+	commitDiffResponse := httptest.NewRecorder()
+	handler.ServeHTTP(commitDiffResponse, commitDiffRequest)
+	if commitDiffResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid commit diff 400, got %d with body %q", commitDiffResponse.Code, commitDiffResponse.Body.String())
+	}
+	if !strings.Contains(commitDiffResponse.Body.String(), `"code":"invalid_commit_hash"`) || !strings.Contains(commitDiffResponse.Body.String(), "Invalid commit hash.") {
+		t.Fatalf("unexpected invalid commit diff response %q", commitDiffResponse.Body.String())
+	}
+}
+
 func newGitRouteTestHandler(t *testing.T, mode config.Mode, workspaceRoot string) http.Handler {
 	t.Helper()
 

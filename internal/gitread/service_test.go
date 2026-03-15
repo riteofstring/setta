@@ -389,6 +389,44 @@ func TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) 
 	}
 }
 
+func TestServiceDiffRejectsAbsoluteParentAndNULPaths(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	testCases := []struct {
+		path            string
+		expectedMessage string
+	}{
+		{path: "/tmp/tracked.txt", expectedMessage: "Path must be repo-relative."},
+		{path: "../tracked.txt", expectedMessage: "Path must not contain '..'."},
+		{path: "bad\x00path.txt", expectedMessage: "Invalid path."},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(strings.ReplaceAll(testCase.expectedMessage, " ", "_"), func(t *testing.T) {
+			t.Parallel()
+
+			_, err := service.Diff(context.Background(), DiffRequest{
+				Path: testCase.path,
+				Mode: DiffModeUnstaged,
+			})
+			var serviceErr *Error
+			if !errors.As(err, &serviceErr) {
+				t.Fatalf("expected gitread error, got %v", err)
+			}
+			if serviceErr.Kind != ErrorInvalidRequest || serviceErr.Message != testCase.expectedMessage {
+				t.Fatalf("unexpected path validation error %#v", serviceErr)
+			}
+		})
+	}
+}
+
 func TestServiceLogPaginatesAndPreservesDecorations(t *testing.T) {
 	t.Parallel()
 
@@ -565,6 +603,36 @@ func TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths(t *testin
 	}
 	if serviceErr.Kind != ErrorNotFound || serviceErr.Message != "File is not part of this commit diff." {
 		t.Fatalf("unexpected missing diff error %#v", serviceErr)
+	}
+}
+
+func TestServiceCommitDetailsAndFileDiffRejectInvalidCommitHashes(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: "not-a-commit"})
+	var serviceErr *Error
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected gitread error for commit details, got %v", err)
+	}
+	if serviceErr.Kind != ErrorInvalidCommit || serviceErr.Message != "Invalid commit hash." {
+		t.Fatalf("unexpected commit-details error %#v", serviceErr)
+	}
+
+	_, err = service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: "not-a-commit",
+		Path:       "tracked.txt",
+	})
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected gitread error for commit diff, got %v", err)
+	}
+	if serviceErr.Kind != ErrorInvalidCommit || serviceErr.Message != "Invalid commit hash." {
+		t.Fatalf("unexpected commit-diff error %#v", serviceErr)
 	}
 }
 
