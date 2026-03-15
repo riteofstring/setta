@@ -278,6 +278,12 @@ Current tree note:
   Current ownership already lives in Go under `internal/appspec`,
   `internal/appgenskills`, `internal/httpapi`, `internal/managedchat`,
   `internal/mcpx`, and `internal/projectstate`.
+- `backend/setta/share/policy.py` and `backend/setta/share/session_store.py`
+  are also gone in the current worktree because deployment session lifecycle,
+  overlay policy enforcement, and deployment path guarding are already
+  caller-backed in Go under `internal/deployments`, `internal/runs`,
+  `internal/shareartifacts`, and `internal/httpapi`; the remaining Python
+  share boundary is only `share/listener_runtime.py`.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
