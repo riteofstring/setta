@@ -24,14 +24,10 @@ var (
 		"subscribeProjectState":        {},
 		"emitListenerEvents":           {},
 		"registerExternalAgentAdapter": {},
-		"registerListenerEndpoint":     {},
-		"registerStaticDir":            {},
 		"writeWorkspacePlugins":        {},
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{
-		"registerContextMenu":      {},
-		"registerListenerEndpoint": {},
-		"registerStaticDir":        {},
+		"registerContextMenu": {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,

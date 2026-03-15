@@ -791,3 +791,11 @@ capabilities, and the shared Playwright seed script no longer injects deleted
 backend plugin fixtures into test workspaces. The remaining rewrite tail is no
 longer the deleted plugin codegen capability itself; it is whatever broader
 dead backend-plugin metadata still remains elsewhere in the tree.
+
+A later follow-up cleanup slice removed two more dead backend-plugin manifest
+capabilities that no longer had any runtime owner at all:
+`registerListenerEndpoint` and `registerStaticDir`. The plugin manifest
+schemas/models and the Go capability normalization path no longer advertise
+either one, and the stale fixture-linking example no longer points at the
+already-removed backend static-router path. The remaining dead backend-plugin
+tail is now centered on the old plugin external-agent adapter surface.

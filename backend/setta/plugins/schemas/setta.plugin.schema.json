@@ -76,8 +76,6 @@
           "readProjectState",
           "subscribeProjectState",
           "emitListenerEvents",
-          "registerListenerEndpoint",
-          "registerStaticDir",
           "writeWorkspacePlugins"
         ]
       },
