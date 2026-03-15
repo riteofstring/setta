@@ -96,6 +96,46 @@ func TestRuntimeGetAppDefinitionReturnsStoredSpec(t *testing.T) {
 	}
 }
 
+func TestRuntimeGetAppDefinitionReturnsNilSpecWhenStoredFileIsMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store := newTestStore(t, filepath.Join(root, "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+		AppDefinition: &AppDefinition{
+			AppSpecPath:    appspec.DefaultPath(),
+			AppSpecVersion: "v1",
+			CatalogID:      appspec.DefaultCatalogID,
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+
+	runtime := openTestRuntime(t, store)
+	result, err := runtime.GetAppDefinition(context.Background())
+	if err != nil {
+		t.Fatalf("get app definition with missing stored file: %v", err)
+	}
+	if result.AppDefinition == nil {
+		t.Fatal("expected app definition metadata")
+	}
+	if result.AppDefinition.AppSpecPath != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %q", appspec.DefaultPath(), result.AppDefinition.AppSpecPath)
+	}
+	if result.AppSpec != nil {
+		t.Fatalf("expected nil app spec for missing stored file, got %#v", result.AppSpec)
+	}
+}
+
 func TestRuntimeValidateAppDefinitionReturnsCapabilities(t *testing.T) {
 	t.Parallel()
 

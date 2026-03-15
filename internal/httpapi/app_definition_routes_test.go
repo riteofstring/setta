@@ -1,11 +1,14 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -52,7 +55,7 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 
 	root, runtime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	if _, _, err := runtime.SetAppDefinition(
-		t.Context(),
+		context.Background(),
 		projectstate.SetAppDefinitionInput{
 			AppSpec: map[string]any{
 				"root": "root",
@@ -94,6 +97,55 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	}
 	if !reflect.DeepEqual(payload.AppSpec, storedSpec) {
 		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, payload.AppSpec)
+	}
+}
+
+func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testing.T) {
+	t.Parallel()
+
+	root, runtime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	if _, _, err := runtime.SetAppDefinition(
+		t.Context(),
+		projectstate.SetAppDefinitionInput{
+			AppSpec: map[string]any{
+				"root": "root",
+				"elements": map[string]any{
+					"root": map[string]any{
+						"key":  "root",
+						"type": "Stack",
+					},
+				},
+			},
+		},
+	); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+	if err := os.Remove(filepath.Join(root, appspec.DefaultPath())); err != nil {
+		t.Fatalf("remove stored app spec: %v", err)
+	}
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, runtime)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAppDefinition, strings.NewReader(`{}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.AppDefinitionReadResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing-file get app definition payload: %v", err)
+	}
+	if payload.AppDefinition == nil {
+		t.Fatalf("expected app definition metadata, got %#v", payload)
+	}
+	if payload.AppDefinition.AppSpecPath != appspec.DefaultPath() {
+		t.Fatalf("expected app spec path %q, got %q", appspec.DefaultPath(), payload.AppDefinition.AppSpecPath)
+	}
+	if payload.AppSpec != nil {
+		t.Fatalf("expected nil app spec for missing stored file, got %#v", payload.AppSpec)
 	}
 }
 
