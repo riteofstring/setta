@@ -3923,3 +3923,36 @@ Append-only log for the section performance refactor.
   - Treat this `nameInput*` typography recovery as the new lower-seam baseline, not as final acceptance.
   - Narrow the next pass to the remaining `~1.2px` row height gap versus untouched `main`.
   - Preserve the current callable reorder/indent canary and the dict/global-variables shared-row tests while doing it.
+
+### 2026-03-18 106
+
+- Item: Reject the residual row-height CSS candidate and restore the last green baseline.
+- Status: `needs_more_work`
+- Details:
+  - Tried one more local CSS-only follow-up on top of the kept `nameInput*` typography candidate:
+    - removed the `nameInputLeaf` / `nameInputParent` wrapper bottom border from the layout box
+    - redrew the underline on the inner `.peer/nameinput` / `.peer/textinput` surfaces
+    - kept the same label-root plus first `.section-value` sibling selector scope
+  - Reason for the attempt:
+    - the headed DOM read from the kept candidate already showed the worktree value-side inner text box at `24.06px` inside a `25.26px` wrapper with a `1px` bottom border
+    - by construction, this attempt was meant to erase that last wrapper-owned contribution without touching the draggable row owner
+  - Verification under the local attempt:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result under the local attempt: failed
+      - observed order after dragging `k` before `h`: `h > k > i > j`
+  - Interpretation:
+    - the residual `~1.2px` row-height gap is not a free CSS cleanup at the current row seam
+    - making the wrappers effectively main-like again at this layer reopens the same callable reorder failure the checkpoint has been tracking
+    - that pushes the next likely owner seam back toward placeholder/collision handling, or toward an explicit blocker decision, rather than another underline relocation tweak
+  - Cleanup:
+    - reverted the local residual-gap candidate
+    - restored the worktree to the last green committed baseline (`42c1c967f`) before continuing the tracker
+  - Recorded the dead end in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-residual-row-height-dead-end.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Keep the current `25.26px` worktree row candidate as the green baseline.
+  - Do not spend the next pass on another wrapper-border removal attempt at the same row-CSS seam.
+  - Decide next whether to reopen the collision/placeholder owner stack for full parity, or to document that the remaining gap is blocked at the current lower seam.
