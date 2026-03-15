@@ -17,7 +17,3 @@ class PromptTemplate(BaseModel, extra="forbid"):
     format: PromptFormat = PromptFormat.Jinja
     inputSchema: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class PromptTemplateList(BaseModel, extra="forbid"):
-    templates: list[PromptTemplate]

@@ -103,10 +103,6 @@ class EngineConfig(BaseModel, extra="forbid"):
     defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
 
 
-class EngineConfigList(BaseModel, extra="forbid"):
-    configs: list[EngineConfig]
-
-
 class TranscriptionTransportMode(str, Enum):
     auto = "auto"
     file = "file"
@@ -131,10 +127,6 @@ class TranscriptionProfile(BaseModel, extra="forbid"):
             raise ValueError("language must be a string or null")
         stripped = value.strip()
         return stripped or None
-
-
-class TranscriptionProfileList(BaseModel, extra="forbid"):
-    profiles: list[TranscriptionProfile]
 
 
 class AgentProfile(BaseModel, extra="forbid"):
@@ -191,10 +183,6 @@ class AgentRun(BaseModel, extra="forbid"):
         if isinstance(value, str):
             return parse_timestamp_str(value)
         return value
-
-
-class AgentProfileList(BaseModel, extra="forbid"):
-    profiles: list[AgentProfile]
 
 
 class ExternalAgentToolType(str, Enum):
@@ -282,10 +270,6 @@ class ExternalAgentConfig(BaseModel, extra="forbid"):
     )
     workingDir: str | None = None
     codexSkipGitRepoCheck: bool | None = None
-
-
-class ExternalAgentConfigList(BaseModel, extra="forbid"):
-    configs: list[ExternalAgentConfig]
 
 
 class SettaNotificationType(str, Enum):
@@ -398,10 +382,6 @@ class WebsocketMsg(BaseModel):
     messageType: Any
 
 
-class FrontendWebsocketMsg(WebsocketMsg):
-    pass
-
-
 class BackendWebsocketMsg(WebsocketMsg):
     pass
 
@@ -427,57 +407,16 @@ class ProjectStateSingleConfigWithCompletedOpIds(BaseModel):
     pendingOpIds: list[str]
 
 
-# class WebsocketMsgArtifact(FrontendWebsocketMsg):
-#     content: Artifact
-#     messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
-#         WebsocketMsgTypeForFrontend.Artifact
-#     )
-
-class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
-    content: EngineConfigList
-    messageType: Literal[WebsocketMsgTypeForFrontend.EngineConfigsUpdated] = (
-        WebsocketMsgTypeForFrontend.EngineConfigsUpdated
-    )
-
-
-class WebsocketMsgTranscriptionProfilesUpdated(FrontendWebsocketMsg):
-    content: TranscriptionProfileList
-    messageType: Literal[WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated] = (
-        WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated
-    )
-
-
-class WebsocketMsgAgentRunUpdated(FrontendWebsocketMsg):
-    content: AgentRun
-    messageType: Literal[WebsocketMsgTypeForFrontend.AgentRunUpdated] = (
-        WebsocketMsgTypeForFrontend.AgentRunUpdated
-    )
-
-
 class AIFollowToolArgumentsUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
     idsByType: dict[FollowIdType, list[ID]]
 
 
-class WebsocketMsgAIFollowToolArgumentsUpdate(FrontendWebsocketMsg):
-    content: AIFollowToolArgumentsUpdateContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate] = (
-        WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate
-    )
-
-
 class AIFollowToolResultUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
     idsByType: dict[FollowIdType, list[ID]]
-
-
-class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
-    content: AIFollowToolResultUpdateContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate] = (
-        WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate
-    )
 
 
 class UISettingRevealActivationStep(BaseModel):
@@ -510,13 +449,6 @@ class UISettingRevealContent(BaseModel):
     reveals: list[UISettingRevealTarget]
     durationMs: int = 3000
     requestId: str
-
-
-class WebsocketMsgUISettingReveal(FrontendWebsocketMsg):
-    content: UISettingRevealContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.UISettingReveal] = (
-        WebsocketMsgTypeForFrontend.UISettingReveal
-    )
 
 
 class UISettingRevealResultStatus(BaseModel):
