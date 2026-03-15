@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`770293ffd45d0d1a202ad46db5551d7d69ce3918`
+`283a7636884ec582e8952bde1c28af28cfd1d48c`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -56,6 +56,7 @@ It currently covers:
 - managed/external chat hydration, managed stop, and external-agent approval/question transport behavior
 - AI-follow snapshot, external-agent run stop, and agent-run read routes
 - managed `startAgentRun` / `stopAgentRun` transport and runtime behavior
+- state-machine run start/get/stop/reset transport and control behavior
 
 Rows outside these slices are still pending.
 
@@ -191,6 +192,11 @@ Rows outside these slices are still pending.
   - one documented clean-break divergence around source hybrid
     external-agent dispatch on `startAgentRun` (`MA-02`)
   - one more proof gap around typed missing-run stop transport (`MA-05`)
+- The state-machine-run slice mostly closes with proofs and adds:
+  - one dormant source branch around share-scoped workflow mutations
+    (`SM-04`)
+  - one more proof-gap cluster around typed validation and not-found error
+    mapping (`SM-05`)
 
 ## Project Names
 
@@ -562,6 +568,16 @@ Rows outside these slices are still pending.
 | `MA-04` | Managed start/stop surface typed `503 managed_agent_run_unavailable` when the managed runtime is disabled or not yet executable in real app wiring. | Source route: `backend/setta/routers/agentic.py::{route_start_agent_run,route_stop_agent_run}`; source disabled-runtime branch uses `AgentRunner.disabled`. | Impl: `internal/httpapi/agent_run_routes.go::{startAgentRunHandler,stopAgentRunHandler,writeManagedAgentRunError}`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesReturnUnavailableWhenManagedRuntimeDisabled`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-start-stop-runtime-and-transport.md`. | `Proved` | |
 | `MA-05` | Missing managed run ids on `stopAgentRun` return typed `404 agent_run_not_found`. | Source route: `backend/setta/routers/agentic.py::route_stop_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::{stopAgentRunHandler,writeManagedAgentRunError}`. | `Implemented, proof incomplete` | Current Go error mapping clearly includes the typed `agent_run_not_found` branch, but this slice does not yet cite a direct Go route test for missing-run stop transport. |
 
+## State Machine Runs
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `SM-01` | `startStateMachineRun` starts a persisted workflow run for the requested project/machine group, optional explicit `startSectionId` survives in run inputs, and `getStateMachineRun` returns the latest matching run. | `tests/routers/test_state_machine_run_routes.py::test_state_machine_run_routes_complete_structural_machine_and_restart`; source routes: `backend/setta/routers/agentic.py::{route_start_state_machine_run,route_get_state_machine_run}`. | Impl: `internal/httpapi/state_machine_run_routes.go::{startStateMachineRunHandler,getStateMachineRunHandler}`; `internal/statemachineruns/runtime.go::{StartRun,GetLatestRun}`; proof: `internal/httpapi/state_machine_run_routes_test.go::TestRegisterStateMachineRunRoutesStartGetStopAndResetInIDE`; runtime proof: `internal/statemachineruns/runtime_test.go::TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState`; app proof: `internal/app/app_test.go::TestAppServesStateMachineRunRoutesWithManagedChatExecutor`. | `Proved` | Current frontend workflow controls still call the same route family through `frontend/src/state/actions/stateMachineRuns.ts`. |
+| `SM-02` | `stopStateMachineRun` and `resetStateMachine` return `alreadyStopped` / `stoppedRunId`, cancel running child runs, and reset clears machine state so the latest workflow becomes absent until a later restart. | `tests/routers/test_state_machine_run_routes.py::{test_state_machine_run_routes_complete_structural_machine_and_restart,test_state_machine_runner_stop_cancels_running_child_runs,test_state_machine_runner_reset_clears_latest_running_machine_state}`; source routes: `backend/setta/routers/agentic.py::{route_stop_state_machine_run,route_reset_state_machine}`. | Impl: `internal/httpapi/state_machine_run_routes.go::{stopStateMachineRunHandler,resetStateMachineHandler}`; `internal/statemachineruns/runtime.go::{StopRun,ResetMachine}`; proof: `internal/httpapi/state_machine_run_routes_test.go::TestRegisterStateMachineRunRoutesStartGetStopAndResetInIDE`; runtime proof: `internal/statemachineruns/runtime_test.go::{TestRuntimeStopRunCancelsRunningChildRuns,TestRuntimeResetMachineClearsOwnedChatBinding}`. | `Proved` | Current frontend state handling still treats reset-cleared runs as idle via `frontend/src/state/actions/stateMachineRuns.test.ts::it("treats a reset-cleared latest workflow run as idle", ...)`. |
+| `SM-03` | `getStateMachineRun` is scoped to the active share session in deployment/share mode, so reads return only runs for the current `shareSessionId`. | `tests/routers/test_state_machine_run_routes.py::test_state_machine_run_routes_isolate_runs_by_share_session_id`; source route: `backend/setta/routers/agentic.py::route_get_state_machine_run`. | Impl: `internal/httpapi/state_machine_run_routes.go::{RegisterStateMachineRunRoutes,getStateMachineRunHandler,stateMachineRunShareSessionID}`; proof: `internal/httpapi/state_machine_run_routes_test.go::TestRegisterStateMachineRunRoutesUsesActiveShareSessionForGet`; current caller proof: `frontend/src/state/actions/stateMachineRuns.test.ts::{it("selects the latest workflow run only from the current deployment share session", ...),it("polls only workflow runs from the current deployment share session", ...)}`. | `Proved` | |
+| `SM-04` | Source routes allowed share-session-scoped workflow start/stop/reset mutations alongside share-scoped reads; current Go blocks those mutations in share mode and current frontend pre-rejects them before request. | `tests/routers/test_state_machine_run_routes.py::test_state_machine_run_routes_isolate_runs_by_share_session_id`; source routes: `backend/setta/routers/agentic.py::{route_start_state_machine_run,route_stop_state_machine_run,route_reset_state_machine}`. | Current Go share-mode transport blocks the mutation routes: `internal/httpapi/state_machine_run_routes.go::RegisterStateMachineRunRoutes`; proof: `internal/httpapi/state_machine_run_routes_test.go::TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode`; current frontend also suppresses the path in deployment mode: `frontend/src/state/actions/stateMachineRuns.ts::runStateMachineMutation`; `frontend/src/components/Section/Layouts/StateMachineNodeArea.tsx`; `frontend/src/components/Panes/Overview/RunInstructions.tsx`. | `Dormant / unproven caller` | The source behavior is real, but current active share callers only retain share-scoped workflow reads/polling. This slice does not yet prove share-mode workflow mutations still belong in the rewrite target. |
+| `SM-05` | Route/runtime validation preserves typed `400`/`404` mapping for missing required ids, missing machine groups or start sections, missing projects, and invalid workflow graphs such as draft groups without an End section. | `tests/routers/test_state_machine_run_routes.py::{test_state_machine_run_routes_reject_draft_machine_groups_without_end_sections,test_state_machine_run_routes_reject_missing_machine_group}`; source routes: `backend/setta/routers/agentic.py::{route_start_state_machine_run,route_stop_state_machine_run,route_reset_state_machine,route_get_state_machine_run}`. | Impl: `internal/httpapi/state_machine_run_routes.go::{startStateMachineRunHandler,stopStateMachineRunHandler,resetStateMachineHandler,getStateMachineRunHandler,writeStateMachineRunError}`; `internal/statemachineruns/runtime.go::{StartRun,StopRun,ResetMachine,GetLatestRun}`. | `Implemented, proof incomplete` | Current Go clearly has the required-field checks plus typed `project_config_not_found`, `section_not_found`, `state_machine_run_invalid`, and `state_machine_run_not_found` mappings, but this slice does not yet cite direct Go route tests for those specific validation/not-found branches. |
+
 ## Current Findings
 
 1. The matrix now contains twelve concrete source-parity gaps:
@@ -617,12 +633,15 @@ Rows outside these slices are still pending.
 16. The managed-agent-run slice mostly closes with proofs, but it adds one
     documented clean-break divergence (`MA-02`) plus one more proof gap
     (`MA-05`).
-17. Git route behavior is now largely proved, including literal pathspec
+17. The state-machine-run slice mostly closes with proofs, but it adds one
+    dormant share-mutation row (`SM-04`) plus one more proof-gap cluster
+    (`SM-05`).
+18. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-18. The remaining issues in the naming slice are still mostly proof gaps rather
+19. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-19. The next high-value steps are:
+20. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
       `US-05`, `RV-02`, `AH-04`, and `FS-01` should be restored or documented
       as intentional divergences
@@ -630,8 +649,9 @@ Rows outside these slices are still pending.
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `AS-02` can be treated as a fully dead legacy transport
-      or still needs an explicit retained-boundary decision
+    - decide whether `AS-02` and `SM-04` can be treated as fully dead legacy
+      or share-only transports, or still need explicit retained-boundary
+      decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
@@ -641,6 +661,7 @@ Rows outside these slices are still pending.
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), and the new
       transcription proof gaps (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the
       new chat/managed-stop proof gaps (`AH-02`, `MS-02`), plus the new
-      managed-agent-run proof gap (`MA-05`)
+      managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
+      proof gap (`SM-05`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
