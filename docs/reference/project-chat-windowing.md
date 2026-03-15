@@ -117,6 +117,13 @@ Persistence and restore rules:
 - Saving only snapshots visible floating windows.
 - Docked, minimized, closed, maximized, and invalid section-bound windows are
   excluded from a saved window space.
+- `Save As (With Refs)` copies saved window spaces into the new project config,
+  clears any copied saved-window `chatId` bindings, and starts the copied
+  config with empty live `projectChatWindowing`.
+- Plain `Save As` copies the current live `projectChatWindowing` layout into
+  the new project config but still clears copied thread bindings. Current Go
+  keeps section and window-space ids stable within each copied project because
+  those ids are scoped by `projectConfigId`.
 - Restore reuses matching live floating windows when ownership matches a
   section, a project-chat thread, or the tracked Git Graph.
 - Colliding instance ids are remapped.
