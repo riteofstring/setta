@@ -181,3 +181,7 @@ categorize them.
 - The workspace-launch intent-store reinitialization/single-use row is now
   proved too; that trims the launch backlog down further toward the remaining
   route-level launcher-home and local-launch ordering/error-swallowing slices
+- The launcher-home invalid-cursor / outside-root directory-listing row and
+  the launcher-open symlink-escape row are now proved too; the remaining
+  launcher-home backlog is the genuinely missing trust/rollback/metadata-
+  ordering slice rather than basic fail-closed path validation
