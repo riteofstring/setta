@@ -603,7 +603,7 @@ func serveTerminalConnection(
 
 			if err := deps.Terminals.Write(terminalID, message.Payload); err != nil {
 				if errors.Is(err, terminals.ErrInputDisabled) {
-					return &CloseError{Code: CloseCodeForbidden, Reason: err.Error()}
+					continue
 				}
 				if errors.Is(err, terminals.ErrUnknownSession) {
 					return &CloseError{Code: websocket.StatusNormalClosure, Reason: "Terminal session ended."}

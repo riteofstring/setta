@@ -2949,9 +2949,11 @@ func TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession(t *testing.T) {
 		t.Fatalf("write deployment terminal input: %v", err)
 	}
 
-	_, _, err := conn.Read(context.Background())
-	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
-		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err := conn.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deployment terminal websocket to remain open after blocked input, got %v", err)
 	}
 
 	info, ok := terminalService.Session(terminalID)
