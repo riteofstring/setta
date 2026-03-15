@@ -337,12 +337,16 @@ Current tree note:
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
-- Recompute the remaining Step 3 batch from live imports before deleting more
-  websocket helpers. `backend/setta/websockets/binary_frames.py` remains tied
-  to the retained Python listener SDK, while `websocket_manager.py` and
-  `msg_handlers/frontend_sender.py` are intertwined with broader superseded
-  Python subsystem clusters and should be deleted with those dependents rather
-  than by themselves unless current code review proves a clean smaller batch.
+- The dead Python websocket-shell tail is also smaller in the current
+  worktree: `backend/setta/websockets/websocket_manager.py`,
+  `backend/setta/websockets/msg_handlers/base.py`, and
+  `backend/setta/websockets/msg_handlers/frontend_sender.py` are gone because
+  the active frontend/listener websocket transport and UI broadcast paths
+  already live in Go under `internal/wsapi`, `internal/realtime`, and
+  `internal/app`, while the retained Python `mcp.client` surface no longer
+  depends on the deleted Python websocket sender class. The remaining
+  `backend/setta/websockets/binary_frames.py` helper stays tied to the
+  retained Python listener SDK.
 
 Actions:
 

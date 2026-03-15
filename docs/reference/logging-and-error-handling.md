@@ -171,11 +171,12 @@ global handling:
 - **Log-only vs UI-visible**:
   - Use `log_failure(...)` when you want consistent server-side error logs and *no*
     user-facing UI message is needed (or when there is already another UI surface).
-  - Use `WMHFrontendSender.log_failure_and_broadcast_backend_log_event(...)` when the
-    failure should show up in the UI as a diagnostic/error banner (and still be logged
-    server-side).
-  - Use `WMHFrontendSender.log_and_broadcast_backend_log_event(...)` for non-exception
-    status messages that should also appear in server logs (e.g. “Started command”).
+  - For UI-visible websocket diagnostics, use the active Go-owned websocket/runtime
+    path (`internal/wsapi`, `internal/realtime`, or the route-specific caller surface)
+    instead of reviving the deleted Python `WMHFrontendSender` helper path.
+  - If a retained Python helper needs optional UI broadcast integration, keep it behind
+    a narrow caller-supplied interface and fall back to `log_failure(...)` when no
+    broadcaster is available.
 - **User notifications**: If the UX should show a persistent “Saved!”-style message,
   send a `SettaNotification` via `broadcast_notification(...)` instead of a backend log
   event.

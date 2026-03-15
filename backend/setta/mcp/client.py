@@ -5,7 +5,7 @@ import os
 import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import Any, Protocol, Sequence
 
 import anyio
 import mcp.types as types
@@ -42,9 +42,6 @@ from setta.types.routes import Route
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
-if TYPE_CHECKING:  # pragma: no cover
-    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
 logger = logging.getLogger(__name__)
 
 _ENV_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -76,13 +73,27 @@ class _ServerToolCache:
     routing: dict[str, tuple[str, str]]
 
 
+class BackendLogEventBroadcaster(Protocol):
+    async def log_failure_and_broadcast_backend_log_event(
+        self,
+        exception: BaseException,
+        *,
+        label: str,
+        message: str,
+        severity: SettaBackendLogEventSeverity,
+        handled: bool,
+        logger: logging.Logger,
+        context: dict[str, Any],
+    ) -> None: ...
+
+
 class MultiMCPClient:
     """Unified interface for multi-server MCP access."""
 
     def __init__(
         self,
         server_configs: dict[str, MCPServerConfig],
-        frontend_sender: "WMHFrontendSender | None" = None,
+        frontend_sender: BackendLogEventBroadcaster | None = None,
         *,
         disabled: bool = False,
     ):
