@@ -11,7 +11,10 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
-import { ParamDndProvider } from "./ParamDndContext";
+import {
+  ParamDndProvider,
+  useParamDndChildrenForParent,
+} from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
 
 type ParamDndListProps = {
@@ -103,17 +106,51 @@ export function ParamDndList({
         tree={tree}
         enabled={enabled}
       >
-        <GetParamSwitch
+        <ParamDndListBody
           sectionId={sectionId}
+          rootId={tree.rootId}
           paramIds={paramIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
           isTopLevel={isTopLevel}
-          dndParentId={tree.rootId}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>
+  );
+}
+
+function ParamDndListBody({
+  sectionId,
+  rootId,
+  paramIds,
+  requiredParamIdsToPaths,
+  onResizeStart,
+  isTopLevel,
+  listKey,
+  hasSectionStyleTheme,
+}: {
+  sectionId: string;
+  rootId: string;
+  paramIds: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  isTopLevel: boolean;
+  listKey: ParamListKey;
+  hasSectionStyleTheme: boolean;
+}) {
+  const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
+
+  return (
+    <GetParamSwitch
+      sectionId={sectionId}
+      paramIds={renderParamIds}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      onResizeStart={onResizeStart}
+      isTopLevel={isTopLevel}
+      listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
   );
 }
