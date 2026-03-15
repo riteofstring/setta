@@ -5,7 +5,7 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `364c99f3724d9534460b04d0b21d2f70d1ec387e`
+- Target head: `c0c7098e751f0039633a4c4ac218e896018318a8`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -26,6 +26,9 @@ Last audited: `2026-03-16`
   isolation
 - plus the first bounded agent-profile slice: CRUD persistence, deployment
   read-policy behavior, and IDE-only mutation guards
+- plus the first bounded prompt-template / prompt-link slice: template CRUD
+  persistence, deployment read-policy behavior, linked prompt refresh/delete
+  guards, and prompt-section link error contracts
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -38,9 +41,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `232`
+- Rows audited in this pass: `243`
 - Status counts:
-  - `Proved`: `217`
+  - `Proved`: `228`
   - `Missing`: `1`
   - `Intentional divergence`: `5`
   - `Dormant / unproven caller`: `9`
@@ -80,6 +83,10 @@ Last audited: `2026-03-16`
     the source structural-change detail, launcher requests can succeed when a
     project runtime exists, and missing-manager / invalid-set failures now use
     source-style `404` / `422` detail bodies
+  - `internal/httpapi/prompt_template_routes.go`: prompt-template list/get now
+    follow the Python source deployment read policy, staying available in
+    share/app modes when LLM access is allowed while prompt-template mutations
+    remain IDE-only
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -134,6 +141,9 @@ Last audited: `2026-03-16`
 - This pass also extends the matrix into the first bounded agent-profile slice:
   CRUD persistence, deployment/share read-policy behavior, and IDE-only write
   guards.
+- This pass also extends the matrix into the first bounded prompt-template /
+  prompt-link slice: template CRUD/read policy, linked prompt refresh/delete
+  guards, and prompt-section link resolution/missing-template errors.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -162,6 +172,9 @@ Last audited: `2026-03-16`
   - broader LSP plugin-registration and launcher detail-parity rows beyond the
     diagnostics ignore-state/completions/restart/type-check/type-error-ignore
     subset audited here
+  - prompt-template watcher/frontend-broadcast side effects and remaining
+    launcher/detail transport rows beyond the CRUD/read-policy/link subset
+    audited here
   - attachment prompt-text/MIME-classification rows beyond the
     download-url/download transport subset audited here
   - file-browser `checkIfFileExists`, `checkWorkspaceInitialized`,
@@ -442,3 +455,14 @@ Last audited: `2026-03-16`
 | `agent_profiles.reads_blocked_when_deployment_llm_disabled` | `backend/setta/runtime/context.py::enforce_llm_allowed`; `backend/setta/share/policy.py::ensure_share_llm_allowed` | `internal/httpapi/agent_profile_routes.go::ensureAgentProfileReadsAllowed` | `TestRegisterAgentProfileRoutesBlockDeploymentReadsWhenLLMAccessDisabled` | the same read routes still serve as the caller-visible transport boundary in deployment/share modes | `Proved` | Deployment/share agent-profile reads still fail closed when the deployment policy disables LLM access. |
 | `agent_profiles.mutations_remain_ide_only` | `backend/setta/routers/agentic.py::{route_create_agent_profile,route_update_agent_profile,route_delete_agent_profile}` call `ctx.require_ide_mode(...)` after `ctx.enforce_llm_allowed()` | `internal/httpapi/agent_profile_routes.go::RegisterAgentProfileRoutes` | `TestRegisterAgentProfileRoutesBlocksShareModeMutations` | the Project AI settings caller still reaches mutations through the same create/update/delete routes | `Proved` | Agent-profile mutations remain IDE-only even when deployment policy would otherwise allow LLM reads. |
 | `agent_profiles.missing_profile_returns_404` | `backend/setta/routers/agentic.py::{route_get_agent_profile,route_update_agent_profile,route_delete_agent_profile}` raise `HTTPException(status_code=404, detail=\"Agent profile not found\")` | `internal/httpapi/agent_profile_routes.go::writeAgentProfileStoreError` | `TestRegisterAgentProfileRoutesReturnsNotFoundForMissingProfile`; `TestRegisterAgentProfileRoutesReturnsNotFoundForGettingMissingProfile`; `TestRegisterAgentProfileRoutesReturnsNotFoundForDeletingMissingProfile` | the same read/write endpoints still surface missing-profile failures to the Project AI settings caller | `Proved` | Missing agent-profile ids still return `404` instead of being treated as validation or internal errors. |
+| `prompt_templates.crud.round_trip_persists_template_fields` | `tests/routers/test_agentic_routes.py::test_prompt_template_crud`; `backend/setta/routers/agentic.py::{route_get_prompt_templates,route_get_prompt_template,route_create_prompt_template,route_update_prompt_template,route_delete_prompt_template}` | `internal/httpapi/prompt_template_routes.go`; `internal/prompttemplates/store.go` | `TestRegisterPromptTemplateRoutesListsTemplates`; `TestRegisterPromptTemplateRoutesGetsTemplate`; `TestRegisterPromptTemplateRoutesCreatesTemplate`; `TestRegisterPromptTemplateRoutesUpdatesTemplate`; `TestRegisterPromptTemplateRoutesDeletesTemplate` | `frontend/src/state/actions/ai.ts::loadPromptTemplates`; `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` still load, create, edit, and delete prompt templates through the generated endpoints | `Proved` | Prompt templates still create, list, fetch, update, and delete with persisted description/template/inputSchema/metadata state. |
+| `prompt_templates.reads_allowed_in_deployment_when_llm_enabled` | `backend/setta/routers/agentic.py::{route_get_prompt_templates,route_get_prompt_template}` only call `ctx.enforce_llm_allowed()`; `backend/setta/share/policy.py::ensure_share_llm_allowed` | `internal/httpapi/prompt_template_routes.go::ensurePromptTemplateReadsAllowed` | `TestRegisterPromptTemplateRoutesAllowDeploymentReadsWhenLLMAccessEnabled` | `frontend/src/state/actions/ai.ts::loadPromptTemplates`; `frontend/src/components/Section/Layouts/PromptArea.tsx`; `frontend/src/components/Panes/UiEditor/SectionConfig/PromptSettings.tsx` still depend on prompt-template reads in share/app flows | `Proved` | Prompt-template reads now remain available in share/app modes when deployment policy allows LLM access, matching the Python source policy. |
+| `prompt_templates.reads_blocked_when_deployment_llm_disabled` | `backend/setta/runtime/context.py::enforce_llm_allowed`; `backend/setta/share/policy.py::ensure_share_llm_allowed` | `internal/httpapi/prompt_template_routes.go::ensurePromptTemplateReadsAllowed` | `TestRegisterPromptTemplateRoutesBlockDeploymentReadsWhenLLMAccessDisabled` | the same prompt-template read callers still use the dedicated list/get route family in deployment/share modes | `Proved` | Deployment/share prompt-template reads still fail closed when the deployment policy disables LLM access. |
+| `prompt_templates.mutations_remain_ide_only` | `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations`; `backend/setta/routers/agentic.py::{route_create_prompt_template,route_update_prompt_template,route_delete_prompt_template}` call `ctx.require_ide_mode(...)` | `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes` | `TestRegisterPromptTemplateRoutesBlocksShareModeMutations` | `frontend/src/state/actions/ai.ts::{createPromptTemplate,updatePromptTemplate,deletePromptTemplate}` still drive template writes through the dedicated route family | `Proved` | Prompt-template mutations remain IDE-only even when deployment policy would otherwise allow LLM reads. |
+| `prompt_templates.missing_template_returns_404` | `backend/setta/routers/agentic.py::{route_get_prompt_template,route_update_prompt_template,route_delete_prompt_template}` raise `HTTPException(status_code=404, detail=\"Prompt template not found\")` | `internal/httpapi/prompt_template_routes.go::writePromptTemplateStoreError` | `TestRegisterPromptTemplateRoutesReturnsNotFoundForGet`; `TestRegisterPromptTemplateRoutesReturnsNotFoundForUpdate`; `TestRegisterPromptTemplateRoutesReturnsNotFoundForDelete` | the same prompt-template read/write endpoints still surface stale selection failures to the frontend caller | `Proved` | Missing prompt-template ids still return `404` instead of degrading into validation or internal errors. |
+| `prompt_templates.update.refreshes_linked_prompt_sections` | `tests/routers/test_prompt_template_link_routes.py::test_route_update_prompt_template_refreshes_linked_prompt_preview_state`; `backend/setta/routers/agentic.py::route_update_prompt_template` refreshes linked prompt sections through `project_manager_switcher.main` | `internal/httpapi/prompt_template_routes.go::updatePromptTemplateHandler`; `internal/projectstate/prompt_template_refresh.go::RefreshLinkedPromptSectionsForTemplate` | `TestRegisterPromptTemplateRoutesUpdateRefreshesLinkedPromptSections`; `TestDocumentRefreshLinkedPromptSectionsForTemplateUpdatesLinkedCaches` | `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` edits templates while `frontend/src/components/Section/Layouts/PromptArea.tsx` and `frontend/src/components/Panes/UiEditor/SectionConfig/PromptSettings.tsx` render linked prompt state | `Proved` | Updating a prompt template still refreshes linked prompt sections so their cached template/renderedText/renderError state stays in sync. |
+| `prompt_templates.delete.blocks_workflow_edge_references` | `tests/routers/test_prompt_template_link_routes.py::test_route_delete_prompt_template_rejects_workflow_edge_references`; `backend/setta/routers/agentic.py::{_list_workflow_prompt_template_references,route_delete_prompt_template}` | `internal/projectstate/prompt_template_references.go::WorkflowPromptTemplateReferences`; `internal/httpapi/prompt_template_routes.go::deletePromptTemplateHandler` | `TestDocumentWorkflowPromptTemplateReferencesListsWorkflowEdgesOnly`; `TestRegisterPromptTemplateRoutesBlocksDeleteForWorkflowReferences` | `frontend/src/components/Panes/UiEditor/StateMachineEdgeInspector.tsx` still offers prompt-template-backed send-prompt actions while Project AI settings can delete templates | `Proved` | Prompt-template deletion still fails with a conflict when any workflow edge references the template. |
+| `prompt_templates.delete_allows_prompt_section_links` | `backend/setta/routers/agentic.py::_list_workflow_prompt_template_references` only scans workflow edges; `backend/setta/project_state/base_project_manager.py::set_prompt_template_link` keeps prompt-section links on a separate path | `internal/projectstate/prompt_template_references.go::WorkflowPromptTemplateReferences`; `internal/httpapi/prompt_template_routes.go::deletePromptTemplateHandler` | `TestDocumentWorkflowPromptTemplateReferencesListsWorkflowEdgesOnly`; `TestRegisterPromptTemplateRoutesDeleteAllowsPromptSectionLinks` | prompt sections still link to templates through `frontend/src/components/Panes/UiEditor/SectionConfig/PromptSettings.tsx` and render linked content in `frontend/src/components/Section/Layouts/PromptArea.tsx` | `Proved` | Prompt-section links still do not block template deletion; only workflow-edge references are treated as delete-preventing usages. |
+| `prompt_template_links.link_persists_resolved_template_and_format` | `backend/setta/project_state/base_project_manager.py::set_prompt_template_link` copies the stored template body/format onto the prompt section when linking | `internal/httpapi/project_routes.go::setPromptTemplateLinkHandler`; `internal/projectstate/prompt_sections.go::SetPromptTemplateLink` | `TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejectsMissingTemplate` | `frontend/src/components/Panes/UiEditor/SectionConfig/PromptSettings.tsx` still links prompt sections to templates through `route_set_prompt_template_link` | `Proved` | Linking a prompt section to a template still persists the resolved template contents and format onto the section state alongside the linked template id. |
+| `prompt_template_links.link_missing_template_maps_404` | `tests/routers/test_prompt_template_link_routes.py::test_route_set_prompt_template_link_returns_404_for_missing_template`; `backend/setta/routers/project_manager.py::route_set_prompt_template_link`; `backend/setta/project_state/base_project_manager.py::set_prompt_template_link` | `internal/httpapi/project_routes.go::setPromptTemplateLinkHandler` | `TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejectsMissingTemplate` | the same prompt-section settings caller still reaches `route_set_prompt_template_link` when users pick a template id | `Proved` | Linking a prompt section to a missing template still returns `404 prompt_template_not_found`. |
+| `prompt_template_links.unlink_broken_linked_template_maps_404` | `tests/routers/test_prompt_template_link_routes.py::test_route_set_prompt_template_link_rejects_unlink_when_linked_template_is_missing`; `backend/setta/project_state/base_project_manager.py::set_prompt_template_link` resolves the current linked template before unlinking | `internal/httpapi/project_routes.go::setPromptTemplateLinkHandler` | `TestRegisterProjectRoutesPromptTemplateLinkRejectsUnlinkWhenLinkedTemplateIsMissing` | `frontend/src/components/Panes/UiEditor/SectionConfig/PromptSettings.tsx` still uses the same route when users clear a linked template | `Proved` | Clearing a prompt-template link still fails with `404 prompt_template_not_found` when the currently linked template has already disappeared from storage. |
