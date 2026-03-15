@@ -713,3 +713,11 @@ no longer hot-swaps plugin-defined MCP registrations into the authenticated Go
 MCP server. The remaining Python plugin worker blocker is narrower again: live
 backend ownership is now limited to codegen targets, language servers,
 external-agent adapters, and project-state reads.
+
+A later follow-up rewrite step removed the Python worker `read_project_state`
+path as well. The worker no longer advertises `host.read_project_state`, the
+Go worker host no longer carries a project-state reader service just for backend
+plugins, and the dedicated project-state-reader helper plus worker-specific
+tests were deleted. The remaining Python plugin worker blocker is narrower
+again: live backend ownership is now limited to codegen targets, language
+servers, and external-agent adapters.

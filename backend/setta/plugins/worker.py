@@ -6,7 +6,7 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
 BACKEND_PLUGIN_API_VERSION = 1
 SUPPORTED_RPC_METHODS: tuple[str, ...] = (
@@ -17,7 +17,6 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "host.register_language_server",
     "host.register_external_agent_adapter",
     "host.register_codegen_target",
-    "host.read_project_state",
 )
 _PROTOCOL_STDOUT = sys.stdout
 
@@ -457,49 +456,6 @@ class _WorkerBackendPluginContext:
             target=target,
             host_call=self._host_call,
         )
-
-    def read_project_state(
-        self,
-        *,
-        project_config_id: str,
-        share_session_id: str | None = None,
-        view: Literal["summary", "full"] = "summary",
-    ) -> Any:
-        if not isinstance(project_config_id, str) or project_config_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                "read_project_state project_config_id must be a non-empty string.",
-            )
-        if view not in {"summary", "full"}:
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                "read_project_state view must be 'summary' or 'full'.",
-            )
-        params: dict[str, Any] = {
-            "projectConfigId": project_config_id.strip(),
-            "view": view,
-        }
-        if share_session_id is not None:
-            if not isinstance(share_session_id, str) or share_session_id.strip() == "":
-                raise WorkerError(
-                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                    "read_project_state share_session_id must be non-empty when set.",
-                )
-            params["shareSessionId"] = share_session_id.strip()
-        result = self._host_call("host.read_project_state", params)
-        if not isinstance(result, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                "Host read_project_state response must be an object.",
-            )
-        project_state = result.get("projectState")
-        if not isinstance(project_state, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                "Host read_project_state response missing projectState object.",
-            )
-        return project_state
-
 
 def _emit_response(payload: dict[str, Any]) -> None:
     try:

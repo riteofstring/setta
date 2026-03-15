@@ -16,7 +16,6 @@ const (
 	workerRPCVersion                  = "2.0"
 	workerRPCTransportErrorCode       = "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
 	workerRPCCapabilityDeniedCode     = "PLUGIN_CAPABILITY_DENIED"
-	workerRPCProjectStateReadFailed   = "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED"
 	workerRPCRegisterFailedCode       = "PLUGIN_BACKEND_REGISTER_FAILED"
 	workerRPCHostCallFailedCode       = "PLUGIN_BACKEND_HOST_CALL_FAILED"
 	workerRPCInvalidErrorPayloadLabel = "backend worker returned an invalid error payload"
@@ -321,11 +320,6 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrExternalAgentAdapterRegistrationConflict),
 		errors.Is(err, ErrCodegenTargetRegistrationConflict):
 		return workerRPCRegisterFailedCode
-	case errors.Is(err, ErrWorkerHostProjectStateReaderRequired),
-		errors.Is(err, ErrWorkerHostProjectStateReadFailed),
-		errors.Is(err, ErrWorkerHostProjectStateProjectIDRequired),
-		errors.Is(err, ErrWorkerHostProjectStateViewInvalid):
-		return workerRPCProjectStateReadFailed
 	default:
 		return workerRPCHostCallFailedCode
 	}

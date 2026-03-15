@@ -37,66 +37,6 @@ func TestNewWorkerHostRequiresService(t *testing.T) {
 	}
 }
 
-// Project-state reads should return summary payloads from the live runtime when the worker capability is enabled.
-func TestWorkerHostReadProjectStateReturnsSummary(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := newWorkerHostTestProjectRuntime(t, projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-a",
-		Projects: map[string]projectstate.Project{
-			"project-a": {
-				ID:   "project-a",
-				Name: "Project A",
-			},
-		},
-	})
-	reader, err := NewRuntimeProjectStateReader(RuntimeProjectStateReaderOptions{
-		ProjectState: projectRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new project state reader: %v", err)
-	}
-
-	host, err := NewWorkerHost(WorkerHostOptions{
-		ProjectStateReader: reader,
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
-
-	result, err := host.ReadProjectState(context.Background(), WorkerContext{
-		PluginID:              "fixture-plugin",
-		EffectiveCapabilities: []string{CapabilityReadProjectState},
-	}, ReadProjectStateRequest{
-		ProjectID: "project-a",
-		View:      ProjectStateViewSummary,
-	})
-	if err != nil {
-		t.Fatalf("read project state: %v", err)
-	}
-	if result.View != ProjectStateViewSummary {
-		t.Fatalf("expected summary view, got %q", result.View)
-	}
-
-	encoded, err := json.Marshal(result.ProjectState)
-	if err != nil {
-		t.Fatalf("marshal project state summary: %v", err)
-	}
-
-	var payload struct {
-		ProjectConfig struct {
-			ID string `json:"id"`
-		} `json:"projectConfig"`
-	}
-	if err := json.Unmarshal(encoded, &payload); err != nil {
-		t.Fatalf("decode project state summary: %v", err)
-	}
-	if payload.ProjectConfig.ID != "project-a" {
-		t.Fatalf("expected project-a summary id, got %#v", payload.ProjectConfig.ID)
-	}
-}
-
 // Codegen target registration should require the explicit worker capability before mutating runtime state.
 func TestWorkerHostRegisterCodegenTargetRequiresCapability(t *testing.T) {
 	t.Parallel()
@@ -350,28 +290,6 @@ func newWorkerHostTestDeploymentRuntime(t *testing.T, now *time.Time) *deploymen
 		}
 	})
 	return deploymentRuntime
-}
-
-func newWorkerHostTestProjectRuntime(t *testing.T, document projectstate.Document) *projectstate.Runtime {
-	t.Helper()
-
-	root := t.TempDir()
-	writeWorkerHostJSON(t, filepath.Join(root, projectstate.MainFileName), document)
-
-	store, err := projectstate.NewStore(filepath.Join(root, projectstate.MainFileName), projectstate.StoreOptions{})
-	if err != nil {
-		t.Fatalf("new worker-host project store: %v", err)
-	}
-	projectRuntime, err := projectstate.OpenRuntime(context.Background(), store)
-	if err != nil {
-		t.Fatalf("open worker-host project runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close worker-host project runtime: %v", err)
-		}
-	})
-	return projectRuntime
 }
 
 func writeWorkerHostJSON(t *testing.T, path string, value any) {

@@ -18,14 +18,12 @@ import (
 )
 
 const (
-	CapabilityReadProjectState             = "readProjectState"
 	CapabilityRegisterLanguageServer       = "registerLanguageServer"
 	CapabilityRegisterExternalAgentAdapter = "registerExternalAgentAdapter"
 	CapabilityRegisterCodegenTarget        = "registerCodegenTarget"
 )
 
 const (
-	HostMethodReadProjectState       = "host.read_project_state"
 	HostMethodRegisterLanguageServer = "host.register_language_server"
 	HostMethodRegisterExternalAgent  = "host.register_external_agent_adapter"
 	HostMethodRegisterCodegenTarget  = "host.register_codegen_target"
@@ -33,17 +31,12 @@ const (
 
 var (
 	ErrWorkerHostServiceRequired                         = errors.New("plugins: worker host requires at least one registered service")
-	ErrWorkerHostProjectStateReaderRequired              = errors.New("plugins: project state reader is required")
 	ErrWorkerHostLanguageServerRegistrarRequired         = errors.New("plugins: language server registrar is required")
 	ErrWorkerHostExternalAgentRegistrarRequired          = errors.New("plugins: external agent adapter registrar is required")
 	ErrWorkerHostCodegenTargetRegistrarNeeded            = errors.New("plugins: codegen target registrar is required")
 	ErrWorkerHostPluginIDRequired                        = errors.New("plugins: worker host plugin id is required")
 	ErrWorkerHostPluginRootRequired                      = errors.New("plugins: worker host plugin root is required")
 	ErrWorkerHostCapabilityDenied                        = errors.New("plugins: worker host capability is required")
-	ErrWorkerHostShareSessionRequired                    = errors.New("plugins: share session id is required in deployment mode")
-	ErrWorkerHostProjectStateReadFailed                  = errors.New("plugins: project state read failed")
-	ErrWorkerHostProjectStateProjectIDRequired           = errors.New("plugins: project config id is required")
-	ErrWorkerHostProjectStateViewInvalid                 = errors.New("plugins: project state view is invalid")
 	ErrWorkerHostLanguageServerRequired                  = errors.New("plugins: language server registration is required")
 	ErrWorkerHostLanguageServerLanguageRequired          = errors.New("plugins: language server language is required")
 	ErrWorkerHostLanguageServerLanguageInvalid           = errors.New("plugins: language server language is reserved")
@@ -85,7 +78,6 @@ var supportedExternalAgentRunModes = map[string]struct{}{
 }
 
 type WorkerHostOptions struct {
-	ProjectStateReader            ProjectStateReader
 	LanguageServerRegistrar       BackendLanguageServerRegistrar
 	ExternalAgentAdapterRegistrar BackendExternalAgentAdapterRegistrar
 	CodegenTargetRegistrar        BackendCodegenTargetRegistrar
@@ -95,12 +87,6 @@ type WorkerContext struct {
 	PluginID              string
 	PluginRoot            string
 	EffectiveCapabilities []string
-}
-
-type ReadProjectStateRequest struct {
-	ProjectID      string `json:"projectConfigId"`
-	ShareSessionID string `json:"shareSessionId,omitempty"`
-	View           string `json:"view"`
 }
 
 type RegisterLanguageServerRequest struct {
@@ -141,62 +127,23 @@ type workerCodegenTargetRegistrationPayload struct {
 }
 
 type WorkerHost struct {
-	projectStateReader        ProjectStateReader
 	languageServerStore       BackendLanguageServerRegistrar
 	externalAgentAdapterStore BackendExternalAgentAdapterRegistrar
 	codegenTargetStore        BackendCodegenTargetRegistrar
 }
 
 func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
-	if options.ProjectStateReader == nil &&
-		options.LanguageServerRegistrar == nil &&
+	if options.LanguageServerRegistrar == nil &&
 		options.ExternalAgentAdapterRegistrar == nil &&
 		options.CodegenTargetRegistrar == nil {
 		return nil, ErrWorkerHostServiceRequired
 	}
 
 	return &WorkerHost{
-		projectStateReader:        options.ProjectStateReader,
 		languageServerStore:       options.LanguageServerRegistrar,
 		externalAgentAdapterStore: options.ExternalAgentAdapterRegistrar,
 		codegenTargetStore:        options.CodegenTargetRegistrar,
 	}, nil
-}
-
-func (h *WorkerHost) ReadProjectState(
-	ctx context.Context,
-	worker WorkerContext,
-	request ReadProjectStateRequest,
-) (ProjectStateReadResult, error) {
-	if h == nil || h.projectStateReader == nil {
-		return ProjectStateReadResult{}, ErrWorkerHostProjectStateReaderRequired
-	}
-	if !worker.hasCapability(CapabilityReadProjectState) {
-		return ProjectStateReadResult{}, fmt.Errorf("%w: %s", ErrWorkerHostCapabilityDenied, CapabilityReadProjectState)
-	}
-
-	projectID := strings.TrimSpace(request.ProjectID)
-	if projectID == "" {
-		return ProjectStateReadResult{}, ErrWorkerHostProjectStateProjectIDRequired
-	}
-
-	view := strings.TrimSpace(request.View)
-	if view == "" {
-		view = ProjectStateViewSummary
-	}
-	if view != ProjectStateViewSummary && view != ProjectStateViewFull {
-		return ProjectStateReadResult{}, fmt.Errorf("%w: %s", ErrWorkerHostProjectStateViewInvalid, view)
-	}
-
-	result, err := h.projectStateReader.ReadProjectState(ctx, ProjectStateReadRequest{
-		ProjectID:      projectID,
-		ShareSessionID: strings.TrimSpace(request.ShareSessionID),
-		View:           view,
-	})
-	if err != nil {
-		return ProjectStateReadResult{}, fmt.Errorf("%w: %v", ErrWorkerHostProjectStateReadFailed, err)
-	}
-	return result, nil
 }
 
 func (h *WorkerHost) RegisterLanguageServer(
@@ -277,20 +224,6 @@ func (h *WorkerHost) Dispatch(
 	}
 
 	switch method {
-	case HostMethodReadProjectState:
-		var request ReadProjectStateRequest
-		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
-		}
-		result, err := h.ReadProjectState(ctx, worker, request)
-		if err != nil {
-			return nil, err
-		}
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
-		}
-		return encoded, nil
 	case HostMethodRegisterLanguageServer:
 		var request RegisterLanguageServerRequest
 		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {

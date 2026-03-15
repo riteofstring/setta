@@ -18,10 +18,17 @@ def _copy_backend_fixture(tmp_path: Path, fixture_name: str = "backend") -> Path
     return plugin_root
 
 
-def _write_read_project_state_entrypoint(plugin_root: Path) -> None:
+def _write_codegen_entrypoint(plugin_root: Path) -> None:
     (plugin_root / "backend" / "entrypoint.py").write_text(
         "def register(plugin):\n"
-        "    plugin.read_project_state(project_config_id='fixture-project')\n",
+        "    plugin.register_codegen_target(\n"
+        "        {\n"
+        "            'id': 'typescript',\n"
+        "            'name': 'TypeScript',\n"
+        "            'language': 'typescript',\n"
+        "            'generate': lambda _state, _options: {'files': []},\n"
+        "        }\n"
+        "    )\n",
         encoding="utf-8",
     )
 
@@ -247,121 +254,6 @@ def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
     finally:
         _stop_worker(worker)
 
-
-def test_worker_register_supports_read_state(tmp_path: Path) -> None:
-    # Worker register should support host read_project_state during backend startup.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    (plugin_root / "backend" / "entrypoint.py").write_text(
-        "def register(plugin):\n"
-        "    project_state = plugin.read_project_state(project_config_id='fixture-project', view='summary')\n"
-        "    assert project_state['projectConfig']['id'] == 'fixture-project'\n"
-        "    return None\n",
-        encoding="utf-8",
-    )
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        host_method_calls: list[str] = []
-        host_requests: list[dict[str, Any]] = []
-
-        def _host_response(
-            payload: dict[str, Any], _worker: subprocess.Popen[str]
-        ) -> dict[str, Any]:
-            nested_id = payload["id"]
-            nested_method = payload["method"]
-            if nested_method == "host.read_project_state":
-                return {
-                    "jsonrpc": "2.0",
-                    "id": nested_id,
-                    "result": {
-                        "projectState": {
-                            "projectConfig": {
-                                "id": "fixture-project",
-                            }
-                        },
-                        "view": "summary",
-                    },
-                }
-            return {
-                "jsonrpc": "2.0",
-                "id": nested_id,
-                "result": {"ok": True},
-            }
-
-        register_response = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-            host_method_calls=host_method_calls,
-            host_requests=host_requests,
-            host_response_factory=_host_response,
-        )
-        assert register_response["id"] == 2
-        assert register_response["result"] == {"ok": True}
-        assert host_method_calls == ["host.read_project_state"]
-        read_request = next(
-            request
-            for request in host_requests
-            if request["method"] == "host.read_project_state"
-        )
-        assert read_request["params"] == {
-            "projectConfigId": "fixture-project",
-            "view": "summary",
-        }
-    finally:
-        _stop_worker(worker)
-
-
-def test_worker_register_rejects_invalid_read_project_state_host_response(
-    tmp_path: Path,
-) -> None:
-    # Worker read_project_state should fail fast when host omits projectState from RPC result.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    (plugin_root / "backend" / "entrypoint.py").write_text(
-        "def register(plugin):\n"
-        "    plugin.read_project_state(project_config_id='fixture-project')\n",
-        encoding="utf-8",
-    )
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-
-        def _host_response(
-            payload: dict[str, Any], _worker: subprocess.Popen[str]
-        ) -> dict[str, Any]:
-            nested_id = payload["id"]
-            return {
-                "jsonrpc": "2.0",
-                "id": nested_id,
-                "result": {
-                    "view": "summary",
-                },
-            }
-
-        register_response = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-            host_response_factory=_host_response,
-        )
-        assert register_response["id"] == 2
-        assert (
-            register_response["error"]["code"]
-            == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
-        )
-        assert "missing projectState object" in register_response["error"]["message"]
-    finally:
-        _stop_worker(worker)
-
-
 def test_worker_returns_error_for_unknown_method(tmp_path: Path) -> None:
     # Unknown worker RPC methods should return deterministic transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
@@ -564,7 +456,7 @@ def test_worker_register_rejects_invalid_registration_contracts(
 def test_worker_register_surfaces_host_rpc_invalid_json_response(tmp_path: Path) -> None:
     # Host RPC invalid JSON responses should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
-    _write_read_project_state_entrypoint(plugin_root)
+    _write_codegen_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -590,7 +482,7 @@ def test_worker_register_surfaces_host_rpc_invalid_json_response(tmp_path: Path)
 def test_worker_register_surfaces_host_rpc_non_object_response(tmp_path: Path) -> None:
     # Host RPC responses that are valid JSON but not objects should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
-    _write_read_project_state_entrypoint(plugin_root)
+    _write_codegen_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -617,7 +509,7 @@ def test_worker_register_surfaces_host_rpc_non_object_response(tmp_path: Path) -
 def test_worker_register_surfaces_host_rpc_response_id_mismatch(tmp_path: Path) -> None:
     # Host RPC response id mismatches should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
-    _write_read_project_state_entrypoint(plugin_root)
+    _write_codegen_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -655,7 +547,7 @@ def test_worker_register_surfaces_host_rpc_response_id_mismatch(tmp_path: Path) 
 def test_worker_register_surfaces_host_rpc_missing_result_field(tmp_path: Path) -> None:
     # Host RPC responses without a result should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
-    _write_read_project_state_entrypoint(plugin_root)
+    _write_codegen_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -693,7 +585,7 @@ def test_worker_register_surfaces_host_rpc_invalid_error_payload(
 ) -> None:
     # Host RPC error payloads with invalid code/message types should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
-    _write_read_project_state_entrypoint(plugin_root)
+    _write_codegen_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
@@ -737,7 +629,7 @@ def test_worker_register_surfaces_host_rpc_invalid_error_payload(
 def test_worker_register_surfaces_host_rpc_transport_close(tmp_path: Path) -> None:
     # Host transport closure during nested host RPC should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
-    _write_read_project_state_entrypoint(plugin_root)
+    _write_codegen_entrypoint(plugin_root)
     worker = _start_worker(plugin_root)
     try:
         _ = _rpc_call(
