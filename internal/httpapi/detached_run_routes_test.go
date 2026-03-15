@@ -112,8 +112,8 @@ func TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_run_detached_request"`) {
-		t.Fatalf("expected invalid_run_detached_request error, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Detached runs always snapshot; runSnapshotMode=never is not supported."`) {
+		t.Fatalf("expected never-snapshot detail, got %q", response.Body.String())
 	}
 }
 
@@ -147,8 +147,8 @@ func TestRegisterDetachedRunRoutesRejectsDeploymentMode(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"detached_runs_unsupported"`) {
-		t.Fatalf("expected detached_runs_unsupported error, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Detached runs are not supported in deployment mode."`) {
+		t.Fatalf("expected deployment detail, got %q", response.Body.String())
 	}
 }
 
@@ -168,11 +168,8 @@ func TestRegisterDetachedRunRoutesRejectsLauncherMode(t *testing.T) {
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
-		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), "Launcher mode does not allow this endpoint.") {
-		t.Fatalf("expected launcher mode message, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Launcher mode does not allow this endpoint."`) {
+		t.Fatalf("expected launcher detail, got %q", response.Body.String())
 	}
 }
 
@@ -213,10 +210,7 @@ func TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_run_detached_request"`) {
-		t.Fatalf("expected invalid_run_detached_request error, got %q", response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), "invalid param override key") {
+	if !strings.Contains(response.Body.String(), `"detail":"Invalid param override key: 'bad'"`) {
 		t.Fatalf("expected invalid param override detail, got %q", response.Body.String())
 	}
 }

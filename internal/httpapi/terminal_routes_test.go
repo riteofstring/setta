@@ -1090,19 +1090,24 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name         string
-		payload      string
-		expectedCode string
+		name             string
+		payload          string
+		expectedFragment string
 	}{
 		{
-			name:         "cli id",
-			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","cliId":"cli-1"}`,
-			expectedCode: `"code":"unsupported_run_code_cli"`,
+			name:             "cli id",
+			payload:          `{"projectConfigId":"project-alpha","sectionId":"code-section","cliId":"cli-1"}`,
+			expectedFragment: `"code":"unsupported_run_code_cli"`,
 		},
 		{
-			name:         "bad section override",
-			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"missing":"other"}}`,
-			expectedCode: `"code":"invalid_run_code_request"`,
+			name:             "bad section override",
+			payload:          `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"missing":"other"}}`,
+			expectedFragment: `"detail":"Unknown section id: missing"`,
+		},
+		{
+			name:             "bad param override key",
+			payload:          `{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"bad":"2"}}`,
+			expectedFragment: `"detail":"Invalid param override key: 'bad'"`,
 		},
 	}
 
@@ -1118,8 +1123,8 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 			if response.Code != http.StatusBadRequest {
 				t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 			}
-			if !strings.Contains(response.Body.String(), testCase.expectedCode) {
-				t.Fatalf("expected response to contain %s, got %q", testCase.expectedCode, response.Body.String())
+			if !strings.Contains(response.Body.String(), testCase.expectedFragment) {
+				t.Fatalf("expected response to contain %s, got %q", testCase.expectedFragment, response.Body.String())
 			}
 		})
 	}
@@ -1192,8 +1197,8 @@ func TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows(t *testin
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
-		t.Fatalf("expected deployment policy denial, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Deployment policy disallows run and terminal access."`) {
+		t.Fatalf("expected deployment policy detail, got %q", response.Body.String())
 	}
 
 	runCount, err := runFixture.deployment.SessionRunCount("share-a")
@@ -1248,8 +1253,8 @@ func TestRegisterTerminalRoutesRejectsDeploymentParamOverridesWhenPolicyDisallow
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
-		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Deployment policy disallows parameter changes."`) {
+		t.Fatalf("expected deployment param detail, got %q", response.Body.String())
 	}
 }
 
@@ -1292,8 +1297,8 @@ func TestRegisterTerminalRoutesRejectsDeploymentCodeParamOverrides(t *testing.T)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
-		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Deployment mode disallows CodeParam edits."`) {
+		t.Fatalf("expected deployment CodeParam detail, got %q", response.Body.String())
 	}
 }
 
@@ -1427,8 +1432,8 @@ func TestRegisterTerminalRoutesRejectsDeploymentVariantOverridesWhenPolicyDisall
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
-		t.Fatalf("expected deployment policy denial, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Deployment policy disallows variant changes."`) {
+		t.Fatalf("expected deployment variant detail, got %q", response.Body.String())
 	}
 }
 
@@ -1475,8 +1480,8 @@ func TestRegisterTerminalRoutesRejectsSecondDeploymentRunWhenMultipleRunsDisable
 		if response.Code != http.StatusForbidden {
 			t.Fatalf("expected second run 403, got %d with body %q", response.Code, response.Body.String())
 		}
-		if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
-			t.Fatalf("expected deployment policy denial, got %q", response.Body.String())
+		if !strings.Contains(response.Body.String(), `"detail":"Deployment policy allows only one run per session."`) {
+			t.Fatalf("expected single-run policy detail, got %q", response.Body.String())
 		}
 	}
 

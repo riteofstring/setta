@@ -56,17 +56,19 @@ func RegisterDetachedRunRoutes(router chi.Router, deps DetachedRunRouteDependenc
 		return fmt.Errorf("detached run manager is required")
 	}
 
-	guard := modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)
-	router.With(guard).Post(RouteRunDetached, runDetachedHandler(deps))
-	router.With(guard).Post(RouteGetRunStatus, getRunStatusHandler(deps))
-	router.With(guard).Post(RouteCancelRun, cancelRunHandler(deps))
+	router.Post(RouteRunDetached, runDetachedHandler(deps))
+	router.Post(RouteGetRunStatus, getRunStatusHandler(deps))
+	router.Post(RouteCancelRun, cancelRunHandler(deps))
 	return nil
 }
 
 func runDetachedHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDetachedRunRouteAccess(w, r, deps.ModePolicy) {
+			return
+		}
 		if deps.ModePolicy.IsDeployment() {
-			writeError(w, r, http.StatusBadRequest, "detached_runs_unsupported", "Detached runs are not supported in deployment mode.")
+			writeDetail(w, http.StatusBadRequest, "Detached runs are not supported in deployment mode.")
 			return
 		}
 
@@ -76,7 +78,7 @@ func runDetachedHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 			return
 		}
 		if payload.RunSnapshotMode == runs.RunSnapshotModeNever {
-			writeError(w, r, http.StatusBadRequest, "invalid_run_detached_request", "Detached runs always snapshot; runSnapshotMode=never is not supported.")
+			writeDetail(w, http.StatusBadRequest, "Detached runs always snapshot; runSnapshotMode=never is not supported.")
 			return
 		}
 
@@ -121,6 +123,9 @@ func runDetachedHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 
 func getRunStatusHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDetachedRunRouteAccess(w, r, deps.ModePolicy) {
+			return
+		}
 		if deps.ModePolicy.IsDeployment() {
 			writeError(w, r, http.StatusBadRequest, "detached_runs_unsupported", "Detached runs are not supported in deployment mode.")
 			return
@@ -152,6 +157,9 @@ func getRunStatusHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 
 func cancelRunHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDetachedRunRouteAccess(w, r, deps.ModePolicy) {
+			return
+		}
 		if deps.ModePolicy.IsDeployment() {
 			writeError(w, r, http.StatusBadRequest, "detached_runs_unsupported", "Detached runs are not supported in deployment mode.")
 			return
@@ -201,9 +209,22 @@ func writeDetachedRunPlanError(w http.ResponseWriter, r *http.Request, err error
 		errors.Is(err, projectstate.ErrSectionActiveVariantNotFound),
 		errors.Is(err, projectstate.ErrSectionVariantMembership),
 		errors.Is(err, projectstate.ErrCodeSectionRequired):
-		writeError(w, r, http.StatusBadRequest, "invalid_run_detached_request", err.Error())
+		writeDetail(w, http.StatusBadRequest, normalizeRunRequestDetail(err))
 		return true
 	default:
 		return false
 	}
+}
+
+func requireDetachedRunRouteAccess(w http.ResponseWriter, r *http.Request, policy modes.Policy) bool {
+	if err := policy.RequireNotLauncher(); err != nil {
+		var violation *modes.Violation
+		if errors.As(err, &violation) {
+			writeDetail(w, violation.StatusCode, violation.Message)
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	return true
 }

@@ -221,7 +221,7 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 				errors.Is(err, runs.ErrDeploymentSingleRunOnly),
 				errors.Is(err, runs.ErrParamOverridesDenied),
 				errors.Is(err, runs.ErrCodeParamOverridesDenied):
-				writeError(w, r, http.StatusForbidden, "deployment_policy_denied", err.Error())
+				writeDetail(w, http.StatusForbidden, runCodePolicyDetail(err))
 			case errors.Is(err, deployments.ErrUnknownSession):
 				writeError(w, r, http.StatusNotFound, "unknown_share_session", err.Error())
 			case errors.Is(err, runs.ErrRunTargetRequired),
@@ -246,7 +246,7 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 				errors.Is(err, projectstate.ErrSectionVariantMembership),
 				errors.Is(err, projectstate.ErrCodeSectionRequired),
 				errors.Is(err, projectstate.ErrDrawSectionRequired):
-				writeError(w, r, http.StatusBadRequest, "invalid_run_code_request", err.Error())
+				writeDetail(w, http.StatusBadRequest, normalizeRunRequestDetail(err))
 			default:
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			}
@@ -255,4 +255,79 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func runCodePolicyDetail(err error) string {
+	switch {
+	case errors.Is(err, runs.ErrDeploymentRunDenied):
+		return "Deployment policy disallows run and terminal access."
+	case errors.Is(err, runs.ErrDeploymentVariantDenied):
+		return "Deployment policy disallows variant changes."
+	case errors.Is(err, runs.ErrDeploymentSingleRunOnly):
+		return "Deployment policy allows only one run per session."
+	case errors.Is(err, runs.ErrParamOverridesDenied):
+		return "Deployment policy disallows parameter changes."
+	case errors.Is(err, runs.ErrCodeParamOverridesDenied):
+		return "Deployment mode disallows CodeParam edits."
+	default:
+		return normalizeRunRequestDetail(err)
+	}
+}
+
+func normalizeRunRequestDetail(err error) string {
+	detail := strings.TrimSpace(err.Error())
+	detail = strings.TrimPrefix(detail, "runs: ")
+
+	switch {
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		if sectionID := extractLastQuotedValue(detail); sectionID != "" {
+			return fmt.Sprintf("Unknown section id: %s", sectionID)
+		}
+	case errors.Is(err, projectstate.ErrSectionVariantNotFound):
+		if variantID := extractLastQuotedValue(detail); variantID != "" {
+			return fmt.Sprintf("Unknown variant id: %s", variantID)
+		}
+	case errors.Is(err, projectstate.ErrSectionVariantMembership):
+		sectionID := extractTaggedValue(detail, "section")
+		variantID := extractTaggedValue(detail, "variant")
+		if sectionID != "" && variantID != "" {
+			return fmt.Sprintf("Variant %s is not part of section %s", variantID, sectionID)
+		}
+	case errors.Is(err, projectstate.ErrCodeSectionRequired):
+		if sectionID := extractLastQuotedValue(detail); sectionID != "" {
+			return fmt.Sprintf("Missing code section for run: %s", sectionID)
+		}
+	}
+
+	if suffix, ok := strings.CutPrefix(detail, "invalid param override key: "); ok {
+		return "Invalid param override key: " + strings.ReplaceAll(suffix, `"`, `'`)
+	}
+
+	return detail
+}
+
+func extractLastQuotedValue(detail string) string {
+	end := strings.LastIndex(detail, `"`)
+	if end <= 0 {
+		return ""
+	}
+	start := strings.LastIndex(detail[:end], `"`)
+	if start < 0 || start+1 >= end {
+		return ""
+	}
+	return detail[start+1 : end]
+}
+
+func extractTaggedValue(detail string, tag string) string {
+	prefix := tag + `="`
+	start := strings.Index(detail, prefix)
+	if start < 0 {
+		return ""
+	}
+	remainder := detail[start+len(prefix):]
+	end := strings.Index(remainder, `"`)
+	if end < 0 {
+		return ""
+	}
+	return remainder[:end]
 }
