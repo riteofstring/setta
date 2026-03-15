@@ -1836,3 +1836,30 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts`, now
     the largest authored/shared state hotspot, by separating restore planning
     and instance remapping from saved git-pane visibility merge policy.
+
+## 2026-03-15 00:48:13 PDT
+
+- Slice completed: split saved window-space restore planning into dedicated
+  layout and git-pane visibility modules
+- Key files touched:
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/windowSpaceWorkspaceRestorePlan.test.ts src/state/actions/windowSpaceWorkspaceRestoreVisibility.test.ts src/state/actions/windowSpaces.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/windowSpaceWorkspaceRestorePlan.ts src/state/actions/windowSpaceWorkspaceRestoreLayout.ts src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts src/state/actions/windowSpaceWorkspaceRestoreVisibility.test.ts src/state/actions/windowSpaceWorkspaceRestorePlan.test.ts src/state/actions/windowSpaces.ts src/state/actions/windowSpaces.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `a0a48082f`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionInfos.ts`, now the largest
+    authored/shared state hotspot, by separating the remaining streaming merge,
+    shown-param, ancestry, and tool-preview cleanup helpers into narrower read
+    or reconciliation modules.
