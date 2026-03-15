@@ -10,20 +10,13 @@ SCRIPTABLE_CHAT_RUN_TYPE = "scriptable_chat"
 EXTERNAL_AGENT_RUN_TYPE = "external_agent"
 
 
-def get_run_type(run: AgentRun) -> str | None:
-    if not run.inputs:
-        return None
-    raw_type = run.inputs.get("runType")
-    if isinstance(raw_type, str) and raw_type:
-        return raw_type
-    return None
-
-
 def is_scriptable_chat_run(run: AgentRun) -> bool:
-    run_type = get_run_type(run)
-    if not run_type:
+    if not run.inputs:
         return False
-    return run_type == SCRIPTABLE_CHAT_RUN_TYPE
+    raw_type = run.inputs.get("runType")
+    if not isinstance(raw_type, str) or not raw_type:
+        return False
+    return raw_type == SCRIPTABLE_CHAT_RUN_TYPE
 
 
 def get_run_last_updated(run: AgentRun) -> datetime:

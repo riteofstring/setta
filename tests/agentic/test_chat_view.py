@@ -5,7 +5,6 @@ from setta.agentic.chat_view import (
     SCRIPTABLE_CHAT_RUN_TYPE,
     derive_chat_name,
     get_run_last_updated,
-    get_run_type,
     is_scriptable_chat_run,
 )
 from setta.types.agentic import AgentRun, RunEvent
@@ -44,21 +43,15 @@ class TestChatView:
 
         assert get_run_last_updated(run_a) > get_run_last_updated(run_b)
 
-    def test_run_type_classifies_scriptable_runs(self) -> None:
-        run = AgentRun(
-            inputs={
-                "runType": LLM_CHAT_RUN_TYPE,
-            },
-        )
-
-        assert get_run_type(run) == LLM_CHAT_RUN_TYPE
+    def test_is_scriptable_chat_run_classifies_runs(self) -> None:
+        run = AgentRun(inputs={"runType": LLM_CHAT_RUN_TYPE})
+        assert not is_scriptable_chat_run(run)
 
         scriptable = AgentRun(
             inputs={
                 "runType": SCRIPTABLE_CHAT_RUN_TYPE,
             },
         )
-        assert get_run_type(scriptable) == SCRIPTABLE_CHAT_RUN_TYPE
         assert is_scriptable_chat_run(scriptable)
 
     def test_derive_chat_name_from_first_message(self) -> None:
