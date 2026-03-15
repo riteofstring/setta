@@ -304,6 +304,42 @@ func TestLoadIgnoresProfileLookupHomeWithoutSelectedProfile(t *testing.T) {
 	}
 }
 
+func TestResolveSettaHomeUsesTrimmedEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	override := filepath.Join(tmpDir, ".setta")
+
+	resolved, err := resolveSettaHome("", "", testEnv{
+		settaHomeEnv: "  " + override + "  ",
+	}.lookup)
+	if err != nil {
+		t.Fatalf("resolve setta home: %v", err)
+	}
+
+	if resolved != override {
+		t.Fatalf("expected trimmed env override %q, got %q", override, resolved)
+	}
+}
+
+func TestResolveSettaHomeExpandsEnvOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "base")
+	t.Setenv("SETTA_HOME_BASE", base)
+
+	resolved, err := resolveSettaHome("", "", testEnv{
+		settaHomeEnv: "$SETTA_HOME_BASE/.setta-development",
+	}.lookup)
+	if err != nil {
+		t.Fatalf("resolve setta home: %v", err)
+	}
+
+	expected := filepath.Join(base, ".setta-development")
+	if resolved != expected {
+		t.Fatalf("expected expanded env override %q, got %q", expected, resolved)
+	}
+}
+
 func TestLoadRejectsConflictingSettaFilesFlags(t *testing.T) {
 	t.Parallel()
 
