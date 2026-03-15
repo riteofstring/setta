@@ -57,14 +57,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - There are 1404 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/Chat/ChatMessages.tsx` at 3920 lines
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 3414 lines
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2721 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2379 lines
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2444 lines
-- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 3414 lines
+- `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2323 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
@@ -112,6 +112,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Chat/chatAttachmentPreviews.tsx` now owns attachment list rendering, preview dialog/media-carousel branching, and attachment text-preview fetch state used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatMessageContent.tsx` now owns markdown/code rendering, inline markdown labels, streaming markdown animation wrappers, and conversation-search highlight helpers used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatMessageRuntime.tsx` now owns idle-spinner timing, run-duration persistence, timestamps, count-badge animation, activity-label scrambling, ISO timestamp parsing, and activity thought-preview scroll behavior used by `frontend/src/components/Chat/ChatMessages.tsx`.
+- `frontend/src/components/Chat/chatAssistantActivityCard.tsx` now owns the assistant activity card shell, timeline row rendering, open-all coordination, and activity-item copy wiring used by `frontend/src/components/Chat/ChatMessages.tsx`.
+- `frontend/src/components/Chat/chatCopyText.ts` now owns the shared clipboard-notification helper used by `frontend/src/components/Chat/ChatMessages.tsx` and `frontend/src/components/Chat/chatAssistantActivityCard.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
@@ -711,10 +713,10 @@ Notes:
 - Keep existing feature-local helpers in `frontend/src/components/Panes/Overview/ProjectLevelAI/` and adjacent chat directories as stable seams instead of folding behavior back into the large surface files.
 - Only take a lower-level chat/windowing state split when it is a direct
   prerequisite for simplifying one of the render-heavy surfaces above.
-- Continue breaking `ChatMessages.tsx` into distinct modules:
-  - timers and animation hooks
-  - message-row composition helpers
-  - copy/export helpers that still sit in the main surface
+- Continue breaking `ChatMessages.tsx` only where a remaining local render seam is still worth the extra hop:
+  - assistant/user/system bubble shells
+  - message-level action bars and edit wiring
+  - grouped-row iteration helpers
 - Break `ChatInput.tsx` into:
   - composer state
   - attachment handling

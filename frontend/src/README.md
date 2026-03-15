@@ -13,7 +13,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Authored TS/TSX files under `frontend/src`: `1404`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
-  - `components/Chat/ChatMessages.tsx` (`3920`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`3414`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
@@ -74,8 +73,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     run-duration persistence, timestamps, count-badge animation, activity-label
     scrambling, ISO timestamp parsing, and activity thought-preview scroll
     behavior used by `components/Chat/ChatMessages.tsx`.
-  - `components/Chat/ChatMessages.tsx` now focuses on list assembly, message-row
-    composition, and interaction wiring across those local chat owners.
+  - `components/Chat/chatAssistantActivityCard.tsx` owns the assistant activity
+    card shell, timeline row rendering, open-all coordination, and activity-item
+    copy wiring used by `components/Chat/ChatMessages.tsx`.
+  - `components/Chat/chatCopyText.ts` owns the shared clipboard-notification
+    helper used by `components/Chat/ChatMessages.tsx` and
+    `components/Chat/chatAssistantActivityCard.tsx`.
+  - `components/Chat/ChatMessages.tsx` now focuses on list assembly, grouped
+    activity-only message stitching, assistant/user/system bubble shells, and
+    message-level interaction wiring across those local chat owners.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
