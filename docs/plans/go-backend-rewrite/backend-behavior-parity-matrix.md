@@ -5,7 +5,7 @@ Last audited: `2026-03-17`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `f3606454308481b33c091f85e21e64f0b6ae43d8`
+- Target head: `3be80529fa29e70e08131e8f912363f2f469fda5`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -163,6 +163,10 @@ Last audited: `2026-03-17`
   fail-closed skipped behavior when signature context is unavailable, and
   authoritative route/latest-state readback on the current callable-search
   caller surface
+- plus the targeted delete-kwarg follow-up slice:
+  callable/dict/global last-param deletion, stale section-local param-state
+  cleanup, and fail-closed convenience-delete transport on the current kwargs
+  caller surface
 - plus the targeted section-move / attached-terminal follow-up slice:
   pane-vs-reparent move persistence, move validation and deployment overlay
   policy, plus direct code-terminal attach/detach persistence and fail-closed
@@ -202,9 +206,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `421`
+- Rows audited in this pass: `422`
 - Status counts:
-  - `Proved`: `389`
+  - `Proved`: `390`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `0`
   - `Retained Python boundary`: `8`
@@ -700,6 +704,8 @@ Last audited: `2026-03-17`
 | `param.rename.parent_scoped_duplicate_and_shared_core_updates` | `tests/utils/test_name_validation.py::test_param_name_duplicate_rejected`; `tests/routers/test_name_validation_routes.py::test_shared_param_rename_updates_all_refs` | `internal/projectstate/code_object_names.go` | `TestProjectSetCodeObjectNameRejectsDuplicateSiblingName`; `...UpdatesSharedParamAcrossSections` | `TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsPersistLatestState` | `Proved` | Duplicates remain parent-scoped and shared code objects still rename once at the core. |
 | `param.add_kwarg.create_blank_editable_param` | `backend/setta/types/helpers_lvl2.py::add_kwarg` | `internal/projectstate/add_kwarg.go` | `TestProjectAddKwargAppendsCallableParam`; `TestProjectAddKwargSharesDictParamAcrossSections`; `TestProjectAddKwargSupportsGlobalVariables` | `internal/httpapi/project_routes.go`; `TestRegisterProjectRoutesAddKwargPersistsLatestState` | `Proved` | New kwargs still start empty and editable. |
 | `param.add_kwarg.create_blank_dict_root` | `backend/setta/types/helpers_lvl2.py::add_kwarg_to_dict_section` creates `Core(name="")` for the root | `internal/projectstate/add_kwarg.go` | `TestProjectAddKwargInitializesMissingDictRoot` | same add-kwarg route boundary as above | `Proved` | This row required a source-parity fix in Go during the audit. |
+| `param.delete_kwarg.removes_last_param_cleans_stale_section_state_and_prunes_unused_code_objects` | `tests/helpers/project_state_mutations.py::delete_kwarg`; `::delete_kwarg_from_callable_section`; `::delete_kwarg_from_dict_section`; `tests/types/test_delete_kwarg_edges.py::test_delete_kwarg_removes_edge_inputs_and_clears_value` | `internal/projectstate/delete_kwarg.go` | `TestProjectDeleteKwargRemovesLastCallableParam`; `TestProjectDeleteKwargRemovesLastSharedDictParamAcrossSections`; `TestProjectDeleteKwargSupportsGlobalVariables`; `TestProjectDeleteKwargCleansRemovedEdgeInputState` | `internal/httpapi/project_routes.go::deleteKwargHandler`; `TestRegisterProjectRoutesDeleteKwargPersistsLatestState`; `frontend/src/components/Section/SectionParts/KwargsControls.tsx` | `Proved` | Convenience deletion still removes the last kwarg from callable, dict, and global roots; shared dict-root deletions still fan out across sections that point at the same root; and deleting that param still clears stale edge-input, pinned, selected, type-ignore, and incoming-edge state before pruning the now-unused code object graph. |
+| `param.delete_kwarg.rejects_invalid_targets_with_kwarg_mutation_invalid_transport` | `tests/helpers/project_state_mutations.py::delete_kwarg` raises on unsupported section kinds, unset callable roots, and dict roots with no params instead of guessing a deletion target | `internal/projectstate/delete_kwarg.go`; `internal/httpapi/project_routes.go::writeKwargMutationError` | `TestProjectDeleteKwargRejectsCallableWithoutSelection`; `TestProjectDeleteKwargRejectsDictWithoutParams` | `TestRegisterProjectRoutesKwargMutationsRejectInvalidInputs`; `frontend/src/components/Section/SectionParts/KwargsControls.tsx` | `Proved` | `deleteKwarg` still fails closed on unsupported sections or missing deletion roots, and the HTTP surface still reports those convenience-delete failures through the stable `422 kwarg_mutation_invalid` contract instead of partially mutating param state. |
 | `param.rename_and_value.atomicity` | `backend/setta/project_state/base_project_manager.py::set_param_name_and_value`; `backend/setta/project_state/project_manager_types.py::SetParamNameAndValueRequest` | `internal/projectstate/code_object_name_and_value.go` | `TestProjectSetParamNameAndValueDoesNotPartiallyApplyOnInvalidName`; `...DoesNotPartiallyApplyOnUnsupportedValueMutation` | `internal/httpapi/project_routes.go` writes through the same runtime mutation | `Proved` | Name/value combined mutations stay atomic. |
 | `param.rename.transport_422_detail` | `tests/routers/test_name_validation_routes.py::test_code_obj_name_validation_rejects_invalid_name`; `backend/setta/routers/project_manager.py::route_set_code_obj_name` | `internal/httpapi/project_routes.go` | `TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalidInputs` | frontend param naming callers use generated endpoints | `Proved` | Invalid code-object renames now use `detail` instead of a typed envelope. |
 | `ws.name_validation.payload_shape_and_view_mode_omission` | `backend/setta/project_state/base_project_manager.py::_broadcast_name_validation_errors` includes `projectErrors`, `sectionErrors`, `paramErrors` and omits `viewModeErrors` | `internal/projectstate/name_validation.go`; `internal/app/app.go`; `internal/realtime/messages.go` | `TestAppFrontendWebsocketSendsInitialNameValidationErrors`; `TestAppSaveBroadcastsNameValidationErrors` | `frontend/src/state/types/nameValidation.ts`; `frontend/src/state/actions/nameValidation.ts`; `frontend/src/state/actions/websocketReceive.ts` | `Proved` | Go matches the source payload shape, including the intentional omission of `viewModeErrors`. |
