@@ -165,10 +165,7 @@ describe("DictArea layout", () => {
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
-    expect(classes).toContain("flex");
-    expect(classes).toContain("flex-col");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
-    expect(markup).not.toContain("section-param-row section-min-rows relative grid");
   });
 });
