@@ -94,6 +94,54 @@ async function clickDom(locator: Locator): Promise<void> {
     element.click();
   });
 }
+
+async function dispatchHorizontalMouseDrag(
+  locator: Locator,
+  deltaX: number,
+): Promise<void> {
+  await expect(locator).toBeVisible();
+  await locator.evaluate(async (element: HTMLElement, dragDeltaX) => {
+    const rect = element.getBoundingClientRect();
+    const startX = rect.left + rect.width / 2;
+    const startY = rect.top + rect.height / 2;
+    const buildMouseEvent = (
+      type: "mousedown" | "mousemove" | "mouseup",
+      clientX: number,
+      buttons: number,
+    ) => {
+      return new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX,
+        clientY: startY,
+        button: 0,
+        buttons,
+        detail: 1,
+        view: window,
+      });
+    };
+    const nextFrame = async () => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    };
+
+    element.dispatchEvent(buildMouseEvent("mousedown", startX, 1));
+    await nextFrame();
+
+    const moveEvent = buildMouseEvent("mousemove", startX + dragDeltaX, 1);
+    document.dispatchEvent(moveEvent);
+    window.dispatchEvent(moveEvent);
+    await nextFrame();
+
+    const upEvent = buildMouseEvent("mouseup", startX + dragDeltaX, 0);
+    document.dispatchEvent(upEvent);
+    window.dispatchEvent(upEvent);
+    await nextFrame();
+  }, deltaX);
+}
+
 test("project ai thread spinner clears when latest run in a chat is completed", async ({
   page,
 }) => {
@@ -577,18 +625,23 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     "project-chat-inline-threads-resize-handle",
   );
   await expect(resizeHandle).toBeVisible();
+  const inlineThreadsHeaderHost = overviewPane.getByTestId(
+    "project-chat-inline-threads-header-host",
+  );
+  const inlineThreadsHeaderWidthBefore = await inlineThreadsHeaderHost.evaluate(
+    (element: HTMLElement) => {
+      return element.getBoundingClientRect().width;
+    },
+  );
+  await dispatchHorizontalMouseDrag(resizeHandle, 80);
 
-  const resizeHandleBox = await resizeHandle.boundingBox();
-  if (!resizeHandleBox) {
-    throw new Error("Threads resize handle box was not available.");
-  }
-  const handleCenterX = resizeHandleBox.x + resizeHandleBox.width / 2;
-  const handleCenterY = resizeHandleBox.y + resizeHandleBox.height / 2;
-  await page.mouse.move(handleCenterX, handleCenterY);
-  await page.mouse.down();
-  await page.mouse.move(handleCenterX + 80, handleCenterY);
-  await page.mouse.up();
-
+  await expect
+    .poll(async () => {
+      return await inlineThreadsHeaderHost.evaluate((element: HTMLElement) => {
+        return element.getBoundingClientRect().width;
+      });
+    })
+    .toBeGreaterThan(inlineThreadsHeaderWidthBefore + 40);
   await assertInlineThreadHeaderHasNoOverflow();
 
   await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
