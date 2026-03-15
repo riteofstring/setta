@@ -1,4 +1,4 @@
-import { MenuItem } from "./DropdownMenuItem";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { route_create_new_section_variant } from "utils/generatedEndpoints";
 
