@@ -1,14 +1,27 @@
-from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
-from setta.code_gen.dependency_graph import RenameReferenceChangedValue
+from fastapi import WebSocket
+from pydantic import BaseModel, ConfigDict, Field
+
 from setta.mcp.tool_metadata import FollowIdType
-from setta.types.chat import APIKeys
-from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
-from setta.types.id import ID, create_new_id
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithCompletedOpIds,
+    RenameRefactorBroadcastContent,
+)
+from setta.types.agentic import (
+    AgentProfileList,
+    AgentRun,
+    EngineConfigList,
+    TranscriptionProfileList,
+)
+from setta.types.artifact_messages import UpdateArtifactMsgContent
+from setta.types.chat_stream_events import LLMStreamingResponse
+from setta.types.external_agents import ExternalAgentConfigList
+from setta.types.generated.settings_state import SettingsState
+from setta.types.id import ID
 from setta.types.listener import (
+    ListenerCoverageSnapshot,
     ListenerDependencyEventContent,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -22,297 +35,13 @@ from setta.types.listener import (
     RealtimeDependencyEventContent,
     RealtimeUIChangeContent,
 )
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.settings_state import RenameRefactorMode
-from setta.utils.constants import C
-from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
-
-
-class UpdateArtifactMsgContent(BaseModel):
-    artifacts: list[BaseArtifactUnionWithDiscriminator]
-    updateType: Literal["update", "delete"]
-
-
-class SettaSectionTypeErrors(BaseModel):
-    callable: list[str] = Field(default_factory=list)
-    params: dict[ID, list[str]] = Field(default_factory=dict)
-
-
-class SettaProjectConfigDiagnostics(BaseModel):
-    projectConfigId: ID
-    errors: dict[ID, SettaSectionTypeErrors] = Field(default_factory=dict)
-    isGenCode: bool
-
-
-class SettaLspDiagnosticPosition(BaseModel):
-    line: int
-    character: int
-
-
-class SettaLspDiagnosticRange(BaseModel):
-    start: SettaLspDiagnosticPosition
-    end: SettaLspDiagnosticPosition
-
-
-class SettaLspDiagnostic(BaseModel):
-    message: str
-    severity: int | None = None
-    code: str | int | None = None
-    source: str | None = None
-    range: SettaLspDiagnosticRange
-    uri: str | None = None
-
-
-class SettaLspDiagnosticsPayload(BaseModel):
-    projectConfigId: ID
-    genCode: SettaProjectConfigDiagnostics
-    codeSections: dict[ID, list[SettaLspDiagnostic]] = Field(default_factory=dict)
-    unmappedGenCode: list[SettaLspDiagnostic] = Field(default_factory=list)
-
-
-class SettaProjectNameValidationErrors(BaseModel):
-    projectConfigId: ID
-    projectErrors: list[str] = Field(default_factory=list)
-    sectionErrors: dict[ID, list[str]] = Field(default_factory=dict)
-    paramErrors: dict[ID, list[str]] = Field(default_factory=dict)
-
-
-class ManagedAPIKeysSnapshot(BaseModel):
-    apiKeys: APIKeys = Field(default_factory=dict)
-    revision: int = Field(ge=0)
-    corrupt: bool = False
-    errorCode: str | None = None
-    message: str | None = None
-
-
-class EngineType(str, Enum):
-    setta_llm = "setta_llm"
-    external_agent = "external_agent"
-
-
-class EngineConfigDefaults(BaseModel, extra="forbid"):
-    thinking: bool | None = None
-
-
-class EngineConfig(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str
-    engineType: EngineType
-    settaLlmConfigId: str | None = None
-    externalAgentConfigId: ID | None = None
-    defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
-
-
-class TranscriptionTransportMode(str, Enum):
-    auto = "auto"
-    file = "file"
-    realtime = "realtime"
-
-
-class TranscriptionProfile(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str
-    transcriptionLlmConfigId: str
-    transportMode: TranscriptionTransportMode
-    chunkMs: int = Field(ge=200, le=10_000)
-    supportsRealtimeTranscription: bool = False
-    language: str | None = None
-
-    @field_validator("language", mode="before")
-    @classmethod
-    def parse_language(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise ValueError("language must be a string or null")
-        stripped = value.strip()
-        return stripped or None
-
-
-class AgentProfile(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str
-    description: str = ""
-    systemPrompt: str = ""
-    enableBackgroundSummaryFill: bool = False
-    enableLlmChatTitles: bool = False
-    engineConfigId: ID | None = None
-    toolAllowlist: list[str] = Field(default_factory=list)
-    memoryScope: str | None = None
-
-
-class AgentRunStatus(str, Enum):
-    queued = "queued"
-    running = "running"
-    completed = "completed"
-    failed = "failed"
-    cancelled = "cancelled"
-
-
-class RunEvent(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    timestamp: datetime = Field(default_factory=get_now_timestamp)
-    type: str
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("timestamp", mode="before")
-    @classmethod
-    def parse_timestamp(cls, value: Any) -> datetime:
-        if isinstance(value, str):
-            return parse_timestamp_str(value)
-        return value
-
-
-class AgentRun(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    profileId: ID | None = None
-    status: AgentRunStatus = AgentRunStatus.queued
-    startedAt: datetime | None = None
-    finishedAt: datetime | None = None
-    inputs: dict[str, Any] | None = None
-    outputs: dict[str, Any] | None = None
-    toolCalls: list[dict[str, Any]] = Field(default_factory=list)
-    cost: float | None = None
-    events: list[RunEvent] = Field(default_factory=list)
-
-    @field_validator("startedAt", "finishedAt", mode="before")
-    @classmethod
-    def parse_timestamp(cls, value: Any) -> datetime | None:
-        if value is None:
-            return None
-        if isinstance(value, str):
-            return parse_timestamp_str(value)
-        return value
-
-
-class ExternalAgentToolType(str, Enum):
-    claude_code = "claude_code"
-    codex = "codex"
-    opencode = "opencode"
-
-
-class ExternalAgentRunMode(str, Enum):
-    mcp = "mcp"
-    server = "server"
-    sdk = "sdk"
-    app_server = "app_server"
-
-
-class ExternalAgentWorkingDirStrategy(str, Enum):
-    project_root = "project_root"
-    temp_dir = "temp_dir"
-    custom = "custom"
-
-
-class ExternalAgentSettingsMode(str, Enum):
-    read_only = "read_only"
-    managed_local = "managed_local"
-    managed_project = "managed_project"
-    explicit_path = "explicit_path"
-
-
-class ClaudeSettingsSource(str, Enum):
-    user = "user"
-    project = "project"
-    local = "local"
-
-
-class ClaudeSettingsPermissions(BaseModel, extra="forbid"):
-    allow: list[str] = Field(default_factory=list)
-    ask: list[str] = Field(default_factory=list)
-    deny: list[str] = Field(default_factory=list)
-
-
-class ClaudeSettingsManaged(BaseModel, extra="forbid"):
-    permissions: ClaudeSettingsPermissions | None = None
-    defaultMode: str | None = None
-    mcp: dict[str, Any] | None = None
-
-
-class CodexSettingsManaged(BaseModel, extra="forbid"):
-    approvalPolicy: str | None = None
-    sandboxMode: str | None = None
-    enabledTools: list[str] | None = None
-    model: str | None = None
-
-
-class OpenCodeSettingsManaged(BaseModel, extra="forbid"):
-    permission: dict[str, str | dict[str, str]] | None = None
-    mcp: dict[str, Any] | None = None
-    model: str | None = None
-
-
-class ExternalAgentSettingsManagedBlock(BaseModel, extra="forbid"):
-    claude: ClaudeSettingsManaged | None = None
-    codex: CodexSettingsManaged | None = None
-    opencode: OpenCodeSettingsManaged | None = None
-
-
-class ExternalAgentConfig(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str
-    description: str = ""
-    toolType: ExternalAgentToolType
-    runMode: ExternalAgentRunMode
-    commandPath: str | None = None
-    baseUrl: str | None = None
-    defaultModel: str | None = None
-    sandboxPolicy: str | None = None
-    approvalPolicy: str | None = None
-    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.managed_local
-    settingsSources: list[ClaudeSettingsSource] | None = None
-    settingsFilePath: str | None = None
-    settingsAllowSettaEdits: bool = True
-    settingsManagedBlock: ExternalAgentSettingsManagedBlock | None = None
-    envVarWhitelist: list[str] = Field(default_factory=list)
-    workingDirStrategy: ExternalAgentWorkingDirStrategy = (
-        ExternalAgentWorkingDirStrategy.project_root
-    )
-    workingDir: str | None = None
-    codexSkipGitRepoCheck: bool | None = None
-
-
-class SettaNotificationType(str, Enum):
-    error = "error"
-    warning = "warning"
-    info = "info"
-    save = "save"
-
-
-class SettaNotification(BaseModel):
-    id: ID = Field(default_factory=create_new_id)
-    projectConfigId: ID = Field(
-        default_factory=lambda: ID(C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
-    )
-    type: SettaNotificationType = SettaNotificationType.info
-    message: str
-    temporary: bool = True
-    timestamp: datetime = Field(default_factory=get_now_timestamp)
-    metadata: dict = Field(default_factory=dict)
-    read_status: bool = False
-
-    @field_serializer("timestamp")
-    def serialize_timestamp(self, timestamp: datetime):
-        return timestamp.isoformat()
-
-
-class SettaBackendLogEventSeverity(str, Enum):
-    critical = "critical"
-    error = "error"
-    warning = "warning"
-    info = "info"
-
-
-class SettaBackendLogEvent(BaseModel):
-    id: ID = Field(default_factory=create_new_id)
-    projectConfigId: ID | None = None
-    severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info
-    message: str
-    timestamp: datetime = Field(default_factory=get_now_timestamp)
-
-    @field_serializer("timestamp")
-    def serialize_timestamp(self, timestamp: datetime):
-        return timestamp.isoformat()
+from setta.types.llm_config import AllLLMConfigs
+from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
+from setta.types.name_validation import SettaProjectNameValidationErrors
+from setta.types.notifications import SettaBackendLogEvent, SettaNotification
+from setta.types.project_state import AllProjectMetadata
+from setta.types.prompt import PromptTemplateList
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -366,6 +95,7 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
 class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
+    PYTHON_SCRIPT = "PYTHON_SCRIPT"
     FRONTEND = "FRONTEND"
 
 
@@ -376,10 +106,19 @@ class WebsocketConnectionInfo(BaseModel):
     shareSessionId: str | None = None
 
 
+class WebsocketConnectionInfoWithSocket(WebsocketConnectionInfo):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    websocket: WebSocket
+
+
 class WebsocketMsg(BaseModel):
     id: str | None = None
     content: Any
     messageType: Any
+
+
+class FrontendWebsocketMsg(WebsocketMsg):
+    pass
 
 
 class BackendWebsocketMsg(WebsocketMsg):
@@ -390,21 +129,169 @@ class PythonScriptWebsocketMsg(WebsocketMsg):
     pass
 
 
+class WebsocketMsgAllConnections(FrontendWebsocketMsg):
+    content: list[WebsocketConnectionInfo]
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
+        WebsocketMsgTypeForFrontend.AllConnections
+    )
+
+
 class FrontendIdentityContent(BaseModel):
     frontendAffinityToken: str
 
 
-class RenameRefactorBroadcastContent(BaseModel):
-    projectConfigId: ID
-    frontendOpId: str
-    renameMode: RenameRefactorMode
-    changedNodeValues: list[RenameReferenceChangedValue]
+class WebsocketMsgFrontendIdentity(FrontendWebsocketMsg):
+    content: FrontendIdentityContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.FrontendIdentity] = (
+        WebsocketMsgTypeForFrontend.FrontendIdentity
+    )
 
 
-class ProjectStateSingleConfigWithCompletedOpIds(BaseModel):
-    projectState: ProjectStateSingleConfig
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
+# class WebsocketMsgArtifact(FrontendWebsocketMsg):
+#     content: Artifact
+#     messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
+#         WebsocketMsgTypeForFrontend.Artifact
+#     )
+
+
+class WebsocketMsgNotification(FrontendWebsocketMsg):
+    content: SettaNotification
+    messageType: Literal[WebsocketMsgTypeForFrontend.Notification] = (
+        WebsocketMsgTypeForFrontend.Notification
+    )
+
+
+class WebsocketMsgBackendLogEvent(FrontendWebsocketMsg):
+    content: SettaBackendLogEvent
+    messageType: Literal[WebsocketMsgTypeForFrontend.BackendLogEvent] = (
+        WebsocketMsgTypeForFrontend.BackendLogEvent
+    )
+
+
+class WebsocketMsgLLMStreamingResponse(FrontendWebsocketMsg):
+    content: LLMStreamingResponse
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMStreamingResponse] = (
+        WebsocketMsgTypeForFrontend.LLMStreamingResponse
+    )
+
+
+class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
+    content: SettaLspDiagnosticsPayload
+    messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
+        WebsocketMsgTypeForFrontend.LSPDiagnostics
+    )
+
+
+class WebsocketMsgNameValidationErrors(FrontendWebsocketMsg):
+    content: SettaProjectNameValidationErrors
+    messageType: Literal[WebsocketMsgTypeForFrontend.NameValidationErrors] = (
+        WebsocketMsgTypeForFrontend.NameValidationErrors
+    )
+
+
+class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
+    content: RenameRefactorBroadcastContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults] = (
+        WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults
+    )
+
+
+class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
+    content: ProjectStateSingleConfigWithCompletedOpIds
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
+        WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
+    )
+
+
+class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):
+    content: Any
+    messageType: Literal[WebsocketMsgTypeForFrontend.TerminalMetadata] = (
+        WebsocketMsgTypeForFrontend.TerminalMetadata
+    )
+
+
+class WebsocketMsgUpdateSettings(FrontendWebsocketMsg):
+    content: SettingsState
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateSettings] = (
+        WebsocketMsgTypeForFrontend.UpdateSettings
+    )
+
+
+class WebsocketMsgAllProjectMetadata(FrontendWebsocketMsg):
+    content: AllProjectMetadata
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllProjectMetadata] = (
+        WebsocketMsgTypeForFrontend.AllProjectMetadata
+    )
+
+
+class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
+    content: UpdateArtifactMsgContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateArtifacts] = (
+        WebsocketMsgTypeForFrontend.UpdateArtifacts
+    )
+
+
+class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
+    content: ListenerCoverageSnapshot
+    messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
+        WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
+    )
+
+
+class WebsocketMsgLLMConfigUpdated(FrontendWebsocketMsg):
+    content: AllLLMConfigs
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMConfigUpdated] = (
+        WebsocketMsgTypeForFrontend.LLMConfigUpdated
+    )
+
+
+class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
+    content: ManagedAPIKeysSnapshot
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
+        WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
+    )
+
+
+class WebsocketMsgAgentProfilesUpdated(FrontendWebsocketMsg):
+    content: AgentProfileList
+    messageType: Literal[WebsocketMsgTypeForFrontend.AgentProfilesUpdated] = (
+        WebsocketMsgTypeForFrontend.AgentProfilesUpdated
+    )
+
+
+class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
+    content: PromptTemplateList
+    messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
+        WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
+    )
+
+
+class WebsocketMsgExternalAgentConfigsUpdated(FrontendWebsocketMsg):
+    content: ExternalAgentConfigList
+    messageType: Literal[WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated] = (
+        WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated
+    )
+
+
+class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
+    content: EngineConfigList
+    messageType: Literal[WebsocketMsgTypeForFrontend.EngineConfigsUpdated] = (
+        WebsocketMsgTypeForFrontend.EngineConfigsUpdated
+    )
+
+
+class WebsocketMsgTranscriptionProfilesUpdated(FrontendWebsocketMsg):
+    content: TranscriptionProfileList
+    messageType: Literal[WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated] = (
+        WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated
+    )
+
+
+class WebsocketMsgAgentRunUpdated(FrontendWebsocketMsg):
+    content: AgentRun
+    messageType: Literal[WebsocketMsgTypeForFrontend.AgentRunUpdated] = (
+        WebsocketMsgTypeForFrontend.AgentRunUpdated
+    )
 
 
 class AIFollowToolArgumentsUpdateContent(BaseModel):
@@ -413,10 +300,24 @@ class AIFollowToolArgumentsUpdateContent(BaseModel):
     idsByType: dict[FollowIdType, list[ID]]
 
 
+class WebsocketMsgAIFollowToolArgumentsUpdate(FrontendWebsocketMsg):
+    content: AIFollowToolArgumentsUpdateContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate] = (
+        WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate
+    )
+
+
 class AIFollowToolResultUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
     idsByType: dict[FollowIdType, list[ID]]
+
+
+class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
+    content: AIFollowToolResultUpdateContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate] = (
+        WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate
+    )
 
 
 class UISettingRevealActivationStep(BaseModel):
@@ -449,6 +350,13 @@ class UISettingRevealContent(BaseModel):
     reveals: list[UISettingRevealTarget]
     durationMs: int = 3000
     requestId: str
+
+
+class WebsocketMsgUISettingReveal(FrontendWebsocketMsg):
+    content: UISettingRevealContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.UISettingReveal] = (
+        WebsocketMsgTypeForFrontend.UISettingReveal
+    )
 
 
 class UISettingRevealResultStatus(BaseModel):
