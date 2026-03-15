@@ -86,6 +86,28 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 	}
 }
 
+func TestServiceStatusSetsTruncationFlagForLargeOutput(t *testing.T) {
+	statusOutput := buildLargeGitStatusOutput(40000)
+	service := newScriptedGitService(t, statusOutput, "", strings.Repeat("a", 40))
+
+	response, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if !response.IsTruncated {
+		t.Fatalf("expected truncated status response, got %#v", response)
+	}
+	if response.Repo.HeadBranch == nil || *response.Repo.HeadBranch != "main" {
+		t.Fatalf("expected head branch main, got %#v", response.Repo.HeadBranch)
+	}
+	if response.Repo.HeadCommit == nil || *response.Repo.HeadCommit != strings.Repeat("a", 40) {
+		t.Fatalf("expected head commit in truncated status response, got %#v", response.Repo.HeadCommit)
+	}
+	if len(response.Entries) == 0 {
+		t.Fatalf("expected partial status entries to survive truncation, got %#v", response)
+	}
+}
+
 func TestParseWorktreeListPorcelainMarksCurrentAndPrunable(t *testing.T) {
 	t.Parallel()
 
@@ -636,6 +658,26 @@ func TestServiceCommitDetailsAndFileDiffRejectInvalidCommitHashes(t *testing.T) 
 	}
 }
 
+func TestServiceCommitDetailsSetsTruncationFlagForLargeOutput(t *testing.T) {
+	commitHash := strings.Repeat("a", 40)
+	showOutput := buildLargeCommitDetailsOutput(commitHash, 45000)
+	service := newScriptedGitService(t, "", showOutput, commitHash)
+
+	response, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: commitHash})
+	if err != nil {
+		t.Fatalf("commit details: %v", err)
+	}
+	if !response.IsTruncated {
+		t.Fatalf("expected truncated commit details response, got %#v", response)
+	}
+	if response.Subject != "big commit" {
+		t.Fatalf("expected commit subject to survive truncation, got %#v", response)
+	}
+	if len(response.Files) == 0 {
+		t.Fatalf("expected partial changed-file list to survive truncation, got %#v", response)
+	}
+}
+
 func initGitReadTestRepo(t *testing.T) string {
 	t.Helper()
 
@@ -696,6 +738,120 @@ func initGitReadHistoryCapRepo(t *testing.T, totalCommits int) string {
 		t.Fatalf("git fast-import: %v\n%s", err, string(output))
 	}
 	return repoRoot
+}
+
+func newScriptedGitService(t *testing.T, statusOutput string, showOutput string, commitHash string) *Service {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	statusPath := filepath.Join(t.TempDir(), "status.out")
+	showPath := filepath.Join(t.TempDir(), "show.out")
+	if err := os.WriteFile(statusPath, []byte(statusOutput), 0o755); err != nil {
+		t.Fatalf("write scripted status output: %v", err)
+	}
+	if err := os.WriteFile(showPath, []byte(showOutput), 0o755); err != nil {
+		t.Fatalf("write scripted show output: %v", err)
+	}
+
+	scriptPath := filepath.Join(t.TempDir(), "git.sh")
+	script := strings.Join([]string{
+		"#!/bin/sh",
+		"set -eu",
+		"while [ $# -gt 0 ]; do",
+		"  case \"${1:-}\" in",
+		"    -c|-C)",
+		"      shift 2",
+		"      ;;",
+		"    --no-pager)",
+		"      shift 1",
+		"      ;;",
+		"    *)",
+		"      break",
+		"      ;;",
+		"  esac",
+		"done",
+		"case \"${1:-}\" in",
+		"  rev-parse)",
+		"    if [ \"${2:-}\" = \"--show-toplevel\" ]; then",
+		"      printf '%s\\n' '" + workspaceRoot + "'",
+		"      exit 0",
+		"    fi",
+		"    if [ \"${2:-}\" = \"--verify\" ]; then",
+		"      printf '%s\\n' '" + commitHash + "'",
+		"      exit 0",
+		"    fi",
+		"    ;;",
+		"  status)",
+		"    cat '" + statusPath + "'",
+		"    exit 0",
+		"    ;;",
+		"  worktree)",
+		"    exit 0",
+		"    ;;",
+		"  show)",
+		"    cat '" + showPath + "'",
+		"    exit 0",
+		"    ;;",
+		"esac",
+		"exit 1",
+		"",
+	}, "\n")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write scripted git wrapper: %v", err)
+	}
+
+	return &Service{workspaceRoot: workspaceRoot, gitBinary: scriptPath}
+}
+
+func buildLargeGitStatusOutput(entryCount int) string {
+	var output strings.Builder
+	output.WriteString("# branch.oid ")
+	output.WriteString(strings.Repeat("a", 40))
+	output.WriteByte(0)
+	output.WriteString("# branch.head main")
+	output.WriteByte(0)
+	for index := 0; index < entryCount; index++ {
+		output.WriteString("? deeply/nested/")
+		output.WriteString(strings.Repeat("a", 40))
+		output.WriteString(strconv.Itoa(index))
+		output.WriteString(".txt")
+		output.WriteByte(0)
+	}
+	return output.String()
+}
+
+func buildLargeCommitDetailsOutput(commitHash string, fileCount int) string {
+	var output strings.Builder
+	fields := []string{
+		commitHash,
+		strings.Repeat("b", 40),
+		"A",
+		"a@example.com",
+		"1700000000",
+		"A",
+		"a@example.com",
+		"1700000000",
+		"big commit",
+		"",
+	}
+	for _, field := range fields {
+		output.WriteString(field)
+		output.WriteByte(0)
+	}
+	for index := 0; index < fileCount; index++ {
+		path := "deeply/nested/" + strings.Repeat("a", 24) + strconv.Itoa(index) + ".txt"
+		output.WriteString(":100644 100644 1111111 2222222 M")
+		output.WriteByte(0)
+		output.WriteString(path)
+		output.WriteByte(0)
+	}
+	for index := 0; index < fileCount; index++ {
+		path := "deeply/nested/" + strings.Repeat("a", 24) + strconv.Itoa(index) + ".txt"
+		output.WriteString("1\t1\t")
+		output.WriteString(path)
+		output.WriteByte(0)
+	}
+	return output.String()
 }
 
 func runGitReadCommand(t *testing.T, cwd string, args ...string) string {

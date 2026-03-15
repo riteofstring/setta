@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -490,6 +491,68 @@ func TestRegisterGitRoutesRejectRepoEscapePathsAndInvalidCommitHashes(t *testing
 	}
 }
 
+func TestRegisterGitRoutesPreserveStatusAndCommitDetailsTruncationFlags(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := "/tmp/setta"
+	headCommit := strings.Repeat("a", 40)
+	service := stubGitReadService{
+		statusResponse: gitread.StatusResponse{
+			Repo: gitread.RepoInfo{
+				IsGitRepo:  true,
+				RepoRoot:   &repoRoot,
+				HeadBranch: ptrString("main"),
+				HeadCommit: &headCommit,
+			},
+			Entries:     []gitread.StatusEntry{{Path: "large.txt", Kind: "unstaged"}},
+			IsTruncated: true,
+			Worktrees:   []gitread.GitWorktreeEntry{},
+		},
+		commitDetailsResponse: gitread.CommitDetailsResponse{
+			RepoRoot:       repoRoot,
+			CommitHash:     headCommit,
+			Subject:        "big commit",
+			Files:          []gitread.CommitChangedFile{{Path: "large.txt", Status: "M"}},
+			IsTruncated:    true,
+			AuthorName:     "A",
+			AuthorEmail:    "a@example.com",
+			CommitterName:  "A",
+			CommitterEmail: "a@example.com",
+		},
+	}
+	handler := newGitRouteTestHandlerWithService(t, config.ModeIDE, service)
+
+	statusRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitStatus, strings.NewReader("null"))
+	statusRequest.Header.Set("Content-Type", "application/json")
+	statusResponse := httptest.NewRecorder()
+	handler.ServeHTTP(statusResponse, statusRequest)
+	if statusResponse.Code != http.StatusOK {
+		t.Fatalf("expected truncated status 200, got %d with body %q", statusResponse.Code, statusResponse.Body.String())
+	}
+	var statusPayload gitread.StatusResponse
+	if err := json.Unmarshal(statusResponse.Body.Bytes(), &statusPayload); err != nil {
+		t.Fatalf("decode truncated status payload: %v", err)
+	}
+	if !statusPayload.IsTruncated {
+		t.Fatalf("expected status transport to preserve isTruncated, got %#v", statusPayload)
+	}
+
+	detailsRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitDetails, strings.NewReader(`{"commitHash":"`+headCommit+`"}`))
+	detailsRequest.Header.Set("Content-Type", "application/json")
+	detailsResponse := httptest.NewRecorder()
+	handler.ServeHTTP(detailsResponse, detailsRequest)
+	if detailsResponse.Code != http.StatusOK {
+		t.Fatalf("expected truncated commit details 200, got %d with body %q", detailsResponse.Code, detailsResponse.Body.String())
+	}
+	var detailsPayload gitread.CommitDetailsResponse
+	if err := json.Unmarshal(detailsResponse.Body.Bytes(), &detailsPayload); err != nil {
+		t.Fatalf("decode truncated commit details payload: %v", err)
+	}
+	if !detailsPayload.IsTruncated {
+		t.Fatalf("expected commit-details transport to preserve isTruncated, got %#v", detailsPayload)
+	}
+}
+
 func newGitRouteTestHandler(t *testing.T, mode config.Mode, workspaceRoot string) http.Handler {
 	t.Helper()
 
@@ -501,6 +564,28 @@ func newGitRouteTestHandler(t *testing.T, mode config.Mode, workspaceRoot string
 			t.Fatalf("new git service: %v", err)
 		}
 	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
+		ModePolicy: modes.NewPolicy(mode),
+		Register: func(r chi.Router) {
+			if err := RegisterGitRoutes(r, GitRouteDependencies{
+				ModePolicy: modes.NewPolicy(mode),
+				Git:        service,
+			}); err != nil {
+				t.Fatalf("register git routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+	return handler
+}
+
+func newGitRouteTestHandlerWithService(t *testing.T, mode config.Mode, service GitReadService) http.Handler {
+	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -597,6 +682,43 @@ func runGitRouteCommand(t *testing.T, cwd string, args ...string) string {
 
 func gitreadMaxLogCount() int {
 	return 5000
+}
+
+type stubGitReadService struct {
+	statusResponse         gitread.StatusResponse
+	statusErr              error
+	diffResponse           gitread.DiffResponse
+	diffErr                error
+	logResponse            gitread.LogResponse
+	logErr                 error
+	commitDetailsResponse  gitread.CommitDetailsResponse
+	commitDetailsErr       error
+	commitFileDiffResponse gitread.CommitFileDiffResponse
+	commitFileDiffErr      error
+}
+
+func (s stubGitReadService) Status(context.Context) (gitread.StatusResponse, error) {
+	return s.statusResponse, s.statusErr
+}
+
+func (s stubGitReadService) Diff(context.Context, gitread.DiffRequest) (gitread.DiffResponse, error) {
+	return s.diffResponse, s.diffErr
+}
+
+func (s stubGitReadService) Log(context.Context, gitread.LogRequest) (gitread.LogResponse, error) {
+	return s.logResponse, s.logErr
+}
+
+func (s stubGitReadService) CommitDetails(context.Context, gitread.CommitDetailsRequest) (gitread.CommitDetailsResponse, error) {
+	return s.commitDetailsResponse, s.commitDetailsErr
+}
+
+func (s stubGitReadService) CommitFileDiff(context.Context, gitread.CommitFileDiffRequest) (gitread.CommitFileDiffResponse, error) {
+	return s.commitFileDiffResponse, s.commitFileDiffErr
+}
+
+func ptrString(value string) *string {
+	return &value
 }
 
 func writeGitRouteFile(t *testing.T, path string, contents string) {
