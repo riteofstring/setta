@@ -739,6 +739,25 @@ func TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting(
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "full fixture enabled",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call disabled plugin search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected structured disabled-plugin search response, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	if got := mustStructuredList(t, searchPayload["results"]); len(got) != 0 {
+		t.Fatalf("expected disabled plugin search results to be empty, got %#v", got)
+	}
+
 	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
