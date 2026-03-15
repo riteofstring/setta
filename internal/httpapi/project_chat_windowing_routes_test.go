@@ -229,12 +229,12 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 		t.Fatalf("expected 422 window-space response, got %d with body %q", windowSpaceResponse.Code, windowSpaceResponse.Body.String())
 	}
 
-	var windowSpaceError errorResponse
+	var windowSpaceError map[string]string
 	if err := json.Unmarshal(windowSpaceResponse.Body.Bytes(), &windowSpaceError); err != nil {
 		t.Fatalf("decode window-space error response: %v", err)
 	}
-	if windowSpaceError.Error.Code != "invalid_window_space_state" {
-		t.Fatalf("expected invalid_window_space_state, got %#v", windowSpaceError)
+	if windowSpaceError["detail"] != "Window-space windows must use project_ai_mode to bind chatId." {
+		t.Fatalf("expected invalid window-space detail, got %#v", windowSpaceError)
 	}
 }
 
@@ -373,12 +373,12 @@ func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *test
 		t.Fatalf("expected 422 rename response, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload errorResponse
+	var payload map[string]string
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode rename error response: %v", err)
 	}
-	if payload.Error.Code != "invalid_window_space_name" {
-		t.Fatalf("expected invalid_window_space_name, got %#v", payload)
+	if payload["detail"] != "Window space name cannot include path separators." {
+		t.Fatalf("expected invalid window-space detail, got %#v", payload)
 	}
 
 	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
@@ -387,7 +387,7 @@ func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *test
 	}
 }
 
-func TestRegisterProjectRoutesWindowSpaceRoutesReturnTyped404And422Mappings(t *testing.T) {
+func TestRegisterProjectRoutesWindowSpaceRoutesReturn404And422Mappings(t *testing.T) {
 	t.Parallel()
 
 	document := projectChatWindowingRouteTestDocument()
@@ -444,7 +444,7 @@ func TestRegisterProjectRoutesWindowSpaceRoutesReturnTyped404And422Mappings(t *t
 			route:        RouteSetWindowSpaceSortOrder,
 			body:         `{"projectConfigId":"project-alpha","orderedWindowSpaceIds":["space-a","space-a"]}`,
 			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"invalid_window_space_sort_order"`,
+			expectedBody: `"detail":"orderedWindowSpaceIds must not contain duplicate window space IDs."`,
 		},
 	}
 

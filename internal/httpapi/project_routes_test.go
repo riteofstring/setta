@@ -1774,6 +1774,59 @@ func TestRegisterProjectRoutesCreateTopLevelSectionAppliesSnapshotViewportAndNam
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionReturns422ForInvalidInitialName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTopLevelSection,
+		strings.NewReader(`{"projectConfigId":"project-alpha","implType":"Chat","name":"   "}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode createTopLevelSection error response: %v", err)
+	}
+	if payload["detail"] != "Section name cannot be empty." {
+		t.Fatalf("expected invalid section-name detail, got %#v", payload)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project snapshot: %v", err)
+	}
+	if len(project.Sections) != 0 {
+		t.Fatalf("expected invalid createTopLevelSection request to avoid partial state, got %#v", project.Sections)
+	}
+}
+
 func TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	t.Parallel()
 
@@ -1926,12 +1979,12 @@ func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalid
 		expectedCode int
 		expectedBody string
 	}{
-		{
-			route:        RouteSetCodeObjName,
-			body:         `{"projectConfigId":"project-alpha","codeObjId":"shared-child","name":"secret"}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"invalid_code_obj_name"`,
-		},
+			{
+				route:        RouteSetCodeObjName,
+				body:         `{"projectConfigId":"project-alpha","codeObjId":"shared-child","name":"secret"}`,
+				expectedCode: http.StatusUnprocessableEntity,
+				expectedBody: `"detail":"Param name \"secret\" already exists under this parent."`,
+			},
 		{
 			route:        RouteSetCodeObjName,
 			body:         `{"projectConfigId":"project-alpha","codeObjId":"missing-code-obj","name":"renamed_key"}`,
@@ -2204,8 +2257,8 @@ func TestRegisterProjectRoutesSetSectionNameReturns422ForInvalidName(t *testing.
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_section_name"`) {
-		t.Fatalf("expected invalid_section_name response, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"Section name cannot include path separators."`) {
+		t.Fatalf("expected invalid section detail response, got %q", response.Body.String())
 	}
 }
 
@@ -9079,8 +9132,8 @@ func TestRegisterProjectRoutesSetViewModeNameReturns422ForInvalidName(t *testing
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_view_mode_name"`) {
-		t.Fatalf("expected invalid_view_mode_name body, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"detail":"View mode name 'settings' is reserved."`) {
+		t.Fatalf("expected invalid view mode detail body, got %q", response.Body.String())
 	}
 }
 

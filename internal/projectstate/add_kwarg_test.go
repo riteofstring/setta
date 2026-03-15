@@ -194,8 +194,8 @@ func TestProjectAddKwargInitializesMissingDictRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve initialized dict root: %v", err)
 	}
-	if rootCodeObj.Name != addKwargDictRootName {
-		t.Fatalf("expected initialized dict root name %q, got %q", addKwargDictRootName, rootCodeObj.Name)
+	if rootCodeObj.Name != "" {
+		t.Fatalf("expected initialized dict root name to stay empty, got %q", rootCodeObj.Name)
 	}
 	if rootImpl.Type != nestedParamCodeObjType {
 		t.Fatalf("expected initialized dict root type NestedParam, got %q", rootImpl.Type)

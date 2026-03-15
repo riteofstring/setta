@@ -14,7 +14,7 @@ var (
 )
 
 const (
-	addKwargDictRootName   = "params"
+	addKwargDictRootName   = ""
 	nestedParamCodeObjType = "NestedParam"
 )
 

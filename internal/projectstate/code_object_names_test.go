@@ -17,6 +17,70 @@ func TestProjectSetCodeObjectNameRejectsInvalidCallableParamFormat(t *testing.T)
 	}
 }
 
+// Python-backed param validation needs explicit coverage for the documented
+// keyword, soft-keyword, path, and control-character cases the Python suite
+// already treated as source-of-truth behavior.
+func TestProjectSetCodeObjectNameRejectsDocumentedCallableParamEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		input       string
+		expectedErr string
+	}{
+		{
+			name:        "empty_after_trim",
+			input:       "   ",
+			expectedErr: "Param name cannot be empty.",
+		},
+		{
+			name:        "python_keyword",
+			input:       "class",
+			expectedErr: "Param name cannot be a Python keyword.",
+		},
+		{
+			name:        "python_soft_keyword",
+			input:       "type",
+			expectedErr: "Param name cannot be a Python keyword.",
+		},
+		{
+			name:        "unicode_identifier",
+			input:       "cafe\u0301",
+			expectedErr: "Param name must be a valid Python identifier.",
+		},
+		{
+			name:        "path_separator",
+			input:       "bad/name",
+			expectedErr: "Param name cannot include path separators.",
+		},
+		{
+			name:        "dotdot_segment",
+			input:       "bad..name",
+			expectedErr: "Param name cannot include '..' path segments.",
+		},
+		{
+			name:        "control_character",
+			input:       "bad\nname",
+			expectedErr: "Param name cannot include control characters.",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := codeObjectNameTestProject(t)
+			err := project.SetCodeObjectName("callable-param", testCase.input)
+			if !IsInvalidCodeObjectNameError(err) {
+				t.Fatalf("expected InvalidCodeObjectNameError, got %v", err)
+			}
+			if err == nil || err.Error() != testCase.expectedErr {
+				t.Fatalf("unexpected callable param name error: %v", err)
+			}
+		})
+	}
+}
+
 // Duplicate sibling checks still matter for param-bearing sections, so a
 // rename must reject a second child with the same parent-scoped name.
 func TestProjectSetCodeObjectNameRejectsDuplicateSiblingName(t *testing.T) {
@@ -109,6 +173,55 @@ func TestProjectNormalizedAllowsEmptyEditableKwargAndDictRootNames(t *testing.T)
 	}
 	if got := normalized.CodeObjs["shared-root"].Name; got != "" {
 		t.Fatalf("expected normalized dict root name to stay empty, got %q", got)
+	}
+}
+
+// Dict-backed params intentionally skip Python identifier and path-shape rules
+// so JSON-like keys can round-trip without backend rewrites.
+func TestProjectSetCodeObjectNameAllowsDocumentedDictParamFormats(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "punctuation",
+			input: "user-id@v2",
+		},
+		{
+			name:  "path_like_key",
+			input: "foo/bar..baz",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := codeObjectNameTestProject(t)
+			if err := project.SetCodeObjectName("shared-child", testCase.input); err != nil {
+				t.Fatalf("set dict param code object name: %v", err)
+			}
+			if got := project.CodeObjs["shared-child"].Name; got != testCase.input {
+				t.Fatalf("expected dict param code object name %q, got %q", testCase.input, got)
+			}
+		})
+	}
+}
+
+// Even dict-like params still reject control characters because those are not
+// valid names anywhere in the backend.
+func TestProjectSetCodeObjectNameRejectsDictParamControlCharacters(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	err := project.SetCodeObjectName("shared-child", "bad\nname")
+	if !IsInvalidCodeObjectNameError(err) {
+		t.Fatalf("expected InvalidCodeObjectNameError, got %v", err)
+	}
+	if err == nil || err.Error() != "Param name cannot include control characters." {
+		t.Fatalf("unexpected dict param control-character error: %v", err)
 	}
 }
 

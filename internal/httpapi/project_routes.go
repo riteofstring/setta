@@ -6934,7 +6934,7 @@ func writeCodeObjNameMutationError(w http.ResponseWriter, r *http.Request, err e
 	case errors.Is(err, projectstate.ErrCodeObjRenameUnsupported):
 		writeError(w, r, http.StatusUnprocessableEntity, "code_obj_rename_unsupported", err.Error())
 	case projectstate.IsInvalidCodeObjectNameError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_code_obj_name", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
@@ -7532,11 +7532,11 @@ func writeWindowSpaceMutationError(w http.ResponseWriter, r *http.Request, err e
 	case errors.Is(err, projectstate.ErrWindowSpaceNotFound):
 		writeError(w, r, http.StatusNotFound, "window_space_not_found", "Window space not found.")
 	case projectstate.IsInvalidWindowSpaceNameError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_window_space_name", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	case projectstate.IsInvalidWindowSpaceSortOrderError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_window_space_sort_order", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	case projectstate.IsInvalidWindowSpaceStateError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_window_space_state", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
@@ -7576,6 +7576,8 @@ func writeCreateTopLevelSectionError(w http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported),
 		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeNotAllowed):
 		writeError(w, r, http.StatusUnprocessableEntity, "control_code_obj_type_invalid", err.Error())
+	case projectstate.IsInvalidSectionNameError(err):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
@@ -7593,7 +7595,7 @@ func writeSectionNameMutationError(w http.ResponseWriter, r *http.Request, err e
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case projectstate.IsInvalidSectionNameError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_section_name", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
@@ -7649,7 +7651,7 @@ func writeViewModeMutationError(w http.ResponseWriter, r *http.Request, err erro
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case projectstate.IsInvalidViewModeNameError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_view_mode_name", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	case projectstate.IsInvalidViewModeSortOrderError(err):
 		writeError(w, r, http.StatusUnprocessableEntity, "invalid_view_mode_sort_order", err.Error())
 	default:
