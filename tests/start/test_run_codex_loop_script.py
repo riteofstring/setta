@@ -281,7 +281,8 @@ def test_backend_parity_wrapper_uses_checked_in_prompt_file(tmp_path: Path) -> N
     assert args[2] == "--workdir"
     assert args[3] == str(sandbox_root)
     assert args[4] == "--yolo"
-    assert args[5:] == [
+    assert args[5] == "--continue-on-error"
+    assert args[6:] == [
         "--iterations",
         "7",
         "--output-dir",

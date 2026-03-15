@@ -9,4 +9,5 @@ exec "${SCRIPT_DIR}/run-codex-loop.sh" \
   --prompt-file "${PROMPT_FILE}" \
   --workdir "${ROOT_DIR}" \
   --yolo \
+  --continue-on-error \
   "$@"
