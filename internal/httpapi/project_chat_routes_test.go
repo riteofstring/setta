@@ -254,6 +254,53 @@ func TestRegisterProjectRoutesChatSectionMutationsRejectInvalidSectionAndSetting
 	}
 }
 
+func TestRegisterProjectRoutesSetChatSectionSettingsPreservesLinkedChatEdgesForNonExecutableTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": chatSectionLinkedTargetRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	before := projectRuntime.Snapshot().Document.Projects["project-alpha"].AgenticEdges
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetChatSectionSettings,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-target","managed":false,"engineConfigId":null,"transcriptionProfileId":null,"agentProfileId":null,"thinking":false,"permissionMode":"minimal","searchEnabled":false,"dictationMode":"auto"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionSettings, response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if !reflect.DeepEqual(project.AgenticEdges, before) {
+		t.Fatalf("expected linked chat edges to remain unchanged, got %#v", project.AgenticEdges)
+	}
+
+	targetModifier := decodeProjectRouteRawObject(t, project.Sections["chat-target"].SharedModifier)
+	if got := targetModifier["managed"]; got != false {
+		t.Fatalf("expected managed=false after route update, got %#v", got)
+	}
+	if value, ok := targetModifier["engineConfigId"]; !ok || value != nil {
+		t.Fatalf("expected engineConfigId to persist as null, got %#v", targetModifier["engineConfigId"])
+	}
+}
+
 func TestRegisterProjectRoutesChatSectionMutationsUseDeploymentOverlayWhenPolicyAllows(t *testing.T) {
 	t.Parallel()
 
@@ -660,6 +707,72 @@ func chatSectionRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize chat section route project: %v", err)
+	}
+	return project
+}
+
+func chatSectionLinkedTargetRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"chat-source": "chat-source-variant",
+			"chat-target": "chat-target-variant",
+		},
+		AgenticEdges: []projectstate.AgenticEdge{
+			{
+				ID:              "edge-chat-chat",
+				SourceSectionID: "chat-source",
+				TargetSectionID: "chat-target",
+				Kind:            "chat_chat",
+				ContextMode:     "reference_only",
+			},
+		},
+		Sections: map[string]projectstate.Section{
+			"chat-source": {
+				ID:               "chat-source",
+				Name:             "Source Chat",
+				VariantIDs:       []string{"chat-source-variant"},
+				DefaultVariantID: "chat-source-variant",
+			},
+			"chat-target": {
+				ID:               "chat-target",
+				Name:             "Target Chat",
+				VariantIDs:       []string{"chat-target-variant"},
+				DefaultVariantID: "chat-target-variant",
+				SharedModifier: mustProjectRouteRawJSON(t, map[string]any{
+					"managed":        true,
+					"engineConfigId": "engine-live",
+				}),
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"chat-source-variant": {
+				ID:     "chat-source-variant",
+				ImplID: "chat-source-impl",
+			},
+			"chat-target-variant": {
+				ID:     "chat-target-variant",
+				ImplID: "chat-target-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"chat-source-impl": {
+				ID:      "chat-source-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-source-impl", "type": "Chat"}),
+			},
+			"chat-target-impl": {
+				ID:      "chat-target-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-target-impl", "type": "Chat"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize linked chat target route project: %v", err)
 	}
 	return project
 }

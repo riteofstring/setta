@@ -150,9 +150,9 @@ It covers:
   closes with proofs and adds no new concrete gap.
 - The deployment-listener manifest/runtime slice now closes with proofs and
   retains no further concrete gap.
-- The chat-section persistence / stale-chat-cleanup slice mostly closes with
-  proofs, but it now only adds one dormant direct-HTTP read boundary row and
-  one proof-gap row.
+- The chat-section persistence / stale-chat-cleanup slice now closes its
+  active caller-backed gaps and only retains one dormant direct-HTTP read
+  boundary row.
 - The project-chat-windowing / window-space slice now closes with proofs and
   adds no further concrete gap.
 - The history/clipboard slice mostly closes with proofs and now only retains
@@ -905,7 +905,7 @@ It covers:
 | `CS-03` | `getChatSectionChatId` returns existing managed/external chat ids and clears stale missing ids instead of leaving broken chat-thread bindings in project state. | Source route: `backend/setta/routers/project_manager.py::route_get_chat_section_chat_id`; source tests: `tests/project_state/test_chat_section_chat_id.py::{test_get_chat_section_chat_id_returns_existing,test_get_chat_section_chat_id_returns_external_run,test_get_chat_section_chat_id_clears_missing}`. | Impl: `internal/chatsections/service.go::GetChatID`; proof: `internal/chatsections/service_test.go::{TestServiceGetChatIDReturnsExistingManagedAndExternalChats,TestServiceGetChatIDClearsMissingChat}`; route proof: `internal/httpapi/project_chat_routes_test.go::TestRegisterProjectRoutesGetChatSectionChatIDReturnsExistingAndClearsMissing`. | `Proved` | Current Go also treats retained scriptable-chat runs as valid chat ids, which is compatible with the retained listener/chat-toolkit boundary already covered elsewhere. |
 | `CS-04` | In share/app sessions, `setChatSectionSettings` and `setChatSectionState` stay mounted behind `allowLayoutChanges`, while `setChatSectionChatId` stays mounted behind `allowLLM`, instead of the whole direct HTTP chat-section write surface disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_chat_section_settings,route_set_chat_section_state,route_set_chat_section_chat_id}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_section_chat_thread_binding_blocked_when_llm_is_disallowed`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,setChatSectionSettingsHandler,setChatSectionStateHandler,setChatSectionChatIDHandler}`; proof: `internal/httpapi/project_chat_routes_test.go::{TestRegisterProjectRoutesChatSectionMutationsUseDeploymentOverlayWhenPolicyAllows,TestRegisterProjectRoutesChatSectionMutationsRejectDeploymentPolicyWhenDisallowed}`. | `Proved` | Current Go now keeps the direct chat-section write routes mounted in deployment sessions, applies allowed writes to the request-scoped overlay, and returns typed `403 layout_changes_forbidden` or `403 llm_access_forbidden` responses when the corresponding deployment policy blocks the mutation. |
 | `CS-05` | Direct HTTP `getChatSectionChatId` remains mounted outside IDE and is not share-policy-gated, rather than disappearing with IDE-only route registration. | Source route: `backend/setta/routers/project_manager.py::route_get_chat_section_chat_id`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; retained listener/chat-toolkit routing for chat-id reads is covered separately by `LC-01`, and the current non-test frontend directly reads hydrated `chatId` state instead of calling this HTTP route. | `Dormant / unproven caller` | This row is scoped to the direct HTTP route family, not the retained listener endpoint transport. |
-| `CS-06` | Changing chat-section settings to make a linked chat target non-executable preserves existing `chat_chat` edges instead of deleting them eagerly during the settings write. | Source test: `tests/project_state/test_project_chat_windowing_persistence.py::test_set_chat_section_settings_preserves_linked_chat_edges_when_target_becomes_non_executable_for_real_manager`; source helper: `backend/setta/types/helpers_lvl2.py::set_chat_section_settings`. | Current Go settings writes only update chat-section payload fields in `internal/projectstate/chat_sections.go::SetChatSectionSettings`, leaving `projectConfig.agenticEdges` untouched; current linked-agent surfaces still read those edges in `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` and `frontend/src/components/Section/Layouts/ChatArea.tsx`. | `Implemented, proof incomplete` | This slice does not yet cite a dedicated Go regression test or a later runtime-admission proof for the non-executable linked-target case. |
+| `CS-06` | Changing chat-section settings to make a linked chat target non-executable preserves existing `chat_chat` edges instead of deleting them eagerly during the settings write. | Source test: `tests/project_state/test_project_chat_windowing_persistence.py::test_set_chat_section_settings_preserves_linked_chat_edges_when_target_becomes_non_executable_for_real_manager`; source helper: `backend/setta/types/helpers_lvl2.py::set_chat_section_settings`. | Impl: `internal/projectstate/chat_sections.go::SetChatSectionSettings`; proof: `internal/projectstate/chat_sections_test.go::TestRuntimeSetChatSectionSettingsPreservesLinkedChatEdgesWhenTargetBecomesNonExecutable`; route proof: `internal/httpapi/project_chat_routes_test.go::TestRegisterProjectRoutesSetChatSectionSettingsPreservesLinkedChatEdgesForNonExecutableTargets`; current caller evidence: `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` and `frontend/src/components/Section/Layouts/ChatArea.tsx`. | `Proved` | Current Go now directly proves that chat settings writes only change the target section payload while preserving linked-agent edges that current chat surfaces still consume. |
 
 ## Project-Chat Windowing And Window-Space CRUD
 
@@ -1197,8 +1197,8 @@ It covers:
     caller-backed gaps and retains three dormant route-boundary rows
     (`SD-07`, `SD-08`, `SD-09`).
 32. The chat-section persistence / stale-chat-cleanup slice now closes its
-    active caller-backed gaps and retains one dormant direct-HTTP read
-    boundary row (`CS-05`) plus one broader proof-gap row (`CS-06`).
+    active caller-backed gaps and only retains one dormant direct-HTTP read
+    boundary row (`CS-05`).
 33. The project-chat-windowing / window-space slice now closes with proofs
     and adds no further concrete gap.
 34. The history/clipboard slice now closes its active caller-backed gaps and
@@ -1264,8 +1264,7 @@ It covers:
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
       (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),
       and the new transcription proof gaps (`TS-02`, `TS-04`,
-      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gap (`AH-02`),
-      plus the new chat-section proof gap (`CS-06`), plus the new state-machine-run
+      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gap (`AH-02`), plus the new state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
       (`WS-02`, `WS-05`), plus the new local-session filtering proof gap
       (`SR-02`).

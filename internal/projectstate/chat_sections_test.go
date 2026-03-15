@@ -3,6 +3,7 @@ package projectstate
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -205,6 +206,52 @@ func TestRuntimeChatSectionMutationsRejectInvalidTargetsAndModes(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetChatSectionSettingsPreservesLinkedChatEdgesWhenTargetBecomesNonExecutable(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": chatSectionLinkedTargetTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	before := runtime.Snapshot().Document.Projects["project-alpha"].AgenticEdges
+	snapshot, err := runtime.SetChatSectionSettings(context.Background(), "project-alpha", "chat-target", ChatSectionSettings{
+		Managed:        false,
+		PermissionMode: ChatPermissionModeMinimal,
+		DictationMode:  ChatDictationModeAuto,
+	})
+	if err != nil {
+		t.Fatalf("SetChatSectionSettings returned error: %v", err)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if !reflect.DeepEqual(project.AgenticEdges, before) {
+		t.Fatalf("expected linked chat edges to remain unchanged, got %#v", project.AgenticEdges)
+	}
+
+	payload, err := effectiveSectionPayload(project, "chat-target", "chat-target-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload chat-target: %v", err)
+	}
+	if got := payload["managed"]; got != false {
+		t.Fatalf("expected managed=false after update, got %#v", got)
+	}
+	if value, ok := payload["engineConfigId"]; !ok || value != nil {
+		t.Fatalf("expected engineConfigId to persist as null, got %#v", payload["engineConfigId"])
+	}
+}
+
 func chatSectionMutationTestProject(t *testing.T) Project {
 	t.Helper()
 
@@ -257,6 +304,78 @@ func chatSectionMutationTestProject(t *testing.T) Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize chat section mutation project: %v", err)
+	}
+	return project
+}
+
+func chatSectionLinkedTargetTestProject(t *testing.T) Project {
+	t.Helper()
+
+	project, err := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"chat-source": "chat-source-variant",
+			"chat-target": "chat-target-variant",
+		},
+		AgenticEdges: []AgenticEdge{
+			{
+				ID:              "edge-chat-chat",
+				SourceSectionID: "chat-source",
+				TargetSectionID: "chat-target",
+				Kind:            "chat_chat",
+				ContextMode:     "reference_only",
+			},
+		},
+		Sections: map[string]Section{
+			"chat-source": {
+				ID:               "chat-source",
+				Name:             "Source Chat",
+				VariantIDs:       []string{"chat-source-variant"},
+				DefaultVariantID: "chat-source-variant",
+			},
+			"chat-target": {
+				ID:               "chat-target",
+				Name:             "Target Chat",
+				VariantIDs:       []string{"chat-target-variant"},
+				DefaultVariantID: "chat-target-variant",
+				SharedModifier: mustMarshalProjectObject(map[string]any{
+					"managed":        true,
+					"engineConfigId": "engine-live",
+				}),
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"chat-source-variant": {
+				ID:     "chat-source-variant",
+				ImplID: "chat-source-impl",
+			},
+			"chat-target-variant": {
+				ID:     "chat-target-variant",
+				ImplID: "chat-target-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"chat-source-impl": {
+				ID:   "chat-source-impl",
+				Kind: SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":   "chat-source-impl",
+					"type": "Chat",
+				}),
+			},
+			"chat-target-impl": {
+				ID:   "chat-target-impl",
+				Kind: SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":   "chat-target-impl",
+					"type": "Chat",
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize linked chat target project: %v", err)
 	}
 	return project
 }
