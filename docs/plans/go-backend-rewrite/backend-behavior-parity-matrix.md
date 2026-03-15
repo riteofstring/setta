@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`83d7307fb6fababcc4715bffdef9d5369bcf5e7b`
+`1d88546602359e0c3e0a1847e21e2d58e9a7036e`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -55,6 +55,8 @@ It currently covers:
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
 - workspace launch intent/local/remote launch behavior
+- plugin runtime read/lifecycle/config/lock/restart and
+  asset/backend-extension route behavior
 - surviving MCP init-tool behavior for project metadata, installed packages, and runtime status
 - provider dictation transcription-session file/realtime transport and runtime behavior
 - managed/external chat hydration, managed stop, and external-agent approval/question transport behavior
@@ -94,7 +96,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Sixteen concrete parity gaps are already visible:
+- Eighteen concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -150,6 +152,13 @@ Rows outside these slices are still pending.
     FastAPI/Pydantic `422` validation
   - current Go launcher setup strict-decode path returns `400 invalid_json`
     for the same unknown-field payloads
+  - source-baseline plugin install rejects removed legacy scope
+    `environment` with FastAPI/Pydantic `422` validation
+  - current Go plugin install maps that payload to `400 PLUGIN_SCOPE_INVALID`
+  - source-baseline plugin routes preserve manager-provided HTTP status and
+    structured code/message payloads for runtime/rescan and mutation failures
+  - current Go plugin route error mapping only preserves a fixed subset of
+    service codes and otherwise falls back to `400` or `500 internal_error`
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -238,6 +247,11 @@ Rows outside these slices are still pending.
 - The workspace-launch slice adds no new concrete parity gap, but it does add
   three broader proof-gap rows (`WL-01`, `WL-03`, `WL-04`) plus one dormant
   mode-boundary row (`WL-05`).
+- The plugin route slice mostly closes with proofs, but it adds:
+  - two more concrete transport gaps (`PL-04`, `PL-05`)
+  - one documented backend-runtime divergence for source FastAPI query
+    coercion semantics (`PL-11`)
+  - one more restart-capability proof gap (`PL-08`)
 
 ## Project Names
 
@@ -663,12 +677,28 @@ Rows outside these slices are still pending.
 | `WL-04` | Remote workspace launch preserves remote session/command/path payloads, requires `launcherOriginProof` before appending launcher-origin handoff metadata, trusts the launched origin for the current launcher session, and rolls back newly started remote sessions on trust-persistence failure with typed rollback errors. | Source route/helper: `backend/setta/routers/launch.py::{execute_launch_request,route_launch}`; source tests: `tests/routers/test_launch_routes.py::{test_launch_over_ssh_returns_bootstrap_url,test_launch_over_ssh_returns_resolved_remote_paths,test_launch_over_ssh_requires_remote_launcher_origin_proof,test_launch_over_ssh_uses_request_origin_for_handoff,test_launch_route_rolls_back_new_remote_session_when_trust_persistence_fails,test_launch_route_returns_rollback_failure_when_remote_cleanup_fails,test_launch_route_returns_remote_rollback_failed_for_tunnel_rollback_failures,test_launch_route_does_not_rollback_reused_remote_session_when_trust_persistence_fails}`. | Impl: `internal/workspacelaunch/local_launch.go::launchRemoteWorkspace`; proof: `internal/workspacelaunch/local_launch_test.go::{TestLocalLaunchServiceLaunchesRemoteWorkspaceAndTrustsLaunchedOrigin,TestLocalLaunchServiceRequiresRemoteLauncherOriginProof,TestLocalLaunchServiceRollsBackNewRemoteSessionWhenTrustPersistenceFails,TestLocalLaunchServiceReturnsRemoteRollbackFailedWhenRemoteCleanupFails}`; route proof: `internal/httpapi/workspace_launch_routes_test.go::TestRegisterWorkspaceLaunchRoutesLaunchesRemoteWorkspaceFromIntent`. | `Implemented, proof incomplete` | Current Go proves the main remote launcher-origin and rollback path, but this slice does not yet cite direct Go proof for the reused-remote-session or tunnel-rollback-specific variants from `main`. |
 | `WL-05` | The launch-intent / launch routes stay mounted but return `403` in share/deployment mode rather than disappearing from the transport surface. | Source route dependency: `backend/setta/routers/launch.py` uses `Depends(require_not_deployment_mode)`; source test: `tests/routers/test_launch_share_mode_block.py::test_launch_route_blocked_in_share_mode`. | Current Go wiring: `internal/httpapi/workspace_launch_routes.go::RegisterWorkspaceLaunchRoutes` returns without mounting when `deps.ModePolicy.IsDeployment()`; proof: `internal/httpapi/workspace_launch_routes_test.go::TestRegisterWorkspaceLaunchRoutesSkipsDeploymentMode`; current active callers stay behind IDE/launcher mode boundaries in `frontend/src/utils/serverModeBoundaryPolicy.ts` and `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx`. | `Dormant / unproven caller` | Current active UI does not issue these requests in deployment/share mode, so this slice records the mode-boundary transport delta without yet treating it as an active product gap. |
 
+## Plugin Runtime, Lifecycle, And Backend Extension Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `PL-01` | `GET /plugins/runtime` is the canonical plugin read surface: it returns the combined list/status/restart-capability payload, and the older split `/plugins/list` and `/plugins/status` reads stay absent. | Source routes: `backend/setta/routers/plugins.py::route_plugins_runtime`; source tests: `tests/routers/test_plugin_routes.py::{test_plugin_routes_link_and_asset_roundtrip,test_plugin_legacy_read_routes_are_not_registered}`; current caller evidence: `frontend/src/plugins/runtime.ts`; `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`. | Impl: `internal/httpapi/plugin_routes.go::RegisterPluginRoutes`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesReturnsRuntimePayload,TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull}`; current caller proof: `frontend/src/utils/generatedEndpoints.ts`; `frontend/src/utils/generatedEndpoints.test.ts::{it("issues GET requests for route_plugins_runtime", ...),it("issues POST requests for route_plugins_restart", ...)}`. | `Proved` | Current generated route bindings and plugin runtime bootstrap only target the unified runtime endpoint. |
+| `PL-02` | Runtime reads outside IDE mode redact host-local source details and stored config payload contents while still exposing schema presence and status metadata. | Source test: `tests/routers/test_plugin_routes.py::test_plugin_read_routes_redact_source_details_in_deployment_mode`. | Impl: `internal/plugins/runtime.go`; proof: `internal/plugins/runtime_test.go::TestServiceRuntimeRedactsConfigAndSourceOutsideIDE`; route proof: `internal/httpapi/plugin_routes_test.go::TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE`. | `Proved` | |
+| `PL-03` | Plugin mutation routes stay blocked outside IDE mode, while runtime reads remain available. | Source tests: `tests/routers/test_plugin_routes.py::{test_plugin_mutation_routes_blocked_in_deployment_mode,test_all_plugin_mutation_routes_are_blocked_in_deployment_mode}`. | Impl: `internal/httpapi/plugin_routes.go::RegisterPluginRoutes`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE,TestRegisterPluginRoutesBlocksLifecycleSlicesOutsideIDE,TestRegisterPluginRoutesBlocksRestartOutsideIDE,TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE}`. | `Proved` | Current Go uses the standard `mode_forbidden` error envelope for the blocked writes, but the mode-boundary behavior itself is preserved. |
+| `PL-04` | Plugin install rejects the removed legacy scope label `environment` with FastAPI/Pydantic `422` validation rather than a generic plugin-service bad-request error. | Source request model: `backend/setta/routers/plugins.py::PluginInstallRequest`; source test: `tests/routers/test_plugin_routes.py::test_plugin_install_route_rejects_removed_environment_scope`. | Current Go request decoding and scope validation: `internal/httpapi/plugin_routes.go::pluginInstallHandler`; `internal/plugins/source_specs.go::parseOptionalPluginScope`; proof of current behavior: `internal/httpapi/plugin_routes_test.go::TestRegisterPluginRoutesRejectsInvalidInstallScope`. | `Missing` | Source returns framework validation `422`; current Go accepts the payload shape and then returns `400 PLUGIN_SCOPE_INVALID`. |
+| `PL-05` | Plugin routes preserve manager-provided HTTP status plus structured code/message payloads for runtime/rescan and remaining mutation failures. | Source route helper: `backend/setta/routers/plugins.py::_run_manager_call`; source tests: `tests/routers/test_plugin_routes.py::{test_plugin_mutation_route_error_mappings_for_remaining_endpoints,test_plugin_runtime_and_rescan_routes_map_plugin_manager_errors}`. | Current Go route mapper: `internal/httpapi/plugin_routes.go::writePluginRouteError`; current Go store/runtime path still produces generic errors for malformed persisted state instead of typed plugin service errors: `internal/plugins/store.go::LoadPluginsState`; current route proof only covers fixed-code mappings such as `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesMapsLinkSourceValidationErrors,TestRegisterPluginRoutesMapsMissingEnableTo404,TestRegisterPluginRoutesMapsProgrammaticRestartFailureTo503,TestRegisterPluginRoutesMapsMissingLockfileTo404}`. | `Missing` | Current Go preserves a fixed subset of known plugin service codes, but it does not preserve the source pass-through contract for arbitrary manager status codes, and generic runtime/store failures fall back to `500 internal_error`. |
+| `PL-06` | Plugin lifecycle routes roundtrip link/install/enable/disable/uninstall/update/rollback behavior and preserve explicit unavailable/not-found/scope-required error codes for linked, missing, and ambiguous installs. | Source tests: `tests/routers/test_plugin_routes.py::{test_plugin_routes_install_enable_rescan_and_uninstall_roundtrip,test_plugin_routes_uninstall_and_install_error_mappings,test_plugin_routes_linked_plugin_update_and_rollback_are_unavailable,test_plugin_routes_update_and_rollback_missing_plugin_errors}`; current caller evidence: `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`. | Impl: `internal/httpapi/plugin_routes.go`; `internal/plugins/service.go`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesInstallAndUninstallPlugin,TestRegisterPluginRoutesLinksLocalPlugin,TestRegisterPluginRoutesUpdateAndRollbackPlugin,TestRegisterPluginRoutesEnableAndDisablePlugin,TestRegisterPluginRoutesMapUpdateMetadataAndRollbackHistoryErrors,TestRegisterPluginRoutesRejectLocalSourceUpdateAndRollback,TestRegisterPluginRoutesMapsMissingEnableTo404,TestRegisterPluginRoutesRequiresExplicitUninstallScopeWhenPluginExistsInMultipleScopes}`. | `Proved` | |
+| `PL-07` | Plugin config writes and lockfile write/apply routes roundtrip deterministic payloads and preserve missing-lockfile failure mapping. | Source tests: `tests/routers/test_plugin_routes.py::test_plugin_routes_config_and_lock_roundtrip`. | Impl: `internal/httpapi/plugin_routes.go::{pluginConfigHandler,pluginLockWriteHandler,pluginLockApplyHandler}`; `internal/plugins/config_write.go`; `internal/plugins/lockfile.go`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback,TestRegisterPluginRoutesWritesAndAppliesLockfile,TestRegisterPluginRoutesMapsMissingLockfileTo404,TestRegisterPluginRoutesRejectsInvalidPluginConfig}`. | `Proved` | |
+| `PL-08` | Runtime/restart transport preserves the manual-versus-programmatic restart capability contract, including callback rejection fallback details and source manual capability outside IDE mode. | Source tests: `tests/routers/test_plugin_routes.py::{test_plugin_restart_route_supports_programmatic_mode,test_plugin_restart_route_handles_programmatic_rejection,test_plugin_runtime_reports_manual_restart_capability_outside_ide,test_plugin_restart_route_maps_callback_exceptions_to_structured_errors}`. | Impl: `internal/plugins/status.go::{restartCapability,Restart}`; route proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesReturnsManualRestartPayload,TestRegisterPluginRoutesAcceptsProgrammaticRestart,TestRegisterPluginRoutesHandlesProgrammaticRestartRejection,TestRegisterPluginRoutesMapsProgrammaticRestartFailureTo503}`; service proof: `internal/plugins/status_test.go::{TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability,TestServiceRestartAcceptsProgrammaticCallback,TestServiceRestartProgrammaticRejectionFallsBackToManualCommand}`. | `Implemented, proof incomplete` | Current Go code clearly forces manual capability outside IDE in `restartCapability`, but this slice does not yet cite direct Go runtime/read proof for the specific source case where a restart callback exists outside IDE mode. |
+| `PL-09` | The plugin asset route only serves declared frontend files, adds immutable cache headers only for digest-shaped `v=` tokens, and maps traversal, missing-file, and unknown-plugin failures to deterministic plugin errors. | Source tests: `tests/routers/test_plugin_routes.py::{test_plugin_routes_link_and_asset_roundtrip,test_plugin_asset_route_rejects_non_frontend_files,test_plugin_asset_route_maps_invalid_and_missing_paths,test_plugin_asset_route_maps_unknown_plugin_to_not_found}`. | Impl: `internal/httpapi/plugin_routes.go::pluginAssetHandler`; `internal/plugins/runtime.go::ResolveAssetPath`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRootRoutesServesFrontendAssetsAndImmutableCache,TestRegisterPluginRootRoutesRejectsTraversalAndUnknownPlugins}`; service proof: `internal/plugins/runtime_test.go::TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles`. | `Proved` | |
+| `PL-10` | Registered backend plugin extensions serve static dirs, dispatch backend HTTP routes, preserve raw request/auth/share-session context, and require auth only for backend routes rather than for public static assets. | Source test: `tests/routers/test_plugin_routes.py::test_plugin_routes_backend_static_router_fixture_roundtrip`. | Impl: `internal/httpapi/plugin_routes.go::{pluginBackendRootHandler,dispatchRegisteredPluginBackendRoute,pluginStaticDirHandler}`; `internal/plugins/backend_runtime.go`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRootRoutesServesRegisteredBackendStaticDirs,TestRegisterPluginRootRoutesDispatchesRegisteredBackendRoutes,TestRegisterPluginRootRoutesRequireAuthOnlyForRegisteredBackendRoutes,TestRegisterPluginRootRoutesLeavesUnknownPathsAsRouteNotFoundWithoutRegisteredStaticDir}`; service proof: `internal/plugins/backend_runtime_test.go::{TestServiceDispatchRegisteredBackendRouteInvokesGoBackendExecutable,TestServiceLookupRegisteredBackendRouteReportsPathMismatch,TestServiceDispatchRegisteredBackendRouteFallsBackFromHeadToGet}`. | `Proved` | |
+| `PL-11` | Source Python backend-plugin proxy routes preserved FastAPI scalar/list query coercion semantics for query parameters. The rewrite instead moves backend plugins to a Go-native executable/runtime contract and does not preserve FastAPI-specific request coercion as the host contract. | Source test: `tests/routers/test_plugin_routes.py::test_plugin_routes_backend_query_param_coercion_matches_fastapi`. | Current rewrite docs: `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md` Go-owned backend plugin runtime rows; `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` backend/plugin extension boundary; current host transport: `internal/plugins/backend_runtime.go` passes raw method/path/query/body metadata over the typed backend runtime contract. | `Intentional divergence` | Current backend plugin authoring/runtime explicitly targets Go-backed executables rather than Python/FastAPI handlers, so FastAPI/Pydantic query coercion is no longer the surviving backend-plugin contract. |
+
 ## Current Findings
 
-1. The matrix now contains sixteen concrete source-parity gaps:
+1. The matrix now contains eighteen concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
-   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, and
-   `LM-02`.
+   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
+   `PL-04`, and `PL-05`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -734,15 +764,20 @@ Rows outside these slices are still pending.
 21. The workspace-launch slice adds no new real behavior gap, but it does add
     three broader proof-gap rows (`WL-01`, `WL-03`, `WL-04`) plus one dormant
     mode-boundary row (`WL-05`).
-22. Git route behavior is now largely proved, including literal pathspec
+22. The plugin route slice mostly closes with proofs, but it adds two real
+    transport gaps (`PL-04`, `PL-05`), one documented backend-runtime
+    divergence (`PL-11`), and one broader restart-capability proof gap
+    (`PL-08`).
+23. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-23. The remaining issues in the naming slice are still mostly proof gaps rather
+24. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-24. The next high-value steps are:
+25. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
-      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, and
-      `LM-02` should be restored or documented as intentional divergences
+      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
+      `PL-04`, and `PL-05` should be restored or documented as intentional
+      divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
@@ -758,7 +793,8 @@ Rows outside these slices are still pending.
       `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
-      (`WL-01`, `WL-03`, `WL-04`), and the new transcription proof gaps
+      (`WL-01`, `WL-03`, `WL-04`), the new plugin proof gap (`PL-08`), and
+      the new transcription proof gaps
       (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new chat/managed-stop
       proof gaps (`AH-02`, `MS-02`), plus the new managed-agent-run proof gap
       (`MA-05`), plus the new state-machine-run proof gap (`SM-05`), plus
