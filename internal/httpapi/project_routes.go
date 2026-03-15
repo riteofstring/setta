@@ -991,6 +991,34 @@ type SetTextBlockFormatRequest struct {
 	Format       projectstate.TextBlockFormat `json:"format"`
 }
 
+func validateTextBlockDisplayModeRequestValue(mode projectstate.TextBlockDisplayMode) error {
+	switch mode {
+	case projectstate.TextBlockDisplayModeRender, projectstate.TextBlockDisplayModeEdit:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid textDisplayMode value %q. Expected one of: %q, %q.",
+			string(mode),
+			projectstate.TextBlockDisplayModeRender,
+			projectstate.TextBlockDisplayModeEdit,
+		)
+	}
+}
+
+func validateTextBlockFormatRequestValue(format projectstate.TextBlockFormat) error {
+	switch format {
+	case projectstate.TextBlockFormatPlaintext, projectstate.TextBlockFormatMarkdown:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid format value %q. Expected one of: %q, %q.",
+			string(format),
+			projectstate.TextBlockFormatPlaintext,
+			projectstate.TextBlockFormatMarkdown,
+		)
+	}
+}
+
 type SetTextBlockHeadingAsSectionNameRequest struct {
 	FrontendOpID         *string `json:"frontendOpId"`
 	ProjectID            string  `json:"projectConfigId"`
@@ -5466,6 +5494,10 @@ func setTextBlockDisplayModeHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
+		if err := validateTextBlockDisplayModeRequestValue(payload.TextDisplayMode); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+			return
+		}
 		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
 			return
 		}
@@ -5505,6 +5537,10 @@ func setTextBlockFormatHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 		sectionID := strings.TrimSpace(payload.SectionID)
 		if sectionID == "" {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if err := validateTextBlockFormatRequestValue(payload.Format); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
 			return
 		}
 		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {

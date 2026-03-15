@@ -361,8 +361,7 @@ It covers:
 - The password-reveal slice adds no new concrete parity gap, but it does add
   one dormant mode-boundary row around share/deployment password-reveal
   mounting (`PW-04`).
-- The text-block mutation slice mostly closes with proofs and now only adds
-  one concrete gap around text-block enum transport validation (`TB-03`).
+- The text-block mutation slice now closes with proofs.
 
 ## Project Names
 
@@ -880,7 +879,7 @@ It covers:
 | --- | --- | --- | --- | --- | --- |
 | `TB-01` | `setTextBlockText` and `setTextBlockHeadingAsSectionName` update the text-block payload, derive a candidate section name from the first heading when `headingAsSectionName=true`, and ignore invalid or colliding derived names instead of failing the text update. | Source helper: `backend/setta/types/helpers_lvl2::{set_text_block_text,set_text_block_heading_as_section_name,get_first_heading_or_text,get_first_markdown_heading}`; source tests: `tests/types/test_helpers_lvl2::test_invalid_heading_does_not_block_text_update`; `tests/utils/test_name_validation.py::{test_text_block_heading_name_error_flags_invalid_heading,test_text_block_heading_name_error_flags_duplicate_sibling}`; source docs: `docs/reference/name-validation.md` text-block heading section. | Impl: `internal/projectstate/text_block_sections.go::{SetTextBlockText,SetTextBlockHeadingAsSectionName,syncTextBlockSectionName,extractFirstTextBlockHeading}`; proof: `internal/projectstate/text_block_sections_test.go::{TestRuntimeTextBlockMutationsUpdateEffectivePayload,TestRuntimeTextBlockMutationsIgnoreInvalidDerivedSectionName}`; validation proof: `internal/projectstate/name_validation_test.go::TestCollectNameValidationErrorsReportsTextBlockHeadingNameErrors`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesTextBlockMutationsPersistLatestState`. | `Proved` | This row is about the text-update plus tolerant derived-rename behavior, not the broader section-name validation matrix already covered above. |
 | `TB-02` | Display-mode, format, transparent-style, and master-font-size text-block mutations persist through latest-state hydration, clamp font size into `8..48`, and reject non-text-block targets. | Source helper: `backend/setta/types/helpers_lvl2::{set_text_block_display_mode,set_text_block_format,set_text_block_meta_control_style,set_text_block_master_font_size}`; source tests: `tests/types/test_helpers_lvl2::test_master_font_size_clamps_to_supported_range`; source routes/request models: `backend/setta/routers/project_manager.py::{route_set_text_block_display_mode,route_set_text_block_master_font_size,route_set_text_block_format,route_set_text_block_meta_control_style}`; `backend/setta/project_state/project_manager_types.py::{SetTextBlockDisplayModeRequest,SetTextBlockFormatRequest,SetTextBlockMasterFontSizeRequest,SetTextBlockMetaControlStyleRequest}`. | Impl: `internal/projectstate/text_block_sections.go::{SetTextBlockDisplayMode,SetTextBlockFormat,SetTextBlockMetaControlStyle,SetTextBlockMasterFontSize}`; proof: `internal/projectstate/text_block_sections_test.go::{TestRuntimeTextBlockMutationsUpdateEffectivePayload,TestRuntimeTextBlockMutationsRejectInvalidTargetsAndValues}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesTextBlockMutationsPersistLatestState,TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs}`. | `Proved` | Current Go proof covers payload persistence, typed non-text-block rejection, and master-font clamping. |
-| `TB-03` | Invalid `textDisplayMode` / `format` request payloads should fail source FastAPI/Pydantic enum validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded enum strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetTextBlockDisplayModeRequest,SetTextBlockFormatRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_display_mode,route_set_text_block_format}`. | Current Go normalizes and validates after JSON decode in `internal/projectstate/text_block_sections.go::{normalizeTextBlockDisplayMode,normalizeTextBlockFormat}` and maps failures through `internal/httpapi/project_routes.go::writeTextBlockMutationError`; proof of current `400` transport: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: Go both trims the enum strings and reports `400`, while the source typed body model would reject the same payload at FastAPI validation time with `422`. |
+| `TB-03` | Invalid `textDisplayMode` / `format` request payloads should fail source FastAPI/Pydantic enum validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded enum strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetTextBlockDisplayModeRequest,SetTextBlockFormatRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_display_mode,route_set_text_block_format}`. | Impl: `internal/httpapi/project_routes.go::{validateTextBlockDisplayModeRequestValue,validateTextBlockFormatRequestValue,setTextBlockDisplayModeHandler,setTextBlockFormatHandler}`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs`. | `Proved` | Current Go now rejects unknown and padded enum literals at the HTTP boundary with `422 invalid_request` and leaves the persisted text-block payload unchanged. |
 | `TB-04` | In deployment sessions, text-block mutations stay mounted and are gated by share policy instead of being IDE-only: `setTextBlockText` follows `allowParamChanges`, while `setTextBlockDisplayMode`, `setTextBlockFormat`, and `setTextBlockMasterFontSize` follow `allowLayoutChanges`. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_text,route_set_text_block_display_mode,route_set_text_block_master_font_size,route_set_text_block_format}`; source share-policy tests: `tests/routers/test_share_policy_routes::{test_param_routes_blocked,test_layout_routes_blocked}`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,setTextBlockTextHandler,setTextBlockDisplayModeHandler,setTextBlockFormatHandler,setTextBlockMasterFontSizeHandler}`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesTextBlockMutationsUseDeploymentOverlayWhenPolicyAllows,TestRegisterProjectRoutesTextBlockMutationsRejectDeploymentPolicyWhenDisallowed}`. | `Proved` | Current Go now keeps the active text-block mutation routes mounted in deployment sessions, applies allowed writes to the request-scoped overlay, and returns typed `403 param_changes_forbidden` or `403 layout_changes_forbidden` responses when policy blocks the corresponding mutation family. |
 
 ## Chart Metadata Mutations And Deployment Policy
@@ -1143,11 +1142,11 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains twelve concrete source-parity gaps:
+1. The matrix now contains eleven concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
-   `TB-03`, `CH-03`, `BR-02`, `SD-05`,
+   `CH-03`, `BR-02`, `SD-05`,
    `CS-02`, `CB-03`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
@@ -1222,8 +1221,7 @@ It covers:
     dormant transport row (`CP-04`).
 27. The password-reveal slice adds no new real behavior gap, but it does add
     one dormant mode-boundary row (`PW-04`).
-28. The text-block mutation slice mostly closes with proofs and now only adds
-    one real transport/status gap (`TB-03`).
+28. The text-block mutation slice now closes with proofs.
 29. The chart-metadata slice mostly closes with proofs and now only adds one
     real transport/runtime gap (`CH-03`) plus one dormant deployment-mode
     route-boundary row (`CH-04`).
@@ -1291,7 +1289,7 @@ It covers:
     - decide whether `US-05`,
       `WS-01`,
       `DP-08`,
-      `TB-03`, `CH-03`, `BR-02`,
+      `CH-03`, `BR-02`,
       `SD-05`, `CS-02`, `CB-03`,
       `DL-02` should be restored or
       documented as intentional divergences

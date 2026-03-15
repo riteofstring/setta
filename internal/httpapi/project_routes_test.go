@@ -6470,45 +6470,104 @@ func TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs(t *testing.T
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 
-	for _, requestSpec := range []struct {
-		route        string
-		body         string
-		expectedCode int
-		expectedBody string
-	}{
-		{
-			route:        RouteSetTextBlockText,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","text":"hello"}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"text_block_section_required"`,
-		},
-		{
-			route:        RouteSetTextBlockDisplayMode,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Preview"}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"text_block_display_mode_invalid"`,
-		},
-		{
-			route:        RouteSetTextBlockFormat,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"HTML"}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"text_block_format_invalid"`,
-		},
-	} {
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+
 		request := httptest.NewRequest(
 			http.MethodPost,
-			"/api"+requestSpec.route,
-			strings.NewReader(requestSpec.body),
+			"/api"+route,
+			strings.NewReader(body),
 		)
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		name                string
+		route               string
+		body                string
+		expectedCode        int
+		expectedErrorCode   string
+		expectedMessagePart string
+	}{
+		{
+			name:                "text_requires_text_block_section",
+			route:               RouteSetTextBlockText,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","text":"hello"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "text_block_section_required",
+			expectedMessagePart: "Section must resolve to a text block section.",
+		},
+		{
+			name:                "display_mode_rejects_unknown_literal_at_transport",
+			route:               RouteSetTextBlockDisplayMode,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Preview"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid textDisplayMode value "Preview".`,
+		},
+		{
+			name:                "display_mode_rejects_padded_literal_without_trimming",
+			route:               RouteSetTextBlockDisplayMode,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":" Edit "}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid textDisplayMode value " Edit ".`,
+		},
+		{
+			name:                "format_rejects_unknown_literal_at_transport",
+			route:               RouteSetTextBlockFormat,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"HTML"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid format value "HTML".`,
+		},
+		{
+			name:                "format_rejects_padded_literal_without_trimming",
+			route:               RouteSetTextBlockFormat,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","format":" Markdown "}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid format value " Markdown ".`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
 		if response.Code != requestSpec.expectedCode {
-			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("%s: expected %d for %s, got %d with body %q", requestSpec.name, requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
 		}
-		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
-			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+
+		var payload errorResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("%s: decode error payload: %v", requestSpec.name, err)
 		}
+		if payload.Error.Code != requestSpec.expectedErrorCode {
+			t.Fatalf("%s: expected error code %q, got %#v", requestSpec.name, requestSpec.expectedErrorCode, payload)
+		}
+		if !strings.Contains(payload.Error.Message, requestSpec.expectedMessagePart) {
+			t.Fatalf("%s: expected error message to contain %q, got %#v", requestSpec.name, requestSpec.expectedMessagePart, payload)
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	textVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["text-section"]
+	textImplID := payload.ProjectState.SectionVariants[textVariantID].Impl
+	textImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[textImplID])
+	if got := textImplPayload["textDisplayMode"]; got != "Render" {
+		t.Fatalf("expected invalid display-mode requests to leave textDisplayMode unchanged, got %#v", got)
+	}
+	if got := textImplPayload["format"]; got != "Plaintext" {
+		t.Fatalf("expected invalid format requests to leave format unchanged, got %#v", got)
 	}
 }
 
