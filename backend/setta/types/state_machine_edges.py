@@ -1,7 +1,12 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field
-from setta.types.id import ID, create_new_id
+
+from setta.database.utils import create_new_id
+from setta.types.id import ID
+
+STATE_MACHINE_EDGE_SOURCE_PORT_ID = "workflow-source"
+STATE_MACHINE_EDGE_TARGET_PORT_ID = "workflow-target"
 
 
 class StateMachineTargetActionType(str, Enum):
