@@ -25,6 +25,9 @@ Key paths:
   `frontend/src/state/actions/websocketReceive.ts`
 - Listener coverage gating: `frontend/src/state/actions/listenerCoverage.ts`,
   `internal/httpapi/listener_routes.go`, `internal/realtime/listener_coverage.go`
+- Listener registration changes also push `ListenerCoverageSnapshot` over
+  `/ws/frontend`, so coverage-dependent realtime sends can update without an
+  explicit refetch after listener register/disconnect.
 - Frontend websocket receiver: `internal/wsapi/routes.go`
 - Realtime sequencing + fan-out: `internal/realtime/sequencer.go`,
   `internal/realtime/listener_broadcaster.go`,

@@ -663,6 +663,105 @@ func TestRegisterRoutesListenerRecordsBootstrapAndCleansUpOnDisconnect(t *testin
 	}
 }
 
+func TestRegisterRoutesListenerRegisterBroadcastsCoverageSnapshotToFrontendAndClearsOnDisconnect(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+	assertRouteListenerCoverageSnapshot(
+		t,
+		readUntilMessageType(t, frontend, realtime.MessageTypeListenerCoverageSnapshot, 2),
+		"project-a",
+		false,
+		[]realtime.ListenerCoverageDependency{
+			{Type: realtime.DependencyKeyTypeSectionParam, SectionID: "section-a", CodeObjID: "param-a"},
+		},
+	)
+
+	listener.CloseNow()
+	assertRouteListenerCoverageSnapshot(
+		t,
+		readUntilMessageType(t, frontend, realtime.MessageTypeListenerCoverageSnapshot, 2),
+		"project-a",
+		false,
+		nil,
+	)
+}
+
+func TestRegisterRoutesShareListenerCoverageBroadcastsOnlyToMatchingSessionFrontend(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share-a session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share-b session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontendA := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-a", nil)
+	defer frontendA.CloseNow()
+	_ = readNextMessage(t, frontendA)
+
+	frontendB := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-b", nil)
+	defer frontendB.CloseNow()
+	_ = readNextMessage(t, frontendB)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write share listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+	assertRouteListenerCoverageSnapshot(
+		t,
+		readUntilMessageType(t, frontendA, realtime.MessageTypeListenerCoverageSnapshot, 2),
+		"project-a",
+		true,
+		nil,
+	)
+	assertNoRouteEnvelopeOfType(t, frontendB, realtime.MessageTypeListenerCoverageSnapshot, 300*time.Millisecond)
+}
+
 func TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh(t *testing.T) {
 	t.Parallel()
 
@@ -2685,6 +2784,39 @@ func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, proje
 	}
 	if status := content.Callbacks["cb-a"].Status; status != "accepted" {
 		t.Fatalf("expected callback status accepted, got %q", status)
+	}
+}
+
+func assertRouteListenerCoverageSnapshot(
+	t *testing.T,
+	message routeMessageEnvelope,
+	projectID string,
+	hasRealtimeWildcard bool,
+	dependencies []realtime.ListenerCoverageDependency,
+) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerCoverageSnapshot {
+		t.Fatalf("expected listener coverage snapshot, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerCoverageSnapshot
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener coverage snapshot: %v", err)
+	}
+	if content.ProjectID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	}
+	if content.HasRealtimeWildcard != hasRealtimeWildcard {
+		t.Fatalf("expected realtime wildcard %t, got %#v", hasRealtimeWildcard, content)
+	}
+	if len(content.Dependencies) != len(dependencies) {
+		t.Fatalf("expected %d coverage dependencies, got %#v", len(dependencies), content.Dependencies)
+	}
+	for index, expected := range dependencies {
+		if content.Dependencies[index] != expected {
+			t.Fatalf("expected coverage dependency %#v at index %d, got %#v", expected, index, content.Dependencies[index])
+		}
 	}
 }
 

@@ -314,6 +314,28 @@ func (b *ListenerBroadcaster) SendForceRefresh(ctx context.Context, params Force
 	)
 }
 
+func (b *ListenerBroadcaster) BroadcastCoverageSnapshot(
+	ctx context.Context,
+	projectID string,
+	shareSessionID string,
+) (int, error) {
+	snapshot, err := BuildListenerCoverageSnapshot(
+		projectID,
+		b.registry.RegistrationsForProject(projectID, shareSessionID),
+	)
+	if err != nil {
+		return 0, err
+	}
+	return b.websocketHub.BroadcastJSON(
+		ctx,
+		NewListenerCoverageSnapshotMessage(snapshot),
+		Selection{
+			Type:           ConnectionTypeFrontend,
+			ShareSessionID: strings.TrimSpace(shareSessionID),
+		},
+	)
+}
+
 func (b *ListenerBroadcaster) RemoveConnection(connectionID string) {
 	b.registry.RemoveConnection(connectionID)
 }

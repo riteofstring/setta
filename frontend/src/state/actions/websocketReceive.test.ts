@@ -17,6 +17,7 @@ import {
   WebsocketMsgTypeForFrontendEnum,
   createBinaryContentRef,
   createAgentRun,
+  createListenerCoverageSnapshot,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
   createSettaProjectConfigDiagnostics,
@@ -363,6 +364,43 @@ describe("openWebSocket", () => {
       useAIStore.getState().agentRuns.find((run) => run.id === "workflow-run-1")
         ?.status,
     ).toBe("completed");
+  });
+
+  it("applies listener coverage snapshots from websocket messages", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify({
+        messageType: WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot,
+        content: createListenerCoverageSnapshot({
+          projectConfigId: "project-1",
+          hasRealtimeWildcard: false,
+          dependencies: [
+            {
+              type: DependencyKeyTypeEnum.SectionParam,
+              sectionId: "section-a",
+              codeObjId: "param-a",
+            },
+          ],
+        }),
+      }),
+    });
+
+    expect(useListenerCoverage.getState().byProjectId["project-1"]).toEqual({
+      hasRealtimeWildcard: false,
+      dependenciesByKey: {
+        "section-a::param-a": {
+          type: DependencyKeyTypeEnum.SectionParam,
+          sectionId: "section-a",
+          codeObjId: "param-a",
+        },
+      },
+    });
   });
 
   it("sends realtime dependency events when listener coverage is unknown", async () => {

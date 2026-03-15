@@ -76,6 +76,33 @@ func TestNewAIFollowToolResultUpdateMessage(t *testing.T) {
 	}
 }
 
+func TestNewListenerCoverageSnapshotMessageClonesContent(t *testing.T) {
+	t.Parallel()
+
+	snapshot := ListenerCoverageSnapshot{
+		ProjectID: "project-alpha",
+		Dependencies: []ListenerCoverageDependency{
+			{Type: DependencyKeyTypeSectionParam, SectionID: "section-1", CodeObjID: "param-1"},
+		},
+		HasRealtimeWildcard: true,
+	}
+	message := NewListenerCoverageSnapshotMessage(snapshot)
+	snapshot.Dependencies[0].SectionID = "mutated"
+
+	if message.MessageType != MessageTypeListenerCoverageSnapshot {
+		t.Fatalf("expected listener coverage snapshot message type, got %q", message.MessageType)
+	}
+	if message.Content.ProjectID != "project-alpha" {
+		t.Fatalf("expected project-alpha project id, got %q", message.Content.ProjectID)
+	}
+	if got := message.Content.Dependencies[0].SectionID; got != "section-1" {
+		t.Fatalf("expected cloned dependency content, got %q", got)
+	}
+	if !message.Content.HasRealtimeWildcard {
+		t.Fatalf("expected realtime wildcard flag to persist, got %#v", message.Content)
+	}
+}
+
 func TestNewAgentRunUpdatedMessageClonesContent(t *testing.T) {
 	t.Parallel()
 

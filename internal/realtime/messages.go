@@ -15,6 +15,7 @@ const (
 	MessageTypeAllProjectMetadata          = "AllProjectMetadata"
 	MessageTypeAllConnections              = "AllConnections"
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
+	MessageTypeListenerCoverageSnapshot    = "ListenerCoverageSnapshot"
 	MessageTypeUpdateArtifacts             = "UpdateArtifacts"
 	MessageTypeLLMStreamingResponse        = "LLMStreamingResponse"
 	MessageTypeAIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
@@ -221,6 +222,11 @@ type FrontendIdentityMessage struct {
 	Content     FrontendIdentityContent `json:"content"`
 }
 
+type ListenerCoverageSnapshotMessage struct {
+	MessageType string                   `json:"messageType"`
+	Content     ListenerCoverageSnapshot `json:"content"`
+}
+
 type LLMStreamingResponseEnvelope = LLMStreamingResponseMessage
 
 type AIFollowToolArgumentsUpdateMessage struct {
@@ -327,6 +333,17 @@ func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMe
 		MessageType: MessageTypeFrontendIdentity,
 		Content: FrontendIdentityContent{
 			FrontendAffinityToken: frontendAffinityToken,
+		},
+	}
+}
+
+func NewListenerCoverageSnapshotMessage(content ListenerCoverageSnapshot) ListenerCoverageSnapshotMessage {
+	return ListenerCoverageSnapshotMessage{
+		MessageType: MessageTypeListenerCoverageSnapshot,
+		Content: ListenerCoverageSnapshot{
+			ProjectID:           content.ProjectID,
+			Dependencies:        append([]ListenerCoverageDependency(nil), content.Dependencies...),
+			HasRealtimeWildcard: content.HasRealtimeWildcard,
 		},
 	}
 }

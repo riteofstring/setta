@@ -435,7 +435,18 @@ func serveListenerConnection(
 		return err
 	}
 	defer deps.WebsocketHub.Disconnect(context.Background(), connection.ID, false)
-	defer deps.ListenerBroadcaster.RemoveConnection(connection.ID)
+	defer func() {
+		registration, hadRegistration := deps.ListenerBroadcaster.Registry().Registration(connection.ID)
+		deps.ListenerBroadcaster.RemoveConnection(connection.ID)
+		if !hadRegistration {
+			return
+		}
+		_, _ = deps.ListenerBroadcaster.BroadcastCoverageSnapshot(
+			context.Background(),
+			registration.ProjectID,
+			registration.ShareSessionID,
+		)
+	}()
 
 	if projectID != "" {
 		if err := deps.ListenerBroadcaster.Registry().RecordBootstrap(realtime.ListenerBootstrap{
@@ -727,6 +738,14 @@ func handleListenerRegister(
 			Callbacks:       ackStatuses,
 		}),
 		connectionID,
+	)
+	if err != nil {
+		return err
+	}
+	_, err = deps.ListenerBroadcaster.BroadcastCoverageSnapshot(
+		ctx,
+		registration.ProjectID,
+		registration.ShareSessionID,
 	)
 	return err
 }
