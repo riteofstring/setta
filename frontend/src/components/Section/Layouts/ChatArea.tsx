@@ -946,12 +946,14 @@ function ChatSectionHistoryList({
   initialLoadComplete,
   loadError,
   onSelect,
+  shellClassName,
 }: {
   entries: Array<ChatSectionHistoryEntry>;
   activeChatId: string | null;
   initialLoadComplete: boolean;
   loadError: string | null;
   onSelect: (chatId: string) => void;
+  shellClassName?: string;
 }) {
   const placeholderText = useMemo(
     () =>
@@ -961,14 +963,20 @@ function ChatSectionHistoryList({
 
   if (entries.length === 0) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center px-4">
+      <div
+        className={`${shellClassName ?? ""} flex min-h-0 flex-1 items-center justify-center px-4`}
+        data-chat-width-shell={shellClassName ? "true" : undefined}
+      >
         <p className="text-center text-xs text-setta-400">{placeholderText}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1">
+    <div
+      className={`${shellClassName ?? ""} min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1`}
+      data-chat-width-shell={shellClassName ? "true" : undefined}
+    >
       <div className="flex flex-col gap-2">
         {entries.map((entry) => (
           <button
@@ -1003,7 +1011,7 @@ function ChatSectionHistoryList({
             </div>
             {entry.waitingForResponse ? (
               <BrailleSpinner
-                className={`single-cell-child ${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} ${
+                className={`shrink-0 ${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} ${
                   entry.chatId === activeChatId
                     ? "text-white dark:text-white"
                     : "text-setta-500/70"
@@ -1023,12 +1031,14 @@ function ManagedChatHistoryPanel({
   activeChatId,
   historyCompatibility,
   onSelect,
+  shellClassName,
 }: {
   projectConfigId: string;
   sectionId: string;
   activeChatId: string | null;
   historyCompatibility: ChatHistoryCompatibility | null;
   onSelect: (chatId: string) => void;
+  shellClassName?: string;
 }) {
   const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
     useAIStore(
@@ -1105,6 +1115,7 @@ function ManagedChatHistoryPanel({
       initialLoadComplete={agentRunsInitialLoadComplete}
       loadError={agentRunsLoadError}
       onSelect={onSelect}
+      shellClassName={shellClassName}
     />
   );
 }
@@ -1915,18 +1926,14 @@ function ManagedChatArea({
         ) : null}
       </div>
       {showHistory && canUseManagedChat ? (
-        <div
-          className={`${chatWidthShellClassName} min-h-0 flex-1`}
-          data-chat-width-shell="true"
-        >
-          <ManagedChatHistoryPanel
-            projectConfigId={projectConfigId}
-            sectionId={sectionId}
-            activeChatId={chatId}
-            historyCompatibility={historyCompatibility}
-            onSelect={handleSelectHistoryChat}
-          />
-        </div>
+        <ManagedChatHistoryPanel
+          projectConfigId={projectConfigId}
+          sectionId={sectionId}
+          activeChatId={chatId}
+          historyCompatibility={historyCompatibility}
+          onSelect={handleSelectHistoryChat}
+          shellClassName={chatWidthShellClassName}
+        />
       ) : (
         <ChatMessageList
           messages={messages}
