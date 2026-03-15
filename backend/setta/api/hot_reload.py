@@ -122,38 +122,6 @@ class ListenerHotReloader:
             normalized = self._resolve_path(Path(path_string))
             yield normalized, None
 
-        for root_path, includes in self._infer_module_watch_roots(module):
-            spec = specs.get(root_path)
-            include_tuple = includes if includes is not None else ()
-            if spec is None:
-                specs[root_path] = _WatcherSpec(
-                    root=root_path,
-                    is_file=self._is_probable_file(root_path),
-                    includes=include_tuple,
-                    ignores=ignore,
-                )
-                continue
-            specs[root_path] = spec.merged_with(include_tuple, ignore)
-        if extra_watch_paths:
-            for raw in extra_watch_paths:
-                for root_path, include in parse_extra_watch_path(raw):
-                    spec = specs.get(root_path)
-                    include_tuple = (include,) if include is not None else ()
-                    if spec is None:
-                        specs[root_path] = _WatcherSpec(
-                            root=root_path,
-                            is_file=self._is_probable_file(root_path),
-                            includes=include_tuple,
-                            ignores=ignore,
-                        )
-                        continue
-                    specs[root_path] = spec.merged_with(include_tuple, ignore)
-        return tuple(specs.values())
-
-    def _infer_module_watch_roots(
-        self,
-        module: ModuleType,
-    ) -> Iterable[tuple[Path, tuple[str, ...] | None]]:
         candidate_paths: list[Path] = []
         module_file = getattr(module, "__file__", None)
         if module_file:
@@ -182,9 +150,36 @@ class ListenerHotReloader:
                     Path(location).expanduser()
                     for location in spec.submodule_search_locations
                 )
+
         for candidate in candidate_paths:
-            normalized = self._resolve_path(candidate)
-            yield normalized, None
+            root_path = self._resolve_path(candidate)
+            includes = None
+            spec = specs.get(root_path)
+            include_tuple = includes if includes is not None else ()
+            if spec is None:
+                specs[root_path] = _WatcherSpec(
+                    root=root_path,
+                    is_file=self._is_probable_file(root_path),
+                    includes=include_tuple,
+                    ignores=ignore,
+                )
+                continue
+            specs[root_path] = spec.merged_with(include_tuple, ignore)
+        if extra_watch_paths:
+            for raw in extra_watch_paths:
+                for root_path, include in parse_extra_watch_path(raw):
+                    spec = specs.get(root_path)
+                    include_tuple = (include,) if include is not None else ()
+                    if spec is None:
+                        specs[root_path] = _WatcherSpec(
+                            root=root_path,
+                            is_file=self._is_probable_file(root_path),
+                            includes=include_tuple,
+                            ignores=ignore,
+                        )
+                        continue
+                    specs[root_path] = spec.merged_with(include_tuple, ignore)
+        return tuple(specs.values())
 
     async def stop(self) -> None:
         """Signal the watcher loop to stop."""
