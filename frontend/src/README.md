@@ -223,6 +223,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/stateMachineDraftValidation.ts` now owns workflow draft
     traversal and orchestration.
 
+- Workflow runs
+
+  - `state/actions/stateMachineRunSelection.ts` owns workflow run filtering,
+    latest-run selection, and browser polling/subscription behavior.
+  - `state/actions/stateMachineRunMutations.ts` owns optimistic workflow
+    start/stop/reset commands plus refresh-after-mutation behavior.
+  - `state/actions/stateMachineRuns.ts` is now the thin compatibility facade.
+
 - Section rendering and params
 
   - `components/Section/*` owns section containers, headers, layouts, and shared

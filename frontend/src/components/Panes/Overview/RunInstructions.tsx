@@ -26,8 +26,8 @@ import {
   resetStateMachineRun,
   startStateMachineRun,
   stopStateMachineRun,
-  subscribeStateMachineRunPolling,
-} from "state/actions/stateMachineRuns";
+} from "state/actions/stateMachineRunMutations";
+import { subscribeStateMachineRunPolling } from "state/actions/stateMachineRunSelection";
 import {
   useAIStore,
   useProjectState,

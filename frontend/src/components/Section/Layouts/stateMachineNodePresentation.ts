@@ -1,4 +1,4 @@
-import { getLatestStateMachineRun } from "state/actions/stateMachineRuns";
+import { getLatestStateMachineRun } from "state/actions/stateMachineRunSelection";
 import {
   AgentRunStatusEnum,
   SectionTypeEnum,

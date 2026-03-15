@@ -258,6 +258,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   input-ignore policy, `keyShortcutUtils.ts` is now the thin compatibility
   facade, and `keyActivationHandlers.ts` owns `Tab`/`Escape`,
   section-selection, and React Flow key-mode handlers.
+- `frontend/src/state/actions/stateMachineRunSelection.ts` now owns workflow
+  run filtering, latest-run selection, and browser polling/subscription
+  behavior, `frontend/src/state/actions/stateMachineRunMutations.ts` now owns
+  optimistic workflow start/stop/reset commands plus refresh-after-mutation
+  behavior, and `frontend/src/state/actions/stateMachineRuns.ts` is now the
+  thin compatibility facade.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessions.ts` owns cached websocket session
   reuse and transport wiring, and `terminalFit.ts` owns xterm
@@ -271,18 +277,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
   - `frontend/src/state/actions/gitGraphLog.ts` at 351 lines
   - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
+  - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
   - `frontend/src/state/actions/gitGraphLog.ts` at 351 lines
   - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
+  - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -472,6 +478,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
+- `stateMachineRuns.ts` and adjacent helpers now split into:
+  - `stateMachineRunSelection.ts` for workflow run filtering, latest-run selection, and browser polling/subscription behavior
+  - `stateMachineRunMutations.ts` for optimistic workflow start/stop/reset commands plus refresh-after-mutation behavior
+  - `stateMachineRuns.ts` as the thin compatibility facade
 - `keyActivations.ts`, `keyShortcutRegistrationGroups.ts`,
   `keyShortcutRegistrations.ts`, `keyShortcutMatching.ts`,
   `keyShortcutInputPolicy.ts`, `keyShortcutUtils.ts`, and

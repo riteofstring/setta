@@ -53,11 +53,11 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 let useProjectState: typeof import("state/definitions").useProjectState;
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useShareSession: typeof import("state/definitions").useShareSession;
-let getLatestStateMachineRun: typeof import("./stateMachineRuns").getLatestStateMachineRun;
-let startStateMachineRun: typeof import("./stateMachineRuns").startStateMachineRun;
-let stopStateMachineRun: typeof import("./stateMachineRuns").stopStateMachineRun;
-let resetStateMachineRun: typeof import("./stateMachineRuns").resetStateMachineRun;
-let subscribeStateMachineRunPolling: typeof import("./stateMachineRuns").subscribeStateMachineRunPolling;
+let getLatestStateMachineRun: typeof import("./stateMachineRunSelection").getLatestStateMachineRun;
+let startStateMachineRun: typeof import("./stateMachineRunMutations").startStateMachineRun;
+let stopStateMachineRun: typeof import("./stateMachineRunMutations").stopStateMachineRun;
+let resetStateMachineRun: typeof import("./stateMachineRunMutations").resetStateMachineRun;
+let subscribeStateMachineRunPolling: typeof import("./stateMachineRunSelection").subscribeStateMachineRunPolling;
 
 describe("stateMachineRuns", () => {
   beforeEach(async () => {
@@ -67,13 +67,15 @@ describe("stateMachineRuns", () => {
     useProjectState = definitions.useProjectState;
     useAIStore = definitions.useAIStore;
     useShareSession = definitions.useShareSession;
-    const stateMachineRuns = await import("./stateMachineRuns");
-    getLatestStateMachineRun = stateMachineRuns.getLatestStateMachineRun;
-    startStateMachineRun = stateMachineRuns.startStateMachineRun;
-    stopStateMachineRun = stateMachineRuns.stopStateMachineRun;
-    resetStateMachineRun = stateMachineRuns.resetStateMachineRun;
+    const stateMachineRunSelection = await import("./stateMachineRunSelection");
+    const stateMachineRunMutations = await import("./stateMachineRunMutations");
+    getLatestStateMachineRun =
+      stateMachineRunSelection.getLatestStateMachineRun;
+    startStateMachineRun = stateMachineRunMutations.startStateMachineRun;
+    stopStateMachineRun = stateMachineRunMutations.stopStateMachineRun;
+    resetStateMachineRun = stateMachineRunMutations.resetStateMachineRun;
     subscribeStateMachineRunPolling =
-      stateMachineRuns.subscribeStateMachineRunPolling;
+      stateMachineRunSelection.subscribeStateMachineRunPolling;
 
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
