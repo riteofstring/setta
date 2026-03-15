@@ -48,6 +48,10 @@ decision changes that boundary:
 - public Python APIs under `backend/setta/api/*`
 - share-listener authoring/runtime boundary under
   `backend/setta/share/listener_runtime.py`
+- packaged external-consumer MCP bridge under:
+  - `backend/setta/mcp/client.py`
+  - `backend/setta/mcp/namespacing.py`
+  - `backend/setta/mcp/tool_metadata.py`
 - Python support modules still imported by those retained APIs
 
 Do not delete explicit shipped asset/process boundaries as part of this plan:
@@ -410,6 +414,16 @@ Current tree note:
   depends on the deleted Python websocket sender class. The remaining
   `backend/setta/websockets/binary_frames.py` helper stays tied to the
   retained Python listener SDK.
+- The Python MCP bridge cluster stays retained in the current worktree:
+  `backend/setta/mcp/client.py` is the documented
+  `python -m setta.mcp.client` packaged stdio bridge for third-party MCP
+  consumers, the Go-owned `/mcp` server and tool runtime live under
+  `internal/mcpx` and `internal/tools`, and
+  `tests/mcp/test_multi_mcp_client.py` plus
+  `tests/mcp/test_stdio_bridge_logging.py` continue to prove the surviving
+  Python bridge behavior. Its narrow namespacing and tool-annotation helpers
+  in `backend/setta/mcp/namespacing.py` and
+  `backend/setta/mcp/tool_metadata.py` stay with that retained boundary.
 
 Actions:
 
