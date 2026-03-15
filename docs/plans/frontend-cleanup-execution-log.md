@@ -4718,3 +4718,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sectionProjectStateSync.ts` so backend
     project-state reconciliation, active-section sync, viewport updates, and
     project-chat windowing coordination stop sharing one action surface.
+
+## 2026-03-15 12:56:15 PDT
+
+- Slice completed: split project-state snapshot sync by responsibility
+- Key files touched:
+  - `frontend/src/state/actions/sectionProjectStateSnapshot.ts`
+  - `frontend/src/state/actions/sectionProjectStateActiveSync.ts`
+  - `frontend/src/state/actions/sectionProjectStateViewportSync.ts`
+  - `frontend/src/state/actions/sectionProjectStateWindowingSync.ts`
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/state/actions/sectionProjectStateSnapshot.test.ts`
+  - `frontend/src/state/actions/sectionProjectStateViewportSync.test.ts`
+  - `frontend/src/state/actions/sectionProjectStateWindowingSync.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionProjectStateSnapshot.test.ts src/state/actions/sectionProjectStateViewportSync.test.ts src/state/actions/sectionProjectStateWindowingSync.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/activeSections.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/aiSectionResizePersistence.test.ts src/state/actions/projectChatWindowing.rollback.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionProjectStateSync.ts src/state/actions/sectionProjectStateSnapshot.ts src/state/actions/sectionProjectStateActiveSync.ts src/state/actions/sectionProjectStateViewportSync.ts src/state/actions/sectionProjectStateWindowingSync.ts src/state/actions/sectionProjectStateSnapshot.test.ts src/state/actions/sectionProjectStateViewportSync.test.ts src/state/actions/sectionProjectStateWindowingSync.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual project-state sync ownership
+    split and did not change frontend rendering behavior.
+- Commit hash:
+  - `7eb1b6b75de7f7079bd82882803075c674a6f1ba`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/lspDiagnostics.ts` so formatter-aware
+    diagnostics merging and snapshot publish logic stop sharing one action
+    surface with mute/suppression transport commands.
