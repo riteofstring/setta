@@ -324,16 +324,22 @@ class MultiMCPClient:
     ) -> dict[str, ChatCompletionToolParam]:
         if self.disabled:
             return {}
-        return self._filter_tool_definitions(self.init_tool_definitions, server_ids)
+        return {
+            name: payload
+            for name, payload in self.init_tool_definitions.items()
+            if self._tool_belongs_to_server(name, server_ids)
+        }
 
     def discoverable_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
         if self.disabled:
             return {}
-        return self._filter_tool_definitions(
-            self.discoverable_tool_definitions, server_ids
-        )
+        return {
+            name: payload
+            for name, payload in self.discoverable_tool_definitions.items()
+            if self._tool_belongs_to_server(name, server_ids)
+        }
 
     def tool_annotations_for_servers(
         self, server_ids: set[str]
@@ -343,17 +349,6 @@ class MultiMCPClient:
         return {
             name: payload
             for name, payload in self.tool_annotations_by_name.items()
-            if self._tool_belongs_to_server(name, server_ids)
-        }
-
-    def _filter_tool_definitions(
-        self,
-        definitions: dict[str, ChatCompletionToolParam],
-        server_ids: set[str],
-    ) -> dict[str, ChatCompletionToolParam]:
-        return {
-            name: payload
-            for name, payload in definitions.items()
             if self._tool_belongs_to_server(name, server_ids)
         }
 
