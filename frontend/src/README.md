@@ -80,8 +80,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     delete undo stack and restoration logic.
   - `state/actions/projectChatThreads.ts` is now a thin compatibility surface
     that re-exports the thread-group, thread, and undo owners.
-  - `state/actions/aiHydration.ts` owns chat history fetch/reconciliation and
-    hydration outcome classification for managed and external threads.
+  - `state/actions/aiHydrationOutcome.ts` owns managed/external hydration route
+    probes, outcome typing, and failure classification.
+  - `state/actions/aiHydrationApply.ts` owns managed/external chat hydration
+    store reconciliation plus chat-section persistence sync.
+  - `state/actions/aiHydration.ts` is now the thin public hydration facade that
+    composes the outcome and apply owners.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
     single-run/update reconciliation.
   - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration,
@@ -277,7 +281,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/storePersistStorage.ts` owns the shared persisted-storage fallback
     used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
-    helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
+    helpers split across `aiHydration.ts`, `aiHydrationApply.ts`,
+    `aiHydrationOutcome.ts`, `aiAgentRuns.ts`,
     `aiChatSubmission.ts`, `aiChatControls.ts`, `aiExternalAgentStop.ts`,
     `aiChatStopState.ts`, `aiExternalAgentResponses.ts`, `aiChatState.ts`,
     `aiChatSectionState.ts`, and `aiPendingChatState.ts`.
@@ -448,10 +453,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
-- `state/actions/aiHydration.ts` now owns the largest remaining chat hydration
-  fetch/reconciliation cluster, so any follow-up there should stay local to
-  managed/external hydration helpers instead of regrowing submission or
-  streaming modules.
 - `state/actions/chatHistory.ts` now owns the largest remaining chat history
   paging/selection cluster, so follow-up cleanup there should stay local to
   history fetch/selection helpers instead of regrowing thread mutation modules.
