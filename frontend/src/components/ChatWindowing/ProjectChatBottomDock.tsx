@@ -7,16 +7,12 @@ import {
   DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
   resolveDockedWindowLayout,
 } from "components/ChatWindowing/projectChatBottomDockLayout";
-import {
-  MinimizedPillStrip,
-  type ChatWindowPillExitAnimationKind,
-} from "components/ChatWindowing/projectChatBottomDockPillStrip";
+import { MinimizedPillStrip } from "components/ChatWindowing/projectChatBottomDockPillStrip";
 import type {
-  ChatWindowEnterAnimationKind,
-  ChatWindowExitAnimationKind,
   PaneTrackedRect,
   ResolvedWindowPill,
 } from "components/ChatWindowing/projectChatBottomDockTypes";
+import { useProjectChatBottomDockWindowLifecycle } from "components/ChatWindowing/projectChatBottomDockWindowLifecycle";
 import { ProjectChatDockedWindowsSurface } from "components/ChatWindowing/ProjectChatDockedWindowsSurface";
 import { useProjectChatDockResize } from "components/ChatWindowing/projectChatDockResize";
 import {
@@ -56,32 +52,17 @@ import {
   useState,
 } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
-import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import { resolveDefaultFloatingChatBounds } from "state/actions/projectChatWindowingDefaultBounds";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
-import {
-  clearTrackedGitPaneGraphWindowIfMatches,
-  getTrackedGitPaneGraphWindowInstanceIdForProject,
-} from "state/actions/projectChatWindowingTrackedGitPaneState";
+import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingTrackedGitPaneState";
 import {
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,
   setProjectChatWindowDockFractions,
   setProjectChatWindowPlacement,
 } from "state/actions/projectChatWindowLayoutCommands";
-import {
-  closeProjectChatWindow,
-  createProjectChatWindowInstance,
-  focusProjectChatWindow,
-  maximizeProjectChatWindow,
-  minimizeProjectChatWindow,
-  reopenProjectChatWindow,
-  unmaximizeProjectChatWindow,
-} from "state/actions/projectChatWindowLifecycleCommands";
-import {
-  setProjectChatWindowChatId,
-  setProjectChatWindowTitle,
-} from "state/actions/projectChatWindowMetadataCommands";
+import { createProjectChatWindowInstance } from "state/actions/projectChatWindowLifecycleCommands";
+import { setProjectChatWindowChatId } from "state/actions/projectChatWindowMetadataCommands";
 import { showSectionInProjectChatWindow } from "state/actions/projectChatWindowSectionCommands";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -107,17 +88,11 @@ const VIEW_MODE_TABS_HEIGHT_PX = PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX;
 const SIDE_RAIL_WIDTH_PX = PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
 const FALLBACK_WORKSPACE_TOP_INSET_PX =
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
-const DOCK_SURFACE_MIN_WIDTH_PX = 420;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
 const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
 const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 1;
 const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 2;
-const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
-const CHAT_WINDOW_ENTER_DURATION_MS = 110;
-const CHAT_WINDOW_PILL_EXIT_DURATION_MS = 72;
-const CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS = 115;
-const CHAT_WINDOW_CLOSE_EXIT_DURATION_MS = 125;
 const SNAP_TOP_LEFT_SHORTCUT = "Mod + Alt + Shift + Q";
 const SNAP_TOP_RIGHT_SHORTCUT = "Mod + Alt + Shift + W";
 const SNAP_BOTTOM_LEFT_SHORTCUT = "Mod + Alt + Shift + A";
@@ -154,6 +129,8 @@ const CANVAS_VISIBILITY_TOGGLE_BUTTON_CLASS =
 const CANVAS_VISIBILITY_TOGGLE_BUTTON_ACTIVE_CLASS =
   "border-blue-500 bg-blue-500 text-white hover:bg-blue-600 hover:text-white dark:border-blue-500 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400 dark:hover:text-white";
 
+// Owns dock/floating/maximized surface composition, viewport layout, and
+// floating snap orchestration above the extracted window lifecycle owner.
 export function ProjectChatBottomDock() {
   const hasViewModeTabs = useHasViewModeTabs();
   const { canEditLayout } = useShareCapabilities();
@@ -259,26 +236,11 @@ export function ProjectChatBottomDock() {
   );
   const [isCanvasVisibilitySuppressed, setIsCanvasVisibilitySuppressed] =
     useState(false);
-  const [windowExitAnimationsById, setWindowExitAnimationsById] = useState<
-    Record<string, ChatWindowExitAnimationKind>
-  >({});
-  const [windowEnterAnimationsById, setWindowEnterAnimationsById] = useState<
-    Record<string, ChatWindowEnterAnimationKind>
-  >({});
-  const [pillExitAnimationsById, setPillExitAnimationsById] = useState<
-    Record<string, ChatWindowPillExitAnimationKind>
-  >({});
-  const [windowEnterAnimationPrimesById, setWindowEnterAnimationPrimesById] =
-    useState<Record<string, ChatWindowEnterAnimationKind>>({});
   const [trackedGitPaneGraphRect, setTrackedGitPaneGraphRect] =
     useState<PaneTrackedRect | null>(null);
   const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
   const floatingBottomInsetPx = dockBottomOffsetPx;
   const autoCreateProjectConfigIdRef = useRef<string | null>(null);
-  const windowExitTimeoutsRef = useRef<Record<string, number>>({});
-  const pillExitTimeoutsRef = useRef<Record<string, number>>({});
-  const windowEnterPrimeTimeoutsRef = useRef<Record<string, number>>({});
-  const windowEnterAnimationTimeoutsRef = useRef<Record<string, number>>({});
   const floatingRestoreBoundsByIdRef = useRef<Record<string, ChatWindowBounds>>(
     {},
   );
@@ -394,31 +356,6 @@ export function ProjectChatBottomDock() {
     viewportHeightPx,
     viewportWidthPx,
   ]);
-
-  useEffect(() => {
-    return () => {
-      for (const timeoutId of Object.values(windowExitTimeoutsRef.current)) {
-        window.clearTimeout(timeoutId);
-      }
-      windowExitTimeoutsRef.current = {};
-      for (const timeoutId of Object.values(pillExitTimeoutsRef.current)) {
-        window.clearTimeout(timeoutId);
-      }
-      pillExitTimeoutsRef.current = {};
-      for (const timeoutId of Object.values(
-        windowEnterPrimeTimeoutsRef.current,
-      )) {
-        window.clearTimeout(timeoutId);
-      }
-      windowEnterPrimeTimeoutsRef.current = {};
-      for (const timeoutId of Object.values(
-        windowEnterAnimationTimeoutsRef.current,
-      )) {
-        window.clearTimeout(timeoutId);
-      }
-      windowEnterAnimationTimeoutsRef.current = {};
-    };
-  }, []);
 
   const orderedPills = useMemo<ResolvedWindowPill[]>(() => {
     const output: ResolvedWindowPill[] = [];
@@ -702,431 +639,37 @@ export function ProjectChatBottomDock() {
     isCanvasVisibilitySuppressed || openMaximizedWindow !== null;
   const showStandaloneMinimizedPills = !showDockedChatSurface;
 
-  const handleCreate = useCallback(() => {
-    if (!canCreateManagedChatWindow) {
-      return;
-    }
-    const instanceId = createProjectChatWindowInstance();
-    if (!instanceId) {
-      return;
-    }
-    focusProjectChatWindow(instanceId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, [canCreateManagedChatWindow]);
-
-  const clearWindowExitAnimation = useCallback((instanceId: string) => {
-    const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
-    if (activeTimeoutId !== undefined) {
-      window.clearTimeout(activeTimeoutId);
-      delete windowExitTimeoutsRef.current[instanceId];
-    }
-    setWindowExitAnimationsById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  }, []);
-
-  const clearWindowEnterAnimation = useCallback((instanceId: string) => {
-    const activePrimeTimeoutId =
-      windowEnterPrimeTimeoutsRef.current[instanceId];
-    if (activePrimeTimeoutId !== undefined) {
-      window.clearTimeout(activePrimeTimeoutId);
-      delete windowEnterPrimeTimeoutsRef.current[instanceId];
-    }
-    const activeAnimationTimeoutId =
-      windowEnterAnimationTimeoutsRef.current[instanceId];
-    if (activeAnimationTimeoutId !== undefined) {
-      window.clearTimeout(activeAnimationTimeoutId);
-      delete windowEnterAnimationTimeoutsRef.current[instanceId];
-    }
-    setWindowEnterAnimationsById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-    setWindowEnterAnimationPrimesById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  }, []);
-
-  const clearPillExitAnimation = useCallback((instanceId: string) => {
-    const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
-    if (activeTimeoutId !== undefined) {
-      window.clearTimeout(activeTimeoutId);
-      delete pillExitTimeoutsRef.current[instanceId];
-    }
-    setPillExitAnimationsById((current) => {
-      if (!(instanceId in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      return next;
-    });
-  }, []);
-
-  const startWindowEnterAnimation = useCallback(
-    (instanceId: string, kind: ChatWindowEnterAnimationKind) => {
-      setWindowEnterAnimationsById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      setWindowEnterAnimationPrimesById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      const activePrimeTimeoutId =
-        windowEnterPrimeTimeoutsRef.current[instanceId];
-      if (activePrimeTimeoutId !== undefined) {
-        window.clearTimeout(activePrimeTimeoutId);
-      }
-      const activeAnimationTimeoutId =
-        windowEnterAnimationTimeoutsRef.current[instanceId];
-      if (activeAnimationTimeoutId !== undefined) {
-        window.clearTimeout(activeAnimationTimeoutId);
-      }
-      windowEnterPrimeTimeoutsRef.current[instanceId] = window.setTimeout(
-        () => {
-          delete windowEnterPrimeTimeoutsRef.current[instanceId];
-          setWindowEnterAnimationPrimesById((current) => {
-            if (!(instanceId in current)) {
-              return current;
-            }
-            const next = { ...current };
-            delete next[instanceId];
-            return next;
-          });
-        },
-        CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS,
-      );
-      windowEnterAnimationTimeoutsRef.current[instanceId] = window.setTimeout(
-        () => {
-          delete windowEnterAnimationTimeoutsRef.current[instanceId];
-          setWindowEnterAnimationsById((current) => {
-            if (!(instanceId in current)) {
-              return current;
-            }
-            const next = { ...current };
-            delete next[instanceId];
-            return next;
-          });
-        },
-        CHAT_WINDOW_ENTER_DURATION_MS,
-      );
-    },
-    [],
-  );
-
-  const startPillExitAnimation = useCallback(
-    (
-      instanceId: string,
-      kind: ChatWindowPillExitAnimationKind,
-      onComplete: () => void,
-    ) => {
-      setPillExitAnimationsById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
-      if (activeTimeoutId !== undefined) {
-        window.clearTimeout(activeTimeoutId);
-      }
-      pillExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
-        delete pillExitTimeoutsRef.current[instanceId];
-        setPillExitAnimationsById((current) => {
-          if (!(instanceId in current)) {
-            return current;
-          }
-          const next = { ...current };
-          delete next[instanceId];
-          return next;
-        });
-        onComplete();
-      }, CHAT_WINDOW_PILL_EXIT_DURATION_MS);
-    },
-    [],
-  );
-
-  const startWindowExitAnimation = useCallback(
-    (
-      instanceId: string,
-      kind: ChatWindowExitAnimationKind,
-      { focusAfterClose = false }: { focusAfterClose?: boolean } = {},
-    ) => {
-      if (!instancesById[instanceId]) {
-        return;
-      }
-      clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
-      clearWindowEnterAnimation(instanceId);
-      setWindowExitAnimationsById((current) => {
-        if (current[instanceId] === kind) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: kind,
-        };
-      });
-      const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
-      if (activeTimeoutId !== undefined) {
-        window.clearTimeout(activeTimeoutId);
-      }
-      const durationMs =
-        kind === "minimize"
-          ? CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS
-          : CHAT_WINDOW_CLOSE_EXIT_DURATION_MS;
-      windowExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
-        delete windowExitTimeoutsRef.current[instanceId];
-        if (kind === "minimize") {
-          minimizeProjectChatWindow(instanceId);
-        } else {
-          closeProjectChatWindow(instanceId);
-        }
-        setWindowExitAnimationsById((current) => {
-          if (!(instanceId in current)) {
-            return current;
-          }
-          const next = { ...current };
-          delete next[instanceId];
-          return next;
-        });
-        if (focusAfterClose) {
-          const nextVisibleWindowId = orderedPills.find(
-            (candidatePill) =>
-              candidatePill.instanceId !== instanceId &&
-              !candidatePill.isClosed &&
-              !candidatePill.isMinimized,
-          );
-          if (nextVisibleWindowId) {
-            focusProjectChatWindow(nextVisibleWindowId.instanceId);
-          }
-        }
-      }, durationMs);
-    },
-    [clearWindowEnterAnimation, instancesById, orderedPills, projectConfigId],
-  );
-
-  const handleOpenWindow = useCallback(
-    (instanceId: string, source: "pill" | "menu") => {
-      const instance = instancesById[instanceId];
-      if (!instance) {
-        return;
-      }
-      if (
-        instance.placement === ChatWindowPlacementEnum.bottom_docked &&
-        maxVisibleDockedCount > 0
-      ) {
-        let targetDockIndex = 0;
-        let foundTarget = false;
-        for (const pill of orderedPills) {
-          if (
-            pill.isClosed ||
-            pill.placement !== ChatWindowPlacementEnum.bottom_docked
-          ) {
-            continue;
-          }
-          if (pill.isMinimized && pill.instanceId !== instanceId) {
-            continue;
-          }
-          if (pill.instanceId === instanceId) {
-            foundTarget = true;
-            break;
-          }
-          targetDockIndex += 1;
-        }
-        if (foundTarget) {
-          const currentEndIndex = dockVisibleStartIndex + maxVisibleDockedCount;
-          let nextStartIndex = dockVisibleStartIndex;
-          if (targetDockIndex < dockVisibleStartIndex) {
-            nextStartIndex = targetDockIndex;
-          } else if (targetDockIndex >= currentEndIndex) {
-            nextStartIndex = targetDockIndex - maxVisibleDockedCount + 1;
-          }
-          const nextTotalDockCount =
-            openDockedPills.length + (instance.isMinimized ? 1 : 0);
-          const nextMaxStartIndex = Math.max(
-            0,
-            nextTotalDockCount - maxVisibleDockedCount,
-          );
-          setDockCycleOffsetFromEnd(
-            nextMaxStartIndex -
-              clampNumber(nextStartIndex, 0, nextMaxStartIndex),
-          );
-        }
-      }
-      clearWindowExitAnimation(instanceId);
-      clearWindowEnterAnimation(instanceId);
-      clearPillExitAnimation(instanceId);
-      if (instance.isMinimized && source === "pill") {
-        startPillExitAnimation(instanceId, "restore_from_minimize", () => {
-          startWindowEnterAnimation(instanceId, "restore_from_minimize");
-          reopenProjectChatWindow(instanceId);
-          focusProjectChatWindow(instanceId);
-          setIsCanvasVisibilitySuppressed(false);
-        });
-        return;
-      }
-      if (instance.isClosed || instance.isMinimized) {
-        startWindowEnterAnimation(instanceId, "restore_from_minimize");
-      }
-      reopenProjectChatWindow(instanceId);
-      focusProjectChatWindow(instanceId);
-      setIsCanvasVisibilitySuppressed(false);
-    },
-    [
-      clearPillExitAnimation,
-      clearWindowEnterAnimation,
-      clearWindowExitAnimation,
-      dockVisibleStartIndex,
-      instancesById,
-      maxVisibleDockedCount,
-      openDockedPills.length,
-      orderedPills,
-      startPillExitAnimation,
-      startWindowEnterAnimation,
-    ],
-  );
-
-  const handleMinimizeWindow = useCallback(
-    (instanceId: string) => {
-      startWindowExitAnimation(instanceId, "minimize", {
-        focusAfterClose: true,
-      });
-    },
-    [startWindowExitAnimation],
-  );
-
-  const handleCloseWindow = useCallback(
-    (instanceId: string) => {
-      startWindowExitAnimation(instanceId, "close", { focusAfterClose: true });
-    },
-    [startWindowExitAnimation],
-  );
-
-  const handleFocusWindow = useCallback((instanceId: string) => {
-    focusProjectChatWindow(instanceId);
-  }, []);
-
-  const handleCycleDockWindowsBackward = useCallback(() => {
-    if (dockVisibleStartIndex <= 0 || maxVisibleDockedCount === 0) {
-      return;
-    }
-    const nextStartIndex = dockVisibleStartIndex - 1;
-    const focusTargetId = openDockedPills[nextStartIndex]?.instanceId;
-    setDockCycleOffsetFromEnd((current) =>
-      clampNumber(current + 1, 0, maxDockCycleOffset),
-    );
-    if (focusTargetId) {
-      focusProjectChatWindow(focusTargetId);
-    }
-  }, [
+  const {
+    handleCloseWindow,
+    handleCreate,
+    handleCycleDockWindowsBackward,
+    handleCycleDockWindowsForward,
+    handleDockWindow,
+    handleFocusWindow,
+    handleMaximizeWindow,
+    handleMinimizeWindow,
+    handleOpenWindow,
+    handleRestoreWindow,
+    handleSetWindowTitle,
+    handleShowInCanvas,
+    handleUndockWindow,
+    pillExitAnimationsById,
+    windowEnterAnimationPrimesById,
+    windowEnterAnimationsById,
+    windowExitAnimationsById,
+  } = useProjectChatBottomDockWindowLifecycle({
+    canCreateManagedChatWindow,
+    dockCycleOffsetFromEnd,
     dockVisibleStartIndex,
+    instancesById,
     maxDockCycleOffset,
     maxVisibleDockedCount,
     openDockedPills,
-  ]);
-
-  const handleCycleDockWindowsForward = useCallback(() => {
-    if (dockCycleOffsetFromEnd <= 0 || maxVisibleDockedCount === 0) {
-      return;
-    }
-    const nextStartIndex = dockVisibleStartIndex + 1;
-    const focusTargetId =
-      openDockedPills[nextStartIndex + maxVisibleDockedCount - 1]?.instanceId;
-    setDockCycleOffsetFromEnd((current) => Math.max(0, current - 1));
-    if (focusTargetId) {
-      focusProjectChatWindow(focusTargetId);
-    }
-  }, [
-    dockCycleOffsetFromEnd,
-    dockVisibleStartIndex,
-    maxVisibleDockedCount,
-    openDockedPills,
-  ]);
-
-  const handleSetWindowTitle = useCallback(
-    (instanceId: string, nextTitle: string) => {
-      setProjectChatWindowTitle(instanceId, nextTitle);
-    },
-    [],
-  );
-
-  const handleUndockWindow = useCallback(
-    (instanceId: string) => {
-      clearWindowExitAnimation(instanceId);
-      setProjectChatWindowPlacement(
-        instanceId,
-        ChatWindowPlacementEnum.floating,
-      );
-      focusProjectChatWindow(instanceId);
-      setIsCanvasVisibilitySuppressed(false);
-    },
-    [clearWindowExitAnimation],
-  );
-
-  const handleDockWindow = useCallback(
-    (instanceId: string) => {
-      clearWindowExitAnimation(instanceId);
-      setProjectChatWindowPlacement(
-        instanceId,
-        ChatWindowPlacementEnum.bottom_docked,
-      );
-      focusProjectChatWindow(instanceId);
-      setIsCanvasVisibilitySuppressed(false);
-    },
-    [clearWindowExitAnimation],
-  );
-
-  const handleMaximizeWindow = useCallback(
-    (instanceId: string) => {
-      clearWindowExitAnimation(instanceId);
-      maximizeProjectChatWindow(instanceId);
-      focusProjectChatWindow(instanceId);
-      setIsCanvasVisibilitySuppressed(false);
-    },
-    [clearWindowExitAnimation],
-  );
-
-  const handleRestoreWindow = useCallback(
-    (instanceId: string) => {
-      clearWindowExitAnimation(instanceId);
-      unmaximizeProjectChatWindow(instanceId);
-      focusProjectChatWindow(instanceId);
-      setIsCanvasVisibilitySuppressed(false);
-    },
-    [clearWindowExitAnimation],
-  );
-
-  const handleShowInCanvas = useCallback((instanceId: string) => {
-    void bootProjectChatWindowToCanvasSection(instanceId);
-  }, []);
+    orderedPills,
+    projectConfigId,
+    setDockCycleOffsetFromEnd,
+    setIsCanvasVisibilitySuppressed,
+  });
 
   const clampFloatingBoundsForCurrentViewport = useCallback(
     (bounds: ChatWindowBounds): ChatWindowBounds => {
@@ -1420,19 +963,15 @@ export function ProjectChatBottomDock() {
     if (!activeVisibleWindowId) {
       return;
     }
-    maximizeProjectChatWindow(activeVisibleWindowId);
-    focusProjectChatWindow(activeVisibleWindowId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, [activeVisibleWindowId]);
+    handleMaximizeWindow(activeVisibleWindowId);
+  }, [activeVisibleWindowId, handleMaximizeWindow]);
 
   const minimizeFocusedVisibleWindow = useCallback(() => {
     if (!activeVisibleWindowId) {
       return;
     }
-    startWindowExitAnimation(activeVisibleWindowId, "minimize", {
-      focusAfterClose: true,
-    });
-  }, [activeVisibleWindowId, startWindowExitAnimation]);
+    handleMinimizeWindow(activeVisibleWindowId);
+  }, [activeVisibleWindowId, handleMinimizeWindow]);
 
   useProjectChatWindowShortcuts({
     shortcuts: {

@@ -1,3 +1,7 @@
+import {
+  ChatWindowModeEnum,
+  ChatWindowPlacementEnum,
+} from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   MIN_DOCK_CHAT_WIDTH_PX,
@@ -7,6 +11,10 @@ import {
   resolveDockedWindowLayout,
   resolvePillDisplayMode,
 } from "./projectChatBottomDockLayout";
+import {
+  resolveDockCycleOffsetForOpenedWindow,
+  resolveNextVisibleWindowFocusTarget,
+} from "./projectChatBottomDockWindowLifecycle";
 
 const dockedPills = [
   {
@@ -51,6 +59,147 @@ describe("resolveDockStripReservedWidthPx", () => {
     });
 
     expect(multiChatWidth).toBeGreaterThan(singleChatWidth);
+  });
+});
+
+describe("resolveNextVisibleWindowFocusTarget", () => {
+  it("skips the closing, closed, and minimized windows when picking the next focus target", () => {
+    const nextFocusTarget = resolveNextVisibleWindowFocusTarget({
+      closingInstanceId: "closing-window",
+      orderedPills: [
+        {
+          instanceId: "closing-window",
+          title: "Closing Window",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: false,
+          isMinimized: false,
+          placement: ChatWindowPlacementEnum.bottom_docked,
+          zIndex: 3,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+        {
+          instanceId: "closed-window",
+          title: "Closed Window",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: true,
+          isMinimized: false,
+          placement: ChatWindowPlacementEnum.bottom_docked,
+          zIndex: 2,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+        {
+          instanceId: "minimized-window",
+          title: "Minimized Window",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: false,
+          isMinimized: true,
+          placement: ChatWindowPlacementEnum.bottom_docked,
+          zIndex: 1,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+        {
+          instanceId: "next-window",
+          title: "Next Window",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: false,
+          isMinimized: false,
+          placement: ChatWindowPlacementEnum.floating,
+          zIndex: 0,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+      ],
+    });
+
+    expect(nextFocusTarget).toBe("next-window");
+  });
+});
+
+describe("resolveDockCycleOffsetForOpenedWindow", () => {
+  it("shifts the dock cycle offset so a restored docked window becomes visible", () => {
+    const nextDockCycleOffset = resolveDockCycleOffsetForOpenedWindow({
+      dockVisibleStartIndex: 1,
+      instanceId: "dock-1",
+      instanceIsMinimized: true,
+      instancePlacement: ChatWindowPlacementEnum.bottom_docked,
+      maxVisibleDockedCount: 2,
+      openDockedPillsCount: 2,
+      orderedPills: [
+        {
+          instanceId: "dock-1",
+          title: "Chat Window 1",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: false,
+          isMinimized: true,
+          placement: ChatWindowPlacementEnum.bottom_docked,
+          zIndex: 1,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+        {
+          instanceId: "dock-2",
+          title: "Chat Window 2",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: false,
+          isMinimized: false,
+          placement: ChatWindowPlacementEnum.bottom_docked,
+          zIndex: 2,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+        {
+          instanceId: "dock-3",
+          title: "Chat Window 3",
+          mode: ChatWindowModeEnum.chat_mode,
+          isClosed: false,
+          isMinimized: false,
+          placement: ChatWindowPlacementEnum.bottom_docked,
+          zIndex: 3,
+          bounds: { x: 0, y: 0, width: 460, height: 430 },
+          dockWidthFraction: 1,
+          dockPreferredWidthPx: 460,
+          sectionId: null,
+          chatId: null,
+        },
+      ],
+    });
+
+    expect(nextDockCycleOffset).toBe(1);
+  });
+
+  it("returns null when the opened window is not docked", () => {
+    const nextDockCycleOffset = resolveDockCycleOffsetForOpenedWindow({
+      dockVisibleStartIndex: 0,
+      instanceId: "floating-1",
+      instanceIsMinimized: false,
+      instancePlacement: ChatWindowPlacementEnum.floating,
+      maxVisibleDockedCount: 2,
+      openDockedPillsCount: 2,
+      orderedPills: [],
+    });
+
+    expect(nextDockCycleOffset).toBeNull();
   });
 });
 

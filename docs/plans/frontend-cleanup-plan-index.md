@@ -41,7 +41,6 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
@@ -51,7 +50,8 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - `frontend/src/components/Chat/ChatMessages.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`,
-  `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatCore.tsx`,
+  `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
+  `ProjectChatCore.tsx`,
   `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and `appRegistry.tsx` are now
   second-order work unless the same slice directly shortens one of the entry
   surfaces above.
@@ -74,6 +74,11 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `projectChatSkillMarkdownViewer.tsx`, and the pure skill preview/save model
   to `projectChatSkillsViewModel.ts`; chat/project-AI follow-through should now
   start from the larger remaining front doors in
+  [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- `ProjectChatBottomDock.tsx` is no longer a top hotspot after delegating
+  window lifecycle commands plus animation bookkeeping to
+  `projectChatBottomDockWindowLifecycle.ts`; chat/windowing follow-through
+  should now start from the larger remaining front doors in
   [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
 - `HomePage.tsx` is no longer a top hotspot after the local home-page split
