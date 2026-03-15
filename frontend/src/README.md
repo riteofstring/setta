@@ -351,9 +351,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     state used by the header search surfaces and param search highlighting.
   - `state/stores/sessionStores.ts` owns share-session, server-mode, and
     all-project-metadata state used across IDE/share/app/launcher flows.
-  - `state/stores/uiPreferenceStores.ts` owns persisted UI chrome preferences
-    plus shared settings state used by panes, shortcuts, minimap/grid behavior,
-    and project-chat local preference surfaces.
+  - `state/stores/uiPreferenceState.ts` owns UI preference types and default
+    state, `state/stores/uiPreferencePersistence.ts` owns persisted
+    normalization and partialize policy, and `state/stores/uiPreferenceStores.ts`
+    is now the thin persisted store entrypoint for UI chrome preferences and
+    shared settings state.
   - `state/storePersistStorage.ts` owns the shared persisted-storage fallback
     used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat

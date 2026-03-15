@@ -80,7 +80,7 @@ export type { ZustandProjectSearch } from "./stores/searchStores";
 export type {
   ColorModePreference,
   HomeProjectGalleryViewMode,
-} from "./stores/uiPreferenceStores";
+} from "./stores/uiPreferenceState";
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(

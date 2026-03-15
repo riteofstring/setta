@@ -302,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/stores/uiPreferenceStores.ts` at 418 lines
   - `frontend/src/state/definitions.ts` at 404 lines
   - `frontend/src/state/activeSectionUI.ts` at 364 lines
   - `frontend/src/state/utils/chatAppGeneration.ts` at 319 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
+  - `frontend/src/state/actions/aiFollow.ts` at 304 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -344,6 +344,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history
   types, and `frontend/src/state/actions/chatHistory.ts` is now a thin
   compatibility facade.
+- `frontend/src/state/stores/uiPreferenceState.ts` now owns UI preference
+  types and default state,
+  `frontend/src/state/stores/uiPreferencePersistence.ts` now owns persisted
+  normalization and partialize policy, and
+  `frontend/src/state/stores/uiPreferenceStores.ts` is now the thin persisted
+  store entrypoint.
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:

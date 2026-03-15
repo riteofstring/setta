@@ -397,7 +397,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/stores/fileBrowserStores.ts` now owns the file-browser state surfaces, and `frontend/src/state/stores/searchStores.ts` now owns the home/project search stores.
 - `frontend/src/state/stores/feedbackStores.ts` now owns modal, notifications, and backend-log state, and `frontend/src/state/stores/projectStatusStores.ts` now owns run-control and project-loading state.
 - `frontend/src/state/stores/layoutInteractionStores.ts` now owns section refs, edge-handle registry state, temporary measurement/preview state, and ephemeral layout interaction flags shared across section dragging, sizing, minimap previews, and embedded git-pane visibility.
-- `frontend/src/state/stores/uiPreferenceStores.ts` now owns persisted UI chrome preferences plus shared settings state used by panes, shortcuts, minimap/grid behavior, and project-chat local preference surfaces.
+- `frontend/src/state/stores/uiPreferenceState.ts` now owns UI preference
+  types plus default state,
+  `frontend/src/state/stores/uiPreferencePersistence.ts` now owns persisted
+  normalization and partialize policy, and
+  `frontend/src/state/stores/uiPreferenceStores.ts` is now the thin
+  persisted-store entrypoint for UI chrome preferences and shared settings
+  state.
 - `frontend/src/state/storePersistStorage.ts` now owns the shared persisted-storage fallback used by the extracted store modules.
 - `frontend/src/state/definitions.ts` is down to 404 lines with 14 local `use*` stores plus thin domain re-exports for AI/chat, app, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics state.
 - Components and hooks frequently import generated endpoints/types and large action modules directly, which increases context switching and makes it harder for agents to see the true domain boundary.
@@ -564,7 +570,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/stores/uiPreferenceStores.ts`, `state/definitions.ts`, `state/activeSectionUI.ts`, `state/utils/chatAppGeneration.ts`, `state/actions/aiLLMConfiguration.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/definitions.ts`, `state/activeSectionUI.ts`, `state/utils/chatAppGeneration.ts`, `state/actions/aiLLMConfiguration.ts`, `state/actions/aiFollow.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
