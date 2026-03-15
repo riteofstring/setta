@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -62,10 +63,9 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 					ChatID:          stringPointer("drop-me"),
 				},
 				"instance-c": {
-					Placement:       ChatWindowPlacementCanvasSection,
-					Mode:            ChatWindowModeGitGraph,
-					SectionIDOrNull: stringPointer("section-a"),
-					ChatID:          stringPointer("drop-me"),
+					Placement: ChatWindowPlacementFloating,
+					Mode:      ChatWindowModeGitGraph,
+					ChatID:    stringPointer("drop-me"),
 				},
 				"instance-d": {
 					Mode:            ChatWindowModeSection,
@@ -124,7 +124,7 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 		t.Fatalf("expected git graph chat id to be cleared, got %#v", gitGraphWindow.ChatID)
 	}
 	if gitGraphWindow.Placement != ChatWindowPlacementFloating {
-		t.Fatalf("expected git graph canvas placement to normalize to floating, got %q", gitGraphWindow.Placement)
+		t.Fatalf("expected git graph placement to remain floating, got %q", gitGraphWindow.Placement)
 	}
 	if _, ok := normalized.ProjectChatWindowing.InstancesByID["instance-d"]; ok {
 		t.Fatal("expected missing section instance to be dropped")
@@ -287,6 +287,75 @@ func TestProjectNormalizedDedupesSectionBoundWindowSpaceWindowsAndClearsTitles(t
 	}
 	if _, ok := space.WindowsByID["window-1"]; ok {
 		t.Fatal("expected lower-priority duplicate window-space window to be dropped")
+	}
+}
+
+func TestProjectNormalizedRejectsInvalidProjectChatWindowOwnerModes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		window       ProjectChatWindowInstance
+		expectedText string
+	}{
+		{
+			name: "section_mode_without_section_binding",
+			window: ProjectChatWindowInstance{
+				InstanceID: "project-chat-window-1",
+				Placement:  ChatWindowPlacementFloating,
+				Mode:       ChatWindowModeSection,
+			},
+			expectedText: "Project chat section_mode windows require sectionIdOrNull.",
+		},
+		{
+			name: "git_graph_with_section_binding",
+			window: ProjectChatWindowInstance{
+				InstanceID:      "project-chat-window-1",
+				Placement:       ChatWindowPlacementFloating,
+				Mode:            ChatWindowModeGitGraph,
+				SectionIDOrNull: stringPointer("section-a"),
+			},
+			expectedText: "Project chat git_graph_mode windows cannot carry sectionIdOrNull.",
+		},
+		{
+			name: "git_graph_canvas_placement",
+			window: ProjectChatWindowInstance{
+				InstanceID: "project-chat-window-1",
+				Placement:  ChatWindowPlacementCanvasSection,
+				Mode:       ChatWindowModeGitGraph,
+			},
+			expectedText: "Project chat git_graph_mode windows cannot use canvas_section placement.",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := Project{
+				ID:   "project-alpha",
+				Name: "Alpha",
+				Sections: map[string]Section{
+					"section-a": {
+						ID:   "section-a",
+						Name: "Section A",
+					},
+				},
+				ProjectChatWindowing: &ProjectChatWindowingState{
+					InstancesByID: map[string]ProjectChatWindowInstance{
+						tc.window.InstanceID: tc.window,
+					},
+					Order:              []string{tc.window.InstanceID},
+					NextInstanceNumber: 2,
+				},
+			}
+
+			_, err := project.Normalized()
+			if err == nil || !strings.Contains(err.Error(), tc.expectedText) {
+				t.Fatalf("expected error containing %q, got %v", tc.expectedText, err)
+			}
+		})
 	}
 }
 

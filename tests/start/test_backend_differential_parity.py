@@ -2214,6 +2214,32 @@ class Route:
             },
         )
 
+    def test_summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        self.assertEqual(
+            harness.summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
+                restart_startup_error="backend exited on startup",
+                restart_load_http_status=None,
+                restart_load_payload=None,
+            ),
+            {"restartStartupStatus": "failed"},
+        )
+
+        self.assertEqual(
+            harness.summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
+                restart_startup_error=None,
+                restart_load_http_status=200,
+                restart_load_payload={"projectConfig": {"id": "project-1"}},
+            ),
+            {
+                "restartStartupStatus": "ready",
+                "restartLoadHttpStatus": 200,
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

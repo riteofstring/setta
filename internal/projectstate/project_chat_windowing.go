@@ -206,7 +206,7 @@ func (c WindowSpaceConfig) Clone() WindowSpaceConfig {
 func normalizeProjectChatWindowingState(
 	state ProjectChatWindowingState,
 	sections map[string]Section,
-) ProjectChatWindowingState {
+) (ProjectChatWindowingState, error) {
 	normalized := DefaultProjectChatWindowingState()
 	if state.NextInstanceNumber > 0 {
 		normalized.NextInstanceNumber = state.NextInstanceNumber
@@ -231,14 +231,18 @@ func normalizeProjectChatWindowingState(
 		if nextInstance.Mode == "" {
 			nextInstance.Mode = ChatWindowModeProjectAI
 		}
+		if err := validateWindowingOwner(
+			nextInstance.Mode,
+			nextInstance.Placement,
+			nextInstance.SectionIDOrNull,
+		); err != nil {
+			return ProjectChatWindowingState{}, err
+		}
 		if nextInstance.Mode != ChatWindowModeProjectAI {
 			nextInstance.ChatID = nil
 		}
 		if nextInstance.Mode == ChatWindowModeGitGraph {
 			nextInstance.SectionIDOrNull = nil
-			if nextInstance.Placement == ChatWindowPlacementCanvasSection {
-				nextInstance.Placement = ChatWindowPlacementFloating
-			}
 		}
 		if nextInstance.Mode == ChatWindowModeSection && nextInstance.SectionIDOrNull == nil {
 			continue
@@ -272,7 +276,7 @@ func normalizeProjectChatWindowingState(
 	if normalized.NextInstanceNumber < 1 {
 		normalized.NextInstanceNumber = 1
 	}
-	return normalized
+	return normalized, nil
 }
 
 func normalizeWindowSpaces(
@@ -502,14 +506,17 @@ func clearProjectChatWindowingChatIDs(
 
 func validateWindowingOwner(
 	mode ChatWindowMode,
+	placement ChatWindowPlacement,
 	sectionID *string,
-	chatID *string,
 ) error {
-	if mode != ChatWindowModeProjectAI && chatID != nil {
-		return fmt.Errorf("chatId requires project_ai_mode")
-	}
 	if mode == ChatWindowModeSection && sectionID == nil {
-		return fmt.Errorf("section_mode requires a section binding")
+		return fmt.Errorf("Project chat section_mode windows require sectionIdOrNull.")
+	}
+	if mode == ChatWindowModeGitGraph && sectionID != nil {
+		return fmt.Errorf("Project chat git_graph_mode windows cannot carry sectionIdOrNull.")
+	}
+	if mode == ChatWindowModeGitGraph && placement == ChatWindowPlacementCanvasSection {
+		return fmt.Errorf("Project chat git_graph_mode windows cannot use canvas_section placement.")
 	}
 	return nil
 }

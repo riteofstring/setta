@@ -800,6 +800,10 @@ def execute_scenario(
         return execute_windowing_section_binding_dedup_and_title_clearing_on_load(
             backend
         )
+    if scenario.kind == "project_chat_windowing_invalid_owner_mode_combos_on_load":
+        return execute_project_chat_windowing_invalid_owner_mode_combos_on_load(
+            backend
+        )
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1206,6 +1210,48 @@ def execute_windowing_section_binding_dedup_and_title_clearing_on_load(
         "restartLoadProjectConfig": restart_load_payload,
         "restartLatestProjectStateStatus": restart_latest_http_status,
         "restartLatestProjectState": restart_latest_payload,
+    }
+
+
+def execute_project_chat_windowing_invalid_owner_mode_combos_on_load(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+
+    persisted_payload = read_persisted_project_document(backend)
+    corrupted_payload = seed_invalid_project_chat_windowing_owner_mode_in_store_payload(
+        persisted_payload,
+        project_id=project_id,
+    )
+    write_json(backend.setta_files_root / PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_startup_error = restart_backend_allow_startup_failure(backend)
+    restart_load_http_status: int | None = None
+    restart_load_payload: Any = None
+    if restart_startup_error is None:
+        restart_load_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_LOAD_PROJECT_CONFIG,
+            payload={"projectConfigName": created_name},
+        )
+        restart_load_http_status = restart_load_response.status_code
+        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    summary = summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
+        restart_startup_error=restart_startup_error,
+        restart_load_http_status=restart_load_http_status,
+        restart_load_payload=restart_load_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "corruptedProjectDocument": corrupted_payload,
+        "restartStartupError": restart_startup_error,
+        "restartLoadProjectConfigStatus": restart_load_http_status,
+        "restartLoadProjectConfig": restart_load_payload,
     }
 
 
@@ -2478,6 +2524,23 @@ def summarize_windowing_section_binding_dedup_and_title_clearing_on_load(
             restart_latest_payload
         )
 
+    return summary
+
+
+def summarize_project_chat_windowing_invalid_owner_mode_combos_on_load(
+    restart_startup_error: str | None,
+    restart_load_http_status: int | None,
+    restart_load_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {}
+    if restart_startup_error is not None:
+        summary["restartStartupStatus"] = "failed"
+        return summary
+
+    summary["restartStartupStatus"] = "ready"
+    summary["restartLoadHttpStatus"] = restart_load_http_status
+    if restart_load_http_status != 200:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(restart_load_payload)
     return summary
 
 
@@ -4764,6 +4827,44 @@ def seed_windowing_section_binding_conflicts_in_store_payload(
             allow_missing=True,
         )
         raw_windowing_by_id[project_id] = project_chat_windowing
+        payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
+        return payload
+
+    raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
+
+
+def seed_invalid_project_chat_windowing_owner_mode_in_store_payload(
+    payload: dict[str, Any],
+    project_id: str,
+) -> dict[str, Any]:
+    invalid_windowing = {
+        "instancesById": {
+            "project-chat-window-invalid": {
+                "instanceId": "project-chat-window-invalid",
+                "placement": "canvas_section",
+                "mode": "git_graph_mode",
+            }
+        },
+        "order": ["project-chat-window-invalid"],
+        "nextInstanceNumber": 2,
+    }
+
+    projects = object_field(payload, "projects", allow_missing=True)
+    if project_id in projects:
+        project = expect_object(projects[project_id], f"projects.{project_id}")
+        project["projectChatWindowing"] = invalid_windowing
+        projects[project_id] = project
+        payload["projects"] = projects
+        return payload
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if project_id in source_projects:
+        raw_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        raw_windowing_by_id[project_id] = invalid_windowing
         payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
         return payload
 

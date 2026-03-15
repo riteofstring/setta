@@ -345,10 +345,14 @@ func (p Project) Normalized() (Project, error) {
 	normalizedWindowing := ProjectChatWindowingOrDefault(
 		normalized.ProjectChatWindowing,
 	)
-	normalizedWindowing = normalizeProjectChatWindowingState(
+	var err error
+	normalizedWindowing, err = normalizeProjectChatWindowingState(
 		normalizedWindowing,
 		normalized.Sections,
 	)
+	if err != nil {
+		return Project{}, fmt.Errorf("normalize project chat windowing: %w", err)
+	}
 	normalized.ProjectChatWindowing = &normalizedWindowing
 	for index, target := range normalized.CodegenTargets {
 		normalizedTarget, err := target.Normalized()
@@ -357,7 +361,6 @@ func (p Project) Normalized() (Project, error) {
 		}
 		normalized.CodegenTargets[index] = normalizedTarget
 	}
-	var err error
 	normalized.GeneratedCodeBinding, err = normalizeCodeFileBinding(normalized.GeneratedCodeBinding)
 	if err != nil {
 		return Project{}, fmt.Errorf("normalize generated code binding: %w", err)
