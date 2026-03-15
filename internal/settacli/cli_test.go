@@ -148,6 +148,35 @@ func TestRunStatusConnectInfoJSONOmitsAbsentOptionalMetadataFields(t *testing.T)
 	}
 }
 
+func TestRunStatusConnectInfoReportsMissingSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	_ = fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace", fixture.workspaceRoot,
+		"--setta-home", fixture.settaHome,
+		"status",
+		"--connect-info",
+		"--json",
+		"--session", "missing-session",
+	)
+	if err == nil {
+		t.Fatal("expected missing-session error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "session missing-session not found" {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
 func TestRunStatusValidationRejectsInvalidCommandShapes(t *testing.T) {
 	t.Parallel()
 
@@ -297,6 +326,37 @@ func TestRunStatusIgnoresStaleSessionsAndDefaultsToIDE(t *testing.T) {
 	}
 }
 
+func TestRunStatusConnectInfoLatestRespectsServerModeFilter(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	launcherProc := fixture.startProcess(t, "setta.server:app")
+	ideProc := fixture.startProcess(t, "setta.server:app")
+	launcherSession := fixture.createSession(t, launcherProc, 61235, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "launcher")
+	fixture.createSession(t, ideProc, 61234, time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC), "ide")
+
+	stdout, _, err := fixture.run(
+		"--workspace", fixture.workspaceRoot,
+		"--setta-home", fixture.settaHome,
+		"status",
+		"--connect-info",
+		"--json",
+		"--latest",
+		"--server-mode", "launcher",
+	)
+	if err != nil {
+		t.Fatalf("run launcher-filtered latest status: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+	sessionPayload := payload["session"].(map[string]any)
+	if sessionPayload["id"] != launcherSession.ID {
+		t.Fatalf("expected launcher session %q, got %#v", launcherSession.ID, sessionPayload["id"])
+	}
+	if sessionPayload["serverMode"] != "launcher" {
+		t.Fatalf("expected launcher serverMode, got %#v", sessionPayload["serverMode"])
+	}
+}
+
 func TestRunStatusConnectInfoRequiresSelectorWhenMultipleIDESessionsMatch(t *testing.T) {
 	t.Parallel()
 
@@ -318,6 +378,32 @@ func TestRunStatusConnectInfoRequiresSelectorWhenMultipleIDESessionsMatch(t *tes
 	}
 	if err.Error() != "multiple sessions found; use --session <id> or --latest" {
 		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
+func TestRunStatusConnectInfoWorkspaceFlagSelectsWorkspaceOutsideCurrentDirectory(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	otherCWD := t.TempDir()
+
+	stdout, _, err := fixture.runFromCWD(
+		otherCWD,
+		"--workspace", fixture.workspaceRoot,
+		"--setta-home", fixture.settaHome,
+		"status",
+		"--connect-info",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("run status connect-info from outside cwd: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+	sessionPayload := payload["session"].(map[string]any)
+	if sessionPayload["id"] != session.ID {
+		t.Fatalf("expected workspace-selected session %q, got %#v", session.ID, sessionPayload["id"])
 	}
 }
 
@@ -1058,17 +1144,25 @@ func (f *cliFixture) createSessionWithHost(t *testing.T, proc *exec.Cmd, host st
 }
 
 func (f *cliFixture) run(args ...string) (string, string, error) {
-	return f.runWithInput("", args...)
+	return f.runWithInputFromCWD("", f.workspaceRoot, args...)
 }
 
 func (f *cliFixture) runWithInput(input string, args ...string) (string, string, error) {
+	return f.runWithInputFromCWD(input, f.workspaceRoot, args...)
+}
+
+func (f *cliFixture) runFromCWD(cwd string, args ...string) (string, string, error) {
+	return f.runWithInputFromCWD("", cwd, args...)
+}
+
+func (f *cliFixture) runWithInputFromCWD(input string, cwd string, args ...string) (string, string, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	err := Run(args, RunOptions{
 		Stdout:    &stdout,
 		Stderr:    &stderr,
 		Stdin:     strings.NewReader(input),
-		CWD:       f.workspaceRoot,
+		CWD:       cwd,
 		EnvLookup: func(string) (string, bool) { return "", false },
 		Now:       func() time.Time { return time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC) },
 	})
