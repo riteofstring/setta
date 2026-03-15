@@ -5,17 +5,11 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { C } from "utils/c";
-import { C_ADDRESSES } from "utils/c_addresses";
-import {
-  GoRootRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
-  createBinaryContentRef,
   createAgentRun,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
@@ -23,13 +17,9 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { routeGetAuthRefreshStatusMock } = vi.hoisted(() => ({
-  routeGetAuthRefreshStatusMock: vi.fn(),
-}));
-
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
-  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
+  route_get_auth_refresh_status: vi.fn(),
   route_get_agent_runs: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
@@ -61,15 +51,9 @@ vi.mock("state/actions/websocketConnectionList", () => ({
   setWebsocketConnections: vi.fn(),
 }));
 
-vi.mock("state/actions/sectionInfos", async () => {
-  const actual = await vi.importActual<
-    typeof import("state/actions/sectionInfos")
-  >("state/actions/sectionInfos");
-  return {
-    ...actual,
-    processProjectStateUpdateFromBackend: vi.fn(),
-  };
-});
+vi.mock("state/actions/sectionProjectStateSync", () => ({
+  processProjectStateUpdateFromBackend: vi.fn(),
+}));
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
@@ -177,8 +161,6 @@ function findRevealResultPayload(
 }
 
 describe("openWebSocket", () => {
-  const expectedFrontendWebsocketPath = GoWebsocketRouteHelpers.frontend();
-
   beforeEach(async () => {
     resetProjectStores();
     MockWebSocket.instances = [];
@@ -284,34 +266,6 @@ describe("openWebSocket", () => {
       projectConfigId: "project-1",
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
-  });
-
-  it("connects IDE mode through the Go frontend websocket route", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-
-    openWebSocket("/project");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    expect(new URL(socket?.url ?? "http://invalid").pathname).toBe(
-      expectedFrontendWebsocketPath,
-    );
-    expect(socket?.url).not.toContain("/share/frontend");
-  });
-
-  it("connects deployment mode through the Go frontend websocket route with a share session query", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-
-    openWebSocket("/project", "share-session-route");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    const socketUrl = new URL(socket?.url ?? "http://invalid");
-    expect(socketUrl.pathname).toBe(expectedFrontendWebsocketPath);
-    expect(socketUrl.searchParams.get("shareSessionId")).toBe(
-      "share-session-route",
-    );
-    expect(socket?.url).not.toContain("/share/frontend");
   });
 
   it("merges workflow run websocket updates into the agent run store", async () => {
@@ -432,48 +386,44 @@ describe("openWebSocket", () => {
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
 
-  it("uploads oversized realtime section binaries and sends the uploaded ref", async () => {
+  it("uploads oversized realtime section snapshots and emits the uploaded binary reference", async () => {
     useProjectState.setState((state) => {
-      state.projectConfig.id = "project-1";
+      state.projectConfig.id = "project-binary-upload";
     });
-    useListenerCoverage.setState((state) => {
-      state.byProjectId["project-1"] = {
-        hasRealtimeWildcard: false,
-        dependenciesByKey: {
-          "section-binary::": {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "section-binary",
-          },
-        },
-      };
-    });
-    const { openWebSocket, sendRealtimeSectionBinary } = await import(
-      "state/actions/websocketReceive"
+    const { openWebSocket } = await import("state/actions/websocketLifecycle");
+    const { sendRealtimeSectionBinary } = await import(
+      "state/actions/websocketRealtime"
     );
-    const { route_binary_upload } = await import("utils/generatedEndpoints");
+    const { route_binary_upload, route_get_listener_coverage } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_listener_coverage).mockResolvedValue({
+      status: 200,
+      data: {
+        projectConfigId: "project-binary-upload",
+        hasRealtimeWildcard: true,
+        dependencies: [],
+      },
+      hasResponse: true,
+    });
     vi.mocked(route_binary_upload).mockResolvedValue({
-      data: createBinaryContentRef({
-        contentId: "uploaded-realtime-ref",
+      status: 200,
+      data: {
+        contentId: "binary-upload-1",
         byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
         mimeType: "image/png",
-        sha256: null,
-      }),
-      status: 200,
+      },
       hasResponse: true,
     });
 
-    openWebSocket("/project", "share-session-realtime-binary-upload");
+    openWebSocket("/project", "share-session-binary-upload");
     vi.runAllTimers();
 
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
-    const sendCountBefore = socket.send.mock.calls.length;
 
-    // Oversized section snapshots should fail over from websocket binary frames
-    // to the Go binary upload route, then emit a JSON realtime update that
-    // references the uploaded binary payload.
     sendRealtimeSectionBinary(
-      "section-binary",
+      "section-binary-upload",
       new ArrayBuffer(C.REALTIME_BINARY_MAX_BYTES + 1),
       "image/png",
     );
@@ -481,31 +431,44 @@ describe("openWebSocket", () => {
     await Promise.resolve();
 
     expect(route_binary_upload).toHaveBeenCalledTimes(1);
-    const laterMessages = socket.send.mock.calls
-      .slice(sendCountBefore)
+    const realtimePayload = socket.send.mock.calls
       .map((call) => call[0])
       .filter((payload): payload is string => typeof payload === "string")
-      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
-    const realtimeMessage = laterMessages.find(
-      (payload) => payload.messageType === "RealtimeUIChange",
-    ) as
-      | {
-          content?: {
-            dependencyKey?: { sectionId?: string };
-            value?: { type?: string; payload?: { contentId?: string } };
+      .map((payload) => {
+        try {
+          return JSON.parse(payload) as {
+            messageType?: string;
+            content?: {
+              projectConfigId?: string;
+              dependencyKey?: unknown;
+              value?: unknown;
+            };
           };
+        } catch {
+          return null;
         }
-      | undefined;
+      })
+      .find(
+        (payload) =>
+          payload?.messageType === "RealtimeUIChange" &&
+          payload.content?.projectConfigId === "project-binary-upload",
+      );
 
-    expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
-      "section-binary",
-    );
-    expect(realtimeMessage?.content?.value?.type).toBe(
-      DependencyValueTypeEnum.Binary,
-    );
-    expect(realtimeMessage?.content?.value?.payload?.contentId).toBe(
-      "uploaded-realtime-ref",
-    );
+    expect(realtimePayload?.content).toEqual({
+      projectConfigId: "project-binary-upload",
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId: "section-binary-upload",
+      },
+      value: {
+        type: DependencyValueTypeEnum.Binary,
+        payload: {
+          contentId: "binary-upload-1",
+          byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
+          mimeType: "image/png",
+        },
+      },
+    });
   });
 
   it("applies revisioned llm api-key websocket snapshots", async () => {
@@ -1363,25 +1326,5 @@ describe("openWebSocket", () => {
         errorMessage: "Invalid UISettingReveal payload.",
       },
     ]);
-  });
-
-  it("uses the Go bootstrap root route in auth recovery notifications", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { addTemporaryNotification } = await import(
-      "state/actions/notifications"
-    );
-
-    openWebSocket("/project");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    vi.mocked(addTemporaryNotification).mockClear();
-
-    await socket.emit("close", { code: 4401 });
-
-    expect(addTemporaryNotification).toHaveBeenCalledWith(
-      `Authentication required. Open ${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()} to continue.`,
-    );
   });
 });

@@ -2,13 +2,13 @@ import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
-  useLocalStorage,
   useNodeInternals,
   useProjectState,
-  useTemporaryMiscState,
   type ZustandNodeInternalsState,
   type ZustandProjectState,
 } from "state/definitions";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";
