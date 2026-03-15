@@ -8,6 +8,15 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionWindowSurface } from "./SectionWindowSurface";
 
+const mocks = vi.hoisted(() => ({
+  getWindowSectionChrome: vi.fn(() => ({
+    bgColor: "bg-setta-50",
+    outerShellClassName: "mock-section-container-shell",
+    innerShellClassName: "mock-section-surface",
+    useMetaControlStyle: false,
+  })),
+}));
+
 type MockProjectState = {
   projectConfig: {
     activeIds: string[];
@@ -89,12 +98,7 @@ vi.mock("./SectionAreaSwitch", () => ({
 }));
 
 vi.mock("./sectionChrome", () => ({
-  getSectionContainerShellClassName: () => "mock-section-container-shell",
-  getSectionSurfaceClassName: () => "mock-section-surface",
-}));
-
-vi.mock("./utils", () => ({
-  getBgColor: () => "bg-setta-50",
+  getWindowSectionChrome: mocks.getWindowSectionChrome,
 }));
 
 describe("SectionWindowSurface", () => {
@@ -104,6 +108,7 @@ describe("SectionWindowSurface", () => {
         activeIds: ["section-1"],
       },
     };
+    mocks.getWindowSectionChrome.mockClear();
   });
 
   it("passes authoritative window mode and chat identity into the section area switch", () => {
@@ -141,5 +146,39 @@ describe("SectionWindowSurface", () => {
 
     expect(markup).toContain('data-show-section-container-controls="false"');
     expect(markup).toContain('data-testid="window-only-action"');
+  });
+
+  it("routes standalone full-bleed chrome decisions through the shared helper", () => {
+    renderToStaticMarkup(
+      <SectionWindowSurface
+        sectionId="section-1"
+        headerActions={null}
+        roundedClassName="rounded-xl"
+        chatHost="standalone_page"
+      />,
+    );
+
+    expect(mocks.getWindowSectionChrome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionTypeName: SectionTypeEnum.Chat,
+        isStandalonePage: true,
+        roundedClassName: "rounded-xl",
+      }),
+    );
+  });
+
+  it("keeps explicit body overrides outside the shared area switch path", () => {
+    const markup = renderToStaticMarkup(
+      <SectionWindowSurface
+        sectionId="section-1"
+        headerActions={null}
+        roundedClassName="rounded-none"
+        chatHost={ChatWindowPlacementEnum.floating}
+        bodyOverride={<div data-testid="window-body-override" />}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="window-body-override"');
+    expect(markup).not.toContain('data-testid="mock-area-switch"');
   });
 });

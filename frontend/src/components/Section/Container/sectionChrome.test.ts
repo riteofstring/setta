@@ -4,6 +4,7 @@ import {
   getCanvasSectionChrome,
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
+  getWindowSectionChrome,
 } from "./sectionChrome";
 
 describe("sectionChrome", () => {
@@ -75,5 +76,25 @@ describe("sectionChrome", () => {
       "group-hover/card-section:z-[170]",
     );
     expect(chrome.surfaceClassName).not.toContain("grid-cols-1");
+  });
+
+  it("builds standalone window chrome from the shared surface descriptor", () => {
+    const chrome = getWindowSectionChrome({
+      sectionTypeName: SectionTypeEnum.MetaControl,
+      isActiveSection: false,
+      isInOtherProjectConfigs: false,
+      textBlockMetaControlStyle: false,
+      hasSectionStyleTheme: false,
+      positionAndSizeLocked: false,
+      isStandalonePage: true,
+      roundedClassName: "rounded-xl",
+    });
+
+    expect(chrome.bgColor).toBe("bg-transparent");
+    expect(chrome.useMetaControlStyle).toBe(true);
+    expect(chrome.outerShellClassName).toContain("border-0");
+    expect(chrome.outerShellClassName).toContain("rounded-none");
+    expect(chrome.innerShellClassName).toContain("before:border-0");
+    expect(chrome.innerShellClassName).toContain("rounded-none");
   });
 });
