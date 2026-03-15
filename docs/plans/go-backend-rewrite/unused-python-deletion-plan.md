@@ -445,6 +445,14 @@ Current tree note:
   `internal/projectstate`, `internal/httpapi`, `internal/mcpx`,
   `internal/appspec`, and `internal/frontendbindings`, with no surviving
   retained Python caller importing those Python DTO leaves.
+- The old Python route-inventory bucket is also reduced to the retained caller
+  surface only. `backend/setta/types/routes.py` now keeps just the `/api`
+  prefix plus the listener websocket, bootstrap-consume, project-metadata,
+  latest-project-state, and detached-run status routes still imported by the
+  retained `SettaListener`, `SettaRunner`, and constants helpers. The rest of
+  the historical Python route enum had no surviving retained Python caller,
+  while active transport ownership already lives in Go under `internal/httpapi`,
+  `internal/wsapi`, and `internal/frontendbindings`.
 - The dead generated Python type-definition tail is also smaller in the current
   worktree: `backend/scripts/prune_generated_types.py` pruned repo-unreferenced
   adapters, type-set constants, and the unused `ProjectConfigArgs` typed dict
