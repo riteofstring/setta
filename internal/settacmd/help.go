@@ -52,6 +52,7 @@ func writeRootUsage(w io.Writer) error {
 		"  export-db     Export project state in readable YAML.",
 		"  backups       List and restore local backups.",
 		"  plugins       Manage plugin authoring and install state.",
+		"  mcp           Run the local stdio MCP bridge.",
 		"  launch        Start or reuse a local session and emit bootstrap JSON.",
 		"  share         Serve a share deployment.",
 		"  app           Serve an app deployment.",
@@ -134,6 +135,44 @@ func writePluginsLockUsage(w io.Writer) error {
 	for _, line := range []string{
 		"  write  Write the plugins lockfile.",
 		"  apply  Apply the plugins lockfile.",
+	} {
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeMCPUsage(w io.Writer) error {
+	if _, err := fmt.Fprintln(w, "Usage:"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "  setta mcp [options]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "  setta mcp bridge [options]"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "Default behavior:"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "  Running `setta mcp` without a subcommand starts the stdio bridge."); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "Bridge options:"); err != nil {
+		return err
+	}
+	for _, line := range []string{
+		"  --backend URL       Full URL to the Setta MCP endpoint.",
+		"  --token TOKEN       Bootstrap token for MCP authentication.",
+		"  --bootstrap-url URL Bootstrap URL containing the token.",
+		"  --verbose           Enable bridge debug logging on stderr.",
 	} {
 		if _, err := fmt.Fprintln(w, line); err != nil {
 			return err

@@ -50,6 +50,9 @@ func TestRunRootHelpPrintsUsage(t *testing.T) {
 	if !strings.Contains(stdout, "plugins       Manage plugin authoring and install state.") {
 		t.Fatalf("expected plugins command summary, got %q", stdout)
 	}
+	if !strings.Contains(stdout, "mcp           Run the local stdio MCP bridge.") {
+		t.Fatalf("expected mcp command summary, got %q", stdout)
+	}
 }
 
 func TestRunDelegatesToolsToSettacli(t *testing.T) {

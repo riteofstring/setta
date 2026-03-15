@@ -48,9 +48,7 @@ decision changes that boundary:
 - public Python APIs under `backend/setta/api/*`
 - share-listener authoring/runtime boundary under
   `backend/setta/share/listener_runtime.py`
-- packaged external-consumer MCP bridge under:
-  - `backend/setta/mcp/client.py`
-  - `backend/setta/mcp/namespacing.py`
+- retained Python MCP metadata helpers still imported by surviving APIs:
   - `backend/setta/mcp/tool_metadata.py`
 - Python support modules still imported by those retained APIs
 
@@ -390,6 +388,15 @@ Current tree note:
   prompt-template lookup helper now lives locally in
   `backend/setta/types/prompt_section_resolution.py` instead of keeping the old
   mixed agentic store alive.
+- The old Python package-marker stubs for asset-only trees are also gone in the
+  current worktree: `backend/setta/agentic/__init__.py`,
+  `backend/setta/agentic/external_adapters/__init__.py`, and
+  `backend/setta/plugins/__init__.py` were deleted because those trees no
+  longer expose a retained Python import surface. The only remaining tracked
+  contents there are the explicit sidecar/process assets under
+  `backend/setta/agentic/external_adapters/sidecars/*` and the plugin schema
+  assets under `backend/setta/plugins/schemas/*`, both of which stay retained
+  through packaging force-includes rather than Python package imports.
 - The live Python `backend/setta/database/db_objs.py` helper has also been
   narrowed in the current worktree: the dead settings-project, notification,
   temp-id-map, LLM-config, deployment-manifest, external-agent,
@@ -431,16 +438,16 @@ Current tree note:
   depends on the deleted Python websocket sender class. The remaining
   `backend/setta/websockets/binary_frames.py` helper stays tied to the
   retained Python listener SDK.
-- The Python MCP bridge cluster stays retained in the current worktree:
-  `backend/setta/mcp/client.py` is the documented
-  `python -m setta.mcp.client` packaged stdio bridge for third-party MCP
-  consumers, the Go-owned `/mcp` server and tool runtime live under
-  `internal/mcpx` and `internal/tools`, and
-  `tests/mcp/test_multi_mcp_client.py` plus
-  `tests/mcp/test_stdio_bridge_logging.py` continue to prove the surviving
-  Python bridge behavior. Its narrow namespacing and tool-annotation helpers
-  in `backend/setta/mcp/namespacing.py` and
-  `backend/setta/mcp/tool_metadata.py` stay with that retained boundary.
+- The packaged Python MCP bridge cluster is gone in the current worktree:
+  the replacement owner now lives in Go under `internal/settacmd/mcp.go` and
+  `internal/mcpx/stdio_bridge.go`, which ship the external-consumer stdio
+  bridge as `setta mcp` / `setta mcp bridge` and forward local stdio MCP
+  sessions to the Go-owned `/mcp` server. The deleted Python
+  `backend/setta/mcp/client.py`, `backend/setta/mcp/namespacing.py`,
+  `tests/mcp/test_multi_mcp_client.py`, and
+  `tests/mcp/test_stdio_bridge_logging.py` had no live repo imports outside
+  that bridge/doc-test cluster. `backend/setta/mcp/tool_metadata.py` stays
+  retained because surviving Python chat/listener/type modules still import it.
 
 Actions:
 
@@ -473,10 +480,12 @@ Expected first batch:
 
 Current tree note:
 
-- In the current worktree, that batch is already mostly complete. The
-  remaining low-risk residue in the legacy transport-shell slice is the unused
-  `backend/setta/runtime/*` package plus dead-path Python tests that only
-  validate the superseded Python websocket manager surface.
+- In the current worktree, that delete batch is already complete. The tracked
+  legacy transport-shell files are gone; only the retained
+  `backend/setta/websockets/binary_frames.py` helper plus its retained
+  listener-SDK coverage remain from that broader tree. The old
+  `backend/setta/runtime/*` package and dead-path websocket-manager test slice
+  referenced by earlier notes are no longer tracked in this branch.
 
 Required proof:
 

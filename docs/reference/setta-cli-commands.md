@@ -41,6 +41,7 @@ another host.
 | `setta plugins` | yes | no | Fully Go-owned packaged plugin command cluster. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
+| `setta mcp` | yes | no | Run the stdio bridge for external MCP clients. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
 | `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
 | `setta launch` | yes | no | Start (or reuse) a local session and emit bootstrap JSON. |
@@ -405,6 +406,32 @@ JSON output schema:
 Example:
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
+```
+
+## `setta mcp`
+
+Start a local stdio bridge that forwards MCP JSON-RPC on stdin/stdout to the
+Go-owned `/mcp` SSE endpoint. `setta mcp bridge` is an equivalent explicit
+form.
+
+Options:
+- `--backend URL` full MCP endpoint URL (default: `http://127.0.0.1:8000/mcp`)
+- `--token TOKEN` bootstrap token for auth
+- `--bootstrap-url URL` extract the bootstrap token from a URL fragment/query
+- `--verbose` emit bridge debug logs on stderr
+
+Auth behavior:
+- If `--token` or `--bootstrap-url` is provided, the bridge consumes the
+  bootstrap token at `/__setta__/bootstrap/consume` and forwards the returned
+  auth cookie to `/mcp`.
+- Otherwise it mints the current-session auth cookie from `SETTA_SESSION_ID`.
+  If you are running outside the session workspace, also set
+  `SETTA_SESSIONS_ROOT`.
+
+Examples:
+```sh
+setta mcp --backend http://127.0.0.1:8000/mcp
+setta mcp --backend http://127.0.0.1:8000/mcp --bootstrap-url http://127.0.0.1:8000/__setta__/bootstrap#token=abc
 ```
 
 ## `setta launch`

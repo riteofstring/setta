@@ -85,12 +85,16 @@ Tool enforcement details:
   - If multiple eligible frontends are connected and no affinity token resolves, reveal fails closed with an ambiguity error.
 - In share/app mode, routing is additionally constrained by the active `shareSessionId`.
 
-## MCP client (`backend/setta/mcp/client.py`)
-- `MultiMCPClient` maintains a `ClientSession` per configured MCP server (SSE, Streamable HTTP, or stdio). Once connected it calls `list_tools()`, converts each tool into an OpenAI-compatible definition, and splits the cache into `init_tool_definitions` and `discoverable_tool_definitions` based on `SettaToolType` when available.
-- Tool names are always namespaced as `<serverId>__<toolName>`. The client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
-- Tools without Setta annotations are accepted and treated as discoverable; they still appear in the namespaced registry.
-- `run_stdio_bridge` allows Setta’s MCP server to look like a `stdio` transport. `python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp` pipes stdin/stdout to the SSE connection, which means third-party MCP orchestrators (OpenAI, Claude Desktop, Cursor, etc.) can act as if Setta were a local MCP tool host.
-- The command-line options (`--backend`, `--verbose`) make the bridge easy to embed in shell scripts or automation. Because the connection uses only SSE, the bridge works across machines as long as the HTTP endpoint is reachable.
+## Go MCP client (`internal/mcpx/client.go`)
+- The active multi-server MCP client runtime is now Go-owned under `internal/mcpx/client.go`.
+- It maintains a session per configured MCP server (SSE, Streamable HTTP, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for the managed-chat/runtime paths that still need outbound MCP client behavior.
+- Tool names are always namespaced as `<serverId>__<toolName>`, and the client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
+- Retry and reconnect behavior for configured external MCP servers now lives in the Go client/runtime rather than the deleted Python `MultiMCPClient`.
+
+## Packaged stdio bridge (`internal/settacmd/mcp.go`, `internal/mcpx/stdio_bridge.go`)
+- `setta mcp` (or the explicit `setta mcp bridge`) lets Setta’s Go MCP server look like a local `stdio` transport for third-party MCP orchestrators.
+- The CLI resolves auth from either `--token` / `--bootstrap-url` or the current local session (`SETTA_SESSION_ID`, plus `SETTA_SESSIONS_ROOT` when running outside the session workspace), then forwards raw MCP JSON-RPC messages between stdin/stdout and the Go `/mcp` SSE endpoint.
+- Because the bridge is transport-thin, external clients see the same tool catalog, schemas, and behavior that the Go-owned `/mcp` server already exposes.
 
 ## Managed chat runtime (`internal/httpapi/llm_routes.go`, `internal/managedchat`, and `internal/managedllm`)
 - `RegisterLLMRoutes` exposes the IDE-only `getLLMResponse`, `getLLMChat`, and `stopLLMChat` handlers through the Go HTTP API.
@@ -134,18 +138,17 @@ Tool enforcement details:
 - The recommended path for outside applications is to run the stdio bridge:
 
   ```bash
-  source activate.sh
-  python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp
+  setta mcp --backend http://127.0.0.1:8000/mcp
   ```
 
   The resulting process behaves like any other MCP server binary on stdin/stdout, meaning you can register Setta inside clients such as the OpenAI Desktop app or Anthropic’s tools without writing glue code.
-- Third parties that already speak SSE can also skip the bridge and connect directly. The server exposes `GET /mcp` for the MCP session and `POST /mcp/messages/` as the channel FastMCP uses to forward client-to-server payloads. Once connected, they receive the same tool list (`list_mcp_tools` and `search_mcp_tools` included), the same doc-enriched schemas, and the same ID translation guarantees that the internal managed chat runtime relies on.
+- Third parties that already speak SSE can also skip the bridge and connect directly. The server exposes `GET /mcp` for the initial SSE session, then returns an `endpoint` event that names the session message endpoint (the Go SDK uses the same `/mcp` path with a `sessionid` query parameter). Once connected, they receive the same tool list (`list_mcp_tools` and `search_mcp_tools` included), the same doc-enriched schemas, and the same ID translation guarantees that the internal managed chat runtime relies on.
 - External clients can optionally call `search_mcp_tools` to get shortlists of relevant tools. The server-side search results use un-namespaced tool names, so external clients should call tools by those names.
 
 ## When to touch what
 - Adding or modifying tools → update `internal/mcpx/server.go` or the focused helper files under `internal/mcpx/*_tools.go`, plus `internal/tools/*` when metadata/search behavior changes.
 - Changing how MCP calls are streamed to the UI for managed chats → edit `internal/managedllm`, `internal/managedchat/live_runtime.go`, `internal/httpapi/llm_routes.go`, and the websocket reducers in `frontend/src/state/actions/ai.ts`.
 - Adapting the chat UI → adjust the components in `frontend/src/components/Panes/Overview/ProjectLevelAI/`.
-- Integrating a new external MCP consumer → either script against `python -m setta.mcp.client` or write a native SSE client that emulates what `MultiMCPClient` already does (initialize, cache tools, call tools, reconnect on failure).
+- Integrating a new external MCP consumer → either script against `setta mcp` or write a native SSE client against `/mcp`.
 
-With these pieces in mind you should be able to trace any MCP request end-to-end, from a user prompt in the UI (or an external orchestrator) through the Setta FastMCP server and back again.
+With these pieces in mind you should be able to trace any MCP request end-to-end, from a user prompt in the UI (or an external orchestrator) through the Go Setta MCP server and back again.

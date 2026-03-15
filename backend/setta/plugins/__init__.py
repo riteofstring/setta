@@ -1,1 +1,0 @@
-"""Plugin schema asset package."""

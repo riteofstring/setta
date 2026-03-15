@@ -227,8 +227,9 @@ Listener → backend error mapping for “emit to frontend” is more structured
 
 - The active MCP server/runtime is Go-owned under `internal/mcpx`, which maps
   tool/runtime failures into structured responses.
-- The retained Python MCP client still retries its SSE connection loop and uses
-  `logger.exception(...)` on failures (`backend/setta/mcp/client.py`).
+- The packaged Go stdio bridge (`setta mcp`) is transport-thin; with
+  `--verbose` it emits bridge read/write shutdown details to stderr from
+  `internal/settacmd/mcp.go` and `internal/mcpx/stdio_bridge.go`.
 
 ## UI “Backend Log Events”
 
