@@ -311,12 +311,6 @@ def _signature_hash(args: ast.arguments, *, drop_first_arg: bool) -> str:
     return compute_md5_hex(signature)
 
 
-def _body_hash(node: ast.AST) -> str:
-    module = ast.Module(body=getattr(node, "body", []), type_ignores=[])
-    dumped = ast.dump(module, include_attributes=False)
-    return compute_md5_hex(dumped)
-
-
 def _build_param_proposals(
     args: ast.arguments, *, drop_first_arg: bool
 ) -> tuple[WatchCodeParamProposal, ...]:
@@ -376,33 +370,33 @@ def _build_param_proposals(
     return tuple(output)
 
 
-def _build_callable_info(
-    module_path: str,
-    name: str,
-    kind: WatchCodeCallableKind,
-    signature_hash: str,
-    body_hash: str,
-    source_path: Path,
-    param_proposals: tuple[WatchCodeParamProposal, ...],
-) -> WatchCodeCallableInfo:
-    canonical_name = f"{module_path}.{name}" if module_path else name
-    identity = build_callable_identity(canonical_name, kind)
-    return WatchCodeCallableInfo(
-        identity=identity,
-        canonical_name=canonical_name,
-        module_path=module_path,
-        symbol_name=name,
-        kind=kind,
-        signature_hash=signature_hash,
-        body_hash=body_hash,
-        source_path=str(normalize_workspace_path(source_path)),
-        param_proposals=param_proposals,
-    )
-
-
 def parse_python_callables(
     code: str, source_path: Path
 ) -> list[WatchCodeCallableInfo] | None:
+    def build_callable_info(
+        node: ast.AST,
+        *,
+        name: str,
+        kind: WatchCodeCallableKind,
+        signature_hash: str,
+        param_proposals: tuple[WatchCodeParamProposal, ...],
+    ) -> WatchCodeCallableInfo:
+        module = ast.Module(body=getattr(node, "body", []), type_ignores=[])
+        body_hash = compute_md5_hex(ast.dump(module, include_attributes=False))
+        canonical_name = f"{module_path}.{name}" if module_path else name
+        identity = build_callable_identity(canonical_name, kind)
+        return WatchCodeCallableInfo(
+            identity=identity,
+            canonical_name=canonical_name,
+            module_path=module_path,
+            symbol_name=name,
+            kind=kind,
+            signature_hash=signature_hash,
+            body_hash=body_hash,
+            source_path=str(normalize_workspace_path(source_path)),
+            param_proposals=param_proposals,
+        )
+
     if not code.strip():
         return []
     try:
@@ -419,30 +413,30 @@ def parse_python_callables(
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
             output.append(
-                _build_callable_info(
-                    module_path,
-                    node.name,
-                    WatchCodeCallableKind.function,
-                    _signature_hash(node.args, drop_first_arg=False),
-                    _body_hash(node),
-                    source_path,
-                    _build_param_proposals(node.args, drop_first_arg=False)
-                    if build_params
-                    else (),
+                build_callable_info(
+                    node,
+                    name=node.name,
+                    kind=WatchCodeCallableKind.function,
+                    signature_hash=_signature_hash(node.args, drop_first_arg=False),
+                    param_proposals=(
+                        _build_param_proposals(node.args, drop_first_arg=False)
+                        if build_params
+                        else ()
+                    ),
                 )
             )
         elif isinstance(node, ast.AsyncFunctionDef):
             output.append(
-                _build_callable_info(
-                    module_path,
-                    node.name,
-                    WatchCodeCallableKind.async_function,
-                    _signature_hash(node.args, drop_first_arg=False),
-                    _body_hash(node),
-                    source_path,
-                    _build_param_proposals(node.args, drop_first_arg=False)
-                    if build_params
-                    else (),
+                build_callable_info(
+                    node,
+                    name=node.name,
+                    kind=WatchCodeCallableKind.async_function,
+                    signature_hash=_signature_hash(node.args, drop_first_arg=False),
+                    param_proposals=(
+                        _build_param_proposals(node.args, drop_first_arg=False)
+                        if build_params
+                        else ()
+                    ),
                 )
             )
         elif isinstance(node, ast.ClassDef):
@@ -465,14 +459,12 @@ def parse_python_callables(
                     else ()
                 )
             output.append(
-                _build_callable_info(
-                    module_path,
-                    node.name,
-                    WatchCodeCallableKind.class_init,
-                    signature_hash,
-                    _body_hash(node),
-                    source_path,
-                    proposals,
+                build_callable_info(
+                    node,
+                    name=node.name,
+                    kind=WatchCodeCallableKind.class_init,
+                    signature_hash=signature_hash,
+                    param_proposals=proposals,
                 )
             )
     return output

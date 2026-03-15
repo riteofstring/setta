@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from setta.agentic.store import delete_prompt_template, save_prompt_template
 from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.database.db_objs import DBE
 from setta.types.dependency_key import create_dep_key
@@ -41,7 +40,7 @@ class TestPromptDependencyGraph:
             name="Greeting",
             template="Hello from the saved template.",
         )
-        save_prompt_template(dbe, prompt_template)
+        dbe.write_prompt(prompt_template.id, prompt_template.model_dump(mode="json"))
         set_prompt_section_template_link(
             project_state,
             section_id,
@@ -49,15 +48,13 @@ class TestPromptDependencyGraph:
             "stale prompt snapshot",
             prompt_template.format,
         )
-        save_prompt_template(
-            dbe,
-            PromptTemplate(
-                id=prompt_template.id,
-                name=prompt_template.name,
-                template="Hello from the updated saved template.",
-                format=prompt_template.format,
-            ),
+        updated_template = PromptTemplate(
+            id=prompt_template.id,
+            name=prompt_template.name,
+            template="Hello from the updated saved template.",
+            format=prompt_template.format,
         )
+        dbe.write_prompt(updated_template.id, updated_template.model_dump(mode="json"))
 
         graph = DependencyGraph(project_state, dbe=dbe)
         dep_key = create_dep_key(sectionId=section_id)
@@ -86,7 +83,7 @@ class TestPromptDependencyGraph:
             name="Greeting",
             template="Hello from the saved template.",
         )
-        save_prompt_template(dbe, prompt_template)
+        dbe.write_prompt(prompt_template.id, prompt_template.model_dump(mode="json"))
         set_prompt_section_template_link(
             project_state,
             section_id,
@@ -94,7 +91,7 @@ class TestPromptDependencyGraph:
             "stale prompt snapshot",
             prompt_template.format,
         )
-        delete_prompt_template(dbe, prompt_template.id)
+        dbe.delete_prompt_file(prompt_template.id)
 
         with pytest.raises(KeyError, match=str(prompt_template.id)):
             DependencyGraph(project_state, dbe=dbe)

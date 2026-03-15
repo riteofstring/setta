@@ -2,11 +2,11 @@ import { UIConfigDropdownAndFields } from "components/Panes/UiEditor/UIConfig/UI
 import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 import _ from "lodash";
 import type { ReactNode } from "react";
-import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import {
   getCurrCodeObjVariant,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
