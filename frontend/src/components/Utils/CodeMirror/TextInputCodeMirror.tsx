@@ -1,6 +1,7 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -17,6 +18,7 @@ import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
 const TEXT_INPUT_SECTION_GUARD_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
+const TEXT_FIELD_COMPLETIONS_FN_CACHE = new Map<string, ReturnType<typeof wrappedCompletionsFn>>();
 const TEXT_INPUT_BASIC_SETUP = {
   lineNumbers: false,
   highlightActiveLineGutter: false,
@@ -77,7 +79,9 @@ export function TextInputCodeMirror({
       return;
     }
     if (event.button === 0) {
-      setActivationEvent(event);
+      flushSync(() => {
+        setActivationEvent(event);
+      });
       applyActiveSectionChange({ interaction: "input-focus", sectionId });
     }
     onMouseDown?.(event);
@@ -89,7 +93,9 @@ export function TextInputCodeMirror({
       return;
     }
     if (!activationEvent) {
-      setActivationEvent("tab");
+      flushSync(() => {
+        setActivationEvent("tab");
+      });
     }
   }
 
@@ -174,28 +180,49 @@ function CoreCodeMirror({
     resolveTooltipParentDivId(tooltipParentDivId);
   const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
 
-  const resolvedCompletionsFn = shouldAutocomplete
-    ? completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId)
-    : undefined;
+  const resolvedCompletionsFn = useMemo(() => {
+    if (!shouldAutocomplete) {
+      return undefined;
+    }
+    return completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId);
+  }, [completionsFn, paramInfoId, sectionId, shouldAutocomplete]);
 
-  const extensions = getExtensions({
-    parent: shouldAutocomplete ? tooltipParent : null,
-    language,
-    completionsFn: resolvedCompletionsFn,
-    singleLine,
-    wrapLines,
-    tabToAutocomplete: true,
-    keyComboActions,
-    onTab,
-    onEscape,
-  });
+  const extensions = useMemo(
+    () =>
+      getExtensions({
+        parent: shouldAutocomplete ? tooltipParent : null,
+        language,
+        completionsFn: resolvedCompletionsFn,
+        singleLine,
+        wrapLines,
+        tabToAutocomplete: true,
+        keyComboActions,
+        onTab,
+        onEscape,
+      }),
+    [
+      keyComboActions,
+      language,
+      onEscape,
+      onTab,
+      resolvedCompletionsFn,
+      shouldAutocomplete,
+      singleLine,
+      tooltipParent,
+      wrapLines,
+    ],
+  );
 
-  const onCreateEditor = getOnCreateEditor({
-    initialEvent,
-    divId,
-    value,
-    defaultVal,
-  });
+  const onCreateEditor = useMemo(
+    () =>
+      getOnCreateEditor({
+        initialEvent,
+        divId,
+        value,
+        defaultVal,
+      }),
+    [defaultVal, divId, initialEvent, value],
+  );
 
   return (
     <CodeMirror
@@ -219,6 +246,12 @@ function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
 ) {
+  const cacheKey = `${sectionId}:${paramInfoId ?? ""}`;
+  const cached = TEXT_FIELD_COMPLETIONS_FN_CACHE.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const fn = async (fullText: string, position: number) => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
@@ -242,5 +275,7 @@ function getTextFieldCompletionsFn(
     return [];
   };
 
-  return wrappedCompletionsFn(fn);
+  const wrapped = wrappedCompletionsFn(fn);
+  TEXT_FIELD_COMPLETIONS_FN_CACHE.set(cacheKey, wrapped);
+  return wrapped;
 }

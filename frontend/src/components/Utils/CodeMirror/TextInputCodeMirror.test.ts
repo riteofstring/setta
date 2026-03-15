@@ -238,4 +238,65 @@ describe("TextInputCodeMirror activation", () => {
     expect(host.querySelector('[data-testid="dummy-codemirror"]')).toBeNull();
     expect(host.querySelector('[data-testid="real-codemirror"]')).not.toBeNull();
   });
+
+  it("keeps the activated extension stack stable across value-only rerenders", async () => {
+    await act(async () => {
+      root.render(
+        createElement(TextInputCodeMirror, {
+          sectionId: "section-1",
+          paramInfoId: "param-1",
+          value: "mode",
+          defaultVal: "Mode",
+          onChange: () => undefined,
+          dummyDivId: "dummy-mode-input",
+          dummyCodeClassName: "dummy",
+          realCodeClassName: "real",
+          color: "green",
+          language: "python",
+        }),
+      );
+    });
+
+    const dummyCodeMirror = host.querySelector(
+      '[data-testid="dummy-codemirror"]',
+    );
+    expect(dummyCodeMirror).not.toBeNull();
+
+    await act(async () => {
+      dummyCodeMirror?.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+
+    expect(getExtensionsMock).toHaveBeenCalledTimes(1);
+    const firstCall = getExtensionsMock.mock.calls[0]?.[0];
+
+    await act(async () => {
+      root.render(
+        createElement(TextInputCodeMirror, {
+          sectionId: "section-1",
+          paramInfoId: "param-1",
+          value: "mode2",
+          defaultVal: "Mode",
+          onChange: () => undefined,
+          dummyDivId: "dummy-mode-input",
+          dummyCodeClassName: "dummy",
+          realCodeClassName: "real",
+          color: "green",
+          language: "python",
+        }),
+      );
+    });
+
+    expect(host.querySelector('[data-testid="dummy-codemirror"]')).toBeNull();
+    expect(host.querySelector('[data-testid="real-codemirror"]')).not.toBeNull();
+    expect(getExtensionsMock).toHaveBeenCalledTimes(1);
+    const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
+    expect(lastCall).toBe(firstCall);
+  });
 });
