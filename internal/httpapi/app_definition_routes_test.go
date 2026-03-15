@@ -1,0 +1,237 @@
+package httpapi
+
+import (
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+	"setta/internal/appspec"
+	"setta/internal/config"
+	"setta/internal/modes"
+	"setta/internal/projectstate"
+)
+
+func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
+	t.Parallel()
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAppCatalog, nil)
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload AppCatalogResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode app catalog payload: %v", err)
+	}
+	if payload.ID != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %q", appspec.DefaultCatalogID, payload.ID)
+	}
+	if len(payload.Components) == 0 {
+		t.Fatalf("expected catalog components, got %#v", payload.Components)
+	}
+	if payload.Components[0].Type == "" {
+		t.Fatalf("expected component type, got %#v", payload.Components[0])
+	}
+	if len(payload.Actions) == 0 || payload.Actions[0].Name == "" {
+		t.Fatalf("expected catalog actions, got %#v", payload.Actions)
+	}
+}
+
+func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
+	t.Parallel()
+
+	root, runtime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	if _, _, err := runtime.SetAppDefinition(
+		t.Context(),
+		projectstate.SetAppDefinitionInput{
+			AppSpec: map[string]any{
+				"root": "root",
+				"elements": map[string]any{
+					"root": map[string]any{
+						"key":  "root",
+						"type": "Stack",
+					},
+				},
+			},
+		},
+	); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, runtime)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAppDefinition, strings.NewReader(`{}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.AppDefinitionReadResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode get app definition payload: %v", err)
+	}
+	if payload.AppDefinition == nil {
+		t.Fatalf("expected app definition metadata, got %#v", payload)
+	}
+	if payload.AppDefinition.AppSpecPath != appspec.DefaultPath() {
+		t.Fatalf("expected app spec path %q, got %q", appspec.DefaultPath(), payload.AppDefinition.AppSpecPath)
+	}
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(payload.AppSpec, storedSpec) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, payload.AppSpec)
+	}
+}
+
+func TestRegisterAppDefinitionRoutesValidatesDefinition(t *testing.T) {
+	t.Parallel()
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteValidateAppDefinition,
+		strings.NewReader(`{"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.AppDefinitionValidationResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode validate app definition payload: %v", err)
+	}
+	if len(payload.Errors) != 0 {
+		t.Fatalf("expected no validation errors, got %#v", payload.Errors)
+	}
+	if payload.Capabilities.CatalogID != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %q", appspec.DefaultCatalogID, payload.Capabilities.CatalogID)
+	}
+}
+
+func TestRegisterAppDefinitionRoutesPersistsDefinition(t *testing.T) {
+	t.Parallel()
+
+	root, runtime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetAppDefinition,
+		strings.NewReader(`{
+			"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}},
+			"appSpecPath":"app_specs/custom.json",
+			"appSpecVersion":"v2",
+			"catalogId":"setta.app.default",
+			"theme":{"mode":"dark"}
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.AppDefinitionMutationResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode set app definition payload: %v", err)
+	}
+	if payload.AppDefinition == nil {
+		t.Fatalf("expected persisted app definition, got %#v", payload)
+	}
+	if payload.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected app spec path app_specs/custom.json, got %q", payload.AppDefinition.AppSpecPath)
+	}
+	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(payload.AppSpec, storedSpec) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, payload.AppSpec)
+	}
+}
+
+func TestRegisterAppDefinitionRoutesRejectsInvalidSetInput(t *testing.T) {
+	t.Parallel()
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetAppDefinition,
+		strings.NewReader(`{"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}},"catalogId":"unknown.catalog"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_request"`) {
+		t.Fatalf("expected invalid_request body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterAppDefinitionRoutesBlocksShareMode(t *testing.T) {
+	t.Parallel()
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeShare, nil)
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAppCatalog, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
+func newAppDefinitionRouteTestHandler(
+	t *testing.T,
+	mode config.Mode,
+	projectRuntime *projectstate.Runtime,
+) http.Handler {
+	t.Helper()
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
+		ModePolicy: modes.NewPolicy(mode),
+		Register: func(r chi.Router) {
+			if err := RegisterAppDefinitionRoutes(r, AppDefinitionRouteDependencies{
+				ModePolicy:   modes.NewPolicy(mode),
+				ProjectState: projectRuntime,
+			}); err != nil {
+				t.Fatalf("register app definition routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new app definition route handler: %v", err)
+	}
+	return handler
+}
+
+func openAppDefinitionRouteRuntime(t *testing.T) *projectstate.Runtime {
+	t.Helper()
+
+	_, runtime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	return runtime
+}
