@@ -633,3 +633,31 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this is the first accepted Phase 3 checkpoint because it removes one shallow render-path seam without changing the callable shell
   - the next measurement should be tied to the relevant interaction path, not forced into the old idle shell baseline just for bookkeeping
+
+### Phase 3 checkpoint 2: `ParamDndList` render-model narrowing
+
+- Date/time: 2026-03-16
+- Scope:
+  - added `frontend/src/components/Params/getParamDndListRenderModel.ts`
+  - updated `frontend/src/components/Params/ParamDndList.tsx` so duplicate-index derivation, param-filter gating, and tree availability now move together through one derived selector boundary
+- Automated verification:
+  - reran `pnpm -C frontend exec vitest run src/components/Params/getParamDndListRenderModel.test.ts`
+  - result: `1 passed`, `2 passed`
+  - reran `pnpm -C frontend exec vitest run src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/paramRowClassNames.test.ts`
+  - result: `2 passed`, `6 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable section remained visually aligned after the `ParamDndList` render-model collapse
+- Measurement note:
+  - no new trace numbers are recorded for this checkpoint alone
+  - reason:
+    - this change narrows the reorder/filter render boundary rather than the idle callable shell
+    - the next useful trace should measure filter/reorder update work after the surrounding render-path cluster is in place
+- Interpretation:
+  - this is the second accepted Phase 3 checkpoint because it deepens another shallow callable render seam without changing user-visible behavior
+  - the next performance read should now move off the idle shell baseline and onto the active filter/reorder interaction path

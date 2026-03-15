@@ -717,3 +717,41 @@ Append-only log for the callable DOM-first performance refactor.
     - the relevant follow-up measurement should target filter/update work, not just idle callable layout
 - Next action:
   - Continue Phase 3 by collapsing the remaining duplicate derived-work seam between `ParamDndList` and `GetParamSwitch`, then pair that cluster with a targeted trace rerun.
+
+### 2026-03-16 36
+
+- Item: Phase 3 checkpoint 2 collapsed `ParamDndList` into a single render-model selector boundary.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Params/getParamDndListRenderModel.ts` so:
+    - duplicate-index derivation
+    - param-filter-active detection
+    - DnD tree availability
+    are now exposed together as one render-model boundary.
+  - Updated `frontend/src/components/Params/ParamDndList.tsx` to consume that single derived selector instead of keeping separate project-state subscriptions for:
+    - duplicate index
+    - param filter status
+    - tree building
+  - Added focused Vitest coverage in `frontend/src/components/Params/getParamDndListRenderModel.test.ts` for:
+    - filter-active tree suppression while keeping the duplicate index
+    - callable tree construction when reordering is allowed
+  - Re-ran focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/getParamDndListRenderModel.test.ts`
+  - Result: `1 passed`, `2 passed`
+  - Re-ran the focused callable helper/unit set:
+    - `pnpm -C frontend exec vitest run src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/paramRowClassNames.test.ts`
+  - Result: `2 passed`, `6 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the `ParamDndList` render-model collapse.
+- Interpretation:
+  - This removes another shallow render-path seam without changing the callable shell.
+  - `ParamDndList` now owns one deeper project-state boundary for its render model instead of scattering the same concept across multiple selectors.
+  - The next meaningful measurement should cover filter/reorder update work now that both `GetParamSwitch` and `ParamDndList` have been narrowed.
+- Next action:
+  - Continue Phase 3 with the next callable render-path seam, then pair the cluster with a targeted trace rerun on filter/reorder behavior rather than the idle open-control baseline.
