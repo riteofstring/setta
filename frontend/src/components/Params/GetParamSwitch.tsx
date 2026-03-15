@@ -8,6 +8,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -16,6 +17,8 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   onResizeStart,
   isTopLevel = false,
+  isNestedChildInTree = false,
+  dndParentId,
   listKey,
   hasSectionStyleTheme,
 }: {
@@ -24,9 +27,12 @@ export function GetParamSwitch({
   requiredParamIdsToPaths: Record<string, Array<string>>;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
+  isNestedChildInTree?: boolean;
+  dndParentId?: string;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 }) {
+  const renderParamIds = useParamDndChildrenForParent(dndParentId ?? "", paramIds);
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -59,6 +65,7 @@ export function GetParamSwitch({
   const filteredIds = useMemo(() => {
     const state = useProjectState.getState();
     let matches = paramIds;
+    const candidateParamIds = renderParamIds;
 
     if (paramsImpl.paramFilter) {
       const requiredParamIdsWithNames = Object.keys(
@@ -87,17 +94,17 @@ export function GetParamSwitch({
       }
     }
 
-    return paramIds.filter(
+    return candidateParamIds.filter(
       (paramId) => filteredRequired.has(paramId) || isTempParam(paramId),
     );
   }, [
     codeObjImpls,
     codeObjVariants,
     codeObjs,
-    paramIds,
     paramsImpl,
     projectSectionVariantMap,
     requiredParamIdsToPaths,
+    renderParamIds,
     sectionId,
     sectionImpls,
     sections,
@@ -113,6 +120,7 @@ export function GetParamSwitch({
       requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
+      isNestedChildInTree={isNestedChildInTree}
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
     />
