@@ -7,14 +7,12 @@ from setta.types.artifact import DrawAreaLayer
 from setta.types.core import Core, Variant
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseParentSectionImplArgsWithCallable,
-    CoreArgs,
 )
 from tests.helpers.impl_creation_fns import create_section_impl
 from tests.helpers.settings_state import (
     SettingsState,
     get_user_default_section_from_settings,
 )
-from setta.types.generated.unions import BaseSectionImplArgsUnion
 from tests.helpers.user_defaults import UserDefaultTaskBoardSectionImpl
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -49,13 +47,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("setta.types.helpers_lvl2")
 
+CoreOverrides = dict[str, object]
+SectionImplOverrides = dict[str, object]
+
 
 def _insert_into_array(arr: list[ID], index: int, new_items: list[ID]) -> list[ID]:
     return [*arr[:index], *new_items, *arr[index:]]
 
 
-def _compute_initial_default_variant(variant: Variant) -> CoreArgs:
-    return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
+def _compute_initial_default_variant(variant: Variant) -> CoreOverrides:
+    return {"variants": [variant.id], "defaultVariant": variant.id}
 
 
 def _get_first_heading_or_text(markdown: str):
@@ -104,7 +105,7 @@ def create_default_task_board_columns() -> list[TaskBoardColumn]:
 
 
 def _task_board_columns_explicitly_overridden(
-    impl_overrides: BaseSectionImplArgsUnion | None,
+    impl_overrides: SectionImplOverrides | None,
 ) -> bool:
     if impl_overrides is None:
         return False
@@ -176,8 +177,8 @@ def create_section(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
     impl_type: SectionType,
-    impl_overrides: BaseSectionImplArgsUnion | None = None,
-    core_overrides: CoreArgs | None = None,
+    impl_overrides: SectionImplOverrides | None = None,
+    core_overrides: CoreOverrides | None = None,
     control_code_obj_type=None,
 ):
     section_defaults = get_user_default_section_from_settings(settings, impl_type)
@@ -204,7 +205,7 @@ def create_section(
         impl.columns = create_default_task_board_columns()
     impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
-    default_core_args: CoreArgs = {
+    default_core_args: CoreOverrides = {
         "name": get_default_section_core_name(impl_type),
         **_compute_initial_default_variant(variant),
     }
@@ -243,8 +244,8 @@ def create_top_level_section(
     p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     position: Position,
-    impl_overrides: BaseSectionImplArgsUnion | None = None,
-    core_overrides: CoreArgs | None = None,
+    impl_overrides: SectionImplOverrides | None = None,
+    core_overrides: CoreOverrides | None = None,
     control_code_obj_type=None,
 ):
     section_id = create_section(

@@ -6,16 +6,17 @@ from pydantic import BaseModel
 
 from setta.types.core import Core, Variant
 from setta.types.section_impls import (
-    BaseSectionImpl, BaseSectionWithParamsImpl, BaseCanvasSectionImpl, BaseParentSectionImpl, BaseCodeSectionImpl, BaseDictSectionImpl, CallableSectionImpl, DictSectionImpl, ListRootSectionImpl, GroupSectionImpl, StateMachineStartSectionImpl, StateMachineGateSectionImpl, StateMachineEndSectionImpl, ImageSectionImpl, ChartSectionImpl, DrawSectionImpl, TextBlockSectionImpl, PromptSectionImpl, MetaControlSectionImpl, SocialSectionImpl, GlobalVariablesSectionImpl, CodeSectionImpl, GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl, TerminalSectionImpl, IFrameSectionImpl, ChatSectionImpl, BrowserSectionImpl, PluginSectionImpl, TaskBoardSectionImpl, SpreadsheetSectionImpl
+    CallableSectionImpl, DictSectionImpl, ListRootSectionImpl, GroupSectionImpl, StateMachineStartSectionImpl, StateMachineGateSectionImpl, StateMachineEndSectionImpl, ImageSectionImpl, ChartSectionImpl, DrawSectionImpl, TextBlockSectionImpl, PromptSectionImpl, MetaControlSectionImpl, SocialSectionImpl, GlobalVariablesSectionImpl, CodeSectionImpl, GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl, TerminalSectionImpl, IFrameSectionImpl, ChatSectionImpl, BrowserSectionImpl, PluginSectionImpl, TaskBoardSectionImpl, SpreadsheetSectionImpl
 )
 from setta.types.code_obj_impls import (
-    BaseCodeObjImpl, BaseParamCodeObjImpl, BaseChildlessCodeObjImpl, BaseParentCodeObjImpl, CodeCallableCodeObjImpl, CodeParamCodeObjImpl, TextParamCodeObjImpl, DateParamCodeObjImpl, TimeParamCodeObjImpl, ButtonParamCodeObjImpl, SliderParamCodeObjImpl, RotaryParamCodeObjImpl, SwitchParamCodeObjImpl, ColorPickerParamCodeObjImpl, DropdownParamCodeObjImpl, PasswordParamCodeObjImpl, TextAreaParamCodeObjImpl, DropzoneParamCodeObjImpl, NestedParamCodeObjImpl
+    CodeCallableCodeObjImpl, CodeParamCodeObjImpl, TextParamCodeObjImpl, DateParamCodeObjImpl, TimeParamCodeObjImpl, ButtonParamCodeObjImpl, SliderParamCodeObjImpl, RotaryParamCodeObjImpl, SwitchParamCodeObjImpl, ColorPickerParamCodeObjImpl, DropdownParamCodeObjImpl, PasswordParamCodeObjImpl, TextAreaParamCodeObjImpl, DropzoneParamCodeObjImpl, NestedParamCodeObjImpl
 )
 from setta.types.generated.unions import (
-    BaseCanvasSectionImplUnion, BaseDictSectionImplUnion, BaseParentCodeObjImplUnion, BaseCodeSectionImplUnion, BaseSectionWithParamsImplUnion, BaseParentSectionImplUnion, BaseChildlessCodeObjImplUnion, BaseParamCodeObjImplUnion, BaseCodeObjImplUnion, BaseSectionImplUnion
+    BaseCodeObjImplUnion,
+    BaseSectionImplUnion,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
-    BaseSectionImplArgsWithCallable, BaseSectionWithParamsImplArgsWithCallable, BaseCanvasSectionImplArgsWithCallable, BaseParentSectionImplArgsWithCallable, BaseCodeSectionImplArgsWithCallable, BaseDictSectionImplArgsWithCallable, CallableSectionImplArgsWithCallable, DictSectionImplArgsWithCallable, ListRootSectionImplArgsWithCallable, GroupSectionImplArgsWithCallable, StateMachineStartSectionImplArgsWithCallable, StateMachineGateSectionImplArgsWithCallable, StateMachineEndSectionImplArgsWithCallable, ImageSectionImplArgsWithCallable, ChartSectionImplArgsWithCallable, DrawSectionImplArgsWithCallable, TextBlockSectionImplArgsWithCallable, PromptSectionImplArgsWithCallable, MetaControlSectionImplArgsWithCallable, SocialSectionImplArgsWithCallable, GlobalVariablesSectionImplArgsWithCallable, CodeSectionImplArgsWithCallable, GenPythonCodeSectionImplArgsWithCallable, GenPythonMetadataSectionImplArgsWithCallable, TerminalSectionImplArgsWithCallable, IFrameSectionImplArgsWithCallable, ChatSectionImplArgsWithCallable, BrowserSectionImplArgsWithCallable, PluginSectionImplArgsWithCallable, TaskBoardSectionImplArgsWithCallable, SpreadsheetSectionImplArgsWithCallable, BaseCodeObjImplArgsWithCallable, BaseParamCodeObjImplArgsWithCallable, BaseChildlessCodeObjImplArgsWithCallable, BaseParentCodeObjImplArgsWithCallable, CodeCallableCodeObjImplArgsWithCallable, CodeParamCodeObjImplArgsWithCallable, TextParamCodeObjImplArgsWithCallable, DateParamCodeObjImplArgsWithCallable, TimeParamCodeObjImplArgsWithCallable, ButtonParamCodeObjImplArgsWithCallable, SliderParamCodeObjImplArgsWithCallable, RotaryParamCodeObjImplArgsWithCallable, SwitchParamCodeObjImplArgsWithCallable, ColorPickerParamCodeObjImplArgsWithCallable, DropdownParamCodeObjImplArgsWithCallable, PasswordParamCodeObjImplArgsWithCallable, TextAreaParamCodeObjImplArgsWithCallable, DropzoneParamCodeObjImplArgsWithCallable, NestedParamCodeObjImplArgsWithCallable
+    CallableSectionImplArgsWithCallable, DictSectionImplArgsWithCallable, ListRootSectionImplArgsWithCallable, GroupSectionImplArgsWithCallable, StateMachineStartSectionImplArgsWithCallable, StateMachineGateSectionImplArgsWithCallable, StateMachineEndSectionImplArgsWithCallable, ImageSectionImplArgsWithCallable, ChartSectionImplArgsWithCallable, DrawSectionImplArgsWithCallable, TextBlockSectionImplArgsWithCallable, PromptSectionImplArgsWithCallable, MetaControlSectionImplArgsWithCallable, SocialSectionImplArgsWithCallable, GlobalVariablesSectionImplArgsWithCallable, CodeSectionImplArgsWithCallable, GenPythonCodeSectionImplArgsWithCallable, GenPythonMetadataSectionImplArgsWithCallable, TerminalSectionImplArgsWithCallable, IFrameSectionImplArgsWithCallable, ChatSectionImplArgsWithCallable, BrowserSectionImplArgsWithCallable, PluginSectionImplArgsWithCallable, TaskBoardSectionImplArgsWithCallable, SpreadsheetSectionImplArgsWithCallable, CodeCallableCodeObjImplArgsWithCallable, CodeParamCodeObjImplArgsWithCallable, TextParamCodeObjImplArgsWithCallable, DateParamCodeObjImplArgsWithCallable, TimeParamCodeObjImplArgsWithCallable, ButtonParamCodeObjImplArgsWithCallable, SliderParamCodeObjImplArgsWithCallable, RotaryParamCodeObjImplArgsWithCallable, SwitchParamCodeObjImplArgsWithCallable, ColorPickerParamCodeObjImplArgsWithCallable, DropdownParamCodeObjImplArgsWithCallable, PasswordParamCodeObjImplArgsWithCallable, TextAreaParamCodeObjImplArgsWithCallable, DropzoneParamCodeObjImplArgsWithCallable, NestedParamCodeObjImplArgsWithCallable
 )
 
 
@@ -312,146 +313,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: NestedParamCodeObjImplArgsWithCallable
 ) -> NestedParamCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCanvasSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseCanvasSectionImplArgsWithCallable
-) -> BaseCanvasSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCanvasSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCanvasSectionImplArgsWithCallable
-) -> BaseCanvasSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseDictSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseDictSectionImplArgsWithCallable
-) -> BaseDictSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseDictSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseDictSectionImplArgsWithCallable
-) -> BaseDictSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParentCodeObjImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseParentCodeObjImplArgsWithCallable
-) -> BaseParentCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParentCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParentCodeObjImplArgsWithCallable
-) -> BaseParentCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeSectionImplArgsWithCallable
-) -> BaseCodeSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeSectionImplArgsWithCallable
-) -> BaseCodeSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseSectionWithParamsImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseSectionWithParamsImplArgsWithCallable
-) -> BaseSectionWithParamsImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseSectionWithParamsImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseSectionWithParamsImplArgsWithCallable
-) -> BaseSectionWithParamsImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParentSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseParentSectionImplArgsWithCallable
-) -> BaseParentSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParentSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParentSectionImplArgsWithCallable
-) -> BaseParentSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseChildlessCodeObjImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseChildlessCodeObjImplArgsWithCallable
-) -> BaseChildlessCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseChildlessCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseChildlessCodeObjImplArgsWithCallable
-) -> BaseChildlessCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParamCodeObjImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseParamCodeObjImplArgsWithCallable
-) -> BaseParamCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParamCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParamCodeObjImplArgsWithCallable
-) -> BaseParamCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeObjImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeObjImplArgsWithCallable
-) -> BaseCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeObjImplArgsWithCallable
-) -> BaseCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseSectionImplArgsWithCallable
-) -> BaseSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseSectionImplArgsWithCallable
-) -> BaseSectionImpl: ...
 def set_effective_impl_value( # type: ignore
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,

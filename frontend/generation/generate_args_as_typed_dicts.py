@@ -1,8 +1,6 @@
 from pathlib import Path
 
 import setta.types.code_obj_impls
-import setta.types.core
-import setta.types.project_config
 import setta.types.section_impls
 from setta.utils.format_code import ruff_format
 
@@ -144,17 +142,13 @@ from setta.types.code_obj_impls import (
     DateSelectionMode,
     DateCalendarWeekStart,
 )
-from setta.types.agentic_edges import AgenticEdge
-from setta.types.edges import Edge, EdgePort
-from setta.types.state_machine_edges import StateMachineEdge
+from setta.types.edges import EdgePort
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
     ToolChatMessage,
     UserChatMessage,
 )
-from setta.types.project_config import ProjectCodegenPluginTarget, ProjectCodegenPythonTarget, TopLevelSectionLayout, Viewport, ViewModeConfig, WatchCodeFolder, WatchCodeRegistryEntry, WindowSpaceConfig
-from setta.types.generated.shared_modifier import SharedModifier
 
 """
 
@@ -163,32 +157,7 @@ def generate_impl_args_as_typed_dicts(
     output_file, classes: dict[str, ImplClassInfoForGeneration]
 ):
     code = get_imports_str()
-    code += create_model_args_as_typed_dict(
-        model_class=setta.types.core.Core,
-        typed_dict_name="CoreArgs",
-        required_args=[],
-        include_callable_with_type=False,
-        is_base_class=True,
-    )
-    code += create_model_args_as_typed_dict(
-        model_class=setta.types.project_config.ProjectConfig,
-        typed_dict_name="ProjectConfigArgs",
-        required_args=[],
-        include_callable_with_type=False,
-        is_base_class=True,
-    )
     for c in classes.values():
-        if not c.is_for_code_obj:
-            code += create_impl_model_args_as_typed_dict(
-                c,
-                [
-                    setta.types.section_impls.BaseSectionImpl,
-                    setta.types.code_obj_impls.BaseCodeObjImpl,
-                ],
-                c.args_name,
-                c.parent_args_class_names,
-            )
-
         code += create_impl_model_args_as_typed_dict(
             c,
             [

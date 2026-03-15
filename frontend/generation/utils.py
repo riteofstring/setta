@@ -426,26 +426,3 @@ def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args}):
 """
 
     return code
-
-
-def get_impl_unions(name_filters: list[str], exclusion_filters: list[str]):
-    import setta.types.generated.unions
-
-    unions = []
-
-    for name in dir(setta.types.generated.unions):
-        if name.startswith("_"):
-            continue
-
-        if not all(n in name for n in name_filters):
-            continue
-        if any(n in name for n in exclusion_filters):
-            continue
-
-        attr = getattr(setta.types.generated.unions, name)
-
-        origin = get_origin(attr)
-        if origin in (Union, types.UnionType):
-            unions.append((name, attr))
-
-    return unions

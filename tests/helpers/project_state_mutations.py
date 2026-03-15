@@ -36,11 +36,6 @@ from tests.helpers.settings_state import (
     SettingsState,
     get_user_default_code_obj_from_settings,
 )
-from setta.types.generated.unions import (
-    BaseChildlessCodeObjImplUnion,
-    BaseCodeObjImplUnion,
-    BaseParamCodeObjImplUnion,
-)
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
     get_curr_effective_code_obj_impl,
@@ -77,7 +72,7 @@ def add_code_obj(
     p: "ProjectStateSingleConfig",
     section_ids: list[ID],
     code_obj: Core,
-    code_obj_impl: BaseCodeObjImplUnion,
+    code_obj_impl: BaseCodeObjImpl,
 ):
     code_obj_variant = Variant(
         impl=code_obj_impl.id,
@@ -105,7 +100,7 @@ def add_code_obj(
     return code_obj_variant
 
 
-def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
+def convert_code_obj_value(impl: BaseChildlessCodeObjImpl, value: str):
     match impl.type:
         case (
             CodeObjType.CodeParam
@@ -202,7 +197,7 @@ def add_children_of_callable(
     section_id: ID,
     callable_id: ID,
     new_params: list[Core],
-    new_param_impl_map: dict[ID, BaseParamCodeObjImplUnion],
+    new_param_impl_map: dict[ID, BaseParamCodeObjImpl],
 ):
     callable_code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
         p, section_id, callable_id, CodeCallableCodeObjImpl
@@ -279,8 +274,8 @@ def set_project_config_name(
 
 
 def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
-    if isinstance(old_impl, BaseChildlessCodeObjImplUnion) and isinstance(
-        new_impl, BaseChildlessCodeObjImplUnion
+    if isinstance(old_impl, BaseChildlessCodeObjImpl) and isinstance(
+        new_impl, BaseChildlessCodeObjImpl
     ):
         old_effective_impl = get_effective_impl(old_impl, core, variant)
         old_value = old_effective_impl.value

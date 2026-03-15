@@ -16,10 +16,17 @@ def construct_unions(
     discriminator,
     module_to_import_in_gen_file,
     class_transformer,
+    include_with_discriminator=True,
+    include_type_adapter=False,
+    include_type_set=False,
+    root_only=False,
 ):
     class_to_children = get_class_to_children_mapping(
         module, base_class, exclude_empty=True, required_discriminator=discriminator
     )
+    if root_only:
+        class_to_children = {base_class: class_to_children[base_class]}
+
     import_names: list[str] = []
     for child_classes in class_to_children.values():
         for child_class in child_classes:
@@ -38,8 +45,10 @@ def construct_unions(
     for base_class, child_classes in class_to_children.items():
         union_name = f"{class_transformer(base_class.__name__)}Union"
         code += f"{union_name} = {' | '.join(class_transformer(c.__name__) for c in child_classes)}\n\n"
-        code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
-        code += f"{class_transformer(base_class.__name__)}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
+        if include_with_discriminator:
+            code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
+        if include_type_adapter:
+            code += f"{class_transformer(base_class.__name__)}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
 
         defaults = []
         for c in child_classes:
@@ -50,9 +59,10 @@ def construct_unions(
             assert d.name == d.value
             defaults.append(f'"{d.name}"')
         defaults = ", ".join(defaults)
-        code += (
-            f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
-        )
+        if include_type_set:
+            code += (
+                f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
+            )
 
     return imports, code
 
@@ -69,6 +79,7 @@ def generate_unions(output_file):
         "type",
         setta.types.section_impls,
         lambda x: x,
+        root_only=True,
     )
     code_obj_imports, code_obj_code = construct_unions(
         setta.types.code_obj_impls,
@@ -76,13 +87,7 @@ def generate_unions(output_file):
         "type",
         setta.types.code_obj_impls,
         lambda x: x,
-    )
-    arg_imports, arg_code = construct_unions(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-        "type",
-        setta.types.generated.impl_args_as_typed_dicts,
-        lambda x: f"{x}Args",
+        root_only=True,
     )
 
     artifact_imports, artifact_code = construct_unions(
@@ -91,6 +96,8 @@ def generate_unions(output_file):
         "type",
         setta.types.artifact,
         lambda x: x,
+        include_type_adapter=True,
+        root_only=True,
     )
 
     code = """from typing import Annotated
@@ -98,11 +105,11 @@ def generate_unions(output_file):
 from pydantic import Field, TypeAdapter
 
 """
-    for import_block in [section_imports, code_obj_imports, arg_imports, artifact_imports]:
+    for import_block in [section_imports, code_obj_imports, artifact_imports]:
         if import_block:
             code += f"{import_block}\n"
 
-    code += "\n".join([section_code, code_obj_code, arg_code, artifact_code])
+    code += "\n".join([section_code, code_obj_code, artifact_code])
 
     code = ruff_format(code)
     output_file.write_text(code)

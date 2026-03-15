@@ -1,7 +1,6 @@
 from pathlib import Path
-from typing import get_args
 
-from .utils import get_impl_classes, get_impl_unions, resolve_generation_path
+from .utils import get_impl_classes, resolve_generation_path
 
 
 def generate_set_effective_impl_value_overload(impl_name: str, args_name: str) -> str:
@@ -16,76 +15,21 @@ def set_effective_impl_value(
 ) -> {impl_name}: ..."""
 
 
-def get_union_types(union_obj):
-    """Extract the set of types from a Union object."""
-    return set(get_args(union_obj))
-
-
-def sort_unions_by_specificity(union_data, debug=False):
-    """Sort unions from most specific (smallest) to most general (largest).
-
-    union_data: list of tuples (name, union_object)
-    debug: if True, print the inferred hierarchy
-    """
-    # Build a mapping of union names to their types
-    union_types = {}
-    union_names = []
-    for name, union_obj in union_data:
-        union_types[name] = get_union_types(union_obj)
-        union_names.append(name)
-
-    # Simply sort by the number of types (size) - smaller unions are more specific
-    sorted_unions = sorted(union_names, key=lambda name: len(union_types[name]))
-
-    if debug:
-        # Show subset relationships for debugging
-        print("\nInferred Union Hierarchy:")
-        print("-" * 50)
-        for name in sorted_unions:
-            a_types = union_types[name]
-            supersets = []
-            for other in sorted_unions:
-                if name != other:
-                    b_types = union_types[other]
-                    if a_types < b_types:  # a is strict subset of b
-                        supersets.append(other)
-            if supersets:
-                print(f"{name} ({len(a_types)} types) ⊆ {', '.join(supersets)}")
-            else:
-                print(f"{name} ({len(a_types)} types) - no supersets")
-        print("-" * 50)
-
-        print("\nSorted order (most specific to most general):")
-        for i, name in enumerate(sorted_unions):
-            print(f"{i + 1}. {name} ({len(union_types[name])} types)")
-        print()
-
-    return sorted_unions
-
-
 def generate_effective_impl_overloads():
     """Generate overloaded effective impl functions."""
     classes = get_impl_classes()
-
-    # Get unions with their actual objects
-    section_unions = get_impl_unions(["Section", "Impl"], ["Args"])
-    code_obj_unions = get_impl_unions(["CodeObj", "Impl"], ["Args"])
-    all_union_data = section_unions + code_obj_unions
-
-    # Sort unions by specificity
-    sorted_union_names = sort_unions_by_specificity(all_union_data)
 
     section_impl_imports = []
     code_obj_impl_imports = []
     args_imports = []
     for cls in classes.values():
+        if not cls.type_has_default:
+            continue
         if cls.is_for_section:
             section_impl_imports.append(cls.original_name)
         elif cls.is_for_code_obj:
             code_obj_impl_imports.append(cls.original_name)
         args_imports.append(cls.args_with_callable_name)
-    for u in sorted_union_names:
-        args_imports.append(u.replace("Union", "ArgsWithCallable"))
 
     section_impl_imports = list(dict.fromkeys(section_impl_imports))
     code_obj_impl_imports = list(dict.fromkeys(code_obj_impl_imports))
@@ -106,7 +50,8 @@ from setta.types.code_obj_impls import (
     {", ".join(code_obj_impl_imports)}
 )
 from setta.types.generated.unions import (
-    {", ".join(sorted_union_names)}
+    BaseCodeObjImplUnion,
+    BaseSectionImplUnion,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     {", ".join(args_imports)}
@@ -131,27 +76,13 @@ def get_effective_impl(
     set_overloads_list = []
 
     # First, specific class overloads
-    non_base_classes = {k: v for k, v in classes.items() if v.type_has_default}
-    for cls in non_base_classes.values():
+    for cls in classes.values():
+        if not cls.type_has_default:
+            continue
         set_overloads_list.append(
             generate_set_effective_impl_value_overload(
                 cls.original_name,
                 cls.args_with_callable_name,
-            )
-        )
-
-    # Then, union overloads (already sorted by specificity)
-    for u in sorted_union_names:
-        # add union
-        set_overloads_list.append(
-            generate_set_effective_impl_value_overload(
-                u, u.replace("Union", "ArgsWithCallable")
-            )
-        )
-        # add base class too
-        set_overloads_list.append(
-            generate_set_effective_impl_value_overload(
-                u.replace("Union", ""), u.replace("Union", "ArgsWithCallable")
             )
         )
 
