@@ -6814,3 +6814,44 @@ schedule settings` button still appears on the live task row.
     after `ProjectChat.tsx` delegated engine/configuration session ownership,
     hydration metadata selection, and project-scoped aux-state commands into
     sharp local owners.
+
+## 2026-03-16 07:20:39 PDT
+
+- Slice completed: extracted the ProjectChatCore composer-session owner
+- This was higher value than jumping straight to
+  `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` or
+  `frontend/src/components/App/appRegistry.tsx` because
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  was still the active first-hop Project AI coordinator at the start of the
+  turn and still mixed composer execution settings, slash-command refresh or
+  retry behavior, pending-prompt adoption, and submit/edit/redo wiring into
+  the same file contributors opened immediately after `ProjectChat.tsx`.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreComposerSession.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreComposerSession.test.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-core-composer-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreComposerSession.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts frontend/tests/e2e/chat/chat-branching.spec.ts --grep "project ai chat reloads unresolved native slash commands once authority becomes ready|project chat redo regenerates from the source user message"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreComposerSession.ts src/components/Panes/Overview/ProjectLevelAI/useProjectChatCoreComposerSession.test.ts ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-core-composer-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-core-composer-session-2026-03-16.md`
+    with the before/after Project AI chat surface measurements for the new
+    composer-session owner.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `ProjectChatCore.tsx` dropped from `1019` to `373` lines, the measured
+    Project AI chat surface stayed at `262px` by `696px`, the width-shell host
+    count stayed at `2`, the measured subtree dropped from `56` to `39` nodes,
+    and there was no horizontal overflow at `1440x900` or `960x900`.
+- Commit hash:
+  - `0d2027427df7b5c702c4e87cee5f46e4962769be`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`,
+    which is now the largest remaining first-hop page-shell surface in the
+    current tree after `ProjectChatCore.tsx` delegated its composer execution
+    and submit-command ownership into a sharp local owner.
