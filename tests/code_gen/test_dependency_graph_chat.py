@@ -2,8 +2,9 @@ from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.chat_messages import MessageTextContent, SystemChatMessage
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import FileReadDependencyValue, LiteralDependencyValue
-from tests.helpers.settings_state import SettingsState
+from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
+    create_top_level_section,
     set_chat_section_chat_id,
     set_chat_section_state,
 )
@@ -18,7 +19,6 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatSectionState, SectionType
 from setta.utils.constants import C
-from tests.helpers.project_state_sections import create_top_level_section
 
 
 class TestChatDependencyGraph:

@@ -26,7 +26,7 @@ this config change").
 Used by:
 
 - `/api/streamAppSpec` (`backend/setta/routers/app_spec_streaming.py`)
-- `setta__stream_app_definition` (`internal/mcpx/server.go` and `internal/projectstate/app_definition_stream.go`)
+- `setta__stream_app_definition` (`backend/setta/mcp/tools/app_tools.py`)
 
 This consumes **newline-delimited JSON (JSONL)** where each line is an operation
 using JSON Pointer paths (for example: `{"op":"set","path":"/elements/foo", ...}`).

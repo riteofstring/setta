@@ -42,6 +42,11 @@ type ParamNameInputProps = {
   bg: string;
   sectionId: string;
   paramInfoId: string;
+  labelShapeKey:
+    | "nameInputLeaf"
+    | "nameInputParent"
+    | "textLabelLeaf"
+    | "textLabelParent";
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
 };
@@ -81,6 +86,7 @@ export function ParamNameInput({
   bg,
   sectionId,
   paramInfoId,
+  labelShapeKey,
   hasChildren,
   onMouseDown,
 }: ParamNameInputProps) {
@@ -311,33 +317,37 @@ export function ParamNameInput({
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
   const isDisabled = !canEditStructure;
+  const borderClassName = `${hasChildren ? "mx-[2px]" : ""} border-box border-b border-setta-200/50 dark:border-setta-600/30 ${hasError ? "border-red-400" : "focus-within:!border-blue-400"}`;
+  const wrapperClassName = `${hasChildren ? "section-key-value px-[2px] self-center" : "section-key self-end"} param-row-label min-w-0 ${borderClassName}`;
 
   return (
-    <div className="contents">
-      <TextInputCodeMirror
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        value={inputValue}
-        defaultVal={"Add Key"}
-        onChange={onChange}
-        onBlur={onBlur}
-        onEscape={onEscape}
-        dummyDivId={dummyDivId}
-        singleLine={true}
-        wrapLines={true}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} ${bg} ${border} min-w-0 self-end placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} nodrag peer/nameinput ${!isDisabled ? "cursor-text select-text" : ""} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400 ${errorClassName}`}
-        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${errorClassName}`}
-        color="green"
-        language={configLanguage}
-        autocomplete={false}
-        isKeyName={true}
-        isDisabled={isDisabled}
-        onMouseDown={onMouseDown}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
-      />
-      <span
-        className={`${hasChildren ? "section-key-value grid-row-start-1 mx-[2px]" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${hasError ? "border-red-400" : ""}`}
-      />
+    <>
+      <div
+        className={wrapperClassName}
+        data-param-label-shape={labelShapeKey}
+      >
+        <TextInputCodeMirror
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={inputValue}
+          defaultVal={"Add Key"}
+          onChange={onChange}
+          onBlur={onBlur}
+          onEscape={onEscape}
+          dummyDivId={dummyDivId}
+          singleLine={true}
+          wrapLines={true}
+          dummyCodeClassName={`${NO_PAN_CLASS_NAME} ${bg} ${border} min-w-0 w-full placeholder:text-setta-300 dark:placeholder:text-setta-600 nodrag peer/nameinput ${!isDisabled ? "cursor-text select-text" : ""} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] ${errorClassName}`}
+          realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag cursor-text select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!px-0 [&_.cm-content]:!py-0 [&_.cm-content]:font-[inherit] [&_.cm-content]:text-xs [&_.cm-line]:!px-0 [&_.cm-scroller]:font-[inherit] min-w-0 w-full placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] peer/nameinput font-mono ${errorClassName}`}
+          color="green"
+          language={configLanguage}
+          autocomplete={false}
+          isKeyName={true}
+          isDisabled={isDisabled}
+          onMouseDown={onMouseDown}
+          tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        />
+      </div>
       {hasError &&
         createPortal(
           <div
@@ -355,7 +365,7 @@ export function ParamNameInput({
           document.getElementById(`${sectionId}-CustomResizable`) ??
             document.body,
         )}
-    </div>
+    </>
   );
 }
 
