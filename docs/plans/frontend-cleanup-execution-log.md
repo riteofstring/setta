@@ -3545,3 +3545,32 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared hotspot at 287 lines, by separating mutation-lease
     execution from plugin-handler timeout polling and fallback anchor
     lookup/highlighting.
+
+## 2026-03-15 08:58:00 PDT
+
+- Slice completed: split UI-setting reveal execution into orchestration,
+  plugin-handler, and fallback-anchor owners
+- Key files touched:
+  - `frontend/src/state/actions/uiSettingRevealExecution.ts`
+  - `frontend/src/state/actions/uiSettingRevealPluginHandler.ts`
+  - `frontend/src/state/actions/uiSettingRevealFallbackAnchor.ts`
+  - `frontend/src/state/actions/uiSettingRevealPluginHandler.test.ts`
+  - `frontend/src/state/actions/uiSettingRevealFallbackAnchor.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingRevealPluginHandler.test.ts src/state/actions/uiSettingRevealFallbackAnchor.test.ts src/state/actions/uiSettingRevealDom.test.ts src/state/actions/uiSettingReveal.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/uiSettingRevealExecution.ts src/state/actions/uiSettingRevealPluginHandler.ts src/state/actions/uiSettingRevealFallbackAnchor.ts src/state/actions/uiSettingRevealPluginHandler.test.ts src/state/actions/uiSettingRevealFallbackAnchor.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `93e1d7ce3557ed9f1c1641a24250de8280378cc1`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/keyActivations.ts`, now the largest
+    authored/shared hotspot at 286 lines, by separating pressed-key
+    bookkeeping or stale-key cleanup from listener attachment and shortcut-info
+    normalization.
