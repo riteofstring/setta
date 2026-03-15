@@ -117,16 +117,7 @@ function _ParamContainer({
         tabIndex={-1}
         role={undefined}
       >
-        {!isKwarg ? (
-          <div
-            className="section-key overflow-hidden"
-            style={{ width: columnWidth }}
-          >
-            {children}
-          </div>
-        ) : (
-          children
-        )}
+        {children}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
@@ -158,16 +149,7 @@ function _ParamContainer({
       tabIndex={-1}
       role={undefined}
     >
-      {!isKwarg ? (
-        <div
-          className="section-key overflow-hidden"
-          style={{ width: columnWidth }}
-        >
-          {children}
-        </div>
-      ) : (
-        <>{children}</>
-      )}
+      {children}
       <ParamInput
         sectionId={sectionId}
         paramInfoId={paramInfoId}
