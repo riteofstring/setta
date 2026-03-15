@@ -189,6 +189,106 @@ func TestAppIDEModeManagesLauncherArtifactsOverHTTP(t *testing.T) {
 	}
 }
 
+func TestAppIDEModeRepairsLauncherTargetOverHTTP(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	missingTarget := filepath.Join(t.TempDir(), "missing-setta")
+	metadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
+		TargetCommand:          []string{missingTarget},
+		Channel:                "manual",
+		InstallSource:          launcher.LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "repair-token",
+		SettaVersion:           "0.0.1",
+		SettaHome:              cfg.Paths.SettaHome,
+		OpenMode:               launcher.LauncherOpenModeBrowser,
+		WorkspaceBehavior:      launcher.LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build repair metadata: %v", err)
+	}
+	if _, err := launcher.WriteLauncherInstallMetadata(cfg.Paths.SettaHome, metadata); err != nil {
+		t.Fatalf("write repair metadata: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	repairRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteRepairLauncher,
+		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new repair launcher request: %v", err)
+	}
+	repairRequest.Header.Set("Content-Type", "application/json")
+	repairRequest.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+
+	repairResponse, err := http.DefaultClient.Do(repairRequest)
+	if err != nil {
+		t.Fatalf("post repair launcher: %v", err)
+	}
+	defer repairResponse.Body.Close()
+	if repairResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(repairResponse.Body)
+		t.Fatalf("expected repair launcher 200, got %d with body %q", repairResponse.StatusCode, string(body))
+	}
+
+	var repairPayload struct {
+		Ok           bool     `json:"ok"`
+		Installed    *bool    `json:"installed"`
+		TargetCommand []string `json:"targetCommand"`
+		TargetValid  *bool    `json:"targetValid"`
+		TargetError  *string  `json:"targetError"`
+	}
+	if err := json.NewDecoder(repairResponse.Body).Decode(&repairPayload); err != nil {
+		t.Fatalf("decode repair launcher response: %v", err)
+	}
+	if !repairPayload.Ok || repairPayload.Installed == nil || !*repairPayload.Installed {
+		t.Fatalf("unexpected repair launcher payload %#v", repairPayload)
+	}
+	if repairPayload.TargetValid == nil || !*repairPayload.TargetValid {
+		t.Fatalf("expected repaired target to be valid, got %#v", repairPayload.TargetValid)
+	}
+	if repairPayload.TargetError != nil {
+		t.Fatalf("expected repaired target error to clear, got %#v", repairPayload.TargetError)
+	}
+	currentExecutable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve current executable path: %v", err)
+	}
+	resolvedCurrentExecutable, err := filepath.EvalSymlinks(currentExecutable)
+	if err != nil {
+		t.Fatalf("resolve symlinked current executable path: %v", err)
+	}
+	if len(repairPayload.TargetCommand) != 1 || repairPayload.TargetCommand[0] != resolvedCurrentExecutable {
+		t.Fatalf("expected repaired target command %q, got %#v", resolvedCurrentExecutable, repairPayload.TargetCommand)
+	}
+}
+
 func prepareAppLauncherManagementTestHome(t *testing.T) string {
 	t.Helper()
 

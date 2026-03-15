@@ -356,6 +356,67 @@ func TestRegisterLauncherManagementRoutesSetupInstallsManagedArtifacts(t *testin
 	}
 }
 
+func TestRegisterLauncherManagementRoutesRepairRebindsMissingTarget(t *testing.T) {
+	t.Parallel()
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	manager, currentExecutable := newLauncherManagementServiceWithExecutable(t)
+	missingTarget := filepath.Join(t.TempDir(), "missing-setta")
+
+	metadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
+		TargetCommand:          []string{missingTarget},
+		Channel:                "manual",
+		InstallSource:          launcher.LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "repair-token",
+		SettaVersion:           "0.0.1",
+		SettaHome:              defaultSettaHome,
+		OpenMode:               launcher.LauncherOpenModeBrowser,
+		WorkspaceBehavior:      launcher.LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build repair metadata: %v", err)
+	}
+	if _, err := launcher.WriteLauncherInstallMetadata(defaultSettaHome, metadata); err != nil {
+		t.Fatalf("write repair metadata: %v", err)
+	}
+
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, manager)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRepairLauncher,
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected repair launcher 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode repair launcher payload: %v", err)
+	}
+	if !payload.Ok || payload.Installed == nil || !*payload.Installed {
+		t.Fatalf("unexpected repair launcher payload %#v", payload)
+	}
+	if payload.TargetValid == nil || !*payload.TargetValid {
+		t.Fatalf("expected repaired target to be valid, got %#v", payload.TargetValid)
+	}
+	if payload.TargetError != nil {
+		t.Fatalf("expected repaired target error to clear, got %#v", payload.TargetError)
+	}
+	resolvedCurrentExecutable, err := filepath.EvalSymlinks(currentExecutable)
+	if err != nil {
+		t.Fatalf("resolve current executable path: %v", err)
+	}
+	if !reflect.DeepEqual(payload.TargetCommand, []string{resolvedCurrentExecutable}) {
+		t.Fatalf("expected repaired target command %q, got %#v", resolvedCurrentExecutable, payload.TargetCommand)
+	}
+}
+
 func TestRegisterLauncherManagementRoutesUpdateReportsInstallerManagedCapability(t *testing.T) {
 	t.Parallel()
 
