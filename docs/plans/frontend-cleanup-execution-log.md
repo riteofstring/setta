@@ -4462,3 +4462,36 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sections/sectionSizes.ts` so
     section layout sizing reducers and size-persistence scheduling stop
     sharing one action surface.
+
+## 2026-03-15 12:06:06 PDT
+
+- Slice completed: split section size geometry, local state writes, and persistence
+- Key files touched:
+  - `frontend/src/state/actions/sections/sectionSizeGeometry.ts`
+  - `frontend/src/state/actions/sections/sectionSizeState.ts`
+  - `frontend/src/state/actions/sections/sectionSizePersistence.ts`
+  - `frontend/src/state/actions/sections/sectionSizes.ts`
+  - `frontend/src/state/actions/sections/sectionSizePersistence.test.ts`
+  - `frontend/src/state/actions/sections/sectionSizes.test.tsx`
+  - `frontend/src/components/Utils/Resizable/customResizableSizing.ts`
+  - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts`
+  - `frontend/src/components/Section/Header/MenuButton/ToggleGroupOverflowMode.tsx`
+  - `frontend/src/state/hooks/sectionAspectRatioSizing.ts`
+  - `frontend/src/state/hooks/sectionSizes.integration.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/sectionSizePersistence.test.ts src/state/actions/sections/sectionSizes.test.tsx src/components/Utils/Resizable/CustomResizable.test.ts src/state/hooks/sectionSizes.integration.test.tsx src/state/hooks/sectionAspectRatioSizing.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sections/sectionSizes.ts src/state/actions/sections/sectionSizeGeometry.ts src/state/actions/sections/sectionSizeState.ts src/state/actions/sections/sectionSizePersistence.ts src/state/actions/sections/sectionSizePersistence.test.ts src/state/actions/sections/sectionSizes.test.tsx src/components/Utils/Resizable/customResizableSizing.ts src/components/Utils/Resizable/useCustomResizableBehavior.ts src/components/Utils/Resizable/utils.ts src/components/Utils/Resizable/customResizableChrome.ts src/components/Utils/Resizable/CustomResizable.test.ts src/state/hooks/sectionAspectRatioSizing.ts src/state/hooks/sectionSizes.integration.test.tsx src/components/Section/Header/MenuButton/ToggleGroupOverflowMode.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action/shared-utility
+    ownership split and did not change frontend rendering behavior.
+- Commit hash:
+  - `59a2d383a74b7ea3386b9ed2815c41c13c374651`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/websocketIncomingUISettingReveal.ts`
+    so ACK routing, store writes, and activation follow-up handling stop
+    sharing one websocket event surface.
