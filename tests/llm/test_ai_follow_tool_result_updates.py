@@ -14,9 +14,7 @@ from setta.mcp.tool_metadata import (
     AIFollowToolResultMetadata,
     SettaToolAnnotations,
     SettaToolType,
-    get_ai_follow_tool_result,
 )
-from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
@@ -40,22 +38,44 @@ from tests.utils.manager_fixture import real_project_manager
 def _build_tool_annotations_by_name(
     server_id: str,
 ) -> dict[str, SettaToolAnnotations]:
-    tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
-    for tool_fn in SETTA_INIT_MCP_TOOLS:
-        tool_annotations_by_name[
-            build_namespaced_tool_name(server_id, tool_fn.__name__)
-        ] = SettaToolAnnotations(
-            settaToolType=SettaToolType.init,
-            aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
-        )
-    for tool_fn in SETTA_MCP_TOOLS:
-        tool_annotations_by_name[
-            build_namespaced_tool_name(server_id, tool_fn.__name__)
-        ] = SettaToolAnnotations(
+    return {
+        build_namespaced_tool_name(
+            server_id,
+            "create_top_level_section",
+        ): SettaToolAnnotations(
             settaToolType=SettaToolType.discoverable,
-            aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
-        )
-    return tool_annotations_by_name
+            aiFollowToolResult=AIFollowToolResultMetadata(
+                pathsByIdType={"section": ["sectionId"]},
+            ),
+        ),
+        build_namespaced_tool_name(
+            server_id,
+            "get_latest_project_state_summary",
+        ): SettaToolAnnotations(
+            settaToolType=SettaToolType.init,
+        ),
+        build_namespaced_tool_name(
+            server_id,
+            "update_param_impl_config",
+        ): SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            aiFollowToolResult=AIFollowToolResultMetadata(
+                pathsByIdType={
+                    "section": ["payload.sectionId"],
+                    "codeObj": ["codeObjId"],
+                },
+            ),
+        ),
+        build_namespaced_tool_name(
+            server_id,
+            "resolve_root_section",
+        ): SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            aiFollowToolResult=AIFollowToolResultMetadata(
+                pathsByIdType={"section": ["$"]},
+            ),
+        ),
+    }
 
 
 def _build_ids_by_type(
@@ -273,15 +293,14 @@ class TestAIFollowToolResultUpdates:
                 websocket_manager.sockets.pop(websocket_id, None)
                 await websocket.close()
 
-    async def test_ai_follow_tool_result_update_for_registered_tools(self) -> None:
+    async def test_ai_follow_tool_result_update_for_explicit_tool_annotations(
+        self,
+    ) -> None:
         async with real_project_manager() as fixture:
-            mcp_client = MultiMCPClient({})
-
             tool_annotations_by_name = _build_tool_annotations_by_name(
                 SETTA_MCP_SERVER_ID
             )
             assert tool_annotations_by_name
-            mcp_client.tool_annotations_by_name = tool_annotations_by_name
 
             id_types: set[str] = set()
             for annotations in tool_annotations_by_name.values():

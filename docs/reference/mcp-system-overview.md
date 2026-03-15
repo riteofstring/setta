@@ -14,7 +14,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
 - `defaultToolDefinitions()` in `internal/mcpx/server.go` is the source of truth for the built-in Go MCP tool catalog.
 - `internal/tools/registry.go` validates tool names and metadata, rejects duplicates, and keeps the registered catalog sorted for listing and search.
 - `internal/mcpx/tool_catalog.go` builds the same Go-owned tool payloads for CLI/tool-introspection paths, so the live server and offline tool catalog stay aligned.
-- The retained Python `backend/setta/mcp/tool_setup.py` and `backend/setta/mcp/tools/project_state_registry.py` only remain for residual Python `project_state` cleanup tail. They are not the active MCP runtime definition path.
+- No Python-side decorator registry remains in the active tool-definition path. MCP tool catalog/metadata ownership is fully Go-side under `internal/mcpx` and `internal/tools`; the remaining Python `backend/setta/mcp/*` files are client/annotation helpers for retained Python surfaces rather than server-side tool registration.
 
 ## Tool search tags and categories
 - Every tool can carry `SearchTags` and `SearchCategory` in `internal/tools.Metadata`.
@@ -143,7 +143,7 @@ Tool enforcement details:
 - External clients can optionally call `search_mcp_tools` to get shortlists of relevant tools. The server-side search results use un-namespaced tool names, so external clients should call tools by those names.
 
 ## When to touch what
-- Adding or modifying tools → update `internal/mcpx/server.go` or the focused helper files under `internal/mcpx/*_tools.go`, plus `internal/tools/*` when metadata/search behavior changes. The retained Python `project_state_registry.py` decorator is only for the residual Python cleanup tail.
+- Adding or modifying tools → update `internal/mcpx/server.go` or the focused helper files under `internal/mcpx/*_tools.go`, plus `internal/tools/*` when metadata/search behavior changes.
 - Changing how MCP calls are streamed to the UI for managed chats → edit `internal/managedllm`, `internal/managedchat/live_runtime.go`, `internal/httpapi/llm_routes.go`, and the websocket reducers in `frontend/src/state/actions/ai.ts`.
 - Adapting the chat UI → adjust the components in `frontend/src/components/Panes/Overview/ProjectLevelAI/`.
 - Integrating a new external MCP consumer → either script against `python -m setta.mcp.client` or write a native SSE client that emulates what `MultiMCPClient` already does (initialize, cache tools, call tools, reconnect on failure).
