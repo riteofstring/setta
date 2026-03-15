@@ -264,6 +264,9 @@ Last audited: `2026-03-17`
   create-intent validation/store-error rows, launch success/fail-closed
   payload rows, and non-deployment mounting on the live workspace-switcher and
   launch-page caller surfaces
+- plus the targeted project-shell rename follow-up slice:
+  persisted rename/no-op/websocket rows and invalid-name detail transport on
+  the live project-name caller surface
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -280,9 +283,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `513`
+- Rows audited in this pass: `515`
 - Status counts:
-  - `Proved`: `480`
+  - `Proved`: `482`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `0`
   - `Retained Python boundary`: `8`
@@ -561,6 +564,9 @@ Last audited: `2026-03-17`
   follow-up slice: create-intent validation/store-error rows, launch
   success/fail-closed payloads, and non-deployment mounting on the live
   workspace-switcher and launch-page caller surfaces.
+- This pass also extends the matrix into the targeted project-shell rename
+  follow-up slice: persisted rename/no-op/websocket rows and invalid-name
+  detail transport on the live project-name caller surface.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -893,6 +899,8 @@ Last audited: `2026-03-17`
 | `project_shell.save_as.with_refs_resets_live_windowing_and_clears_chat_ids` | `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_with_refs_seeds_windowing_and_clears_chat_ids` | `internal/projectstate/project_lifecycle.go`; `internal/projectshell/service.go` | `TestDocumentSaveAsNewProjectConfigWithRefsClearsSavedChatIDsAndResetsLiveWindowing`; `TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing` | `TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag` covers route-visible saved chat-id clearing | `Proved` | With-refs save-as still resets live windowing and clears persisted chat bindings. |
 | `project_shell.save_as.without_refs_copies_live_windowing_and_clears_chat_ids` | `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_without_refs_copies_windowing_layout_and_remaps_sections` | `internal/projectstate/project_lifecycle.go`; `internal/projectshell/service.go` | `TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsChatIDs`; `TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout` | `TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag` | `Proved` | Without refs, Go preserves live window layout while still clearing saved/live chat ids. |
 | `project_shell.save_as.invalid_name.transport_422_detail` | `backend/setta/routers/projects.py::route_save_as_new_project_config` catches `InvalidProjectName` with `detail=str(exc)` | `internal/httpapi/project_shell_routes.go` | `TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail` | frontend shell callers use generated endpoints | `Proved` | The invalid-name route contract matches the source. |
+| `project_shell.rename.persists_name_change_suppresses_noop_hook_and_broadcasts_project_and_metadata_updates` | `docs/plans/go-backend-rewrite/archive/phase-19-project-shell-route-cluster-plan.md` records `POST /setProjectConfigName` as a caller-backed project-shell route with persisted rename plus realtime metadata/project updates; `tests/utils/test_name_validation.py` keeps rename as a current product-level project-name mutation helper | `internal/projectshell/service.go::SetProjectConfigName`; `internal/httpapi/project_shell_routes.go::setProjectConfigNameHandler`; `internal/app/app.go` rename hook wiring | `TestServiceSetProjectConfigNameRenamesProjectPersistsAndRunsHook`; `TestServiceSetProjectConfigNameNoopSkipsHook`; `TestRegisterProjectShellRoutesRenamesProjectConfig`; `TestAppSetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates` | `frontend/src/components/Panes/Overview/ProjectOverview/ProjectName.tsx` still renames the live project through `route_set_project_config_name`, then navigates to the renamed project path while websocket consumers rehydrate from the authoritative project-state and all-project-metadata broadcasts | `Proved` | `setProjectConfigName` still persists project-name changes, still suppresses rename hooks on no-op writes, and still fans out both the renamed single-project snapshot and refreshed all-project-metadata payload that the live app shell uses to keep project title and navigation state coherent after a rename. |
+| `project_shell.rename.invalid_name_returns_422_detail_for_live_project_name_caller` | `docs/plans/go-backend-rewrite/archive/phase-19-project-shell-route-cluster-plan.md` calls out `tests/routers/test_name_validation_routes.py` as the Python reference for rename invalid-name behavior on the direct project-shell route; `tests/utils/test_name_validation.py` covers the reserved/invalid project-name cases exercised through the same helper surface | `internal/httpapi/project_shell_routes.go::{setProjectConfigNameHandler,writeProjectNameMutationError}` | `TestRegisterProjectShellRoutesRejectsInvalidProjectRenameWithDetail` | `frontend/src/components/Panes/Overview/ProjectOverview/ProjectName.tsx` still extracts `detail` from a failed `route_set_project_config_name` response and renders that exact server-side validation message instead of relying on a frontend-only heuristic | `Proved` | Invalid project renames still return the source-style `422 {"detail": ...}` body, and the live project-name editor still surfaces that authoritative backend detail directly when reserved or otherwise invalid names are submitted. |
 | `project_shell.set_default_project.persists_and_noop` | `backend/setta/project_state/base_project_manager.py::set_as_default_project`; `backend/setta/routers/projects.py::router_set_as_default_project` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook`; `TestServiceSetDefaultProjectConfigNoopSkipsMetadataHook`; `TestRegisterProjectShellRoutesSetsDefaultProjectConfig` | app metadata broadcasts are wired in `internal/app/app.go` | `Proved` | Go preserves both persisted default-project updates and no-op hook suppression. |
 | `project_shell.delete_projects.reconciles_default_and_runs_hooks` | `backend/setta/project_state/base_project_manager.py::delete_project_configs`; related source tests in `tests/project_state/test_codegen_targets.py` and `tests/project_state/test_watch_code.py` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault`; `TestRegisterProjectShellRoutesDeletesProjectConfigs` | app wiring deletes project terminals in `internal/app/app.go` | `Proved` | The Go shell delete path reconciles the default project and runs the post-delete hooks. |
 | `project_shell.delete_projects.transport_true_response` | `backend/setta/routers/projects.py::route_delete_project_configs` returns literal `True` | `internal/httpapi/project_shell_routes.go::deleteProjectConfigsHandler` | `TestRegisterProjectShellRoutesDeletesProjectConfigs` | frontend delete-project modal only checks HTTP success in `frontend/src/components/Modals/DeleteProjectWarningModal/DeleteProjectWarningModal.tsx` | `Proved` | Go now returns the source `true` JSON response. |
