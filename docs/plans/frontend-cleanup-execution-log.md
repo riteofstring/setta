@@ -4155,3 +4155,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/projectChatThreadStorageUndo.ts` so
     undo-stack bookkeeping and target-entry lookup stop living beside
     thread/group inverse-apply restoration writes.
+
+## 2026-03-15 11:10:08 PDT
+
+- Slice completed: split project chat thread undo stack from restore writes
+- Key files touched:
+  - `frontend/src/state/actions/projectChatThreadStorageUndo.ts`
+  - `frontend/src/state/actions/projectChatThreadStorageUndoStack.ts`
+  - `frontend/src/state/actions/projectChatThreadStorageUndoApply.ts`
+  - `frontend/src/state/actions/projectChatThreadStorageUndoStack.test.ts`
+  - `frontend/src/state/actions/projectChatThreadGroupAssignments.ts`
+  - `frontend/src/state/actions/projectChatThreadMutations.ts`
+  - `frontend/src/state/actions/projectChatThreads.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatThreads.test.ts src/state/actions/projectChatThreadStorageUndoStack.test.ts src/state/actions/undo.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatThreadStorageUndo.ts src/state/actions/projectChatThreadStorageUndoStack.ts src/state/actions/projectChatThreadStorageUndoApply.ts src/state/actions/projectChatThreadStorageUndoStack.test.ts src/state/actions/projectChatThreadGroupAssignments.ts src/state/actions/projectChatThreadMutations.ts src/state/actions/projectChatThreads.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `9483d6928e613b7dbe99d9c4f0f04a3fb6f46fc6`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowingNormalization.ts`
+    so canonical windowing normalization stops living beside storage reads,
+    pane projection, and layout merge helpers.
