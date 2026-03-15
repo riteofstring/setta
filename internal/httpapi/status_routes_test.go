@@ -62,6 +62,47 @@ func TestRegisterStatusRoutesReturnsBackendInitStatus(t *testing.T) {
 	}
 }
 
+func TestRegisterStatusRoutesReturnsBackendInitStatusWithoutWorktreeName(t *testing.T) {
+	t.Parallel()
+
+	readyAt := time.Date(2026, time.March, 9, 12, 35, 0, 0, time.UTC)
+	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
+		ModePolicy:               modes.NewPolicy(config.ModeIDE),
+		AuthRefreshWindowSeconds: 120,
+		ReadyAt:                  readyAt,
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetBackendInitStatus, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected backend init status 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload backendInitStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode backend init status payload: %v", err)
+	}
+	if !payload.IsReady {
+		t.Fatalf("expected backend to report ready, got %#v", payload)
+	}
+	if payload.Error != nil {
+		t.Fatalf("expected backend init error to remain nil, got %#v", payload.Error)
+	}
+	if len(payload.Events) != 1 || payload.Events[0].Message != "Go backend ready" {
+		t.Fatalf("expected a single ready event, got %#v", payload.Events)
+	}
+	if !payload.Events[0].Timestamp.Equal(readyAt) {
+		t.Fatalf("expected ready timestamp %s, got %s", readyAt, payload.Events[0].Timestamp)
+	}
+	if payload.WorktreeName != nil {
+		t.Fatalf("expected absent worktree name to serialize as null, got %#v", payload.WorktreeName)
+	}
+	if payload.AuthCookieRefreshWindowSeconds != 120 {
+		t.Fatalf("expected auth refresh window 120, got %d", payload.AuthCookieRefreshWindowSeconds)
+	}
+}
+
 func TestRegisterStatusRoutesReturnsAuthRefreshStatus(t *testing.T) {
 	t.Parallel()
 
