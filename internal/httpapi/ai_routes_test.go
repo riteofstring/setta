@@ -20,6 +20,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/llmconfig"
@@ -1043,7 +1044,7 @@ func TestRegisterAIRoutesRunsFileModeTranscriptionSession(t *testing.T) {
 	appendRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteAppendTranscriptionAudio,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000}`),
 	)
 	appendRequest.Header.Set("Content-Type", "application/json")
 	appendResponse := httptest.NewRecorder()
@@ -3065,6 +3066,329 @@ func TestRegisterAIRoutesCancelTranscriptionSessionReturnsOKWhenSessionMissing(t
 	}
 }
 
+func TestRegisterAIRoutesAllowDeploymentTranscriptionWhenLLMAccessEnabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-file",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": true},
+	})
+	handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+		t,
+		config.ModeShare,
+		deploymentRuntime,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeFile {
+		t.Fatalf("expected file-mode start payload, got %#v", started)
+	}
+}
+
+func TestRegisterAIRoutesBlockDeploymentTranscriptionWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": false},
+	})
+	handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+		t,
+		config.ModeShare,
+		deploymentRuntime,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "llm_access_forbidden" {
+		t.Fatalf("expected llm_access_forbidden, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesAllowLauncherTranscriptionWhenLLMAccessImplicitlyAllowed(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-file",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeLauncher,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeFile {
+		t.Fatalf("expected file-mode start payload, got %#v", started)
+	}
+}
+
+func TestRegisterAIRoutesTranscriptionRoutesRejectInvalidJSONWithValidationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	testCases := []struct {
+		name string
+		path string
+	}{
+		{name: "start", path: RouteStartTranscriptionSession},
+		{name: "append", path: RouteAppendTranscriptionAudio},
+		{name: "stop", path: RouteStopTranscriptionSession},
+		{name: "cancel", path: RouteCancelTranscriptionSession},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(`{"`))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation envelope: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message == "" {
+				t.Fatalf("expected validation message, got %#v", payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
+	}
+}
+
+func TestRegisterAIRoutesTranscriptionRoutesRejectMissingRequiredFieldsWithValidationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	testCases := []struct {
+		name            string
+		path            string
+		body            string
+		expectedMessage string
+	}{
+		{
+			name:            "start missing transcriptionProfileId",
+			path:            RouteStartTranscriptionSession,
+			body:            `{}`,
+			expectedMessage: "transcriptionProfileId: Field required",
+		},
+		{
+			name:            "append missing sessionId",
+			path:            RouteAppendTranscriptionAudio,
+			body:            `{"audioPcm16Base64":"AA==","sampleRateHz":24000}`,
+			expectedMessage: "sessionId: Field required",
+		},
+		{
+			name:            "append missing audioPcm16Base64",
+			path:            RouteAppendTranscriptionAudio,
+			body:            `{"sessionId":"session-1","sampleRateHz":24000}`,
+			expectedMessage: "audioPcm16Base64: Field required",
+		},
+		{
+			name:            "append missing sampleRateHz",
+			path:            RouteAppendTranscriptionAudio,
+			body:            `{"sessionId":"session-1","audioPcm16Base64":"AA=="}`,
+			expectedMessage: "sampleRateHz: Field required",
+		},
+		{
+			name:            "stop missing sessionId",
+			path:            RouteStopTranscriptionSession,
+			body:            `{}`,
+			expectedMessage: "sessionId: Field required",
+		},
+		{
+			name:            "cancel missing sessionId",
+			path:            RouteCancelTranscriptionSession,
+			body:            `{}`,
+			expectedMessage: "sessionId: Field required",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation envelope: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message != tc.expectedMessage {
+				t.Fatalf("expected validation message %q, got %#v", tc.expectedMessage, payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
+	}
+}
+
 func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *testing.T) {
 	t.Parallel()
 
@@ -4549,6 +4873,34 @@ func newAIRouteTestHandlerWithTranscription(
 	sessionProvider aiRouteStaticSessionProvider,
 	follows ...*externalagents.FollowService,
 ) http.Handler {
+	return newAIRouteTestHandlerWithTranscriptionDeployment(
+		t,
+		mode,
+		nil,
+		managed,
+		send,
+		service,
+		runtime,
+		profiles,
+		sessions,
+		sessionProvider,
+		follows...,
+	)
+}
+
+func newAIRouteTestHandlerWithTranscriptionDeployment(
+	t *testing.T,
+	mode config.Mode,
+	deploymentRuntime *deployments.Runtime,
+	managed *managedchat.Service,
+	send *externalagents.SendService,
+	service *externalagents.Service,
+	runtime *externalagents.Runtime,
+	profiles *transcriptionprofiles.Service,
+	sessions *transcriptionsessions.Service,
+	sessionProvider aiRouteStaticSessionProvider,
+	follows ...*externalagents.FollowService,
+) http.Handler {
 	t.Helper()
 
 	var follow *externalagents.FollowService
@@ -4564,6 +4916,11 @@ func newAIRouteTestHandlerWithTranscription(
 			t.Fatalf("new fallback follow service: %v", err)
 		}
 	}
+	if deploymentRuntime == nil && (mode == config.ModeShare || mode == config.ModeApp) {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Policy: map[string]any{"allowLLM": true},
+		})
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -4572,6 +4929,7 @@ func newAIRouteTestHandlerWithTranscription(
 		Register: func(r chi.Router) {
 			if err := RegisterAIRoutes(r, AIRouteDependencies{
 				ModePolicy:            modes.NewPolicy(mode),
+				Deployment:            deploymentRuntime,
 				ManagedChats:          managed,
 				ExternalAgentSend:     send,
 				ExternalAgentChats:    service,

@@ -1514,6 +1514,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
 				ModePolicy:            modePolicy,
+				Deployment:            deploymentRuntime,
 				ManagedChats:          managedChatService,
 				ExternalAgentSend:     externalAgentSend,
 				ExternalAgentChats:    externalAgentChats,
@@ -1563,6 +1564,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
 				ModePolicy: modePolicy,
 				Profiles:   transcriptionProfiles,
+				Deployment: deploymentRuntime,
 			}); err != nil {
 				panic(err)
 			}

@@ -10,6 +10,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
+	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
@@ -31,6 +32,7 @@ const RouteRespondExternalAgentQuestion = "/respondExternalAgentQuestion"
 
 type AIRouteDependencies struct {
 	ModePolicy            modes.Policy
+	Deployment            *deployments.Runtime
 	ManagedChats          *managedchat.Service
 	ExternalAgentSend     *externalagents.SendService
 	ExternalAgentChats    *externalagents.Service
@@ -137,14 +139,17 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 			return fmt.Errorf("session provider is required in ide mode")
 		}
 	}
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+		return fmt.Errorf("deployment runtime is required in deployment mode")
+	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMChat, getLLMChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopLLMChat, stopLLMChatHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStartTranscriptionSession, startTranscriptionSessionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAppendTranscriptionAudio, appendTranscriptionAudioHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopTranscriptionSession, stopTranscriptionSessionHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCancelTranscriptionSession, cancelTranscriptionSessionHandler(deps))
+	router.Post(RouteStartTranscriptionSession, startTranscriptionSessionHandler(deps))
+	router.Post(RouteAppendTranscriptionAudio, appendTranscriptionAudioHandler(deps))
+	router.Post(RouteStopTranscriptionSession, stopTranscriptionSessionHandler(deps))
+	router.Post(RouteCancelTranscriptionSession, cancelTranscriptionSessionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))

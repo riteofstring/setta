@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"setta/internal/modes"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
 )
@@ -54,6 +55,26 @@ type transcriptionRouteError struct {
 	message string
 }
 
+type startTranscriptionSessionPayload struct {
+	TranscriptionProfileID *string `json:"transcriptionProfileId"`
+	Language               *string `json:"language"`
+}
+
+type appendTranscriptionAudioPayload struct {
+	SessionID        *string `json:"sessionId"`
+	AudioPcm16Base64 *string `json:"audioPcm16Base64"`
+	SampleRateHz     *int    `json:"sampleRateHz"`
+	Channels         *int    `json:"channels"`
+}
+
+type stopTranscriptionSessionPayload struct {
+	SessionID *string `json:"sessionId"`
+}
+
+type cancelTranscriptionSessionPayload struct {
+	SessionID *string `json:"sessionId"`
+}
+
 func (e *transcriptionRouteError) Error() string {
 	if e == nil {
 		return ""
@@ -63,19 +84,21 @@ func (e *transcriptionRouteError) Error() string {
 
 func startTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[StartTranscriptionSessionRequest](r)
+		payload, err := decodeStrictJSONBody[startTranscriptionSessionPayload](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if deps.TranscriptionProfiles == nil || deps.TranscriptionSessions == nil || deps.Sessions == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if !ensureTranscriptionRoutesAllowed(w, r, deps) {
+			return
+		}
 
-		profileID := strings.TrimSpace(payload.TranscriptionProfileID)
-		if profileID == "" {
-			writeError(w, r, http.StatusBadRequest, "transcription_profile_id_required", "Transcription profile id is required.")
+		profileID, ok := requireTranscriptionStringField(w, payload.TranscriptionProfileID, "transcriptionProfileId")
+		if !ok {
 			return
 		}
 		scopeID, routeErr := currentTranscriptionScopeID(deps)
@@ -114,30 +137,44 @@ func startTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc
 
 func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[AppendTranscriptionAudioRequest](r)
+		payload, err := decodeStrictJSONBody[appendTranscriptionAudioPayload](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if deps.TranscriptionSessions == nil || deps.Sessions == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-
-		sessionID := strings.TrimSpace(payload.SessionID)
-		if sessionID == "" {
-			writeError(w, r, http.StatusBadRequest, "session_id_required", "Session id is required.")
+		if !ensureTranscriptionRoutesAllowed(w, r, deps) {
 			return
 		}
-		if payload.SampleRateHz <= 0 {
+
+		sessionID, ok := requireTranscriptionStringField(w, payload.SessionID, "sessionId")
+		if !ok {
+			return
+		}
+		audioPcm16Base64, ok := requireTranscriptionStringField(w, payload.AudioPcm16Base64, "audioPcm16Base64")
+		if !ok {
+			return
+		}
+		sampleRateHz, ok := requireTranscriptionIntField(w, payload.SampleRateHz, "sampleRateHz")
+		if !ok {
+			return
+		}
+		channels := 1
+		if payload.Channels != nil {
+			channels = *payload.Channels
+		}
+		if sampleRateHz <= 0 {
 			writeError(w, r, http.StatusBadRequest, "invalid_request", "sampleRateHz must be greater than 0.")
 			return
 		}
-		if payload.Channels <= 0 {
+		if channels <= 0 {
 			writeError(w, r, http.StatusBadRequest, "invalid_request", "channels must be greater than 0.")
 			return
 		}
-		audioPCM16, routeErr := decodePCM16Payload(payload.AudioPcm16Base64)
+		audioPCM16, routeErr := decodePCM16Payload(audioPcm16Base64)
 		if routeErr != nil {
 			writeError(w, r, routeErr.status, routeErr.code, routeErr.message)
 			return
@@ -152,8 +189,8 @@ func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc 
 			ScopeID:      scopeID,
 			SessionID:    sessionID,
 			AudioPCM16:   audioPCM16,
-			SampleRateHz: payload.SampleRateHz,
-			Channels:     payload.Channels,
+			SampleRateHz: sampleRateHz,
+			Channels:     channels,
 		})
 		if err != nil {
 			if writeTranscriptionServiceError(w, r, err) {
@@ -168,19 +205,21 @@ func appendTranscriptionAudioHandler(deps AIRouteDependencies) http.HandlerFunc 
 
 func stopTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[StopTranscriptionSessionRequest](r)
+		payload, err := decodeStrictJSONBody[stopTranscriptionSessionPayload](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if deps.TranscriptionSessions == nil || deps.Sessions == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if !ensureTranscriptionRoutesAllowed(w, r, deps) {
+			return
+		}
 
-		sessionID := strings.TrimSpace(payload.SessionID)
-		if sessionID == "" {
-			writeError(w, r, http.StatusBadRequest, "session_id_required", "Session id is required.")
+		sessionID, ok := requireTranscriptionStringField(w, payload.SessionID, "sessionId")
+		if !ok {
 			return
 		}
 		scopeID, scopeErr := currentTranscriptionScopeID(deps)
@@ -206,19 +245,21 @@ func stopTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc 
 
 func cancelTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[CancelTranscriptionSessionRequest](r)
+		payload, err := decodeStrictJSONBody[cancelTranscriptionSessionPayload](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 		if deps.TranscriptionSessions == nil || deps.Sessions == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if !ensureTranscriptionRoutesAllowed(w, r, deps) {
+			return
+		}
 
-		sessionID := strings.TrimSpace(payload.SessionID)
-		if sessionID == "" {
-			writeError(w, r, http.StatusBadRequest, "session_id_required", "Session id is required.")
+		sessionID, ok := requireTranscriptionStringField(w, payload.SessionID, "sessionId")
+		if !ok {
 			return
 		}
 		scopeID, scopeErr := currentTranscriptionScopeID(deps)
@@ -240,6 +281,51 @@ func cancelTranscriptionSessionHandler(deps AIRouteDependencies) http.HandlerFun
 		}
 		writeJSON(w, http.StatusOK, CancelTranscriptionSessionResponse{OK: true})
 	}
+}
+
+func ensureTranscriptionRoutesAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps AIRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		requestInfo = modes.RequestInfo{Policy: modes.NewPolicy(deps.ModePolicy.Mode())}
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
+func requireTranscriptionStringField(w http.ResponseWriter, value *string, field string) (string, bool) {
+	if value == nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, field+": Field required")
+		return "", false
+	}
+	return *value, true
+}
+
+func requireTranscriptionIntField(w http.ResponseWriter, value *int, field string) (int, bool) {
+	if value == nil {
+		writeValidationError(w, http.StatusUnprocessableEntity, field+": Field required")
+		return 0, false
+	}
+	return *value, true
 }
 
 func currentTranscriptionScopeID(deps AIRouteDependencies) (string, *transcriptionRouteError) {
