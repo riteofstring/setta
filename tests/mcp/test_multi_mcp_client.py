@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import anyio
+import httpx
 import pytest
 from mcp.types import Tool, ToolAnnotations
 
@@ -227,6 +228,7 @@ class TestRunStdioBridge:
     ) -> None:
         streams = _create_bridge_streams()
         sse_calls: list[tuple[str, dict[str, str]]] = []
+        http_calls: list[tuple[str, dict[str, str]]] = []
 
         @asynccontextmanager
         async def _stdio_server():
@@ -245,14 +247,28 @@ class TestRunStdioBridge:
         ) -> None:
             del label, source, destination
 
-        consumed_tokens: list[tuple[str, str]] = []
+        class _RecordingHTTPClient:
+            async def post(self, url: str, json: dict[str, str]) -> httpx.Response:
+                http_calls.append((url, json))
+                return httpx.Response(
+                    200,
+                    headers={
+                        "set-cookie": (
+                            f"{auth_cookie_name('sess-bridge')}=bootstrap-cookie; Path=/"
+                        )
+                    },
+                    request=httpx.Request("POST", url),
+                )
 
-        async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
-            consumed_tokens.append((backend_url, token))
-            return "setta_session=bootstrap-cookie"
+        @asynccontextmanager
+        async def _create_mcp_http_client():
+            yield _RecordingHTTPClient()
 
-        monkeypatch.setattr(client_mod, "load_current_session_secret", lambda: None)
-        monkeypatch.setattr(client_mod, "_consume_bootstrap_token", _consume_bootstrap_token)
+        def _unexpected_session_lookup() -> None:
+            raise AssertionError("bootstrap token flow should not read session auth")
+
+        monkeypatch.setattr(client_mod, "load_current_session_secret", _unexpected_session_lookup)
+        monkeypatch.setattr(client_mod, "create_mcp_http_client", _create_mcp_http_client)
         monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
         monkeypatch.setattr(client_mod, "sse_client", _sse_client)
         monkeypatch.setattr(client_mod, "_forward_stdio_to_backend", _ignore_stdio_to_backend)
@@ -266,11 +282,21 @@ class TestRunStdioBridge:
             )
         )
 
-        assert consumed_tokens == [("http://127.0.0.1:8000/mcp", "bridge-token")]
+        assert http_calls == [
+            (
+                "http://127.0.0.1:8000"
+                f"{client_mod.Route.BOOTSTRAP_CONSUME.value}",
+                {"token": "bridge-token"},
+            )
+        ]
         assert sse_calls == [
             (
                 "http://127.0.0.1:8000/mcp",
-                {"Cookie": "setta_session=bootstrap-cookie"},
+                {
+                    "Cookie": (
+                        f"{auth_cookie_name('sess-bridge')}=bootstrap-cookie"
+                    )
+                },
             )
         ]
 

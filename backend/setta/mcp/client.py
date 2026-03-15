@@ -71,25 +71,6 @@ class BridgeConfig:
     bootstrap_url: str | None = field(default=None, repr=False)
 
 
-async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
-    origin = origin_from_backend_url(backend_url)
-    consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
-    async with create_mcp_http_client() as client:
-        response = await client.post(consume_url, json={"token": token})
-        response.raise_for_status()
-    cookie_map = {cookie.name: cookie.value for cookie in response.cookies.jar}
-    cookie_names = list(cookie_map.keys())
-    if not cookie_names:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    cookie_name = select_auth_cookie_name(cookie_names)
-    if not cookie_name:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    cookie_value = cookie_map.get(cookie_name)
-    if not cookie_value:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    return f"{cookie_name}={cookie_value}"
-
-
 @dataclass
 class _ServerToolCache:
     init_tools: dict[str, ChatCompletionToolParam]
@@ -701,8 +682,22 @@ async def run_stdio_bridge(config: BridgeConfig) -> None:
         elif config.bootstrap_url:
             token = extract_token_from_bootstrap_url(config.bootstrap_url)
         if token:
-            cookie_header = await _consume_bootstrap_token(config.backend_url, token)
-            auth_headers = {"Cookie": cookie_header}
+            origin = origin_from_backend_url(config.backend_url)
+            consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+            async with create_mcp_http_client() as client:
+                response = await client.post(consume_url, json={"token": token})
+                response.raise_for_status()
+            cookie_map = {cookie.name: cookie.value for cookie in response.cookies.jar}
+            cookie_names = list(cookie_map.keys())
+            if not cookie_names:
+                raise ValueError("Bootstrap response did not include auth cookie.")
+            cookie_name = select_auth_cookie_name(cookie_names)
+            if not cookie_name:
+                raise ValueError("Bootstrap response did not include auth cookie.")
+            cookie_value = cookie_map.get(cookie_name)
+            if not cookie_value:
+                raise ValueError("Bootstrap response did not include auth cookie.")
+            auth_headers = {"Cookie": f"{cookie_name}={cookie_value}"}
         else:
             session_info = load_current_session_secret()
             if session_info is None:
