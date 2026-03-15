@@ -1,4 +1,4 @@
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { MenuItem } from "./DropdownMenuItem";
 
 export function AddArtifactByFilepath({ sectionId }) {
   async function onClick() {
