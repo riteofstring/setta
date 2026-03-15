@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -261,6 +262,40 @@ func TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksNonIDEModes(t *testing.T
 	}
 }
 
+func TestRegisterGitRoutesSetsIsCappedAndStopsPaginationAtHistoryCap(t *testing.T) {
+	repoRoot := initGitRouteHistoryCapRepo(t, gitreadMaxLogCount()+1)
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	logRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetGitLog,
+		strings.NewReader(`{"rev":"HEAD","allRefs":false,"offset":4990,"pageSize":50}`),
+	)
+	logRequest.Header.Set("Content-Type", "application/json")
+	logResponse := httptest.NewRecorder()
+	handler.ServeHTTP(logResponse, logRequest)
+	if logResponse.Code != http.StatusOK {
+		t.Fatalf("expected capped log 200, got %d with body %q", logResponse.Code, logResponse.Body.String())
+	}
+
+	var payload gitread.LogResponse
+	if err := json.Unmarshal(logResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode capped log payload: %v", err)
+	}
+	if len(payload.Commits) != 10 {
+		t.Fatalf("expected final capped page of 10 commits, got %#v", payload)
+	}
+	if payload.HasMore {
+		t.Fatalf("expected capped log to stop pagination, got %#v", payload)
+	}
+	if payload.NextOffset != nil {
+		t.Fatalf("expected no nextOffset once cap is reached, got %#v", payload.NextOffset)
+	}
+	if !payload.IsCapped {
+		t.Fatalf("expected isCapped=true, got %#v", payload)
+	}
+}
+
 func TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff(t *testing.T) {
 	t.Parallel()
 
@@ -411,6 +446,48 @@ func initGitRouteTestRepo(t *testing.T) string {
 	return repoRoot
 }
 
+func initGitRouteHistoryCapRepo(t *testing.T, totalCommits int) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("git not found: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	runGitRouteCommand(t, repoRoot, "init")
+	runGitRouteCommand(t, repoRoot, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	var stream strings.Builder
+	stream.WriteString("blob\nmark :1\ndata 5\nseed\n\n")
+	for index := 0; index < totalCommits; index++ {
+		commitMark := index + 2
+		message := "commit-" + strconv.Itoa(index)
+		timestamp := strconv.Itoa(1700000000 + index)
+		stream.WriteString("commit refs/heads/main\n")
+		stream.WriteString("mark :" + strconv.Itoa(commitMark) + "\n")
+		stream.WriteString("author A <a@example.com> " + timestamp + " +0000\n")
+		stream.WriteString("committer A <a@example.com> " + timestamp + " +0000\n")
+		stream.WriteString("data " + strconv.Itoa(len(message)) + "\n")
+		stream.WriteString(message + "\n")
+		if index > 0 {
+			stream.WriteString("from :" + strconv.Itoa(commitMark-1) + "\n")
+		}
+		if index == 0 {
+			stream.WriteString("M 100644 :1 tracked.txt\n")
+		}
+		stream.WriteString("\n")
+	}
+
+	command := exec.Command("git", "fast-import", "--quiet")
+	command.Dir = repoRoot
+	command.Stdin = strings.NewReader(stream.String())
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git fast-import: %v\n%s", err, string(output))
+	}
+	return repoRoot
+}
+
 func runGitRouteCommand(t *testing.T, cwd string, args ...string) string {
 	t.Helper()
 
@@ -421,6 +498,10 @@ func runGitRouteCommand(t *testing.T, cwd string, args ...string) string {
 		t.Fatalf("git %v: %v\n%s", args, err, string(output))
 	}
 	return string(output)
+}
+
+func gitreadMaxLogCount() int {
+	return 5000
 }
 
 func writeGitRouteFile(t *testing.T, path string, contents string) {

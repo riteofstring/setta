@@ -262,6 +262,36 @@ func TestServiceDiffUsesOldPathForStagedRename(t *testing.T) {
 	}
 }
 
+func TestServiceLogSetsIsCappedAndStopsPaginationAtHistoryCap(t *testing.T) {
+	repoRoot := initGitReadHistoryCapRepo(t, maxLogCount+1)
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	response, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  false,
+		Offset:   maxLogCount - 10,
+		PageSize: 50,
+	})
+	if err != nil {
+		t.Fatalf("log capped history: %v", err)
+	}
+	if len(response.Commits) != 10 {
+		t.Fatalf("expected final capped page of 10 commits, got %#v", response)
+	}
+	if response.HasMore {
+		t.Fatalf("expected capped history to stop pagination, got %#v", response)
+	}
+	if response.NextOffset != nil {
+		t.Fatalf("expected no nextOffset once cap is reached, got %#v", response.NextOffset)
+	}
+	if !response.IsCapped {
+		t.Fatalf("expected isCapped=true at history cap, got %#v", response)
+	}
+}
+
 func TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) {
 	t.Parallel()
 
@@ -507,6 +537,48 @@ func initGitReadTestRepo(t *testing.T) string {
 	writeFile(t, filepath.Join(repoRoot, "tracked.txt"), "one\n")
 	runGitReadCommand(t, repoRoot, "add", "tracked.txt")
 	runGitReadCommand(t, repoRoot, "commit", "-m", "add tracked")
+	return repoRoot
+}
+
+func initGitReadHistoryCapRepo(t *testing.T, totalCommits int) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("git not found: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	runGitReadCommand(t, repoRoot, "init")
+	runGitReadCommand(t, repoRoot, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	var stream strings.Builder
+	stream.WriteString("blob\nmark :1\ndata 5\nseed\n\n")
+	for index := 0; index < totalCommits; index++ {
+		commitMark := index + 2
+		message := "commit-" + strconv.Itoa(index)
+		timestamp := strconv.Itoa(1700000000 + index)
+		stream.WriteString("commit refs/heads/main\n")
+		stream.WriteString("mark :" + strconv.Itoa(commitMark) + "\n")
+		stream.WriteString("author A <a@example.com> " + timestamp + " +0000\n")
+		stream.WriteString("committer A <a@example.com> " + timestamp + " +0000\n")
+		stream.WriteString("data " + strconv.Itoa(len(message)) + "\n")
+		stream.WriteString(message + "\n")
+		if index > 0 {
+			stream.WriteString("from :" + strconv.Itoa(commitMark-1) + "\n")
+		}
+		if index == 0 {
+			stream.WriteString("M 100644 :1 tracked.txt\n")
+		}
+		stream.WriteString("\n")
+	}
+
+	command := exec.Command("git", "fast-import", "--quiet")
+	command.Dir = repoRoot
+	command.Stdin = strings.NewReader(stream.String())
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git fast-import: %v\n%s", err, string(output))
+	}
 	return repoRoot
 }
 
