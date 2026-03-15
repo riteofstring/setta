@@ -3994,3 +3994,37 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/websocketRealtime.ts` so literal and
     dependency-event sends stop living beside binary-upload fallback,
     oversize-warning throttling, and payload upload helpers.
+
+## 2026-03-15 10:40:09 PDT
+
+- Slice completed: split websocket realtime dispatch from binary upload
+  fallback
+- Key files touched:
+  - `frontend/src/state/actions/websocketRealtime.ts`
+  - `frontend/src/state/actions/websocketRealtimeDispatch.ts`
+  - `frontend/src/state/actions/websocketRealtimeBinary.ts`
+  - `frontend/src/state/actions/websocketRealtimeDispatch.test.ts`
+  - `frontend/src/state/actions/websocketRealtimeBinary.test.ts`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/plugins/runtime.test.ts`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
+  - `frontend/src/components/Section/Layouts/DrawArea/useRealtimeDrawEmitter.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/websocketRealtimeDispatch.test.ts src/state/actions/websocketRealtimeBinary.test.ts src/state/actions/websocketReceive.test.ts src/plugins/runtime.test.ts src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/websocketRealtime.ts src/state/actions/websocketRealtimeDispatch.ts src/state/actions/websocketRealtimeBinary.ts src/state/actions/websocketRealtimeDispatch.test.ts src/state/actions/websocketRealtimeBinary.test.ts src/state/actions/websocketReceive.ts src/state/actions/websocketReceive.test.ts src/plugins/runtime.ts src/plugins/runtime.test.ts src/components/App/appRegistry.tsx src/components/Params/ParamItems/ParamInput.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/ChatArea.test.tsx src/components/Section/Layouts/MetaControlArea.tsx src/components/Section/Layouts/DrawArea/useRealtimeDrawEmitter.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `a106a5f9f060b9190dbf6ba9dff6a2721e842a4a`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sections/createSectionCatalogStatic.ts`
+    so static section-family definitions stop living beside metacontrol/embed
+    config defaults and top-level group assembly.
