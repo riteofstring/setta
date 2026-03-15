@@ -1,6 +1,0 @@
-scenarios:
-  - name: latest_state_empty_callable_shown_param_ids
-    kind: latest_state_empty_callable_shown_param_ids
-    seed: fixture
-    fixture: parity-fixtures/empty-callable-project.json
-    description: Go latest-state corpus check for params-capable callable variants without a root param.

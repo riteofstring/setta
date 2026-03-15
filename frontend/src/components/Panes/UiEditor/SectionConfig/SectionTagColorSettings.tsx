@@ -206,18 +206,14 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="single-cell-container h-8 min-h-0 w-36 min-w-0">
-          <ColorPickerInput
-            colorChoices={sectionTagColorChoices}
-            value={
-              localTagColor ?? sectionTagColorChoices[0]?.color ?? "#3b82f6"
-            }
-            onChange={(v) => setTagColor(v)}
-            isDisabled={!canEditTagColor}
-            wrapperClassName="single-cell-container h-8 min-h-0 w-full min-w-0"
-            colorPickerChoicesClasses="flex w-full cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-8 min-h-0 min-w-0 items-center text-white disabled:cursor-not-allowed disabled:opacity-70"
-          />
-        </div>
+        <ColorPickerInput
+          colorChoices={sectionTagColorChoices}
+          value={localTagColor ?? sectionTagColorChoices[0]?.color ?? "#3b82f6"}
+          onChange={(v) => setTagColor(v)}
+          isDisabled={!canEditTagColor}
+          wrapperClassName="relative flex h-8 min-h-0 w-36 min-w-0 items-stretch"
+          colorPickerChoicesClasses="colorpicker relative flex h-8 min-h-0 w-full min-w-0 cursor-pointer items-center overflow-hidden rounded-lg text-white disabled:cursor-not-allowed disabled:opacity-70"
+        />
 
         <div className="min-w-0">
           {localTagColor ? (
