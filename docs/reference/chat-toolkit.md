@@ -3,7 +3,7 @@
 This toolkit gives listener authors composable helpers for chat history, message building, streaming deltas, tool calls, and Chat section state sync. The pieces are independent, so you can adopt only what you need.
 
 ## Key pieces
-- Core utilities live under `setta.llm.chat_toolkit` (history, message builders, stream assembler, tool calls, and section sync).
+- Core utilities live under `setta.llm.chat_toolkit` (history, message builders, stream assembler, tool calls, tool runner, and section sync).
 - Listener-friendly helpers live under `setta.api.chat_toolkit` (history client, stream emitter, tool runner client, section sync client, and session helper).
 
 ## Listener wiring

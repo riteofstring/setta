@@ -6,13 +6,9 @@ from pathlib import Path
 from typing import Any, Iterable, Union, get_args, get_origin
 
 from setta.utils.format_code import ruff_format
+from setta.utils.utils import get_absolute_path
 
-from .utils import (
-    ImplClassInfoForGeneration,
-    get_impl_classes,
-    python_type_to_str,
-    resolve_generation_path,
-)
+from .utils import ImplClassInfoForGeneration, get_impl_classes, python_type_to_str
 
 EXCLUDED_FIELDS = {"type"}
 UNION_TYPES: tuple[Any, ...] = tuple(
@@ -219,4 +215,4 @@ def main(output_folder: Path):
 
 
 if __name__ == "__main__":
-    main(resolve_generation_path(__file__, Path("../../backend/setta/types/generated")))
+    main(get_absolute_path(__file__, Path("../../backend/setta/types/generated")))
