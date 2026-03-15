@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -193,6 +194,163 @@ func TestRegisterAppGenSkillRoutesCreatesCustomSkill(t *testing.T) {
 	}
 	if content, err := os.ReadFile(expectedSkillDoc); err != nil || string(content) != "# route-created\n\nBody.\n" {
 		t.Fatalf("expected created skill doc, got content=%q err=%v", string(content), err)
+	}
+}
+
+func TestRegisterAppGenSkillRoutesCreateFallsBackToNextWritableRoot(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	state := newAppGenSkillRouteTestStateWithEnv(t, testAppGenSkillRouteEnvSetup{
+		agentsHome: filepath.Join(t.TempDir(), "agents-home"),
+	})
+	if err := os.MkdirAll(state.agentsHome, 0o755); err != nil {
+		t.Fatalf("mkdir agents home: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(state.agentsHome, "skills"), 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(state.homeDir, ".agents", "skills"), 0o755); err != nil {
+		t.Fatalf("mkdir user skills: %v", err)
+	}
+	handler := newAppGenSkillRouteTestHandler(t, config.ModeIDE, state.service)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpsertAppGenCustomSkill,
+		strings.NewReader(`{"skillId":null,"relativePath":"fallback-route","content":"# fallback-route\n\nBody.\n"}`),
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload appgenskills.UpsertCustomSkillResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode upsert payload: %v", err)
+	}
+	expectedSkillDoc := filepath.Join(state.homeDir, ".agents", "skills", "fallback-route", "SKILL.md")
+	if payload.SkillID != "user_agents_skills::fallback-route" || payload.SkillDocPath != expectedSkillDoc {
+		t.Fatalf("expected fallback create in user root, got %#v", payload)
+	}
+}
+
+func TestRegisterAppGenSkillRoutesUpsertMapsTargetErrors(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	state := newAppGenSkillRouteTestStateWithEnv(t, testAppGenSkillRouteEnvSetup{
+		agentsHome: filepath.Join(t.TempDir(), "agents-home"),
+	})
+	writeAppGenSkillDoc(t, filepath.Join(state.workspaceRoot, ".claude", "skills", "read-only", "SKILL.md"), "# read-only\n\nBody.\n")
+	writeAppGenSkillDoc(t, filepath.Join(state.workspaceRoot, ".agents", "skills", "node_modules", "hidden", "SKILL.md"), "# hidden\n\nBody.\n")
+	if err := os.MkdirAll(state.agentsHome, 0o755); err != nil {
+		t.Fatalf("mkdir agents home: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(state.agentsHome, "skills"), 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	handler := newAppGenSkillRouteTestHandler(t, config.ModeIDE, state.service)
+
+	for _, testCase := range []struct {
+		name          string
+		payload       string
+		expectedCode  int
+		expectedError string
+		expectDetail  string
+	}{
+		{
+			name:          "non-custom root",
+			payload:       `{"skillId":"workspace_claude_skills::read-only","relativePath":null,"content":"# read-only\n\nUpdated.\n"}`,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: "invalid_app_gen_custom_skill",
+			expectDetail:  "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills are editable.",
+		},
+		{
+			name:          "hidden skill id",
+			payload:       `{"skillId":"workspace_agents_skills::node_modules/hidden","relativePath":null,"content":"# hidden\n\nUpdated.\n"}`,
+			expectedCode:  http.StatusNotFound,
+			expectedError: "app_gen_skill_not_found",
+			expectDetail:  "Unknown or non-discoverable skillId: workspace_agents_skills::node_modules/hidden",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteUpsertAppGenCustomSkill, strings.NewReader(testCase.payload))
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != testCase.expectedCode {
+				t.Fatalf("expected %d, got %d with body %q", testCase.expectedCode, response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != testCase.expectedError {
+				t.Fatalf("expected error code %q, got %#v", testCase.expectedError, payload)
+			}
+			if !strings.Contains(payload.Error.Message, testCase.expectDetail) {
+				t.Fatalf("expected detail containing %q, got %#v", testCase.expectDetail, payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAppGenSkillRoutesCreateRejectsNoWritableRoots(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	state := newAppGenSkillRouteTestStateWithEnv(t, testAppGenSkillRouteEnvSetup{
+		agentsHome: filepath.Join(t.TempDir(), "agents-home"),
+	})
+	if err := os.MkdirAll(state.agentsHome, 0o755); err != nil {
+		t.Fatalf("mkdir agents home: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(state.agentsHome, "skills"), 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	if err := os.Chmod(state.homeDir, 0o555); err != nil {
+		t.Fatalf("chmod home dir: %v", err)
+	}
+	if err := os.Chmod(state.workspaceRoot, 0o555); err != nil {
+		t.Fatalf("chmod workspace root: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(state.homeDir, 0o755)
+		_ = os.Chmod(state.workspaceRoot, 0o755)
+	})
+	handler := newAppGenSkillRouteTestHandler(t, config.ModeIDE, state.service)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpsertAppGenCustomSkill,
+		strings.NewReader(`{"skillId":null,"relativePath":"blocked-route","content":"# blocked-route\n\nBody.\n"}`),
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_app_gen_custom_skill" {
+		t.Fatalf("expected invalid_app_gen_custom_skill, got %#v", payload)
+	}
+	if !strings.Contains(payload.Error.Message, "No writable custom skill root available.") {
+		t.Fatalf("expected no-writable-root detail, got %#v", payload)
 	}
 }
 

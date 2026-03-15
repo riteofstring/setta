@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
 
 type testEnv map[string]string
@@ -467,6 +469,277 @@ func TestServiceUpsertRejectsCreateCollisionsWithoutOverwrite(t *testing.T) {
 	}
 }
 
+func TestServiceUpsertCreatesSkillInNextWritableRoot(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	agentsHome := filepath.Join(root, "agents-home")
+	for _, path := range []string{workspaceRoot, homeDir, agentsHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	agentsHomeSkills := filepath.Join(agentsHome, "skills")
+	if err := os.MkdirAll(agentsHomeSkills, 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(homeDir, ".agents", "skills"), 0o755); err != nil {
+		t.Fatalf("mkdir user skills: %v", err)
+	}
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{
+		"AGENTS_HOME": agentsHome,
+	})
+
+	response, err := service.UpsertCustomSkill("", "fallback-root", "# fallback-root\n\nBody.\n")
+	if err != nil {
+		t.Fatalf("create custom skill: %v", err)
+	}
+	expectedSkillDoc := filepath.Join(homeDir, ".agents", "skills", "fallback-root", "SKILL.md")
+	if response.SkillID != "user_agents_skills::fallback-root" || response.SkillDocPath != expectedSkillDoc {
+		t.Fatalf("expected fallback create in user root, got %#v", response)
+	}
+	if content := readFile(t, expectedSkillDoc); content != "# fallback-root\n\nBody.\n" {
+		t.Fatalf("expected created skill content, got %q", content)
+	}
+}
+
+func TestServiceUpsertRejectsNonDiscoverableAndNonEditableTargets(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".claude", "skills", "read-only", "SKILL.md"), "# read-only\n\nBody.\n")
+	lockedSkillDoc := filepath.Join(workspaceRoot, ".agents", "skills", "locked", "SKILL.md")
+	writeSkillDoc(t, lockedSkillDoc, "# locked\n\nBody.\n")
+	lockedSkillDir := filepath.Dir(lockedSkillDoc)
+	if err := os.Chmod(lockedSkillDir, 0o555); err != nil {
+		t.Fatalf("chmod locked skill dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(lockedSkillDir, 0o755)
+	})
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "node_modules", "hidden", "SKILL.md"), "# hidden\n\nBody.\n")
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{})
+
+	for _, testCase := range []struct {
+		skillID  string
+		notFound bool
+		message  string
+	}{
+		{
+			skillID:  "workspace_claude_skills::read-only",
+			message:  "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills are editable.",
+			notFound: false,
+		},
+		{
+			skillID:  "workspace_agents_skills::locked",
+			message:  "Skill directory is not writable.",
+			notFound: false,
+		},
+		{
+			skillID:  "workspace_agents_skills::node_modules/hidden",
+			message:  "Unknown or non-discoverable skillId: workspace_agents_skills::node_modules/hidden",
+			notFound: true,
+		},
+	} {
+		_, err := service.UpsertCustomSkill(testCase.skillID, "", "# updated\n\nBody.\n")
+		if err == nil {
+			t.Fatalf("expected upsert to fail for %s", testCase.skillID)
+		}
+		if testCase.notFound {
+			var notFoundErr *NotFoundError
+			if !errors.As(err, &notFoundErr) || notFoundErr.Error() != testCase.message {
+				t.Fatalf("expected not-found error %q, got %v", testCase.message, err)
+			}
+			continue
+		}
+		var invalidErr *InvalidError
+		if !errors.As(err, &invalidErr) || invalidErr.Error() != testCase.message {
+			t.Fatalf("expected invalid error %q, got %v", testCase.message, err)
+		}
+	}
+}
+
+func TestServiceUpsertRejectsCreateWhenNoWritableRootsExist(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	agentsHome := filepath.Join(root, "agents-home")
+	for _, path := range []string{workspaceRoot, homeDir, agentsHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(agentsHome, "skills"), 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	if err := os.Chmod(homeDir, 0o555); err != nil {
+		t.Fatalf("chmod home dir: %v", err)
+	}
+	if err := os.Chmod(workspaceRoot, 0o555); err != nil {
+		t.Fatalf("chmod workspace root: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(homeDir, 0o755)
+		_ = os.Chmod(workspaceRoot, 0o755)
+	})
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{
+		"AGENTS_HOME": agentsHome,
+	})
+
+	_, err := service.UpsertCustomSkill("", "blocked", "# blocked\n\nBody.\n")
+	if err == nil {
+		t.Fatal("expected create to fail without writable roots")
+	}
+	var invalidErr *InvalidError
+	if !errors.As(err, &invalidErr) || !strings.Contains(invalidErr.Error(), "No writable custom skill root available.") {
+		t.Fatalf("expected no-writable-root error, got %v", err)
+	}
+}
+
+func TestWriteNewCustomSkillDocRejectsLateCollisionAndLeavesExistingContent(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	skillDocPath := filepath.Join(root, "late-collision", "SKILL.md")
+	skillDir := filepath.Dir(skillDocPath)
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	contentToPreserve := "# late-collision\n\nOriginal.\n"
+	mutationDone := waitForSkillTempFile(t, skillDir, func() error {
+		return os.WriteFile(skillDocPath, []byte(contentToPreserve), 0o644)
+	})
+
+	err := writeNewCustomSkillDoc(skillDocPath, "late-collision", repeatedString("A", 8<<20))
+	if mutationErr := <-mutationDone; mutationErr != nil {
+		t.Fatalf("prepare collision: %v", mutationErr)
+	}
+	if err == nil {
+		t.Fatal("expected late collision error")
+	}
+	var invalidErr *InvalidError
+	if !errors.As(err, &invalidErr) || invalidErr.Error() != "Custom skill already exists for relativePath 'late-collision'." {
+		t.Fatalf("expected late collision error, got %v", err)
+	}
+	if content := readFile(t, skillDocPath); content != contentToPreserve {
+		t.Fatalf("expected colliding content to be preserved, got %q", content)
+	}
+}
+
+func TestWriteNewCustomSkillDocLeavesNoSkillDocWhenTempWriteFails(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	skillDocPath := filepath.Join(root, "stuck-skill", "SKILL.md")
+	skillDir := filepath.Dir(skillDocPath)
+	if err := os.MkdirAll(skillDir, 0o555); err != nil {
+		t.Fatalf("mkdir locked skill dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(skillDir, 0o755)
+	})
+
+	err := writeNewCustomSkillDoc(skillDocPath, "stuck-skill", "# stuck-skill\n\nBody.\n")
+	if err == nil {
+		t.Fatal("expected temp write failure")
+	}
+	var invalidErr *InvalidError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("expected invalid error, got %T", err)
+	}
+	if _, statErr := os.Stat(skillDocPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected no skill doc after temp write failure, got %v", statErr)
+	}
+}
+
+func TestWriteExistingCustomSkillDocPreservesExistingContentWhenTempWriteFails(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission semantics are not stable on windows")
+	}
+
+	root := t.TempDir()
+	skillDocPath := filepath.Join(root, "editable", "SKILL.md")
+	writeSkillDoc(t, skillDocPath, "# editable\n\nOriginal.\n")
+	skillDir := filepath.Dir(skillDocPath)
+	if err := os.Chmod(skillDir, 0o555); err != nil {
+		t.Fatalf("chmod skill dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(skillDir, 0o755)
+	})
+
+	err := writeExistingCustomSkillDoc(skillDocPath, "workspace_agents_skills::editable", "# editable\n\nUpdated.\n")
+	if err == nil {
+		t.Fatal("expected temp write failure")
+	}
+	var invalidErr *InvalidError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("expected invalid error, got %T", err)
+	}
+	if content := readFile(t, skillDocPath); content != "# editable\n\nOriginal.\n" {
+		t.Fatalf("expected original content to be preserved, got %q", content)
+	}
+}
+
+func TestWriteExistingCustomSkillDocReturnsMissingWhenTargetDisappearsBeforeOpen(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	skillDocPath := filepath.Join(root, "editable", "SKILL.md")
+	writeSkillDoc(t, skillDocPath, "# editable\n\nOriginal.\n")
+	skillDir := filepath.Dir(skillDocPath)
+	mutationDone := waitForSkillTempFile(t, skillDir, func() error {
+		return os.Remove(skillDocPath)
+	})
+
+	err := writeExistingCustomSkillDoc(skillDocPath, "workspace_agents_skills::editable", repeatedString("A", 8<<20))
+	if mutationErr := <-mutationDone; mutationErr != nil {
+		t.Fatalf("remove disappearing target: %v", mutationErr)
+	}
+	if err == nil {
+		t.Fatal("expected missing target error")
+	}
+	var notFoundErr *NotFoundError
+	if !errors.As(err, &notFoundErr) || notFoundErr.Error() != "Missing SKILL.md for workspace_agents_skills::editable" {
+		t.Fatalf("expected missing-skill error, got %v", err)
+	}
+	if _, statErr := os.Stat(skillDocPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected missing skill doc after disappearance race, got %v", statErr)
+	}
+}
+
 func newTestService(t *testing.T, workspaceRoot string, homeDir string, env testEnv) *Service {
 	t.Helper()
 
@@ -522,4 +795,28 @@ func repeatedString(value string, count int) string {
 		result = append(result, value...)
 	}
 	return string(result)
+}
+
+func waitForSkillTempFile(t *testing.T, skillDir string, mutate func() error) <-chan error {
+	t.Helper()
+
+	done := make(chan error, 1)
+	go func() {
+		pattern := filepath.Join(skillDir, ".setta-skill-*.tmp")
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				done <- err
+				return
+			}
+			if len(matches) > 0 {
+				done <- mutate()
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+		done <- errors.New("timed out waiting for temp skill file")
+	}()
+	return done
 }
