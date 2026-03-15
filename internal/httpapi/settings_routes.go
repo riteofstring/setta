@@ -71,7 +71,7 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 
 		payload, err := decodeJSONBody[SaveSettingsRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 

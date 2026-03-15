@@ -199,6 +199,40 @@ func TestRegisterSettingsRoutesRejectsNonObjectSettingsPayload(t *testing.T) {
 	}
 }
 
+func TestRegisterSettingsRoutesSaveMalformedJSONReturnsValidationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	// The source FastAPI route surfaced malformed save payloads through the 422 validation envelope.
+	runtime, _ := newSettingsRouteTestRuntime(t)
+	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSaveSettings,
+		strings.NewReader(`{"settings":`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected save settings 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload validationErrorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode validation envelope: %v", err)
+	}
+	if payload.StatusCode != 10422 {
+		t.Fatalf("expected validation status code 10422, got %#v", payload)
+	}
+	if payload.Message == "" {
+		t.Fatalf("expected validation message, got %#v", payload)
+	}
+	if payload.Data != nil {
+		t.Fatalf("expected nil validation data, got %#v", payload.Data)
+	}
+}
+
 func newSettingsRouteTestRuntime(t *testing.T) (*settingsstate.Runtime, string) {
 	t.Helper()
 

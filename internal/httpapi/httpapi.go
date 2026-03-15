@@ -78,6 +78,12 @@ type errorDetail struct {
 	RequestID string `json:"requestId,omitempty"`
 }
 
+type validationErrorResponse struct {
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
+	Data       any    `json:"data"`
+}
+
 func NewHandler(deps Dependencies) (http.Handler, error) {
 	if deps.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
@@ -485,6 +491,14 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 
 func writeDetail(w http.ResponseWriter, status int, detail any) {
 	writeJSON(w, status, map[string]any{"detail": detail})
+}
+
+func writeValidationError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, validationErrorResponse{
+		StatusCode: 10422,
+		Message:    message,
+		Data:       nil,
+	})
 }
 
 func decodeJSONBody[T any](r *http.Request) (T, error) {

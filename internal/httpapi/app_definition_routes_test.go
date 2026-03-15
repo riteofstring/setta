@@ -341,6 +341,49 @@ func TestRegisterAppDefinitionRoutesReturns404DetailWhenProjectManagerUnavailabl
 	}
 }
 
+func TestRegisterAppDefinitionRoutesMalformedJSONReturnsValidationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	// The source FastAPI request models surfaced malformed app-definition payloads through the 422 validation envelope.
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
+
+	for _, testCase := range []struct {
+		name string
+		route string
+		body string
+	}{
+		{name: "get", route: RouteGetAppDefinition, body: `{"frontendOpId":`},
+		{name: "validate", route: RouteValidateAppDefinition, body: `{"appSpec":`},
+		{name: "set", route: RouteSetAppDefinition, body: `{"appSpec":`},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+testCase.route, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation envelope: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message == "" {
+				t.Fatalf("expected validation message, got %#v", payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
+	}
+}
+
 func newAppDefinitionRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,

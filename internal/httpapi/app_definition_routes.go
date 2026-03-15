@@ -162,7 +162,7 @@ func getAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 		}
 		payload, err := decodeJSONBody[GetAppDefinitionRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -187,7 +187,7 @@ func validateAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.Hand
 		}
 		payload, err := decodeJSONBody[ValidateAppDefinitionRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -224,7 +224,7 @@ func setAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 		}
 		payload, err := decodeJSONBody[SetAppDefinitionRequest](r)
 		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
