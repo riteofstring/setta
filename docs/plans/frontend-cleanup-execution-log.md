@@ -4337,3 +4337,36 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/appSessionState.ts` so
     app-session bootstrap and recovery no longer live beside persistent
     run-count state updates.
+
+## 2026-03-15 11:41:18 PDT
+
+- Slice completed: split app session bootstrap from run-count persistence
+- Key files touched:
+  - `frontend/src/state/actions/appSessionStoredState.ts`
+  - `frontend/src/state/actions/appSessionBootstrap.ts`
+  - `frontend/src/state/actions/appSessionRunCount.ts`
+  - `frontend/src/state/actions/appSessionState.ts`
+  - `frontend/src/state/actions/appSessionStoredState.test.ts`
+  - `frontend/src/state/actions/appSessionBootstrap.test.ts`
+  - `frontend/src/state/actions/appSessionRunCount.test.ts`
+  - `frontend/src/state/actions/appDeploymentState.ts`
+  - `frontend/src/state/actions/websocketShareSessionRecovery.ts`
+  - `frontend/src/state/actions/websocketShareSessionRecovery.test.ts`
+  - `frontend/src/state/hooks/app.ts`
+  - `frontend/src/components/App/AppRenderer.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/appSessionStoredState.test.ts src/state/actions/appSessionBootstrap.test.ts src/state/actions/appSessionRunCount.test.ts src/state/actions/appDeploymentState.test.ts src/state/actions/websocketShareSessionRecovery.test.ts src/components/App/AppRenderer.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/appSessionState.ts src/state/actions/appSessionStoredState.ts src/state/actions/appSessionBootstrap.ts src/state/actions/appSessionRunCount.ts src/state/actions/appSessionStoredState.test.ts src/state/actions/appSessionBootstrap.test.ts src/state/actions/appSessionRunCount.test.ts src/state/actions/appDeploymentState.ts src/state/actions/appDeploymentState.test.ts src/state/actions/websocketShareSessionRecovery.ts src/state/actions/websocketShareSessionRecovery.test.ts src/state/hooks/app.ts src/components/App/AppRenderer.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `ac642b1dbe36f5e129ba7ebf4fd97506a8169130`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/customRuns.ts` so
+    custom-run storage reads and persisted mutation writes stop living beside
+    sort, filter, and derived item list helpers.
