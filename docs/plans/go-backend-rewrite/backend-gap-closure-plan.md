@@ -173,3 +173,8 @@ categorize them.
   landed. Keep treating “proof-incomplete” rows as potentially real gaps when
   the missing test is around cleanup ordering, shape transitions, or other
   edge-case mutation sequencing
+- The MCP catalog SDK-annotation row and the scoped summary/diagnostics
+  empty-scope rows are now proved too; the remaining MCP backlog is less about
+  the core scoped-read contract and more about adjacent UI-setting precedence
+  and plugin-state availability branches unless a broader websocket or
+  deployment slice becomes cheaper first
