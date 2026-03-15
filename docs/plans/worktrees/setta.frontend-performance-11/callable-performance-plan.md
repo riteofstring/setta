@@ -89,18 +89,18 @@ For the broadened sections-wide pass, treat these as the shared architecture clu
 ## Layout Principles
 
 - Default to the flattest DOM structure that preserves behavior.
-- Treat `grid` as a last resort, not a default.
-- Do not assume `grid` is the right answer just because the layout is complex.
+- Rule out `grid` for the active sections-wide refactor.
+- Do not add new `grid` or `subgrid` layout in the implementation path.
 - Reach for simpler techniques first:
   - plain block flow when it is sufficient
   - `relative` + `absolute` positioning for overlays, underlines, and visual chrome
   - pseudo-elements for purely visual affordances
   - `flex` for truly one-dimensional layout when it simplifies the contract
-- Keep `grid` only where those simpler techniques would make the structure harder to reason about or materially increase DOM/layout cost.
 - Prefer `relative` + `absolute` positioning for decorative layers, underlines, badges, hover chrome, and overlays when that removes wrapper nodes or layout coupling.
 - Prefer pseudo-elements over extra DOM nodes for purely visual affordances.
 - Use `flex` only when the layout is truly one-dimensional and it simplifies the contract without introducing extra measurement or wrapper work.
-- Avoid using `grid` for effects that do not need grid semantics, such as input underlines, status chips, hover frames, or resize visuals.
+- Existing `grid` / `subgrid` usage is now something to remove, not something to preserve by default.
+- If a target layout truly cannot be achieved without `grid`, stop implementation and report that explicitly instead of introducing `grid` anyway.
 - If a layout choice is not clearly simpler or clearly faster, do not keep it by inertia; measure it.
 
 ## Current Callable Hotspot Map
@@ -573,7 +573,7 @@ Tasks:
 1. Replace wrapper nodes with pseudo-elements where possible.
 2. Replace visual-only grid usage with absolute positioning where it keeps parity and reduces coupling.
 3. Keep each checkpoint small and screenshot-gated.
-4. If any checkpoint keeps `grid`, document why the simpler non-grid options were not sufficient.
+4. If a target cannot be completed without `grid`, stop and document the blocker instead of shipping a new grid-based solution.
 
 Exit criteria:
 
@@ -582,7 +582,7 @@ Exit criteria:
 
 #### Phase S2: Shared Row / Shell Contract Simplification
 
-Purpose: replace the surviving grid/subgrid section-row contract with a simpler shared primitive where that actually reduces DOM and layout work.
+Purpose: replace the surviving grid/subgrid section-row contract with a simpler shared primitive that does not depend on grid.
 
 Targets:
 
@@ -593,10 +593,10 @@ Targets:
 
 Tasks:
 
-1. Remove `grid-cols-subgrid` where a simpler contract can preserve parity.
+1. Remove `grid-cols-subgrid` and other surviving row-level grid contracts.
 2. Collapse nested row shells that still exist only to satisfy the old grid contract.
-3. Prefer a single shared row primitive instead of multiple similar grid wrappers.
-4. Treat any surviving `grid` usage as an explicit exception that must be justified by parity or measured cost.
+3. Prefer a single shared non-grid row primitive instead of multiple similar wrappers.
+4. If a row/shell target cannot be reproduced without grid, stop and document the blocker rather than keeping grid as an exception.
 
 Exit criteria:
 

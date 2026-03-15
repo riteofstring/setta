@@ -1073,3 +1073,24 @@ Append-only log for the callable DOM-first performance refactor.
     - performance testing in Chrome DevTools remains the gate
 - Next action:
   - Continue with the shared section-shell baseline under the stronger non-grid-first rule.
+
+### 2026-03-16 44
+
+- Item: Tightened the active sections-wide plan from "grid last resort" to "no grid in the implementation path".
+- Status: `done`
+- Details:
+  - Updated the active layout principles so the broadened section-shell refactor now treats `grid` and `subgrid` as ruled out, not merely discouraged.
+  - Recorded the preferred implementation order explicitly:
+    - plain block flow
+    - `relative` + `absolute`
+    - pseudo-elements
+    - `flex` when it is truly the simplest one-dimensional contract
+  - Updated the active shared-shell phases so the rule is now:
+    - remove existing grid/subgrid contracts
+    - do not introduce new grid-based solutions
+    - if a target cannot be reproduced without grid, stop and report the blocker instead of continuing
+- Interpretation:
+  - This matches the intended design constraint much better than the earlier "last resort" wording.
+  - The active refactor is now a non-grid simplification effort, full stop.
+- Next action:
+  - Continue the shared section-shell baseline under the hard non-grid rule.
