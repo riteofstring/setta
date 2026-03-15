@@ -1,4 +1,5 @@
-import { getOutlineColor } from "./utils";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { getBgColor, getOutlineColor } from "./utils";
 
 type SectionContainerShellClassNameOptions = {
   isActiveSection: boolean;
@@ -30,6 +31,29 @@ type SectionSurfaceClassNameOptions = {
   metaHoverZIndexClassName?: string;
   cornerClassName?: string;
   hideFrameBorder?: boolean;
+};
+
+type CanvasSectionChromeOptions = {
+  sectionTypeName: SectionType;
+  textBlockMetaControlStyle: boolean;
+  isUserView: boolean;
+  hasSectionStyleTheme: boolean;
+  positionAndSizeLocked: boolean;
+  hideHeader?: boolean;
+};
+
+type CanvasSectionHeaderVariant =
+  | "metaControlMenu"
+  | "textBlockMetaControlMenu"
+  | "sectionHeader"
+  | "none";
+
+type CanvasSectionChrome = {
+  bgColor: string;
+  useMetaControlStyle: boolean;
+  surfaceClassName: string;
+  showMetaControlDragHandle: boolean;
+  headerVariant: CanvasSectionHeaderVariant;
 };
 
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
@@ -153,4 +177,48 @@ export function getSectionSurfaceClassName({
     frameClassName,
     sectionStyleChromeClassName,
   );
+}
+
+export function getCanvasSectionChrome({
+  sectionTypeName,
+  textBlockMetaControlStyle,
+  isUserView,
+  hasSectionStyleTheme,
+  positionAndSizeLocked,
+  hideHeader = false,
+}: CanvasSectionChromeOptions): CanvasSectionChrome {
+  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
+  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const bgColor = useMetaControlStyle
+    ? "bg-transparent"
+    : getBgColor(sectionTypeName);
+  const surfaceClassName = getSectionSurfaceClassName({
+    bgColor,
+    hasSectionStyleTheme,
+    positionAndSizeLocked,
+    frameClassName: useMetaControlStyle
+      ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
+      : undefined,
+    layoutClassName: isMetaControl ? "grid-cols-1 grid-rows-1" : undefined,
+    metaHoverZIndexClassName: useMetaControlStyle
+      ? "group-hover/card-section:z-[170]"
+      : "",
+  });
+  let headerVariant: CanvasSectionHeaderVariant = "none";
+  if (isMetaControl && !isUserView) {
+    headerVariant = "metaControlMenu";
+  } else if (textBlockMetaControlStyle && !isUserView) {
+    headerVariant = "textBlockMetaControlMenu";
+  } else if (!hideHeader) {
+    headerVariant = "sectionHeader";
+  }
+
+  return {
+    bgColor,
+    useMetaControlStyle,
+    surfaceClassName,
+    showMetaControlDragHandle:
+      useMetaControlStyle && !isUserView && !positionAndSizeLocked,
+    headerVariant,
+  };
 }
