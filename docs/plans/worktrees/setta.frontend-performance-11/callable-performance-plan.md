@@ -331,48 +331,49 @@ Gate:
 
 - Prompt user before Phase 3.
 
-## Phase 3: Group Shell Flattening And Callable-Wide DOM Audit
+## Phase 3: Callable Render-Path Narrowing
 
-Purpose: simplify the shells above the rows, then audit the entire callable subtree for remaining expensive structure.
+Purpose: now that Phase 2 removed the obvious row/tree shell duplication, reduce subscription breadth and repeated derived work in the callable render path. Return to more shell flattening only if a trace or DOM audit points back to a remaining shell hotspot.
 
 Targets:
 
+- `frontend/src/components/Params/GetParamSwitch.tsx`
+- `frontend/src/components/Params/ParamDndList.tsx`
 - `frontend/src/components/Params/GroupContainer.tsx`
 - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
 - `frontend/src/components/Section/SectionParts/Search.tsx`
 
 Tasks:
 
-1. Replace pinned/unpinned group shells that still rely on `grid` / `subgrid`.
-2. Simplify the edge strip layout away from grid if its geometry can be preserved.
-3. Remove container wrappers whose only role is spacing, scroll shell duplication, or nested grouping.
-4. Re-check layout measurement code:
+1. Collapse broad selectors in `GetParamSwitch` into narrower derived boundaries so the component only subscribes to renderable param ids, not the whole section/code-object cluster.
+2. Deepen the `ParamDndList` / `GroupContainer` handoff so tree, duplicate-index, and filter derivation happen once per callable list instead of being spread across multiple shallow seams.
+3. Re-check callable-specific measurement/update code in `KwargsControls` and `Search`:
    - keep necessary observers
    - do not introduce heuristic shortcuts
-   - reduce layout-read surfaces when a simpler container structure makes them unnecessary
-5. Run a callable-wide DOM audit after the refactor pass:
-   - node count
-   - max depth
-   - grid/subgrid count
-   - hotspots by descendant count
-6. Only if the callable subtree still shows shell overhead, inspect callable-specific usage of:
+   - reduce layout-read and style-write surfaces where a simpler render boundary makes them unnecessary
+4. Only return to group-shell flattening when a trace or DOM audit shows remaining shell overhead in:
    - `frontend/src/components/Section/Container/sectionChrome.ts`
    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+5. After each accepted checkpoint:
+   - run the minimum callable regression run and review its screenshots
+   - re-run the callable pair
+   - perform the required CDP screenshot comparison with untouched `main`
+6. Once a meaningful cluster of render-path changes lands, rerun targeted traces against the relevant interaction path instead of assuming the idle open-control baseline is sufficient.
 
 Verification:
 
 - Follow the checkpoint screenshot cadence during the phase.
 - Run the minimum callable regression run and review its screenshots.
-- Existing callable Playwright specs plus any new callable shell geometry spec.
+- Existing callable Playwright specs plus focused Vitest coverage for any new render-path helper.
 - CDP visual comparison with untouched `main`.
-- CDP trace rerun with the same baseline scenario.
-- Append callable-wide before/after DOM audit results.
+- CDP trace reruns on the relevant interaction path once a render-path cluster lands.
+- Append any callable-wide DOM audit results only when a checkpoint actually changes the shell/DOM shape.
 
 Exit criteria:
 
-- The callable subtree is materially flatter end-to-end.
-- Remaining grid usage is justified and documented.
-- The subtree is ready for a JS/React-focused pass.
+- The callable render path subscribes through narrower boundaries than untouched `main`.
+- The next remaining hot path is identified by trace evidence, not assumption.
+- Any remaining shell work is explicitly justified by measurement.
 
 Gate:
 

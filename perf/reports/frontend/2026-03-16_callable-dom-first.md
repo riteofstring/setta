@@ -603,3 +603,33 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
     - DOM flattening was still worth doing because it simplified the callable row/tree surface and measurably reduced DOM complexity
     - DOM flattening alone is not enough to claim the callable performance problem is solved
     - the next meaningful work belongs in Phase 3 and later Phase 4, where the store/subscription and measurement hot paths can be reduced directly
+
+### Phase 3 checkpoint 1: `GetParamSwitch` selector narrowing
+
+- Date/time: 2026-03-16
+- Scope:
+  - added `frontend/src/components/Params/getFilteredRenderableParamIds.ts`
+  - updated `frontend/src/components/Params/GetParamSwitch.tsx` so it now subscribes through one derived selector returning renderable param ids directly
+  - removed the old broad selector + local `useMemo` / `useProjectState.getState()` filtering seam from `GetParamSwitch`
+- Automated verification:
+  - reran `pnpm -C frontend exec vitest run src/components/Params/getFilteredRenderableParamIds.test.ts`
+  - result: `1 passed`, `3 passed`
+  - reran `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts`
+  - result: `1 passed`, `3 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable section remained visually aligned after the selector-boundary reduction
+- Measurement note:
+  - no new trace numbers are recorded for this checkpoint alone
+  - reason:
+    - this change narrows the filter/render subscription boundary
+    - the locked `open` control scene does not actively exercise param filtering
+    - the next meaningful trace should cover the filter/update path once the surrounding `ParamDndList` / callable render-model seam is narrowed too
+- Interpretation:
+  - this is the first accepted Phase 3 checkpoint because it removes one shallow render-path seam without changing the callable shell
+  - the next measurement should be tied to the relevant interaction path, not forced into the old idle shell baseline just for bookkeeping

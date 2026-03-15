@@ -1,15 +1,9 @@
-import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
-import { matchSorter } from "match-sorter";
-import { useMemo } from "react";
-import {
-  getCurrEffectiveSectionImplWithTypeGuard,
-  getParamDisplayName,
-} from "state/actions/sectionInfos";
+import _ from "lodash";
+import { type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { useProjectState } from "state/definitions";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamSwitch } from "./ParamSwitch";
+import { getFilteredRenderableParamIds } from "./getFilteredRenderableParamIds";
 
 export function GetParamSwitch({
   sectionId,
@@ -33,84 +27,16 @@ export function GetParamSwitch({
   hasSectionStyleTheme: boolean;
 }) {
   const renderParamIds = useParamDndChildrenForParent(dndParentId ?? "", paramIds);
-  const paramsImpl = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ),
-  );
-  const {
-    codeObjs,
-    codeObjVariants,
-    codeObjImpls,
-    sectionVariants,
-    sectionImpls,
-    sections,
-    showParamDisplayNames,
-    projectSectionVariantMap,
-  } = useProjectState(
-    (state) => ({
-      codeObjs: state.codeObjs,
-      codeObjVariants: state.codeObjVariants,
-      codeObjImpls: state.codeObjImpls,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
-      sections: state.sections,
-      showParamDisplayNames: state.projectConfig.showParamDisplayNames,
-      projectSectionVariantMap: state.projectConfig.sectionVariantMap,
-    }),
-    shallow,
-  );
-  const filteredIds = useMemo(() => {
-    const state = useProjectState.getState();
-    let matches = paramIds;
-    const candidateParamIds = renderParamIds;
-
-    if (paramsImpl.paramFilter) {
-      const requiredParamIdsWithNames = Object.keys(
+  const filteredIds = useProjectState(
+    (state) =>
+      getFilteredRenderableParamIds({
+        state,
+        sectionId,
+        renderParamIds,
         requiredParamIdsToPaths,
-      ).map((id) => ({
-        id,
-        name: getParamDisplayName(state, sectionId, id),
-      }));
-
-      matches = matchSorter(requiredParamIdsWithNames, paramsImpl.paramFilter, {
-        keys: ["name"],
-      });
-    }
-
-    const filteredRequired = new Set<string>();
-    for (const match of matches) {
-      const path =
-        requiredParamIdsToPaths[
-          Object.prototype.hasOwnProperty.call(match, "id") ? match.id : match
-        ];
-      if (!path) {
-        continue;
-      }
-      for (const pathPart of path) {
-        filteredRequired.add(pathPart);
-      }
-    }
-
-    return candidateParamIds.filter(
-      (paramId) => filteredRequired.has(paramId) || isTempParam(paramId),
-    );
-  }, [
-    codeObjImpls,
-    codeObjVariants,
-    codeObjs,
-    paramsImpl,
-    projectSectionVariantMap,
-    requiredParamIdsToPaths,
-    renderParamIds,
-    sectionId,
-    sectionImpls,
-    sections,
-    sectionVariants,
-    showParamDisplayNames,
-  ]);
+      }),
+    _.isEqual,
+  );
 
   return filteredIds.map((paramId, idx) => (
     <ParamSwitch

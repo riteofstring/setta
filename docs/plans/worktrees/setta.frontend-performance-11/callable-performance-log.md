@@ -672,3 +672,48 @@ Append-only log for the callable DOM-first performance refactor.
   - That means DOM flattening was worth doing, but it is not enough to justify more Phase 2 shell churn.
 - Next action:
   - Stop Phase 2 here and move to Phase 3, focusing on the store/subscription surface around `GetParamSwitch`, `KwargsControls`, and the callable row render path instead of pursuing more shell-only refactors.
+
+### 2026-03-16 35
+
+- Item: Phase 3 checkpoint 1 narrowed `GetParamSwitch` to a single filtered-id selector boundary.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Params/getFilteredRenderableParamIds.ts` so the filtered-id derivation now lives behind one helper boundary instead of being open-coded inside `GetParamSwitch`.
+  - Updated `frontend/src/components/Params/GetParamSwitch.tsx` so it now subscribes through one derived selector that returns renderable param ids directly.
+  - Removed the previous broad `useProjectState` subscription for:
+    - `codeObjs`
+    - `codeObjVariants`
+    - `codeObjImpls`
+    - `sectionVariants`
+    - `sectionImpls`
+    - `sections`
+    - `projectConfig.showParamDisplayNames`
+    - `projectConfig.sectionVariantMap`
+  - Removed the inline `useMemo` / `useProjectState.getState()` filtering path from `GetParamSwitch`; the component now renders from the narrowed selector result instead of maintaining its own local derived-work seam.
+  - Added focused Vitest coverage in `frontend/src/components/Params/getFilteredRenderableParamIds.test.ts` for:
+    - no-filter passthrough
+    - nested-path filtering while preserving temp placeholder ids
+    - display-name-aware matching
+  - Re-ran focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/getFilteredRenderableParamIds.test.ts`
+  - Result: `1 passed`, `3 passed`
+  - Re-ran the existing shell-contract Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts`
+  - Result: `1 passed`, `3 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the selector-boundary reduction.
+- Interpretation:
+  - This is the first accepted Phase 3 render-path checkpoint:
+    - it reduces the surface area `GetParamSwitch` listens to
+    - it deepens the filtering interface without changing user-visible behavior
+  - This checkpoint is intentionally not presented as a shell/DOM win:
+    - the locked `open` control scene does not exercise active param filtering
+    - the relevant follow-up measurement should target filter/update work, not just idle callable layout
+- Next action:
+  - Continue Phase 3 by collapsing the remaining duplicate derived-work seam between `ParamDndList` and `GetParamSwitch`, then pair that cluster with a targeted trace rerun.
