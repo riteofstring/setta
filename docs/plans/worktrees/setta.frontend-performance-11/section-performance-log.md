@@ -2038,3 +2038,84 @@ Append-only log for the section performance refactor.
   - That makes checkpoint 6 acceptable as a row-tree ownership checkpoint rather than leaving the branch stuck on the rejected earlier candidate.
 - Next action:
   - Stop and perform a fresh `Phase S2` structural read before deciding whether another row-tree pass is justified or whether the next serious step belongs to `Phase S3`.
+
+### 2026-03-17 66
+
+- Item: Fresh `Phase S2` structural read after the accepted checkpoint-6 rerun.
+- Status: `done`
+- Details:
+  - Re-read the current row-tree cluster locally:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - Used focused explorer reads to separate the remaining row-tree seam from the broader `Phase S3` resize/container work.
+  - The accepted structural conclusion was:
+    - do not do another blind `Phase S2` pass
+    - one final narrow `Phase S2` seam still exists in the `ParamSwitch -> GetParamSwitch -> ParamSwitch` bounce
+    - after removing that seam, treat `Phase S2` as structurally exhausted and move the next serious step upward to `Phase S3`
+- Next action:
+  - Remove `GetParamSwitch` as the extra recursion adapter, then rerun the locked `S0 Dict` gate before updating the accepted checkpoint state.
+
+### 2026-03-17 67
+
+- Item: Accept `Phase S2` checkpoint 7 after removing the extra `GetParamSwitch` recursion adapter.
+- Status: `done`
+- Details:
+  - Removed `frontend/src/components/Params/GetParamSwitch.tsx`.
+  - Inlined the top-level row rendering handoff into:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+  - Inlined child recursion directly into:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+  - Added pure helper coverage for the narrowed recursion/filter handoff in:
+    - `frontend/src/components/Params/getFilteredRenderableParamIds.ts`
+    - `frontend/src/components/Params/getFilteredRenderableParamIds.test.ts`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamRowShell.test.tsx src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `7` files passed, `34` tests passed
+  - Re-ran the representative Playwright checkpoint suite:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Replayed the same representative filter interaction on both branches:
+    - start on `delta`
+    - replace the filter with `gamma`
+    - wait for the visible row set to settle
+  - Focused representative DOM read after centering the section for the visual check:
+    - `main`: `75` nodes, max depth `11`, visible rows `["gamma"]`, filter value `gamma`
+    - worktree: `65` nodes, max depth `9`, visible rows `["gamma"]`, filter value `gamma`
+  - Centered Chrome DevTools screenshots showed the section header chrome, filter field, pinned area, and visible `gamma` row remained aligned between untouched `main` and the worktree.
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint7/`
+  - Target-renderer DevTools totals from the checkpoint-7 pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `926.541`
+      - `UpdateLayoutTree`: `35.234`
+      - `Layout`: `4.257`
+      - `Paint`: `2.690`
+      - `RunTask`: `1079.022`
+      - `EventDispatch`: `2058.674`
+      - `TimerFire`: `153.933`
+      - `FireAnimationFrame`: `4.840`
+      - `Commit`: `5.744`
+      - `INP`: `189ms`
+    - worktree
+      - `FunctionCall`: `888.455`
+      - `UpdateLayoutTree`: `33.421`
+      - `Layout`: `4.091`
+      - `Paint`: `3.437`
+      - `RunTask`: `973.752`
+      - `EventDispatch`: `1994.093`
+      - `TimerFire`: `157.504`
+      - `FireAnimationFrame`: `4.783`
+      - `Commit`: `5.419`
+      - `INP`: `190ms`
+- Interpretation:
+  - Checkpoint 7 is accepted.
+  - The worktree keeps the flatter representative subtree and now wins on most of the heavier target-renderer totals directly touched by this filter path.
+  - `Paint`, `TimerFire`, and the `189ms -> 190ms` INP read remain small watch items, but they do not justify keeping the row-tree cluster active.
+  - With the extra recursion adapter removed, `Phase S2` should now be treated as structurally exhausted.
+- Next action:
+  - Move the next serious step to `Phase S3`, with shared resize/session ownership in `CustomResizable` as the preferred boundary.
