@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import {
   registerEdgeHandlesWithSharedElement,
   unregisterEdgeHandle,
-} from "state/actions/edgeHandleRegistration";
+} from "state/actions/edgeHandles";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {

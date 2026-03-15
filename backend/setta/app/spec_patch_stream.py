@@ -29,21 +29,6 @@ def _parse_patch_line_core(line: str) -> tuple[dict[str, Any] | None, str | None
     return payload, None
 
 
-def parse_patch_line(line: str) -> dict[str, Any] | None:
-    """Parse a single JSONL patch line. Returns None for blanks/comments/invalid lines."""
-    payload, _error = _parse_patch_line_core(line)
-    return payload
-
-
-def parse_patch_line_with_error(line: str) -> tuple[dict[str, Any] | None, str | None]:
-    """
-    Parse a single JSONL patch line.
-
-    Returns (payload, error_message). Blank/comment lines return (None, None).
-    """
-    return _parse_patch_line_core(line)
-
-
 def parse_patch_lines(patches: str) -> list[dict[str, Any]]:
     """
     Parse newline-delimited JSON patch operations.

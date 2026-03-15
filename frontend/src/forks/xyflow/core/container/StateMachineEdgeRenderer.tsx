@@ -1,5 +1,5 @@
 import { memo, useMemo, type CSSProperties, type MouseEvent } from "react";
-import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdgeMutations";
+import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
