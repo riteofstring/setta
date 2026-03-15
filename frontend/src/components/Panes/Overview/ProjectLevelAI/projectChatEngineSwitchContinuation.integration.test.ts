@@ -3,7 +3,7 @@ import {
   resolveProjectChatEngineSwitchContinuationAfterContextChange,
   resolveProjectChatEngineSwitchContinuationOnEngineChange,
   shouldProjectChatSkipEngineSyncForContinuation,
-} from "./ProjectChat";
+} from "./projectChatEngineSelection";
 
 describe("project chat engine-switch continuation integration", () => {
   it("keeps manual engine selection on the same thread until continuation context is cleared", () => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveProjectChatAuxViewByProjectConfigIdUpdate,
   resolveProjectChatDraftMessageByProjectConfigIdUpdate,
-} from "./ProjectChat";
+} from "./projectChatAuxViewState";
 
 describe("resolveProjectChatAuxViewByProjectConfigIdUpdate", () => {
   it("returns null when the active project aux view does not change", () => {

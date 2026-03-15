@@ -1,41 +1,63 @@
 import re
 import subprocess
 
-_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+def ruff_format(code_str):
+    code_str = subprocess.check_output(
+        ["ruff", "check", "--quiet", "--select", "I", "--fix", "-"],
+        input=code_str,
+        encoding="utf-8",
+    )
+    code_str = subprocess.check_output(
+        ["ruff", "check", "--quiet", "--fix", "-"],
+        input=code_str,
+        encoding="utf-8",
+    )
+    return subprocess.check_output(
+        ["ruff", "format", "--quiet", "-"], input=code_str, encoding="utf-8"
+    )
 
 
-def ruff_format(code: str, *, include_lint: bool = False) -> str:
-    formatted = _run_ruff(["check", "--quiet", "--select", "I", "--fix", "-"], code)
-    if include_lint:
-        formatted = _run_ruff(["check", "--quiet", "--fix", "-"], formatted)
-    return _run_ruff(["format", "--quiet", "-"], formatted)
-
-
-def _run_ruff(args: list[str], code: str) -> str:
-    try:
-        completed = subprocess.run(
-            ["ruff", *args],
-            check=False,
-            input=code,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as exc:
-        raise RuntimeError("Ruff executable was not found on PATH.") from exc
-
-    if completed.returncode != 0:
-        stderr = _strip_ansi(completed.stderr).strip()
-        stdout = _strip_ansi(completed.stdout).strip()
-        if stderr:
-            raise RuntimeError(stderr)
-        if stdout:
-            raise RuntimeError(stdout)
-        raise RuntimeError(f"Ruff failed with exit code {completed.returncode}.")
-
-    if completed.stdout:
-        return completed.stdout
-    return code
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def _strip_ansi(text: str) -> str:
-    return _ANSI_ESCAPE_RE.sub("", text)
+    return ANSI_ESCAPE_RE.sub("", text)
+
+
+def _run_ruff(args: list[str], code_str: str) -> tuple[str, str | None]:
+    result = subprocess.run(
+        args,
+        input=code_str,
+        text=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    if result.returncode != 0:
+        error = result.stderr.strip() or result.stdout.strip()
+        if error:
+            error = _strip_ansi(error)
+        if not error:
+            error = f"Ruff failed with exit code {result.returncode}."
+        return code_str, error
+    return result.stdout or code_str, None
+
+
+def ruff_format_with_error(
+    code_str: str, *, include_lint: bool = True
+) -> tuple[str | None, str | None]:
+    code_str, error = _run_ruff(
+        ["ruff", "check", "--quiet", "--select", "I", "--fix", "-"], code_str
+    )
+    if error:
+        return None, error
+    if include_lint:
+        code_str, error = _run_ruff(
+            ["ruff", "check", "--quiet", "--fix", "-"], code_str
+        )
+        if error:
+            return None, error
+    code_str, error = _run_ruff(["ruff", "format", "--quiet", "-"], code_str)
+    if error:
+        return None, error
+    return code_str, None
