@@ -442,6 +442,102 @@ test("meta control text area keeps the editor within the compact section shell",
     );
     expectBoxWithinSection(sectionBox, editorBox);
     expect(editorBox.height).toBeGreaterThan(80);
+
+    await editorShell.click();
+    const liveEditor = sectionNode.locator(".cm-editor");
+    await expect(liveEditor).toBeVisible();
+
+    const sectionBoxAfterActivation = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "text area meta control section after activation",
+    );
+    const liveEditorBox = requireBoundingBox(
+      await liveEditor.boundingBox(),
+      "text area live editor",
+    );
+    expectStableSectionSize(sectionBox, sectionBoxAfterActivation);
+    expectBoxWithinSection(sectionBoxAfterActivation, liveEditorBox);
+  } finally {
+    if (sectionIds.length > 0) {
+      await postBackend(page, "/deleteSections", {
+        projectConfigId: context.projectConfigId,
+        sectionIds,
+      });
+    }
+    await cleanupIsolatedProject(page, context);
+  }
+});
+
+test("meta control color picker keeps the native input within the compact section shell", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const context = await openIsolatedProject(page);
+  const sectionIds: Array<string> = [];
+
+  try {
+    const sectionId = await createMetaControlSection(
+      page,
+      context.projectConfigId,
+    );
+    sectionIds.push(sectionId);
+    const paramInfoId = await waitForMetaControlParamId(
+      page,
+      context.projectConfigId,
+      sectionId,
+    );
+
+    await postBackend(page, "/changeParamImpl", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      selectedId: "ColorPickerParam",
+    });
+
+    await postBackend(page, "/setParamEnteredValue", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      value: "#00ff00",
+    });
+
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    const colorInput = sectionNode.locator('input[type="color"]');
+
+    await expect(sectionNode).toBeVisible();
+    await expect(colorInput).toBeVisible();
+
+    const nativeClassRead = await sectionNode.evaluate((node) => {
+      const wrapper = node.querySelector(".section-value");
+      const input = node.querySelector('input[type="color"]');
+      return {
+        sectionMarkup: node.innerHTML,
+        wrapperClassName:
+          wrapper instanceof HTMLElement ? wrapper.className : null,
+        inputClassName: input instanceof HTMLElement ? input.className : null,
+      };
+    });
+
+    expect(nativeClassRead.sectionMarkup).not.toContain(
+      "single-cell-container",
+    );
+    expect(nativeClassRead.sectionMarkup).not.toContain("single-cell-child");
+    expect(nativeClassRead.wrapperClassName).not.toContain(
+      "single-cell-container",
+    );
+    expect(nativeClassRead.inputClassName).not.toContain("single-cell-child");
+
+    const nativeSectionBox = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "native color meta control section",
+    );
+    const nativeInputBox = requireBoundingBox(
+      await colorInput.boundingBox(),
+      "native color meta control input",
+    );
+    expectBoxWithinSection(nativeSectionBox, nativeInputBox);
   } finally {
     if (sectionIds.length > 0) {
       await postBackend(page, "/deleteSections", {
