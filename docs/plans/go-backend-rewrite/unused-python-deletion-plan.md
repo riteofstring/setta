@@ -184,6 +184,21 @@ Expected candidate clusters include:
   - package-root detached-run residue:
     - `backend/setta/run_manager.py`
     - `tests/run_manager/*`
+  - package-root startup/launcher/ssh residue:
+    - `backend/setta/launch.py`
+    - `backend/setta/launcher_metadata.py`
+    - `backend/setta/launcher_setup.py`
+    - `backend/setta/launcher_workspace_store.py`
+    - `backend/setta/ssh_common.py`
+    - `backend/setta/ssh_connect.py`
+    - `tests/start/test_launch_grace.py`
+    - `tests/start/test_launch_process_cleanup.py`
+    - `tests/start/test_launcher_metadata.py`
+    - `tests/start/test_launcher_setup.py`
+    - `tests/start/test_launcher_workspace_store.py`
+    - `tests/start/test_ssh_common.py`
+    - `tests/start/test_ssh_connect.py`
+    - `tests/start/test_ssh_tunnel_metadata.py`
   - `backend/setta/project_state/*` except retained typed support
   - `backend/setta/llm/*` except retained `llm/chat_toolkit/*`
   - `backend/setta/agentic/*` except explicit sidecar assets
@@ -208,6 +223,14 @@ Current tree note:
   Go under `internal/detachedruns` plus
   `internal/httpapi/detached_run_routes.go`; the retained Python runner
   boundary is only the thin `setta.api.SettaRunner` HTTP client.
+- `backend/setta/launch.py`, `backend/setta/launcher_metadata.py`,
+  `backend/setta/launcher_setup.py`,
+  `backend/setta/launcher_workspace_store.py`, `backend/setta/ssh_common.py`,
+  `backend/setta/ssh_connect.py`, and their `tests/start/` mirrors are also
+  gone in the current worktree because the active local launch, launcher home,
+  launcher management, and SSH connect/runtime surfaces already live in Go
+  under `internal/launcher`, `internal/workspacelaunch`, `internal/sshx`,
+  `internal/settacmd`, and `internal/settacli`.
 - Recompute the remaining Step 3 batch from live imports before deleting more
   websocket helpers. `backend/setta/websockets/binary_frames.py` remains tied
   to the retained Python listener SDK, while `websocket_manager.py` and
