@@ -131,54 +131,56 @@ func TestRegisterProjectRoutesUndoAndRedoRejectInvalidProjectPayloads(t *testing
 func TestRegisterProjectRoutesUndoAndRedoUseDeploymentOverlayWithoutPolicyGate(t *testing.T) {
 	t.Parallel()
 
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:     config.ModeShare,
-		Document: projectHistoryRouteTestDocument("Alpha"),
-		Policy: map[string]any{
-			"allowParamChanges":   false,
-			"allowVariantChanges": false,
-			"allowLayoutChanges":  false,
-			"allowLLM":            false,
-		},
-	})
-	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-		t.Fatalf("create share session: %v", err)
-	}
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Mode:     mode,
+			Document: projectHistoryRouteTestDocument("Alpha"),
+			Policy: map[string]any{
+				"allowParamChanges":   false,
+				"allowVariantChanges": false,
+				"allowLayoutChanges":  false,
+				"allowLLM":            false,
+			},
+		})
+		if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+			t.Fatalf("create share session for %s mode: %v", mode, err)
+		}
 
-	overlay, err := deploymentRuntime.Overlay("share-a")
-	if err != nil {
-		t.Fatalf("deployment overlay: %v", err)
-	}
-	mustSetProjectHistoryRouteName(t, overlay, "Beta")
-	mustSetProjectHistoryRouteName(t, overlay, "Gamma")
+		overlay, err := deploymentRuntime.Overlay("share-a")
+		if err != nil {
+			t.Fatalf("deployment overlay in %s mode: %v", mode, err)
+		}
+		mustSetProjectHistoryRouteName(t, overlay, "Beta")
+		mustSetProjectHistoryRouteName(t, overlay, "Gamma")
 
-	handler := newProjectRouteDeploymentTestHandler(t, config.ModeShare, deploymentRuntime)
+		handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
 
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteUndo,
-		strings.NewReader(`{"projectConfigId":"project-alpha","steps":1}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 response, got %d with body %q", response.Code, response.Body.String())
-	}
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteUndo,
+			strings.NewReader(`{"projectConfigId":"project-alpha","steps":1}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 response in %s mode, got %d with body %q", mode, response.Code, response.Body.String())
+		}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode undo payload: %v", err)
-	}
-	if payload.ProjectState.ProjectConfig.Name != "Beta" {
-		t.Fatalf("expected overlay undo to return Beta, got %q", payload.ProjectState.ProjectConfig.Name)
-	}
-	if deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Name != "Alpha" {
-		t.Fatalf("expected base deployment document to stay at Alpha, got %q", deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Name)
-	}
-	if overlay.Snapshot().Document.Projects["project-alpha"].Name != "Beta" {
-		t.Fatalf("expected overlay document to undo to Beta, got %q", overlay.Snapshot().Document.Projects["project-alpha"].Name)
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode undo payload in %s mode: %v", mode, err)
+		}
+		if payload.ProjectState.ProjectConfig.Name != "Beta" {
+			t.Fatalf("expected overlay undo to return Beta in %s mode, got %q", mode, payload.ProjectState.ProjectConfig.Name)
+		}
+		if deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Name != "Alpha" {
+			t.Fatalf("expected base deployment document to stay at Alpha in %s mode, got %q", mode, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Name)
+		}
+		if overlay.Snapshot().Document.Projects["project-alpha"].Name != "Beta" {
+			t.Fatalf("expected overlay document to undo to Beta in %s mode, got %q", mode, overlay.Snapshot().Document.Projects["project-alpha"].Name)
+		}
 	}
 }
 

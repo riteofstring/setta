@@ -483,69 +483,71 @@ func TestRegisterProjectRoutesWindowSpaceRoutesReturn404And422Mappings(t *testin
 func TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy(t *testing.T) {
 	t.Parallel()
 
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:     config.ModeShare,
-		Document: projectChatWindowingRouteTestDocument(),
-		Policy: map[string]any{
-			"allowLayoutChanges": false,
-			"allowLLM":           true,
-		},
-	})
-	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-		t.Fatalf("create share session: %v", err)
-	}
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Mode:     mode,
+			Document: projectChatWindowingRouteTestDocument(),
+			Policy: map[string]any{
+				"allowLayoutChanges": false,
+				"allowLLM":           true,
+			},
+		})
+		if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+			t.Fatalf("create share session for %s mode: %v", mode, err)
+		}
 
-	handler := newProjectRouteDeploymentTestHandler(t, config.ModeShare, deploymentRuntime)
+		handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
 
-	layoutRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetProjectChatWindowingState,
-		strings.NewReader(`{"projectConfigId":"project-alpha","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before"}},"order":["project-chat-window-1"],"nextInstanceNumber":2}}`),
-	)
-	layoutRequest.Header.Set("Content-Type", "application/json")
-	layoutRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
-	layoutResponse := httptest.NewRecorder()
-	handler.ServeHTTP(layoutResponse, layoutRequest)
-	if layoutResponse.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 layout response, got %d with body %q", layoutResponse.Code, layoutResponse.Body.String())
-	}
-	if !strings.Contains(layoutResponse.Body.String(), "Deployment policy disallows layout changes.") {
-		t.Fatalf("expected layout policy denial, got %q", layoutResponse.Body.String())
-	}
+		layoutRequest := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetProjectChatWindowingState,
+			strings.NewReader(`{"projectConfigId":"project-alpha","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before"}},"order":["project-chat-window-1"],"nextInstanceNumber":2}}`),
+		)
+		layoutRequest.Header.Set("Content-Type", "application/json")
+		layoutRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+		layoutResponse := httptest.NewRecorder()
+		handler.ServeHTTP(layoutResponse, layoutRequest)
+		if layoutResponse.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 layout response in %s mode, got %d with body %q", mode, layoutResponse.Code, layoutResponse.Body.String())
+		}
+		if !strings.Contains(layoutResponse.Body.String(), "Deployment policy disallows layout changes.") {
+			t.Fatalf("expected layout policy denial in %s mode, got %q", mode, layoutResponse.Body.String())
+		}
 
-	createRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteCreateWindowSpace,
-		strings.NewReader(`{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{},"order":[]}}`),
-	)
-	createRequest.Header.Set("Content-Type", "application/json")
-	createRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
-	createResponse := httptest.NewRecorder()
-	handler.ServeHTTP(createResponse, createRequest)
-	if createResponse.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 create response, got %d with body %q", createResponse.Code, createResponse.Body.String())
-	}
+		createRequest := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteCreateWindowSpace,
+			strings.NewReader(`{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{},"order":[]}}`),
+		)
+		createRequest.Header.Set("Content-Type", "application/json")
+		createRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+		createResponse := httptest.NewRecorder()
+		handler.ServeHTTP(createResponse, createRequest)
+		if createResponse.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 create response in %s mode, got %d with body %q", mode, createResponse.Code, createResponse.Body.String())
+		}
 
-	chatIDRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetProjectChatWindowChatID,
-		strings.NewReader(`{"projectConfigId":"project-alpha","instanceId":"project-chat-window-1","chatId":"chat-bound"}`),
-	)
-	chatIDRequest.Header.Set("Content-Type", "application/json")
-	chatIDRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
-	chatIDResponse := httptest.NewRecorder()
-	handler.ServeHTTP(chatIDResponse, chatIDRequest)
-	if chatIDResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 chat-id response, got %d with body %q", chatIDResponse.Code, chatIDResponse.Body.String())
-	}
+		chatIDRequest := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetProjectChatWindowChatID,
+			strings.NewReader(`{"projectConfigId":"project-alpha","instanceId":"project-chat-window-1","chatId":"chat-bound"}`),
+		)
+		chatIDRequest.Header.Set("Content-Type", "application/json")
+		chatIDRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+		chatIDResponse := httptest.NewRecorder()
+		handler.ServeHTTP(chatIDResponse, chatIDRequest)
+		if chatIDResponse.Code != http.StatusOK {
+			t.Fatalf("expected 200 chat-id response in %s mode, got %d with body %q", mode, chatIDResponse.Code, chatIDResponse.Body.String())
+		}
 
-	overlay, err := deploymentRuntime.Overlay("share-a")
-	if err != nil {
-		t.Fatalf("deployment overlay: %v", err)
-	}
-	project := overlay.Snapshot().Document.Projects["project-alpha"]
-	if project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID == nil || *project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID != "chat-bound" {
-		t.Fatalf("expected overlay chat-bound state, got %#v", project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID)
+		overlay, err := deploymentRuntime.Overlay("share-a")
+		if err != nil {
+			t.Fatalf("deployment overlay in %s mode: %v", mode, err)
+		}
+		project := overlay.Snapshot().Document.Projects["project-alpha"]
+		if project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID == nil || *project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID != "chat-bound" {
+			t.Fatalf("expected overlay chat-bound state in %s mode, got %#v", mode, project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID)
+		}
 	}
 }
 
