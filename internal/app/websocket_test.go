@@ -240,6 +240,143 @@ func TestAppSaveBroadcastsNameValidationErrors(t *testing.T) {
 	}
 }
 
+func TestAppFrontendWebsocketBroadcastsCompletedWorkflowRunUpdate(t *testing.T) {
+	// The real IDE app should broadcast the updated parent workflow run over the
+	// frontend websocket when the child chat completes, so workflow UI state can
+	// merge the update without a follow-up poll.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
+			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Workflow child\"}}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":2,\"total_tokens\":15}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:        "primary",
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{{
+		ID:               "engine-managed",
+		Name:             "Managed Engine",
+		EngineType:       agentruns.EngineTypeSettaLLM,
+		SettaLLMConfigID: &managedConfigID,
+	}}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appManagedWorkflowTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed workflow project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStartStateMachineRun,
+		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+	)
+	if err != nil {
+		t.Fatalf("new start workflow request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start workflow run: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected workflow start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+
+	var started agentruns.Run
+	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+		t.Fatalf("decode started workflow run: %v", err)
+	}
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running workflow run, got %#v", started)
+	}
+
+	updated := readAppRouteAgentRunUpdate(t, conn, started.ID, agentruns.RunStatusCompleted, 20)
+	if got := updated.Inputs["runType"]; got != "state_machine" {
+		t.Fatalf("expected workflow run update payload, got %#v", updated.Inputs)
+	}
+	if got := appTestStringList(updated.Outputs["reachedEndSectionIds"]); len(got) != 1 || got[0] != "end-section" {
+		t.Fatalf("expected completed workflow run payload to reach end-section, got %#v", updated.Outputs["reachedEndSectionIds"])
+	}
+}
+
 func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -2915,6 +3052,35 @@ func readAppRouteEnvelopeUntilType(t *testing.T, conn *websocket.Conn, messageTy
 	}
 	t.Fatalf("did not receive app websocket message type %q within %d reads", messageType, maxReads)
 	return appRouteEnvelope{}
+}
+
+func readAppRouteAgentRunUpdate(
+	t *testing.T,
+	conn *websocket.Conn,
+	runID string,
+	status agentruns.RunStatus,
+	maxReads int,
+) agentruns.Run {
+	t.Helper()
+
+	for range maxReads {
+		envelope := readAppRouteEnvelope(t, conn)
+		if envelope.MessageType != realtime.MessageTypeAgentRunUpdated {
+			continue
+		}
+
+		var run agentruns.Run
+		if err := json.Unmarshal(envelope.Content, &run); err != nil {
+			t.Fatalf("decode agent run update payload: %v", err)
+		}
+		if run.ID != runID || run.Status != status {
+			continue
+		}
+		return run
+	}
+
+	t.Fatalf("did not receive workflow run update %q with status %q within %d reads", runID, status, maxReads)
+	return agentruns.Run{}
 }
 
 func assertNoAppRouteEnvelopeOfType(t *testing.T, conn *websocket.Conn, messageType string, timeout time.Duration) {
