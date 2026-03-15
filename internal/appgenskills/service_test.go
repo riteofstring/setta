@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -106,6 +107,96 @@ func TestServiceMarksRootLevelSkillNonEditable(t *testing.T) {
 	}
 }
 
+func TestServiceListSkipsIgnoredAndUnreadableRoots(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("unreadable directory permissions are not stable on windows")
+	}
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	agentsHome := filepath.Join(root, "agents-home")
+	for _, path := range []string{workspaceRoot, homeDir, agentsHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "visible", "SKILL.md"), "# Visible\n\nVisible description.\n")
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "node_modules", "ignored", "SKILL.md"), "# Ignored\n\nShould stay hidden.\n")
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", ".git", "ignored", "SKILL.md"), "# Ignored\n\nShould stay hidden.\n")
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "setta_files", "ignored", "SKILL.md"), "# Ignored\n\nShould stay hidden.\n")
+	unreadableRoot := filepath.Join(agentsHome, "skills")
+	writeSkillDoc(t, filepath.Join(unreadableRoot, "private-skill", "SKILL.md"), "# Private\n\nShould be skipped.\n")
+	if err := os.Chmod(unreadableRoot, 0o000); err != nil {
+		t.Fatalf("chmod unreadable root: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(unreadableRoot, 0o755)
+	})
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{
+		"AGENTS_HOME": agentsHome,
+	})
+
+	rows, err := service.List()
+	if err != nil {
+		t.Fatalf("list skills: %v", err)
+	}
+	if len(rows) != 1 || rows[0].SkillID != "workspace_agents_skills::visible" {
+		t.Fatalf("expected only visible workspace skill, got %#v", rows)
+	}
+}
+
+func TestServiceListReturnsEmptyDescriptionForInvalidUTF8AndNonWritableSkill(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	invalidUTF8SkillDoc := filepath.Join(workspaceRoot, ".claude", "skills", "bad-utf8", "SKILL.md")
+	writeSkillDocBytes(t, invalidUTF8SkillDoc, []byte("# Bad UTF8\n\n\xff\xfe\n"))
+	lockedSkillDoc := filepath.Join(workspaceRoot, ".agents", "skills", "locked-skill", "SKILL.md")
+	writeSkillDoc(t, lockedSkillDoc, "# locked-skill\n\nLocked.\n")
+	lockedSkillDir := filepath.Dir(lockedSkillDoc)
+	if err := os.Chmod(lockedSkillDir, 0o555); err != nil {
+		t.Fatalf("chmod locked skill dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(lockedSkillDir, 0o755)
+	})
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{})
+
+	rows, err := service.List()
+	if err != nil {
+		t.Fatalf("list skills: %v", err)
+	}
+
+	rowByID := make(map[string]SkillEntry, len(rows))
+	for _, row := range rows {
+		rowByID[row.SkillID] = row
+	}
+	if rowByID["workspace_claude_skills::bad-utf8"].Description != "" {
+		t.Fatalf("expected empty description for invalid UTF-8 skill, got %#v", rowByID["workspace_claude_skills::bad-utf8"])
+	}
+	lockedRow := rowByID["workspace_agents_skills::locked-skill"]
+	if lockedRow.IsEditable {
+		t.Fatalf("expected locked skill to be non-editable, got %#v", lockedRow)
+	}
+	if lockedRow.EditabilityReason == nil || *lockedRow.EditabilityReason != "Skill directory is not writable." {
+		t.Fatalf("expected locked skill editability reason, got %#v", lockedRow)
+	}
+}
+
 func TestServiceResolveSkillsResponseReportsMissingCreateRootWithoutProbingWrites(t *testing.T) {
 	t.Parallel()
 
@@ -140,6 +231,44 @@ func TestServiceResolveSkillsResponseReportsMissingCreateRootWithoutProbingWrite
 	}
 }
 
+func TestServiceResolveSkillsResponseFallsBackToNextWritableRoot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	agentsHome := filepath.Join(root, "agents-home")
+	for _, path := range []string{workspaceRoot, homeDir, agentsHome} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	agentsHomeSkills := filepath.Join(agentsHome, "skills")
+	userSkills := filepath.Join(homeDir, ".agents", "skills")
+	if err := os.MkdirAll(agentsHomeSkills, 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	if err := os.MkdirAll(userSkills, 0o755); err != nil {
+		t.Fatalf("mkdir user skills: %v", err)
+	}
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{
+		"AGENTS_HOME": agentsHome,
+	})
+
+	response, err := service.ResolveSkillsResponse()
+	if err != nil {
+		t.Fatalf("resolve skills response: %v", err)
+	}
+	if response.CustomSkillCreateRootPath == nil || *response.CustomSkillCreateRootPath != userSkills {
+		t.Fatalf("expected fallback to next writable user root, got %#v", response.CustomSkillCreateRootPath)
+	}
+	if !response.CustomSkillCreateRootActionable {
+		t.Fatalf("expected writable fallback root to be actionable, got %#v", response)
+	}
+}
+
 func TestServiceReadContentTruncatesPreviewWithMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -171,6 +300,39 @@ func TestServiceReadContentTruncatesPreviewWithMetadata(t *testing.T) {
 	}
 	if len(content.Content) != MaxSkillContentPreviewBytes {
 		t.Fatalf("expected preview length %d, got %d", MaxSkillContentPreviewBytes, len(content.Content))
+	}
+}
+
+func TestServiceReadContentRejectsTraversalAndInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	writeSkillDocBytes(t, filepath.Join(workspaceRoot, ".agents", "skills", "bad-content", "SKILL.md"), []byte("# bad-content\n\n\xff\xfe\n"))
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{})
+
+	_, err := service.ReadContent("workspace_agents_skills::../../outside")
+	if err == nil {
+		t.Fatal("expected traversal error")
+	}
+	var invalidErr *InvalidError
+	if !errors.As(err, &invalidErr) || invalidErr.Error() != "Invalid skill path." {
+		t.Fatalf("expected invalid skill path error, got %v", err)
+	}
+
+	_, err = service.ReadContent("workspace_agents_skills::bad-content")
+	if err == nil {
+		t.Fatal("expected invalid UTF-8 error")
+	}
+	if !errors.As(err, &invalidErr) || invalidErr.Error() != "invalid UTF-8" {
+		t.Fatalf("expected invalid UTF-8 error, got %v", err)
 	}
 }
 
@@ -327,6 +489,17 @@ func writeSkillDoc(t *testing.T, path string, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write skill doc: %v", err)
+	}
+}
+
+func writeSkillDocBytes(t *testing.T, path string, content []byte) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write raw skill doc: %v", err)
 	}
 }
 

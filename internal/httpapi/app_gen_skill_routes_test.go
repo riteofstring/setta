@@ -44,6 +44,42 @@ func TestRegisterAppGenSkillRoutesListsSkills(t *testing.T) {
 	}
 }
 
+func TestRegisterAppGenSkillRoutesListsSkillsUsesFallbackCreateRoot(t *testing.T) {
+	t.Parallel()
+
+	state := newAppGenSkillRouteTestStateWithEnv(t, testAppGenSkillRouteEnvSetup{
+		agentsHome: filepath.Join(t.TempDir(), "agents-home"),
+	})
+	writeAppGenSkillDoc(t, filepath.Join(state.workspaceRoot, ".agents", "skills", "ui-layout", "SKILL.md"), "# UI Layout\n\nCreate dense dashboard layouts.\n")
+	agentsHomeSkills := filepath.Join(state.agentsHome, "skills")
+	if err := os.MkdirAll(state.agentsHome, 0o755); err != nil {
+		t.Fatalf("mkdir agents home: %v", err)
+	}
+	if err := os.MkdirAll(agentsHomeSkills, 0o555); err != nil {
+		t.Fatalf("mkdir agents home skills: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(state.homeDir, ".agents", "skills"), 0o755); err != nil {
+		t.Fatalf("mkdir user skills: %v", err)
+	}
+	handler := newAppGenSkillRouteTestHandler(t, config.ModeIDE, state.service)
+
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAppGenSkills, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload appgenskills.GetSkillsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode skills response: %v", err)
+	}
+	expectedRoot := filepath.Join(state.homeDir, ".agents", "skills")
+	if payload.CustomSkillCreateRootPath == nil || *payload.CustomSkillCreateRootPath != expectedRoot || !payload.CustomSkillCreateRootActionable {
+		t.Fatalf("unexpected fallback create-root payload %#v", payload)
+	}
+}
+
 func TestRegisterAppGenSkillRoutesReturnsPlainNotFoundDetail(t *testing.T) {
 	t.Parallel()
 
@@ -64,6 +100,68 @@ func TestRegisterAppGenSkillRoutesReturnsPlainNotFoundDetail(t *testing.T) {
 	}
 	if payload.Error.Message != "Missing SKILL.md for workspace_agents_skills::missing-skill" {
 		t.Fatalf("unexpected error payload %#v", payload)
+	}
+}
+
+func TestRegisterAppGenSkillRoutesMapsInvalidReadBranchesTo400(t *testing.T) {
+	t.Parallel()
+
+	state := newAppGenSkillRouteTestState(t)
+	writeAppGenSkillDocBytes(t, filepath.Join(state.workspaceRoot, ".agents", "skills", "bad-content", "SKILL.md"), []byte("# bad-content\n\n\xff\xfe\n"))
+	protectedSkillDoc := filepath.Join(state.workspaceRoot, ".agents", "skills", "permission-denied", "SKILL.md")
+	writeAppGenSkillDoc(t, protectedSkillDoc, "# permission-denied\n\nBody.\n")
+	if err := os.Chmod(protectedSkillDoc, 0o000); err != nil {
+		t.Fatalf("chmod protected skill doc: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(protectedSkillDoc, 0o644)
+	})
+	handler := newAppGenSkillRouteTestHandler(t, config.ModeIDE, state.service)
+
+	for _, testCase := range []struct {
+		name              string
+		payload           string
+		expectedMessage   string
+		expectedSubstring string
+	}{
+		{
+			name:            "traversal",
+			payload:         `{"skillId":"workspace_agents_skills::../../outside"}`,
+			expectedMessage: "Invalid skill path.",
+		},
+		{
+			name:            "invalid utf8",
+			payload:         `{"skillId":"workspace_agents_skills::bad-content"}`,
+			expectedMessage: "invalid UTF-8",
+		},
+		{
+			name:              "permission denied",
+			payload:           `{"skillId":"workspace_agents_skills::permission-denied"}`,
+			expectedSubstring: "permission denied",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAppGenSkillContent, strings.NewReader(testCase.payload))
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "invalid_app_gen_skill" {
+				t.Fatalf("expected invalid_app_gen_skill, got %#v", payload)
+			}
+			if testCase.expectedMessage != "" && payload.Error.Message != testCase.expectedMessage {
+				t.Fatalf("expected message %q, got %#v", testCase.expectedMessage, payload)
+			}
+			if testCase.expectedSubstring != "" && !strings.Contains(strings.ToLower(payload.Error.Message), testCase.expectedSubstring) {
+				t.Fatalf("expected message containing %q, got %#v", testCase.expectedSubstring, payload)
+			}
+		})
 	}
 }
 
@@ -140,10 +238,20 @@ func TestRegisterAppGenSkillRoutesBlocksShareMode(t *testing.T) {
 type appGenSkillRouteTestState struct {
 	workspaceRoot string
 	homeDir       string
+	agentsHome    string
 	service       *appgenskills.Service
 }
 
 func newAppGenSkillRouteTestState(t *testing.T) appGenSkillRouteTestState {
+	t.Helper()
+	return newAppGenSkillRouteTestStateWithEnv(t, testAppGenSkillRouteEnvSetup{})
+}
+
+type testAppGenSkillRouteEnvSetup struct {
+	agentsHome string
+}
+
+func newAppGenSkillRouteTestStateWithEnv(t *testing.T, setup testAppGenSkillRouteEnvSetup) appGenSkillRouteTestState {
 	t.Helper()
 
 	root := t.TempDir()
@@ -167,6 +275,7 @@ func newAppGenSkillRouteTestState(t *testing.T) appGenSkillRouteTestState {
 	return appGenSkillRouteTestState{
 		workspaceRoot: workspaceRoot,
 		homeDir:       homeDir,
+		agentsHome:    setup.agentsHome,
 		service:       service,
 	}
 }
@@ -201,5 +310,16 @@ func writeAppGenSkillDoc(t *testing.T, path string, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write skill doc: %v", err)
+	}
+}
+
+func writeAppGenSkillDocBytes(t *testing.T, path string, content []byte) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write raw skill doc: %v", err)
 	}
 }
