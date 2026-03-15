@@ -26,9 +26,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `129`
+- Rows audited in this pass: `131`
 - Status counts:
-  - `Proved`: `124`
+  - `Proved`: `126`
   - `Intentional divergence`: `5`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
@@ -102,9 +102,9 @@ Last audited: `2026-03-16`
     target-validation/sanitized-error/watch-registry subset audited here
   - broader watch-code rename/move/signature-reuse/baseline-lifecycle rows
     beyond the baseline/create-delete/update-order subset audited here
-  - broader LSP diagnostics ignore-state, plugin-registration, and launcher
-    detail-parity rows beyond the diagnostics/completions/restart/type-check/
-    type-error-ignore subset audited here
+  - broader LSP plugin-registration and launcher detail-parity rows beyond the
+    diagnostics ignore-state/completions/restart/type-check/type-error-ignore
+    subset audited here
 
 ## Current Gaps
 
@@ -244,6 +244,8 @@ Last audited: `2026-03-16`
 | `lsp.diagnostics.latest_snapshot_route` | `backend/setta/routers/project_manager.py::route_get_latest_lsp_diagnostics`; `backend/setta/project_state/base_project_manager.py::get_latest_lsp_diagnostics` | `internal/httpapi/lsp_routes.go::getLatestLSPDiagnosticsHandler` | `TestRegisterLSPRoutesReturnsLatestDiagnosticsSnapshot` | `frontend/src/utils/generatedEndpoints.ts` still exposes `getLatestLspDiagnostics` | `Proved` | The diagnostics route still returns the current project-scoped snapshot payload instead of reconstructing ad hoc response fields. |
 | `lsp.completion_snapshot_routes_serve_existing_payloads` | `backend/setta/routers/project_manager.py::route_text_field_completion`; `...route_output_accessor_completion`; `...route_code_area_completion`; `...route_gen_code_prefix_completion`; `...route_gen_code_suffix_completion`; `backend/setta/api/generated_listener_endpoints.py` completion methods | `internal/httpapi/lsp_routes.go`; `internal/lspcompletion/service.go` | `TestRegisterLSPRoutesServesSnapshotCompletionEndpoints` | active completion callers still post the same route payload shapes via generated endpoints | `Proved` | The Go completion routes still accept the existing payloads and return completion lists/null bodies on the same surviving transport surface. |
 | `lsp.diagnostics_and_completion_routes_reject_share_mode` | `backend/setta/routers/project_manager.py::_deny_deployment_mode_lsp`; route callers under `route_text_field_completion` through `route_get_latest_lsp_diagnostics` | `internal/httpapi/lsp_routes.go::RegisterLSPRoutes`; `internal/httpapi/httpapi.go::RequireIDEMode` | `TestRegisterLSPRoutesRejectsShareModeRequests`; `TestRegisterLSPRoutesRejectsShareModeCompletionRequests` | deployment/share callers still hit the same route names when present in generated bindings | `Proved` | LSP diagnostics and completion routes remain unavailable outside IDE mode. |
+| `lsp.diagnostics.suppression_persists_and_reapplies_filtered_snapshot` | `backend/setta/routers/project_manager.py::route_set_code_section_diagnostic_code_suppression`; `tests/project_state/test_code_section_diagnostics.py::test_code_section_diagnostics_respect_suppression`; `tests/project_state/test_code_section_diagnostics_ignore.py::test_suppressed_codes_filter_diagnostics` | `internal/httpapi/lsp_routes.go::setCodeSectionDiagnosticCodeSuppressionHandler`; `internal/projectstate/lsp_diagnostics.go::ReapplyCodeSectionIgnoreState` | `TestRegisterLSPRoutesMutatesCodeSectionDiagnosticsIgnoreState` | `frontend/src/utils/generatedEndpoints.ts` still exposes `setCodeSectionDiagnosticCodeSuppression` | `Proved` | Suppressing a diagnostic code still persists the ignore state on the section and immediately re-filters the stored diagnostics snapshot. |
+| `lsp.diagnostics.mute_persists_and_clears_filtered_snapshot` | `backend/setta/routers/project_manager.py::route_set_code_section_diagnostics_mute`; `tests/project_state/test_code_section_diagnostics.py::test_code_section_diagnostics_restore_after_ignore_change`; `tests/project_state/test_code_section_diagnostics_ignore.py::test_mute_clears_diagnostics` | `internal/httpapi/lsp_routes.go::setCodeSectionDiagnosticsMuteHandler`; `internal/projectstate/lsp_diagnostics.go::ReapplyCodeSectionIgnoreState` | `TestRegisterLSPRoutesMutesCodeSectionDiagnostics` | `frontend/src/utils/generatedEndpoints.ts` still exposes `setCodeSectionDiagnosticsMute` | `Proved` | Muting a section still persists the mute flag and clears the filtered diagnostics view without dropping the underlying raw payload. |
 | `lsp.restart_language_server.route_restarts_live_document` | `backend/setta/routers/project_manager.py::route_restart_language_server` | `internal/httpapi/lsp_routes.go::restartLanguageServerHandler` | `TestRegisterLSPRoutesRestartsLanguageServer` | the edit-menu action still routes through `restartLanguageServer` in generated bindings | `Proved` | Restarting the language server still hands the admin surface the live project document snapshot. |
 | `lsp.type_check.route_targets_requested_project` | `backend/setta/routers/project_manager.py::route_type_check`; `tests/routers/test_full_runtime_mode_guards.py::test_type_check_is_blocked_in_launcher_mode` | `internal/httpapi/lsp_routes.go::typeCheckHandler` | `TestRegisterLSPRoutesTypeChecksProject` | `frontend/src/utils/generatedEndpoints.ts` still exposes `typeCheck` | `Proved` | Manual type-check still targets the requested project through the admin surface rather than a frontend-only fallback. |
 | `lsp.type_error_ignore.ide_and_deployment_param_policy` | `backend/setta/routers/project_manager.py::route_set_type_error_ignore`; `tests/routers/test_share_policy_routes.py` includes `set_type_error_ignore` in the param-guard matrix | `internal/httpapi/project_routes.go::setTypeErrorIgnoreHandler` | `TestRegisterProjectRoutesSetsTypeErrorIgnore`; `TestRegisterProjectRoutesSetTypeErrorIgnoreRespectsDeploymentParamPolicy`; `TestRegisterProjectRoutesSetTypeErrorIgnoreRejectsDeploymentWhenParamChangesForbidden` | `frontend/src/utils/generatedEndpoints.ts` still exposes `setTypeErrorIgnore` on the active transport surface | `Proved` | Type-error ignore now matches the source ownership and policy contract: IDE persists the state directly, and deployment/share requests are allowed or denied by the param-change policy while mutating only the session overlay. |
