@@ -70,6 +70,31 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 
 func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "complete")
+	baseConfigPath := filepath.Join(
+		fixture.root,
+		codexSettingsRootName,
+		"codex",
+		fixture.configID,
+		codexConfigFileName,
+	)
+	if err := os.MkdirAll(filepath.Dir(baseConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir codex base config dir: %v", err)
+	}
+	baseConfig, err := toml.Marshal(map[string]any{
+		"mcp_servers": map[string]any{
+			"filesystem": map[string]any{
+				"transport": "stdio",
+				"command":   "npx @modelcontextprotocol/server-filesystem .",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("encode codex base config: %v", err)
+	}
+	if err := os.WriteFile(baseConfigPath, baseConfig, 0o644); err != nil {
+		t.Fatalf("write codex base config: %v", err)
+	}
+
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -118,6 +143,13 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	}
 	if got := stringValue(runtimeConfig["model_reasoning_summary"]); got != "none" {
 		t.Fatalf("expected runtime reasoning summary default, got %#v", runtimeConfig["model_reasoning_summary"])
+	}
+	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
+	if !ok {
+		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
+	}
+	if _, ok := mapValue(mcpServers["filesystem"]); !ok {
+		t.Fatalf("expected inherited filesystem mcp server, got %#v", mcpServers)
 	}
 	if !containsText(stringValue(runtimeConfig["developer_instructions"]), "## Runtime execution settings") {
 		t.Fatalf("expected runtime developer instructions to include execution settings, got %#v", runtimeConfig["developer_instructions"])

@@ -112,6 +112,102 @@ func TestServiceCreateWritesOpenCodeCanonicalConfig(t *testing.T) {
 	}
 }
 
+func TestServiceCreatePreservesExistingCodexMCPServersWhenAddingSetta(t *testing.T) {
+	t.Parallel()
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+
+	created, err := service.Create(Config{
+		ID:                 "codex-config",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+		SettingsManagedBlock: &SettingsManagedBlock{
+			Codex: map[string]any{
+				"mcp_servers": map[string]any{
+					"filesystem": map[string]any{
+						"transport": "stdio",
+						"command":   "npx @modelcontextprotocol/server-filesystem .",
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	configPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read codex config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := toml.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode codex config: %v", err)
+	}
+	mcpServers, ok := payload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
+	}
+	if _, ok := mcpServers["filesystem"].(map[string]any); !ok {
+		t.Fatalf("expected existing filesystem mcp server to survive, got %#v", mcpServers)
+	}
+	settaServer, ok := mcpServers["setta"].(map[string]any)
+	if !ok || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected normalized setta mcp server, got %#v", mcpServers)
+	}
+}
+
+func TestServiceCreatePreservesExistingOpenCodeMCPServersWhenAddingSetta(t *testing.T) {
+	t.Parallel()
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+
+	created, err := service.Create(Config{
+		ID:                 "opencode-config",
+		Name:               "OpenCode",
+		ToolType:           ToolTypeOpenCode,
+		RunMode:            RunModeSDK,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+		SettingsManagedBlock: &SettingsManagedBlock{
+			OpenCode: &OpenCodeSettingsBlock{
+				MCP: map[string]any{
+					"filesystem": map[string]any{
+						"type":    "stdio",
+						"command": "npx @modelcontextprotocol/server-filesystem .",
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	configPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "opencode", created.ID, openCodeConfigFileName)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read opencode config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode opencode config: %v", err)
+	}
+	mcpEntries, ok := payload["mcp"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp map, got %#v", payload["mcp"])
+	}
+	if _, ok := mcpEntries["filesystem"].(map[string]any); !ok {
+		t.Fatalf("expected existing filesystem mcp entry to survive, got %#v", mcpEntries)
+	}
+	settaServer, ok := mcpEntries["setta"].(map[string]any)
+	if !ok || settaServer["url"] != "http://127.0.0.1:8000/mcp" || settaServer["type"] != "remote" || settaServer["enabled"] != true {
+		t.Fatalf("expected normalized setta mcp entry, got %#v", mcpEntries)
+	}
+}
+
 func TestServiceCreateLeavesClaudeSharedSettingsRuntimeOwned(t *testing.T) {
 	t.Parallel()
 

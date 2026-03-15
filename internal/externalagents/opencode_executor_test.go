@@ -26,6 +26,32 @@ func TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	// Verify the real OpenCode executor persists session state, assistant output,
 	// and the bounded runtime config file for an SDK-backed run.
 	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "complete"})
+	baseConfigPath := filepath.Join(
+		fixture.root,
+		codexSettingsRootName,
+		"opencode",
+		fixture.configID,
+		openCodeConfigFileName,
+	)
+	if err := os.MkdirAll(filepath.Dir(baseConfigPath), 0o755); err != nil {
+		t.Fatalf("mkdir opencode base config dir: %v", err)
+	}
+	baseConfig, err := json.MarshalIndent(map[string]any{
+		"mcp": map[string]any{
+			"filesystem": map[string]any{
+				"type":    "stdio",
+				"command": "npx @modelcontextprotocol/server-filesystem .",
+			},
+		},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("encode opencode base config: %v", err)
+	}
+	baseConfig = append(baseConfig, '\n')
+	if err := os.WriteFile(baseConfigPath, baseConfig, 0o644); err != nil {
+		t.Fatalf("write opencode base config: %v", err)
+	}
+
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -86,6 +112,13 @@ func TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	permission, ok := mapValue(runtimeConfig["permission"])
 	if !ok || stringValue(permission["shell"]) != "ask" {
 		t.Fatalf("expected runtime permission payload, got %#v", runtimeConfig["permission"])
+	}
+	mcpEntries, ok := mapValue(runtimeConfig["mcp"])
+	if !ok {
+		t.Fatalf("expected runtime mcp payload, got %#v", runtimeConfig["mcp"])
+	}
+	if _, ok := mapValue(mcpEntries["filesystem"]); !ok {
+		t.Fatalf("expected inherited filesystem mcp entry, got %#v", mcpEntries)
 	}
 
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)

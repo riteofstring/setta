@@ -362,6 +362,139 @@ func TestClaudeExecutorSeededUnknownMCPStatusDoesNotOverridePayloadStatus(t *tes
 	}
 }
 
+func TestBuildClaudeStartPayloadPassesThroughMCPConfigPath(t *testing.T) {
+	t.Parallel()
+
+	payload := buildClaudeStartPayload(StartRequest{
+		Run: agentruns.NewRun(nil, map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Hello"},
+					},
+				},
+			},
+		}, time.Date(2026, 3, 9, 13, 30, 0, 0, time.UTC)),
+		ExternalConfig: externalagentconfigs.Config{
+			ToolType: externalagentconfigs.ToolTypeClaudeCode,
+			RunMode:  externalagentconfigs.RunModeSDK,
+		},
+		Inputs: map[string]any{
+			"mcpConfig": "/tmp/runtime-claude.mcp.json",
+		},
+	}, "/tmp/workspace", map[string]string{})
+
+	if got := stringValue(payload["mcpConfigPath"]); got != "/tmp/runtime-claude.mcp.json" {
+		t.Fatalf("expected mcpConfigPath passthrough, got %#v", payload["mcpConfigPath"])
+	}
+}
+
+func TestResolveClaudeSettingsPathUsesManagedModeSpecificFiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	localPath := resolveClaudeSettingsPath(externalagentconfigs.Config{
+		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode: externalagentconfigs.SettingsModeManagedLocal,
+	}, root)
+	if want := filepath.Join(root, ".claude", "settings.local.json"); localPath != want {
+		t.Fatalf("expected managed-local settings path %q, got %q", want, localPath)
+	}
+
+	projectPath := resolveClaudeSettingsPath(externalagentconfigs.Config{
+		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode: externalagentconfigs.SettingsModeManagedProject,
+	}, root)
+	if want := filepath.Join(root, ".claude", "settings.json"); projectPath != want {
+		t.Fatalf("expected managed-project settings path %q, got %q", want, projectPath)
+	}
+
+	readOnlyPath := resolveClaudeSettingsPath(externalagentconfigs.Config{
+		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
+	}, root)
+	if readOnlyPath != "" {
+		t.Fatalf("expected read-only settings mode to skip path resolution, got %q", readOnlyPath)
+	}
+}
+
+func TestPrepareClaudeSettingsPreservesUserKeysForManagedProject(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	settingsPath := filepath.Join(root, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatalf("mkdir claude settings dir: %v", err)
+	}
+	existingPayload, err := json.MarshalIndent(map[string]any{
+		"userSetting": map[string]any{"foo": "bar"},
+		"permissions": map[string]any{"allow": []string{"Old"}},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("encode existing claude settings: %v", err)
+	}
+	existingPayload = append(existingPayload, '\n')
+	if err := os.WriteFile(settingsPath, existingPayload, 0o644); err != nil {
+		t.Fatalf("write existing claude settings: %v", err)
+	}
+
+	executor := &ClaudeExecutor{workspaceRoot: root}
+	if err := executor.prepareClaudeSettings(externalagentconfigs.Config{
+		ToolType:                externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode:            externalagentconfigs.SettingsModeManagedProject,
+		SettingsAllowSettaEdits: true,
+		SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
+			Claude: map[string]any{
+				"permissions": map[string]any{
+					"allow": []string{"New"},
+					"ask":   []string{},
+					"deny":  []string{},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("prepare claude settings: %v", err)
+	}
+
+	content, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("read claude settings: %v", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode claude settings: %v", err)
+	}
+	if got, ok := payload["userSetting"].(map[string]any); !ok || got["foo"] != "bar" {
+		t.Fatalf("expected user keys to be preserved, got %#v", payload)
+	}
+	permissions, ok := payload["permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected managed permissions block, got %#v", payload)
+	}
+	allow, ok := permissions["allow"].([]any)
+	if !ok || len(allow) != 1 || stringValue(allow[0]) != "New" {
+		t.Fatalf("expected managed permissions to overwrite allow list, got %#v", permissions)
+	}
+}
+
+func TestPrepareClaudeSettingsReadOnlySkipsWrites(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	executor := &ClaudeExecutor{workspaceRoot: root}
+	if err := executor.prepareClaudeSettings(externalagentconfigs.Config{
+		ToolType:     externalagentconfigs.ToolTypeClaudeCode,
+		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
+	}); err != nil {
+		t.Fatalf("prepare read-only claude settings: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude")); !os.IsNotExist(err) {
+		t.Fatalf("expected read-only settings mode to skip writes, stat err=%v", err)
+	}
+}
+
 type claudeExecutorFixture struct {
 	root     string
 	config   externalagentconfigs.Config
