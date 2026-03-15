@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`e734af7da0334323de70bd08dc23d8d3c3e071a7`
+`e894e84a0001577b844ae4a370ffa90d8da37c48`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -40,6 +40,12 @@ It currently covers:
 - IDE `runCode` terminal-selection and draw-snapshot behavior
 - deployment/share `runCode` policy and session-overlay behavior
 - detached-run runtime and transport behavior
+- binary upload/download transport behavior
+- artifact import/cache/update/delete behavior
+- share artifact overlay and broadcast behavior
+- attachment download URL/token/payload behavior
+- file browser root/list/read/write/transfer behavior
+- git status/diff/log/commit route behavior
 
 Rows outside these slices are still pending.
 
@@ -70,7 +76,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Seven concrete parity gaps are already visible:
+- Eight concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -91,6 +97,9 @@ Rows outside these slices are still pending.
     update
   - source-baseline listener transport supports `use_temporary_ids`
   - current Go rejects temporary listener ids on `ListenerInit`
+  - source-baseline file-browser folder listings show dev-facing dotfiles by
+    default
+  - current Go hides all dotfiles unless callers opt in with `includeHidden`
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -108,6 +117,13 @@ Rows outside these slices are still pending.
     `cliId`-backed `runCode`)
 - The detached-run slice mostly closes with proofs and adds one more edge-case
   proof gap around `cancelRun` after exit or tracker loss.
+- The binary/artifact/attachment/file-browser/git slice mostly closes with
+  proofs, but it adds:
+  - one more dormant source transport question around share-mode binary
+    downloads
+  - four more proof-gap clusters around binary upload edge handling, artifact
+    upload-policy branches, attachment token/filename edge cases, and
+    file-browser read/write concurrency/error paths
 
 ## Project Names
 
@@ -311,10 +327,59 @@ Rows outside these slices are still pending.
 | `DR-06` | `runDetached` always uses a snapshot, rejects `runSnapshotMode=never`, and maps invalid override requests to `invalid_run_detached_request`. | `backend/setta/routers/runs.py::route_run_detached`; source planner/override behavior: `tests/project_state/test_run_overrides.py`; source manager bridge: `backend/setta/project_state/session_project_manager.py::create_run_command_with_overrides`. | Impl/proof: `internal/httpapi/detached_run_routes.go::runDetachedHandler`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey`. | `Proved` | |
 | `DR-07` | The public `runDetached` transport is unavailable in deployment mode, and the detached-run router remains forbidden in launcher mode. | `backend/setta/routers/runs.py::route_run_detached`; `backend/setta/routers/setta_api_router.py` non-launcher project router boundary. | Impl/proof: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsDeploymentMode`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsLauncherMode`. | `Proved` | This row is intentionally scoped to the public `runDetached` entrypoint, not to hypothetical deployment-only status lookups. |
 
+## Binary Payloads
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `BP-01` | Binary upload/download round-trips payload bytes and media type, and invalid binary content ids are rejected. | `tests/routers/test_file_browser_routes.py::test_binary_upload_and_download`; `tests/routers/test_file_browser_routes.py::test_binary_download_rejects_invalid_content_id`. | Impl: `internal/httpapi/binary_routes.go`; `internal/binary/store.go`; proof: `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesStoresUploadedPayload`; `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesServesDownloadedPayload`; `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesRejectsInvalidDownloadContentID`; `internal/binary/store_test.go::TestStoreStreamRoundTripsContent`. | `Proved` | |
+| `BP-02` | Binary upload accepts `durable=false`, rejects invalid durable form values, and fails oversized uploads with `413`. | `tests/routers/test_file_browser_routes.py::test_binary_upload_allows_non_durable`; `tests/routers/test_file_browser_routes.py::test_binary_upload_rejects_invalid_durable_value`; `tests/routers/test_file_browser_routes.py::test_binary_upload_rejects_oversized_payload`. | Impl: `internal/httpapi/binary_routes.go`; `internal/binary/store.go`; partial proof: `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesStoresUploadedPayload`; `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesRejectsInvalidDurableFlag`; `internal/binary/store_test.go::TestStoreStreamRejectsOversizedPayload`. | `Implemented, proof incomplete` | Current Go tests prove the upload path, invalid durable parsing, and store-level oversize rejection, but this slice does not yet have a direct Go route test for `durable=false` metadata persistence or the transport-level `413` upload response. |
+| `BP-03` | Source-baseline binary download is policy-gated in share mode instead of being removed outright from deployment runtimes. | `tests/routers/test_file_browser_routes.py::test_binary_download_blocks_when_policy_disallows`. | Current Go guard: `internal/httpapi/binary_routes.go::RegisterBinaryRoutes`; proof: `internal/httpapi/binary_routes_test.go::TestRegisterBinaryRoutesBlocksDeploymentMode`. | `Dormant / unproven caller` | Current Go only exposes `/binary/*` on the full IDE runtime. This slice does not yet prove any surviving share/app caller still needs raw binary downloads now that attachments and share-artifact routes cover the active file-access paths. |
+
+## Artifact Routes And Share Overlays
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `AR-01` | `importFilesToArtifacts` copies workspace files into new state-relative `artifacts/...` ids. | `tests/routers/test_file_browser_routes.py::test_import_files_to_artifacts_success`; source route: `backend/setta/routers/artifact.py::route_import_files_to_artifacts`. | Impl: `internal/artifacts/service.go::ImportFiles`; proof: `internal/artifacts/service_test.go::TestServiceImportLoadAndDeleteFlow`; `internal/httpapi/artifact_routes_test.go::TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate`; app proof: `internal/app/artifact_test.go::TestAppServesArtifactRoutes`. | `Proved` | |
+| `AR-02` | Cached artifact load routes read image/chart/brush/transform artifacts, and image loads surface bytes through binary-store indirection. | `tests/project_state/test_artifacts_file_reads.py::test_read_file_from_disk_allows_empty_file`; `tests/project_state/test_listener_artifact_updates.py` cache-type tests; `docs/reference/draw-image-representation.md` realtime/cache section. | Impl: `internal/artifacts/service.go::{LoadCachedImages,LoadCachedChartData,LoadCachedBrushStrokes,LoadCachedDrawAreaLayerItemTransforms}`; proof: `internal/artifacts/service_test.go::TestServiceImportLoadAndDeleteFlow`; `internal/httpapi/artifact_routes_test.go::TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate`; app proof: `internal/app/artifact_test.go::TestAppServesArtifactRoutes`. | `Proved` | |
+| `AR-03` | `updateArtifacts` / `deleteArtifacts` support the current file/brush/transform caller types, normalize ids, reject unsupported artifact types, and forbid deletes outside the artifacts root. | `tests/routers/test_file_browser_routes.py::test_delete_artifacts_removes_file`; `tests/routers/test_file_browser_routes.py::test_delete_artifacts_rejects_non_file_type`; `tests/routers/test_file_browser_routes.py::test_delete_artifacts_rejects_outside_artifacts_root`; source route family: `backend/setta/routers/artifact.py`. | Impl: `internal/artifacts/service.go::{Update,Delete}`; proof: `internal/artifacts/service_test.go::TestServiceUpdateHandlesConflictsAndUnsupportedTypes`; `internal/artifacts/service_test.go::TestServiceRejectsOversizedFileArtifactsAndOutsideRootDeletes`; `internal/httpapi/artifact_routes_test.go::TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate`; app proof: `internal/app/artifact_test.go::TestAppServesArtifactRoutes`. | `Proved` | |
+| `AR-04` | Artifact upload policy enforces dropzone/chat size and MIME limits before write. | `tests/routers/test_file_browser_routes.py::test_update_artifacts_rejects_oversized_file`; `tests/routers/test_file_browser_routes.py::test_update_artifacts_rejects_when_dropzone_limit_disabled`; `tests/routers/test_file_browser_routes.py::test_update_artifacts_rejects_oversized_chat_file`; `tests/routers/test_file_browser_routes.py::test_update_artifacts_rejects_when_chat_limit_disabled`; `tests/routers/test_file_browser_routes.py::test_update_artifacts_rejects_disallowed_chat_mime`; `tests/routers/test_file_browser_routes.py::test_import_files_to_artifacts_rejects_disallowed_dropzone_mime`; `tests/routers/test_file_browser_routes.py::test_import_files_to_artifacts_respects_chat_size_limit`. | Impl: `internal/artifacts/policy.go`; `internal/artifacts/service.go`; share mirror: `internal/shareartifacts/service.go::enforceUploadPolicy`. | `Implemented, proof incomplete` | Current Go code has the upload-scope policy branches, but this slice only directly proves generic oversize rejection and share `allowParamChanges` denial. The source chat/dropzone size+MIME matrix still lacks direct Go proof. |
+| `AR-05` | Share artifact updates are per-session, in-memory only, normalize deployment-relative ids, and broadcast `UpdateArtifacts` only to the active share session. | `tests/routers/test_share_artifacts.py::test_share_updates_are_in_memory_only`; `tests/routers/test_share_artifacts.py::test_share_normalizes_artifact_ids_to_deployment_relative`; `tests/routers/test_share_artifacts.py::test_share_updates_broadcast_to_session`; `docs/reference/sharing-mode-vs-ide-mode.md` deployment runtime behavior section. | Impl: `internal/shareartifacts/service.go`; proof: `internal/shareartifacts/service_test.go::TestServiceUpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched`; `internal/shareartifacts/service_test.go::TestServiceDeleteShareSessionDropsOverlayState`; `internal/httpapi/artifact_routes_test.go::TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay`; app proof: `internal/app/share_artifact_test.go::TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates`. | `Proved` | |
+| `AR-06` | Share artifact updates reject `allowParamChanges=false` with a policy error. | `tests/routers/test_share_artifacts.py::test_share_updates_blocked_by_policy`; `docs/reference/share-policy-flags.md`. | Impl/proof: `internal/shareartifacts/service_test.go::TestServiceUpdateRejectsPolicyDenied`; `internal/httpapi/artifact_routes_test.go::TestRegisterArtifactRoutesShareModeRejectsPolicyDenied`. | `Proved` | |
+
+## Attachment Downloads And Payload Shaping
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `AT-01` | Attachment download URLs support state-relative artifact ids, and downloads serve the attachment body with the correct MIME type and filename. | `tests/routers/test_attachment_routes.py::test_get_attachment_download_url_supports_state_relative_ids`; source routes: `backend/setta/routers/attachments.py::{route_get_attachment_download_url,route_download_attachment}`. | Impl: `internal/chatattachments/service.go`; `internal/httpapi/attachment_routes.go`; proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesReturnsDownloadURLAndServesAttachment`; `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRootRoutesServesDownloadedAttachment`; `internal/chatattachments/service_test.go::TestDownloadServesArtifactContentForValidToken`; `internal/chatattachments/service_test.go::TestBuildDownloadURLNormalizesArtifactID`. | `Proved` | |
+| `AT-02` | Plural attachment download URL responses skip missing or invalid entries instead of failing the whole request. | `tests/routers/test_attachment_routes.py::test_get_attachment_download_urls_skips_invalid_entries`. | Impl/proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesSkipsMissingEntriesInPluralResponse`. | `Proved` | |
+| `AT-03` | Attachment payload shaping dedups repeated attachments, inlines text attachments, keeps image placeholders out of `attachmentTextNoImages`, and requires a current session to mint URLs. | `tests/utils/test_chat_attachments.py::test_build_attachment_content_blocks_handles_images_text_and_binary`; `tests/utils/test_chat_attachments.py::test_build_attachments_prompt_text_skips_images_when_disabled`; `docs/reference/external-agents.md` attachments section. | Impl/proof: `internal/chatattachments/service_test.go::TestBuildPayloadShapesAdapterAttachmentInputs`; `internal/chatattachments/service_test.go::TestBuildPayloadRequiresCurrentSessionForDownloadURLs`. | `Proved` | |
+| `AT-04` | Deployment attachment URLs/downloads include share-session context and enforce `allowFileDownloads`. | `tests/routers/test_attachment_routes.py::test_download_urls_blocked_when_policy_disallows`; `docs/reference/share-policy-flags.md` download-url section. | Impl/proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesIncludesShareSessionForDeployment`; `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRoutesRejectsDeploymentDownloadsWhenPolicyDisabled`; `internal/chatattachments/service_test.go::TestDownloadForShareSessionServesDeploymentArtifacts`. | `Proved` | |
+| `AT-05` | Expired tokens, injected share-session ids in IDE mode, unknown `projectConfigId` values, and unicode filenames preserve the source attachment edge contract. | `tests/routers/test_attachment_routes.py::test_download_attachment_returns_403_when_token_expired`; `tests/routers/test_attachment_routes.py::test_download_attachment_rejects_share_session_id_in_ide_mode`; `tests/routers/test_attachment_routes.py::test_download_attachment_validates_project_config_id`; `tests/routers/test_attachment_routes.py::test_download_attachment_handles_unicode_filename`. | Impl: `internal/httpapi/attachment_routes.go::writeAttachmentDownloadError`; `internal/chatattachments/service.go::{DownloadForShareSession,BuildContentDisposition}`; current proof: `internal/httpapi/attachment_routes_test.go::TestRegisterAttachmentRootRoutesRejectsInvalidToken`; `internal/chatattachments/service_test.go::TestDownloadRejectsInvalidToken`. | `Implemented, proof incomplete` | Current Go code has the remaining token/project-config/unicode branches, but this slice only directly proves the invalid-token path. |
+
+## File Browser
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `FB-01` | `getFileBrowserRoot` returns workspace root, path separator, and default ignore patterns; deployment-mode file browsing is forbidden; `createFile` remains IDE-only; launcher mode is blocked. | `tests/routers/test_file_browser_routes.py::test_get_file_browser_root_ide_mode`; `tests/routers/test_file_browser_routes.py::test_get_file_browser_root_share_mode_forbidden`; source routes: `backend/setta/routers/artifact.py::{route_get_file_browser_root,route_create_file}`. | Impl/proof: `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesCreatesWorkspaceFiles`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesBlocksDeploymentModeWithExplicitMessage`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesBlocksCreateFileInDeploymentMode`; `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesBlocksLauncherMode`. | `Proved` | |
+| `FB-02` | Default folder listings show dev-facing dotfiles like `.env` / `.gitignore` while still hiding ignored roots such as `.git`, `.venv`, `node_modules`, and Setta-managed roots. | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_shows_dotfiles_but_keeps_ignored_roots_hidden`; `docs/reference/file-browser-pane.md` filters/visibility section. | Current Go behavior: `internal/filebrowser/service.go::ListFolder` skips all dot-prefixed entries unless `IncludeHidden` is true; current proof of that behavior: `internal/filebrowser/service_test.go::TestServiceListFolderFiltersAndIncludesSettaInitialization`. | `Missing` | Current frontend callers do not set `includeHidden`, so the Go file browser currently regresses the source-baseline/default dotfile visibility. |
+| `FB-03` | Folder listings still surface Setta-initialized flags, keep user `runtime` visible, and hide symlinked Setta internal roots. | `tests/routers/test_file_browser_routes.py::test_get_folder_contents_include_setta_initialized_flag`; `tests/routers/test_file_browser_routes.py::test_get_folder_contents_keeps_user_runtime_name_visible`; `tests/routers/test_file_browser_routes.py::test_get_folder_contents_hides_symlink_to_setta_internal_roots`. | Impl/proof: `internal/filebrowser/service_test.go::TestServiceListFolderFiltersAndIncludesSettaInitialization`. | `Proved` | This row is intentionally separate from `FB-02`; the dotfile default is wrong, but these other filtering/flag branches still match. |
+| `FB-04` | File read/write flow snapshots content into the binary store and enforces optimistic-concurrency and size/error guards: oversize reads, changed-while-reading conflicts, create-only semantics, stale mtimes, and missing binary payloads fail loudly. | `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_reads_file`; `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_rejects_oversized_file`; `tests/routers/test_file_browser_routes.py::test_get_file_browser_file_content_rejects_file_changed_while_reading`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_creates_missing_file`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_rejects_existing_file_without_mtime`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_create_only_is_atomic`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_rejects_stale_mtime`; `tests/routers/test_file_browser_routes.py::test_write_file_browser_file_content_rejects_missing_binary_payload`. | Impl: `internal/filebrowser/service.go::{ReadFileContent,WriteFileContent}`; current proof: `internal/filebrowser/service_test.go::TestServiceReadWriteAndDownloadFlow`; route proof: `internal/httpapi/filebrowser_routes_test.go::TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads`. | `Implemented, proof incomplete` | Current Go code has the source edge-case branches, but this slice only directly proves the happy-path read/write/download flow. |
+| `FB-05` | File-browser transfer copy auto-renames conflicts and rejects nested folder targets. | `tests/routers/test_file_browser_routes.py::test_transfer_file_browser_entry_copy_auto_renames_conflicts`; `tests/routers/test_file_browser_routes.py::test_transfer_file_browser_entry_rejects_nested_folder_target`. | Impl/proof: `internal/filebrowser/service_test.go::TestServiceTransferCopyRenamesConflictsAndRejectsNestedMoves`. | `Proved` | |
+
+## Git Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `GT-01` | Git status returns non-repo metadata outside git workspaces, and repo status surfaces repo-root metadata plus staged/unstaged/untracked entries. | `docs/reference/git-pane.md` availability/status sections; `tests/routers/test_git_routes.py::test_status_staged_unstaged_untracked`; `tests/routers/test_git_routes.py::test_status_route_parses_porcelain_v2_head_metadata`; `tests/routers/test_git_routes.py::test_status_route_returns_typed_worktree_entries`. | Impl: `internal/gitread/service.go::Status`; proof: `internal/gitread/service_test.go::TestServiceStatusReturnsNonRepoMetadataOutsideGitWorkspace`; `internal/gitread/service_test.go::TestServiceStatusParsesStagedUnstagedAndUntrackedEntries`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsNonRepoStatus`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsStatusAndDiff`. | `Proved` | |
+| `GT-02` | Git diff supports staged/unstaged/untracked files plus staged rename `oldPath`, treats pathspecs literally, preserves leading-space repo-relative paths, and rejects directory/repo-root pathspecs. | `tests/routers/test_git_routes.py::test_diff_unstaged_staged_and_untracked`; `tests/routers/test_git_routes.py::test_diff_staged_rename_uses_old_path_when_provided`; `tests/routers/test_git_routes.py::test_diff_preserves_leading_space_in_repo_relative_paths`; `tests/routers/test_git_routes.py::test_diff_treats_special_characters_as_literal_pathspecs`; `tests/routers/test_git_routes.py::test_diff_rejects_repo_root_pathspec`; `tests/routers/test_git_routes.py::test_diff_rejects_directory_pathspec`; `docs/reference/git-pane.md` validation/safety rules. | Impl: `internal/gitread/service.go::Diff`; proof: `internal/gitread/service_test.go::TestServiceDiffReturnsStagedUnstagedAndSynthesizedUntrackedDiffs`; `internal/gitread/service_test.go::TestServiceDiffUsesOldPathForStagedRename`; `internal/gitread/service_test.go::TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsStatusAndDiff`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesUsesOldPathForRenameAndRejectsDirectories`. | `Proved` | |
+| `GT-03` | Git log paginates without overlap and preserves head-branch/decorations metadata. | `tests/routers/test_git_routes.py::test_log_commit_details_and_file_diff`; `tests/routers/test_git_routes.py::test_log_preserves_decorations_with_commas_in_ref_names`; `tests/routers/test_git_routes.py::test_log_pagination_offsets_without_overlap`; `docs/reference/git-pane.md` backend routes section. | Impl/proof: `internal/gitread/service_test.go::TestServiceLogPaginatesAndPreservesDecorations`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff`. | `Proved` | |
+| `GT-04` | Commit-details and commit-file-diff routes cover renames and historical file paths, while invalid revisions map to `400` and missing commit-file diffs map to `404`. | `tests/routers/test_git_routes.py::test_log_returns_client_error_for_unknown_revision`; `tests/routers/test_git_routes.py::test_log_commit_details_and_file_diff`; `tests/routers/test_git_routes.py::test_commit_file_diff_allows_historical_file_when_path_is_now_directory`; `tests/routers/test_git_routes.py::test_commit_file_diff_returns_not_found_for_file_not_in_commit_diff`. | Impl: `internal/gitread/service.go::{Log,CommitDetails,CommitFileDiff}`; proof: `internal/gitread/service_test.go::TestServiceLogRejectsInvalidRevision`; `internal/gitread/service_test.go::TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff`. | `Proved` | |
+| `GT-05` | Git routes are IDE-only and deployment-mode requests fail with the standard `mode_forbidden` envelope; launcher mode is also blocked. | `docs/reference/git-pane.md` availability section; `docs/reference/share-policy-flags.md` git-route note. | Impl: `internal/httpapi/git_routes.go::RegisterGitRoutes`; proof: `internal/httpapi/httpapi_test.go::TestHandlerBlocksIDEModeRouteInShareMode`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksLauncherMode`. | `Proved` | |
+
 ## Current Findings
 
-1. The matrix now contains seven concrete source-parity gaps:
-   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, and `LS-17`.
+1. The matrix now contains eight concrete source-parity gaps:
+   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, and `FB-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -337,16 +402,31 @@ Rows outside these slices are still pending.
    `TT-04` and `TR-08`.
 9. The detached-run slice added one more under-proved row:
    `DR-05`.
-10. The remaining issues in the naming slice are still mostly proof gaps rather
-   than obvious implementation gaps.
-11. The next high-value steps are:
-   - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, and `EC-05` should be
-     restored or documented as intentional divergences
-   - decide whether `LS-11` and `LS-17` should be restored or documented as
-     intentional divergences
-   - close proof gaps for project/view-mode/window-space/section format-rule
-     variants
-   - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
-     `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`)
-   - continue the matrix into the remaining realtime/runtime slices that are
-     still outside this partial matrix
+10. The binary/artifact/attachment/file-browser/git slice mostly closes with
+    proofs, but it adds:
+    - one real behavior gap around default file-browser dotfile visibility
+      (`FB-02`)
+    - one new dormant share/runtime question around binary downloads
+      (`BP-03`)
+    - four more under-proved proof clusters (`BP-02`, `AR-04`, `AT-05`,
+      `FB-04`)
+11. Git route behavior is now largely proved, including literal pathspec
+    handling, pagination/decorations, and commit-diff historical-path
+    behavior.
+12. The remaining issues in the naming slice are still mostly proof gaps rather
+    than obvious implementation gaps.
+13. The next high-value steps are:
+    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, and
+      `FB-02` should be restored or documented as intentional divergences
+    - decide whether `LS-11` and `LS-17` should be restored or documented as
+      intentional divergences
+    - decide whether `BP-03` still matters for any active Go-era share caller
+      or can be classified as a dead-path transport
+    - close proof gaps for project/view-mode/window-space/section format-rule
+      variants
+    - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
+      `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
+      binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
+      `AT-05`, `FB-04`)
+    - continue the matrix into the remaining realtime/runtime slices that are
+      still outside this partial matrix
