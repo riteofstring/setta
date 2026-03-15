@@ -280,9 +280,11 @@ class SettaRunner:
             "entrySectionId": entry_section_id,
             "runSnapshotMode": active_override.run_snapshot_mode,
             "sectionVariantOverrides": active_override.section_variant_overrides,
-            "paramOverrides": self._encode_param_overrides(
-                active_override.param_overrides
-            ),
+            "paramOverrides": {
+                f"{section_id}:{param_id}": value
+                for key, value in active_override.param_overrides.items()
+                for section_id, param_id in [_normalize_param_key(key)]
+            },
             "tags": active_override.tags,
         }
         data = self._post(Route.RUN_DETACHED, payload)
@@ -406,16 +408,6 @@ class SettaRunner:
             if config.name == project_name or config.id == project_name:
                 return config.id
         raise KeyError(f"Unknown project config: {project_name}")
-
-    def _encode_param_overrides(
-        self,
-        overrides: dict[SectionParamDependencyKey | tuple[ID, ID], str],
-    ) -> dict[str, str]:
-        return {
-            f"{section_id}:{param_id}": value
-            for key, value in overrides.items()
-            for section_id, param_id in [_normalize_param_key(key)]
-        }
 
     def _load_project_metadata(self) -> list[ProjectConfig]:
         if self._project_configs is not None:

@@ -49,14 +49,6 @@ def _build_project_state() -> ProjectStateSingleConfig:
         sectionVariants={section_variant.id: section_variant},
     )
 
-
-def test_encode_param_overrides_accepts_dependency_key() -> None:
-    runner = SettaRunner(base_url="http://example.com")
-    key = SectionParamDependencyKey(sectionId=ID("section"), codeObjId=ID("param"))
-    overrides = runner._encode_param_overrides({key: "2"})
-    assert overrides == {"section:param": "2"}
-
-
 def test_random_params_empty_grid_returns_identity() -> None:
     base_override = RunOverride(tags={"kind": "base"})
     plan = RunPlan([base_override])
@@ -308,4 +300,48 @@ def test_run_detached_resolves_entry_section_name_via_summary(
                 "tags": {},
             },
         ),
+    ]
+
+
+def test_run_detached_encodes_param_overrides_from_dependency_keys(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com", auth_headers={"Cookie": "x=y"})
+    project_state = _build_project_state()
+    observed_requests: list[tuple[runner_mod.Route, dict]] = []
+    param_key = SectionParamDependencyKey(
+        sectionId=ID("section-a"),
+        codeObjId=ID("param-b"),
+    )
+
+    def post(route: runner_mod.Route, payload: dict) -> dict:
+        observed_requests.append((route, payload))
+        return {"runId": "run-1", "status": "queued"}
+
+    monkeypatch.setattr(runner, "_post", post)
+    monkeypatch.setattr(
+        runner,
+        "_resolve_project_config_id",
+        lambda _ref: project_state.projectConfig.id,
+    )
+
+    # Detached runs should translate dependency-key param overrides into the
+    # route payload format used by the backend.
+    response = runner.run_detached(
+        override=RunOverride(param_overrides={param_key: "2"})
+    )
+
+    assert response.runId == "run-1"
+    assert observed_requests == [
+        (
+            runner_mod.Route.RUN_DETACHED,
+            {
+                "projectConfigId": project_state.projectConfig.id,
+                "entrySectionId": None,
+                "runSnapshotMode": None,
+                "sectionVariantOverrides": {},
+                "paramOverrides": {"section-a:param-b": "2"},
+                "tags": {},
+            },
+        )
     ]
