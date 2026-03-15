@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -75,6 +76,36 @@ func TestRegisterLauncherManagementRoutesHonorsScopedSettaHome(t *testing.T) {
 	}
 }
 
+func TestRegisterLauncherManagementRoutesUsesDefaultSettaHomeWhenScopeBlank(t *testing.T) {
+	t.Parallel()
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, newLauncherManagementService(t))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api"+RouteGetLauncherStatus+"?setta_home=",
+		nil,
+	)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected blank-scope launcher status 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode blank-scope launcher status payload: %v", err)
+	}
+	expectedSettaHome, err := launcher.ResolveScopedSettaHome(defaultSettaHome, "")
+	if err != nil {
+		t.Fatalf("resolve expected default setta home: %v", err)
+	}
+	if payload.SettaHome == nil || *payload.SettaHome != expectedSettaHome {
+		t.Fatalf("expected default setta home %q, got %#v", expectedSettaHome, payload.SettaHome)
+	}
+}
+
 func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *testing.T) {
 	t.Parallel()
 
@@ -122,6 +153,121 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	}
 	if !removePayload.Ok || removePayload.Installed == nil || *removePayload.Installed {
 		t.Fatalf("unexpected remove launcher payload %#v", removePayload)
+	}
+}
+
+func TestRegisterLauncherManagementRoutesSetupPreservesExistingIdentityWhenFieldsOmitted(t *testing.T) {
+	t.Parallel()
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	manager, currentExecutable := newLauncherManagementServiceWithExecutable(t)
+	previousExecutable := writeLauncherManagementTestExecutable(t, t.TempDir(), "previous-setta")
+
+	metadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
+		TargetCommand:          []string{previousExecutable},
+		Channel:                "uv-tool",
+		InstallSource:          launcher.LauncherInstallSourceUVTool,
+		ArtifactOwnershipToken: "preserve-token",
+		SettaVersion:           "0.0.1",
+		SettaHome:              defaultSettaHome,
+		OpenMode:               launcher.LauncherOpenModeBrowser,
+		WorkspaceBehavior:      launcher.LauncherWorkspaceBehaviorAlwaysPrompt,
+		ArtifactOptions:        map[string]string{"app_name": "Setta Custom"},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build existing launcher metadata: %v", err)
+	}
+	if _, err := launcher.WriteLauncherInstallMetadata(defaultSettaHome, metadata); err != nil {
+		t.Fatalf("write existing launcher metadata: %v", err)
+	}
+
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, manager)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetupLauncher,
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected omitted-field setup 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode preserved setup payload: %v", err)
+	}
+	if payload.Channel == nil || *payload.Channel != "uv-tool" {
+		t.Fatalf("expected preserved channel uv-tool, got %#v", payload.Channel)
+	}
+	if payload.OpenMode == nil || *payload.OpenMode != string(launcher.LauncherOpenModeBrowser) {
+		t.Fatalf("expected preserved open mode browser, got %#v", payload.OpenMode)
+	}
+	if payload.WorkspaceBehavior == nil || *payload.WorkspaceBehavior != string(launcher.LauncherWorkspaceBehaviorAlwaysPrompt) {
+		t.Fatalf("expected preserved workspace behavior always_prompt, got %#v", payload.WorkspaceBehavior)
+	}
+	if !reflect.DeepEqual(payload.ArtifactOptions, map[string]string{"app_name": "Setta Custom"}) {
+		t.Fatalf("expected preserved artifact options, got %#v", payload.ArtifactOptions)
+	}
+	if len(payload.ManagedArtifacts) != 0 {
+		t.Fatalf("expected omitted installArtifacts to preserve metadata-only mode, got %#v", payload.ManagedArtifacts)
+	}
+	resolvedCurrentExecutable, err := filepath.EvalSymlinks(currentExecutable)
+	if err != nil {
+		t.Fatalf("resolve current executable path: %v", err)
+	}
+	if !reflect.DeepEqual(payload.TargetCommand, []string{resolvedCurrentExecutable}) {
+		t.Fatalf("expected setup to rebind target command to current executable %q, got %#v", resolvedCurrentExecutable, payload.TargetCommand)
+	}
+}
+
+func TestRegisterLauncherManagementRoutesSetupClearsArtifactOptionsWhenExplicitlyEmpty(t *testing.T) {
+	t.Parallel()
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	manager, _ := newLauncherManagementServiceWithExecutable(t)
+	previousExecutable := writeLauncherManagementTestExecutable(t, t.TempDir(), "previous-setta")
+
+	metadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
+		TargetCommand:          []string{previousExecutable},
+		Channel:                "uv-tool",
+		InstallSource:          launcher.LauncherInstallSourceUVTool,
+		ArtifactOwnershipToken: "clear-token",
+		SettaVersion:           "0.0.1",
+		SettaHome:              defaultSettaHome,
+		OpenMode:               launcher.LauncherOpenModeBrowser,
+		WorkspaceBehavior:      launcher.LauncherWorkspaceBehaviorAlwaysPrompt,
+		ArtifactOptions:        map[string]string{"app_name": "Setta Custom"},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build existing launcher metadata: %v", err)
+	}
+	if _, err := launcher.WriteLauncherInstallMetadata(defaultSettaHome, metadata); err != nil {
+		t.Fatalf("write existing launcher metadata: %v", err)
+	}
+
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, manager)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetupLauncher,
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","artifactOptions":{}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected explicit-empty artifact options setup 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	status, err := manager.CollectStatus(defaultSettaHome)
+	if err != nil {
+		t.Fatalf("collect launcher status after clearing artifact options: %v", err)
+	}
+	if len(status.ArtifactOptions) != 0 {
+		t.Fatalf("expected explicit empty artifactOptions to clear stored options, got %#v", status.ArtifactOptions)
 	}
 }
 
@@ -210,6 +356,57 @@ func TestRegisterLauncherManagementRoutesSetupInstallsManagedArtifacts(t *testin
 	}
 }
 
+func TestRegisterLauncherManagementRoutesUpdateReportsInstallerManagedCapability(t *testing.T) {
+	t.Parallel()
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	manager, _ := newLauncherManagementServiceWithExecutable(t)
+	previousExecutable := writeLauncherManagementTestExecutable(t, t.TempDir(), "previous-setta")
+
+	metadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
+		TargetCommand:          []string{previousExecutable},
+		Channel:                "installer-managed",
+		InstallSource:          launcher.LauncherInstallSourceInstallerManaged,
+		ArtifactOwnershipToken: "installer-token",
+		SettaVersion:           "1.2.3",
+		SettaHome:              defaultSettaHome,
+		OpenMode:               launcher.LauncherOpenModeBrowser,
+		WorkspaceBehavior:      launcher.LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build installer-managed launcher metadata: %v", err)
+	}
+	if _, err := launcher.WriteLauncherInstallMetadata(defaultSettaHome, metadata); err != nil {
+		t.Fatalf("write installer-managed launcher metadata: %v", err)
+	}
+
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, manager)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateLauncher,
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected installer-managed update response 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherUpdateResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode installer-managed update payload: %v", err)
+	}
+	if payload.Ok {
+		t.Fatalf("expected installer-managed update to fail closed, got %#v", payload)
+	}
+	if payload.Error == nil || payload.Error.Code != "UpdateUnavailable" {
+		t.Fatalf("expected UpdateUnavailable error, got %#v", payload)
+	}
+}
+
 func newLauncherManagementRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
@@ -241,10 +438,14 @@ func newLauncherManagementRouteTestHandler(
 func newLauncherManagementService(t *testing.T) *launcher.ManagementService {
 	t.Helper()
 
-	executablePath := filepath.Join(t.TempDir(), "setta")
-	if err := os.WriteFile(executablePath, []byte("#!/usr/bin/env bash\n"), 0o755); err != nil {
-		t.Fatalf("write launcher management executable: %v", err)
-	}
+	service, _ := newLauncherManagementServiceWithExecutable(t)
+	return service
+}
+
+func newLauncherManagementServiceWithExecutable(t *testing.T) (*launcher.ManagementService, string) {
+	t.Helper()
+
+	executablePath := writeLauncherManagementTestExecutable(t, t.TempDir(), "setta")
 	service, err := launcher.NewManagementService(launcher.ManagementServiceOptions{
 		ExecutablePath: executablePath,
 		Version:        "1.2.3",
@@ -252,7 +453,20 @@ func newLauncherManagementService(t *testing.T) *launcher.ManagementService {
 	if err != nil {
 		t.Fatalf("new launcher management service: %v", err)
 	}
-	return service
+	return service, executablePath
+}
+
+func writeLauncherManagementTestExecutable(t *testing.T, dir string, name string) string {
+	t.Helper()
+
+	executablePath := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(executablePath), 0o755); err != nil {
+		t.Fatalf("mkdir launcher management executable dir: %v", err)
+	}
+	if err := os.WriteFile(executablePath, []byte("#!/usr/bin/env bash\n"), 0o755); err != nil {
+		t.Fatalf("write launcher management executable: %v", err)
+	}
+	return executablePath
 }
 
 func prepareLauncherManagementTestHome(t *testing.T) string {
