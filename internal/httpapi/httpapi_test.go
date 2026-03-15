@@ -849,6 +849,63 @@ func TestHandlerRefreshesNearExpiryAuthCookieOnAPIResponses(t *testing.T) {
 	}
 }
 
+func TestHandlerDoesNotRefreshNearExpiryAuthCookieOnAuthenticatedRootRoutes(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			r.Get("/mcp", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	now := time.Now().UTC()
+	oldToken, _, err := authService.MintAuthCookie(now.Add(-(12 * time.Hour) + (30 * time.Minute)))
+	if err != nil {
+		t.Fatalf("mint old auth cookie: %v", err)
+	}
+	oldInfo, err := authService.ValidateAuthCookie(oldToken, now)
+	if err != nil {
+		t.Fatalf("validate old auth cookie: %v", err)
+	}
+
+	cookieName, err := authService.CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: oldToken,
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	responseCookies := response.Result().Cookies()
+	if len(responseCookies) != 0 {
+		t.Fatalf("expected no refreshed auth cookie on authenticated root route, got %d", len(responseCookies))
+	}
+	validatedInfo, err := authService.ValidateAuthCookie(oldToken, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("revalidate original auth cookie: %v", err)
+	}
+	if !validatedInfo.ExpiresAt.Equal(oldInfo.ExpiresAt) {
+		t.Fatalf("expected root route to leave auth cookie expiry unchanged at %s, got %s", oldInfo.ExpiresAt, validatedInfo.ExpiresAt)
+	}
+}
+
 func TestHandlerDoesNotRefreshFreshAuthCookieOnAPIResponses(t *testing.T) {
 	t.Parallel()
 

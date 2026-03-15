@@ -269,7 +269,7 @@ func authMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
 				return
 			}
 
-			if authService.ShouldRefreshAuthCookie(requestInfo, now) {
+			if strings.HasPrefix(r.URL.Path, apiPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
 				requestInfo, err = authService.RefreshAuthCookie(w, r, now)
 				if err != nil {
 					if errors.Is(err, auth.ErrMissingCurrentSession) {
