@@ -166,7 +166,7 @@ It covers:
 - The view-mode layout / layout-presentation slice mostly closes with proofs,
   but it adds one more caller-backed deployment-policy gap.
 - The section-chrome / child-defaults / param-selection slice mostly closes
-  with proofs, but it adds two more caller-backed deployment-policy gaps plus
+  with proofs, but it adds one more caller-backed deployment-policy gap plus
   two more dormant child-default route-boundary rows.
 - The param-value / param-impl / edge-port slice mostly closes with proofs,
   but it adds one more caller-backed param-write deployment-policy gap, one
@@ -997,7 +997,7 @@ It covers:
 | `CD-02` | Direct HTTP `setParentDefaultChildSectionType` stays mounted outside IDE and follows the layout share-policy gate instead of disappearing entirely. | Source docs: `docs/reference/view-modes.md`; source route: `backend/setta/routers/project_manager.py::route_set_parent_default_child_section_type`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the UI-editor child-default settings surface in `frontend/src/components/Panes/UiEditor/SectionConfig/ChildDefaultsSettings.tsx`, which disables the control with `canEditStructure` before any non-IDE transport call. | `Dormant / unproven caller` | The source/current transport delta is real, but this slice does not yet prove an active Go-era non-IDE caller still depends on the source direct-route contract. |
 | `CD-03` | Direct HTTP `setListRootViewMode` stays mounted outside IDE and can still fail closed with deployment-mode structural `403` instead of disappearing entirely. | Source docs: `docs/reference/view-modes.md`; source route: `backend/setta/routers/project_manager.py::route_set_list_root_view_mode`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; the current UI-editor caller in `frontend/src/components/Panes/UiEditor/SectionConfig/ChildDefaultsSettings.tsx` also disables the control with `canEditStructure`, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source router keeps this route transport-visible even though deployment structural writes still fail closed; current Go removes the route entirely outside IDE. |
 | `PA-01` | `toggleParamSelected` toggles selection membership on the target param, and `unselectAllParams` clears `selectedParams` across every param-capable section instead of only the active one. | Source helpers: `backend/setta/types/helpers_lvl2.py::{toggle_param_selected,unselect_all_params}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{toggle_param_selected,unselect_all_params}`. | Impl: `internal/projectstate/section_structure_selection.go::{ToggleParamSelected,UnselectAllParams}`; proof: `internal/projectstate/section_structure_selection_test.go::TestRuntimeToggleParamSelectedAndUnselectAllParamsPersistSelectionState`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState`. | `Proved` | Current Go route proof also covers the related `deleteSelectedParams` cleanup path, which is tracked elsewhere as a structural mutation family. |
-| `PA-02` | In share/app sessions, `toggleParamSelected` and `unselectAllParams` stay mounted behind `allowParamChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_toggle_param_selected,route_unselect_all_params}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_param_selection_routes_blocked`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues these selection writes from `frontend/src/state/actions/sectionInfos.ts`, `frontend/src/components/Params/{GroupContainer.tsx,ParamSwitch.tsx}`, `frontend/src/state/actions/keyActivations.ts`, and `frontend/src/state/actions/params/moveParams.ts`. | `Missing` | This is an active parity gap: the source/current docs keep param selection on the `allowParamChanges` boundary, but current Go removes the direct route family outside IDE while the shared param-selection flow still uses it. |
+| `PA-02` | In share/app sessions, `toggleParamSelected` and `unselectAllParams` stay mounted behind `allowParamChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_toggle_param_selected,route_unselect_all_params}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_param_selection_routes_blocked`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,toggleParamSelectedHandler,unselectAllParamsHandler}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesParamSelectionUsesDeploymentOverlayWhenParamChangesAllowed,TestRegisterProjectRoutesParamSelectionRejectsDeploymentPolicyWhenParamChangesDisallowed}`. | `Proved` | Current Go now keeps the routes mounted in share/app mode, applies the deployment overlay runtime, and fails closed with `param_changes_forbidden` when `allowParamChanges` is false. |
 
 ## Param Value, Param-Impl, And Section Edge-Port Routes
 
@@ -1169,12 +1169,12 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains twenty-three concrete source-parity gaps:
+1. The matrix now contains twenty-two concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`,
    `PV-05`, `SV-05`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
@@ -1274,9 +1274,8 @@ It covers:
 35. The view-mode layout / layout-presentation slice mostly closes with
     proofs, but it adds one real deployment-policy gap (`VL-07`).
 36. The section-chrome / child-defaults / param-selection slice mostly closes
-    with proofs, but it adds two real deployment-policy gaps (`SP-03`,
-    `PA-02`) plus two dormant child-default route-boundary rows (`CD-02`,
-    `CD-03`).
+    with proofs, but it adds one real deployment-policy gap (`SP-03`) plus
+    two dormant child-default route-boundary rows (`CD-02`, `CD-03`).
 37. The param-value / param-impl / edge-port slice mostly closes with proofs,
     but it adds one real param-write deployment-policy gap (`PV-05`), one
     broader direct-write proof gap (`PV-02`), and two dormant route-boundary
@@ -1324,7 +1323,7 @@ It covers:
       `DP-08`,
       `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
-      `SP-03`, `PA-02`, `PV-05`, `SV-05`,
+      `SP-03`, `PV-05`, `SV-05`,
       `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as

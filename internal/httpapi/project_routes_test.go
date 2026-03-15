@@ -3775,6 +3775,174 @@ func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesParamSelectionUsesDeploymentOverlayWhenParamChangesAllowed(t *testing.T) {
+	t.Parallel()
+
+	selectedParamsForProject := func(t *testing.T, project projectstate.Project) []string {
+		t.Helper()
+
+		dictVariantID := project.SectionVariantMap["dict-a"]
+		dictPayload, err := project.EffectiveSectionPayload("dict-a", dictVariantID)
+		if err != nil {
+			t.Fatalf("effective section payload dict-a: %v", err)
+		}
+		return decodeProjectRouteStringArray(dictPayload["selectedParams"])
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": passwordParamRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowParamChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+
+			toggleRequest := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteToggleParamSelected,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child"}`),
+			)
+			toggleRequest.Header.Set("Content-Type", "application/json")
+			toggleRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			toggleResponse := httptest.NewRecorder()
+			handler.ServeHTTP(toggleResponse, toggleRequest)
+			if toggleResponse.Code != http.StatusOK {
+				t.Fatalf("expected 200 for toggle, got %d with body %q", toggleResponse.Code, toggleResponse.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if got := selectedParamsForProject(t, overlayProject); !reflect.DeepEqual(got, []string{"shared-child"}) {
+				t.Fatalf("expected overlay selectedParams [shared-child] after toggle, got %#v", got)
+			}
+
+			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+			if got := selectedParamsForProject(t, baseProject); len(got) != 0 {
+				t.Fatalf("expected base selectedParams to remain empty after toggle, got %#v", got)
+			}
+
+			unselectRequest := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteUnselectAllParams,
+				strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+			)
+			unselectRequest.Header.Set("Content-Type", "application/json")
+			unselectRequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			unselectResponse := httptest.NewRecorder()
+			handler.ServeHTTP(unselectResponse, unselectRequest)
+			if unselectResponse.Code != http.StatusOK {
+				t.Fatalf("expected 200 for unselect, got %d with body %q", unselectResponse.Code, unselectResponse.Body.String())
+			}
+
+			overlayProject = overlay.Snapshot().Document.Projects["project-alpha"]
+			if got := selectedParamsForProject(t, overlayProject); len(got) != 0 {
+				t.Fatalf("expected overlay selectedParams to clear after unselect, got %#v", got)
+			}
+		})
+	}
+}
+
+func TestRegisterProjectRoutesParamSelectionRejectsDeploymentPolicyWhenParamChangesDisallowed(t *testing.T) {
+	t.Parallel()
+
+	selectedParamsForProject := func(t *testing.T, project projectstate.Project) []string {
+		t.Helper()
+
+		dictVariantID := project.SectionVariantMap["dict-a"]
+		dictPayload, err := project.EffectiveSectionPayload("dict-a", dictVariantID)
+		if err != nil {
+			t.Fatalf("effective section payload dict-a: %v", err)
+		}
+		return decodeProjectRouteStringArray(dictPayload["selectedParams"])
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": passwordParamRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowParamChanges": false,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+
+			for _, requestSpec := range []struct {
+				name  string
+				route string
+				body  string
+			}{
+				{
+					name:  "toggle",
+					route: RouteToggleParamSelected,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child"}`,
+				},
+				{
+					name:  "unselect",
+					route: RouteUnselectAllParams,
+					body:  `{"projectConfigId":"project-alpha"}`,
+				},
+			} {
+				t.Run(requestSpec.name, func(t *testing.T) {
+					request := httptest.NewRequest(
+						http.MethodPost,
+						"/api"+requestSpec.route,
+						strings.NewReader(requestSpec.body),
+					)
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
+						t.Fatalf("expected param_changes_forbidden body, got %q", response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
+						t.Fatalf("expected deployment param policy denial, got %q", response.Body.String())
+					}
+
+					overlay, err := deploymentRuntime.Overlay("share-a")
+					if err != nil {
+						t.Fatalf("deployment overlay: %v", err)
+					}
+					overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+					if got := selectedParamsForProject(t, overlayProject); len(got) != 0 {
+						t.Fatalf("expected rejected mutation to keep overlay selectedParams empty, got %#v", got)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesParamMoveMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 

@@ -1520,6 +1520,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteToggleParamSelected, toggleParamSelectedHandler(deps))
+		router.With(shareGuard).Post(RouteUnselectAllParams, unselectAllParamsHandler(deps))
 		router.With(shareGuard).Post(RouteCreateChildSections, createChildSectionsHandler(deps))
 		router.With(shareGuard).Post(RouteDeleteSections, deleteSectionsHandler(deps))
 		router.With(shareGuard).Post(RouteMoveSections, moveSectionsHandler(deps))
@@ -4625,12 +4627,17 @@ func toggleParamSelectedHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleParamSelected(
+		if _, err := runtime.ToggleParamSelected(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.ToggleParamSelectedInput{
@@ -4658,12 +4665,17 @@ func unselectAllParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.UnselectAllParams(
+		if _, err := runtime.UnselectAllParams(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 		); err != nil {
