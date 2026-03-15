@@ -5090,3 +5090,31 @@ in `frontend/src/README.md` and the cleanup plans.
   - `8b11ee3b97741f216a2004e87f5a5eab51d01345`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, which is now the top unresolved hotspot at about `3328` lines after `ProjectChatBottomDock.tsx` dropped to about `2860` lines.
+
+## 2026-03-15 16:37:14 PDT
+
+- Slice completed: extracted grouped history derivation, master-search filtering/counts, thread ordering, agent badge labels, and placeholder text out of `ProjectChatHistory.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` was the top unresolved hotspot in `frontend/src/README.md`, and the stacked derived-state block was the clearest feature-local seam.
+  - This reduced mixed responsibilities in the render-heavy history surface without broad directory churn: `ProjectChatHistory.tsx` now consumes one memoized local view-model owner instead of carrying the whole grouping/search/order pipeline inline.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-history-view-model-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "project ai thread history excludes runs from other projects"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-history-view-model-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-history-view-model-2026-03-15.md` with same-origin harness before/after notes and the post-slice screenshot.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that the unfiltered seeded history still rendered `2` group rows, `5` visible thread entries, and `209` history-panel nodes after the extraction, and that entering `deploy` still produced the expected `1/2` search counter with the two matching rows (`Deploy release notes` and `Plan onboarding docs`).
+- Commit hash:
+  - `14c52dd34928403e01b2b4d526ba571b5fc8f56a`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the top unresolved hotspot at about `3121` lines after `ProjectChatHistory.tsx` dropped to about `2933` lines.
