@@ -21,9 +21,9 @@ Current status:
 - Active plan: reopened expanded-scope sections-wide container-down flattening and grid removal
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Accepted history to preserve: `Phase S1`, `Phase S2`, and `Phase S3` through checkpoint 9
-- Active phase: `Phase S1` checkpoint selection around the shared param-row grid contract below the section container cluster
+- Active phase: `Phase S1` follow-up inside checkpoint 1 at the shared param-row grid contract below the section container cluster
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
-- Current state: the fresh reopened boundary read is complete; the deepest next seam is the shared param-row grid contract used by the callable/dict/global-variables stack, while the higher shared section-surface grid in `sectionChrome` remains a later upward follow-on after the lower row contract is exhausted
+- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree), but the checkpoint is still blocked by the touched row-input path because underline/focus feedback is visibly wrong and the fresh `mode` row activation trace is mixed (`56ms` INP on `main` versus `90ms` on the worktree)
 - Deferred follow-up watch items after the current structural passes: callable column resizing and section resizing are still noticeably slow, but they should be treated as post-flattening trace targets rather than immediate checkpoint drivers
 - Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
@@ -94,6 +94,18 @@ Immediate next step:
      - one floated/window rendering of a param section
      - `MetaControl` as a contrast check for lower-shell regressions
    - keep text-input underline/focus feedback, dummy-vs-real CodeMirror typography parity, and activation responsiveness as hard acceptance checks inside this checkpoint
+11. Current checkpoint-1 follow-up after the row-container flex pass:
+   - keep the work inside the same lower seam; do not move upward into `sectionChrome` yet
+   - the next fix slice is the row-input path under the newly flattened row shell:
+     - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+     - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+     - `frontend/src/components/Utils/CodeMirror/useCodeMirrorStyle.ts`
+     - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+     - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
+   - acceptance remains blocked until the same-scene callable compare regains:
+     - visible underline/focus feedback parity
+     - dummy-vs-real CodeMirror typography parity
+     - a non-regressing row-activation trace on untouched `main` vs this worktree
 
 Historical accepted checkpoint notes retained below:
 

@@ -197,6 +197,8 @@ describe("ParamGroupContainer layout", () => {
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
+    expect(classes).toContain("flex");
+    expect(classes).toContain("flex-col");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
     expect(markup).not.toContain("grid-cols-subgrid");
@@ -332,6 +334,9 @@ describe("ParamGroupContainer layout", () => {
     // The pinned shell should own its own padding instead of inserting a wrapper-only content div.
     expect(markup).toMatch(
       /<section[^>]*class=\"[^\"]*pb-3 pt-2[^\"]*\"[^>]*data-params-fixed=\"true\"[^>]*><header class=\"flex w-full gap-1 px-2\"/,
+    );
+    expect(markup).toContain(
+      'class="section-args-nested section-key-value section-min-rows flex min-h-0 w-full flex-1 flex-col gap-y-1 pr-1.5"',
     );
     expect(markup).not.toContain(
       'class="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"',
@@ -651,6 +656,7 @@ describe("ParamGroupContainer layout", () => {
     );
 
     expect(markup).not.toContain("section-args-nested section-lg-value");
+    expect(markup).not.toContain("section-param-row section-min-rows relative grid");
     expect(markup).toContain(
       `</article><article id=\"ParamContainer-${sectionId}-${childParamId}\"`,
     );

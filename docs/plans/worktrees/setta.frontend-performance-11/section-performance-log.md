@@ -2879,3 +2879,65 @@ Append-only log for the section performance refactor.
     - keep text-input underline/focus feedback, dummy-vs-real CodeMirror typography parity, and activation responsiveness as hard acceptance checks inside that checkpoint
 - Next action:
   - Start the next checkpoint at the shared param-row grid contract in `frontend/index.css`, `frontend/src/components/Params/paramRowClassNames.ts`, `frontend/src/components/Params/ParamRowShell.tsx`, and `frontend/src/components/Params/GroupContainer.tsx`, with Callable / Dict / GlobalVariables as the primary verification set and one floated param section plus MetaControl as contrast checks.
+
+### 2026-03-17 82
+
+- Item: Execute reopened `Phase S1` checkpoint 1 at the shared param-row grid contract.
+- Status: `needs_more_work`
+- Details:
+  - Implemented the shared row-container grid removal in:
+    - `frontend/index.css`
+    - `frontend/src/components/Params/paramRowClassNames.ts`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+  - Replaced the shared lower-shell container contract with:
+    - `section-args-nested` as a flex-column list shell
+    - `section-param-row` as a flex row
+    - explicit child sizing hooks through `param-row-label` and `param-row-error`
+  - Added or updated focused lower-shell coverage across the touched section types:
+    - `frontend/src/components/Params/ParamRowShell.test.tsx`
+    - `frontend/src/components/Params/paramRowClassNames.test.ts`
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+    - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/CallableArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+    - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+  - Focused Vitest result:
+    - `8` files passed
+    - `22` tests passed
+  - Representative Playwright result:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - `6 passed`
+  - Chrome DevTools same-scene compare on the shared `busy_tide` -> `zinc_blade` callable section:
+    - untouched `main`: `http://127.0.0.1:3088/busy_tide`
+    - worktree: `http://127.0.0.1:3036/busy_tide`
+    - both branches kept the same outer section geometry:
+      - `243 x 423`
+    - both branches kept the same row count:
+      - `7`
+    - both branches kept the same resize-handle count:
+      - `6`
+    - the worktree materially flattened the section subtree:
+      - `main`: `124` nodes, depth `12`, first row `display:grid`
+      - worktree: `92` nodes, depth `9`, first row `display:flex`
+  - Saved visual and trace artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1/`
+  - Blocking acceptance findings on the same touched path:
+    - the row-input underline/focus feedback is still visibly wrong after activating the `mode` input in the worktree scene
+    - the fresh row-activation trace is mixed and currently worse on the worktree:
+      - `main` trace summary INP: `56ms`
+      - worktree trace summary INP: `90ms`
+  - Conclusion:
+    - the row-container grid removal itself is landed and structurally successful
+    - checkpoint 1 is not accepted yet because the lower row-input slice still fails the reopened plan's hard acceptance checks
+- Next action:
+  - Stay in the same lower seam and fix the row-input path under the flattened shell:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/useCodeMirrorStyle.ts`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
+  - Re-run the same `busy_tide` untouched-`main` vs worktree compare only after underline/focus parity, dummy-vs-real typography parity, and activation responsiveness are back in line.

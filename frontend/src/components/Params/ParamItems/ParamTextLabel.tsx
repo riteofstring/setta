@@ -33,8 +33,10 @@ export function ParamTextLabel({
 
   return (
     <p
-      className={`${hasChildren ? "section-key-value" : "section-key"} overflow-hidden ${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
-      style={{ width: "var(--param-column-width, 200px)" }}
+      className={`${hasChildren ? "section-key-value" : "section-key"} param-row-label overflow-hidden ${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
+      style={
+        hasChildren ? undefined : { width: "var(--param-column-width, 200px)" }
+      }
       onClick={onClick}
       onMouseDownCapture={onMouseDown} // has to be on capture for selection to work
     >

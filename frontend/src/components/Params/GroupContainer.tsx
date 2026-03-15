@@ -861,7 +861,7 @@ function PinnedParamsArea({
       </header>
 
       <div
-        className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 content-start gap-y-1 pr-1.5"
+        className="section-args-nested section-key-value section-min-rows flex min-h-0 w-full flex-1 flex-col gap-y-1 pr-1.5"
         ref={rowsRef}
       >
         <ParamDndList
@@ -978,7 +978,7 @@ function GetUnpinnedParams({
 
   return (
     <div
-      className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+      className={`section-args-nested flex min-h-0 min-w-0 !max-w-full flex-1 flex-col gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
         isScrollable ? "nowheel" : ""
       }`}
       ref={setContainerRef}

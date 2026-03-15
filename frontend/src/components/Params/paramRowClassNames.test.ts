@@ -21,6 +21,9 @@ describe("param row class names", () => {
 
     expect(className).toContain("section-key-value");
     expect(className).toContain("section-param-row");
+    expect(className).toContain("relative");
+    expect(className).toContain("min-w-0");
+    expect(className).not.toContain("grid");
     expect(className).toContain("group/arg-group");
     expect(className).toContain("justify-between");
     expect(className).toContain("gap-y-1");
@@ -36,6 +39,9 @@ describe("param row class names", () => {
 
     expect(className).toContain("section-key-value");
     expect(className).toContain("section-param-row");
+    expect(className).toContain("relative");
+    expect(className).toContain("min-w-0");
+    expect(className).not.toContain("grid");
     expect(className).toContain("justify-between");
     expect(className).not.toContain("gap-y-1");
     expect(className).toContain("bg-blue-500/40");
