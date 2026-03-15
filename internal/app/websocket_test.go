@@ -175,6 +175,7 @@ func TestAppFrontendWebsocketSendsInitialNameValidationErrors(t *testing.T) {
 
 	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNameValidationErrors, 3)
+	assertAppNameValidationPayloadOmitsViewModeErrors(t, envelope.Content)
 	payload := decodeAppNameValidationErrors(t, envelope.Content)
 	if payload.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected project-alpha validation payload, got %#v", payload)
@@ -229,6 +230,7 @@ func TestAppSaveBroadcastsNameValidationErrors(t *testing.T) {
 	}
 
 	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNameValidationErrors, 2)
+	assertAppNameValidationPayloadOmitsViewModeErrors(t, envelope.Content)
 	payload := decodeAppNameValidationErrors(t, envelope.Content)
 	if payload.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected project-alpha validation payload after save, got %#v", payload)
@@ -1305,8 +1307,24 @@ func appNameValidationTestDocument(t *testing.T) projectstate.Document {
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				ActiveViewModeID: "focus",
+				TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+					"section-a": {X: 0, Y: 0},
+				},
+				ViewModes: map[string]projectstate.ViewMode{
+					"focus": {
+						ID:   "focus",
+						Name: "Focus",
+						TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+							"section-a": {X: 0, Y: 0},
+						},
+						VisibilityBySectionID: map[string]bool{
+							"section-a": true,
+						},
+					},
+				},
 				SectionVariantMap: map[string]string{
 					"section-a": "section-a-variant",
 				},
@@ -1343,6 +1361,9 @@ func appNameValidationTestDocument(t *testing.T) projectstate.Document {
 	section := project.Sections["section-a"]
 	section.Name = "bad/name"
 	project.Sections[section.ID] = section
+	viewMode := project.ViewModes[project.ActiveViewModeID]
+	viewMode.Name = "bad/name"
+	project.ViewModes[viewMode.ID] = viewMode
 	document.Projects[project.ID] = project
 	return document
 }
@@ -1355,6 +1376,18 @@ func decodeAppNameValidationErrors(t *testing.T, raw json.RawMessage) projectsta
 		t.Fatalf("decode name validation errors payload: %v", err)
 	}
 	return payload
+}
+
+func assertAppNameValidationPayloadOmitsViewModeErrors(t *testing.T, raw json.RawMessage) {
+	t.Helper()
+
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode raw name validation payload: %v", err)
+	}
+	if _, ok := payload["viewModeErrors"]; ok {
+		t.Fatalf("expected name validation payload to omit viewModeErrors, got %s", string(raw))
+	}
 }
 
 func TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory(t *testing.T) {
