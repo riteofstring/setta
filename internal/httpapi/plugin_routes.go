@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/auth"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 )
@@ -34,7 +36,8 @@ type PluginRouteDependencies struct {
 }
 
 type PluginRootRouteDependencies struct {
-	Service PluginAssetService
+	Service PluginRootRouteService
+	Auth    *auth.Service
 }
 
 type PluginAssetService interface {
@@ -42,8 +45,15 @@ type PluginAssetService interface {
 	ResolveRegisteredStaticAssetPath(requestPath string) (string, bool, error)
 }
 
-type PluginRouteService interface {
+type PluginRootRouteService interface {
 	PluginAssetService
+	LookupRegisteredBackendRoute(method string, requestPath string) (plugins.BackendRouteLookup, error)
+	DispatchRegisteredBackendRoute(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error)
+}
+
+type PluginRouteService interface {
+	PluginRootRouteService
+	InvokeRegisteredListenerEndpoint(ctx context.Context, request plugins.BackendListenerEndpointRequest) (any, bool, error)
 	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
 	Rescan() (plugins.DiscoverySnapshot, error)
 	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
@@ -92,8 +102,7 @@ func RegisterPluginRootRoutes(router chi.Router, deps PluginRootRouteDependencie
 	}
 
 	router.Get(RoutePluginsAssetWildcard, pluginAssetHandler(deps))
-	router.Get("/*", pluginStaticDirHandler(deps))
-	router.Head("/*", pluginStaticDirHandler(deps))
+	router.Handle("/*", pluginBackendRootHandler(deps))
 	return nil
 }
 
@@ -426,6 +435,118 @@ func pluginStaticDirHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
 
 		http.ServeFile(w, r, resolvedPath)
 	}
+}
+
+func pluginBackendRootHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
+	staticHandler := pluginStaticDirHandler(deps)
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestPath, err := url.PathUnescape(r.URL.EscapedPath())
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_path", "Invalid route path.")
+			return
+		}
+
+		routeLookup, err := deps.Service.LookupRegisteredBackendRoute(r.Method, requestPath)
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+
+		if routeLookup.Matched {
+			dispatchHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if err := dispatchRegisteredPluginBackendRoute(w, r, requestPath, deps); err != nil {
+					writePluginRouteError(w, r, err)
+				}
+			})
+			if deps.Auth != nil && deps.Auth.Enabled() {
+				authMiddleware(deps.Auth)(dispatchHandler).ServeHTTP(w, r)
+				return
+			}
+			dispatchHandler.ServeHTTP(w, r)
+			return
+		}
+
+		if routeLookup.PathExists {
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.")
+			return
+		}
+
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			staticHandler.ServeHTTP(w, r)
+			return
+		}
+
+		writeError(w, r, http.StatusNotFound, "not_found", "Route not found.")
+	}
+}
+
+func dispatchRegisteredPluginBackendRoute(w http.ResponseWriter, r *http.Request, requestPath string, deps PluginRootRouteDependencies) error {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Errorf("read plugin backend request body: %w", err)
+	}
+
+	modeInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		return fmt.Errorf("plugin backend route request is missing mode info")
+	}
+
+	backendRequest := plugins.BackendHTTPRequest{
+		Context: plugins.BackendRequestContext{
+			ServerMode:     modeInfo.Policy.Mode(),
+			HasAuth:        false,
+			ShareSessionID: strings.TrimSpace(modeInfo.ShareSessionID),
+		},
+		Method:   r.Method,
+		Path:     requestPath,
+		RawQuery: r.URL.RawQuery,
+		Headers:  cloneBackendRequestHeaders(r.Header),
+		Body:     body,
+	}
+	if authInfo, ok := auth.RequestInfoFromRequest(r); ok {
+		backendRequest.Context.HasAuth = true
+		backendRequest.Context.SessionID = strings.TrimSpace(authInfo.SessionID)
+	}
+
+	response, matched, err := deps.Service.DispatchRegisteredBackendRoute(r.Context(), backendRequest)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		writeError(w, r, http.StatusNotFound, "not_found", "Route not found.")
+		return nil
+	}
+
+	writePluginBackendHTTPResponse(w, response)
+	return nil
+}
+
+func cloneBackendRequestHeaders(headers http.Header) map[string][]string {
+	if len(headers) == 0 {
+		return map[string][]string{}
+	}
+	cloned := make(map[string][]string, len(headers))
+	for key, values := range headers {
+		cloned[key] = append([]string(nil), values...)
+	}
+	return cloned
+}
+
+func writePluginBackendHTTPResponse(w http.ResponseWriter, response plugins.BackendHTTPResponse) {
+	for key, values := range response.Headers {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" || strings.EqualFold(trimmedKey, "Content-Length") {
+			continue
+		}
+		for _, value := range values {
+			w.Header().Add(trimmedKey, value)
+		}
+	}
+	w.WriteHeader(response.StatusCode)
+	if len(response.Body) == 0 {
+		return
+	}
+	_, _ = w.Write(response.Body)
 }
 
 func buildPluginAssetURL(pluginID string, relativePath string, sourceDigestSHA256 *string) string {

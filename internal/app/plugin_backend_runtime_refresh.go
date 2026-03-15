@@ -45,6 +45,24 @@ func (s *pluginMutationRuntimeService) ResolveRegisteredStaticAssetPath(requestP
 	return s.base.ResolveRegisteredStaticAssetPath(requestPath)
 }
 
+func (s *pluginMutationRuntimeService) LookupRegisteredBackendRoute(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+	return s.base.LookupRegisteredBackendRoute(method, requestPath)
+}
+
+func (s *pluginMutationRuntimeService) DispatchRegisteredBackendRoute(
+	ctx context.Context,
+	request plugins.BackendHTTPRequest,
+) (plugins.BackendHTTPResponse, bool, error) {
+	return s.base.DispatchRegisteredBackendRoute(ctx, request)
+}
+
+func (s *pluginMutationRuntimeService) InvokeRegisteredListenerEndpoint(
+	ctx context.Context,
+	request plugins.BackendListenerEndpointRequest,
+) (any, bool, error) {
+	return s.base.InvokeRegisteredListenerEndpoint(ctx, request)
+}
+
 func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, error) {
 	snapshot, err := s.base.Rescan()
 	if err != nil || s.refresher == nil {

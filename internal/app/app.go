@@ -1238,7 +1238,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
 	worktreeName := devworktree.ActiveName()
 	statusReadyAt := time.Now().UTC()
-	listenerBuiltInInvoker, err := newListenerBuiltInEndpointInvoker(authService, scriptableChatService)
+	listenerBuiltInInvoker, err := newListenerEndpointInvoker(authService, scriptableChatService, pluginRouteService)
 	if err != nil {
 		_ = errors.Join(
 			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
@@ -1258,6 +1258,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		RegisterRoot: func(r chi.Router) {
 			if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
 				Service: pluginRouteService,
+				Auth:    authService,
 			}); err != nil {
 				panic(err)
 			}

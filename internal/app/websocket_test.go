@@ -1676,6 +1676,123 @@ func TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint(t *testing.T) {
 	}
 }
 
+func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
+	// The real IDE app should invoke registered plugin listener endpoints over the Go listener websocket path.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+
+	manifestPath := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend", "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read backend plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode backend plugin manifest: %v", err)
+	}
+	manifest["capabilities"] = []string{"registerListenerEndpoint"}
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode backend plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write backend plugin manifest: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	currentSession, ok := app.Auth().CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-plugin", 1),
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
+		t.Fatalf("write listener init message: %v", err)
+	}
+	initEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+	var initContent realtime.ListenerForceRefreshContent
+	if err := json.Unmarshal(initEnvelope.Content, &initContent); err != nil {
+		t.Fatalf("decode listener init content: %v", err)
+	}
+	if initContent.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha listener init, got %#v", initContent)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-plugin","endpointName":"route_backend_fixture_ping","payload":{"value":"pong"}}}`)); err != nil {
+		t.Fatalf("write plugin listener endpoint call: %v", err)
+	}
+	resultEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var resultContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(resultEnvelope.Content, &resultContent); err != nil {
+		t.Fatalf("decode plugin listener result: %v", err)
+	}
+	if resultContent.ProjectConfigID != "project-alpha" || resultContent.CallID != "call-plugin" || !resultContent.OK {
+		t.Fatalf("unexpected plugin listener result %#v", resultContent)
+	}
+
+	resultPayload, ok := resultContent.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected plugin listener result payload map, got %#v", resultContent.Result)
+	}
+	if resultPayload["endpointName"] != "route_backend_fixture_ping" || resultPayload["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected plugin listener payload %#v", resultPayload)
+	}
+	if resultPayload["sessionId"] != currentSession.Metadata.ID || resultPayload["hasAuth"] != true {
+		t.Fatalf("unexpected plugin listener auth payload %#v", resultPayload)
+	}
+	payload, ok := resultPayload["payload"].(map[string]any)
+	if !ok || payload["value"] != "pong" || payload["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected plugin listener result payload %#v", resultPayload["payload"])
+	}
+}
+
 func TestAppListenerWebsocketDispatchesScriptableChatBuiltIns(t *testing.T) {
 	// The Go listener websocket should own the scriptable chat history surface
 	// needed by the retained Python chat_toolkit client.

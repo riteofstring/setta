@@ -756,10 +756,27 @@ const initTemplateBackendMainGo = "package main\n\n" +
 	"  \"encoding/json\"\n" +
 	"  \"fmt\"\n" +
 	"  \"os\"\n" +
+	"  \"strings\"\n" +
 	")\n\n" +
-	"const backendProbeArg = \"--setta-plugin-backend-probe\"\n\n" +
+	"const (\n" +
+	"  backendProbeArg = \"--setta-plugin-backend-probe\"\n" +
+	"  backendRuntimeArg = \"--setta-plugin-backend-runtime\"\n" +
+	")\n\n" +
+	"type runtimeRequest struct {\n" +
+	"  SchemaVersion int `json:\"schemaVersion\"`\n" +
+	"  Kind string `json:\"kind\"`\n" +
+	"}\n\n" +
+	"type runtimeResponse struct {\n" +
+	"  SchemaVersion int `json:\"schemaVersion\"`\n" +
+	"  ListenerEndpoint map[string]any `json:\"listenerEndpoint,omitempty\"`\n" +
+	"  HTTP map[string]any `json:\"http,omitempty\"`\n" +
+	"}\n\n" +
 	"func main() {\n" +
-	"  if len(os.Args) == 2 && os.Args[1] == backendProbeArg {\n" +
+	"  if len(os.Args) != 2 {\n" +
+	"    return\n" +
+	"  }\n" +
+	"  switch os.Args[1] {\n" +
+	"  case backendProbeArg:\n" +
 	"    payload := map[string]any{\n" +
 	"      \"schemaVersion\": 1,\n" +
 	"      \"routes\": []map[string]any{},\n" +
@@ -770,6 +787,27 @@ const initTemplateBackendMainGo = "package main\n\n" +
 	"      _, _ = fmt.Fprintf(os.Stderr, \"encode backend probe: %v\\n\", err)\n" +
 	"      os.Exit(1)\n" +
 	"    }\n" +
-	"    return\n" +
+	"  case backendRuntimeArg:\n" +
+	"    var request runtimeRequest\n" +
+	"    decoder := json.NewDecoder(os.Stdin)\n" +
+	"    decoder.DisallowUnknownFields()\n" +
+	"    if err := decoder.Decode(&request); err != nil {\n" +
+	"      _, _ = fmt.Fprintf(os.Stderr, \"decode backend runtime request: %v\\n\", err)\n" +
+	"      os.Exit(1)\n" +
+	"    }\n" +
+	"    response := runtimeResponse{SchemaVersion: 1}\n" +
+	"    switch strings.TrimSpace(request.Kind) {\n" +
+	"    case \"http\":\n" +
+	"      response.HTTP = map[string]any{\"statusCode\": 404, \"headers\": map[string][]string{}}\n" +
+	"    case \"listener_endpoint\":\n" +
+	"      response.ListenerEndpoint = map[string]any{\"result\": nil}\n" +
+	"    default:\n" +
+	"      _, _ = fmt.Fprintf(os.Stderr, \"unsupported backend runtime kind %q\\n\", request.Kind)\n" +
+	"      os.Exit(1)\n" +
+	"    }\n" +
+	"    if err := json.NewEncoder(os.Stdout).Encode(response); err != nil {\n" +
+	"      _, _ = fmt.Fprintf(os.Stderr, \"encode backend runtime response: %v\\n\", err)\n" +
+	"      os.Exit(1)\n" +
+	"    }\n" +
 	"  }\n" +
 	"}\n"

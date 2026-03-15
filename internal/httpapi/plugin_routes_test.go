@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/plugins"
@@ -1195,6 +1197,106 @@ func TestRegisterPluginRootRoutesServesRegisteredBackendStaticDirs(t *testing.T)
 	}
 }
 
+func TestRegisterPluginRootRoutesDispatchesRegisteredBackendRoutes(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend")
+	rewriteRoutePluginManifest(filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	getResponse := httptest.NewRecorder()
+	getRequest := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(getResponse, getRequest)
+	if getResponse.Code != http.StatusOK {
+		t.Fatalf("expected backend route 200, got %d with body %q", getResponse.Code, getResponse.Body.String())
+	}
+
+	var getPayload map[string]any
+	if err := json.Unmarshal(getResponse.Body.Bytes(), &getPayload); err != nil {
+		t.Fatalf("decode backend route payload: %v", err)
+	}
+	if getPayload["ok"] != true || getPayload["serverMode"] != "ide" {
+		t.Fatalf("unexpected backend route payload %#v", getPayload)
+	}
+
+	postResponse := httptest.NewRecorder()
+	postRequest := httptest.NewRequest(http.MethodPost, "/items?view=route", strings.NewReader(`{"name":"route-fixture"}`))
+	postRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(postResponse, postRequest)
+	if postResponse.Code != http.StatusCreated {
+		t.Fatalf("expected backend route 201, got %d with body %q", postResponse.Code, postResponse.Body.String())
+	}
+
+	var postPayload map[string]any
+	if err := json.Unmarshal(postResponse.Body.Bytes(), &postPayload); err != nil {
+		t.Fatalf("decode backend POST payload: %v", err)
+	}
+	if postPayload["rawQuery"] != "view=route" || postPayload["contentType"] != "application/json" {
+		t.Fatalf("unexpected backend POST payload %#v", postPayload)
+	}
+}
+
+func TestRegisterPluginRootRoutesRequireAuthOnlyForRegisteredBackendRoutes(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend")
+	rewriteRoutePluginManifest(filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter", "registerStaticDir"}
+	})
+	handler := newPluginRouteTestHandlerWithAuth(t, config.ModeIDE, service, authService)
+
+	unauthorizedResponse := httptest.NewRecorder()
+	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/health", nil)
+	handler.ServeHTTP(unauthorizedResponse, unauthorizedRequest)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected backend route auth 401, got %d with body %q", unauthorizedResponse.Code, unauthorizedResponse.Body.String())
+	}
+
+	token, _, err := authService.MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	cookieName, err := authService.CookieName(currentSession.Metadata.ID)
+	if err != nil {
+		t.Fatalf("resolve auth cookie name: %v", err)
+	}
+
+	authorizedResponse := httptest.NewRecorder()
+	authorizedRequest := httptest.NewRequest(http.MethodGet, "/health", nil)
+	authorizedRequest.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+	handler.ServeHTTP(authorizedResponse, authorizedRequest)
+	if authorizedResponse.Code != http.StatusOK {
+		t.Fatalf("expected authorized backend route 200, got %d with body %q", authorizedResponse.Code, authorizedResponse.Body.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(authorizedResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode authorized backend payload: %v", err)
+	}
+	if payload["sessionId"] != "abc123" || payload["hasAuth"] != true {
+		t.Fatalf("expected auth context in backend payload, got %#v", payload)
+	}
+
+	staticResponse := httptest.NewRecorder()
+	staticRequest := httptest.NewRequest(http.MethodGet, "/static/fixture.txt", nil)
+	handler.ServeHTTP(staticResponse, staticRequest)
+	if staticResponse.Code != http.StatusOK {
+		t.Fatalf("expected public backend static asset 200, got %d with body %q", staticResponse.Code, staticResponse.Body.String())
+	}
+}
+
 func TestRegisterPluginRootRoutesRejectsTraversalForRegisteredBackendStaticDirs(t *testing.T) {
 	t.Parallel()
 
@@ -1286,13 +1388,21 @@ func newPluginRouteTestServiceWithRestartCallback(t *testing.T, mode config.Mode
 func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service *plugins.Service) http.Handler {
 	t.Helper()
 
+	return newPluginRouteTestHandlerWithAuth(t, mode, service, nil)
+}
+
+func newPluginRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, service *plugins.Service, authService *auth.Service) http.Handler {
+	t.Helper()
+
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
+		Auth:       authService,
 		ModePolicy: modes.NewPolicy(mode),
 		RegisterRoot: func(r chi.Router) {
 			if err := RegisterPluginRootRoutes(r, PluginRootRouteDependencies{
 				Service: service,
+				Auth:    authService,
 			}); err != nil {
 				t.Fatalf("register plugin root routes: %v", err)
 			}

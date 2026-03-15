@@ -104,6 +104,18 @@ We still want the official MCP SDK for transport and typed protocol support.
 The wrapper boundary lives in `internal/mcpx`, but the SDK itself is still a
 conscious dependency choice.
 
+### Why plugin backend route and listener runtime stays stdlib-only
+
+The landed backend-plugin route/listener runtime path deliberately does not add
+another transport library. `internal/plugins/backend_runtime.go` uses the Go
+stdlib `os/exec`, `encoding/json`, and `net/http` types to invoke Go-backed
+plugin backend executables over a typed per-request stdio JSON contract for
+registered backend HTTP routes and listener endpoints.
+
+That keeps the plugin backend runtime boundary explicit without introducing a
+second RPC stack or another direct dependency just for host/plugin route and
+listener dispatch.
+
 ### Why `anthropic-sdk-go` is direct
 
 The Anthropic managed-chat provider edge now uses

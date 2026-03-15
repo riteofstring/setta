@@ -6224,6 +6224,123 @@ func TestAppServesPluginRuntimeAndFrontendAssets(t *testing.T) {
 	}
 }
 
+func TestAppServesPluginBackendRoutesAndStaticDirs(t *testing.T) {
+	// The real IDE app should route backend plugin HTTP registrations through the Go root handler while keeping static dirs public.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+
+	manifestPath := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend", "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read backend plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode backend plugin manifest: %v", err)
+	}
+	manifest["capabilities"] = []string{"registerRouter", "registerStaticDir"}
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode backend plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write backend plugin manifest: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	unauthorizedRouteResponse, err := http.Get(server.URL + "/health")
+	if err != nil {
+		t.Fatalf("get unauthorized backend route: %v", err)
+	}
+	defer unauthorizedRouteResponse.Body.Close()
+	if unauthorizedRouteResponse.StatusCode != http.StatusUnauthorized {
+		body, _ := io.ReadAll(unauthorizedRouteResponse.Body)
+		t.Fatalf("expected unauthorized backend route 401, got %d with body %q", unauthorizedRouteResponse.StatusCode, string(body))
+	}
+
+	staticResponse, err := http.Get(server.URL + "/static/fixture.txt")
+	if err != nil {
+		t.Fatalf("get backend static dir asset: %v", err)
+	}
+	defer staticResponse.Body.Close()
+	if staticResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(staticResponse.Body)
+		t.Fatalf("expected backend static asset 200, got %d with body %q", staticResponse.StatusCode, string(body))
+	}
+	staticBody, err := io.ReadAll(staticResponse.Body)
+	if err != nil {
+		t.Fatalf("read backend static asset body: %v", err)
+	}
+	if strings.TrimSpace(string(staticBody)) != "backend static fixture" {
+		t.Fatalf("unexpected backend static asset body %q", string(staticBody))
+	}
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	healthRequest, err := http.NewRequest(http.MethodGet, server.URL+"/health", nil)
+	if err != nil {
+		t.Fatalf("new backend health request: %v", err)
+	}
+	healthRequest.AddCookie(authCookie)
+	healthResponse, err := http.DefaultClient.Do(healthRequest)
+	if err != nil {
+		t.Fatalf("get authorized backend route: %v", err)
+	}
+	defer healthResponse.Body.Close()
+	if healthResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(healthResponse.Body)
+		t.Fatalf("expected backend health 200, got %d with body %q", healthResponse.StatusCode, string(body))
+	}
+	var healthPayload map[string]any
+	if err := json.NewDecoder(healthResponse.Body).Decode(&healthPayload); err != nil {
+		t.Fatalf("decode backend health payload: %v", err)
+	}
+	if healthPayload["hasAuth"] != true {
+		t.Fatalf("expected auth context in backend health payload, got %#v", healthPayload)
+	}
+
+	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/items?view=app", strings.NewReader(`{"name":"app-item"}`))
+	if err != nil {
+		t.Fatalf("new backend create request: %v", err)
+	}
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.AddCookie(authCookie)
+	createResponse, err := http.DefaultClient.Do(createRequest)
+	if err != nil {
+		t.Fatalf("post backend route: %v", err)
+	}
+	defer createResponse.Body.Close()
+	if createResponse.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(createResponse.Body)
+		t.Fatalf("expected backend create 201, got %d with body %q", createResponse.StatusCode, string(body))
+	}
+	if createResponse.Header.Get("X-Plugin") != "backend-fixture" {
+		t.Fatalf("expected plugin response header, got %#v", createResponse.Header)
+	}
+	var createPayload map[string]any
+	if err := json.NewDecoder(createResponse.Body).Decode(&createPayload); err != nil {
+		t.Fatalf("decode backend create payload: %v", err)
+	}
+	if createPayload["rawQuery"] != "view=app" || createPayload["contentType"] != "application/json" {
+		t.Fatalf("unexpected backend create payload %#v", createPayload)
+	}
+}
+
 func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	// The real app should expose local plugin linking through the shared Go plugin service.
 	cfg := testConfig(t)

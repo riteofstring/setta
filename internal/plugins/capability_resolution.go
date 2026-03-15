@@ -37,8 +37,6 @@ var (
 		"registerLanguageServer":       {},
 		"registerExternalAgentAdapter": {},
 		"registerCodegenTarget":        {},
-		"registerRouter":               {},
-		"registerListenerEndpoint":     {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,

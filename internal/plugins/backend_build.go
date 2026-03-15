@@ -12,7 +12,10 @@ import (
 	"strings"
 )
 
-const backendExecutableFileName = "plugin-backend"
+const (
+	BackendBuildRootName      = "plugin_backend_builds"
+	backendExecutableFileName = "plugin-backend"
+)
 
 func ValidateGoBackendBuild(pluginRoot string, manifest PluginManifest) error {
 	if manifest.Backend == nil {
