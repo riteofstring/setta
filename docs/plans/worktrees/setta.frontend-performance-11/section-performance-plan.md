@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 3 extracted `SectionAreaSwitch`, removed the extra `CanvasSectionBody` boundary, and kept canvas-only placeholder/minimized gating in `SectionContainerCoreResizabe.tsx`
-- Current `Phase S3` state: checkpoint 3 accepted; the next serious step is higher shared-shell wrapper reduction or invalidation above the accepted controller/chrome/area-switch seams
+- Latest accepted checkpoint: `Phase S3` checkpoint 4 kept static shell content out of the active `SectionContainerCore` path by memoizing the edge-handle + resizable body subtree
+- Current `Phase S3` state: checkpoint 4 accepted; the next serious step is the broader shared canvas/window shell ownership split above the accepted controller/chrome/area-switch/active-shell seams
 
 Non-negotiable constraints:
 
@@ -113,6 +113,21 @@ Immediate next step:
      - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
      - the remaining shared header/body shells around the accepted `SectionAreaSwitch` seam
    - do not reopen the accepted controller, chrome, or area-switch seams unless a later trace shows a boundary-specific regression
+16. Current post-checkpoint-4 direction:
+   - `frontend/src/components/Section/Container/SectionContainerCore.tsx` now isolates the active/highlight shell from the static edge-handle + resizable body subtree
+   - a new focused invalidation guardrail proves active-only changes do not rerender:
+     - the edge-handle subtree
+     - `MinimizedDataEdgeHandles`
+     - `SectionContainerCoreResizable`
+   - the locked `S0 Code -> S0 Dict` activation trace stayed effectively flat:
+     - worktree improved `RunTask` and `Commit`
+     - worktree was only slightly higher on `FunctionCall`, `UpdateLayoutTree`, `Paint`, `EventDispatch`, and `FireAnimationFrame`
+   - treat this as a narrow active-shell isolation checkpoint, not the final shared-shell answer
+   - the next serious `Phase S3` pass should move outward into the broader shared section-surface shell ownership split across:
+     - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+     - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+     - `frontend/src/components/Section/Container/sectionChrome.ts`
+   - do not reopen the accepted controller, chrome, area-switch, or active-shell seams unless a later trace shows a boundary-specific regression
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 

@@ -2304,3 +2304,67 @@ Append-only log for the section performance refactor.
   - The accepted direction now points above this seam: remaining `Phase S3` work should focus on higher shared-shell wrapper reduction or invalidation, not reopen the area-switch extraction immediately.
 - Next action:
   - Continue `Phase S3` by targeting the remaining shared header/body shell ownership and invalidation in `SectionContainerCore.tsx`, `SectionWindowSurface.tsx`, and the wrappers above the accepted `SectionAreaSwitch` seam.
+
+### 2026-03-17 71
+
+- Item: Accept `Phase S3` checkpoint 4 after isolating the `SectionContainerCore` active shell from the static edge-handle and resizable body subtree.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/SectionContainerCore.tsx` so the outer shell now owns only:
+    - active z-layer
+    - AI/scope highlight classes
+    - joined-corner / outline / theme shell styling
+    - viewport-interaction layer promotion
+  - Added a memoized `SectionContainerCoreStaticContent` child that now owns:
+    - shared chat / agentic / workflow edge-handle routing
+    - `MinimizedDataEdgeHandles`
+    - `SectionContainerCoreResizable`
+  - Added focused invalidation coverage in:
+    - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/sectionChrome.test.ts src/components/Utils/Resizable/useSectionResizeController.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `6` files passed, `36` tests passed
+  - Re-ran representative activation + resize Playwright coverage:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/active-section-same-generation-ownership.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `9 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Used the representative `S0 Code -> S0 Dict` activation replay instead of the resize replay because this checkpoint targets active-shell invalidation rather than resize behavior:
+    - precondition both branches to `S0 Code` active
+    - click the `S0 Dict` section root
+    - capture the click-scoped target-renderer interaction window
+  - Visual validation:
+    - `S0 Code` active screenshots remained aligned between untouched `main` and the worktree
+    - `S0 Dict` active screenshots remained aligned between untouched `main` and the worktree
+    - no shell/body drift appeared during the active-state replay
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint4/`
+  - Accepted click-scoped target-renderer totals from the activation pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `40.959`
+      - `UpdateLayoutTree`: `3.069`
+      - `Layout`: `0.000`
+      - `Paint`: `0.184`
+      - `RunTask`: `8.989`
+      - `EventDispatch`: `0.468`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.473`
+      - `Commit`: `0.229`
+    - worktree
+      - `FunctionCall`: `42.353`
+      - `UpdateLayoutTree`: `3.241`
+      - `Layout`: `0.000`
+      - `Paint`: `0.209`
+      - `RunTask`: `5.859`
+      - `EventDispatch`: `1.258`
+      - `TimerFire`: `0.000`
+      - `FireAnimationFrame`: `0.504`
+      - `Commit`: `0.157`
+- Interpretation:
+  - Checkpoint 4 is accepted.
+  - The activation trace is small and mixed, but effectively flat enough to accept this structural isolation pass.
+  - The stronger evidence is the new focused guardrail proving that active-only shell changes no longer rerender the static shell subtree.
+  - This is still only a narrow `SectionContainerCore` pass. The next serious `Phase S3` step should target the broader shared canvas/window shell ownership split above it.
+- Next action:
+  - Continue `Phase S3` by moving toward a shared section-surface shell model across `SectionContainerCoreResizabe.tsx`, `SectionWindowSurface.tsx`, and `sectionChrome.ts` without reopening the accepted controller, chrome, area-switch, or active-shell seams unless a later trace proves it necessary.
