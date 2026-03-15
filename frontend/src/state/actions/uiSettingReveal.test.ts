@@ -1,6 +1,5 @@
 import { useActiveSectionUI } from "state/activeSectionUI";
-import { useProjectState } from "state/definitions";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
 import type {
@@ -17,7 +16,7 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setActiveSectionIds } from "./activeSections";
-import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 
 const invokePluginSettingRevealHandlerMock = vi.hoisted(() =>
   vi.fn(async (args: { pluginId: string }) => ({
