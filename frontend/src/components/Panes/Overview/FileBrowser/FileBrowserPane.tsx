@@ -31,11 +31,7 @@ import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { normalizeBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   getFileBrowserDragPayload,
   setFileBrowserDragPayload,
@@ -66,15 +62,7 @@ import {
   route_get_folder_contents,
   route_transfer_file_browser_entry,
 } from "utils/generatedEndpoints";
-import {
-  CheckWorkspaceInitializedResponse,
-  FileBrowserDownloadURLEntry,
-  FileBrowserRootResponse,
-  GetFileBrowserDownloadURLsResponse,
-  GetFolderContentsResponse,
-  SettaNotificationTypeEnum,
-  TransferFileBrowserEntryResponse,
-} from "utils/generatedTypes";
+import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
@@ -104,17 +92,10 @@ type FileBrowserClipboardEntry = {
 type SortKey = "name" | "modified";
 type SortDirection = "asc" | "desc";
 
-type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
-type CheckWorkspaceInitializedRouteResponse =
-  ResponseDataAndStatus<CheckWorkspaceInitializedResponse>;
-type FileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
-type FolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
-type FileBrowserDownloadURLsRouteResponse =
-  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
-type TransferFileBrowserEntryRouteResponse =
-  ResponseDataAndStatus<TransferFileBrowserEntryResponse>;
+type FileUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
 
 export type FileNode = {
   name: string;
@@ -720,16 +701,15 @@ export function FileBrowserPane({
         });
       };
       try {
-        const res: FolderContentsRouteResponse =
-          await route_get_folder_contents({
-            folderPath,
-            ignorePatterns: activeIgnorePatterns,
-            maxEntries: MAX_ENTRIES,
-            includeMtime: true,
-            includeSettaInitialized: includeSettaInitializedRef.current,
-            allowOutsideWorkspaceRoot,
-            missingFolderBehavior: "empty",
-          });
+        const res = await route_get_folder_contents({
+          folderPath,
+          ignorePatterns: activeIgnorePatterns,
+          maxEntries: MAX_ENTRIES,
+          includeMtime: true,
+          includeSettaInitialized: includeSettaInitializedRef.current,
+          allowOutsideWorkspaceRoot,
+          missingFolderBehavior: "empty",
+        });
         if (rootRequestIdRef.current !== activeRootRequestId) {
           return null;
         }
@@ -779,11 +759,10 @@ export function FileBrowserPane({
               rootPath: activeRootPath,
             })
           ) {
-            const initializationRes: CheckWorkspaceInitializedRouteResponse =
-              await route_check_workspace_initialized({
-                folderPath,
-                allowOutsideWorkspaceRoot,
-              });
+            const initializationRes = await route_check_workspace_initialized({
+              folderPath,
+              allowOutsideWorkspaceRoot,
+            });
             if (rootRequestIdRef.current !== activeRootRequestId) {
               return null;
             }
@@ -1009,8 +988,7 @@ export function FileBrowserPane({
     }
     didLoadRootRef.current = true;
     const loadRoot = async () => {
-      const res: FileBrowserRootRouteResponse =
-        await route_get_file_browser_root();
+      const res = await route_get_file_browser_root();
       if (!res200(res)) {
         let errorMessage = "Failed to load file browser root.";
         if (res.hasResponse && res.status !== undefined) {
@@ -1136,8 +1114,7 @@ export function FileBrowserPane({
     for (const path of pending) {
       fileUrlRequests.current.add(path);
     }
-    const res: FileBrowserDownloadURLsRouteResponse =
-      await route_get_file_browser_download_urls({ paths: pending });
+    const res = await route_get_file_browser_download_urls({ paths: pending });
     for (const path of pending) {
       fileUrlRequests.current.delete(path);
     }
@@ -1299,12 +1276,11 @@ export function FileBrowserPane({
         );
         return null;
       }
-      const response: TransferFileBrowserEntryRouteResponse =
-        await route_transfer_file_browser_entry({
-          sourcePath: normalizedSourcePath,
-          destinationFolderPath: normalizedDestinationFolderPath,
-          operation,
-        });
+      const response = await route_transfer_file_browser_entry({
+        sourcePath: normalizedSourcePath,
+        destinationFolderPath: normalizedDestinationFolderPath,
+        operation,
+      });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         addTemporaryNotification(
