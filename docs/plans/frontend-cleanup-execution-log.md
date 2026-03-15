@@ -5179,3 +5179,32 @@ in `frontend/src/README.md` and the cleanup plans.
   - `db6634790465cd9fd80e255d7af15659394e4427`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is now the top unresolved hotspot at about `2860` lines after `ProjectChatHistory.tsx` dropped to about `2297` lines.
+
+## 2026-03-15 17:25:22 PDT
+
+- Slice completed: extracted shared project-vs-section window shell rendering, body selection, and header-action adaptation out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was the top unresolved hotspot in `frontend/src/README.md` at about `2860` lines.
+  - The duplicated shell adapter layer across docked, floating, and maximized windows was the clearest remaining feature-local seam after shortcuts, layout math, dock resize, floating interactions, and minimized-pill strip behavior had already moved into local owners.
+  - This was higher value than switching to `ChatInput.tsx` or `ProjectChatHistory.tsx` immediately because it removed one more large mixed-responsibility render branch from the same dock surface and dropped `ProjectChatBottomDock.tsx` below the next UI hotspot tier before changing domains.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/projectChatWindowShell.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatWindowShell.test.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-bottom-dock-shells-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatWindowShell.test.tsx src/components/ChatWindowing/projectChatBottomDockPillStrip.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat floating windows keep titlebar and minimum visibility guardrails across drag and viewport changes"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatWindowShell.tsx src/components/ChatWindowing/projectChatWindowShell.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-bottom-dock-shells-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-bottom-dock-shells-2026-03-15.md` with the historical same-origin harness baseline, the post-slice rerun, and before/after screenshots.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that the seeded shell still rendered `2` dock panels (`dock-review`, `dock-ship`), `2` floating windows (`float-debug`, `float-graph`), `1` maximized window (`max-plan`), and `0` tray pills after the extraction.
+- Commit hash:
+  - `e747763a41c786f2940683fb63c4afa7fa18c142`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the next default UI priority and a larger unresolved chat surface at about `2597` lines after `ProjectChatBottomDock.tsx` dropped to about `2400` lines.
