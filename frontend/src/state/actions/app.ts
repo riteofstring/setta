@@ -1,24 +1,18 @@
+import { useAppConfigs, useAppDefinition } from "state/stores/appStores";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import {
   useAllProjectMetadata,
-  useAppConfigs,
-  useAppDefinition,
-  useProjectLoading,
   useServerMode,
   useShareSession,
-} from "state/definitions";
+} from "state/stores/sessionStores";
 import { resetProjectStores } from "state/utils";
-import {
-  getErrorCode,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_app_session_current,
   route_get_app_deployment_state,
   route_load_app_project_config,
 } from "utils/generatedEndpoints";
 import type {
-  AppDeploymentStateResponse,
   AppDeploymentSessionResponse,
   ProjectStateSingleConfig,
 } from "utils/generatedTypes";
@@ -28,11 +22,6 @@ const APP_SESSION_STORAGE_KEY = "settaAppSession";
 type AppSessionOptions = {
   forceNewSession?: boolean;
 };
-
-type AppDeploymentSessionRouteResponse =
-  ResponseDataAndStatus<AppDeploymentSessionResponse>;
-type AppDeploymentStateRouteResponse =
-  ResponseDataAndStatus<AppDeploymentStateResponse>;
 
 function clearAppSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
@@ -209,8 +198,7 @@ export async function ensureAppSessionFromCurrentDeployment(
       }
     }
   }
-  const sessionRes: AppDeploymentSessionRouteResponse =
-    await route_create_app_session_current();
+  const sessionRes = await route_create_app_session_current();
   if (!res200(sessionRes)) {
     return null;
   }
@@ -249,10 +237,8 @@ export async function initializeAppSessionFromCurrentDeployment(
 
 export async function loadAppDeploymentState({
   projectConfigId,
-  allowRetry = true,
 }: {
   projectConfigId?: string;
-  allowRetry?: boolean;
 } = {}): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
@@ -264,7 +250,7 @@ export async function loadAppDeploymentState({
     return false;
   }
 
-  const res: AppDeploymentStateRouteResponse = projectConfigId
+  const res = projectConfigId
     ? await route_load_app_project_config(
         shareSession.shareDeploymentName,
         shareSession.shareDeploymentVersion,
@@ -275,22 +261,6 @@ export async function loadAppDeploymentState({
         shareSession.shareDeploymentVersion,
       );
   if (!res200(res)) {
-    const errorCode = getErrorCode(res.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
-      const session = await ensureAppSessionFromCurrentDeployment({
-        forceNewSession: true,
-      });
-      if (session) {
-        return await loadAppDeploymentState({
-          projectConfigId,
-          allowRetry: false,
-        });
-      }
-    }
     return false;
   }
   if (res.data.appDefinition || res.data.appSpec) {

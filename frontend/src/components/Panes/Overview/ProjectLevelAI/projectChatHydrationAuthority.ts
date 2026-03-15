@@ -1,4 +1,4 @@
-import { ChatRunType } from "state/actions/chatHistory";
+import type { ChatRunType } from "state/actions/chatHistoryTypes";
 import { EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 
 type SelectedScopedChatProvenance =
