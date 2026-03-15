@@ -62,6 +62,38 @@ func TestRenderLocalStartupMessageRemoteSession(t *testing.T) {
 	}
 }
 
+func TestRenderLocalStartupMessageAutoOpenSuppressesManualTunnelText(t *testing.T) {
+	t.Parallel()
+
+	// Once the local startup path is auto-opening the browser, the banner should
+	// stop after the opening hint instead of printing the manual tunnel/bootstrap
+	// instructions too.
+	message := renderLocalStartupMessage(
+		auth.SessionMetadata{
+			ID:                     "session-1",
+			WorkspacePathCanonical: "/tmp/my project",
+			Host:                   "127.0.0.1",
+			Port:                   61234,
+		},
+		"/tmp/my project",
+		"http://127.0.0.1:61234/__setta__/bootstrap#token=tok",
+		"http://127.0.0.1:61234/__setta__/bootstrap",
+		"tok",
+		true,
+		true,
+	)
+
+	if !strings.Contains(message, "Opening browser to:") {
+		t.Fatalf("expected auto-open banner, got %q", message)
+	}
+	if strings.Contains(message, "LOCAL_PORT=61000") {
+		t.Fatalf("expected auto-open banner to suppress manual tunnel instructions, got %q", message)
+	}
+	if strings.Contains(message, "Manual tunnel (no local Setta install):") {
+		t.Fatalf("expected auto-open banner to suppress remote manual instructions, got %q", message)
+	}
+}
+
 func TestEmitLocalStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
 	t.Parallel()
 
