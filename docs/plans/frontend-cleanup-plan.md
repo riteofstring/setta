@@ -332,8 +332,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/hooks/terminals/terminalSessions.ts`, and xterm
   fit/fallback/reflow behavior to
   `frontend/src/state/hooks/terminals/terminalFit.ts`.
-- `frontend/src/state/actions/keyActivations.ts` is down to 284 lines and now
-  delegates grouped shortcut registration to
+- `frontend/src/state/actions/keyActivations.ts` is now a listener
+  delegates the shortcut command registry plus React Flow key-mode toggles to
+  `frontend/src/state/actions/keyActivationCommands.ts`, grouped shortcut
+  registration to
   `frontend/src/state/actions/keyShortcutRegistrationGroups.ts`, the
   remaining Tab-vs-param binding and registry composition to
   `frontend/src/state/actions/keyShortcutRegistrations.ts`, shortcut
@@ -342,9 +344,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   input-ignore policy to
   `frontend/src/state/actions/keyShortcutInputPolicy.ts`,
   `frontend/src/state/actions/keyShortcutUtils.ts` as the thin compatibility
-  facade, and `Tab`/`Escape`,
-  section-selection, and React Flow key-mode handlers to
-  `frontend/src/state/actions/keyActivationHandlers.ts`.
+  facade, and `Tab`/`Escape`, section-selection, and param-shortcut dispatch
+  behavior to `frontend/src/state/actions/keyActivationHandlers.ts`.
 - `frontend/src/utils/focusManager.ts` is down to a thin compatibility surface
   and now delegates tab-scope registration/focus tracking to
   `frontend/src/utils/focusManagerRegistry.ts`, focusable-element/canvas-order
@@ -591,7 +592,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/keyActivationHandlers.ts`, `state/actions/aiTranscription.ts`, `state/actions/projectChatWindowingEphemeral.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/hooks/aiFollow.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiTranscription.ts`, `state/actions/projectChatWindowingEphemeral.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/actions/keyShortcutRegistrationGroups.ts`, `state/hooks/aiFollow.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

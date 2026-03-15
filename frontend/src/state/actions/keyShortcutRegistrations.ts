@@ -1,4 +1,4 @@
-import { keyActivationCommands } from "./keyActivationHandlers";
+import { keyActivationCommands } from "./keyActivationCommands";
 import { isTabLikeShortcut } from "./keyShortcutMatching";
 import {
   createParamShortcutRegistration,

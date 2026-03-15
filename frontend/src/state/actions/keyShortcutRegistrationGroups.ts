@@ -3,12 +3,9 @@ import {
   showProjectOverviewTab,
   showVersionsTab,
 } from "components/Panes/paneFns";
-import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import { focusAdjacentTopLevelSection, focusScope } from "utils/focusManager";
-import {
-  handleTabKeyDown,
-  keyActivationCommands,
-} from "./keyActivationHandlers";
+import { keyActivationCommands } from "./keyActivationCommands";
+import { handleTabKeyDown, onEscapeKey } from "./keyActivationHandlers";
 import {
   createShortcutRegistration,
   createTrackedShortcutRegistration,
@@ -202,7 +199,10 @@ export function getCanvasAndPaneShortcutRegistrations(
   shortcuts: SettingsShortcuts,
 ): Array<ShortcutRegistration> {
   return [
-    createShortcutRegistration(shortcuts.fitViewShortcut, onFitViewHandler),
+    createShortcutRegistration(
+      shortcuts.fitViewShortcut,
+      keyActivationCommands.onFitViewHandler,
+    ),
     createShortcutRegistration(
       shortcuts.zoomToMouseShortcut,
       keyActivationCommands.zoomToMouseLocation,
@@ -289,6 +289,6 @@ export function getInteractionModeShortcutRegistrations(
       keyActivationCommands.activateDndSortingMode,
       keyActivationCommands.deactivateDnd,
     ),
-    createShortcutRegistration("Escape", keyActivationCommands.onEscapeKey),
+    createShortcutRegistration("Escape", onEscapeKey),
   ];
 }
