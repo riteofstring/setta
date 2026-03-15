@@ -1150,6 +1150,18 @@ func TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs(t *test
 	}{
 		{
 			route:        RouteSetSectionVariantSortOrder,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"missing-section","orderedVariantIds":["source-variant-a","source-variant-b"]}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"section_not_found"`,
+		},
+		{
+			route:        RouteSetSectionVariantSortOrder,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"source-section","orderedVariantIds":["source-variant-a","missing-variant"]}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"variant_not_found"`,
+		},
+		{
+			route:        RouteSetSectionVariantSortOrder,
 			body:         `{"projectConfigId":"project-alpha","sectionId":"source-section","orderedVariantIds":["source-variant-a","source-variant-a"]}`,
 			expectedCode: http.StatusUnprocessableEntity,
 			expectedBody: `"code":"variant_sort_order_invalid"`,
