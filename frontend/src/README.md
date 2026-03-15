@@ -10,10 +10,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-16`
-- Authored TS/TSX files under `frontend/src`: `1493`
-- Non-generated TS/TSX files at `1000+` lines: `38`
+- Authored TS/TSX files under `frontend/src`: `1498`
+- Non-generated TS/TSX files at `1000+` lines: `37`
 - Biggest current front-door hotspots:
-  - `components/App/appRegistry.tsx` (`1753`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`1658`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`1399`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1377`)
   - `components/Section/Layouts/BrowserArea.tsx` (`1302`)
+  - `components/Chat/ChatInput.tsx` (`1605`)
 
 ## Module Map
 
@@ -719,7 +719,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - App runtime
 
   - `components/App/appRegistry.tsx` owns app runtime component registration,
-    bindings, and renderer selection.
+    shared layout primitives, and action/output renderer entries.
+  - `components/App/appRegistryParamInput.tsx`,
+    `components/App/appRegistryParamControls.tsx`, and
+    `components/App/appRegistryParamModel.ts` own app param binding lookup,
+    app-mode edit gating, backend writes, and per-param control rendering.
   - `components/Pages/App/*` owns app-mode shells and wrappers.
 
 - Plugin runtime

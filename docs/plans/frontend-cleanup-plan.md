@@ -54,8 +54,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1493 authored TS/TSX files under `frontend/src`.
-- There are 38 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
+- There are 1498 authored TS/TSX files under `frontend/src`.
+- There are 37 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1377 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, and conversation-search extractions
@@ -71,9 +71,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
+- `frontend/src/components/App/appRegistry.tsx` is now 888 lines after the local param-input, param-controls, and param-model extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555 lines after the local codegen sections, codegen policy content, and codegen model extraction and is no longer a top-size hotspot.
 - `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607 lines after the local plugin-card, config-editor, config-schema, and shared-shell extraction and is no longer a top-size hotspot.
@@ -239,7 +239,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`,
   `ChatInput.tsx`, `ChatMessages.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
@@ -248,11 +247,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`, or
   `ChatMessages.tsx` as a default starting point while a same-domain
@@ -269,9 +268,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Treat the existing thin compatibility facades as acceptable transition
   surfaces for now, but do not add more facade-only hops unless the same slice
   also shrinks one of the top hotspots above.
-- `frontend/src/components/App/appRegistry.tsx` and
-  `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` are still large
-  front-door files without strong root-level colocated test coverage on this
+- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is still a large
+  front-door file without strong root-level colocated test coverage on this
   branch. If a slice starts there, add direct Vitest coverage for the extracted
   ownership boundary as part of the same change.
 - Local feature `README.md` files are useful once a root surface stabilizes,
@@ -914,9 +912,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -930,17 +928,18 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
-  - registry vs renderer vs binding adapters in `appRegistry.tsx`
   - task/column commands vs DnD math vs board shells in `TaskBoardArea.tsx`
   - data bootstrap vs search/favorites model vs presentational shells in
     `HomePage.tsx`
   - search/indexing vs virtualization vs detail panes in `GitGraphOverlay.tsx`
+  - provider routing vs settings groups vs override editors in
+    `ProjectAISettings.tsx`
 
 ## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 
