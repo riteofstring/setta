@@ -10,6 +10,10 @@ Use this file only as the folder map.
   - entrypoint, read order, retained Python boundaries, task loop
 - `unused-python-deletion-plan.md`
   - stepwise evidence-gated plan for deleting superseded Python code and tests
+- `backend-behavior-parity-matrix-plan.md`
+  - plan for building a behavior-level parity matrix against `main`
+- `backend-behavior-parity-matrix.md`
+  - current behavior-level parity ledger and gap list
 - `caller-backed-backend-surface-checklist.md`
   - whether current callers already hit Go-owned transport/runtime
 - `backend-capability-coverage-checklist.md`

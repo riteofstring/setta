@@ -12,8 +12,9 @@ Read this file first when touching repo areas tracked under the Go backend rewri
 - This is a clean break. Do not preserve mixed Go/Python backend ownership,
   Python route shapes, migrations, storage compatibility, or transition layers
   unless a current repo workflow explicitly requires a bounded exception.
-- Progress is tracked in the two checklist docs, not by how much Python source
-  has been deleted from this branch.
+- Progress is tracked in the two broader checklist docs plus the behavior
+  parity matrix, not by how much Python source has been deleted from this
+  branch.
 - The backend rewrite is complete for the backend/runtime scope tracked by this
   doc set. Remaining Python files should be treated as either explicit
   retained boundaries or cleanup/reference tail, not as active backend
@@ -61,6 +62,10 @@ plugin model, not product-level removal of backend plugin features.
 
 1. Read `CURRENT.md`.
 2. Read only the docs the task needs:
+   - current behavior-level parity status and gaps:
+     `backend-behavior-parity-matrix.md`
+   - building the exhaustive behavior-level parity matrix:
+     `backend-behavior-parity-matrix-plan.md`
    - active caller reachability:
      `caller-backed-backend-surface-checklist.md`
    - runtime/service ownership:
@@ -124,6 +129,10 @@ plugin model, not product-level removal of backend plugin features.
   `caller-backed-backend-surface-checklist.md`
 - "Where does ownership live overall?":
   `backend-capability-coverage-checklist.md`
+- "What is the current behavior-level parity status?":
+  `backend-behavior-parity-matrix.md`
+- "How do we build the exhaustive behavior parity matrix?":
+  `backend-behavior-parity-matrix-plan.md`
 - "How do we delete unused Python safely after completion?":
   `unused-python-deletion-plan.md`
 - "Should this be ported as-is or redesigned?":
@@ -159,6 +168,7 @@ plugin model, not product-level removal of backend plugin features.
 ## Update Rules
 
 - The rewrite progress tracker is:
+  - `backend-behavior-parity-matrix.md`
   - `caller-backed-backend-surface-checklist.md`
   - `backend-capability-coverage-checklist.md`
 - The final Python cleanup tracker/plan is:
