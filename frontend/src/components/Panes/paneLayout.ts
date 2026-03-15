@@ -1,4 +1,4 @@
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 import {
   CLOSED_PANE_WIDTH,
   HOME_COMPACT_LAYOUT_BREAKPOINT_PX,
