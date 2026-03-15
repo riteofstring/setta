@@ -4747,3 +4747,38 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/lspDiagnostics.ts` so formatter-aware
     diagnostics merging and snapshot publish logic stop sharing one action
     surface with mute/suppression transport commands.
+
+## 2026-03-15 13:01:14 PDT
+
+- Slice completed: split LSP diagnostics state updates from transport commands
+- Key files touched:
+  - `frontend/src/state/actions/lspDiagnosticsState.ts`
+  - `frontend/src/state/actions/lspDiagnosticsCommands.ts`
+  - `frontend/src/state/actions/lspDiagnostics.ts`
+  - `frontend/src/state/actions/lspDiagnosticsState.test.ts`
+  - `frontend/src/state/actions/lspDiagnosticsCommands.test.ts`
+  - `frontend/src/state/actions/formatCode.ts`
+  - `frontend/src/state/actions/formatCode.test.ts`
+  - `frontend/src/state/actions/websocketBootstrap.ts`
+  - `frontend/src/state/actions/websocketBootstrap.test.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/state/actions/websocketReceive.test.ts`
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/lspDiagnosticsState.test.ts src/state/actions/lspDiagnosticsCommands.test.ts src/state/actions/formatCode.test.ts src/state/actions/websocketBootstrap.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec vitest run src/state/actions/project/loadProject.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/lspDiagnostics.ts src/state/actions/lspDiagnosticsState.ts src/state/actions/lspDiagnosticsCommands.ts src/state/actions/lspDiagnosticsState.test.ts src/state/actions/lspDiagnosticsCommands.test.ts src/state/actions/formatCode.ts src/state/actions/formatCode.test.ts src/state/actions/websocketBootstrap.ts src/state/actions/websocketBootstrap.test.ts src/state/actions/websocketIncomingMessages.ts src/state/actions/project/loadProject.ts src/state/actions/websocketReceive.test.ts src/components/Section/Header/SectionHeader.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual diagnostics ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `c05c6cfcfb89d97b42fe6341e63c3c3773a7d941`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatSubmissionPayload.ts` so
+    app-generation request metadata and edited-message submission preparation
+    stop sharing one action surface.
