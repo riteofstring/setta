@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.lsp.managers import LSPWriters
+    from setta.plugins.manager import PluginManager
     from setta.project_state.artifacts import Artifacts
     from setta.project_state.code_files import CodeFiles
     from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -68,6 +69,7 @@ class SessionProjectManager(BaseProjectManager):
         lsp_writers: "LSPWriters | None" = None,
         share_runtime_state: "ShareRuntimeState | None" = None,
         share_session_id: str | None = None,
+        plugin_manager: "PluginManager | None" = None,
     ) -> None:
         self.persistence_mode = persistence_mode
         self.share_runtime_state = share_runtime_state
@@ -88,6 +90,7 @@ class SessionProjectManager(BaseProjectManager):
             artifacts=artifacts,
             json_source=json_source,
             code_files=code_files,
+            plugin_manager=plugin_manager,
         )
 
     def load_initial_state(self) -> ProjectStateBackend:

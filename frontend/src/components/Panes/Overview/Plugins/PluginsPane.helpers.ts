@@ -5,12 +5,24 @@ import type {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 
+type PluginRegisteredLanguageServer =
+  PluginStatusEntry["registeredLanguageServers"][number];
 type PluginRegisteredExternalAgentAdapter =
   PluginStatusEntry["registeredExternalAgentAdapters"][number];
+type PluginRegisteredCodegenTarget =
+  PluginStatusEntry["registeredCodegenTargets"][number];
 
+const cachedLanguageServersByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredLanguageServer[]
+>();
 const cachedExternalAgentAdaptersByStatus = new WeakMap<
   PluginStatusEntry,
   PluginRegisteredExternalAgentAdapter[]
+>();
+const cachedCodegenTargetsByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredCodegenTarget[]
 >();
 
 type PluginCapabilityStatus =
@@ -69,6 +81,23 @@ export function buildCapabilityStatusIndex({
   };
 }
 
+export function getRegisteredLanguageServers(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredLanguageServer[] {
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedLanguageServersByStatus,
+    (entry) => entry.registeredLanguageServers,
+    (a, b) => {
+      const byLanguage = a.language.localeCompare(b.language);
+      if (byLanguage !== 0) {
+        return byLanguage;
+      }
+      return a.name.localeCompare(b.name);
+    },
+  );
+}
+
 export function getRegisteredExternalAgentAdapters(
   pluginStatus: PluginStatusEntry | null,
 ): PluginRegisteredExternalAgentAdapter[] {
@@ -82,6 +111,23 @@ export function getRegisteredExternalAgentAdapters(
         return byName;
       }
       return a.adapterId.localeCompare(b.adapterId);
+    },
+  );
+}
+
+export function getRegisteredCodegenTargets(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredCodegenTarget[] {
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedCodegenTargetsByStatus,
+    (entry) => entry.registeredCodegenTargets,
+    (a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.targetId.localeCompare(b.targetId);
     },
   );
 }
@@ -157,6 +203,76 @@ export function parsePluginConfigDraft(rawValue: string): {
 
 export function formatPluginConfigDraft(value: unknown): string {
   return formatJsonObjectDraft(value);
+}
+
+export function parseLanguageServerSettingsDraft(rawValue: string): {
+  value: Record<string, unknown>;
+  error: string | null;
+} {
+  return parseJsonObjectDraft(
+    rawValue,
+    "Language server settings must be a JSON object.",
+    "Language server settings JSON is invalid.",
+  );
+}
+
+export function formatLanguageServerSettingsDraft(value: unknown): string {
+  return formatJsonObjectDraft(value);
+}
+
+export function getLanguageServerSettingsValue(
+  settings: Record<string, unknown>,
+  settingsKey: string,
+): unknown {
+  const path = settingsKey
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (path.length === 0) {
+    return {};
+  }
+  let current: unknown = settings;
+  for (const segment of path) {
+    if (!isPlainObject(current)) {
+      return {};
+    }
+    current = current[segment];
+  }
+  return current ?? {};
+}
+
+export function setLanguageServerSettingsValue(
+  settings: Record<string, unknown>,
+  settingsKey: string,
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  const path = settingsKey
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (path.length === 0) {
+    return { ...settings };
+  }
+  const [head, ...tail] = path;
+  if (!head) {
+    return { ...settings };
+  }
+  if (tail.length === 0) {
+    return {
+      ...settings,
+      [head]: { ...value },
+    };
+  }
+  const existing = settings[head];
+  const nextChild = setLanguageServerSettingsValue(
+    isPlainObject(existing) ? existing : {},
+    tail.join("."),
+    value,
+  );
+  return {
+    ...settings,
+    [head]: nextChild,
+  };
 }
 
 export function getPluginCapabilityStatus(

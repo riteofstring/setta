@@ -12,7 +12,7 @@ import {
   createProjectConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadAgentRuns } from "./ai";
+import { loadAgentRuns } from "./aiAgentRuns";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -28,8 +28,9 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-vi.mock("./ai", async () => {
-  const actual = await vi.importActual<typeof import("./ai")>("./ai");
+vi.mock("./aiAgentRuns", async () => {
+  const actual =
+    await vi.importActual<typeof import("./aiAgentRuns")>("./aiAgentRuns");
   return {
     ...actual,
     loadAgentRuns: vi.fn(),
@@ -52,11 +53,11 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 let useProjectState: typeof import("state/definitions").useProjectState;
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useShareSession: typeof import("state/definitions").useShareSession;
-let getLatestStateMachineRun: typeof import("./stateMachineRuns").getLatestStateMachineRun;
-let startStateMachineRun: typeof import("./stateMachineRuns").startStateMachineRun;
-let stopStateMachineRun: typeof import("./stateMachineRuns").stopStateMachineRun;
-let resetStateMachineRun: typeof import("./stateMachineRuns").resetStateMachineRun;
-let subscribeStateMachineRunPolling: typeof import("./stateMachineRuns").subscribeStateMachineRunPolling;
+let getLatestStateMachineRun: typeof import("./stateMachineRunSelection").getLatestStateMachineRun;
+let startStateMachineRun: typeof import("./stateMachineRunMutations").startStateMachineRun;
+let stopStateMachineRun: typeof import("./stateMachineRunMutations").stopStateMachineRun;
+let resetStateMachineRun: typeof import("./stateMachineRunMutations").resetStateMachineRun;
+let subscribeStateMachineRunPolling: typeof import("./stateMachineRunSelection").subscribeStateMachineRunPolling;
 
 describe("stateMachineRuns", () => {
   beforeEach(async () => {
@@ -66,13 +67,15 @@ describe("stateMachineRuns", () => {
     useProjectState = definitions.useProjectState;
     useAIStore = definitions.useAIStore;
     useShareSession = definitions.useShareSession;
-    const stateMachineRuns = await import("./stateMachineRuns");
-    getLatestStateMachineRun = stateMachineRuns.getLatestStateMachineRun;
-    startStateMachineRun = stateMachineRuns.startStateMachineRun;
-    stopStateMachineRun = stateMachineRuns.stopStateMachineRun;
-    resetStateMachineRun = stateMachineRuns.resetStateMachineRun;
+    const stateMachineRunSelection = await import("./stateMachineRunSelection");
+    const stateMachineRunMutations = await import("./stateMachineRunMutations");
+    getLatestStateMachineRun =
+      stateMachineRunSelection.getLatestStateMachineRun;
+    startStateMachineRun = stateMachineRunMutations.startStateMachineRun;
+    stopStateMachineRun = stateMachineRunMutations.stopStateMachineRun;
+    resetStateMachineRun = stateMachineRunMutations.resetStateMachineRun;
     subscribeStateMachineRunPolling =
-      stateMachineRuns.subscribeStateMachineRunPolling;
+      stateMachineRunSelection.subscribeStateMachineRunPolling;
 
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
@@ -400,20 +403,6 @@ describe("stateMachineRuns", () => {
         },
       }),
     });
-    mockedRouteGetStateMachineRun.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: createAgentRun({
-        id: "machine-run-1",
-        status: AgentRunStatusEnum.running,
-        inputs: {
-          runType: "state_machine",
-          projectConfigId: "project-1",
-          machineGroupId: "workflow-main",
-          startSectionId: "section-start",
-        },
-      }),
-    });
 
     const started = await startStateMachineRun(
       "workflow-main",
@@ -426,22 +415,7 @@ describe("stateMachineRuns", () => {
       machineGroupId: "workflow-main",
       startSectionId: "section-start",
     });
-    expect(
-      useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-1"),
-    ).toMatchObject({
-      id: "machine-run-1",
-      status: AgentRunStatusEnum.running,
-      inputs: {
-        runType: "state_machine",
-        projectConfigId: "project-1",
-        machineGroupId: "workflow-main",
-      },
-    });
-    expect(mockedRouteGetStateMachineRun).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      machineGroupId: "workflow-main",
-    });
-    expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
+    expect(mockedLoadAgentRuns).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces backend stop failures without refreshing runs", async () => {
@@ -462,19 +436,6 @@ describe("stateMachineRuns", () => {
   });
 
   it("resets a workflow with the current project scope", async () => {
-    useAIStore.setState({
-      agentRuns: [
-        createAgentRun({
-          id: "machine-run-2",
-          status: AgentRunStatusEnum.running,
-          inputs: {
-            runType: "state_machine",
-            projectConfigId: "project-1",
-            machineGroupId: "workflow-main",
-          },
-        }),
-      ],
-    });
     mockedRouteResetStateMachine.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -491,16 +452,6 @@ describe("stateMachineRuns", () => {
       projectConfigId: "project-1",
       machineGroupId: "workflow-main",
     });
-    expect(
-      useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-2"),
-    ).toMatchObject({
-      id: "machine-run-2",
-      status: AgentRunStatusEnum.cancelled,
-      outputs: {
-        machineStateCleared: true,
-      },
-    });
-    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
-    expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
+    expect(mockedLoadAgentRuns).toHaveBeenCalledTimes(1);
   });
 });

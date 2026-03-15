@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field
 
 from setta.types.dependency_value import (
     BinaryDependencyValue,
@@ -15,7 +15,3 @@ BaseDependencyValueUnion = (
 BaseDependencyValueUnionWithDiscriminator = Annotated[
     BaseDependencyValueUnion, Field(discriminator="type")
 ]
-
-BaseDependencyValueTypeAdapter = TypeAdapter(BaseDependencyValueUnionWithDiscriminator)
-
-BaseDependencyValueTypeSet = set(["Literal", "FileRead", "Binary"])
