@@ -1,5 +1,5 @@
 import { projectPageSearchTestApi } from "components/AppHeader/SearchBar/ProjectPageSearch";
-import { type CreateSectionsContextMenuInfo } from "state/actions/sections/createSectionsHelper";
+import { type CreateSectionsContextMenuInfo } from "state/actions/sections/createSectionCatalog";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 

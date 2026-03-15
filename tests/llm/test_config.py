@@ -1,12 +1,16 @@
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
 import pytest
 import setta.mcp.codex_config as codex_config_module
 from setta.database.db_objs import DBE
-from setta.llm.config import load_llm_config, save_llm_config
+from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
+from setta.llm.example_config import seed_llm_config_example_file
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.types.chat import ChatMetadata
+from setta.types.id import ID
 from setta.types.llm_config import (
     SCRIPTABLE_LLM_CONFIG_ID,
     AllLLMConfigs,
@@ -15,30 +19,89 @@ from setta.types.llm_config import (
 )
 from setta.utils import constants as constants_module
 
-def _write_default_example_llm_config(dbe: DBE) -> None:
-    dbe.write_llm_config_example(
-        {
-            "configs": {
-                "claude-sonnet": {
-                    "model": "claude-sonnet-4-5-20250929",
-                    "provider": "anthropic",
-                    "api_key_env": "ANTHROPIC_API_KEY",
-                },
-                "openai-whisper-1": {
-                    "model": "whisper-1",
-                    "provider": "openai",
-                    "api_key_env": "OPENAI_API_KEY",
-                },
-            },
-            "mcpServers": {
-                SETTA_MCP_SERVER_ID: {
-                    "transport": "sse",
-                    "url": f"{constants_module.C.BACKEND}/mcp",
-                }
-            },
-            "default_config_id": "claude-sonnet",
-        }
+DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
+
+
+def _build_chat_metadata(
+    name: str, llm_config: LLMConfig, project_config_id: ID = DEFAULT_PROJECT_CONFIG_ID
+) -> ChatMetadata:
+    return ChatMetadata(
+        id=f"chat-{name}",
+        name=name,
+        lastUpdated=datetime.now(),
+        llmConfig=llm_config,
+        projectConfigId=project_config_id,
     )
+
+
+class TestMergeChatLLMConfigs:
+    def test_skips_configs_already_in_persisted_set(self) -> None:
+        base_config = LLMConfig(
+            id="primary",
+            model="gpt-5.1",
+            provider="openai",
+            base_url="https://api.openai.com/v1",
+            other_params={"timeout": 12},
+        )
+        all_configs = AllLLMConfigs(configs={"primary": base_config})
+        metadata = [
+            _build_chat_metadata(
+                f"chat-{idx}",
+                base_config.model_copy(deep=True),
+            )
+            for idx in range(3)
+        ]
+
+        merged = merge_chat_llm_configs(all_configs, metadata)
+
+        assert set(merged.configs.keys()) == {"primary"}
+        assert not merged.configs["primary"].temporary
+
+    def test_collapses_duplicate_chat_configs(self) -> None:
+        chat_config = LLMConfig(
+            id="primary",
+            model="gpt-5.1",
+            provider="openai",
+        )
+        metadata = [
+            _build_chat_metadata("chat-a", chat_config.model_copy(deep=True)),
+            _build_chat_metadata("chat-b", chat_config.model_copy(deep=True)),
+        ]
+
+        merged = merge_chat_llm_configs(AllLLMConfigs(), metadata)
+
+        assert len(merged.configs) == 1
+        merged_config = next(iter(merged.configs.values()))
+        assert merged_config.temporary
+        assert merged_config.model == "gpt-5.1"
+
+    def test_preserves_distinct_chat_configs(self) -> None:
+        persisted = AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(
+                    id="primary",
+                    model="gpt-5.1",
+                    provider="openai",
+                )
+            }
+        )
+        chat_metadata = [
+            _build_chat_metadata(
+                "chat-old",
+                LLMConfig(
+                    id="primary",
+                    model="claude-3",
+                    provider="anthropic",
+                ),
+            )
+        ]
+
+        merged = merge_chat_llm_configs(persisted, chat_metadata)
+
+        assert len(merged.configs) == 2
+        temporary_configs = [cfg for cfg in merged.configs.values() if cfg.temporary]
+        assert len(temporary_configs) == 1
+        assert temporary_configs[0].model == "claude-3"
 
 
 class TestAllLLMConfigsValidation:
@@ -214,7 +277,7 @@ class TestLLMConfigPersistence:
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            _write_default_example_llm_config(dbe)
+            seed_llm_config_example_file(dbe)
 
             # Built mode leaves SETTA_DEV_MODE unset; fallback should still use example data.
             monkeypatch.setattr(constants_module, "IS_DEV_MODE", None)
@@ -1220,3 +1283,56 @@ command = "beta"
                 in message
                 for message in warning_messages
             )
+
+    def test_validate_codex_mcp_servers_payload_rejects_camel_case_root_key(
+        self,
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="'mcpServers' is not supported. Use 'mcp_servers'.",
+        ):
+            codex_config_module.validate_codex_mcp_servers_payload(
+                {
+                    "mcpServers": {
+                        "alpha": {"command": "alpha"},
+                    }
+                }
+            )
+
+
+class TestLLMConfigExampleSeeding:
+    def test_seed_llm_config_example_file_writes_default_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+
+            seed_llm_config_example_file(dbe)
+
+            payload = dbe.read_llm_config_example()
+            configs = payload.get("configs", {})
+            assert "claude-sonnet" in configs
+            assert "openai-whisper-1" in configs
+            assert "id" not in configs["claude-sonnet"]
+            assert "id" not in configs["openai-whisper-1"]
+            assert "context7" not in payload.get("mcpServers", {})
+
+    def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            dbe.write_llm_config_example(
+                {
+                    "configs": {
+                        "existing": {
+                            "model": "custom-model",
+                        }
+                    }
+                }
+            )
+
+            seed_llm_config_example_file(dbe)
+
+            payload = dbe.read_llm_config_example()
+            assert payload["configs"] == {
+                "existing": {
+                    "model": "custom-model",
+                }
+            }

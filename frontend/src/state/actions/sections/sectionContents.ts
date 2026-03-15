@@ -1,9 +1,9 @@
 import { ZustandProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { getParamDisplayName } from "../sectionFeatureSelectors";
 import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
-  getParamDisplayName,
 } from "../sectionInfos";
 
 export function paramNameFromPathArray(

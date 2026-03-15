@@ -76,9 +76,9 @@ Key paths:
 - Frontend optimistic update + route: `frontend/src/components/Section/Layouts/MetaControlArea.tsx`,
   `frontend/src/state/actions/sectionInfos.ts`,
   `frontend/src/utils/generatedEndpoints.ts`
-- Backend route + handler: `internal/httpapi/project_routes.go`,
-  `internal/projectstate/code_object_writes.go`,
-  `internal/projectstate/runtime.go`
+- Backend route + handler: `backend/setta/routers/project_manager.py`,
+  `backend/setta/project_state/base_project_manager.py`,
+  `backend/setta/types/helpers_lvl2.py`
 
 Note:
 - PasswordParam persistence stores the secret in the runtime secret store and
