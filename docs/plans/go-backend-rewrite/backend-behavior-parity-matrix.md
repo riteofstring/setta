@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`1d88546602359e0c3e0a1847e21e2d58e9a7036e`
+`6ff7da4ea0116bdff1697084eaed1c76a4154e03`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -51,6 +51,8 @@ It currently covers:
 - app-spec patch-stream behavior and legacy stream-app-spec transport
 - app-gen skill discovery/content/upsert behavior
 - Project AI viewer support routes for setta-home info, MCP runtime status, and path reveal
+- auth bootstrap, cookie-session refresh/CORS, and share-session transport
+  behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -96,7 +98,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Eighteen concrete parity gaps are already visible:
+- Twenty-two concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -159,6 +161,21 @@ Rows outside these slices are still pending.
     structured code/message payloads for runtime/rescan and mutation failures
   - current Go plugin route error mapping only preserves a fixed subset of
     service codes and otherwise falls back to `400` or `500 internal_error`
+  - source-baseline unauthorized non-API HTTP routes return the bootstrap HTML
+    page instead of a JSON payload
+  - current Go returns the structured JSON error envelope for every auth
+    failure, including authenticated root routes like `/mcp`
+  - source-baseline dev-mode localhost requests from the allowed Vite
+    Origin/Referer auto-mint an auth cookie
+  - current Go only reflects CORS headers for that origin and still returns
+    `401 unauthorized`
+  - source-baseline near-expiry auth cookies refresh only on `/api/*`
+    responses
+  - current Go refreshes cookies on every authenticated route, including root
+    transports such as `/mcp`
+  - source-baseline auth-cookie refresh also extends trusted frontend-origin
+    expiry for the current session
+  - current Go refreshes the cookie without updating the trusted-origin store
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -252,6 +269,13 @@ Rows outside these slices are still pending.
   - one documented backend-runtime divergence for source FastAPI query
     coercion semantics (`PL-11`)
   - one more restart-capability proof gap (`PL-08`)
+- The auth/bootstrap/share-session slice mostly closes with proofs, but it
+  adds:
+  - four real auth/session gaps around non-API unauthorized HTML (`AU-07`),
+    dev auto-auth (`AU-09`), API-only refresh scoping (`AU-10`), and
+    trusted-origin expiry refresh (`AU-11`)
+  - one more proof gap around header-based bootstrap-token consume transport
+    (`AU-04`)
 
 ## Project Names
 
@@ -652,6 +676,24 @@ Rows outside these slices are still pending.
 | `AP-03` | MCP read tools `list_agent_profiles` and `get_agent_profile` list/fetch persisted profiles with read access metadata. | Source tools: `backend/setta/mcp/tools/agentic_tools.py::{list_agent_profiles,get_agent_profile}`. | Proof: `internal/mcpx/server_test.go::TestServerListAgentProfilesAndGetAgentProfile`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsAgentProfileReadToolsOverAuthenticatedSSE`. | `Proved` | |
 | `AP-04` | External edits to the stored agent-profile file push `AgentProfilesUpdated` websocket messages so connected frontends can refresh without an explicit reload. | Source watcher/broadcast path: `backend/setta/agentic/profile_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_agent_profiles_update`; source/current frontend receiver: `frontend/src/state/actions/websocketReceive.ts`. | Current Go evidence only retains the websocket enum in `internal/frontendbindings/websocket_support.go`; current frontend still has the receiver in `frontend/src/state/actions/websocketReceive.ts`, but current Go app/runtime has no equivalent watcher or broadcaster. | `Dormant / unproven caller` | Current frontend already hydrates profiles on load and applies optimistic create/update/delete updates locally, so this slice does not yet prove that external file-edit realtime remains required in the Go-era product. |
 
+## Auth Bootstrap, Cookie Sessions, And Share-Session Transport
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `AU-01` | `GET /__setta__/bootstrap` serves the bootstrap HTML shell and preserves workspace-history / launcher-origin handoff storage behavior. | Source route/tests: `backend/setta/routers/bootstrap.py::route_bootstrap_page`; `tests/auth/test_auth_bootstrap_integration.py::{test_bootstrap_page_trailing_slash_redirects,test_bootstrap_page_hydrates_workspace_history_and_launcher_origin}`. | Impl: `internal/httpapi/bootstrap_page.go`; proof: `internal/httpapi/httpapi_test.go::{TestHandlerServesBootstrapPageWhenAuthEnabled,TestBootstrapPageIncludesLauncherHandoffAndWorkspaceHistoryStorage}`. | `Proved` | |
+| `AU-02` | In dev mode, the bootstrap page redirects back to the Vite frontend and threads `__setta_backend_origin` so the split frontend can keep using the backend origin that minted the session. | Source docs: `docs/reference/dev-vs-built.md`; source test: `tests/auth/test_auth_bootstrap_integration.py::test_bootstrap_page_dev_redirect_forces_http_scheme`. | Impl: `internal/httpapi/bootstrap_page.go::buildPostBootstrapRedirectURL`; proof: `internal/httpapi/httpapi_test.go::TestBootstrapPageUsesDevFrontendRedirectWhenConfigured`. | `Proved` | |
+| `AU-03` | `POST /__setta__/bootstrap/consume` accepts a bootstrap token in the JSON body, mints the session-scoped auth cookie, and rejects replayed tokens. | Source docs: `docs/reference/auth-and-sessions.md`; source tests: `tests/auth/test_auth_bootstrap_integration.py::test_bootstrap_token_sets_cookie_for_protected_route`; `tests/auth/test_auth_bootstrap_integration.py::test_bootstrap_consume_returns_verified_launcher_origin`; source token replay proof: `backend/setta/auth/manager.py`; `tests/auth/test_validation.py::test_consume_bootstrap_token_accepts_matching_session`. | Impl: `internal/httpapi/httpapi.go::bootstrapConsumeHandler`; `internal/auth/service.go::{ConsumeBootstrapToken,MintAuthCookie,SetAuthCookie}`; proof: `internal/httpapi/httpapi_test.go::{TestHandlerProtectsIDEAPIUntilBootstrapConsume,TestHandlerRejectsReplayedBootstrapToken}`; service proof: `internal/auth/service_test.go::TestServiceBootstrapTokenRoundTripRejectsReplay`. | `Proved` | |
+| `AU-04` | `bootstrap/consume` also accepts `Authorization: Bearer <token>` when the JSON body omits `token`. | Source docs: `docs/reference/auth-and-sessions.md`; source route: `backend/setta/routers/bootstrap.py::route_bootstrap_consume`. | Impl: `internal/httpapi/httpapi.go::bootstrapConsumeHandler` falls back to `auth.ExtractBearerToken(r.Header)` when `payload.Token` is blank. | `Implemented, proof incomplete` | This slice does not yet cite a direct Go route test for the header-only consume path. |
+| `AU-05` | `bootstrap/consume` trusts a verified launcher-origin handoff for the current session and returns the explicit trusted-origin-store unavailability error when persistence fails. | Source tests: `tests/auth/test_auth_bootstrap_integration.py::{test_bootstrap_consume_returns_verified_launcher_origin,test_bootstrap_consume_ignores_invalid_launcher_origin_proof,test_bootstrap_consume_returns_503_when_trusted_origin_store_is_unavailable}`. | Impl: `internal/httpapi/httpapi.go::bootstrapConsumeHandler`; `internal/frontendorigins/service.go::{TrustOrigin,ValidateLauncherOriginHandoffProof}`; proof: `internal/httpapi/httpapi_test.go::{TestBootstrapConsumeReturnsVerifiedLauncherOrigin,TestBootstrapConsumeReturnsStoreUnavailableWhenTrustPersistenceFails}`. | `Proved` | |
+| `AU-06` | IDE HTTP auth keeps bootstrap routes exempt, protects `/api/*` plus authenticated root routes, and injects request auth context after cookie auth succeeds. | Source docs: `docs/reference/auth-and-sessions.md`; source middleware: `backend/setta/middleware/auth.py`; source tests: `tests/auth/test_auth_bootstrap_integration.py::test_bootstrap_token_sets_cookie_for_protected_route`. | Impl: `internal/httpapi/httpapi.go::{NewHandler,authMiddleware}`; proof: `internal/httpapi/httpapi_test.go::{TestHandlerProtectsIDEAPIUntilBootstrapConsume,TestHandlerProtectsAuthenticatedRootRoutes,TestHandlerInjectsRequestAuthContext}`. | `Proved` | |
+| `AU-07` | Unauthorized non-API HTTP routes return the bootstrap HTML page instead of a JSON error envelope. | Source docs: `docs/reference/auth-and-sessions.md`; source middleware: `backend/setta/middleware/auth.py::_unauthorized_response`. | Current Go auth middleware unconditionally calls `writeError(..., "unauthorized", ...)` for missing/invalid cookies on every protected route: `internal/httpapi/httpapi.go::authMiddleware`; current root-route proof: `internal/httpapi/httpapi_test.go::TestHandlerProtectsAuthenticatedRootRoutes`. | `Missing` | Current Go preserves JSON 401s, but it does not preserve the source HTML unauthorized response for non-API/authenticated-root requests. |
+| `AU-08` | Credentialed CORS headers stay enabled for configured dev frontend origins and trusted launcher/workspace origins even when the request is unauthorized or preflight-only. | Source docs: `docs/reference/dev-vs-built.md`; source tests: `tests/auth/test_cors.py::{test_cors_headers_on_unauthorized,test_launcher_mode_cors_allows_configured_loopback_origin_launch_intent,test_launcher_mode_cors_allows_handoff_trusted_loopback_preflight_origin}`. | Impl: `internal/httpapi/cors.go`; proof: `internal/httpapi/httpapi_test.go::{TestHandlerAddsCORSHeadersToUnauthorizedDevFrontendRequests,TestHandlerHandlesJSONPreflightForConfiguredDevFrontendOrigin,TestHandlerAllowsTrustedFrontendOriginsForCurrentSession}`. | `Proved` | |
+| `AU-09` | In dev mode, localhost requests from the allowed Vite Origin/Referer auto-mint an auth cookie instead of failing with `401`. | Source docs: `docs/reference/auth-and-sessions.md`; `docs/reference/dev-vs-built.md`; source middleware helper/tests: `backend/setta/middleware/auth.py::_should_auto_auth_dev_request`; `tests/middleware/test_auth_dev_auto_auth.py`; `tests/middleware/test_auth_dev_auto_login.py`. | Current Go auth middleware only checks for an existing cookie and otherwise returns `401`; it has no Origin/Referer-based auto-auth branch: `internal/httpapi/httpapi.go::authMiddleware`; current dev-origin proof: `internal/httpapi/httpapi_test.go::TestHandlerAddsCORSHeadersToUnauthorizedDevFrontendRequests`. | `Missing` | Current Go preserves CORS for the local dev frontend but drops the source auto-cookie minting path. |
+| `AU-10` | Near-expiry auth cookies refresh only on `/api/*` responses and are not refreshed on authenticated root routes such as `/mcp` or `/__setta__/tools/call`. | Source docs: `docs/reference/auth-and-sessions.md`; source middleware/tests: `backend/setta/middleware/auth.py`; `tests/middleware/test_auth_cookie_refresh.py::{test_auth_cookie_refreshes_near_expiry,test_auth_cookie_not_refreshed_on_non_api_route}`. | Current Go refresh check runs inside the shared auth middleware before dispatching any protected route and does not distinguish `/api/*` from authenticated root routes: `internal/httpapi/httpapi.go::authMiddleware`; current API refresh proof: `internal/httpapi/httpapi_test.go::TestHandlerRefreshesNearExpiryAuthCookieOnAPIResponses`; current root-route wiring proof: `internal/httpapi/httpapi_test.go::TestHandlerProtectsAuthenticatedRootRoutes`. | `Missing` | The source refresh contract is API-only; current Go refreshes all authenticated routes. |
+| `AU-11` | Auth-cookie refresh extends trusted frontend-origin expiry for the current session. | Source middleware helper: `backend/setta/middleware/auth.py::_refresh_session_trusted_frontend_origins`; source test: `tests/middleware/test_auth_cookie_refresh.py::test_auth_cookie_refresh_extends_trusted_origin_expiry`. | Current Go trusted-origin service exposes `RefreshSessionExpiry`, but auth refresh never calls it: `internal/frontendorigins/service.go::RefreshSessionExpiry`; current auth refresh path: `internal/httpapi/httpapi.go::authMiddleware`; `internal/auth/service.go::RefreshAuthCookie`. | `Missing` | Current launcher/workspace trust can expire even while the auth cookie itself keeps getting refreshed. |
+| `AU-12` | IDE websocket connections accept either the auth cookie or an `Authorization: Bearer` bootstrap token, and unauthorized sockets close with code `4401`. | Source docs: `docs/reference/auth-and-sessions.md`; source websocket auth: `backend/setta/routers/websocket.py::_authenticate_websocket`; source test: `tests/auth/test_websocket_auth.py::test_websocket_closes_with_auth_code`. | Impl: `internal/wsapi/wsapi.go::ResolveConnection`; proof: `internal/wsapi/wsapi_test.go::{TestAuthenticatedHandlerClosesUnauthorizedWebsocket,TestAuthenticatedHandlerAcceptsBootstrapBearerToken,TestAuthenticatedHandlerAcceptsAuthCookie}`. | `Proved` | |
+| `AU-13` | Share-mode HTTP and websocket transports accept `shareSessionId` via header/cookie/query, prefer header over cookie over query, touch the active session, and map missing/unknown sessions to typed HTTP or close-code errors. | Source docs: `docs/reference/auth-and-sessions.md` share-session section. | Impl: `internal/modes/share_session.go`; `internal/httpapi/httpapi.go::RequireShareSession`; `internal/wsapi/wsapi.go::ResolveConnection`; proof: `internal/modes/modes_test.go::{TestMaybeShareSessionIDFromRequestPrefersHeaderThenCookieThenQuery,TestResolverUsesCookieWhenHeaderMissing,TestResolverReturnsMissingAndUnknownShareSessionErrors}`; route proof: `internal/httpapi/httpapi_test.go::{TestHandlerShareSessionMiddlewareInjectsContext,TestHandlerShareSessionMiddlewareRejectsMissingAndUnknownSessions}`; websocket proof: `internal/wsapi/wsapi_test.go::{TestAuthenticatedHandlerResolvesShareSessionInDeploymentMode,TestAuthenticatedHandlerClosesMissingAndUnknownShareSession}`. | `Proved` | |
+
 ## Status, Server Mode, And Launcher Surfaces
 
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
@@ -695,10 +737,10 @@ Rows outside these slices are still pending.
 
 ## Current Findings
 
-1. The matrix now contains eighteen concrete source-parity gaps:
+1. The matrix now contains twenty-two concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
    `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
-   `PL-04`, and `PL-05`.
+   `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and `AU-11`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -768,16 +810,19 @@ Rows outside these slices are still pending.
     transport gaps (`PL-04`, `PL-05`), one documented backend-runtime
     divergence (`PL-11`), and one broader restart-capability proof gap
     (`PL-08`).
-23. Git route behavior is now largely proved, including literal pathspec
+23. The auth/bootstrap/share-session slice mostly closes with proofs, but it
+    adds four real auth/session gaps (`AU-07`, `AU-09`, `AU-10`, `AU-11`)
+    plus one broader consume-transport proof gap (`AU-04`).
+24. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-24. The remaining issues in the naming slice are still mostly proof gaps rather
+25. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-25. The next high-value steps are:
+26. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
       `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
-      `PL-04`, and `PL-05` should be restored or documented as intentional
-      divergences
+      `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and `AU-11` should be
+      restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
@@ -793,8 +838,9 @@ Rows outside these slices are still pending.
       `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
-      (`WL-01`, `WL-03`, `WL-04`), the new plugin proof gap (`PL-08`), and
-      the new transcription proof gaps
+      (`WL-01`, `WL-03`, `WL-04`), the new plugin proof gap (`PL-08`), the
+      new auth/bootstrap proof gap (`AU-04`), and the new transcription
+      proof gaps
       (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new chat/managed-stop
       proof gaps (`AH-02`, `MS-02`), plus the new managed-agent-run proof gap
       (`MA-05`), plus the new state-machine-run proof gap (`SM-05`), plus
