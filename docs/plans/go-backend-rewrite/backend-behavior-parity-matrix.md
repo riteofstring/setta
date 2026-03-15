@@ -137,11 +137,11 @@ It covers:
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
 - The chart- and browser-metadata slices mostly close with proofs, but they
-  add two more caller-backed transport/runtime gaps, one more active
-  deployment-policy gap, and one more dormant deployment-mode boundary row.
+  now only add three more caller-backed transport/runtime gaps plus one more
+  dormant deployment-mode boundary row.
 - The group-orientation / section-data slice mostly closes with proofs, but it
-  adds two more caller-backed transport/runtime gaps plus three more dormant
-  route-boundary rows.
+  now only adds one more caller-backed transport/runtime gap plus three more
+  dormant route-boundary rows.
 - The codegen-target / generated-Python / dependency-graph slice now closes
   with proofs and adds no new concrete gap.
 - The startup/distribution / built-install slice mostly closes with proofs and
@@ -222,11 +222,6 @@ It covers:
     request bodies fail FastAPI/Pydantic validation with `422`
   - current Go trims those enum-like values after decode and returns `400`
     section-data mutation errors instead
-  - source-baseline spreadsheet and task-board mutation routes stay mounted in
-    share/app sessions under `allowLayoutChanges`
-  - current Go mounts those routes only in IDE even though the current
-    spreadsheet and task-board surfaces still wire them through
-    `canEditLayout`
   - source-baseline invalid chat-section `permissionMode` / `dictationMode`
     request bodies fail FastAPI/Pydantic validation with `422`
   - current Go trims those enum-like values after decode and returns `400`
@@ -924,7 +919,7 @@ It covers:
 | `SD-03` | `setTaskBoardSectionState` persists the selected task-board `viewMode`, deduplicates repeated column ids while keeping the first entry, and clears task `columnId` references that no longer point at a known column. | Source helper: `backend/setta/types/helpers_lvl2.py::set_task_board_section_state`; source codegen proof: `tests/code_gen/test_data_authoring_section_codegen.py::test_task_board_section_exports_structured_codegen_payload`. | Impl: `internal/projectstate/section_data_settings.go::{SetTaskBoardSectionState,normalizeTaskBoardColumns,normalizeTaskBoardTasks}`; proof: `internal/projectstate/section_data_settings_test.go::TestRuntimeSectionDataMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSectionDataMutationsPersistLatestState`. | `Proved` | Current Go proof explicitly verifies duplicate-column collapse and orphan-task column cleanup. |
 | `SD-04` | `setImageAreaImagePath` and `setSocialUrl` persist the provided string to the typed section payload and reject non-image or non-social targets. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_image_area_image_path,set_social_url}`; source image codegen proof: `tests/code_gen/test_dependency_graph_image.py::{TestImageDependencyGraph::test_image_section_exports_file_value_when_enabled,TestImageDependencyGraph::test_image_section_exports_file_path_when_enabled}`; source route: `backend/setta/routers/project_manager.py::{route_set_image_area_image_path,route_set_social_url}`. | Impl: `internal/projectstate/section_data_settings.go::{SetImageAreaImagePath,SetSocialURL}`; proof: `internal/projectstate/section_data_settings_test.go::{TestRuntimeSectionDataMutationsUpdateEffectivePayload,TestRuntimeSectionDataMutationsRejectInvalidTargetsAndValues}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionDataMutationsPersistLatestState,TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs}`. | `Proved` | This row is scoped to the direct persistence contract, not the separate deployment/share mounting boundary. |
 | `SD-05` | Invalid spreadsheet `density` and task-board `viewMode` request payloads should fail source FastAPI/Pydantic enum validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded enum strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetSpreadsheetSectionSettingsRequest,SetTaskBoardSectionStateRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_spreadsheet_section_settings,route_set_task_board_section_state}`. | Current Go normalizes post-decode in `internal/projectstate/section_data_settings.go::{normalizeSpreadsheetGridDensity,normalizeTaskBoardViewMode}` and maps failures through `internal/httpapi/project_routes.go::writeSectionDataMutationError`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: current Go trims and returns `400`, while the source typed request body would reject the same invalid enum payload at framework validation time with `422`. |
-| `SD-06` | In share/app sessions, `setSpreadsheetFilePath`, `setSpreadsheetSectionSettings`, and `setTaskBoardSectionState` stay mounted and are gated by `allowLayoutChanges` instead of being IDE-only. | Source routes: `backend/setta/routers/project_manager.py::{route_set_spreadsheet_file_path,route_set_spreadsheet_section_settings,route_set_task_board_section_state}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked`. | Current Go mounts these routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still has deployment-aware callers via `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/SpreadsheetSectionSettings.tsx`, `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/TaskBoardSettings.tsx`, and `frontend/src/state/hooks/share.ts`. | `Missing` | This is an active parity gap: source share/app sessions allow these spreadsheet and task-board mutations under the layout policy gate, but current Go drops the transport entirely outside IDE while the shared section surfaces still wire them through `canEditLayout`. |
+| `SD-06` | In share/app sessions, `setSpreadsheetFilePath`, `setSpreadsheetSectionSettings`, and `setTaskBoardSectionState` stay mounted and are gated by `allowLayoutChanges` instead of being IDE-only. | Source routes: `backend/setta/routers/project_manager.py::{route_set_spreadsheet_file_path,route_set_spreadsheet_section_settings,route_set_task_board_section_state}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,setSpreadsheetFilePathHandler,setSpreadsheetSectionSettingsHandler,setTaskBoardSectionStateHandler}`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionDataUsesDeploymentOverlayWhenLayoutChangesAllowed,TestRegisterProjectRoutesSectionDataRejectsDeploymentPolicyWhenLayoutChangesDisallowed}`. | `Proved` | Current Go now keeps these spreadsheet and task-board routes mounted in deployment sessions, applies allowed writes to the request-scoped overlay, and returns typed `403 layout_changes_forbidden` responses when deployment policy blocks layout edits. |
 | `SD-07` | `toggleGroupOrientation` stays mounted in share/app sessions and follows the layout share-policy gate instead of disappearing outside IDE. | Source docs: `docs/reference/share-policy-flags.md`; source route: `backend/setta/routers/project_manager.py::route_toggle_group_orientation`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers non-user-view group headers via `frontend/src/components/Section/Container/ContainerCore.tsx` and `frontend/src/components/Section/Header/ChangeOrientationButton.tsx`. | `Dormant / unproven caller` | The source/current transport delta is real, but this slice does not yet prove that current share/app flows still expose non-user-view group-orientation editing as an active Go-era product requirement. |
 | `SD-08` | `setImageAreaImagePath` stays mounted in share/app sessions and follows `allowParamChanges` instead of being IDE-only. | Source docs: `docs/reference/share-policy-flags.md`; source route: `backend/setta/routers/project_manager.py::route_set_image_area_image_path`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_param_routes_blocked`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the UI-editor path in `frontend/src/components/Panes/UiEditor/SectionConfig/{SectionConfig,ImageAreaSettings}.tsx`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active deployment/share caller still exposes image-path editing in the Go-era product. |
 | `SD-09` | Source non-IDE deployment sessions keep `setSocialUrl` mounted but fail closed with deployment-mode `403` rather than removing the route entirely. | Source route: `backend/setta/routers/project_manager.py::route_set_social_url`; source share/deployment test: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked_when_layout_changes_allowed`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the UI-editor social settings path in `frontend/src/components/Panes/UiEditor/SectionConfig/{SectionConfig,SocialAreaSettings}.tsx` plus `frontend/src/state/hooks/share.ts`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but current caller evidence still looks IDE-only, so this slice does not yet classify it as an active Go-era product gap. |
@@ -1158,12 +1153,12 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains fifteen concrete source-parity gaps:
+1. The matrix now contains fourteen concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `CH-01`, `CH-03`, `BR-02`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `DL-02`.
+   `CS-02`, `CS-04`, `CB-03`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
@@ -1244,8 +1239,8 @@ It covers:
     deployment-mode route-boundary row (`CH-04`).
 30. The browser-section metadata slice mostly closes with proofs and now only
     adds one real transport-contract gap (`BR-02`).
-31. The group-orientation / section-data slice mostly closes with proofs, but
-    it adds two real transport/runtime gaps (`SD-05`, `SD-06`) plus three
+31. The group-orientation / section-data slice mostly closes with proofs and
+    now only adds one real transport/runtime gap (`SD-05`) plus three
     dormant route-boundary rows (`SD-07`, `SD-08`, `SD-09`).
 32. The chat-section persistence / stale-chat-cleanup slice mostly closes
     with proofs, but it adds two real transport/policy gaps (`CS-02`,
@@ -1307,7 +1302,7 @@ It covers:
       `WS-01`,
       `DP-08`,
       `TB-03`, `CH-01`, `CH-03`, `BR-02`,
-      `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`,
+      `SD-05`, `CS-02`, `CS-04`, `CB-03`,
       `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as

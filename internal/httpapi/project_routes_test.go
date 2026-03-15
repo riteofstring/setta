@@ -5875,6 +5875,181 @@ func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesSectionDataUsesDeploymentOverlayWhenLayoutChangesAllowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": sectionDataRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowLayoutChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteSetSpreadsheetFilePath,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`,
+				},
+				{
+					route: RouteSetSpreadsheetSectionSettings,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"comfortable","autoReloadOnExternalChange":true}`,
+				},
+				{
+					route: RouteSetTaskBoardSectionState,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"task_list","columns":[{"id":"todo","name":"Todo","color":"#3b82f6","sortIndex":0},{"id":"todo","name":"Duplicate","color":"#ef4444","sortIndex":1},{"id":"done","name":"Done","color":"#10b981","sortIndex":2}],"tasks":[{"id":"task-1","title":"Task One","description":"","completed":false,"columnId":"todo","dueDateIso":"","recurrence":"none","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":0},{"id":"task-2","title":"Task Two","description":"","completed":true,"columnId":"missing","dueDateIso":"","recurrence":"daily","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":1}]}`,
+				},
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+				}
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			overlaySpreadsheet := decodeProjectRouteRawObject(t, overlayProject.Sections["spreadsheet-section"].SharedModifier)
+			if overlaySpreadsheet["filePath"] != "reports/q1.xlsx" {
+				t.Fatalf("expected overlay spreadsheet filePath reports/q1.xlsx, got %#v", overlaySpreadsheet["filePath"])
+			}
+			if overlaySpreadsheet["activeSheet"] != "Sheet 2" {
+				t.Fatalf("expected overlay spreadsheet activeSheet Sheet 2, got %#v", overlaySpreadsheet["activeSheet"])
+			}
+			if overlaySpreadsheet["density"] != "comfortable" {
+				t.Fatalf("expected overlay spreadsheet density comfortable, got %#v", overlaySpreadsheet["density"])
+			}
+			if overlaySpreadsheet["autoReloadOnExternalChange"] != true {
+				t.Fatalf("expected overlay spreadsheet autoReloadOnExternalChange=true, got %#v", overlaySpreadsheet["autoReloadOnExternalChange"])
+			}
+			overlayTaskBoard := decodeProjectRouteRawObject(t, overlayProject.Sections["task-board-section"].SharedModifier)
+			if overlayTaskBoard["viewMode"] != "task_list" {
+				t.Fatalf("expected overlay task board viewMode task_list, got %#v", overlayTaskBoard["viewMode"])
+			}
+			overlayColumns, ok := overlayTaskBoard["columns"].([]any)
+			if !ok || len(overlayColumns) != 2 {
+				t.Fatalf("expected overlay task board normalized columns, got %#v", overlayTaskBoard["columns"])
+			}
+			overlayTasks, ok := overlayTaskBoard["tasks"].([]any)
+			if !ok || len(overlayTasks) != 2 {
+				t.Fatalf("expected overlay task board tasks, got %#v", overlayTaskBoard["tasks"])
+			}
+			secondOverlayTask, ok := overlayTasks[1].(map[string]any)
+			if !ok {
+				t.Fatalf("expected overlay second task board task object, got %#v", overlayTasks[1])
+			}
+			if secondOverlayTask["columnId"] != nil {
+				t.Fatalf("expected overlay unknown task columnId to normalize to nil, got %#v", secondOverlayTask["columnId"])
+			}
+
+			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+			baseSpreadsheet := decodeProjectRouteRawObject(t, baseProject.Sections["spreadsheet-section"].SharedModifier)
+			if len(baseSpreadsheet) != 0 {
+				t.Fatalf("expected base spreadsheet shared modifier unchanged, got %#v", baseSpreadsheet)
+			}
+			baseTaskBoard := decodeProjectRouteRawObject(t, baseProject.Sections["task-board-section"].SharedModifier)
+			if len(baseTaskBoard) != 0 {
+				t.Fatalf("expected base task board shared modifier unchanged, got %#v", baseTaskBoard)
+			}
+		})
+	}
+}
+
+func TestRegisterProjectRoutesSectionDataRejectsDeploymentPolicyWhenLayoutChangesDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": sectionDataRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowLayoutChanges": false,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay before rejected section-data mutations: %v", err)
+			}
+			beforeSpreadsheet := overlay.Snapshot().Document.Projects["project-alpha"].Sections["spreadsheet-section"]
+			beforeTaskBoard := overlay.Snapshot().Document.Projects["project-alpha"].Sections["task-board-section"]
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteSetSpreadsheetFilePath,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`,
+				},
+				{
+					route: RouteSetSpreadsheetSectionSettings,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"comfortable","autoReloadOnExternalChange":true}`,
+				},
+				{
+					route: RouteSetTaskBoardSectionState,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"task_list","columns":[],"tasks":[]}`,
+				},
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+					t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+					t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+				}
+			}
+
+			afterProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if !reflect.DeepEqual(afterProject.Sections["spreadsheet-section"], beforeSpreadsheet) {
+				t.Fatalf("expected rejected spreadsheet mutations to leave overlay unchanged, got %#v", afterProject.Sections["spreadsheet-section"])
+			}
+			if !reflect.DeepEqual(afterProject.Sections["task-board-section"], beforeTaskBoard) {
+				t.Fatalf("expected rejected task-board mutations to leave overlay unchanged, got %#v", afterProject.Sections["task-board-section"])
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesAppendDrawAreaLayerItemPersistsLatestState(t *testing.T) {
 	t.Parallel()
 

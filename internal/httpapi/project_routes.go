@@ -1585,6 +1585,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteSetBrowserAreaViewMode, setBrowserAreaViewModeHandler(deps))
 		router.With(shareGuard).Post(RouteSetBrowserHideColumn, setBrowserHideColumnHandler(deps))
 		router.With(shareGuard).Post(RouteSetBrowserSavedSearches, setBrowserSavedSearchesHandler(deps))
+		router.With(shareGuard).Post(RouteSetSpreadsheetFilePath, setSpreadsheetFilePathHandler(deps))
+		router.With(shareGuard).Post(RouteSetSpreadsheetSectionSettings, setSpreadsheetSectionSettingsHandler(deps))
+		router.With(shareGuard).Post(RouteSetTaskBoardSectionState, setTaskBoardSectionStateHandler(deps))
 		router.With(shareGuard).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
@@ -5072,12 +5075,17 @@ func setSpreadsheetFilePathHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSpreadsheetFilePath(
+		if _, err := runtime.SetSpreadsheetFilePath(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -5109,12 +5117,17 @@ func setSpreadsheetSectionSettingsHandler(deps ProjectRouteDependencies) http.Ha
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSpreadsheetSectionSettings(
+		if _, err := runtime.SetSpreadsheetSectionSettings(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -5148,12 +5161,17 @@ func setTaskBoardSectionStateHandler(deps ProjectRouteDependencies) http.Handler
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTaskBoardSectionState(
+		if _, err := runtime.SetTaskBoardSectionState(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
