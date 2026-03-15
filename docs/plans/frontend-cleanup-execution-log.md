@@ -4431,3 +4431,34 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/windowSpaceCrud.ts` so
     saved window-space mutation transport and optimistic persistence rollback
     stop living beside name/order sort helpers and mutation gating.
+
+## 2026-03-15 11:56:44 PDT
+
+- Slice completed: split window-space queries from optimistic persistence mutations
+- Key files touched:
+  - `frontend/src/state/actions/windowSpaceQueries.ts`
+  - `frontend/src/state/actions/windowSpaceMutationPersistence.ts`
+  - `frontend/src/state/actions/windowSpaceCrud.ts`
+  - `frontend/src/state/actions/windowSpacePersistence.ts`
+  - `frontend/src/state/actions/windowSpaceSave.ts`
+  - `frontend/src/state/actions/windowSpaces.ts`
+  - `frontend/src/state/actions/windowSpaceQueries.test.ts`
+  - `frontend/src/state/actions/windowSpaces.test.ts`
+  - `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`
+  - `frontend/src/components/Panes/Overview/WindowSpacesPane.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/state/actions/windowSpaceQueries.test.ts src/components/Panes/Overview/WindowSpacesPane.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/windowSpaceCrud.ts src/state/actions/windowSpaceQueries.ts src/state/actions/windowSpaceQueries.test.ts src/state/actions/windowSpaceMutationPersistence.ts src/state/actions/windowSpacePersistence.ts src/state/actions/windowSpaceSave.ts src/state/actions/windowSpaces.ts src/state/actions/windowSpaces.test.ts src/components/Panes/Overview/WindowSpacesPane.tsx src/components/Panes/Overview/WindowSpacesPane.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `fa2922aea378fadd2df9c0e3eb4531df25314250`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sections/sectionSizes.ts` so
+    section layout sizing reducers and size-persistence scheduling stop
+    sharing one action surface.
