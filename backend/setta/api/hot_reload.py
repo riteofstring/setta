@@ -73,7 +73,12 @@ class ListenerHotReloader:
         ignore_patterns: Iterable[str] | None,
     ) -> tuple["_WatcherSpec", ...]:
         specs: dict[Path, _WatcherSpec] = {}
-        ignore = self._normalize_patterns(ignore_patterns)
+        if not ignore_patterns:
+            ignore = ()
+        else:
+            ignore = tuple(
+                pattern.replace("\\", "/") for pattern in ignore_patterns
+            )
         for root_path, includes in self._infer_module_watch_roots(module):
             spec = specs.get(root_path)
             include_tuple = includes if includes is not None else ()
@@ -163,15 +168,6 @@ class ListenerHotReloader:
             return
         normalized = self._resolve_path(Path(path_string))
         yield normalized, None
-
-    @staticmethod
-    def _normalize_patterns(patterns: Iterable[str] | None) -> tuple[str, ...]:
-        if not patterns:
-            return ()
-        normalized: list[str] = []
-        for pattern in patterns:
-            normalized.append(pattern.replace("\\", "/"))
-        return tuple(normalized)
 
     async def stop(self) -> None:
         """Signal the watcher loop to stop."""
