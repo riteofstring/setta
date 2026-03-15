@@ -2,12 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { resetProjectStores } from "state/utils";
+import { useAppDefinition } from "state/stores/appStores";
 import {
   useAllProjectMetadata,
-  useAppDefinition,
   useShareSession,
-} from "state/definitions";
-import { resetProjectStores } from "state/utils";
+} from "state/stores/sessionStores";
 
 import { AppPage } from "./AppPage";
 

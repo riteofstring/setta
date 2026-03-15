@@ -7,17 +7,13 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
-  updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
+import { updateShownParamIdsForPinnedParams } from "state/actions/sectionShownParams";
 import { useIsSolelySectionUIActive } from "state/activeSectionUI";
-import {
-  useLocalStorage,
-  useProjectState,
-  useSettings,
-  useTemporaryMiscState,
-  type ZustandProjectState,
-} from "state/definitions";
+import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   getKwargsControlsHeightKey,
   getSectionStylePreviewColorKey,

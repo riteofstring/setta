@@ -24,8 +24,8 @@ import {
   vi,
 } from "vitest";
 
-let getExternalAgentChat: typeof import("./ai").getExternalAgentChat;
-let getLLMChat: typeof import("./ai").getLLMChat;
+let getExternalAgentChat: typeof import("./aiHydration").getExternalAgentChat;
+let getLLMChat: typeof import("./aiHydration").getLLMChat;
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useProjectState: typeof import("state/definitions").useProjectState;
 
@@ -106,9 +106,9 @@ describe("chat history sync to section state", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     useProjectState = definitions.useProjectState;
-    const ai = await import("./ai");
-    getExternalAgentChat = ai.getExternalAgentChat;
-    getLLMChat = ai.getLLMChat;
+    const aiHydration = await import("./aiHydration");
+    getExternalAgentChat = aiHydration.getExternalAgentChat;
+    getLLMChat = aiHydration.getLLMChat;
   });
 
   beforeEach(() => {
