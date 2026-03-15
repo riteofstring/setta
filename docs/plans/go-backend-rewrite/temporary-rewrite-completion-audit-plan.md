@@ -571,3 +571,13 @@ launcher/share-state plus Python MCP registration tests still pass. This does
 not remove the standalone Python plugin manager/worker runtime itself, but it
 does eliminate one more stale ownership hint from the deleted Python server
 stack.
+
+A nineteenth follow-up rewrite step cut plugin-owned behavior out of the legacy
+Python UI-setting stack. `backend/setta/ui_settings/registry.py` now builds a
+core-only registry, `backend/setta/mcp/tools/ui_settings.py` now treats
+plugin-style setting ids as ordinary unknown-setting misses instead of routing
+through Python plugin runtime availability checks, and the focused Python
+UI-setting plus MCP verification still passes. This removes the old Python
+UI-setting registry/tools from the remaining plugin blocker set and narrows the
+active backend-ownership tail further toward the standalone Python plugin
+manager/worker runtime itself.

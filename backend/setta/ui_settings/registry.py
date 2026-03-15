@@ -231,7 +231,7 @@ class UISettingRegistry:
 def build_ui_settings_registry(
     *,
     ctx: "Context",
-    project_config_id: ID,  # noqa: ARG001 - reserved for plugin contributions
+    project_config_id: ID,  # noqa: ARG001 - legacy Python registry is core-only
 ) -> UISettingRegistry:
     entries_by_id: dict[str, UISettingRuntimeEntry] = {}
     for entry in _build_core_entries():
@@ -239,60 +239,14 @@ def build_ui_settings_registry(
         if setting_id in entries_by_id:
             raise ValueError(f"Duplicate core UI setting id: {setting_id}")
         entries_by_id[setting_id] = entry
-    plugin_entries, plugin_errors = _build_plugin_entries(
-        ctx=ctx,
-        project_config_id=project_config_id,
-    )
-    plugin_errors_by_plugin_and_local_setting_id = getattr(
-        plugin_errors,
-        "by_plugin_and_local_setting_id",
-        {},
-    )
-    (
-        known_plugin_ids,
-        known_plugin_and_local_setting_ids,
-    ) = _collect_known_plugin_ids_and_settings(ctx=ctx)
-    known_plugin_ids.update(plugin_errors.keys())
-    known_plugin_and_local_setting_ids.update(
-        plugin_errors_by_plugin_and_local_setting_id.keys()
-    )
-    for entry in plugin_entries:
-        setting_id = entry.metadata.settingId
-        plugin_id = entry.metadata.pluginId
-        if plugin_id is not None:
-            parsed_setting_id = parse_plugin_setting_id(setting_id)
-            if parsed_setting_id is not None:
-                known_plugin_ids.add(plugin_id)
-                known_plugin_and_local_setting_ids.add(parsed_setting_id)
-        if setting_id in entries_by_id:
-            if plugin_id is None:
-                raise ValueError(f"Duplicate UI setting id: {setting_id}")
-            parsed_setting_id = parse_plugin_setting_id(setting_id)
-            local_setting_id = (
-                parsed_setting_id[1] if parsed_setting_id is not None else setting_id
-            )
-            _record_plugin_ui_setting_error(
-                plugin_errors,
-                plugin_id=plugin_id,
-                local_setting_id=local_setting_id,
-                message=_build_plugin_duplicate_ui_setting_message(
-                    plugin_id=plugin_id,
-                    local_setting_id=local_setting_id,
-                    sources={"registry_merge"},
-                ),
-            )
-            continue
-        entries_by_id[setting_id] = entry
     for entry in entries_by_id.values():
         _validate_runtime_entry_write_signature(entry)
     return UISettingRegistry(
         entriesById=entries_by_id,
-        pluginErrorsByPluginId=plugin_errors,
-        pluginErrorsByPluginAndLocalSettingId=(
-            plugin_errors_by_plugin_and_local_setting_id
-        ),
-        knownPluginIds=known_plugin_ids,
-        knownPluginAndLocalSettingIds=known_plugin_and_local_setting_ids,
+        pluginErrorsByPluginId={},
+        pluginErrorsByPluginAndLocalSettingId={},
+        knownPluginIds=set(),
+        knownPluginAndLocalSettingIds=set(),
     )
 
 
