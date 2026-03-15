@@ -127,6 +127,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     shared by hydration and section-state writes.
   - `state/actions/aiInterruptedAssistantMessages.ts` owns interrupted assistant
     message tracking and snapshot restoration.
+  - `state/actions/aiFollowToolArguments.ts` owns AI-follow tool-argument
+    snapshot reads, writes, and backend snapshot hydration.
+  - `state/actions/aiFollowHighlights.ts` owns AI-follow tool-result
+    highlights plus scope-violation timeout orchestration.
+  - `state/actions/aiFollow.ts` is now a thin compatibility facade over those
+    narrower AI-follow owners.
   - `state/actions/aiPendingChatAppGenerationState.ts` owns pending-surface
     app-generation detail reads and writes.
   - `state/actions/aiPendingChatMessageState.ts` owns pending draft

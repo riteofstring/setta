@@ -2,7 +2,10 @@ import { useAIFollow } from "state/stores/aiStores";
 import { resetProjectStores } from "state/utils";
 import { AgenticEdgeKindEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { receiveAgenticScopeViolationEdges } from "./aiFollow";
+import {
+  receiveAgenticScopeViolationEdges,
+  receiveAIFollowToolResultUpdate,
+} from "./aiFollowHighlights";
 
 describe("useAIFollow defaults", () => {
   beforeEach(() => {
@@ -18,7 +21,7 @@ describe("useAIFollow defaults", () => {
   });
 });
 
-describe("receiveAgenticScopeViolationEdges", () => {
+describe("aiFollowHighlights", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.useFakeTimers();
@@ -28,6 +31,32 @@ describe("receiveAgenticScopeViolationEdges", () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     resetProjectStores();
+  });
+
+  it("dedupes tool-result highlights and clears them after the timeout", () => {
+    receiveAIFollowToolResultUpdate({
+      projectConfigId: "project-1",
+      chatId: "chat-1",
+      idsByType: {
+        section: ["section-1", "section-1"],
+      },
+    });
+
+    expect(
+      useAIFollow.getState().toolResultIdsByProjectConfigId["project-1"]?.[
+        "chat-1"
+      ],
+    ).toEqual({
+      section: ["section-1"],
+    });
+
+    vi.advanceTimersByTime(2000);
+
+    expect(
+      useAIFollow.getState().toolResultIdsByProjectConfigId["project-1"]?.[
+        "chat-1"
+      ],
+    ).toBeUndefined();
   });
 
   it("dedupes edges by projectConfigId/source/target/kind", () => {

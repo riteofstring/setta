@@ -302,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/aiFollow.ts` at 304 lines
-  - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
-  - `frontend/src/state/actions/aiTranscription.ts` at 300 lines
-  - `frontend/src/state/actions/projectChatWindowingEphemeral.ts` at 299 lines
-  - `frontend/src/state/hooks/aiFollow.ts` at 286 lines
+  - `frontend/src/state/actions/keyActivationHandlers.ts` at 302 lines
+  - `frontend/src/state/actions/aiTranscription.ts` at 301 lines
+  - `frontend/src/state/actions/projectChatWindowingEphemeral.ts` at 300 lines
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 298 lines
+  - `frontend/src/state/hooks/aiFollow.ts` at 287 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -712,6 +712,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - LLM config load/save behavior
 - `aiManagedApiKeys.ts` now owns:
   - managed API-key snapshot updates, read failure handling, and queued write conflict resolution
+- `aiFollowToolArguments.ts` now owns:
+  - AI-follow tool-argument snapshot reads, writes, and backend snapshot hydration
+- `aiFollowHighlights.ts` now owns:
+  - AI-follow tool-result highlights and scope-violation timeout orchestration
+- `aiFollow.ts` now owns:
+  - compatibility re-exports for callers that have not moved yet
 - `aiConfigurationCatalogLoads.ts` now owns:
   - agent-profile, prompt-template, external-agent, and engine-config catalog fetch/hydration
   - external-agent health loading plus external-agent-config update fan-out

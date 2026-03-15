@@ -16,10 +16,8 @@ import {
   receiveExternalAgentConfigsUpdate,
   receivePromptTemplatesUpdate,
 } from "./aiConfigurationCatalogLoads";
-import {
-  receiveAIFollowToolArgumentsUpdate,
-  receiveAIFollowToolResultUpdate,
-} from "./aiFollow";
+import { receiveAIFollowToolResultUpdate } from "./aiFollowHighlights";
+import { receiveAIFollowToolArgumentsUpdate } from "./aiFollowToolArguments";
 import { receiveLLMConfigUpdate } from "./aiLLMConfiguration";
 import { receiveLLMApiKeysSnapshotUpdate } from "./aiManagedApiKeys";
 import { receiveTranscriptionProfilesUpdate } from "./aiTranscriptionProfiles";

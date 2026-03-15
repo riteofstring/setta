@@ -3,7 +3,7 @@ import {
   getAIFollowToolArgumentsSnapshot,
   restoreAIFollowToolArgumentsSnapshot,
   type AIFollowIdsByType,
-} from "state/actions/aiFollow";
+} from "state/actions/aiFollowToolArguments";
 import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
 import { useAIStore, type ChatDetails } from "state/stores/aiStores";
 import { getDefaultChatDetails } from "./aiChatDetails";

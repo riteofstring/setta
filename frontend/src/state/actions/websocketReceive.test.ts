@@ -32,7 +32,13 @@ vi.mock("state/actions/lspDiagnostics", () => ({
 
 vi.mock("state/actions/aiFollow", () => ({
   requestAIFollowSnapshot: vi.fn(),
+}));
+
+vi.mock("state/actions/aiFollowToolArguments", () => ({
   receiveAIFollowToolArgumentsUpdate: vi.fn(),
+}));
+
+vi.mock("state/actions/aiFollowHighlights", () => ({
   receiveAIFollowToolResultUpdate: vi.fn(),
 }));
 

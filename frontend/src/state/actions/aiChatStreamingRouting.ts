@@ -1,8 +1,8 @@
 import {
-  clearAIFollowToolArgumentsForChat,
   receiveAgenticScopeViolationEdges,
   SCOPE_VIOLATION_TIMEOUT_MS,
-} from "state/actions/aiFollow";
+} from "state/actions/aiFollowHighlights";
+import { clearAIFollowToolArgumentsForChat } from "state/actions/aiFollowToolArguments";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImplSelectors";
 import { isManagedChatSection } from "state/actions/sectionFeatureSelectors";
