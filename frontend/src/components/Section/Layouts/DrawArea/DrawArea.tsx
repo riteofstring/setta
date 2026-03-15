@@ -16,7 +16,7 @@ import {
 import {
   useDrawAreaArtifactLoader,
   useDrawAreaArtifactRevisionStamps,
-} from "state/hooks/artifacts";
+} from "state/hooks/drawAreaArtifacts";
 import { removeRevisionEntries } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,

@@ -1,8 +1,9 @@
 import { GitPane } from "components/Panes/Overview/Git/GitPane";
 import { useEffect } from "react";
-import { ensureGitGraphStateLoaded } from "state/actions/git";
+import { ensureGitGraphStateLoaded } from "state/actions/gitGraphOverlayActions";
 import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
-import { useMisc, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { GitGraphOverlay } from "./GitGraphOverlay";
 
 type GitGraphWindowContentProps = {

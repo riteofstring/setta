@@ -130,6 +130,10 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional terminal section to stream run output.",
     )
+    cliId: str | None = Field(
+        default=None,
+        description="CLI client id to stream run output.",
+    )
     runSnapshotMode: RunSnapshotMode | None = Field(
         default=None,
         description="Optional run snapshot mode override for this run.",
