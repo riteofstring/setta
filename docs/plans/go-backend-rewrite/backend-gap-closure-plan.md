@@ -60,17 +60,11 @@ categorize them.
 - The latest-state stale-`activeIds` load-normalization row is now proved via
   the default harness; the next likely latest-state queue is the remaining
   project/window-space load-normalization rows
-- The fail-closed missing-authoritative `projectChatWindowing` load row is now
-  proved via the default harness too; the next likely project/window-space
-  queue is the remaining title-clearing, dedupe, owner-validation, and
-  sort-index repair rows
-- The section-bound project-chat/window-space title-clearing and dedupe rows
-  are now proved too; the next likely project/window-space queue is the
-  remaining owner-validation and duplicate-`sortIndex` load-normalization rows
-- The project-chat owner/mode fail-closed load row is now proved too; the next
-  likely project/window-space queue is the remaining window-space
-  owner-validation and duplicate-`sortIndex` load-normalization rows
-- The empty latest-state `windowSpaces` object-shape row is now proved too;
-  keep prioritizing the remaining project/window-space `Missing` rows over
-  additional shape-only proof slices
+- The fail-closed missing-authoritative `projectChatWindowing`, section-bound
+  title-clearing/dedupe, project-chat owner/mode validation, saved
+  window-space owner/mode validation, and empty latest-state `windowSpaces`
+  shape rows are now all proved via the default harness
+- The next likely project/window-space queue is duplicate-`sortIndex`
+  load-normalization, followed by the remaining proof-incomplete
+  write-validation and multi-project scoping rows
 - More corpus-driven latest-state hydration / projection scenarios
