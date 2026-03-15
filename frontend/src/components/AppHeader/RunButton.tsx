@@ -16,7 +16,7 @@ import {
 } from "state/actions/customRunExecution";
 import { getCustomRunDropdownRuns } from "state/actions/customRunQueries";
 import { ensureDefaultCustomRuns } from "state/actions/customRunStorage";
-import { runFromMainRunButton } from "state/actions/runOrImportCode";
+import { runFromMainRunButton } from "state/actions/runCodeControls";
 import { usePendingOperations, useProjectState } from "state/definitions";
 import { useRunControl } from "state/stores/projectStatusStores";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";

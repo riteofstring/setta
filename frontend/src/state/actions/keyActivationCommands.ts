@@ -54,7 +54,7 @@ import {
   groupActiveSections,
   ungroupActiveGroups,
 } from "./projectStateCommands";
-import { runEntryCodeBlock } from "./runOrImportCode";
+import { runEntryCodeBlock } from "./runCodeExecution";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,

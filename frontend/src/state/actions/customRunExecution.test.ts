@@ -12,7 +12,7 @@ vi.mock("./listeners", () => ({
   triggerListenerForceRefresh: vi.fn(async () => {}),
 }));
 
-vi.mock("./runOrImportCode", () => ({
+vi.mock("./runCodeExecution", () => ({
   runCodeBlock: vi.fn(async () => {}),
 }));
 
@@ -28,7 +28,7 @@ describe("customRunExecution", () => {
 
   it("runs one-shot custom code-block actions directly", async () => {
     // Once-mode custom runs should dispatch immediately without changing continuous-run state.
-    const { runCodeBlock } = await import("./runOrImportCode");
+    const { runCodeBlock } = await import("./runCodeExecution");
     useLocalStorage.setState({
       customRunsByProjectConfigId: {
         "project-1": [

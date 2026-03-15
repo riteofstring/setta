@@ -208,6 +208,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   continuous custom-run execution plus run-control coordination, and
   `frontend/src/state/actions/customRuns.ts` is now the thin compatibility
   facade.
+- `frontend/src/state/actions/runCodeExecution.ts` now owns runnable-section
+  guards, generated-python normalization, snapshot-mode resolution,
+  attached-terminal lookup, draw snapshot collection, and backend run
+  transport, `frontend/src/state/actions/runCodeControls.ts` now owns main
+  run-button once or continuous toggles plus subprocess stop transport, and
+  `frontend/src/state/actions/runOrImportCode.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/actions/activeSectionSync.ts` now owns durable
   active-section selection scheduling, flush, backend send, and authoritative
   restore behavior that previously lived in
@@ -448,7 +455,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/runOrImportCode.ts` at 214 lines
   - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 213 lines
   - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
@@ -458,6 +464,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/edges.ts` at 208 lines
   - `frontend/src/state/actions/projectChatWindowingSectionState.ts` at 207 lines
   - `frontend/src/state/actions/stateMachineEdgeMutations.ts` at 206 lines
+  - `frontend/src/state/actions/keyShortcutMatching.ts` at 206 lines
+  - `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` at 205 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -483,6 +491,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   continuous custom-run execution plus run-control coordination, and
   `frontend/src/state/actions/customRuns.ts` is now the thin compatibility
   facade.
+- `frontend/src/state/actions/runCodeExecution.ts` now owns runnable-section
+  guards, generated-python normalization, snapshot-mode resolution,
+  attached-terminal lookup, draw snapshot collection, and backend run
+  transport, `frontend/src/state/actions/runCodeControls.ts` now owns main
+  run-button once or continuous toggles plus subprocess stop transport, and
+  `frontend/src/state/actions/runOrImportCode.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/actions/windowSpaceSnapshotRestoreConversion.ts` now owns
   saved-window-space conversion back into project-chat windowing state,
   `frontend/src/state/actions/windowSpaceSnapshotRestoreSectionBindings.ts`

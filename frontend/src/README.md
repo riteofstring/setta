@@ -493,6 +493,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     execution plus run-control coordination.
   - `state/actions/customRuns.ts` is now the thin compatibility facade over
     those custom-run owners.
+  - `state/actions/runCodeExecution.ts` owns runnable-section guards,
+    generated-python normalization, snapshot-mode resolution,
+    attached-terminal lookup, draw snapshot collection, and backend run
+    transport.
+  - `state/actions/runCodeControls.ts` owns main run-button once/continuous
+    toggles plus subprocess stop transport.
+  - `state/actions/runOrImportCode.ts` is now the thin compatibility facade
+    over those run owners.
   - `state/stores/searchStores.ts` owns home-page search plus project search
     state used by the header search surfaces and param search highlighting.
   - `state/stores/sessionStores.ts` owns share-session, server-mode, and
@@ -879,6 +887,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   list derivation, execution or continuous-run control, and compatibility
   re-exports, so follow-up run-surface cleanup should stay local to those
   owners instead of regrowing the old shared custom-run module.
+- `state/actions/runCodeExecution.ts`,
+  `state/actions/runCodeControls.ts`, and
+  `state/actions/runOrImportCode.ts` now split backend run payload assembly
+  from main-run and stop controls plus compatibility re-exports, so follow-up
+  run-surface cleanup should stay local to those owners instead of regrowing
+  the old mixed run action module.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

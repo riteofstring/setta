@@ -7,7 +7,7 @@ import {
 import { findCustomRunById } from "./customRunQueries";
 import { getCustomRunsForProjectConfig } from "./customRunStorage";
 import { triggerListenerForceRefresh } from "./listeners";
-import { runCodeBlock } from "./runOrImportCode";
+import { runCodeBlock } from "./runCodeExecution";
 
 async function runCustomRunAction(action: CustomRunAction): Promise<void> {
   if (action.type === "runCodeBlock") {
