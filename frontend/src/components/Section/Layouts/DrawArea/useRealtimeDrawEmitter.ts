@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useCallback, useEffect, useMemo } from "react";
-import { sendRealtimeSectionBinary } from "state/actions/websocketRealtime";
+import { sendRealtimeSectionBinary } from "state/actions/websocketReceive";
 import { serializeLayerStackToBlob } from "./binaryConversion";
 import { LayerCanvasesType } from "./types";
 

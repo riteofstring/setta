@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { useAppConfigs } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { useAppConfigs } from "state/stores/appStores";
 import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,

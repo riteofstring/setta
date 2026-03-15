@@ -76,11 +76,9 @@
           "readProjectState",
           "subscribeProjectState",
           "emitListenerEvents",
-          "registerMcpTools",
           "registerLanguageServer",
           "registerExternalAgentAdapter",
           "registerCodegenTarget",
-          "registerRouter",
           "registerListenerEndpoint",
           "registerStaticDir",
           "writeWorkspacePlugins"

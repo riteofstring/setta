@@ -1,4 +1,4 @@
-import { ChatBranchInfo } from "state/stores/aiStores";
+import { ChatBranchInfo } from "state/definitions";
 import { AgentRun } from "utils/generatedTypes";
 import {
   getRunInputNumber,

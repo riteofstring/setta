@@ -5,7 +5,7 @@ import {
   getMaxSectionWidth,
   getMinSectionHeight,
   getMinSectionWidth,
-} from "./sectionMinMaxDims";
+} from "./sectionSizes";
 
 const META_MODE_ANY = "any" as const;
 
