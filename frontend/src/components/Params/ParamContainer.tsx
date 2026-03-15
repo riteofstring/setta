@@ -11,8 +11,8 @@ import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
-const NESTED_CHILD_ROWS_CLASS_NAME =
-  "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+const NESTED_CHILD_ROW_CLASS_NAME =
+  "ml-[0.9rem] before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
 
 function _ParamContainer({
   sectionId,
@@ -24,6 +24,7 @@ function _ParamContainer({
   isNestedParam,
   hasSectionStyleTheme,
   isTopLevelWithPad,
+  isNestedChildInTree,
   paramChildren,
   onMouseDown,
   onClick,
@@ -94,12 +95,15 @@ function _ParamContainer({
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
   const floatingBoxHandlers = getFloatingBoxHandlers(...tooltipContentArray);
+  const nestedChildRowClassName = isNestedChildInTree
+    ? NESTED_CHILD_ROW_CLASS_NAME
+    : "";
 
   if (useExplicitLeafGrid) {
     return (
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+        className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${nestedChildRowClassName} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
         style={dndStyle}
         data-param-row="true"
         {...floatingBoxHandlers}
@@ -128,7 +132,7 @@ function _ParamContainer({
   return !isNestedParam ? (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      className={`section-key-value section-param-row group/arg-group section-min-rows relative grid min-w-0 items-center justify-between rounded-sm px-[2px] ${nestedChildRowClassName} ${shouldRenderNestedChildSubtrees ? "gap-y-1" : ""} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
       style={dndStyle}
       data-param-row="true"
       {...floatingBoxHandlers}
@@ -151,22 +155,21 @@ function _ParamContainer({
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
       {shouldRenderNestedChildSubtrees && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+        <GetParamSwitch
+          sectionId={sectionId}
+          paramIds={renderChildren}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          isNestedChildInTree={true}
+        />
       )}
     </article>
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
+      className={`section-args-nested ${isNestedChildInTree ? "section-key-value" : "section-lg-value"} group/arg-group section-min-rows [&>p]:section-key-value relative grid items-center justify-between gap-y-1 rounded-sm ${nestedChildRowClassName} ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
       {...floatingBoxHandlers}
       style={dndStyle}
       data-param-row="true"
@@ -180,16 +183,15 @@ function _ParamContainer({
     >
       {children}
       {shouldRenderNestedChildSubtrees && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+        <GetParamSwitch
+          sectionId={sectionId}
+          paramIds={renderChildren}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          isNestedChildInTree={true}
+        />
       )}
     </article>
   );

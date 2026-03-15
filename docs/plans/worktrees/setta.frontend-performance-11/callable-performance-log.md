@@ -427,3 +427,39 @@ Append-only log for the callable DOM-first performance refactor.
     - this is the first accepted Phase 2 checkpoint because it removes row-local template duplication and the last row-level `grid-cols-subgrid` use from the stable callable control scene without user-visible drift
 - Next action:
   - Continue Phase 2 with the next row/tree checkpoint, focusing on nested-child ownership and wrapper reduction rather than shared leaf/input wrappers.
+
+### 2026-03-16 28
+
+- Item: Phase 2 checkpoint 2 nested-child wrapper removal.
+- Status: `done`
+- Details:
+  - Removed the dedicated nested-child wrapper div from `frontend/src/components/Params/ParamContainer.tsx`.
+  - Moved nested-child branch styling onto the child row roots and threaded the nested-child row contract through:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - Preserved nested child indentation by restoring the live left-offset on nested child rows after the first attempt flattened too far and failed the baseline geometry spec.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the wrapper removal.
+  - Live control-scene metrics:
+    - callable subtree nodes:
+      - `main`: `125`
+      - worktree: `100`
+    - nested child wrapper count:
+      - `main`: `1`
+      - worktree: `0`
+    - visible param rows: `7` on both `main` and the worktree
+  - Geometry note:
+    - the accepted nested child left edge on the live worktree control scene is now `405.46px`
+    - untouched `main` measured `402.57px`
+    - both keep the nested child visibly indented relative to the top-level `mode` row, which satisfies the baseline geometry contract
+- Next action:
+  - Continue Phase 2 with the next row/tree checkpoint only if it removes another real row/tree wrapper or contract layer without reopening the now-stable nested child geometry.

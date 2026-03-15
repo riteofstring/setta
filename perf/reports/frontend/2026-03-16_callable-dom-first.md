@@ -358,3 +358,42 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this is the first accepted Phase 2 row/tree checkpoint because it removes row-local template duplication while preserving the existing callable row geometry, DnD placeholder behavior, and screenshot parity
   - the next meaningful row/tree work should focus on nested-child wrapper ownership rather than the already-flattened row-template primitives
+
+### Phase 2 checkpoint 2: nested-child wrapper removal
+
+- Date/time: 2026-03-16
+- Scope:
+  - removed the dedicated nested-child wrapper div from `frontend/src/components/Params/ParamContainer.tsx`
+  - threaded the nested-child row contract through:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - moved the branch-line styling onto the child row roots instead of the removed wrapper
+- Development note:
+  - the first attempt over-flattened the nested child geometry and caused the baseline spec to fail because the nested `errors` row lost its left offset
+  - fixed by restoring the nested child row offset directly on the row root instead of reintroducing the wrapper
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - full-viewport and callable-surface screenshots remained visually aligned after the nested-child wrapper removal
+- Live row/tree delta on the callable control scene:
+  - callable subtree nodes:
+    - `main`: `125`
+    - worktree: `100`
+  - nested child wrapper count:
+    - `main`: `1`
+    - worktree: `0`
+  - visible param rows: `7` on both `main` and the worktree
+  - nested child row left edge:
+    - untouched `main`: `402.57px`
+    - worktree after the accepted fix: `405.46px`
+- Interpretation:
+  - this removes a real row/tree wrapper instead of only moving classes around
+  - the accepted result keeps the nested child visibly indented, preserves the baseline geometry contract, and holds the screenshot parity gate
