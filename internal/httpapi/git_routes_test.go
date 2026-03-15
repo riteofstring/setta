@@ -65,6 +65,22 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 	if err := json.Unmarshal(statusResponse.Body.Bytes(), &statusPayload); err != nil {
 		t.Fatalf("decode status payload: %v", err)
 	}
+	expectedRepoRoot, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		expectedRepoRoot = filepath.Clean(repoRoot)
+	}
+	if statusPayload.Repo.RepoRoot == nil || filepath.Clean(*statusPayload.Repo.RepoRoot) != expectedRepoRoot {
+		t.Fatalf("expected repo root %q, got %#v", expectedRepoRoot, statusPayload.Repo.RepoRoot)
+	}
+	expectedHeadBranch := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "--abbrev-ref", "HEAD"))
+	if statusPayload.Repo.HeadBranch == nil || *statusPayload.Repo.HeadBranch != expectedHeadBranch {
+		t.Fatalf("expected head branch %q, got %#v", expectedHeadBranch, statusPayload.Repo.HeadBranch)
+	}
+	expectedHeadCommit := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+	if statusPayload.Repo.HeadCommit == nil || *statusPayload.Repo.HeadCommit != expectedHeadCommit {
+		t.Fatalf("expected head commit %q, got %#v", expectedHeadCommit, statusPayload.Repo.HeadCommit)
+	}
+
 	var stagedTracked bool
 	var unstagedTracked bool
 	var untrackedNew bool
@@ -105,6 +121,14 @@ func TestRegisterGitRoutesReturnsTypedWorktrees(t *testing.T) {
 	repoRoot := initGitRouteTestRepo(t)
 	worktreePath := filepath.Join(filepath.Dir(repoRoot), "setta.feature-extra")
 	runGitRouteCommand(t, repoRoot, "worktree", "add", "-b", "feature-extra", worktreePath, "HEAD")
+	expectedRepoRoot, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		expectedRepoRoot = filepath.Clean(repoRoot)
+	}
+	expectedWorktreePath, err := filepath.EvalSymlinks(worktreePath)
+	if err != nil {
+		expectedWorktreePath = filepath.Clean(worktreePath)
+	}
 
 	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
 
@@ -128,12 +152,12 @@ func TestRegisterGitRoutesReturnsTypedWorktrees(t *testing.T) {
 	var foundExtra bool
 	for _, worktree := range statusPayload.Worktrees {
 		switch filepath.Clean(worktree.Path) {
-		case filepath.Clean(repoRoot):
+		case expectedRepoRoot:
 			foundCurrent = true
 			if !worktree.IsCurrent {
 				t.Fatalf("expected current repo worktree, got %#v", worktree)
 			}
-		case filepath.Clean(worktreePath):
+		case expectedWorktreePath:
 			foundExtra = true
 			if worktree.BranchName == nil || *worktree.BranchName != "feature-extra" {
 				t.Fatalf("expected feature-extra branch, got %#v", worktree)
@@ -193,7 +217,7 @@ func TestRegisterGitRoutesUsesOldPathForRenameAndRejectsDirectories(t *testing.T
 	}
 }
 
-func TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksLauncherMode(t *testing.T) {
+func TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksNonIDEModes(t *testing.T) {
 	t.Parallel()
 
 	nonRepoHandler := newGitRouteTestHandler(t, config.ModeIDE, t.TempDir())
@@ -208,16 +232,32 @@ func TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksLauncherMode(t *testing.
 		t.Fatalf("unexpected non-repo diff response %q", diffResponse.Body.String())
 	}
 
-	launcherHandler := newGitRouteTestHandler(t, config.ModeLauncher, t.TempDir())
-	statusRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitStatus, strings.NewReader("null"))
-	statusRequest.Header.Set("Content-Type", "application/json")
-	statusResponse := httptest.NewRecorder()
-	launcherHandler.ServeHTTP(statusResponse, statusRequest)
-	if statusResponse.Code != http.StatusForbidden {
-		t.Fatalf("expected launcher 403, got %d with body %q", statusResponse.Code, statusResponse.Body.String())
+	testCases := []struct {
+		mode           config.Mode
+		expectedDetail string
+	}{
+		{mode: config.ModeLauncher, expectedDetail: "Launcher mode does not allow this endpoint."},
+		{mode: config.ModeShare, expectedDetail: "Deployment mode does not allow this endpoint."},
+		{mode: config.ModeApp, expectedDetail: "Deployment mode does not allow this endpoint."},
 	}
-	if !strings.Contains(statusResponse.Body.String(), "Launcher mode does not allow this endpoint.") {
-		t.Fatalf("unexpected launcher response %q", statusResponse.Body.String())
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(string(testCase.mode), func(t *testing.T) {
+			t.Parallel()
+
+			handler := newGitRouteTestHandler(t, testCase.mode, t.TempDir())
+			statusRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitStatus, strings.NewReader("null"))
+			statusRequest.Header.Set("Content-Type", "application/json")
+			statusResponse := httptest.NewRecorder()
+			handler.ServeHTTP(statusResponse, statusRequest)
+			if statusResponse.Code != http.StatusForbidden {
+				t.Fatalf("expected %s 403, got %d with body %q", testCase.mode, statusResponse.Code, statusResponse.Body.String())
+			}
+			if !strings.Contains(statusResponse.Body.String(), testCase.expectedDetail) {
+				t.Fatalf("unexpected %s response %q", testCase.mode, statusResponse.Body.String())
+			}
+		})
 	}
 }
 

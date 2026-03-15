@@ -59,6 +59,14 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 	if response.Repo.RepoRoot == nil || filepath.Clean(*response.Repo.RepoRoot) != expectedRepoRoot {
 		t.Fatalf("expected repo root %q, got %#v", expectedRepoRoot, response.Repo.RepoRoot)
 	}
+	expectedHeadBranch := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "--abbrev-ref", "HEAD"))
+	if response.Repo.HeadBranch == nil || *response.Repo.HeadBranch != expectedHeadBranch {
+		t.Fatalf("expected head branch %q, got %#v", expectedHeadBranch, response.Repo.HeadBranch)
+	}
+	expectedHeadCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+	if response.Repo.HeadCommit == nil || *response.Repo.HeadCommit != expectedHeadCommit {
+		t.Fatalf("expected head commit %q, got %#v", expectedHeadCommit, response.Repo.HeadCommit)
+	}
 
 	var stagedTracked bool
 	var unstagedTracked bool
@@ -135,6 +143,14 @@ func TestServiceStatusReturnsTypedWorktrees(t *testing.T) {
 	repoRoot := initGitReadTestRepo(t)
 	worktreePath := filepath.Join(filepath.Dir(repoRoot), "setta.feature-extra")
 	runGitReadCommand(t, repoRoot, "worktree", "add", "-b", "feature-extra", worktreePath, "HEAD")
+	expectedRepoRoot, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		expectedRepoRoot = filepath.Clean(repoRoot)
+	}
+	expectedWorktreePath, err := filepath.EvalSymlinks(worktreePath)
+	if err != nil {
+		expectedWorktreePath = filepath.Clean(worktreePath)
+	}
 
 	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
 	if err != nil {
@@ -153,12 +169,12 @@ func TestServiceStatusReturnsTypedWorktrees(t *testing.T) {
 	var foundExtra bool
 	for _, worktree := range response.Worktrees {
 		switch filepath.Clean(worktree.Path) {
-		case filepath.Clean(repoRoot):
+		case expectedRepoRoot:
 			foundCurrent = true
 			if !worktree.IsCurrent {
 				t.Fatalf("expected current repo worktree flag, got %#v", worktree)
 			}
-		case filepath.Clean(worktreePath):
+		case expectedWorktreePath:
 			foundExtra = true
 			if worktree.BranchName == nil || *worktree.BranchName != "feature-extra" {
 				t.Fatalf("expected feature-extra branch, got %#v", worktree)
