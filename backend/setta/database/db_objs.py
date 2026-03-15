@@ -1,5 +1,4 @@
 import json
-import logging
 import tempfile
 from collections.abc import Callable
 from io import StringIO
@@ -10,23 +9,11 @@ import toml
 import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
-from pydantic import ValidationError
 
-from setta.types.id import (
-    ID,
-    CanonicalToTemporaryIDMap,
-    TemporaryToCanonicalIDMap,
-)
-from setta.types.notifications import SettaNotification
-from setta.types.project_state import (
-    ProjectStateBackend,
-    ProjectStateSingleConfig,
-)
-from setta.types.share_deployment import DeploymentManifest
+from setta.types.id import ID
+from setta.types.project_state import ProjectStateBackend
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import compute_md5_prefix
-
-logger = logging.getLogger(__name__)
 
 
 class DBE:
@@ -49,14 +36,7 @@ class DBE:
             else self.runtime_root
         )
         self.project = self.path / "project.json"
-        self.temporary_id_map = self.runtime_root / "temporary_id_map.json"
-        self.notifications = self.path / "notifications.json"
-        self.settings = self.path / "setta-settings.json"
-        self.settings_project = self.path / "setta-settings-project.json"
-        self.llm_config = self.path / "llm_config.json"
-        self.llm_config_example = self.path / "llm_config.example.json"
         self.prompts = self.path / "prompts"
-        self.deployment_manifest = self.path / "manifest.json"
         self.dot_env = normalize_workspace_path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
@@ -223,84 +203,6 @@ class DBE:
         if not isinstance(payload, dict):
             raise TypeError("Project payload must be a JSON object.")
         return ProjectStateBackend.model_validate(payload)
-
-    def read_deployment_manifest(self) -> DeploymentManifest:
-        if not self.deployment_manifest.exists():
-            raise FileNotFoundError(
-                f"Deployment manifest not found: {self.deployment_manifest}"
-            )
-        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
-        if not payload:
-            raise ValueError(
-                f"Deployment manifest is empty: {self.deployment_manifest}"
-            )
-        return DeploymentManifest.model_validate(payload)
-
-    def read_deployment_manifest_optional(self) -> DeploymentManifest | None:
-        if not self.deployment_manifest.exists():
-            return None
-        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
-        if not payload:
-            return None
-        try:
-            return DeploymentManifest.model_validate(payload)
-        except ValidationError as exc:
-            logger.warning(
-                "Invalid deployment manifest at %s: %s",
-                self.deployment_manifest,
-                exc,
-            )
-            return None
-
-    def read_temporary_id_map(self):
-        raw_map = self.read_json(self.temporary_id_map)
-        canonical_to_temporary: CanonicalToTemporaryIDMap = {
-            ID(k): ID(v) for k, v in raw_map.items()
-        }
-        temporary_to_canonical: TemporaryToCanonicalIDMap = {
-            ID(v): ID(k) for k, v in raw_map.items()
-        }
-        return temporary_to_canonical, canonical_to_temporary
-
-    def write_temporary_id_map(self, canonical_to_temporary: CanonicalToTemporaryIDMap):
-        serializable_map = {str(k): str(v) for k, v in canonical_to_temporary.items()}
-        self.write_json(self.temporary_id_map, serializable_map)
-
-    def read_notifications(self, projectConfigId: ID | None = None):
-        data = self.read_jsonl(self.notifications)
-        data = [SettaNotification.model_validate(item) for item in data]
-        if projectConfigId:
-            return [s for s in data if s.projectConfigId == projectConfigId]
-        return data
-
-    def write_notifications(self, notifications: list[SettaNotification]):
-        data = [n.model_dump() for n in notifications]
-        self.write_jsonl(self.notifications, data)
-
-    def delete_notification(self, notification_id: ID):
-        data = self.read_notifications()
-        filtered = [item for item in data if item.id != notification_id]
-        self.write_notifications(filtered)
-
-    def read_settings_project(self):
-        return ProjectStateSingleConfig.model_validate(
-            self.read_json(self.settings_project)
-        )
-
-    def write_settings_project(self, settings_project: ProjectStateSingleConfig):
-        self.write_json(self.settings_project, settings_project.model_dump(mode="json"))
-
-    def read_llm_config(self) -> dict[str, Any]:
-        return self.read_json(self.llm_config)
-
-    def write_llm_config(self, payload: Any) -> None:
-        self.write_json(self.llm_config, payload)
-
-    def read_llm_config_example(self) -> dict[str, Any]:
-        return self.read_json(self.llm_config_example)
-
-    def write_llm_config_example(self, payload: Any) -> None:
-        self.write_json(self.llm_config_example, payload)
 
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)

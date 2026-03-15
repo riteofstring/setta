@@ -370,14 +370,20 @@ Current tree note:
   `backend/setta/types/prompt_section_resolution.py` instead of keeping the old
   mixed agentic store alive.
 - The live Python `backend/setta/database/db_objs.py` helper has also been
-  narrowed in the current worktree: the dead external-agent, engine-config,
-  transcription-profile, agent-profile, agent-run, agent-run-index, agentic
-  summary cache, and prompts-example handles are gone because those storage
-  owners now live in Go under `internal/externalagentconfigs`,
-  `internal/agentruns`, `internal/agentprofiles`,
-  `internal/transcriptionprofiles`, and `internal/agenticsummarycache`, while
-  the only still-proven Python `DBE` callers in tests/helpers use the
-  surviving generic IO plus project/prompt/env paths.
+  narrowed in the current worktree: the dead settings-project, notification,
+  temp-id-map, LLM-config, deployment-manifest, external-agent,
+  engine-config, transcription-profile, agent-profile, agent-run,
+  agent-run-index, agentic summary cache, and prompts-example handles are
+  gone because those storage owners now live in Go under `internal/settingsstate`,
+  `internal/projectstate`, `internal/notifications`, `internal/mcpx`,
+  `internal/llmconfig`, `internal/deployments`,
+  `internal/externalagentconfigs`, `internal/agentruns`,
+  `internal/agentprofiles`, `internal/transcriptionprofiles`, and
+  `internal/agenticsummarycache`, while the only still-proven Python `DBE`
+  callers in tests/helpers use the surviving generic IO plus
+  project/prompt/env paths. The dead-path Python coverage for optional
+  deployment-manifest validation is gone too because current deployment
+  manifest ownership and tests live on the Go side.
 - The dead Python websocket-shell tail is also smaller in the current
   worktree: `backend/setta/websockets/websocket_manager.py`,
   `backend/setta/websockets/msg_handlers/base.py`, and
