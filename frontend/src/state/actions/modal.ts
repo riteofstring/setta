@@ -5,7 +5,7 @@ import {
   ModalTypeEnum,
 } from "components/Modals/types";
 import _ from "lodash";
-import { useModal } from "state/stores/feedbackStores";
+import { useModal } from "state/definitions";
 
 export function closeModal() {
   useModal.getState().reset();

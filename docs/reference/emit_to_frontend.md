@@ -20,46 +20,42 @@ and as `ctx.emit_to_frontend` inside callbacks.
      rejects empty payloads.
    - Dependency mappings are copied as plain dicts; artifact payloads are
      validated with `BaseArtifactTypeAdapter`.
-   - Sends `WebsocketMsgListenerFrontendEmit` with `ListenerFrontendEmitRawContent`.
+   - Sends `ListenerFrontendEmit` over the Go listener websocket route.
 
-2. **WebSocket receiver (`backend/setta/websockets/msg_handlers/python_script_receiver.py`)**
-   - Confirms the websocket is registered for the project and rejects empty
-     payloads.
-   - Loads the project manager + dependency graph
-     (`manager.gen_code[project_config_id].dep_graph`); missing graphs return a
-     `project_state_unavailable` error.
-   - Resolves dependencies and artifacts; errors are returned as
-     `WebsocketMsgListenerError` with specific codes.
+2. **Go listener websocket transport (`internal/wsapi/routes.go`, `internal/wsapi/listener_frontend_emit.go`)**
+   - Confirms the listener websocket is registered for the project, enforces
+     project/share-session matches, and rejects empty payloads.
+   - In deployment/share mode, enforces the current deployment policy before any
+     mutation runs.
 
-3. **Dependency + artifact resolution (`backend/setta/listeners/listener_frontend_emit_resolver.py`)**
-   - Maps sanitized names to dependency keys via
-     `DependencyGraph.full_path_name_to_dep_key`.
-   - Infers expected value type from the node value or section type:
-     - Literal: section params, callable sections, TextBlock sections.
-     - Binary: Draw + Image sections.
-     - FileRead: dependencies whose current value type is FileRead.
-   - Normalizes artifact paths and enforces cached type consistency.
+3. **Dependency + artifact resolution (`internal/wsapi/listener_frontend_emit.go`)**
+   - Rebuilds the listener dependency export from the current Go project
+     snapshot and maps sanitized dependency names back through
+     `codegen.BuildPythonDependencyGraph`.
+   - Accepts writable dependency updates for section params plus `TextBlock`,
+     `Chat`, and `Plugin` sections; unsupported targets fail fast with typed
+     listener errors.
+   - Validates artifact updates through the Go artifact services
+     (`Artifacts.ValidateListenerUpdate` / `ShareArtifacts.ValidateListenerUpdate`),
+     which normalize ids and enforce type/path policy.
 
-4. **Backend application (`backend/setta/project_state/base_project_manager.py`)**
-   - `apply_listener_emit_updates` runs through the serialized queue
-     (`@enqueue_method`).
-   - Dependency updates call `apply_listener_dependency_updates`:
-     - Supported: `SectionParamDependencyKey` (literal) and
-       `SectionDependencyKey` for TextBlock sections.
-     - Other dependency types raise `ListenerDependencyUpdateError`; Image
-       sections currently raise `NotImplementedError`.
-   - Artifact updates call `apply_listener_artifact_updates`, which normalizes
-     ids and caches artifacts in memory.
+4. **Backend application (`internal/wsapi/listener_frontend_emit.go`, `internal/projectstate/runtime.go`)**
+   - Dependency updates mutate the Go project document through
+     `projectstate.Runtime.MutateAndSave`.
+   - Artifact updates go through the Go artifact services and share overlays.
+   - Artifact-only emits skip project-state mutation and just apply the
+     validated artifact writes.
 
 5. **Broadcasts**
-   - Dependency updates trigger `update_and_broadcast_project_state` (full
-     update + LSP sync).
-   - Artifact updates trigger `broadcast_artifacts_update`.
-   - Artifact-only emits do not rebuild or broadcast project state.
+   - Dependency updates broadcast the authoritative Go project-state snapshot.
+   - Artifact updates broadcast `UpdateArtifacts` over the Go frontend websocket
+     hub.
+   - Artifact-only emits do not rebuild project state.
 
 ## Error codes returned to listeners
 - `listener_not_registered`
 - `project_config_mismatch`
+- `share_session_missing`
 - `listener_emit_invalid_payload`
 - `project_state_unavailable`
 - `listener_emit_unknown_dependency`
@@ -73,12 +69,13 @@ and as `ctx.emit_to_frontend` inside callbacks.
 ## Practical implications
 - Use the sanitized dependency strings from `@listener.listen`; unresolved names
   fail fast.
-- Dependency updates are intentionally narrow today (params + TextBlock only).
+- Dependency updates are intentionally narrow today (section params plus
+  `TextBlock`, `Chat`, and `Plugin` sections).
 - Use artifact updates for Draw/Image payloads instead of dependency updates.
 - Image/File artifact updates require `BinaryContentRef` values that already
   exist in the binary store (for example, via `BinaryStore.store_bytes` or
   `route_binary_upload`); the websocket payload does not include raw bytes.
-- Artifact updates stay in memory until a save writes them to disk.
-- Tests covering this path live in `tests/websockets/test_python_script_receiver.py`,
-  `tests/project_state/test_listener_emit_updates.py`, and
-  `tests/project_state/test_listener_artifact_updates.py`.
+- Tests covering the active transport live in
+  `internal/wsapi/routes_test.go`, `internal/app/websocket_test.go`, and the
+  retained Python listener SDK websocket tests under
+  `tests/api/test_listener_websocket_endpoint.py`.

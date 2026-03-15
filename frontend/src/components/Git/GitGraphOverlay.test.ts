@@ -8,7 +8,7 @@ import {
   buildGitGraphRowHeightCacheKey,
   collectRemoteDecorationPrefixes,
   summarizeDecorationChips,
-} from "./gitGraphOverlayCommitIndex";
+} from "./GitGraphOverlay";
 
 function commit(
   hash: string,
