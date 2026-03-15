@@ -1,0 +1,47 @@
+{
+  "defaultProjectId": "project-alpha",
+  "projects": {
+    "project-alpha": {
+      "allowJsonSourceKeyEdits": true,
+      "id": "project-alpha",
+      "name": "Project Alpha",
+      "projectChatWindowing": {
+        "instancesById": {},
+        "order": []
+      },
+      "sectionImpls": {
+        "empty-callable-impl": {
+          "id": "empty-callable-impl",
+          "kind": "frontend",
+          "payload": {
+            "callable": null,
+            "codeObjVariantMap": {},
+            "id": "empty-callable-impl",
+            "type": "Callable"
+          }
+        }
+      },
+      "sectionVariantMap": {
+        "empty-callable-section": "empty-callable-variant"
+      },
+      "sectionVariants": {
+        "empty-callable-variant": {
+          "id": "empty-callable-variant",
+          "implId": "empty-callable-impl",
+          "name": "Empty Callable Variant"
+        }
+      },
+      "sections": {
+        "empty-callable-section": {
+          "defaultVariantId": "empty-callable-variant",
+          "id": "empty-callable-section",
+          "name": "Empty Callable Section",
+          "variantIds": [
+            "empty-callable-variant"
+          ]
+        }
+      }
+    }
+  },
+  "schemaVersion": 1
+}
