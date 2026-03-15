@@ -603,3 +603,72 @@ Append-only log for the callable DOM-first performance refactor.
     - visible param rows: `7` on both `main` and the worktree
 - Next action:
   - Reassess whether any remaining Phase 2 work removes a real row-tree boundary. If not, stop Phase 2 here and treat the next meaningful step as a phase-boundary decision rather than more shell churn.
+
+### 2026-03-16 34
+
+- Item: Phase 2 closeout rerun against untouched `main`.
+- Status: `done`
+- Details:
+  - Re-ran the locked `open` callable control scene on both:
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - Reused the same measurement path on both branches:
+    - exact viewport reset to `translate(518.651px, 547.532px) scale(1.20289)`
+    - exact section-width baseline reset to `240.578px`
+    - wheel-event pan replay
+    - exact zoom-target replay to `translate(470.651px, 505.532px) scale(0.90289)`
+    - real `.section-resize-handle-right` drag replay to `324.780px`
+  - Same-method DOM read on the callable subtree:
+    - `main`:
+      - total nodes: `125`
+      - max depth: `12`
+      - grid count: `18`
+      - subgrid count: `0`
+      - param rows: `7`
+      - column handles: `6`
+    - worktree:
+      - total nodes: `100`
+      - max depth: `10`
+      - grid count: `17`
+      - subgrid count: `0`
+      - param rows: `7`
+      - column handles: `6`
+  - Same-method trace reruns:
+    - `main`
+      - idle: `71` frames, `16.66ms` avg, `17.7ms` max, `24` frames `>16.7ms`, `0` frames `>33.3ms`
+      - pan: `71` frames, `17.11ms` avg, `49.7ms` max, `20` frames `>16.7ms`, `1` frame `>33.3ms`
+      - zoom: `35` frames, `16.71ms` avg, `18.6ms` max, `13` frames `>16.7ms`, `0` frames `>33.3ms`
+      - resize: `35` frames, `19.05ms` avg, `65.1ms` max, `17` frames `>16.7ms`, `2` frames `>33.3ms`
+    - worktree
+      - idle: `71` frames, `16.66ms` avg, `18.6ms` max, `23` frames `>16.7ms`, `0` frames `>33.3ms`
+      - pan: `71` frames, `17.35ms` avg, `66.7ms` max, `29` frames `>16.7ms`, `1` frame `>33.3ms`
+      - zoom: `35` frames, `16.60ms` avg, `17.8ms` max, `12` frames `>16.7ms`, `0` frames `>33.3ms`
+      - resize: `35` frames, `19.00ms` avg, `68.6ms` max, `13` frames `>16.7ms`, `2` frames `>33.3ms`
+  - Trace artifacts:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-idle.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-pan.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-zoom.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-resize.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-idle.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-pan.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-zoom.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-resize.trace.json`
+  - DevTools insight read:
+    - untouched `main` resize rerun exposed only a tiny CLS cluster (`0.0013`) and no forced-reflow insight
+    - worktree resize rerun still exposes `ForcedReflow`, with `37ms` total reflow time led by:
+      - `eq` in `chunk-MB4RGFJ3.js`
+      - `getHandleCenter` in `src/state/actions/edgeHandles.ts`
+      - `ProjectChatBottomDock.tsx`
+  - Required CDP screenshot comparison:
+    - `main` callable screenshot and worktree callable screenshot remained visually aligned after the closeout rerun
+- Interpretation:
+  - Phase 2 did achieve the structural goal:
+    - the callable subtree is materially flatter on this branch than on untouched `main`
+    - the obvious temp/real row-shell duplication is gone
+  - Phase 2 did not produce a decisive interaction-performance win by itself:
+    - idle and zoom are effectively flat
+    - pan is still within noise and not clearly improved
+    - resize is only marginally different in this same-method rerun
+  - That means DOM flattening was worth doing, but it is not enough to justify more Phase 2 shell churn.
+- Next action:
+  - Stop Phase 2 here and move to Phase 3, focusing on the store/subscription surface around `GetParamSwitch`, `KwargsControls`, and the callable row render path instead of pursuing more shell-only refactors.

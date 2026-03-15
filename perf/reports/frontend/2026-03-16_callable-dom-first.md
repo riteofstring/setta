@@ -534,3 +534,72 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this checkpoint removes the last obvious literal duplication in the temp-vs-steady-state non-nested row shell contract
   - the remaining Phase 2 opportunities now look more like phase-boundary decisions than clearly valuable row-tree reductions
+
+### Phase 2 closeout rerun: structural win confirmed, interaction win still pending
+
+- Date/time: 2026-03-16
+- Scope:
+  - reran the locked `open` callable control scene on both:
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - reused the same measurement path on both branches:
+    - exact viewport reset to `translate(518.651px, 547.532px) scale(1.20289)`
+    - exact section-width baseline reset to `240.578px`
+    - wheel-event pan replay
+    - exact zoom-target replay to `translate(470.651px, 505.532px) scale(0.90289)`
+    - real `.section-resize-handle-right` drag replay to `324.780px`
+- Same-method DOM read:
+  - untouched `main`
+    - total nodes: `125`
+    - max depth: `12`
+    - grid count: `18`
+    - subgrid count: `0`
+    - param rows: `7`
+    - column handles: `6`
+  - worktree
+    - total nodes: `100`
+    - max depth: `10`
+    - grid count: `17`
+    - subgrid count: `0`
+    - param rows: `7`
+    - column handles: `6`
+- Same-method trace reruns:
+  - untouched `main`
+    - idle: `71` frames, `16.66ms` avg, `17.7ms` max, `24` frames `>16.7ms`, `0` frames `>33.3ms`
+    - pan: `71` frames, `17.11ms` avg, `49.7ms` max, `20` frames `>16.7ms`, `1` frame `>33.3ms`
+    - zoom: `35` frames, `16.71ms` avg, `18.6ms` max, `13` frames `>16.7ms`, `0` frames `>33.3ms`
+    - resize: `35` frames, `19.05ms` avg, `65.1ms` max, `17` frames `>16.7ms`, `2` frames `>33.3ms`
+  - worktree
+    - idle: `71` frames, `16.66ms` avg, `18.6ms` max, `23` frames `>16.7ms`, `0` frames `>33.3ms`
+    - pan: `71` frames, `17.35ms` avg, `66.7ms` max, `29` frames `>16.7ms`, `1` frame `>33.3ms`
+    - zoom: `35` frames, `16.60ms` avg, `17.8ms` max, `12` frames `>16.7ms`, `0` frames `>33.3ms`
+    - resize: `35` frames, `19.00ms` avg, `68.6ms` max, `13` frames `>16.7ms`, `2` frames `>33.3ms`
+- Trace artifacts:
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-idle.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-pan.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-zoom.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase2-resize.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-idle.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-pan.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-zoom.trace.json`
+  - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase2-rerun-resize.trace.json`
+- DevTools insight read:
+  - untouched `main` resize rerun exposed only a tiny CLS cluster (`0.0013`) and no forced-reflow insight
+  - worktree resize rerun still exposed `ForcedReflow` with `37ms` total reflow time, led by:
+    - `eq` in `chunk-MB4RGFJ3.js`
+    - `getHandleCenter` in `src/state/actions/edgeHandles.ts`
+    - `ProjectChatBottomDock.tsx`
+- CDP visual verification:
+  - element screenshots for the callable section remained visually aligned between untouched `main` and the worktree after the closeout rerun
+- Interpretation:
+  - the structural result is real:
+    - the callable subtree is materially flatter on this branch than on untouched `main`
+    - the Phase 2 row/tree shell duplication work should be considered complete
+  - the interaction result is not yet decisive:
+    - idle and zoom are effectively flat
+    - pan is not meaningfully better
+    - resize is only marginally different in this same-method rerun
+  - conclusion:
+    - DOM flattening was still worth doing because it simplified the callable row/tree surface and measurably reduced DOM complexity
+    - DOM flattening alone is not enough to claim the callable performance problem is solved
+    - the next meaningful work belongs in Phase 3 and later Phase 4, where the store/subscription and measurement hot paths can be reduced directly
