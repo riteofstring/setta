@@ -3850,3 +3850,29 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sections/moveSectionState.ts` so move
     planning and local section-tree updates stop living beside backend
     persistence orchestration.
+
+## 2026-03-15 10:12:53 PDT
+
+- Slice completed: split section move parent cleanup from pane state updates
+- Key files touched:
+  - `frontend/src/state/actions/sections/moveSectionState.ts`
+  - `frontend/src/state/actions/sections/moveSectionParentState.ts`
+  - `frontend/src/state/actions/sections/moveSectionPaneState.ts`
+  - `frontend/src/state/actions/sections/moveSectionState.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/moveSectionState.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/moveSectionQueries.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sections/moveSectionState.ts src/state/actions/sections/moveSectionParentState.ts src/state/actions/sections/moveSectionPaneState.ts src/state/actions/sections/moveSectionState.test.ts src/state/actions/sections/moveSections.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/moveSectionQueries.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `b380696b527d0a5d9f92d81436a4be69f9bb31b8`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiHydrationApply.ts` so snapshot apply
+    reducers stop living beside hydration route handling and shared side-effect
+    orchestration.
