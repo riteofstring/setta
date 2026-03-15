@@ -159,3 +159,8 @@ categorize them.
   narrow packaged-CLI slice is still clearly cheaper than the broader live
   backlogs, the MCP bridge bootstrap-URL / verbose-logging rows are the next
   obvious candidates
+- Those MCP bridge bootstrap-URL, outside-workspace auth fallback, and
+  verbose-logging rows are now proved too; the remaining packaged-CLI backlog
+  is less about tiny helper proofs and more about the broader remote
+  connect/stop forwarding surface plus the still-missing stricter bootstrap
+  cookie-selection contract
