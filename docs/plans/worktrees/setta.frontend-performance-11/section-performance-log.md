@@ -4048,3 +4048,46 @@ Append-only log for the section performance refactor.
   - If the work continues, reopen `getPastHalfway()` first instead of the wider collision stack.
   - Only revisit `resolveOverCollisionId()` first if a fresh read shows the final top-row collision itself is wrong.
   - If the work stops here, document the remaining `~1.2px` row-height gap as blocked at this more specific lower seam.
+
+### 2026-03-18 109
+
+- Item: Narrow the `getPastHalfway()` seam to the fixed same-row hysteresis threshold.
+- Status: `needs_more_work`
+- Details:
+  - Re-read:
+    - `frontend/src/forks/dnd-kit/adapter/collision.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - the existing drag-lifecycle / residual-gap reports
+  - Conclusion:
+    - the strongest next checkpoint-1 sub-seam is now:
+      - the fixed same-row `±10px` hysteresis buffer inside `frontend/src/forks/dnd-kit/adapter/collision.ts:getPastHalfway()`
+  - Threshold read for the existing upward reorder representative:
+    - the final leg drags `k` upward before `h`
+    - on that vertical negative-direction path, `getPastHalfway()` uses:
+      - `referenceAxisValue = activeRect.top`
+      - plus `buffer = 10` when the collision repeats on the same row with previous `pastHalfway === true`
+    - so the live same-row test becomes:
+      - `activeRect.top + 10 > midpoint`
+  - Inference from the current formula plus the recorded row heights:
+    - failing residual-gap row height: `20px`
+      - midpoint: `rowTop + 10`
+      - `pastHalfway` cannot flip false until:
+        - `activeTop <= rowTop`
+    - clean control row height: `21px`
+      - midpoint: `rowTop + 10.5`
+      - `pastHalfway` cannot flip false until:
+        - `activeTop <= rowTop + 0.5`
+  - Interpretation:
+    - the fixed `+10px` same-row buffer is large enough relative to these compact param rows to consume almost the entire half-height budget
+    - that makes the final top-row `pastHalfway: false` flip highly sensitive to:
+      - one pixel of row-height change
+      - tiny drag endpoint differences
+      - subpixel rect rounding
+    - this is a stronger next explanation than generic “check getPastHalfway” wording, and it keeps `computeNewIndex()` / `resolveOverCollisionId()` downstream on current evidence
+  - Recorded the threshold narrowing in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-fixed-hysteresis-threshold.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - If the work continues, treat the fixed same-row hysteresis threshold as the first local-only experiment inside `getPastHalfway()`.
+  - Only widen back out to broader pointer-direction or collision-ranking changes if a fresh rerun disproves this threshold explanation.
+  - If the work stops here, document the remaining `~1.2px` row-height gap as blocked at this threshold-level seam.
