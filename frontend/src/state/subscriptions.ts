@@ -23,7 +23,7 @@ import {
 } from "./actions/sectionDisplayQueries";
 import { getCurrEffectiveSectionImpl } from "./actions/sectionEffectiveImpls";
 import { getActiveViewModeTopLevelSections } from "./actions/topLevelSectionLayouts";
-import { decodeExistingRawImages } from "./hooks/artifacts";
+import { decodeExistingRawImages } from "./hooks/artifactTransport";
 
 export function subscribe() {
   useProjectState.subscribe(

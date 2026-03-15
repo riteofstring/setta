@@ -227,6 +227,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   queueing, debounced/forced sync transport, and save-conflict notifications;
   `frontend/src/state/actions/artifacts.ts` is now the thin compatibility
   facade over those owners.
+- `frontend/src/state/hooks/artifactTransport.ts` now owns cached
+  image/chart/brush/transform load transport plus raw-image decode that
+  previously lived in `frontend/src/state/hooks/artifacts.ts`, while
+  `frontend/src/state/hooks/drawAreaArtifacts.ts` now owns draw-area artifact
+  ref selection, load planning, and revision-stamp hooks; `frontend/src/state/hooks/artifacts.ts`
+  is now the thin compatibility facade over those hook owners.
 - `frontend/src/state/actions/sections/moveSectionQueries.ts` now owns
   attached-terminal route selection, section-type move checks, and
   parent-resolution reads that previously lived in
@@ -295,11 +301,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/hooks/artifacts.ts` at 446 lines
   - `frontend/src/state/hooks/terminals/terminalSessions.ts` at 353 lines
   - `frontend/src/state/hooks/sectionMinMaxDims.ts` at 316 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
+  - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines

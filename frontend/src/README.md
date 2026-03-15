@@ -383,6 +383,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     debounced flush transport, and conflict/skipped save notifications.
   - `state/actions/artifacts.ts` is now a thin compatibility facade over the
     narrower artifact update and sync owners.
+  - `state/hooks/artifactTransport.ts` owns cached image/chart/brush/transform
+    load transport plus raw-image decode.
+  - `state/hooks/drawAreaArtifacts.ts` owns draw-area artifact ref selection,
+    load planning, and revision-stamp hooks.
+  - `state/hooks/artifacts.ts` is now a thin compatibility facade over those
+    narrowed artifact hook owners.
   - `state/actions/websocketIncomingMessages.ts` owns frontend websocket
     payload parsing and feature-specific dispatch.
   - `state/actions/websocketIncomingProjectSnapshots.ts` owns project/app

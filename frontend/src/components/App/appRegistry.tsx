@@ -28,7 +28,7 @@ import {
   sendRealtimeSectionParamLiteral,
 } from "state/actions/websocketRealtime";
 import { useDecodedImages, useImages } from "state/definitions";
-import { decodeExistingRawImages } from "state/hooks/artifacts";
+import { decodeExistingRawImages } from "state/hooks/artifactTransport";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { useAppConfigs } from "state/stores/appStores";
 import { useServerMode } from "state/stores/sessionStores";
