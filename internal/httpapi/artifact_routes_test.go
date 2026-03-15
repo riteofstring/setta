@@ -381,6 +381,53 @@ func TestRegisterArtifactRoutesMapUploadPolicyErrors(t *testing.T) {
 	}
 }
 
+func TestRegisterArtifactRoutesMapImportFilePathErrors(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, _ := newArtifactRouteService(t)
+	handler := newArtifactRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	missingPath := filepath.Join(workspaceRoot, "missing.txt")
+	missingRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["`+missingPath+`"],"uploadScope":"generic"}`))
+	missingRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, missingRequest, authService)
+
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for missing import path, got %d with body %q", missingResponse.Code, missingResponse.Body.String())
+	}
+	var missingPayload errorResponse
+	if err := json.Unmarshal(missingResponse.Body.Bytes(), &missingPayload); err != nil {
+		t.Fatalf("decode missing import error payload: %v", err)
+	}
+	if missingPayload.Error.Code != "artifact_path_not_found" {
+		t.Fatalf("expected artifact_path_not_found, got %#v", missingPayload)
+	}
+
+	directoryPath := filepath.Join(workspaceRoot, "folder")
+	if err := os.MkdirAll(directoryPath, 0o755); err != nil {
+		t.Fatalf("mkdir import directory fixture: %v", err)
+	}
+	directoryRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["`+directoryPath+`"],"uploadScope":"generic"}`))
+	directoryRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, directoryRequest, authService)
+
+	directoryResponse := httptest.NewRecorder()
+	handler.ServeHTTP(directoryResponse, directoryRequest)
+	if directoryResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for directory import path, got %d with body %q", directoryResponse.Code, directoryResponse.Body.String())
+	}
+	var directoryPayload errorResponse
+	if err := json.Unmarshal(directoryResponse.Body.Bytes(), &directoryPayload); err != nil {
+		t.Fatalf("decode directory import error payload: %v", err)
+	}
+	if directoryPayload.Error.Code != "artifact_path_not_file" {
+		t.Fatalf("expected artifact_path_not_file, got %#v", directoryPayload)
+	}
+}
+
 func newArtifactRouteService(t *testing.T) (*artifacts.Service, string, string, *binarypayload.Store) {
 	t.Helper()
 
