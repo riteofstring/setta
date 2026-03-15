@@ -119,6 +119,14 @@ func (s *DiscoveryService) rescanWithStates(
 			group[index].RestartRequired = false
 		}
 		resolvePrimaryPluginState(primary, pluginsState, globalState, s.serverMode)
+		if err := s.populateBackendRegistrations(primary); err != nil {
+			primary.Errors = append(primary.Errors, PluginErrorInfo{
+				Code:    string(ServiceErrorCodeBackendRuntimeInvalid),
+				Message: err.Error(),
+			})
+			primary.State = PluginRuntimeStateInvalid
+			primary.RestartRequired = false
+		}
 		resolvedEntries = append(resolvedEntries, group...)
 	}
 
@@ -349,6 +357,35 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 
 	entry.State = PluginRuntimeStateActive
 	entry.RestartRequired = false
+}
+
+func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin) error {
+	if entry == nil {
+		return nil
+	}
+	entry.RegisteredBackendRoutes = []PluginRegisteredBackendRoute{}
+	entry.RegisteredStaticDirs = []PluginRegisteredStaticDir{}
+	entry.RegisteredListenerEndpoints = []PluginRegisteredListenerEndpoint{}
+
+	if entry.Manifest == nil || !entry.HasBackend() || len(entry.Errors) != 0 {
+		return nil
+	}
+	if !backendProbeRequired(entry.RequestedCapabilities) {
+		return nil
+	}
+
+	probe, err := probeGoBackendRegistrations(
+		entry.SourcePath,
+		*entry.Manifest,
+		filepath.Join(s.store.settaFilesRoot, backendProbeBuildRootName),
+	)
+	if err != nil {
+		return err
+	}
+	entry.RegisteredBackendRoutes = probe.Routes
+	entry.RegisteredStaticDirs = probe.StaticDirs
+	entry.RegisteredListenerEndpoints = probe.ListenerEndpoints
+	return nil
 }
 
 func resolveFilesystemPluginEnabledWithSource(

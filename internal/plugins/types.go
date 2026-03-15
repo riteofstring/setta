@@ -87,6 +87,20 @@ type PluginRegisteredCodegenTarget struct {
 	DefaultFileName string `json:"defaultFileName"`
 }
 
+type PluginRegisteredBackendRoute struct {
+	Path    string   `json:"path"`
+	Methods []string `json:"methods"`
+}
+
+type PluginRegisteredStaticDir struct {
+	RoutePrefix string `json:"routePrefix"`
+	Dir         string `json:"dir"`
+}
+
+type PluginRegisteredListenerEndpoint struct {
+	Name string `json:"name"`
+}
+
 type PluginBackendManifest struct {
 	Entrypoint string `json:"entrypoint"`
 }
@@ -150,24 +164,27 @@ type PluginInstallMetadataFile struct {
 }
 
 type DiscoveredPlugin struct {
-	PluginID              string
-	Name                  string
-	Version               string
-	Scope                 PluginScope
-	SourcePath            string
-	Manifest              *PluginManifest
-	CanonicalSourceKey    string
-	SourceDigestSHA256    *string
-	SourceManager         PluginSourceManager
-	SourceManagerHint     string
-	Errors                []PluginErrorInfo
-	State                 PluginRuntimeState
-	ShadowedBySourcePath  string
-	RequestedCapabilities []string
-	EffectiveCapabilities []string
-	BlockedCapabilities   []PluginBlockedCapability
-	EnablementSource      *PluginEnablementSource
-	RestartRequired       bool
+	PluginID                    string
+	Name                        string
+	Version                     string
+	Scope                       PluginScope
+	SourcePath                  string
+	Manifest                    *PluginManifest
+	CanonicalSourceKey          string
+	SourceDigestSHA256          *string
+	SourceManager               PluginSourceManager
+	SourceManagerHint           string
+	Errors                      []PluginErrorInfo
+	State                       PluginRuntimeState
+	ShadowedBySourcePath        string
+	RequestedCapabilities       []string
+	EffectiveCapabilities       []string
+	BlockedCapabilities         []PluginBlockedCapability
+	EnablementSource            *PluginEnablementSource
+	RestartRequired             bool
+	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
+	RegisteredStaticDirs        []PluginRegisteredStaticDir
+	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint
 }
 
 func (p DiscoveredPlugin) HasBackend() bool {

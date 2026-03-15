@@ -34,7 +34,14 @@ func ValidateGoBackendBuild(pluginRoot string, manifest PluginManifest) error {
 	defer os.RemoveAll(buildRoot)
 
 	outputPath := filepath.Join(buildRoot, backendExecutableFileName)
-	return buildGoBackendBinary(entrypointPath, outputPath, manifest.ID)
+	if err := buildGoBackendBinary(entrypointPath, outputPath, manifest.ID); err != nil {
+		return err
+	}
+	if !backendProbeRequired(manifest.Capabilities) {
+		return nil
+	}
+	_, err = probeGoBackendExecutable(pluginRoot, manifest, outputPath)
+	return err
 }
 
 func BuildGoBackendExecutable(pluginRoot string, manifest PluginManifest, outputRoot string) (string, error) {

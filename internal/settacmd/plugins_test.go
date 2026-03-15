@@ -975,7 +975,7 @@ func writeBackendPluginFixture(t *testing.T, root string, pluginID string, name 
 	}
 	writePluginFixture(t, root, manifest, map[string]string{
 		"backend/go.mod":  "module example.com/" + pluginID + "/backend\n\ngo 1.26.0\n",
-		"backend/main.go": "package main\n\nfunc main() {}\n",
+		"backend/main.go": "package main\n\nimport (\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"os\"\n)\n\nconst backendProbeArg = \"--setta-plugin-backend-probe\"\n\nfunc main() {\n\tif len(os.Args) == 2 && os.Args[1] == backendProbeArg {\n\t\tpayload := map[string]any{\n\t\t\t\"schemaVersion\": 1,\n\t\t\t\"routes\": []map[string]any{},\n\t\t\t\"staticDirs\": []map[string]any{},\n\t\t\t\"listenerEndpoints\": []map[string]any{},\n\t\t}\n\t\tif err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {\n\t\t\t_, _ = fmt.Fprintf(os.Stderr, \"encode backend probe: %v\\n\", err)\n\t\t\tos.Exit(1)\n\t\t}\n\t\treturn\n\t}\n}\n",
 	})
 }
 

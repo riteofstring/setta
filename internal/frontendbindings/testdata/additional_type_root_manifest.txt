@@ -155,7 +155,10 @@ PluginEnablementSource
 PluginErrorInfo
 PluginFrontendDescriptor
 PluginInstallerBackend
+PluginRegisteredBackendRoute
 PluginRegisteredCodegenTarget
+PluginRegisteredListenerEndpoint
+PluginRegisteredStaticDir
 PluginRestartCapability
 PluginRestartCapabilityMode
 PluginRuntimeState

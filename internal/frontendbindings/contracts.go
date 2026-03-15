@@ -754,6 +754,20 @@ type PluginRegisteredCodegenTarget struct {
 	DefaultFileName string `json:"defaultFileName"`
 }
 
+type PluginRegisteredBackendRoute struct {
+	Path    string   `json:"path"`
+	Methods []string `json:"methods"`
+}
+
+type PluginRegisteredStaticDir struct {
+	RoutePrefix string `json:"routePrefix"`
+	Dir         string `json:"dir"`
+}
+
+type PluginRegisteredListenerEndpoint struct {
+	Name string `json:"name"`
+}
+
 type PluginRestartCapability struct {
 	Mode    PluginRestartCapabilityMode `json:"mode"`
 	Command *string                     `json:"command"`
@@ -787,27 +801,30 @@ type PluginListResponse struct {
 }
 
 type PluginStatusEntry struct {
-	PluginID                   string                          `json:"pluginId"`
-	Name                       string                          `json:"name"`
-	Version                    string                          `json:"version"`
-	State                      PluginRuntimeState              `json:"state"`
-	SourceScope                PluginScope                     `json:"sourceScope"`
-	SourceScopeLabel           string                          `json:"sourceScopeLabel"`
-	SourceManager              PluginSourceManager             `json:"sourceManager"`
-	SourceManagerHint          *string                         `json:"sourceManagerHint"`
-	SourcePath                 string                          `json:"sourcePath"`
-	CanonicalSourceKey         string                          `json:"canonicalSourceKey"`
-	SourceDigestSHA256         *string                         `json:"sourceDigestSha256"`
-	ShadowedBySourcePath       *string                         `json:"shadowedBySourcePath"`
-	RequestedCapabilities      []string                        `json:"requestedCapabilities"`
-	EffectiveCapabilities      []string                        `json:"effectiveCapabilities"`
-	BlockedCapabilities        []PluginBlockedCapability       `json:"blockedCapabilities"`
-	Components                 []string                        `json:"components"`
-	RegisteredCodegenTargets   []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
-	EnablementSource           *PluginEnablementSource         `json:"enablementSource"`
-	RestartRequired            bool                            `json:"restartRequired"`
-	RuntimePayloadDigestSHA256 string                          `json:"runtimePayloadDigestSha256"`
-	Errors                     []PluginErrorInfo               `json:"errors"`
+	PluginID                    string                             `json:"pluginId"`
+	Name                        string                             `json:"name"`
+	Version                     string                             `json:"version"`
+	State                       PluginRuntimeState                 `json:"state"`
+	SourceScope                 PluginScope                        `json:"sourceScope"`
+	SourceScopeLabel            string                             `json:"sourceScopeLabel"`
+	SourceManager               PluginSourceManager                `json:"sourceManager"`
+	SourceManagerHint           *string                            `json:"sourceManagerHint"`
+	SourcePath                  string                             `json:"sourcePath"`
+	CanonicalSourceKey          string                             `json:"canonicalSourceKey"`
+	SourceDigestSHA256          *string                            `json:"sourceDigestSha256"`
+	ShadowedBySourcePath        *string                            `json:"shadowedBySourcePath"`
+	RequestedCapabilities       []string                           `json:"requestedCapabilities"`
+	EffectiveCapabilities       []string                           `json:"effectiveCapabilities"`
+	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
+	Components                  []string                           `json:"components"`
+	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
+	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
+	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
+	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
+	EnablementSource            *PluginEnablementSource            `json:"enablementSource"`
+	RestartRequired             bool                               `json:"restartRequired"`
+	RuntimePayloadDigestSHA256  string                             `json:"runtimePayloadDigestSha256"`
+	Errors                      []PluginErrorInfo                  `json:"errors"`
 }
 
 type PluginStatusResponse struct {

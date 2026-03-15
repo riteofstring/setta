@@ -751,4 +751,25 @@ func buildInitTemplateBackendGoMod(pluginID string) string {
 		"go 1.26.0\n"
 }
 
-const initTemplateBackendMainGo = "package main\n\nfunc main() {}\n"
+const initTemplateBackendMainGo = "package main\n\n" +
+	"import (\n" +
+	"  \"encoding/json\"\n" +
+	"  \"fmt\"\n" +
+	"  \"os\"\n" +
+	")\n\n" +
+	"const backendProbeArg = \"--setta-plugin-backend-probe\"\n\n" +
+	"func main() {\n" +
+	"  if len(os.Args) == 2 && os.Args[1] == backendProbeArg {\n" +
+	"    payload := map[string]any{\n" +
+	"      \"schemaVersion\": 1,\n" +
+	"      \"routes\": []map[string]any{},\n" +
+	"      \"staticDirs\": []map[string]any{},\n" +
+	"      \"listenerEndpoints\": []map[string]any{},\n" +
+	"    }\n" +
+	"    if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {\n" +
+	"      _, _ = fmt.Fprintf(os.Stderr, \"encode backend probe: %v\\n\", err)\n" +
+	"      os.Exit(1)\n" +
+	"    }\n" +
+	"    return\n" +
+	"  }\n" +
+	"}\n"

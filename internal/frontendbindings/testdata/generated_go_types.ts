@@ -892,6 +892,32 @@ export function createPluginRegisteredCodegenTarget(options: Partial<PluginRegis
 }
 
 
+export type PluginRegisteredBackendRoute = {
+  path: string;
+  methods: Array<string>;
+};
+export function createPluginRegisteredBackendRoute(options: Partial<PluginRegisteredBackendRoute> = {}): PluginRegisteredBackendRoute {
+  return options as PluginRegisteredBackendRoute;
+}
+
+
+export type PluginRegisteredStaticDir = {
+  routePrefix: string;
+  dir: string;
+};
+export function createPluginRegisteredStaticDir(options: Partial<PluginRegisteredStaticDir> = {}): PluginRegisteredStaticDir {
+  return options as PluginRegisteredStaticDir;
+}
+
+
+export type PluginRegisteredListenerEndpoint = {
+  name: string;
+};
+export function createPluginRegisteredListenerEndpoint(options: Partial<PluginRegisteredListenerEndpoint> = {}): PluginRegisteredListenerEndpoint {
+  return options as PluginRegisteredListenerEndpoint;
+}
+
+
 export const DependencyKeyTypeEnum = {
   Section: "Section",
   SectionParam: "SectionParam",
@@ -9784,6 +9810,9 @@ export type PluginStatusEntry = {
   effectiveCapabilities: Array<string>;
   blockedCapabilities: Array<PluginBlockedCapability>;
   registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
+  registeredBackendRoutes: Array<PluginRegisteredBackendRoute>;
+  registeredStaticDirs: Array<PluginRegisteredStaticDir>;
+  registeredListenerEndpoints: Array<PluginRegisteredListenerEndpoint>;
   enablementSource: PluginEnablementSource | null;
   restartRequired: boolean;
   runtimePayloadDigestSha256: string;

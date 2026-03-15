@@ -251,6 +251,97 @@ func TestServiceRuntimeEnablesBackendMCPToolsWhileBlockingOtherBackendCapabiliti
 	}
 }
 
+func TestServiceRuntimeReportsBackendRegistrationsFromProbe(t *testing.T) {
+	// IDE runtime status should expose probed backend routes, static mounts, and listener endpoints.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{
+			"registerRouter",
+			"registerStaticDir",
+			"registerListenerEndpoint",
+		}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active backend fixture, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.RegisteredBackendRoutes) != 2 {
+		t.Fatalf("expected two backend routes, got %#v", statusEntry.RegisteredBackendRoutes)
+	}
+	if got := statusEntry.RegisteredBackendRoutes[0]; got.Path != "/health" || len(got.Methods) != 1 || got.Methods[0] != "GET" {
+		t.Fatalf("unexpected first backend route %#v", got)
+	}
+	if got := statusEntry.RegisteredBackendRoutes[1]; got.Path != "/items" || len(got.Methods) != 2 || got.Methods[0] != "DELETE" || got.Methods[1] != "POST" {
+		t.Fatalf("unexpected second backend route %#v", got)
+	}
+	if len(statusEntry.RegisteredStaticDirs) != 1 {
+		t.Fatalf("expected one static dir, got %#v", statusEntry.RegisteredStaticDirs)
+	}
+	if got := statusEntry.RegisteredStaticDirs[0]; got.RoutePrefix != "/static" || got.Dir != "backend/static" {
+		t.Fatalf("unexpected static dir registration %#v", got)
+	}
+	if len(statusEntry.RegisteredListenerEndpoints) != 1 {
+		t.Fatalf("expected one listener endpoint, got %#v", statusEntry.RegisteredListenerEndpoints)
+	}
+	if got := statusEntry.RegisteredListenerEndpoints[0].Name; got != "route_backend_fixture_ping" {
+		t.Fatalf("unexpected listener endpoint %q", got)
+	}
+}
+
+func TestServiceRuntimeMarksBackendPluginInvalidWhenProbeFailsForRequestedRegistrations(t *testing.T) {
+	// Backend plugins that request route/static/listener registrations must implement the probe contract.
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte("package main\n\nfunc main() {}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend fixture without probe support: %v", err)
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 {
+		t.Fatalf("expected no active list plugins, got %#v", runtimeResponse.List.Plugins)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid status entry, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.Errors) != 1 {
+		t.Fatalf("expected one backend probe error, got %#v", statusEntry.Errors)
+	}
+	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
+	}
+}
+
 func TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles(t *testing.T) {
 	// Asset resolution should allow declared frontend files only.
 	roots := newFilesystemResolverTestRoots(t)

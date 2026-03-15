@@ -127,6 +127,9 @@ func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *
 		"blockedCapabilities",
 		"components",
 		"registeredCodegenTargets",
+		"registeredBackendRoutes",
+		"registeredStaticDirs",
+		"registeredListenerEndpoints",
 		"errors",
 	} {
 		if _, ok := statusEntry[field].([]any); !ok {

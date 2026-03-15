@@ -201,6 +201,27 @@ func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	}
 }
 
+// Validate should fail fast when route/static/listener-capable backends do not implement the probe contract.
+func TestServiceValidateFolderRejectsMissingBackendProbeForRegisteredRoutes(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-backend-route-probe-missing", "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerRouter"}
+	})
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte("package main\n\nfunc main() {}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend scaffold without probe support: %v", err)
+	}
+
+	_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeBackendRuntimeInvalid)
+}
+
 // Validate should require backend plugins to be real Go commands, not just manifest-valid file paths.
 func TestServiceValidateFolderRejectsInvalidGoBackendAuthoring(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

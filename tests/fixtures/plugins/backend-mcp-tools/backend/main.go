@@ -5,13 +5,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const pluginID = "setta-fixture-backend-mcp-tools"
+const backendProbeArg = "--setta-plugin-backend-probe"
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == backendProbeArg {
+		payload := map[string]any{
+			"schemaVersion":     1,
+			"routes":            []map[string]any{},
+			"staticDirs":        []map[string]any{},
+			"listenerEndpoints": []map[string]any{},
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+			log.Fatalf("encode backend probe: %v", err)
+		}
+		return
+	}
+
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    pluginID,
 		Version: "0.1.0",

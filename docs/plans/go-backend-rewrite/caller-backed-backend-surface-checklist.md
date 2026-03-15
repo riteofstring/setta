@@ -1,6 +1,6 @@
 # Caller-Backed Backend Surface Checklist
 
-Snapshot date: 2026-03-14.
+Snapshot date: 2026-03-15.
 
 Primary agent entrypoint: `docs/plans/go-backend-rewrite/CURRENT.md`.
 
@@ -185,7 +185,7 @@ until a Go-native backend plugin equivalent lands.
 | Complete | Plugin config writes                                     | Go owns `POST /plugins/config`, and the current `PluginsPane` save flow immediately refreshes `GET /plugins/runtime` after a successful write.                                                                          |
 | Complete | Plugin restart transport                                 | Go owns `POST /plugins/restart`, and the active `PluginsPane` path proves accepted restart plus runtime rehydration against the real IDE runtime.                                                                       |
 | Complete | Plugin lifecycle mutations                               | Go owns rescan, install, link, uninstall, update, rollback, enable, disable, lock-write, and lock-apply.                                                                                                                |
-| Missing  | Backend registration visibility in plugin runtime/status | The runtime/status surface once again exposes backend/frontend/content component presence, but full plugin parity still requires Go-native backend registration visibility beyond that basic component metadata.          |
+| Complete | Backend registration visibility in plugin runtime/status | Go now validates Go-backed backend plugin executables with an explicit backend probe contract and exposes `registeredBackendRoutes`, `registeredStaticDirs`, and `registeredListenerEndpoints` on the active `GET /plugins/runtime` runtime/status surface. |
 | Missing  | Plugin backend route dispatch and static-dir serving     | Full plugin parity still requires Go-native backend route dispatch and static asset serving for backend plugins. The previous Python-backed route/static-dir path was removed before a Go-native replacement landed.    |
 | Complete | Plugin-defined backend MCP tools                         | Go now accepts `registerMcpTools`, builds Go-backed plugin backend executables, launches them as stdio MCP servers, registers their tools into the authenticated Go MCP server, and proves invocation plus install/uninstall refresh in Go tests. |
 | Missing  | Plugin listener-endpoint and project-state runtime hooks | Full plugin parity still requires whatever Go-native listener-endpoint and backend runtime/project-state hooks are needed to match the previous backend plugin behavior.                                                  |
