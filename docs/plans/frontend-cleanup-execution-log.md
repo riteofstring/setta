@@ -3052,3 +3052,35 @@ module map and placement guide while this cleanup progresses.
     authored/shared state hotspot at 446 lines, by separating cached artifact
     load/decode transport from draw-area artifact reference selection and
     revision-stamp hooks.
+
+## 2026-03-15 06:31:55 PDT
+
+- Slice completed: split artifact hook transport from draw-area artifact hooks
+- Key files touched:
+  - `frontend/src/state/hooks/artifactTransport.ts`
+  - `frontend/src/state/hooks/drawAreaArtifacts.ts`
+  - `frontend/src/state/hooks/artifacts.ts`
+  - `frontend/src/state/hooks/artifactTransport.test.ts`
+  - `frontend/src/state/hooks/drawAreaArtifacts.test.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+  - `frontend/src/components/Section/Layouts/ImageArea.tsx`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/hooks/artifactTransport.test.ts src/state/hooks/drawAreaArtifacts.test.tsx src/components/App/AppRenderer.policy.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/hooks/artifacts.ts src/state/hooks/artifactTransport.ts src/state/hooks/drawAreaArtifacts.ts src/state/hooks/artifactTransport.test.ts src/state/hooks/drawAreaArtifacts.test.tsx src/components/App/appRegistry.tsx src/components/Section/Layouts/ChartArea/ChartArea.tsx src/components/Section/Layouts/DrawArea/DrawArea.tsx src/components/Section/Layouts/ImageArea.tsx src/state/subscriptions.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/hook ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `e0eff6bb5`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/hooks/terminals/terminalSessions.ts`, now the
+    largest authored/shared state hotspot at 353 lines, by separating
+    websocket transport/session bootstrap from terminal lookup, buffering, and
+    lifecycle bookkeeping helpers.
