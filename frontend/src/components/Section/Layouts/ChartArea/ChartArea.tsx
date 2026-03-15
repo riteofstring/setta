@@ -31,7 +31,7 @@ function _ChartArea({ sectionId }: { sectionId: string }) {
 
   return (
     <figure
-      className={`section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
+      className={`section-w-full section-row-main relative flex h-auto min-h-0 w-full min-w-0 max-w-full items-center justify-center overflow-clip py-2.5 ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
       // {...getRootProps()}
     >
       <ChartAreaCore sectionId={sectionId} />
@@ -104,7 +104,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     chart.update();
   }, [data, size, datasetHidden, darkMode, chartSettings]);
 
-  return <canvas ref={canvasRef} />;
+  return <canvas ref={canvasRef} className="block max-w-full" />;
 }
 
 const ChartAreaCore = React.memo(_ChartAreaCore);
