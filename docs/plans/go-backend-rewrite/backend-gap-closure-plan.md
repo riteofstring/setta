@@ -207,3 +207,7 @@ categorize them.
   folder false-positive guard are now proved too; the remaining watchcode
   backlog is the real resolved-root exclusion work rather than the generic
   hard-coded basename behavior
+- The websocket launcher-mode guard row is now proved too; the remaining
+  websocket backlog should focus on still-unproved listener policy branches
+  and other route-specific deployment/runtime behavior rather than the shared
+  non-launcher gate
