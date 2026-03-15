@@ -1228,27 +1228,6 @@ class SettaListener:
                 self._expected_ack_callback_ids = previous_expected_ids
                 raise
 
-    def _build_register_content(self) -> ListenerRegisterContent:
-        """Serialize callback metadata into a register payload."""
-        runtime_state = self._runtime_state
-        if runtime_state is None:
-            raise RuntimeError(
-                "Listener runtime state unavailable during registration payload build"
-            )
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-        callbacks: dict[str, ListenerRegisterCallback] = {}
-        for spec in self._callbacks.values():
-            callbacks[spec.callback_id] = ListenerRegisterCallback(
-                dependencies=list(spec.structured_dependencies),
-                dependencyMode=spec.dependency_mode,
-                debounceMs=spec.debounce_ms,
-                throttleMs=spec.throttle_ms,
-                runOnRefresh=spec.run_on_refresh,
-            )
-        return ListenerRegisterContent(
-            projectConfigId=self._require_project_id(), callbacks=callbacks
-        )
-
     def _refresh_callback_dependency_metadata(
         self, dependency_metadata: ListenerDependencyMetadata
     ) -> None:
@@ -1318,13 +1297,26 @@ class SettaListener:
 
     async def _send_listener_register(self) -> None:
         """Send the full callback registration after bootstrap completes."""
-        if self._runtime_state is None:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
             logger.debug(
                 "Listener %s skipping register because runtime state is unavailable",
                 self._log_identifier,
             )
             return
-        content = self._build_register_content()
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+        callbacks: dict[str, ListenerRegisterCallback] = {}
+        for spec in self._callbacks.values():
+            callbacks[spec.callback_id] = ListenerRegisterCallback(
+                dependencies=list(spec.structured_dependencies),
+                dependencyMode=spec.dependency_mode,
+                debounceMs=spec.debounce_ms,
+                throttleMs=spec.throttle_ms,
+                runOnRefresh=spec.run_on_refresh,
+            )
+        content = ListenerRegisterContent(
+            projectConfigId=self._require_project_id(), callbacks=callbacks
+        )
         message = WebsocketMsgListenerRegister(content=content)
         payload = message.model_dump_json()
         logger.debug(

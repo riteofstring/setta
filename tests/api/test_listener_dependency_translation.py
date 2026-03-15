@@ -6,11 +6,15 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.types.generated.websocket_unions import (
+    PythonScriptWebsocketMsgTypeAdapter,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
+from setta.types.websocket import WebsocketMsgListenerRegister
 
 
 def _build_project_state_with_duplicate_names():
@@ -131,8 +135,10 @@ class TestSettaListenerDependencyTranslation:
         )
         return listener
 
-    def test_sanitized_name_round_trip_maps_back_to_dep_key(self) -> None:
+    @pytest.mark.asyncio
+    async def test_sanitized_name_round_trip_maps_back_to_dep_key(self) -> None:
         listener = self._create_listener()
+        sent_payloads: list[str] = []
         sanitized_child = "Settings_Group__Data_Source"
         original_dep_key = self.dependency_graph.full_path_name_to_dep_key[
             sanitized_child
@@ -142,8 +148,21 @@ class TestSettaListenerDependencyTranslation:
         def _callback(_state, _ctx):
             return None
 
-        register_content = listener._build_register_content()
-        callback_payload = next(iter(register_content.callbacks.values()))
+        async def capture(payload: str) -> None:
+            sent_payloads.append(payload)
+
+        listener._send_websocket_payload = capture
+
+        # String deps should still resolve through the real register message,
+        # not just through a helper-local serialization path.
+        await listener._send_listener_register()
+
+        assert len(sent_payloads) == 1
+        register_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            sent_payloads[0]
+        )
+        assert isinstance(register_message, WebsocketMsgListenerRegister)
+        callback_payload = next(iter(register_message.content.callbacks.values()))
         dependency = callback_payload.dependencies[0]
 
         assert dependency == original_dep_key
@@ -154,8 +173,12 @@ class TestSettaListenerDependencyTranslation:
         spec = next(iter(listener._callbacks.values()))
         assert spec.structured_dependencies[0] == dependency
 
-    def test_duplicate_sanitized_names_translate_to_distinct_dependencies(self) -> None:
+    @pytest.mark.asyncio
+    async def test_duplicate_sanitized_names_translate_to_distinct_dependencies(
+        self,
+    ) -> None:
         listener = self._create_listener()
+        sent_payloads: list[str] = []
         sanitized_names = sorted(
             name
             for name in self.dependency_graph.full_path_name_to_dep_key
@@ -170,8 +193,18 @@ class TestSettaListenerDependencyTranslation:
         def _callback(_state, _ctx):
             return None
 
-        register_content = listener._build_register_content()
-        callback_payload = next(iter(register_content.callbacks.values()))
+        async def capture(payload: str) -> None:
+            sent_payloads.append(payload)
+
+        listener._send_websocket_payload = capture
+        await listener._send_listener_register()
+
+        assert len(sent_payloads) == 1
+        register_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            sent_payloads[0]
+        )
+        assert isinstance(register_message, WebsocketMsgListenerRegister)
+        callback_payload = next(iter(register_message.content.callbacks.values()))
         dependencies = callback_payload.dependencies
 
         assert len(dependencies) == 2

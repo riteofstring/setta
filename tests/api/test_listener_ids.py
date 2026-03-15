@@ -20,6 +20,9 @@ from setta.types.dependency_key import (
     SectionParamDependencyKey,
     create_dep_key,
 )
+from setta.types.generated.websocket_unions import (
+    PythonScriptWebsocketMsgTypeAdapter,
+)
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
@@ -30,6 +33,7 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DictSectionImpl
+from setta.types.websocket import WebsocketMsgListenerRegister
 
 
 def build_project_state(param_value: str) -> tuple[ProjectStateSingleConfig, ID, ID]:
@@ -125,9 +129,11 @@ def build_project_state(param_value: str) -> tuple[ProjectStateSingleConfig, ID,
     return project_state, section_id, param_id
 
 
-def test_listener_register_accepts_dep_ids() -> None:
+@pytest.mark.asyncio
+async def test_listener_register_accepts_dep_ids() -> None:
     project_state, section_id, param_id = build_project_state("1")
     listener = SettaListener(project_name=project_state.projectConfig.name)
+    sent_payloads: list[str] = []
 
     section_dep = dep_id(section_id)
     param_dep = dep_id(section_id, param_id)
@@ -140,11 +146,24 @@ def test_listener_register_accepts_dep_ids() -> None:
     def on_param(_state, _ctx) -> None:
         return None
 
+    async def capture(payload: str) -> None:
+        sent_payloads.append(payload)
+
+    listener._send_websocket_payload = capture
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = runtime_state
     listener._project_config_id = project_state.projectConfig.id
 
-    content = listener._build_register_content()
+    # Register payloads should preserve the exact dependency keys declared via
+    # dep_id(...) through the real websocket registration path.
+    await listener._send_listener_register()
+
+    assert len(sent_payloads) == 1
+    parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+        sent_payloads[0]
+    )
+    assert isinstance(parsed_message, WebsocketMsgListenerRegister)
+    content = parsed_message.content
 
     for spec in listener._callbacks.values():
         callback = content.callbacks[spec.callback_id]
