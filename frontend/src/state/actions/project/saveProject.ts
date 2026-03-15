@@ -4,7 +4,7 @@ import {
   route_save_project,
 } from "utils/generatedEndpoints";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
-import { flushQueuedArtifacts } from "../artifactSyncQueue";
+import { flushQueuedArtifacts } from "../artifacts";
 import { addTemporaryNotification } from "../notifications";
 
 export async function saveProject() {

@@ -110,8 +110,8 @@ Inside the Git Graph window:
 
 ## Backend Routes
 
-- Router: `backend/setta/routers/git.py`.
-- Utility subprocess wrapper: `backend/setta/utils/git.py`.
+- Router: `internal/httpapi/git_routes.go`.
+- Service/runtime: `internal/gitread`.
 
 Routes:
 
@@ -151,7 +151,7 @@ Routes:
 
 ## Operational Limits (Current Defaults)
 
-From `backend/setta/routers/git.py`:
+From the Go-owned git route/service path:
 
 - Status timeout: `2.0s`, max stdout `2,000,000` bytes.
 - Diff timeout: `4.0s`, max stdout `2,000,000` bytes.
@@ -164,8 +164,8 @@ From `backend/setta/routers/git.py`:
 ## Implementation References
 
 - Backend:
-  - `backend/setta/routers/git.py`
-  - `backend/setta/utils/git.py`
+  - `internal/httpapi/git_routes.go`
+  - `internal/gitread/service.go`
   - `backend/setta/types/git.py`
 - Frontend:
   - `frontend/src/components/Panes/Overview/Git/GitPane.tsx`
