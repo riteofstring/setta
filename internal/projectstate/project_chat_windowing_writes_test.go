@@ -39,6 +39,132 @@ func TestRuntimeSetProjectChatWindowingStateRejectsThreadRebinding(t *testing.T)
 	}
 }
 
+func TestRuntimeSetProjectChatWindowingStateRejectsNewBoundThread(t *testing.T) {
+	t.Parallel()
+
+	runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+	_, err := runtime.SetProjectChatWindowingState(
+		context.Background(),
+		"project-alpha",
+		ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-chat-window-1": {
+					InstanceID: "project-chat-window-1",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+					ChatID:     stringPointer("chat-before"),
+				},
+				"project-chat-window-2": {
+					InstanceID: "project-chat-window-2",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+					ChatID:     stringPointer("chat-new"),
+				},
+			},
+			Order:              []string{"project-chat-window-1", "project-chat-window-2"},
+			NextInstanceNumber: 3,
+		},
+	)
+	if err == nil || err.Error() != "Project chat window project-chat-window-2 cannot change chatId via layout updates." {
+		t.Fatalf("expected new-bound thread validation error, got %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	if _, ok := project.ProjectChatWindowing.InstancesByID["project-chat-window-2"]; ok {
+		t.Fatal("expected rejected layout update to avoid creating a newly bound project chat window")
+	}
+}
+
+func TestRuntimeSetProjectChatWindowingStateRejectsRemovingBoundThread(t *testing.T) {
+	t.Parallel()
+
+	runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+	_, err := runtime.SetProjectChatWindowingState(
+		context.Background(),
+		"project-alpha",
+		ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"git-graph-window": {
+					InstanceID: "git-graph-window",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeGitGraph,
+				},
+			},
+			Order:              []string{"git-graph-window"},
+			NextInstanceNumber: 3,
+		},
+	)
+	if err == nil || err.Error() != "Project chat window project-chat-window-1 cannot be removed via layout updates while it still has a bound chatId." {
+		t.Fatalf("expected bound-thread removal validation error, got %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	currentChatID := project.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID
+	if currentChatID == nil || *currentChatID != "chat-before" {
+		t.Fatalf("expected existing bound window to remain, got %#v", currentChatID)
+	}
+}
+
+func TestRuntimeSetProjectChatWindowingStateAllowsOmittingUnboundProjectAIWindow(t *testing.T) {
+	t.Parallel()
+
+	runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+	if _, err := runtime.SetProjectChatWindowingState(
+		context.Background(),
+		"project-alpha",
+		ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-chat-window-1": {
+					InstanceID: "project-chat-window-1",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+					ChatID:     stringPointer("chat-before"),
+				},
+				"project-chat-window-2": {
+					InstanceID: "project-chat-window-2",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+				},
+			},
+			Order:              []string{"project-chat-window-1", "project-chat-window-2"},
+			NextInstanceNumber: 3,
+		},
+	); err != nil {
+		t.Fatalf("seed unbound project chat window: %v", err)
+	}
+
+	snapshot, err := runtime.SetProjectChatWindowingState(
+		context.Background(),
+		"project-alpha",
+		ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-chat-window-1": {
+					InstanceID: "project-chat-window-1",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+					ChatID:     stringPointer("chat-before"),
+				},
+			},
+			Order:              []string{"project-chat-window-1"},
+			NextInstanceNumber: 3,
+		},
+	)
+	if err != nil {
+		t.Fatalf("omit unbound project chat window: %v", err)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if _, ok := project.ProjectChatWindowing.InstancesByID["project-chat-window-2"]; ok {
+		t.Fatal("expected unbound project chat window omission to persist")
+	}
+	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{"project-chat-window-1"}) {
+		t.Fatalf("expected persisted order [project-chat-window-1], got %#v", project.ProjectChatWindowing.Order)
+	}
+}
+
 func TestRuntimeSetProjectChatWindowingStateRejectsGitGraphCanvasPlacement(t *testing.T) {
 	t.Parallel()
 

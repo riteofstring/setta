@@ -238,6 +238,114 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 	}
 }
 
+func TestRegisterProjectRoutesProjectChatWindowingStateRejectsBoundThreadLayoutMutations(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectChatWindowingRouteTestDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	testCases := []struct {
+		name         string
+		body         string
+		expectedText string
+	}{
+		{
+			name:         "new bound window",
+			body:         `{"projectConfigId":"project-alpha","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before"},"project-chat-window-2":{"instanceId":"project-chat-window-2","placement":"floating","mode":"project_ai_mode","chatId":"chat-new"}},"order":["project-chat-window-1","project-chat-window-2"],"nextInstanceNumber":3}}`,
+			expectedText: "Project chat window project-chat-window-2 cannot change chatId via layout updates.",
+		},
+		{
+			name:         "omit bound window",
+			body:         `{"projectConfigId":"project-alpha","state":{"instancesById":{},"order":[],"nextInstanceNumber":2}}`,
+			expectedText: "Project chat window project-chat-window-1 cannot be removed via layout updates while it still has a bound chatId.",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetProjectChatWindowingState,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422 layout response, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"invalid_project_chat_windowing"`) {
+				t.Fatalf("expected invalid_project_chat_windowing envelope, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), testCase.expectedText) {
+				t.Fatalf("expected error text %q, got %q", testCase.expectedText, response.Body.String())
+			}
+		})
+	}
+
+	persisted := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	currentChatID := persisted.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID
+	if currentChatID == nil || *currentChatID != "chat-before" {
+		t.Fatalf("expected bound chat id to remain chat-before, got %#v", currentChatID)
+	}
+}
+
+func TestRegisterProjectRoutesProjectChatWindowingStateAllowsOmittingUnboundProjectAIWindow(t *testing.T) {
+	t.Parallel()
+
+	document := projectChatWindowingRouteTestDocument()
+	project := document.Projects["project-alpha"]
+	project.ProjectChatWindowing.InstancesByID["project-chat-window-2"] = projectstate.ProjectChatWindowInstance{
+		InstanceID: "project-chat-window-2",
+		Placement:  projectstate.ChatWindowPlacementFloating,
+		Mode:       projectstate.ChatWindowModeProjectAI,
+	}
+	project.ProjectChatWindowing.Order = []string{"project-chat-window-1", "project-chat-window-2"}
+	project.ProjectChatWindowing.NextInstanceNumber = 3
+	document.Projects["project-alpha"] = project
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectChatWindowingState,
+		strings.NewReader(`{"projectConfigId":"project-alpha","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before"}},"order":["project-chat-window-1"],"nextInstanceNumber":3}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 layout response, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if _, ok := project.ProjectChatWindowing.InstancesByID["project-chat-window-2"]; ok {
+		t.Fatal("expected unbound project chat window omission to persist")
+	}
+	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{"project-chat-window-1"}) {
+		t.Fatalf("expected persisted order [project-chat-window-1], got %#v", project.ProjectChatWindowing.Order)
+	}
+}
+
 func TestRegisterProjectRoutesSetWindowSpaceNameReturns422ForInvalidName(t *testing.T) {
 	t.Parallel()
 
