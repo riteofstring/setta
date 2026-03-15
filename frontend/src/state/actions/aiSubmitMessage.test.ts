@@ -43,9 +43,9 @@ const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
 const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let submitMessage: typeof import("state/actions/aiChatSubmissionMessages").submitMessage;
-let getDefaultChatDetails: typeof import("state/actions/aiChatDetails").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/aiChatStreaming").receiveLLMResponseChunk;
+let submitMessage: typeof import("state/actions/ai").submitMessage;
+let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
@@ -81,14 +81,10 @@ describe("submitMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
-    const aiChatDetails = await import("state/actions/aiChatDetails");
-    const aiChatStreaming = await import("state/actions/aiChatStreaming");
-    const aiChatSubmissionMessages = await import(
-      "state/actions/aiChatSubmissionMessages"
-    );
-    submitMessage = aiChatSubmissionMessages.submitMessage;
-    getDefaultChatDetails = aiChatDetails.getDefaultChatDetails;
-    receiveLLMResponseChunk = aiChatStreaming.receiveLLMResponseChunk;
+    const ai = await import("state/actions/ai");
+    submitMessage = ai.submitMessage;
+    getDefaultChatDetails = ai.getDefaultChatDetails;
+    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
