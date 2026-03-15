@@ -19,7 +19,7 @@ import {
   updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/aiConfigurationCatalogs";
-import { setProjectChatWindowModeForSection } from "state/actions/projectChatWindowing";
+import { setProjectChatWindowModeForSection } from "state/actions/projectChatWindowSectionCommands";
 import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import {
   dispatchOptimisticProjectStateUpdate,

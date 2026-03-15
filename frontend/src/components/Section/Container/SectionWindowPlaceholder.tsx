@@ -3,7 +3,7 @@ import { RiExternalLinkLine } from "react-icons/ri";
 import {
   focusProjectChatWindow,
   reopenProjectChatWindow,
-} from "state/actions/projectChatWindowing";
+} from "state/actions/projectChatWindowCommands";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";

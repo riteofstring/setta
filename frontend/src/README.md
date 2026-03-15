@@ -131,8 +131,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     chat surfaces back into the canvas.
   - `state/actions/projectChatWindowingTrackedGitPane.ts` owns tracked git-pane
     graph window reuse plus maximize/title coordination.
-  - `state/actions/projectChatWindowing.ts` now owns public window command
-    orchestration.
+  - `state/actions/projectChatWindowCommands.ts` owns public window lifecycle,
+    placement, focus, and bounds commands.
+  - `state/actions/projectChatWindowMetadataCommands.ts` owns title/chat-id
+    mutations plus the current-windowing store accessor.
+  - `state/actions/projectChatWindowSectionCommands.ts` owns section exposure,
+    undock, and section/window mode transition commands.
+  - `state/actions/projectChatWindowing.ts` is now a thin compatibility surface
+    that re-exports the public command owners plus write helpers.
   - `state/actions/projectChatWindowingWriteState.ts` owns layout-write
     permissions, current-windowing store access, optimistic apply helpers, and
     local sync behavior.
@@ -391,18 +397,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/projectChatWindowing.ts` is now the largest authored/shared
-  state hotspot, so follow-up cleanup should keep shrinking the public window
-  command orchestration into narrower command groups instead of regrowing the
-  newly split layout-state helpers
+- `state/actions/windowSpaceWorkspaceRestorePlan.ts` is now the largest
+  authored/shared state hotspot, so follow-up cleanup should keep restore
+  planning, restored-instance remapping, and git-pane visibility coordination
+  in narrower helpers instead of regrowing `state/actions/windowSpaces.ts`
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership
-- `state/actions/projectChatWindowing.ts` is now the largest remaining
-  windowing command surface, so follow-up windowing cleanup should stay local
-  to `projectChatWindowing.ts`, `projectChatWindowingWriteState.ts`, or
-  `projectChatWindowingWritePipeline.ts` instead of regrowing the new
-  instance/placement/bounds reducer owners
+- `state/actions/projectChatWindowingWritePipeline.ts` is now the largest
+  remaining project-chat windowing coordination surface, so follow-up windowing
+  cleanup should stay local to the write pipeline or the new command modules
+  instead of regrowing the reducer owners
 - `state/actions/sectionInfos.ts` now owns the remaining streaming merge,
   shown-param, ancestry, and tool-preview cleanup surface, so any follow-up
   cleanup there should stay local to those helpers instead of regrowing

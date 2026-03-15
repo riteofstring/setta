@@ -66,13 +66,10 @@ import {
   reopenProjectChatWindow,
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,
-  setProjectChatWindowChatId,
   setProjectChatWindowDockFractions,
   setProjectChatWindowPlacement,
-  setProjectChatWindowTitle,
-  showSectionInProjectChatWindow,
   unmaximizeProjectChatWindow,
-} from "state/actions/projectChatWindowing";
+} from "state/actions/projectChatWindowCommands";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import {
   clearTrackedGitPaneGraphWindowIfMatches,
@@ -83,6 +80,11 @@ import {
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
 } from "state/actions/projectChatWindowingSelectors";
+import {
+  setProjectChatWindowChatId,
+  setProjectChatWindowTitle,
+} from "state/actions/projectChatWindowMetadataCommands";
+import { showSectionInProjectChatWindow } from "state/actions/projectChatWindowSectionCommands";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,

@@ -29,9 +29,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   compatibility re-exports to `projectChatWindowingLayoutState.ts`,
   section-binding reducers to `projectChatWindowingState.ts`, canvas boot and
   DOM surface lookup to `projectChatWindowingCanvasBoot.ts`, tracked git-pane
-  graph window reuse to `projectChatWindowingTrackedGitPane.ts`, write-state
-  reads plus optimistic apply helpers to `projectChatWindowingWriteState.ts`,
-  serialized write coordination and authoritative publish/replay to
+  graph window reuse to `projectChatWindowingTrackedGitPane.ts`, public window
+  lifecycle/placement/focus/bounds commands to `projectChatWindowCommands.ts`,
+  title/chat-id commands plus current-windowing reads to
+  `projectChatWindowMetadataCommands.ts`, section exposure and mode-transition
+  commands to `projectChatWindowSectionCommands.ts`, write-state reads plus
+  optimistic apply helpers to `projectChatWindowingWriteState.ts`, serialized
+  write coordination and authoritative publish/replay to
   `projectChatWindowingWritePipeline.ts`, and the public mutation facade to
   `projectChatWindowingWrites.ts`, alongside
   `projectChatWindowingAuthoritative.ts` and
@@ -174,23 +178,23 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowing.ts` at 410 lines
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` at 460 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 459 lines
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
-  - `frontend/src/state/actions/websocketLifecycle.ts` at 244 lines
-  - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 215 lines
-  - `frontend/src/state/actions/websocketAuthRecovery.ts` at 188 lines
+  - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/projectChatWindowing.ts` at 410 lines
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` at 460 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 459 lines
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
-  - `frontend/src/state/actions/websocketLifecycle.ts` at 244 lines
-  - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 215 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -408,9 +412,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingState.ts` now owns:
   - section-binding, title, and chat-id reducers
   - section/canvas transition reducers that compose the instance/placement/bounds helpers
+- `projectChatWindowCommands.ts` now owns:
+  - public window lifecycle, placement, focus, and bounds commands
+- `projectChatWindowMetadataCommands.ts` now owns:
+  - title/chat-id commands plus current-windowing state reads
+- `projectChatWindowSectionCommands.ts` now owns:
+  - section exposure, undock, and section/window mode transition commands
 - `projectChatWindowing.ts` now owns:
-  - public window command orchestration for placement, focus, bounds, titles,
-    chat ids, and section/window mode transitions
+  - compatibility re-exports for callers that have not moved yet
+  - write-helper re-exports shared by legacy callers and tests
 - `aiLLMConfiguration.ts` now owns:
   - LLM config load/save behavior
   - managed API-key snapshot updates, read failure handling, and queued write conflict resolution

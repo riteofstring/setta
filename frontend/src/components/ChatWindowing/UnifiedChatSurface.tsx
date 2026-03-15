@@ -2,7 +2,7 @@ import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectCha
 import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
 import type { SetStateAction } from "react";
-import { setProjectChatWindowChatId } from "state/actions/projectChatWindowing";
+import { setProjectChatWindowChatId } from "state/actions/projectChatWindowMetadataCommands";
 import {
   getExternalProjectChatWindowBindingForSectionInState,
   getProjectChatWindowBindingForSectionInState,

@@ -1,4 +1,4 @@
-import { setProjectChatWindowChatId } from "state/actions/projectChatWindowing";
+import { setProjectChatWindowChatId } from "state/actions/projectChatWindowMetadataCommands";
 import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import { flushPendingProjectChatWindowingWrites } from "state/actions/projectChatWindowingWrites";
 import { useProjectState, useShareSession } from "state/definitions";
