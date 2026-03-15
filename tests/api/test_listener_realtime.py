@@ -58,7 +58,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRealtimeEvent,
 )
-from setta.websockets.binary_frames import encode_binary_frame
+from tests.helpers.binary_frames import encode_binary_frame
 
 if TYPE_CHECKING:
     from websockets import ClientConnection
