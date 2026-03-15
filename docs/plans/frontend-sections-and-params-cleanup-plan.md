@@ -35,6 +35,15 @@ Make section chrome and param rendering easy to change without touching measurem
   thin compatibility facade,
   `frontend/src/state/actions/sections/createSectionImplDefaults.ts` owns
   per-impl create defaults.
+- `frontend/src/state/actions/sections/moveSectionQueries.ts` now owns
+  attached-terminal route selection, section-type move checks, and
+  parent-resolution reads, `frontend/src/state/actions/sections/moveSectionParentState.ts`
+  now owns in-state parent cleanup plus move-into-parent reducers,
+  `frontend/src/state/actions/sections/moveSectionPaneState.ts` now owns pane
+  node and top-level layout updates, `frontend/src/state/actions/sections/moveSectionState.ts`
+  is now the thin in-state composition facade, and
+  `frontend/src/state/actions/sections/moveSections.ts` remains the thin
+  optimistic backend command facade.
 
 ## Current State (Observed)
 

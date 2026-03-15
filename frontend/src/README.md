@@ -307,8 +307,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/sections/moveSectionQueries.ts` owns attached-terminal route
     selection, section-type move checks, and parent-resolution reads for
     section-moving flows.
-  - `state/actions/sections/moveSectionState.ts` owns in-state section move
-    reducers, parent cleanup, and pane layout/node updates.
+  - `state/actions/sections/moveSectionParentState.ts` owns in-state parent
+    cleanup plus move-into-parent reducers for section-moving flows.
+  - `state/actions/sections/moveSectionPaneState.ts` owns pane node and
+    top-level layout updates for section-moving flows.
+  - `state/actions/sections/moveSectionState.ts` is now the thin in-state
+    composition facade over those move reducers.
   - `state/actions/sections/moveSections.ts` is now the thin optimistic backend
     command facade for section moves.
 

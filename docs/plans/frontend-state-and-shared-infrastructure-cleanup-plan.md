@@ -273,8 +273,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   attached-terminal route selection, section-type move checks, and
   parent-resolution reads that previously lived in
   `frontend/src/state/actions/sections/moveSections.ts`, while
-  `frontend/src/state/actions/sections/moveSectionState.ts` now owns the
-  in-state move reducers plus pane layout/node updates and
+  `frontend/src/state/actions/sections/moveSectionParentState.ts` now owns
+  in-state parent cleanup plus move-into-parent reducers,
+  `frontend/src/state/actions/sections/moveSectionPaneState.ts` now owns pane
+  layout and node updates,
+  `frontend/src/state/actions/sections/moveSectionState.ts` is now the thin
+  in-state composition facade, and
   `frontend/src/state/actions/sections/moveSections.ts` is now the thin
   optimistic command facade.
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external
@@ -355,11 +359,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/moveSectionState.ts` at 254 lines
   - `frontend/src/state/actions/aiHydrationApply.ts` at 253 lines
   - `frontend/src/state/actions/agenticEdgeMutations.ts` at 253 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 250 lines
   - `frontend/src/state/actions/chatBranches.ts` at 250 lines
+  - `frontend/src/state/actions/websocketRealtime.ts` at 249 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
