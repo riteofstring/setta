@@ -70,6 +70,9 @@ Last audited: `2026-03-17`
   `saveSettings` malformed-JSON and typed-validation transport,
   direct app-definition malformed-JSON transport, and the dormant legacy
   `updateAppDefinition` HTTP detail/error rows
+- plus the targeted direct settings / app-definition required-field
+  validation slice: `saveSettings` missing-`settings` transport and direct
+  `validateAppDefinition` / `setAppDefinition` missing-`appSpec` transport
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -86,9 +89,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `316`
+- Rows audited in this pass: `318`
 - Status counts:
-  - `Proved`: `287`
+  - `Proved`: `289`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `1`
   - `Retained Python boundary`: `8`
@@ -116,6 +119,17 @@ Last audited: `2026-03-17`
     source-typed settings save and direct app-definition HTTP routes now
     return the Python-style `422 {"status_code":10422,"message":...,"data":null}`
     validation envelope instead of the Go-only `400 invalid_json` error
+  - `internal/httpapi/settings_routes.go`: missing or null `saveSettings`
+    `settings` payloads now return the Python-style
+    `422 {"status_code":10422,"message":...,"data":null}` validation
+    envelope instead of falling through to the Go-only
+    `400 invalid_settings` response
+  - `internal/httpapi/app_definition_routes.go`: missing or null direct
+    `validateAppDefinition` / `setAppDefinition` `appSpec` payloads now
+    return the Python-style
+    `422 {"status_code":10422,"message":...,"data":null}` validation
+    envelope instead of reaching the Go runtime as route-level validation
+    errors
   - `internal/httpapi/terminal_routes.go`: deployment `runCode`
     share-session failures now return the source `400/404 {"detail": ...}`
     bodies instead of inheriting the generic `missing_share_session` /
@@ -251,6 +265,11 @@ Last audited: `2026-03-17`
   app-definition HTTP transport slice: settings mode-guard detail bodies,
   unrestricted app-catalog HTTP reads, and app-definition route
   mode-guard / launcher / invalid-set transport detail parity.
+- This pass also extends the matrix into a targeted direct
+  settings/app-definition required-field follow-up slice: missing `settings`
+  request-field transport on `saveSettings`, plus missing `appSpec`
+  request-field transport on the direct `validateAppDefinition` and
+  `setAppDefinition` HTTP routes.
 - This pass also extends the matrix into the first bounded transcription slice:
   transcription-profile capability/validation behavior, provider-dictation
   file flow, typed transcription-session start/append/cancel errors, and
@@ -399,6 +418,11 @@ Last audited: `2026-03-17`
   `app_definition.http_get_validate_set.invalid_json.transport_422_validation_envelope`
   are now explicit proved rows, while the deeper typed-settings validation gap
   remains explicit instead of being smoothed over by the malformed-JSON fix.
+- `settings.save.required_settings_field.transport_422_validation_envelope`
+  and
+  `app_definition.http_validate_set.required_app_spec.transport_422_validation_envelope`
+  are now explicit proved rows instead of leaving those request-parse
+  validation contracts implicit behind broader malformed-JSON coverage.
 - The legacy direct `updateAppDefinition` HTTP route now has explicit
   `Dormant / unproven caller` transport/detail rows instead of staying folded
   into the broader dormant-surface note.
@@ -626,6 +650,7 @@ Last audited: `2026-03-17`
 | `settings.load.mode_guard_returns_detail_body` | `tests/routers/test_settings_mode_guard.py::test_load_settings_is_blocked_in_launcher_mode`; `backend/setta/routers/settings.py::route_load_settings`; `backend/setta/routers/dependencies.py::require_full_ide_runtime` | `internal/httpapi/settings_routes.go::settingsLoadModeDetail` | `TestRegisterSettingsRoutesBlocksLoadOutsideFullIDE` | `frontend/src/state/actions/settings.ts` still calls `loadSettings` during IDE hydration | `Proved` | Load-settings mode guards once again return Python-style `{"detail": ...}` bodies, with launcher using the launcher message and share/app using the deployment message. |
 | `settings.save.rejects_non_object_payload` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/types/generated/settings_state.py::SettingsState`; `backend/setta/database/settings_file.py::save_settings` | `internal/settingsstate/settingsstate_test.go::TestNormalizeRawRejectsNonObjectPayload`; `internal/httpapi/settings_routes.go::writeSettingsSaveError` | `TestRegisterSettingsRoutesRejectsNonObjectSettingsPayload` | direct save callers still post raw settings JSON through `frontend/src/state/actions/settings.ts` | `Proved` | Saving live settings still fails fast when the root payload is not a JSON object. |
 | `settings.save.invalid_json.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/httpapi/httpapi.go::writeValidationError` | `TestRegisterSettingsRoutesSaveMalformedJSONReturnsValidationEnvelope` | `frontend/src/state/actions/settings.ts` still posts raw settings JSON to the direct save route | `Proved` | Malformed `saveSettings` JSON now once again returns the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of the Go-only `400 invalid_json` error payload. |
+| `settings.save.required_settings_field.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest` requires `settings: SettingsState`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler` | `TestRegisterSettingsRoutesSaveMissingSettingsFieldReturnsValidationEnvelope` | direct save callers still post live settings JSON through `frontend/src/state/actions/settings.ts` | `Proved` | Missing or null direct `saveSettings` `settings` payloads now once again fail at request-parse time with the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of falling through to the Go-only `400 invalid_settings` response. |
 | `settings.save.typed_validation.transport_422_validation_envelope` | `backend/setta/routers/settings.py::SaveSettingsRequest`; `backend/setta/types/generated/settings_state.py::SettingsState`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/settingsstate/document.go::NormalizeRaw`; `internal/settingsstate/settingsstate_test.go::TestQueriesRejectInvalidValues`; `internal/settingsstate/settingsstate_test.go::TestStructuralMutationSettingsForDocumentRejectsInvalidValues`; `internal/frontendbindings/project_state_support.go::SettingsState` | no Go route proof for rejecting typed-invalid nested settings at save time | direct save callers still post live settings documents through `frontend/src/state/actions/settings.ts`, including backend/UI-editor settings surfaces | `Missing` | The source route validated nested settings against the typed `SettingsState` model before persisting. The Go route still accepts any JSON object, merges defaults, and only rejects many invalid nested values later when downstream readers query specific fields. The current checkout no longer carries a full authoritative Go-consumable settings schema; the Go frontend binding `SettingsState` is only an empty placeholder, so closing this parity gap requires restoring a canonical generated schema owner or promoting a full Go-owned schema instead of extending ad hoc field checks. |
 | `settings.save.persists_runtime_snapshot_and_broadcasts_update` | `backend/setta/routers/settings.py::route_save_settings`; `backend/setta/database/settings_file.py::save_settings` | `internal/httpapi/settings_routes.go::saveSettingsHandler`; `internal/settingsstate/runtime.go::ReplaceAndSave` | `TestRegisterSettingsRoutesSavePersistsSnapshot`; `TestAppSaveSettingsBroadcastsUpdateSettings` | `frontend/src/state/actions/settings.ts`; `frontend/src/state/actions/websocketReceive.ts` still rely on the HTTP save plus `UpdateSettings` websocket broadcast | `Proved` | Direct settings saves still persist the canonical snapshot and immediately fan out the updated document over the frontend websocket. |
 | `settings.save.mode_guard_preserves_share_specific_detail` | `tests/routers/test_settings_mode_guard.py::test_save_settings_is_blocked_in_launcher_mode`; `backend/setta/routers/settings.py::route_save_settings`; `backend/setta/runtime/context.py::RuntimeContext.require_ide_mode` | `internal/httpapi/settings_routes.go::settingsSaveModeDetail` | `TestRegisterSettingsRoutesBlocksSaveOutsideFullIDE` | `frontend/src/state/actions/settings.ts` still posts `saveSettings` directly from the settings pane | `Proved` | Save-settings mode guards now return Python-style detail bodies again, including the source share-mode-specific `"Share mode does not allow updating settings."` message. |
@@ -644,6 +669,7 @@ Last audited: `2026-03-17`
 | `app_definition.set.invalid_spec_metadata_rejected` | `tests/project_state/test_app_definition.py::test_set_app_definition_rejects_unknown_component`; `...rejects_unknown_action_type`; `...rejects_invalid_theme` | `internal/projectstate/app_definition_writes.go::SetAppDefinition`; `internal/appspec/validation.go` | `TestRegisterAppDefinitionRoutesRejectsInvalidSetInput` | the direct `setAppDefinition` HTTP route still surfaces validation failures to callers instead of persisting partial state | `Proved` | Invalid component types, action types, or theme payloads still reject the write before any app-definition metadata or app-spec file is committed. |
 | `app_definition.http_invalid_set_input_returns_422_detail` | `backend/setta/routers/project_manager.py::route_set_app_definition` catches `ValueError` and returns `HTTPException(status_code=422, detail=str(exc))` | `internal/httpapi/app_definition_routes.go::writeAppDefinitionRouteError` | `TestRegisterAppDefinitionRoutesRejectsInvalidSetInput` | `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` still reads save failures through `getErrorDetail` on `route_set_app_definition` | `Proved` | Invalid direct app-definition writes now once again return the source `422 {"detail": ...}` body instead of the Go-only error envelope. |
 | `app_definition.http_get_validate_set.invalid_json.transport_422_validation_envelope` | `backend/setta/project_state/project_manager_types.py::{GetAppDefinitionRequest,ValidateAppDefinitionRequest,SetAppDefinitionRequest}`; `backend/setta/routers/project_manager.py::{route_get_app_definition,route_validate_app_definition,route_set_app_definition}`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/app_definition_routes.go::{getAppDefinitionHandler,validateAppDefinitionHandler,setAppDefinitionHandler}`; `internal/httpapi/httpapi.go::writeValidationError` | `TestRegisterAppDefinitionRoutesMalformedJSONReturnsValidationEnvelope` | `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` still reads and writes app definitions through the direct HTTP route family | `Proved` | The direct `getAppDefinition`, `validateAppDefinition`, and `setAppDefinition` HTTP routes now once again return the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` envelope for malformed JSON bodies. |
+| `app_definition.http_validate_set.required_app_spec.transport_422_validation_envelope` | `backend/setta/project_state/project_manager_types.py::{ValidateAppDefinitionRequest,SetAppDefinitionRequest}` require `appSpec`; `backend/setta/server.py::validation_exception_handler` | `internal/httpapi/app_definition_routes.go::{validateAppDefinitionHandler,setAppDefinitionHandler}` | `TestRegisterAppDefinitionRoutesValidateAndSetMissingAppSpecReturnValidationEnvelope` | `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` still validates and saves app definitions through the direct HTTP route family | `Proved` | Missing or null direct `validateAppDefinition` / `setAppDefinition` `appSpec` payloads now once again fail at request-parse time with the Python/FastAPI-style `422 {"status_code":10422,"message":...,"data":null}` validation envelope instead of reaching Go runtime validation as route-level errors. |
 | `app_definition.http_update_route_legacy_surface_is_dormant` | `backend/setta/types/routes.py::Route.UPDATE_APP_DEFINITION`; `backend/setta/routers/project_manager.py::route_update_app_definition` | no direct Go HTTP route; superseded by `internal/mcpx/server.go::newUpdateAppDefinitionHandler` and `internal/projectstate/app_definition_writes.go::UpdateAppDefinition` on the retained MCP surface | `TestMCPToolCallRouteSupportsUpdateAppDefinition`; `TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition`; `TestServerListsToolsAndScopesToolCalls` | `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md` and `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` both classify `updateAppDefinition` as an older helper with no proven non-test caller | `Dormant / unproven caller` | The source direct HTTP helper existed, but current rewrite docs make the honest claim: only the MCP-owned update surface is proven live, while the legacy direct route is not. |
 | `app_definition.http_update.invalid_json.transport_422_validation_envelope` | `backend/setta/project_state/project_manager_types.py::UpdateAppDefinitionRequest`; `backend/setta/routers/project_manager.py::route_update_app_definition`; `backend/setta/server.py::validation_exception_handler` | no direct Go HTTP route; retained runtime lives behind `internal/mcpx/server.go::newUpdateAppDefinitionHandler` and `internal/projectstate/app_definition_writes.go::UpdateAppDefinition` | `TestMCPToolCallRouteSupportsUpdateAppDefinition`; `TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition` only prove the retained MCP surface, not a direct HTTP validation envelope | rewrite docs classify `updateAppDefinition` as a legacy helper with no proven caller beyond tests | `Dormant / unproven caller` | The source direct HTTP update route would have returned the FastAPI `422` validation envelope for malformed JSON, but the rewrite only proves the retained MCP-owned update surface because the legacy direct HTTP route is intentionally absent. |
 | `app_definition.http_update.unconfigured_spec_path.transport_400_detail` | `backend/setta/project_state/base_project_manager.py::update_app_definition`; `backend/setta/routers/project_manager.py::route_update_app_definition` | no direct Go HTTP route; retained runtime path is `internal/projectstate/app_definition_writes.go::UpdateAppDefinition` via `internal/mcpx/server.go::newUpdateAppDefinitionHandler` | `TestRuntimeUpdateAppDefinitionRequiresConfiguredSpecPath`; `TestMCPToolCallRouteSupportsUpdateAppDefinition` prove the retained MCP/runtime path only | current rewrite docs still classify the direct HTTP update helper as a dormant legacy surface | `Dormant / unproven caller` | The source direct HTTP route mapped an unconfigured stored app-spec path to `400 {"detail": ...}`; the rewrite only proves the retained MCP/runtime error path because the direct HTTP helper is not part of the live caller-backed surface. |

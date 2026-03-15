@@ -74,6 +74,10 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
+		if payload.Settings == nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, "settings: Field required")
+			return
+		}
 
 		document, err := settingsstate.NormalizeRaw(payload.Settings)
 		if err != nil {

@@ -190,6 +190,10 @@ func validateAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.Hand
 			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
+		if payload.AppSpec == nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, "appSpec: Field required")
+			return
+		}
 
 		result, err := deps.ProjectState.ValidateAppDefinition(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
@@ -225,6 +229,10 @@ func setAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 		payload, err := decodeJSONBody[SetAppDefinitionRequest](r)
 		if err != nil {
 			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		if payload.AppSpec == nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, "appSpec: Field required")
 			return
 		}
 

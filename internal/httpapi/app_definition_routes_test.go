@@ -348,9 +348,9 @@ func TestRegisterAppDefinitionRoutesMalformedJSONReturnsValidationEnvelope(t *te
 	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
 
 	for _, testCase := range []struct {
-		name string
+		name  string
 		route string
-		body string
+		body  string
 	}{
 		{name: "get", route: RouteGetAppDefinition, body: `{"frontendOpId":`},
 		{name: "validate", route: RouteValidateAppDefinition, body: `{"appSpec":`},
@@ -361,6 +361,50 @@ func TestRegisterAppDefinitionRoutesMalformedJSONReturnsValidationEnvelope(t *te
 			request := httptest.NewRequest(http.MethodPost, "/api"+testCase.route, strings.NewReader(testCase.body))
 			request.Header.Set("Content-Type", "application/json")
 			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation envelope: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if payload.Message == "" {
+				t.Fatalf("expected validation message, got %#v", payload)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+		})
+	}
+}
+
+func TestRegisterAppDefinitionRoutesValidateAndSetMissingAppSpecReturnValidationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	// The source request models require appSpec on both validate and set routes.
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, openAppDefinitionRouteRuntime(t))
+
+	for _, testCase := range []struct {
+		name  string
+		route string
+		body  string
+	}{
+		{name: "validate_missing", route: RouteValidateAppDefinition, body: `{}`},
+		{name: "validate_null", route: RouteValidateAppDefinition, body: `{"appSpec":null}`},
+		{name: "set_missing", route: RouteSetAppDefinition, body: `{}`},
+		{name: "set_null", route: RouteSetAppDefinition, body: `{"appSpec":null}`},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api"+testCase.route, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
 			handler.ServeHTTP(response, request)
 
 			if response.Code != http.StatusUnprocessableEntity {
