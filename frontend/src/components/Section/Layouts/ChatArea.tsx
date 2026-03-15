@@ -68,7 +68,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketRealtime";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketRealtimeDispatch";
 import {
   useAIStore,
   useProjectState,

@@ -364,10 +364,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   directories.
 - The largest remaining authored state surfaces are:
   - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` at 250 lines
-  - `frontend/src/state/actions/websocketRealtime.ts` at 250 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 249 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 245 lines
   - `frontend/src/state/actions/sectionDisplayQueries.ts` at 243 lines
+  - `frontend/src/state/actions/projectChatThreadStorageUndo.ts` at 239 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -442,9 +442,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `websocketShareSessionRecovery.ts` now owns:
   - share-session heartbeat sends for deployment-mode websockets
   - share/app session restoration after missing or unknown close codes
+- `websocketRealtimeDispatch.ts` now owns:
+  - outbound realtime dependency events
+  - section literal and section-param literal sends
+- `websocketRealtimeBinary.ts` now owns:
+  - binary realtime sends
+  - oversize upload fallback and warning throttling
 - `websocketRealtime.ts` now owns:
-  - outbound realtime dependency events and section literal updates
-  - binary realtime sends plus oversize upload fallback
+  - compatibility re-exports for callers that have not moved yet
 - `websocketRuntime.ts` now owns:
   - active websocket instance and generation tracking
   - low-level JSON and binary send helpers shared by lifecycle and realtime owners

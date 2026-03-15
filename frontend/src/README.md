@@ -506,8 +506,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/websocketShareSessionRecovery.ts` owns share-session
     heartbeat sends plus share/app session restoration after websocket close
     codes.
-  - `state/actions/websocketRealtime.ts` owns outbound realtime dependency
-    events, section literal or binary sends, and binary upload fallback.
+  - `state/actions/websocketRealtimeDispatch.ts` owns outbound realtime
+    dependency events plus section literal sends.
+  - `state/actions/websocketRealtimeBinary.ts` owns binary realtime sends,
+    oversize upload fallback, and warning throttling.
+  - `state/actions/websocketRealtime.ts` is now the thin compatibility facade
+    over the realtime dispatch and binary owners.
   - `state/actions/websocketRuntime.ts` owns the shared active-socket runtime
     state and low-level websocket send helpers used by the lifecycle and
     realtime owners.

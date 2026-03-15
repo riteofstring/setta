@@ -306,9 +306,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/websocketBootstrap.ts` for socket-open
   bootstrap, `frontend/src/state/actions/websocketAuthRecovery.ts` for auth
   recovery, `frontend/src/state/actions/websocketShareSessionRecovery.ts` for
-  share-session heartbeat/recovery, and
-  `frontend/src/state/actions/websocketRealtime.ts` for outbound realtime send
-  or upload behavior.
+  share-session heartbeat/recovery,
+  `frontend/src/state/actions/websocketRealtimeDispatch.ts` for outbound
+  realtime dependency events plus literal sends,
+  `frontend/src/state/actions/websocketRealtimeBinary.ts` for binary send,
+  oversize upload fallback, and warning throttling, and
+  `frontend/src/state/actions/websocketRealtime.ts` as the thin compatibility
+  facade.
 - `frontend/src/state/actions/windowSpaceCrud.ts` now owns saved window-space
   sort/name/delete mutations plus optimistic persistence and layout rollback,
   `frontend/src/state/actions/windowSpaceSave.ts` now owns current-floating-window
@@ -421,7 +425,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   or select or delete or replace commands to `stateMachineEdgeMutations.ts`.
 - `frontend/src/state/actions/websocketReceive.ts` is down to a 7-line
   compatibility entrypoint and now delegates socket lifecycle, reconnect, auth,
-  outbound realtime dependency or binary send behavior to
+  outbound realtime dependency events and literal sends to
+  `websocketRealtimeDispatch.ts`, binary send and upload fallback behavior to
+  `websocketRealtimeBinary.ts`, compatibility re-exports to
   `websocketRealtime.ts`, shared active-socket state to `websocketRuntime.ts`,
   transport wiring to `websocketLifecycle.ts`, socket-open bootstrap to
   `websocketBootstrap.ts`, auth recovery to `websocketAuthRecovery.ts`, and
@@ -650,7 +656,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/websocketRealtime.ts`, `state/actions/sections/createSectionCatalogStatic.ts`, `state/actions/projectChatWindowingState.ts`, `state/actions/websocketLifecycle.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/sections/createSectionCatalogStatic.ts`, `state/actions/projectChatWindowingState.ts`, `state/actions/websocketLifecycle.ts`, `state/actions/sectionDisplayQueries.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
