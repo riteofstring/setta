@@ -10,11 +10,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1432`
+- Authored TS/TSX files under `frontend/src`: `1438`
 - Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2400`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
@@ -136,6 +135,26 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns external-agent config selection state, tool-type/run-mode
     reconciliation, Claude or OpenCode validation, and the external-agent form
     shell used by `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
+  - `components/ChatWindowing/projectChatBottomDockSurfaceHelpers.tsx`
+    owns shared dock-window action-spec builders, placement animation classes,
+    and shared dock/floating/maximized style helpers used by
+    `components/ChatWindowing/ProjectChatBottomDock.tsx` and its local surface
+    owners.
+  - `components/ChatWindowing/ProjectChatDockedWindowsSurface.tsx` owns the
+    docked-window shell, docked header actions, resize-handle rendering, and
+    the dock-attached minimized-pill composition used by
+    `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+  - `components/ChatWindowing/ProjectChatFloatingWindowsLayer.tsx` owns the
+    floating snap-preview chrome, snap-resize handles, floating window shell
+    rendering, and floating resize-handle chrome used by
+    `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+  - `components/ChatWindowing/ProjectChatMaximizedWindowSurface.tsx` owns the
+    maximized window shell and tracked git-pane overlay placement used by
+    `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` now focuses on window
+    auto-create behavior, viewport/tracked-pane state, animation lifecycle,
+    focus/placement commands, floating-bounds or snap orchestration, and the
+    top-level dock chrome over those local window-surface owners.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now focuses on
     project-chat surface orchestration, inline-thread layout, aux-view routing,
     conversation-search state, and chat-core/history composition over those
