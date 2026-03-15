@@ -2276,6 +2276,51 @@ func TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK(t *testing.T)
 	}
 }
 
+func TestRegisterProjectRoutesFormatCodeIsBlockedInDeploymentModes(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": {
+							ID:   "project-alpha",
+							Name: "Alpha",
+						},
+					},
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteFormatCode,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1"}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected %s formatCode route to be blocked with 403, got %d with body %q", mode, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+				t.Fatalf("expected mode_forbidden response, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+				t.Fatalf("expected deployment-mode denial detail, got %q", response.Body.String())
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -4578,6 +4623,11 @@ func TestRegisterProjectRoutesMoveSectionsRejectsInvalidInputs(t *testing.T) {
 			body:         `{"projectConfigId":"project-alpha","sectionIds":["group-parent"],"newParentId":"nested-group","newIndex":0}`,
 			expectedCode: http.StatusUnprocessableEntity,
 			expectedBody: `"code":"move_sections_invalid"`,
+		},
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionIds":["top-a"],"newParentId":"missing-parent","newIndex":0}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"section_not_found"`,
 		},
 		{
 			body:         `{"projectConfigId":"project-alpha","sectionIds":["top-a"],"newParentId":"group-parent","newIndex":-1}`,
