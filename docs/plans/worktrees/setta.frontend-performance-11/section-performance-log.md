@@ -3553,3 +3553,27 @@ Append-only log for the section performance refactor.
   - Use the current cross-section evidence set to make the checkpoint-1 acceptance call instead of adding more harnesses.
   - If the evidence is still judged insufficient, capture one more explicit untouched-`main` vs worktree shared-row compare before moving upward into `sectionChrome`.
   - Only reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` if a future trace explicitly isolates the unchanged non-empty preview path.
+
+### 2026-03-17 97
+
+- Item: Turn the checkpoint-1 acceptance ambiguity into an explicit gate.
+- Status: `needs_more_work`
+- Details:
+  - Re-read the current plan acceptance gate after closing the `GlobalVariables` verification gap.
+  - Re-read the latest shared-row evidence set together:
+    - the mixed deterministic cold-activation rerun
+    - the corrected focused-underline read
+    - the row-contract decision report
+    - the verification inventory
+    - the new `GlobalVariables` Playwright/CDP representative
+  - Conclusion:
+    - the lower CodeMirror seam still reads as locally exhausted and should not be reopened on the current evidence
+    - the current cross-section coverage is now strong enough to stop adding new harnesses
+    - but the checkpoint still lacks an explicit accepted shared-row compare that supersedes the earlier mixed cold-activation blocker
+    - that means checkpoint 1 is not ready to move upward into `sectionChrome` yet
+  - Recorded the gate decision in:
+    - `perf/reports/frontend/2026-03-17_section-shell-s1-checkpoint1-acceptance-gate.md`
+- Next action:
+  - Capture one more explicit untouched-`main` vs worktree shared-row compare on the declared lower seam.
+  - Use that compare plus the already-green cross-section evidence set to accept or reject checkpoint 1 before any upward move into `sectionChrome`.
+  - Reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` only if that fresh compare explicitly points back to the unchanged non-empty preview path.
