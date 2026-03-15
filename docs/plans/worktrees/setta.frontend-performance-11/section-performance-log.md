@@ -3304,3 +3304,63 @@ Append-only log for the section performance refactor.
   - Keep the lower activation seam trace-gated.
   - Establish a deterministic interaction path that proves the `mode` row mounts the live `.cm-editor` on both untouched `main` and this worktree before trusting another cold-trace rerun.
   - If a reliable rerun still points back down here, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` before reopening the already-trimmed lower activation files.
+
+### 2026-03-17 92
+
+- Item: Replace the weak DevTools click probe with a deterministic dummy-node `mousedown` activation harness.
+- Status: `needs_more_work`
+- Details:
+  - Re-read the live activation path around:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - Confirmed that first activation is driven by the dummy node's primary-button `mousedown`, not `click`, and that the stored pointer coordinates are part of the real mount path.
+  - Re-checked hit testing on the recreated centered scenes.
+  - Result:
+    - the overview pane still sits ahead of the dummy `mode` field in center-point hit testing on both branches
+    - this explains why the generic DevTools click probe was weak and did not reliably mount the live editor
+  - Reloaded both pages back to the dummy state, then dispatched direct `pointerdown` + `mousedown` events on the actual dummy `mode` node ids.
+  - Post-dispatch DOM read on both branches proved the harness now mounts the live editor:
+    - untouched `main`:
+      - dummy removed
+      - live `.cm-editor` count inside the row: `1`
+      - `:focus-within`: `true`
+      - active element role: `textbox`
+    - worktree:
+      - dummy removed
+      - live `.cm-editor` count inside the row: `1`
+      - `:focus-within`: `true`
+      - active element role: `textbox`
+  - Clean reload style read exposed a new parity blocker under that now-reliable harness:
+    - untouched `main` keeps the older focused row contract:
+      - row shell remains the grid-based `section-key-value ... grid ...`
+      - `.section-value` stays `display: block`
+      - border stays gray: `rgb(229, 231, 235)`
+      - live editor font family stays bare `monospace`
+    - worktree uses the newer focused row contract:
+      - row shell stays the `section-param-row` flex shell
+      - `.section-value` stays `display: flex`
+      - focused border turns blue: `rgb(96, 165, 250)`
+      - live editor font family is the full `ui-monospace ... monospace` stack
+  - Local diff read confirms that this is branch code, not a flaky harness read:
+    - `frontend/index.css` now defines the flex-based `section-param-row` / `.section-value` contract
+    - `frontend/src/components/Params/ParamRowShell.tsx` and `frontend/src/components/Params/paramRowClassNames.ts` own the newer row shell
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` wraps text inputs in the new bordered `.section-value` shell
+  - Parsed the new activation traces under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-devtools-recovery/` using the `mousedown` `EventDispatch` window.
+  - Trace summary:
+    - worktree versus untouched `main`:
+      - `RunTask`: `88.383 ms` versus `111.754 ms`
+      - `FunctionCall`: `65.190 ms` versus `98.122 ms`
+      - `FireAnimationFrame`: `0.148 ms` versus `0.584 ms`
+      - `EventDispatch`: `6.304 ms` versus `0.863 ms`
+      - `UpdateLayoutTree`: `29.761 ms` versus `23.062 ms`
+      - `Layout`: `7.941 ms` versus `1.987 ms`
+      - `Paint`: `0.643 ms` versus `0.293 ms`
+      - `Commit`: `0.213 ms` versus `0.096 ms`
+  - Conclusion:
+    - the deterministic activation harness now exists and should replace the weak generic click probe for this checkpoint
+    - checkpoint 1 is still open because the new activation trace is mixed and the focused `mode` row no longer matches untouched `main` under that harness
+- Next action:
+  - Keep using the dummy-node `mousedown` harness for any further cold activation traces on this checkpoint.
+  - Resolve or explain the focused row/input parity drift against untouched `main` before trusting another lower-seam performance decision.
+  - If a parity-resolved rerun still points back down here, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` before reopening the already-trimmed lower activation files.
