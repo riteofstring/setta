@@ -1,6 +1,5 @@
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
-. ./activate.sh
 
 SETTA_PATH_FLAGS_HELPER="${ROOT_DIR}/scripts/lib/setta_path_flags.sh"
 if [[ ! -f "${SETTA_PATH_FLAGS_HELPER}" ]]; then
@@ -15,8 +14,7 @@ LOG_FILE="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
 mkdir -p "$(dirname "${LOG_FILE}")"
 : > "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
-# SETTA_DEV_MODE="true" setta "$@" # pass in other command line args
-SETTA_BIN="${SETTA_BIN:-setta}"
+SETTA_CMD=()
 
 HOST_ARGS=(--host "${SETTA_HOST:-127.0.0.1}")
 PORT_ARGS=(--port "${SETTA_PORT:-8000}")
@@ -93,14 +91,31 @@ if [[ "${CLI_RUNTIME_ROOT}" -eq 0 && -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
   RUNTIME_ROOT_ARGS=(--runtime-root "${SETTA_RUNTIME_ROOT}")
 fi
 
-SETTA_DEV_MODE="true" "${SETTA_BIN}" \
-  "${HOST_ARGS[@]}" \
-  "${PORT_ARGS[@]}" \
-  "${NO_OPEN_ARGS[@]}" \
-  "${PROFILE_ARGS[@]}" \
-  "${SETTA_HOME_ARGS[@]}" \
-  "${SETTA_FILES_ROOT_ARGS[@]}" \
-  "${SETTA_FILES_LOCATION_ARGS[@]}" \
-  "${RUNTIME_ROOT_ARGS[@]}" \
-  "$@" \
+if [[ -n "${SETTA_BIN:-}" ]]; then
+  SETTA_CMD=("${SETTA_BIN}")
+else
+  if [[ -z "${SETTA_SERVER_BIN:-}" && -x "${ROOT_DIR}/scripts/run_setta_server.sh" ]]; then
+    export SETTA_SERVER_BIN="${ROOT_DIR}/scripts/run_setta_server.sh"
+  fi
+  SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")
+fi
+
+SETTA_ARGS=(
+  "${HOST_ARGS[@]}"
+  "${PORT_ARGS[@]}"
+  "${NO_OPEN_ARGS[@]}"
+  "${PROFILE_ARGS[@]}"
+  "${SETTA_HOME_ARGS[@]}"
+  "${SETTA_FILES_ROOT_ARGS[@]}"
+  "${SETTA_FILES_LOCATION_ARGS[@]}"
+  "${RUNTIME_ROOT_ARGS[@]}"
+  "$@"
   --log-level debug
+)
+
+if [[ "${#NO_OPEN_ARGS[@]}" -eq 0 && -r /dev/tty ]]; then
+  # `concurrently` detaches stdin, but the Go server only auto-opens when it sees a TTY.
+  SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" "${SETTA_ARGS[@]}" </dev/tty
+else
+  SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" "${SETTA_ARGS[@]}"
+fi

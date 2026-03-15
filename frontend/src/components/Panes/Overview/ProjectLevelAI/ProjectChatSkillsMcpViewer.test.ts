@@ -2,25 +2,23 @@ import { createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
-  areAgentNativeSlashCommandMapsEqual,
-  resolveAgentNativeSlashCommandsByEngineId,
-} from "./projectChatSkillsMcpViewerUtils";
-import {
   canCreateCustomSkill,
-  canSaveSelectedSkill,
-  resolveRawMarkdownModeHint,
+  isCustomSlashNamespaceAuthorityReady,
+  resolveCanAddCustomSlashCommand,
+  resolveCustomSlashDraftByProjectConfigIdUpdate,
   resolveRenderedSkillPreviewContent,
-  resolveSaveSelectedSkillButtonTitle,
   resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdReplace,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
-  resolveSkillPreviewTruncationNotice,
-  SKILL_MARKDOWN_VIEW_MODE_RAW,
-  SKILL_MARKDOWN_VIEW_MODE_RENDERED,
+  shouldPollSlashCommandAgentRuns,
   upsertAppGenSkillEntry,
-} from "./projectChatSkillsViewModel";
+} from "./ProjectChatSkillsMcpViewer";
+import {
+  areAgentNativeSlashCommandMapsEqual,
+  resolveAgentNativeSlashCommandsByEngineId,
+} from "./projectChatSkillsMcpViewerUtils";
 
 describe("resolveAgentNativeSlashCommandsByEngineId", () => {
   it("keeps only authoritative entries for the active project and engine set", () => {
@@ -348,6 +346,41 @@ describe("areAgentNativeSlashCommandMapsEqual", () => {
   });
 });
 
+describe("shouldPollSlashCommandAgentRuns", () => {
+  it("enables polling for slash commands whenever the project has any external-agent engine", () => {
+    expect(
+      shouldPollSlashCommandAgentRuns({
+        viewMode: "slash_commands",
+        hasExternalAgentEngine: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("disables polling outside slash commands view", () => {
+    expect(
+      shouldPollSlashCommandAgentRuns({
+        viewMode: "skills",
+        hasExternalAgentEngine: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPollSlashCommandAgentRuns({
+        viewMode: "mcp",
+        hasExternalAgentEngine: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("disables polling when no external-agent engine is configured", () => {
+    expect(
+      shouldPollSlashCommandAgentRuns({
+        viewMode: "slash_commands",
+        hasExternalAgentEngine: false,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("canCreateCustomSkill", () => {
   it("requires a current backend root before enabling create", () => {
     expect(
@@ -365,6 +398,59 @@ describe("canCreateCustomSkill", () => {
         newCustomSkillRelativePath: "new-skill",
       }),
     ).toBe(true);
+  });
+});
+
+describe("isCustomSlashNamespaceAuthorityReady", () => {
+  it("fails closed until engine configs finish loading", () => {
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "ready",
+        engineConfigsInitialLoadComplete: false,
+        slashCommandsByEngine: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("fails closed for external-agent projects until native authority is ready", () => {
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "loading",
+        engineConfigsInitialLoadComplete: true,
+        slashCommandsByEngine: [{ engineType: "external_agent" }],
+      }),
+    ).toBe(false);
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "ready",
+        engineConfigsInitialLoadComplete: true,
+        slashCommandsByEngine: [{ engineType: "external_agent" }],
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps custom slash creation available when no external agent engines exist", () => {
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "loading",
+        engineConfigsInitialLoadComplete: true,
+        slashCommandsByEngine: [{ engineType: "setta_llm" }],
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("resolveCanAddCustomSlashCommand", () => {
+  it("blocks add even for unique commands while namespace authority is unresolved", () => {
+    expect(
+      resolveCanAddCustomSlashCommand({
+        customSlashCommandTokens: new Set<string>(),
+        namespaceAuthorityReady: false,
+        newCustomSlashPrompt: "Summarize project status.",
+        normalizedNewCustomSlashCommand: "/project-status",
+        reservedSlashCommandTokens: new Set<string>(),
+      }),
+    ).toBe(false);
   });
 });
 
@@ -415,24 +501,6 @@ describe("resolveRenderedSkillPreviewContent", () => {
     });
 
     expect(preview).toBe("Skill content unavailable.");
-  });
-});
-
-describe("resolveSkillPreviewTruncationNotice", () => {
-  it("formats truncation metadata only when the backend reports the original size", () => {
-    expect(
-      resolveSkillPreviewTruncationNotice({
-        selectedSkillContentTruncated: true,
-        selectedSkillOriginalSizeBytes: 2048,
-      }),
-    ).toBe("Preview truncated from 2,048 bytes.");
-
-    expect(
-      resolveSkillPreviewTruncationNotice({
-        selectedSkillContentTruncated: false,
-        selectedSkillOriginalSizeBytes: 2048,
-      }),
-    ).toBeNull();
   });
 });
 
@@ -491,58 +559,6 @@ describe("resolveSkillMarkdownRawDraftBySkillIdHydration", () => {
   });
 });
 
-describe("raw markdown viewer helpers", () => {
-  it("explains when the raw markdown editor stays read-only", () => {
-    expect(
-      resolveRawMarkdownModeHint({
-        selectedSkillId: "workspace_agents_skills::release",
-        selectedSkillIsEditable: false,
-        selectedSkillEditabilityReason: "Workspace skills are synced from git.",
-        selectedSkillContentTruncated: false,
-        skillContentLoadStatus: "loaded",
-      }),
-    ).toBe("Workspace skills are synced from git.");
-  });
-
-  it("keeps the save button disabled until the editable raw view is ready", () => {
-    expect(
-      resolveSaveSelectedSkillButtonTitle({
-        selectedSkillId: "user_agents_skills::editable",
-        selectedSkillIsEditable: true,
-        selectedSkillEditabilityReason: null,
-        selectedSkillContentTruncated: false,
-        skillContentLoadStatus: "loaded",
-      }),
-    ).toBe("Save selected custom skill");
-
-    expect(
-      canSaveSelectedSkill({
-        skillContentLoadStatus: "loaded",
-        selectedSkillIsEditable: true,
-        selectedSkillId: "user_agents_skills::editable",
-        skillMarkdownViewMode: SKILL_MARKDOWN_VIEW_MODE_RAW,
-        selectedSkillContentTruncated: false,
-        skillMarkdownRawDraft: "# editable",
-        skillContentLoading: false,
-        customSkillSaveInFlight: false,
-      }),
-    ).toBe(true);
-
-    expect(
-      canSaveSelectedSkill({
-        skillContentLoadStatus: "loaded",
-        selectedSkillIsEditable: true,
-        selectedSkillId: "user_agents_skills::editable",
-        skillMarkdownViewMode: SKILL_MARKDOWN_VIEW_MODE_RENDERED,
-        selectedSkillContentTruncated: false,
-        skillMarkdownRawDraft: "# editable",
-        skillContentLoading: false,
-        customSkillSaveInFlight: false,
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("resolveSkillMarkdownRawDraftBySkillIdUpdate", () => {
   it("keeps independent drafts for each skill id", () => {
     const next = resolveSkillMarkdownRawDraftBySkillIdUpdate({
@@ -564,6 +580,142 @@ describe("resolveSkillMarkdownRawDraftBySkillIdUpdate", () => {
       "workspace_agents_skills::release": {
         draft: "# release notes",
         loadedContent: "# release notes",
+      },
+    });
+  });
+});
+
+describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
+  it("isolates new custom slash-command drafts by project id", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/triage",
+          prompt: "Summarize open bugs.",
+          appGenerationMode: null,
+        },
+      },
+      projectConfigId: "project-b",
+      nextDraft: {
+        command: "/ship",
+        prompt: "Prepare release notes.",
+        appGenerationMode: null,
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/triage",
+        prompt: "Summarize open bugs.",
+        appGenerationMode: null,
+      },
+      "project-b": {
+        command: "/ship",
+        prompt: "Prepare release notes.",
+        appGenerationMode: null,
+      },
+    });
+  });
+
+  it("keeps a draft when only the submission mode changes", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/wireframe",
+          prompt: "Create dashboard.",
+          appGenerationMode: null,
+        },
+      },
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: "json_render",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: "json_render",
+      },
+    });
+  });
+
+  it("keeps a draft while a mode-only selection is still in progress", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {},
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "",
+        prompt: "",
+        appGenerationMode: "json_render",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "",
+        prompt: "",
+        appGenerationMode: "json_render",
+      },
+    });
+  });
+
+  it("keeps an existing command draft when the mode returns to plain chat", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/wireframe",
+          prompt: "Create dashboard.",
+          appGenerationMode: "json_render",
+        },
+      },
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: null,
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: null,
+      },
+    });
+  });
+
+  it("clears only the active project draft when both fields are emptied", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/triage",
+          prompt: "Summarize open bugs.",
+          appGenerationMode: null,
+        },
+        "project-b": {
+          command: "/ship",
+          prompt: "Prepare release notes.",
+          appGenerationMode: null,
+        },
+      },
+      projectConfigId: "project-b",
+      nextDraft: {
+        command: "",
+        prompt: "",
+        appGenerationMode: null,
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/triage",
+        prompt: "Summarize open bugs.",
+        appGenerationMode: null,
       },
     });
   });
