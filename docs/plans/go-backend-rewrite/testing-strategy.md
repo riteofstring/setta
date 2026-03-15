@@ -47,7 +47,6 @@ For any subsystem change:
 Use these as the current behavior inventory:
 
 - `tests/auth`
-- `tests/routers`
 - `tests/websockets`
 - `tests/project_state`
 - `tests/mcp`
