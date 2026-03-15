@@ -251,6 +251,13 @@ Current tree note:
   `setta launcher setup` plus the OS-specific scripts, while the only retained
   packaged boundary in that tree is `backend/setta/launcher_artifacts/assets/*`
   for shipped launcher assets such as `Setta.icns`.
+- There is also no separate Python dev-start wrapper batch left in the current
+  worktree: the old source-only Python startup surfaces (`backend/setta/start.py`,
+  `backend/setta/dev_start.py`, `backend/setta/backend_launcher.py`, and
+  `backend/setta/startup_runtime.py`) are already gone, and the active
+  `frontend/backendStart.sh` plus `scripts/run-dev-instance.sh` flow now routes
+  through the retained packaged `python -m setta` boundary into the Go CLI
+  runtime instead of a distinct Python dev-start implementation.
 - `backend/setta/trusted_frontend_origins.py` and
   `tests/auth/test_trusted_frontend_origins.py` are also gone in the current
   worktree because trusted frontend-origin storage, launcher-origin proof
