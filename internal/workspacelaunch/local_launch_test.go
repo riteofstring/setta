@@ -485,6 +485,75 @@ func TestLocalLaunchServiceTrustFailureDoesNotPersistLastUsedWorkspace(t *testin
 	}
 }
 
+func TestLocalLaunchServicePersistsLastUsedWorkspaceAfterTrust(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	writeInstalledLauncherMetadata(t, fixture.defaultSettaHome)
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`), "http://launcher.example:7999/home")
+
+	result, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+	if result.WorkspaceRoot != fixture.sessions.result.Paths.WorkspaceRoot {
+		t.Fatalf("expected workspace root %q, got %q", fixture.sessions.result.Paths.WorkspaceRoot, result.WorkspaceRoot)
+	}
+
+	metadata, err := launcher.LoadLauncherInstallMetadata(fixture.defaultSettaHome)
+	if err != nil {
+		t.Fatalf("load launcher metadata: %v", err)
+	}
+	if metadata == nil || metadata.LastUsedWorkspace == nil {
+		t.Fatalf("expected last used workspace to persist, got %#v", metadata)
+	}
+	expectedWorkspaceRoot := fixture.sessions.result.Paths.WorkspaceRoot
+	if resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(expectedWorkspaceRoot)); err == nil {
+		expectedWorkspaceRoot = filepath.Join(resolvedParent, filepath.Base(expectedWorkspaceRoot))
+	}
+	if *metadata.LastUsedWorkspace != expectedWorkspaceRoot {
+		t.Fatalf("expected last used workspace %q, got %#v", expectedWorkspaceRoot, metadata.LastUsedWorkspace)
+	}
+}
+
+func TestLocalLaunchServiceIgnoresLauncherMetadataUpdateErrorsAfterTrust(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	metadataPath := writeInstalledLauncherMetadataAndReturnPath(t, fixture.defaultSettaHome)
+	if err := os.WriteFile(metadataPath, []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("write invalid launcher metadata: %v", err)
+	}
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`), "http://launcher.example:7999/home")
+
+	result, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("expected launch to ignore launcher metadata update errors, got %v", err)
+	}
+	if result.SessionID != fixture.sessions.result.Session.ID {
+		t.Fatalf("expected session id %q, got %#v", fixture.sessions.result.Session.ID, result.SessionID)
+	}
+	if !fixture.trustedOrigins.IsTrustedOrigin("http://127.0.0.1:61234", fixture.currentSession.Metadata.ID) {
+		t.Fatal("expected launched workspace origin to be trusted before launcher metadata update")
+	}
+
+	metadataPayload, err := os.ReadFile(metadataPath)
+	if err != nil {
+		t.Fatalf("read launcher metadata after ignored update error: %v", err)
+	}
+	if string(metadataPayload) != "{not-json" {
+		t.Fatalf("expected invalid launcher metadata payload to remain unchanged, got %q", string(metadataPayload))
+	}
+}
+
 func TestLocalLaunchServiceDoesNotRollbackReusedRemoteSessionOnTrustFailure(t *testing.T) {
 	t.Parallel()
 
@@ -675,6 +744,12 @@ func (f localLaunchFixture) createIntent(t *testing.T, request Request, returnUR
 func writeInstalledLauncherMetadata(t *testing.T, settaHome string) {
 	t.Helper()
 
+	_ = writeInstalledLauncherMetadataAndReturnPath(t, settaHome)
+}
+
+func writeInstalledLauncherMetadataAndReturnPath(t *testing.T, settaHome string) string {
+	t.Helper()
+
 	targetExecutable := filepath.Join(t.TempDir(), "setta")
 	if err := os.WriteFile(targetExecutable, []byte("#!/usr/bin/env bash\n"), 0o755); err != nil {
 		t.Fatalf("write launcher target executable: %v", err)
@@ -694,9 +769,11 @@ func writeInstalledLauncherMetadata(t *testing.T, settaHome string) {
 	if err != nil {
 		t.Fatalf("build launcher metadata: %v", err)
 	}
-	if _, err := launcher.WriteLauncherInstallMetadata(settaHome, installMetadata); err != nil {
+	metadataPath, err := launcher.WriteLauncherInstallMetadata(settaHome, installMetadata)
+	if err != nil {
 		t.Fatalf("write launcher metadata: %v", err)
 	}
+	return metadataPath
 }
 
 func float64Pointer(value float64) *float64 {
