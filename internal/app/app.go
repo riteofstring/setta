@@ -1037,6 +1037,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		stateMachineRuntime, err = statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
 			Runs:      agentRunStore,
 			Engines:   engineStore,
+			Profiles:  agentProfileStore,
 			Templates: promptTemplateStore,
 			ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
 				if shareSessionID != nil && strings.TrimSpace(*shareSessionID) != "" {

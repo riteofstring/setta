@@ -2,9 +2,11 @@ package statemachineruns
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
 	"setta/internal/projectstate"
@@ -169,6 +171,44 @@ func TestRuntimeHandleTerminalChildRunUpdateCompletesParentRun(t *testing.T) {
 	}
 	if updated.ID != parentRun.ID {
 		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	}
+}
+
+func TestRuntimeStartRunFailsClosedWhenSignalTargetProfileDisallowsWorkflowSignalTool(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixtureWithProfiles(t, []agentprofiles.Profile{{
+		ID:            "profile-no-signal",
+		Name:          "No Signal Tool",
+		ToolAllowlist: []string{"setta__search_ui_settings"},
+	}})
+
+	run, err := fixture.runtime.StartRun("project-alpha", "workflow-signal", nil, nil)
+	if err == nil {
+		t.Fatal("expected StartRun to fail when the selected profile cannot call report_state_machine_signal")
+	}
+	if len(fixture.managedStarter.requests) != 0 {
+		t.Fatalf("expected no managed chat dispatch before fail-closed validation, got %#v", fixture.managedStarter.requests)
+	}
+	if run.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed parent run, got %#v", run)
+	}
+	failureSummary, ok := run.Outputs[outputKeyFailureSummary].(map[string]any)
+	if !ok {
+		t.Fatalf("expected failure summary to persist, got %#v", run.Outputs)
+	}
+	if failureSummary["reason"] != "start_edge_action_failed" {
+		t.Fatalf("expected start_edge_action_failed code, got %#v", failureSummary)
+	}
+	if message, ok := failureSummary["message"].(string); !ok || message == "" || !containsAll(message, "profile-no-signal", workflowSignalToolBaseName) {
+		t.Fatalf("expected failure detail to mention blocked signal tool, got %#v", failureSummary)
+	}
+	latest, loadErr := fixture.runtime.GetLatestRun("project-alpha", "workflow-signal", nil)
+	if loadErr != nil {
+		t.Fatalf("GetLatestRun returned error: %v", loadErr)
+	}
+	if latest == nil || latest.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed latest workflow run, got %#v", latest)
 	}
 }
 
@@ -364,6 +404,7 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 	}}); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
+	profiles := newTestAgentProfileStore(t, nil)
 
 	managedStarter := &recordingManagedChatStarter{
 		chatIDs: []string{"chat-managed-1"},
@@ -372,8 +413,9 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 	}
 	managedStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
-		Runs:    runs,
-		Engines: engines,
+		Runs:     runs,
+		Engines:  engines,
+		Profiles: profiles,
 		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
 			if shareSessionID != nil {
 				t.Fatalf("unexpected share session lookup in foundation test: %#v", shareSessionID)
@@ -398,13 +440,22 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 }
 
 func newSignalRuntimeFixture(t *testing.T) runtimeFixture {
+	return newSignalRuntimeFixtureWithProfiles(t, nil)
+}
+
+func newSignalRuntimeFixtureWithProfiles(t *testing.T, profiles []agentprofiles.Profile) runtimeFixture {
 	t.Helper()
+
+	var agentProfileID *string
+	if len(profiles) > 0 {
+		agentProfileID = stringPointer(profiles[0].ID)
+	}
 
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
-			"project-alpha": signalStateMachineRuntimeTestProject(t),
+			"project-alpha": signalStateMachineRuntimeTestProjectWithSourceAgentProfile(t, agentProfileID),
 		},
 	})
 	if err != nil {
@@ -431,6 +482,7 @@ func newSignalRuntimeFixture(t *testing.T) runtimeFixture {
 	}}); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
+	profileStore := newTestAgentProfileStore(t, profiles)
 
 	managedStarter := &recordingManagedChatStarter{
 		chatIDs: []string{"chat-managed-1", "chat-managed-2"},
@@ -439,8 +491,9 @@ func newSignalRuntimeFixture(t *testing.T) runtimeFixture {
 	}
 	managedStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
-		Runs:    runs,
-		Engines: engines,
+		Runs:     runs,
+		Engines:  engines,
+		Profiles: profileStore,
 		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
 			if shareSessionID != nil {
 				t.Fatalf("unexpected share session lookup in signal foundation test: %#v", shareSessionID)
@@ -562,6 +615,10 @@ func stateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
 }
 
 func signalStateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
+	return signalStateMachineRuntimeTestProjectWithSourceAgentProfile(t, nil)
+}
+
+func signalStateMachineRuntimeTestProjectWithSourceAgentProfile(t *testing.T, agentProfileID *string) projectstate.Project {
 	t.Helper()
 
 	project, err := projectstate.Project{
@@ -596,6 +653,7 @@ func signalStateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
 				"id":             "chat-source-impl",
 				"type":           "Chat",
 				"engineConfigId": "engine-managed",
+				"agentProfileId": agentProfileID,
 				"permissionMode": "minimal",
 				"searchEnabled":  true,
 				"chatId":         nil,
@@ -691,4 +749,26 @@ func hasEventType(run agentruns.Run, eventType string) bool {
 
 func testNow() time.Time {
 	return time.Date(2026, 3, 14, 18, 0, 0, 0, time.UTC)
+}
+
+func newTestAgentProfileStore(t *testing.T, profiles []agentprofiles.Profile) *agentprofiles.Store {
+	t.Helper()
+
+	store, err := agentprofiles.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	if err := store.Write(profiles); err != nil {
+		t.Fatalf("write agent profiles: %v", err)
+	}
+	return store
+}
+
+func containsAll(value string, substrings ...string) bool {
+	for _, substring := range substrings {
+		if !strings.Contains(value, substring) {
+			return false
+		}
+	}
+	return true
 }

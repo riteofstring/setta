@@ -8,10 +8,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/config"
 	"setta/internal/managedchat"
@@ -161,6 +163,33 @@ func TestRegisterStateMachineRunRoutesUsesActiveShareSessionForGet(t *testing.T)
 	}
 }
 
+func TestRegisterStateMachineRunRoutesFailClosedWhenSignalTargetProfileBlocksWorkflowSignalTool(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalStateMachineRunRouteFixtureWithProfiles(t, config.ModeIDE, []agentprofiles.Profile{{
+		ID:            "profile-no-signal",
+		Name:          "No Signal Tool",
+		ToolAllowlist: []string{"setta__search_ui_settings"},
+	}})
+
+	response := stateMachineRunRouteRequest(t, fixture.handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-signal",
+	}, http.StatusBadRequest)
+	stateMachineRouteErrorCode(t, response, "state_machine_run_invalid")
+	if len(fixture.managedStarter.requests) != 0 {
+		t.Fatalf("expected no managed chat dispatch before fail-closed validation, got %#v", fixture.managedStarter.requests)
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if !strings.Contains(payload.Error.Message, "profile-no-signal") || !strings.Contains(payload.Error.Message, "report_state_machine_signal") {
+		t.Fatalf("expected signal-tool validation detail, got %#v", payload)
+	}
+}
+
 func TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode(t *testing.T) {
 	t.Parallel()
 
@@ -236,6 +265,7 @@ type stateMachineRunRouteFixture struct {
 	handler        http.Handler
 	projectRuntime *projectstate.Runtime
 	runs           *agentruns.RunStore
+	managedStarter *stateMachineRunRouteManagedChatStarter
 	managedStopper *stateMachineRunRouteRunStopper
 	shareSessions  *testHTTPShareSessionStore
 }
@@ -363,6 +393,7 @@ func newStateMachineRunRouteFixture(t *testing.T, mode config.Mode) stateMachine
 	}}); err != nil {
 		t.Fatalf("write engine configs: %v", err)
 	}
+	profiles := newStateMachineRunRouteAgentProfileStore(t, nil)
 
 	managedStarter := &stateMachineRunRouteManagedChatStarter{
 		chatIDs: []string{"chat-managed-1", "chat-managed-2"},
@@ -373,8 +404,9 @@ func newStateMachineRunRouteFixture(t *testing.T, mode config.Mode) stateMachine
 	baseTime := time.Date(2026, 3, 14, 19, 0, 0, 0, time.UTC)
 	timeTick := 0
 	runtime, err := statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
-		Runs:    runs,
-		Engines: engines,
+		Runs:     runs,
+		Engines:  engines,
+		Profiles: profiles,
 		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
 			return projectRuntime, nil
 		},
@@ -413,6 +445,105 @@ func newStateMachineRunRouteFixture(t *testing.T, mode config.Mode) stateMachine
 		handler:        handler,
 		projectRuntime: projectRuntime,
 		runs:           runs,
+		managedStarter: managedStarter,
+		managedStopper: managedStopper,
+		shareSessions:  shareSessions,
+	}
+}
+
+func newSignalStateMachineRunRouteFixtureWithProfiles(
+	t *testing.T,
+	mode config.Mode,
+	profiles []agentprofiles.Profile,
+) stateMachineRunRouteFixture {
+	t.Helper()
+
+	var agentProfileID *string
+	if len(profiles) > 0 {
+		agentProfileID = stringPointer(profiles[0].ID)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": stateMachineRunRouteSignalProject(t, agentProfileID),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open signal project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close signal project runtime: %v", err)
+		}
+	})
+
+	root := t.TempDir()
+	runs, err := agentruns.NewRunStore(root)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	engines, err := agentruns.NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	if err := engines.Write([]agentruns.EngineConfig{{
+		ID:         "engine-managed",
+		Name:       "Managed Engine",
+		EngineType: agentruns.EngineTypeSettaLLM,
+	}}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+	profileStore := newStateMachineRunRouteAgentProfileStore(t, profiles)
+
+	managedStarter := &stateMachineRunRouteManagedChatStarter{
+		chatIDs: []string{"chat-managed-1"},
+		runIDs:  []string{"child-run-1"},
+		runs:    runs,
+	}
+	managedStopper := &stateMachineRunRouteRunStopper{}
+	runtime, err := statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
+		Runs:     runs,
+		Engines:  engines,
+		Profiles: profileStore,
+		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
+			return projectRuntime, nil
+		},
+		ManagedChats: managedStarter,
+		ManagedRuns:  managedStopper,
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 14, 19, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new signal workflow runtime: %v", err)
+	}
+
+	shareSessions := newTestHTTPShareSessionStore("share-a", "share-b")
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
+		ModePolicy: modes.NewPolicy(mode),
+		Register: func(r chi.Router) {
+			if err := RegisterStateMachineRunRoutes(r, StateMachineRunRouteDependencies{
+				ModePolicy:    modes.NewPolicy(mode),
+				ShareSessions: shareSessions,
+				Runtime:       runtime,
+			}); err != nil {
+				t.Fatalf("register signal workflow routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	return stateMachineRunRouteFixture{
+		handler:        handler,
+		projectRuntime: projectRuntime,
+		runs:           runs,
+		managedStarter: managedStarter,
 		managedStopper: managedStopper,
 		shareSessions:  shareSessions,
 	}
@@ -459,4 +590,106 @@ func newStateMachineRouteTestRun(
 	run := agentruns.NewRun(nil, inputs, now)
 	run.ID = runID
 	return run
+}
+
+func newStateMachineRunRouteAgentProfileStore(t *testing.T, profiles []agentprofiles.Profile) *agentprofiles.Store {
+	t.Helper()
+
+	store, err := agentprofiles.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	if err := store.Write(profiles); err != nil {
+		t.Fatalf("write agent profiles: %v", err)
+	}
+	return store
+}
+
+func stateMachineRunRouteSignalProject(t *testing.T, agentProfileID *string) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-section":  "chat-variant",
+			"end-section":   "end-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-section":  {ID: "chat-section", Name: "Chat Section", VariantIDs: []string{"chat-variant"}, DefaultVariantID: "chat-variant"},
+			"end-section":   {ID: "end-section", Name: "End Section", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant": {ID: "start-variant", ImplID: "start-impl"},
+			"chat-variant":  {ID: "chat-variant", ImplID: "chat-impl"},
+			"end-variant":   {ID: "end-variant", ImplID: "end-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {
+				ID:   "start-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{
+					"id":             "start-impl",
+					"type":           "StateMachineStart",
+					"machineGroupId": "workflow-signal",
+					"label":          "Start",
+				}),
+			},
+			"chat-impl": {
+				ID:   "chat-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{
+					"id":             "chat-impl",
+					"type":           "Chat",
+					"engineConfigId": "engine-managed",
+					"agentProfileId": agentProfileID,
+					"permissionMode": string(projectstate.ChatPermissionModeMinimal),
+					"searchEnabled":  true,
+				}),
+			},
+			"end-impl": {
+				ID:   "end-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{
+					"id":             "end-impl",
+					"type":           "StateMachineEnd",
+					"machineGroupId": "workflow-signal",
+					"label":          "Done",
+				}),
+			},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat",
+				MachineGroupID:  "workflow-signal",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review the draft."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-chat-end",
+				MachineGroupID:  "workflow-signal",
+				SourceSectionID: "chat-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type:       projectstate.StateMachineSourceFilterTypeSignal,
+					SignalName: stringPointer("merge_decision"),
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize signal workflow project: %v", err)
+	}
+	return project
 }

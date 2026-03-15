@@ -10,9 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/promptrender"
 	"setta/internal/prompttemplates"
@@ -20,6 +22,8 @@ import (
 
 const (
 	RunTypeStateMachine = "state_machine"
+
+	workflowSignalToolBaseName = "report_state_machine_signal"
 
 	graphSnapshotInputKey              = "stateMachineGraphSnapshot"
 	inputKeyProjectConfigID            = "projectConfigId"
@@ -55,6 +59,7 @@ const (
 var (
 	ErrRunStoreRequired            = errors.New("state machine run store is required")
 	ErrEngineStoreRequired         = errors.New("state machine engine store is required")
+	ErrProfileStoreRequired        = errors.New("state machine agent profile store is required")
 	ErrProjectResolverRequired     = errors.New("state machine project runtime resolver is required")
 	ErrRuntimeUnavailable          = errors.New("state machine runtime is not available")
 	ErrPromptTemplateStoreRequired = errors.New("state machine prompt template store is required")
@@ -78,6 +83,7 @@ type RunStopper interface {
 type RuntimeOptions struct {
 	Runs                  *agentruns.RunStore
 	Engines               *agentruns.EngineStore
+	Profiles              *agentprofiles.Store
 	Templates             *prompttemplates.Store
 	ResolveProjectRuntime ResolveProjectRuntime
 	ManagedChats          ManagedChatStarter
@@ -91,6 +97,7 @@ type RuntimeOptions struct {
 type Runtime struct {
 	runs                  *agentruns.RunStore
 	engines               *agentruns.EngineStore
+	profiles              *agentprofiles.Store
 	templates             *prompttemplates.Store
 	resolveProjectRuntime ResolveProjectRuntime
 	managedChats          ManagedChatStarter
@@ -148,6 +155,9 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	if options.Engines == nil {
 		return nil, ErrEngineStoreRequired
 	}
+	if options.Profiles == nil {
+		return nil, ErrProfileStoreRequired
+	}
 	if options.ResolveProjectRuntime == nil {
 		return nil, ErrProjectResolverRequired
 	}
@@ -164,6 +174,7 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	return &Runtime{
 		runs:                  options.Runs,
 		engines:               options.Engines,
+		profiles:              options.Profiles,
 		templates:             options.Templates,
 		resolveProjectRuntime: options.ResolveProjectRuntime,
 		managedChats:          options.ManagedChats,
@@ -1069,6 +1080,9 @@ func (r *Runtime) dispatchChatEdge(
 	if err != nil {
 		return nil, err
 	}
+	if err := r.ensureSignalDispatchProfileAllowed(graph, targetSection, *targetAction); err != nil {
+		return nil, err
+	}
 	message := userTextMessage(promptText)
 	resolvedPermissionMode := resolvePermissionMode(targetSection, *targetAction)
 	resolvedSearchEnabled := resolveSearchEnabled(targetSection, *targetAction)
@@ -1244,6 +1258,65 @@ func (r *Runtime) resolveEngineConfigID(
 		return strings.TrimSpace(*targetSection.EngineConfigID), nil
 	}
 	return "", fmt.Errorf("chat section %s is missing engineConfigId for state machine edge %s", targetSection.ID, edgeID)
+}
+
+func (r *Runtime) ensureSignalDispatchProfileAllowed(
+	graph graph,
+	targetSection graphSection,
+	targetAction projectstate.StateMachineTargetAction,
+) error {
+	if !r.hasSignalFilteredOutgoingEdges(graph, targetSection.ID) {
+		return nil
+	}
+	agentProfileID := chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID)
+	if agentProfileID == nil {
+		return nil
+	}
+	profile, err := r.profiles.Get(*agentProfileID)
+	if err != nil {
+		return err
+	}
+	if workflowSignalToolAllowed(profile) {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: workflow chat section %s requires agent profile %s to allow %s",
+		ErrInvalidStateMachineInput,
+		targetSection.ID,
+		profile.ID,
+		workflowSignalToolBaseName,
+	)
+}
+
+func (r *Runtime) hasSignalFilteredOutgoingEdges(graph graph, sourceSectionID string) bool {
+	for _, edge := range r.outgoingEdges(graph, sourceSectionID) {
+		if edge.SourceFilter == nil {
+			continue
+		}
+		if edge.SourceFilter.Type == projectstate.StateMachineSourceFilterTypeSignal {
+			return true
+		}
+	}
+	return false
+}
+
+func workflowSignalToolAllowed(profile agentprofiles.Profile) bool {
+	if len(profile.ToolAllowlist) == 0 {
+		return true
+	}
+	requiredToolName := mcpx.NormalizeToolName(mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, workflowSignalToolBaseName))
+	serverID, baseName, ok := mcpx.SplitNamespacedToolName(requiredToolName)
+	if !ok {
+		return false
+	}
+	for _, entry := range profile.ToolAllowlist {
+		normalizedEntry := mcpx.NormalizeToolName(strings.TrimSpace(entry))
+		switch normalizedEntry {
+		case requiredToolName, baseName, serverID:
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Runtime) stopRunningChildRuns(parentRun agentruns.Run, projectConfigID string) ([]string, error) {
