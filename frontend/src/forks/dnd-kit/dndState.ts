@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { manualDndChildrenReset } from "state/actions/sectionInfos";
+import { manualDndChildrenReset } from "state/actions/sectionDisplayStructure";
 import { withProjectState, withResetFn } from "state/utils";
 import { getNowDate } from "utils/timestamps";
 import { immer } from "zustand/middleware/immer";

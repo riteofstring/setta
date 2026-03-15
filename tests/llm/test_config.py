@@ -7,6 +7,7 @@ import pytest
 import setta.mcp.codex_config as codex_config_module
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
+from setta.llm.example_config import seed_llm_config_example_file
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat import ChatMetadata
 from setta.types.id import ID
@@ -30,32 +31,6 @@ def _build_chat_metadata(
         lastUpdated=datetime.now(),
         llmConfig=llm_config,
         projectConfigId=project_config_id,
-    )
-
-
-def _write_default_example_llm_config(dbe: DBE) -> None:
-    dbe.write_llm_config_example(
-        {
-            "configs": {
-                "claude-sonnet": {
-                    "model": "claude-sonnet-4-5-20250929",
-                    "provider": "anthropic",
-                    "api_key_env": "ANTHROPIC_API_KEY",
-                },
-                "openai-whisper-1": {
-                    "model": "whisper-1",
-                    "provider": "openai",
-                    "api_key_env": "OPENAI_API_KEY",
-                },
-            },
-            "mcpServers": {
-                SETTA_MCP_SERVER_ID: {
-                    "transport": "sse",
-                    "url": f"{constants_module.C.BACKEND}/mcp",
-                }
-            },
-            "default_config_id": "claude-sonnet",
-        }
     )
 
 
@@ -302,7 +277,7 @@ class TestLLMConfigPersistence:
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
-            _write_default_example_llm_config(dbe)
+            seed_llm_config_example_file(dbe)
 
             # Built mode leaves SETTA_DEV_MODE unset; fallback should still use example data.
             monkeypatch.setattr(constants_module, "IS_DEV_MODE", None)
@@ -1323,3 +1298,41 @@ command = "beta"
                     }
                 }
             )
+
+
+class TestLLMConfigExampleSeeding:
+    def test_seed_llm_config_example_file_writes_default_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+
+            seed_llm_config_example_file(dbe)
+
+            payload = dbe.read_llm_config_example()
+            configs = payload.get("configs", {})
+            assert "claude-sonnet" in configs
+            assert "openai-whisper-1" in configs
+            assert "id" not in configs["claude-sonnet"]
+            assert "id" not in configs["openai-whisper-1"]
+            assert "context7" not in payload.get("mcpServers", {})
+
+    def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            dbe.write_llm_config_example(
+                {
+                    "configs": {
+                        "existing": {
+                            "model": "custom-model",
+                        }
+                    }
+                }
+            )
+
+            seed_llm_config_example_file(dbe)
+
+            payload = dbe.read_llm_config_example()
+            assert payload["configs"] == {
+                "existing": {
+                    "model": "custom-model",
+                }
+            }
