@@ -284,6 +284,13 @@ Current tree note:
   caller-backed in Go under `internal/deployments`, `internal/runs`,
   `internal/shareartifacts`, and `internal/httpapi`; the remaining Python
   share boundary is only `share/listener_runtime.py`.
+- The isolated Python helper leaves for auth/session validation,
+  settings/settings-project persistence, project backup snapshots, LLM config
+  bootstrap, code formatting, and launcher-origin handoff are also gone in the
+  current worktree because those active surfaces are already caller-backed in
+  Go under `internal/auth`, `internal/settingsstate`, `internal/projectbackup`,
+  `internal/llmconfig`, `internal/codeformat`, `internal/frontendorigins`, and
+  `internal/workspacelaunch`.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
