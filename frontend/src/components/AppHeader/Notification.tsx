@@ -1,7 +1,7 @@
 import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea";
 import { type CSSProperties, useEffect, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
-import { useNotifications } from "state/definitions";
+import { useNotifications } from "state/stores/feedbackStores";
 import { SettaNotification } from "utils/generatedTypes";
 
 export function Notification() {
