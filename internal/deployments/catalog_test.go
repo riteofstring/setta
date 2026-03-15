@@ -234,6 +234,39 @@ func TestCatalogLatestUsesHighestVersionRootAsSourceOfTruth(t *testing.T) {
 	}
 }
 
+func TestCatalogListVersionsReturnsEmptyWhenDeploymentMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	catalog, err := NewCatalog(CatalogOptions{Root: root})
+	if err != nil {
+		t.Fatalf("new catalog: %v", err)
+	}
+
+	entries, err := catalog.ListVersions(context.Background(), "missing", TypeShare)
+	if err != nil {
+		t.Fatalf("list missing deployment versions: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no versions for missing deployment, got %#v", entries)
+	}
+}
+
+func TestCatalogLatestReturnsNotFoundWhenDeploymentDirectoryMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	catalog, err := NewCatalog(CatalogOptions{Root: root})
+	if err != nil {
+		t.Fatalf("new catalog: %v", err)
+	}
+
+	_, err = catalog.Latest(context.Background(), "missing", TypeShare)
+	if !errors.Is(err, ErrDeploymentNotFound) {
+		t.Fatalf("expected latest lookup for missing deployment to fail with not found, got %v", err)
+	}
+}
+
 func writeCatalogDeployment(t *testing.T, catalogRoot string, deploymentName string, deploymentVersion string, deploymentType Type, defaultProjectID string, defaultProjectName string, createdAt time.Time) {
 	t.Helper()
 

@@ -197,7 +197,7 @@ func (c *Catalog) ListVersions(ctx context.Context, deploymentName string, deplo
 	deploymentParent := filepath.Join(c.root, normalizedName)
 	versions, err := listVersionRoots(deploymentParent)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return []Metadata{}, nil
 		}
 		return nil, err
@@ -237,7 +237,7 @@ func (c *Catalog) Latest(ctx context.Context, deploymentName string, deploymentT
 	deploymentParent := filepath.Join(c.root, normalizedName)
 	versions, err := listVersionRoots(deploymentParent)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return Metadata{}, fmt.Errorf("%w: %q", ErrDeploymentNotFound, normalizedName)
 		}
 		return Metadata{}, err

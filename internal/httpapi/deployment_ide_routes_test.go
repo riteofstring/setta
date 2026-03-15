@@ -252,6 +252,78 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if string(encodedPublished) != string(encodedExpected) {
 		t.Fatalf("expected published app spec %s, got %s", string(encodedExpected), string(encodedPublished))
 	}
+
+	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
+	secondResponse := httptest.NewRecorder()
+	secondRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppDeployments,
+		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+	)
+	secondRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(secondResponse, secondRequest)
+	if secondResponse.Code != http.StatusOK {
+		t.Fatalf("expected second app publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
+	}
+
+	var secondPayload deploymentMetadataResponse
+	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
+		t.Fatalf("decode second app publish payload: %v", err)
+	}
+	if secondPayload.DeploymentVersion != "v2" {
+		t.Fatalf("expected second app deployment version v2, got %q", secondPayload.DeploymentVersion)
+	}
+
+	versionsResponse := httptest.NewRecorder()
+	versionsRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/versions", nil)
+	handler.ServeHTTP(versionsResponse, versionsRequest)
+	if versionsResponse.Code != http.StatusOK {
+		t.Fatalf("expected app versions 200, got %d with body %q", versionsResponse.Code, versionsResponse.Body.String())
+	}
+
+	var versionsPayload []deploymentMetadataResponse
+	if err := json.Unmarshal(versionsResponse.Body.Bytes(), &versionsPayload); err != nil {
+		t.Fatalf("decode app versions payload: %v", err)
+	}
+	if len(versionsPayload) != 2 {
+		t.Fatalf("expected two app versions, got %#v", versionsPayload)
+	}
+	if versionsPayload[0].DeploymentVersion != "v2" || versionsPayload[1].DeploymentVersion != "v1" {
+		t.Fatalf("expected newest-first app versions, got %#v", versionsPayload)
+	}
+
+	latestResponse := httptest.NewRecorder()
+	latestRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/latest", nil)
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected app latest 200, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var latestPayload deploymentMetadataResponse
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
+		t.Fatalf("decode app latest payload: %v", err)
+	}
+	if latestPayload.DeploymentVersion != "v2" {
+		t.Fatalf("expected latest app deployment version v2, got %q", latestPayload.DeploymentVersion)
+	}
+
+	listResponse := httptest.NewRecorder()
+	listRequest := httptest.NewRequest(http.MethodGet, "/api"+RouteAppDeployments, nil)
+	handler.ServeHTTP(listResponse, listRequest)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("expected app list 200, got %d with body %q", listResponse.Code, listResponse.Body.String())
+	}
+
+	var listPayload []deploymentMetadataResponse
+	if err := json.Unmarshal(listResponse.Body.Bytes(), &listPayload); err != nil {
+		t.Fatalf("decode app list payload: %v", err)
+	}
+	if len(listPayload) != 2 {
+		t.Fatalf("expected two app list entries, got %#v", listPayload)
+	}
+	if listPayload[0].DeploymentVersion != "v2" || listPayload[1].DeploymentVersion != "v1" {
+		t.Fatalf("expected newest-first app list entries, got %#v", listPayload)
+	}
 }
 
 func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish(t *testing.T) {
@@ -297,6 +369,46 @@ func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish(t *testing.T) {
 			if payload.Error.Code != "invalid_json" {
 				t.Fatalf("expected invalid_json error code, got %#v", payload)
 			}
+		})
+	}
+}
+
+func TestRegisterDeploymentIDERoutesRejectMalformedPublishJSON(t *testing.T) {
+	t.Parallel()
+
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	tests := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "share publish",
+			path: "/api" + RouteShareDeployments,
+			body: `{"deploymentName":`,
+		},
+		{
+			name: "app publish",
+			path: "/api" + RouteAppDeployments,
+			body: `{"deploymentName":`,
+		},
+	}
+
+	for _, testCase := range tests {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, testCase.path, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected malformed publish payload 400, got %d with body %q", response.Code, response.Body.String())
+			}
+			deploymentIDERouteErrorCode(t, response, "invalid_json")
 		})
 	}
 }
@@ -443,6 +555,112 @@ func TestRegisterDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.T) 
 		}
 		deploymentIDERouteErrorCode(t, response, "invalid_app_spec")
 	})
+}
+
+func TestRegisterDeploymentIDERoutesMapCatalogReadErrors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	tests := []struct {
+		name            string
+		path            string
+		expectedCode    int
+		expectedErrCode string
+		expectedMessage string
+		expectEmptyList bool
+	}{
+		{
+			name:            "share versions missing deployment",
+			path:            "/api/share/deployments/missing/versions",
+			expectedCode:    http.StatusOK,
+			expectEmptyList: true,
+		},
+		{
+			name:            "app versions missing deployment",
+			path:            "/api/app/deployments/missing/versions",
+			expectedCode:    http.StatusOK,
+			expectEmptyList: true,
+		},
+		{
+			name:            "share versions invalid deployment name",
+			path:            "/api/share/deployments/%20/versions",
+			expectedCode:    http.StatusBadRequest,
+			expectedErrCode: "invalid_deployment_name",
+			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
+		},
+		{
+			name:            "app versions invalid deployment name",
+			path:            "/api/app/deployments/%20/versions",
+			expectedCode:    http.StatusBadRequest,
+			expectedErrCode: "invalid_deployment_name",
+			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
+		},
+		{
+			name:            "share latest invalid deployment name",
+			path:            "/api/share/deployments/%20/latest",
+			expectedCode:    http.StatusBadRequest,
+			expectedErrCode: "invalid_deployment_name",
+			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
+		},
+		{
+			name:            "app latest invalid deployment name",
+			path:            "/api/app/deployments/%20/latest",
+			expectedCode:    http.StatusBadRequest,
+			expectedErrCode: "invalid_deployment_name",
+			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
+		},
+		{
+			name:            "share latest missing deployment",
+			path:            "/api/share/deployments/missing/latest",
+			expectedCode:    http.StatusNotFound,
+			expectedErrCode: "not_found",
+			expectedMessage: "Share deployment not found: missing",
+		},
+		{
+			name:            "app latest missing deployment",
+			path:            "/api/app/deployments/missing/latest",
+			expectedCode:    http.StatusNotFound,
+			expectedErrCode: "not_found",
+			expectedMessage: "App deployment not found: missing",
+		},
+	}
+
+	for _, testCase := range tests {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
+			handler.ServeHTTP(response, request)
+			if response.Code != testCase.expectedCode {
+				t.Fatalf("expected catalog read %d, got %d with body %q", testCase.expectedCode, response.Code, response.Body.String())
+			}
+			if testCase.expectEmptyList {
+				var payload []deploymentMetadataResponse
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode empty catalog list response: %v", err)
+				}
+				if len(payload) != 0 {
+					t.Fatalf("expected empty catalog list, got %#v", payload)
+				}
+				return
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode catalog error response: %v", err)
+			}
+			if payload.Error.Code != testCase.expectedErrCode {
+				t.Fatalf("expected error code %q, got %#v", testCase.expectedErrCode, payload)
+			}
+			if payload.Error.Message != testCase.expectedMessage {
+				t.Fatalf("expected error message %q, got %#v", testCase.expectedMessage, payload)
+			}
+		})
+	}
 }
 
 func TestRegisterDeploymentIDERoutesIsNotMountedOutsideIDEMode(t *testing.T) {
