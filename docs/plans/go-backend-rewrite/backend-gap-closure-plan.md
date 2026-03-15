@@ -247,6 +247,10 @@ categorize them.
   bounded proof-only queue should likely move to the remaining config-home or
   external-agent runtime proof slices unless another similarly small caller-
   backed route branch surfaces first
+- That external-agent runtime env-handoff row is now proved too, so the next
+  bounded proof-only queue inside external-agent runtime should likely focus
+  on the remaining Codex prompt/auth branches rather than the already-proved
+  per-chat artifact and subprocess-env plumbing
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
