@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`f145a8af530bb2b6720547aadc6a963497d94f08`
+`ae358320454b7fe531d6af08fea96b799ee6cd83`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -54,6 +54,7 @@ It currently covers:
 - surviving MCP init-tool behavior for project metadata, installed packages, and runtime status
 - provider dictation transcription-session file/realtime transport and runtime behavior
 - managed/external chat hydration, managed stop, and external-agent approval/question transport behavior
+- AI-follow snapshot, external-agent run stop, and agent-run read routes
 
 Rows outside these slices are still pending.
 
@@ -84,7 +85,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Eleven concrete parity gaps are already visible:
+- Twelve concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -120,6 +121,9 @@ Rows outside these slices are still pending.
     `appGenerationByMessageId` provenance from run inputs
   - current Go hydration responses omit that field even though current
     frontend hydration still consumes it
+  - source-baseline `getAIFollowSnapshot` merges managed and external
+    AI-follow state for the active project
+  - current Go only returns external-agent follow state from that route
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -178,6 +182,10 @@ Rows outside these slices are still pending.
     provenance (`AH-04`)
   - two more proof-gap clusters around managed-hydration tolerance variants
     and already-stopped stop transport proof (`AH-02`, `MS-02`)
+- The AI-follow / external-run-stop / agent-run-read slice mostly closes with
+  proofs, but it adds:
+  - one concrete behavior gap around missing managed follow-state snapshot
+    rehydrate (`FS-01`)
 
 ## Project Names
 
@@ -519,11 +527,31 @@ Rows outside these slices are still pending.
 | `EA-01` | `respondExternalAgentApproval` dispatches the approval decision to the active runtime, persists the approval-response/tool-result event, and returns typed `404 approval_not_found` when the approval id is missing. | Source route: `backend/setta/routers/agentic.py::route_respond_external_agent_approval`. | Impl: `internal/externalagents/runtime.go::RespondToApproval`; route mapping: `internal/httpapi/ai_routes.go::respondExternalAgentApprovalHandler`; proof: `internal/externalagents/runtime_test.go::TestRuntimeRespondToApprovalDispatchesAndPersistsEvent`; route proof: `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesRespondsToExternalAgentApproval,TestRegisterAIRoutesReturnsNotFoundForMissingApproval}`. | `Proved` | Current direct callers still use the route through `frontend/src/state/actions/ai.ts::respondExternalAgentApproval` and `frontend/src/components/Chat/ApprovalCard.tsx`. |
 | `EA-02` | `respondExternalAgentQuestion` dispatches the submitted answers map to the active runtime, persists the question-response/tool-result event, and returns typed `404 question_not_found` when the tool-call question is missing. | Source route: `backend/setta/routers/agentic.py::route_respond_external_agent_question`. | Impl: `internal/externalagents/runtime.go::RespondToQuestion`; route mapping: `internal/httpapi/ai_routes.go::respondExternalAgentQuestionHandler`; proof: `internal/externalagents/runtime_test.go::TestRuntimeRespondToQuestionDispatchesAndPersistsEvent`; route proof: `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesRespondsToExternalAgentQuestion,TestRegisterAIRoutesReturnsNotFoundForMissingQuestion}`. | `Proved` | Current direct callers still use the route through `frontend/src/state/actions/ai.ts::respondExternalAgentQuestion` and `frontend/src/components/Chat/QuestionCard.tsx`. |
 
+## AI Follow Snapshot
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `FS-01` | `getAIFollowSnapshot` returns the current project-scoped follow-tool snapshot across both managed and external AI chats so callers can rehydrate follow state after load/reconnect. | Source route merges both runtimes: `backend/setta/routers/ai.py::route_get_ai_follow_snapshot`; source managed snapshot behavior: `tests/llm/test_agent_runner_ai_follow_snapshot.py::test_snapshot_dedupes_and_clears`; source external snapshot behavior: `tests/agentic/test_external_agent_runner.py::test_ai_follow_snapshot_normalizes`. | Current Go route only returns the external follow owner: `internal/httpapi/ai_routes.go::getAIFollowSnapshotHandler` writes `deps.ExternalAgentFollow.Snapshot(projectConfigID)`; route proof: `internal/httpapi/ai_routes_test.go::TestRegisterAIRoutesReturnsExternalAIFollowSnapshot`. | `Missing` | This is a concrete parity gap. Current frontend still rehydrates from this route on load/share/reconnect flows: `frontend/src/state/actions/aiFollow.ts::requestAIFollowSnapshot`; `frontend/src/state/actions/project/loadProject.ts`; `frontend/src/state/actions/share.ts`; `frontend/src/state/actions/websocketReceive.ts`. |
+| `FS-02` | External follow snapshots normalize/dedupe ids, resolve temporary ids back to canonical ids, and drop unknown temporary ids before returning `idsByType`. | `tests/agentic/test_external_agent_runner.py::test_ai_follow_snapshot_normalizes`; source runtime: `backend/setta/agentic/external_agent_runner.py::get_ai_follow_snapshot`. | Impl: `internal/externalagents/follow.go::{Snapshot,resolveFollowID}`; proof: `internal/externalagents/follow_test.go::{TestRuntimeSetLiveChatStateSyncsExternalAIFollowAndStopClearsIt,TestFollowServiceSkipsUnknownTemporaryIDs}`; route proof: `internal/httpapi/ai_routes_test.go::TestRegisterAIRoutesReturnsExternalAIFollowSnapshot`. | `Proved` | Current caller transport still posts the same project-id payload: `frontend/src/utils/generatedEndpoints.test.ts::it("posts AI-follow snapshot reads and returns typed snapshot entries", ...)`. |
+
+## External Agent Run Control
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `XR-01` | `stopExternalAgentRun` cancels the targeted external run, returns the updated `AgentRun`, and maps missing run ids to `404`. | Source route: `backend/setta/routers/agentic.py::route_stop_external_agent_run`; source runtime: `backend/setta/agentic/external_agent_runner.py::stop_run`. | Impl: `internal/externalagents/runtime.go::StopRun`; route mapping: `internal/httpapi/ai_routes.go::stopExternalAgentRunHandler`; proof: `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesStopsExternalAgentRun,TestRegisterAIRoutesReturnsNotFoundForMissingExternalRunStop}`. | `Proved` | Current stop callers still route through `frontend/src/state/actions/aiStopProjectChat.test.ts`, which verifies the external stop path uses `route_stop_external_agent_run` for the selected run id. |
+
+## Agent Run Reads
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `GR-01` | `getAgentRun` returns the persisted run payload by id, and missing run ids return typed `404 agent_run_not_found`. | `tests/routers/test_agentic_routes.py` run-route flow covering `route_get_agent_run`; source route: `backend/setta/routers/agentic.py::route_get_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::getAgentRunHandler`; proof: `internal/httpapi/agent_run_routes_test.go::{TestRegisterAgentRunRoutesGetsRun,TestRegisterAgentRunRoutesReturnsNotFoundForMissingRun,TestRegisterAgentRunRoutesRejectsMissingRunID}`; app proof: `internal/app/app_test.go::TestAppServesRunChainRoutesAndPersistedReadback`. | `Proved` | Current caller transport still posts the same `runId` payload: `frontend/src/utils/generatedEndpoints.test.ts::it("posts single agent-run reads with the run id payload", ...)`. |
+| `GR-02` | `getAgentRuns` returns the current persisted run list and `[]` when no runs exist. | `tests/routers/test_agentic_routes.py` run-route flow covering `route_get_agent_runs`; source route: `backend/setta/routers/agentic.py::route_get_agent_runs`. | Impl: `internal/httpapi/agent_run_routes.go::getAgentRunsHandler`; proof: `internal/httpapi/agent_run_routes_test.go::{TestRegisterAgentRunRoutesListsRuns,TestRegisterAgentRunRoutesReturnsEmptyList}`; app proof: `internal/app/app_test.go::TestAppServesRunChainRoutesAndPersistedReadback`. | `Proved` | Current caller transport still loads the list from the backend origin: `frontend/src/utils/generatedEndpoints.test.ts::it("loads agent runs from the backend origin", ...)`; active caller usage remains in `frontend/src/state/actions/ai.ts`. |
+
 ## Current Findings
 
-1. The matrix now contains eleven concrete source-parity gaps:
+1. The matrix now contains twelve concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
-   `US-05`, `RV-02`, and `AH-04`.
+   `US-05`, `RV-02`, `AH-04`, and `FS-01`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -569,15 +597,17 @@ Rows outside these slices are still pending.
 14. The chat-hydration / managed-stop / external-response slice mostly closes
     with proofs, but it adds one real behavior gap (`AH-04`) plus two more
     proof-gap clusters (`AH-02`, `MS-02`).
-15. Git route behavior is now largely proved, including literal pathspec
+15. The AI-follow / external-run-stop / agent-run-read slice mostly closes
+    with proofs, but it adds one real behavior gap (`FS-01`).
+16. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-16. The remaining issues in the naming slice are still mostly proof gaps rather
+17. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-17. The next high-value steps are:
+18. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
-      `US-05`, `RV-02`, and `AH-04` should be restored or documented as
-      intentional divergences
+      `US-05`, `RV-02`, `AH-04`, and `FS-01` should be restored or documented
+      as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
