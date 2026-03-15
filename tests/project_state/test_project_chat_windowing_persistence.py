@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+from setta.agentic.store import save_engine_configs
 from setta.llm.config import save_llm_config
 from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
 from setta.project_state.project_manager_types import (
@@ -69,15 +70,16 @@ def _seed_linked_chat_runtime(manager) -> ID:
         manager.dbe,
     )
     engine_config_id = ID("engine-linked")
-    manager.dbe.write_engine_configs(
+    save_engine_configs(
+        manager.dbe,
         [
             EngineConfig(
                 id=engine_config_id,
                 name="Linked engine",
                 engineType=EngineType.setta_llm,
                 settaLlmConfigId=ID("primary"),
-            ).model_dump(mode="json")
-        ]
+            )
+        ],
     )
     return engine_config_id
 
