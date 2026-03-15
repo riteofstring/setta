@@ -30,6 +30,10 @@ It currently covers:
 - listener frontend emit dependency/artifact update behavior
 - listener router-endpoint call transport behavior
 - listener chat-toolkit and scriptable-chat built-in endpoint behavior
+- terminal websocket attach/read/resize behavior
+- terminal delete and interrupt route behavior
+- IDE `runCode` terminal-selection and draw-snapshot behavior
+- deployment/share `runCode` policy and session-overlay behavior
 
 Rows outside these slices are still pending.
 
@@ -48,6 +52,9 @@ Rows outside these slices are still pending.
   - the source-baseline behavior exists, but this matrix slice does not yet
     prove that a direct Go equivalent is still required by active callers or
     by the current Go architecture.
+- `Intentional divergence`
+  - the source-baseline behavior changed on purpose, and the rewrite docs or
+    active-caller contract explicitly document the clean break.
 
 ## Current Read
 
@@ -69,6 +76,14 @@ Rows outside these slices are still pending.
     update
   - source-baseline listener transport supports `use_temporary_ids`
   - current Go rejects temporary listener ids on `ListenerInit`
+- The terminal slice mostly closes with proofs, but it adds:
+  - one more implementation proof gap for invalid explicit terminal ids on
+    `runCode`
+  - two documented clean-break divergences around legacy terminal transport
+    (`killSubprocesses` and heuristic free-terminal reuse)
+  - two source behaviors that are now dormant or still unproven as active
+    caller requirements (terminal kill-route backend-log broadcasts and
+    `cliId`-backed `runCode`)
 
 ## Project Names
 
@@ -200,6 +215,41 @@ Rows outside these slices are still pending.
 | `LC-07` | `route_emit_chat_stream_delta` over the listener transport broadcasts frontend `LLMStreamingResponse` events with the requested chat/section/project/share-session scope. | `tests/llm/test_chat_toolkit_session_errors.py` stream-emitter route usage; `docs/reference/chat-sections.md` scriptable mode section. | Impl: `internal/app/listener_built_in_endpoint_invoker.go`; `internal/scriptablechat/service.go::EmitStreamDelta`; proof: `internal/scriptablechat/service_test.go::TestServiceEmitStreamDeltaBroadcastsFrontendMessage`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend`. | `Proved` | |
 | `LC-08` | `route_set_chat_section_state` over the listener transport is followed by an authoritative `ListenerForceRefresh` carrying the same `callId` and the updated chat-section state. | `docs/reference/chat-sections.md` scriptable mode section; `docs/reference/codegen-section-policy-and-metadata.md` listener-side chat dependency update note; `tests/api/test_listener_local_dependency_updates.py::test_chat_section_update_refreshes_ctx_values`. | Impl: `internal/wsapi/routes.go::listenerEndpointRequiresForceRefresh`; `internal/wsapi/routes.go::sendListenerEndpointForceRefresh`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefresh`. | `Proved` | |
 
+## Terminal Websocket Transport
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `TW-01` | IDE terminal websocket attach sends the ready marker, replays buffered history, and forwards input into the live terminal session. | `backend/setta/routers/terminals.py::terminal_websocket_endpoint`; `backend/setta/terminals/terminals.py::connect`; `backend/setta/terminals/terminals.py::write_to_terminal`; safety regression proof: `tests/terminals/test_terminal_connect_race.py::test_connect_does_not_crash_if_disconnected_during_prompt_wait`. | Impl: `internal/wsapi/routes.go::serveTerminalConnection`; `internal/terminals/service.go::Attach`; `internal/terminals/service.go::Write`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesTerminalConnectSendsReadyHistoryAndStreamsInput`; app proof: `internal/app/websocket_test.go::TestAppServesTerminalWebsocketRoute`. | `Proved` | The exact transport shape changed, but the attach/history/input behavior survives. |
+| `TW-02` | Reconnecting after a terminal-route disconnect replays buffered output written while no websocket was attached. | Source runtime behavior: `backend/setta/terminals/terminals.py::read_from_terminal` appends to history and `connect` always sends `get_terminal_history`. | Impl: `internal/wsapi/routes.go::serveTerminalConnection`; `internal/terminals/service.go::History`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesTerminalReconnectReplaysBufferedHistoryAfterDisconnect`; app proof: `internal/app/websocket_test.go::TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory`. | `Proved` | This source row is code-defined rather than isolated by a dedicated Python test. |
+| `TW-03` | Terminal resize control messages update cached rows/cols and the underlying PTY winsize. | `tests/terminals/test_terminal_resize_updates_winsize.py::test_terminal_resize_message_updates_winsize_and_cached_rows_cols`; `backend/setta/terminals/terminals.py::write_to_terminal`. | Impl: `internal/wsapi/routes.go::decodeTerminalControlMessage`; `internal/wsapi/routes.go::serveTerminalConnection`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesTerminalResizeMessageResizesPTY`; app proof: `internal/app/websocket_test.go::TestAppServesTerminalWebsocketResizeUpdatesStoredSessionDimensions`. | `Proved` | |
+| `TW-04` | Deployment/share terminal websocket access is denied when runtime policy disallows run/terminal access. | `backend/setta/routers/terminals.py::terminal_websocket_endpoint` calls `ctx.enforce_run_allowed_ws`; share-policy route cluster for the same gate: `tests/routers/test_share_policy_routes.py::test_run_routes_blocked`. | Impl: `internal/wsapi/routes.go::requireTerminalRouteAccess`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesTerminalRejectsDeploymentWhenRunPolicyDisabled`. | `Proved` | |
+| `TW-05` | Deployment/share terminal websocket sessions are read-only and auto-open a scoped terminal session when none exists yet. | `backend/setta/routers/terminals.py::terminal_websocket_endpoint` creates the terminal before connect and passes `allow_input=not ctx.deployment_mode`; activity proof: `tests/routers/test_share_websocket_requirements.py::test_terminal_activity_touches_share_session`. | Impl: `internal/wsapi/routes.go::serveTerminalConnection`; proof: `internal/wsapi/routes_test.go::TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession`; `internal/wsapi/routes_test.go::TestRegisterRoutesDeploymentTerminalAutoOpensReadOnlySession`. | `Proved` | |
+
+## Terminal Lifecycle Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `TT-01` | `deleteTerminals` deletes only the requested terminal sessions, remains share-session scoped, and ignores unknown terminal ids. | `backend/setta/routers/terminals.py::route_delete_terminals`; `backend/setta/terminals/terminals.py::delete_terminal`; `tests/routers/test_share_terminals.py::test_delete_terminals_scopes_to_share_session`. | Impl: `internal/httpapi/terminal_routes.go::deleteTerminalsHandler`; proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesDeletesRequestedTerminalSessions`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesIgnoresUnknownTerminalSections`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesDeletesDeploymentTerminalSessionsWhenPolicyAllows`. | `Proved` | The Go route adds an explicit blank-id `400`; this row only claims the shared delete/idempotence behavior. |
+| `TT-02` | Terminal interrupting only targets matching project/share-session terminal sessions with active foreground work. | `backend/setta/routers/terminals.py::route_kill_subprocesses`; `backend/setta/terminals/terminals.py::get_existing_terminals`; `backend/setta/terminals/terminals.py::kill_processes`. | Impl: `internal/httpapi/terminal_routes.go::interruptTerminalProcessesHandler`; `internal/terminals/service.go::InterruptProject`; proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesInterruptsOnlyMatchingProjectSessions`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesInterruptsDeploymentShareSessionsWhenPolicyAllows`. | `Proved` | This row is about targeting semantics, not the legacy route name or response/log shape. |
+| `TT-03` | The legacy `killSubprocesses` transport exists on the source baseline. Current Go intentionally exposes only the canonical `interruptTerminalProcesses` route and does not register the legacy adapter. | `backend/setta/types/routes.py::KILL_SUBPROCESSES`; `backend/setta/routers/terminals.py::route_kill_subprocesses`; retained generated API surface: `backend/setta/api/generated_listener_endpoints.py::kill_subprocesses`. | Rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-4-terminal-transport-migration.md` notes the clean break to `POST /api/interruptTerminalProcesses`; active-caller doc: `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`; proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesDoesNotRegisterLegacyKillSubprocessesRoute`. | `Intentional divergence` | This is documented as a clean-break transport change, not an accidental omission. |
+| `TT-04` | The source `killSubprocesses` route also emitted a frontend backend-log event reporting `Killed N processes` or `No subprocesses to kill`. | `backend/setta/routers/terminals.py::route_kill_subprocesses`. | Current Go handler: `internal/httpapi/terminal_routes.go::interruptTerminalProcessesHandler` returns structured JSON only. | `Dormant / unproven caller` | I do not yet have active-caller evidence that the old backend-log side effect still matters now that the canonical interrupt route returns `interruptedSessionCount`. |
+
+## Terminal Run Code
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `TR-01` | Invalid explicit `terminalSectionId` values are ignored and `runCode` falls back to ensuring/using an attached terminal for manual code runs. | `tests/terminals/test_run_code_attached_terminal.py::test_invalid_terminal_id_is_ignored`; `backend/setta/terminals/run_code.py::_is_valid_attached_terminal`. | Impl: `internal/runs/service.go::resolveTerminalSection`; `internal/projectstate/run_graph.go::ValidateAttachedTerminalForVariant`; partial proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal`. | `Implemented, proof incomplete` | Current Go has the same explicit-invalid-terminal fallback shape, but this slice has no direct Go test yet for the invalid-explicit-id branch from `main`. |
+| `TR-02` | Valid explicit attached terminal ids are reused for manual code runs. | `tests/terminals/test_run_code_attached_terminal.py::test_valid_terminal_id_is_reused`; `backend/setta/terminals/run_code.py::run_code`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesReusesExplicitAttachedTerminal`. | `Proved` | |
+| `TR-03` | Manual code runs without an explicit terminal ensure an attached terminal and dispatch output there. | `backend/setta/terminals/run_code.py::run_code` ensures an attached terminal for runnable code sections before dispatch. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal`. | `Proved` | |
+| `TR-04` | Section-variant and param overrides affect run planning without mutating the base project state, and override-specific terminal selection follows the overridden variant. | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_does_not_mutate_state`; `tests/project_state/test_run_overrides.py::test_create_run_command_applies_overrides_without_mutating_state`; `backend/setta/project_state/base_project_manager.py::create_run_command`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsCodeWithSectionVariantOverridesWithoutMutatingBaseState`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesReusesExplicitAttachedTerminalForSectionVariantOverride`. | `Proved` | |
+| `TR-05` | `drawSnapshotsBySectionId` writes draw snapshots before command dispatch and emits the matching binary listener realtime event. | `backend/setta/project_state/base_project_manager.py::create_run_command` applies draw-snapshot updates before building the run command. | Impl: `internal/runs/service.go::applyDrawSnapshots`; proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesAppliesDrawSnapshotsBeforeRunningCode`; app proof: `internal/app/websocket_test.go::TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent`. | `Proved` | |
+| `TR-06` | Generated-entry / non-attached runs create a temporary top-level terminal when no reusable terminal exists. | `backend/setta/terminals/run_code.py::run_command` falls back to `create_temporary_terminal` when no reusable/free terminal exists. | Impl/proof: `internal/runs/service.go::resolveTerminalSection`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal`. | `Proved` | |
+| `TR-07` | The source non-attached generated-entry path tries to reuse any free terminal in the same project/share-session scope before creating a temporary terminal. Current Go intentionally narrows that to explicit reusable top-level terminal sessions only. | `backend/setta/terminals/run_code.py::run_command`; `backend/setta/terminals/terminals.py::get_free_terminal`. | Rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-4-terminal-run-code-migration.md`; `docs/plans/go-backend-rewrite/archive/phase-4-generated-entry-runs-and-temp-terminals.md`; current proof of narrowed behavior: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry`. | `Intentional divergence` | This is a documented clean break away from the old heuristic free-terminal reuse rule. |
+| `TR-08` | `runCode` can target CLI transport via `cliId` instead of a terminal session. | `backend/setta/terminals/run_code.py::run_command`; retained source transport shape: `backend/setta/project_state/project_manager_types.py::RunCodeRequest`; generated caller surface: `backend/setta/api/generated_listener_endpoints.py::run_code`. | Current Go handler: `internal/httpapi/terminal_routes.go::runCodeHandler` rejects non-empty `cliId`; proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads`. | `Dormant / unproven caller` | This is a source-baseline transport gap, but I do not yet have evidence that any active Go-era caller still depends on CLI-backed `runCode`. |
+| `TR-09` | Deployment/share `runCode` is denied when `allowRun=false`, and denied attempts do not create terminal sessions or increment run counts. | `backend/setta/routers/terminals.py::route_run_code`; `tests/routers/test_share_policy_routes.py::test_run_routes_blocked`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows`. | `Proved` | |
+| `TR-10` | Deployment/share `runCode` enforces policy on variant overrides, param overrides, and code-param overrides. | `backend/setta/routers/terminals.py::_validate_run_overrides`; `backend/setta/project_state/share_runtime_state.py`; `tests/routers/test_share_policy_routes.py::test_run_routes_blocked`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentParamOverridesWhenPolicyDisallows`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentCodeParamOverrides`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentVariantOverridesWhenPolicyDisallows`. | `Proved` | |
+| `TR-11` | Deployment/share `runCode` executes against the session overlay, uses a read-only session-scoped terminal, increments session run counts, and rolls back a reserved single-run count if startup fails. | `backend/setta/routers/terminals.py::route_run_code`; `backend/setta/project_state/share_runtime_state.py`; `backend/setta/share/policy.py`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsSecondDeploymentRunWhenMultipleRunsDisabled`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRollsBackReservedDeploymentRunOnStartupFailure`. | `Proved` | |
+
 ## Current Findings
 
 1. The matrix now contains four concrete source-parity gaps:
@@ -210,16 +260,23 @@ Rows outside these slices are still pending.
 3. The listener transport slices added six more rows that are implemented in Go but
    still under-proved relative to `main`:
    `LS-04`, `LS-12`, `LS-13`, `LS-16`, `LR-05`, and `LC-05`.
-4. The remaining issues in the naming slice are still mostly proof gaps rather
+4. The terminal slice added one more under-proved row:
+   `TR-01`.
+5. The terminal slice also recorded two documented clean-break divergences:
+   `TT-03` and `TR-07`.
+6. The terminal slice surfaced two source behaviors that are now dormant or
+   still unproven as active Go-era caller requirements:
+   `TT-04` and `TR-08`.
+7. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
-5. The next high-value steps are:
+8. The next high-value steps are:
    - decide whether `CN-07` and `PS-08` should be restored or documented as
      intentional divergences
    - decide whether `LS-11` and `LS-17` should be restored or documented as
      intentional divergences
    - close proof gaps for project/view-mode/window-space/section format-rule
      variants
-   - close the remaining listener proof gaps (`LS-04`, `LS-12`, `LS-13`,
-     `LS-16`, `LR-05`, `LC-05`)
+   - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
+     `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`)
    - continue the matrix into the remaining realtime/runtime slices that are
      still outside this partial matrix
