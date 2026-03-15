@@ -2368,3 +2368,68 @@ Append-only log for the section performance refactor.
   - This is still only a narrow `SectionContainerCore` pass. The next serious `Phase S3` step should target the broader shared canvas/window shell ownership split above it.
 - Next action:
   - Continue `Phase S3` by moving toward a shared section-surface shell model across `SectionContainerCoreResizabe.tsx`, `SectionWindowSurface.tsx`, and `sectionChrome.ts` without reopening the accepted controller, chrome, area-switch, or active-shell seams unless a later trace proves it necessary.
+
+### 2026-03-17 72
+
+- Item: Accept `Phase S3` checkpoint 5 after moving shared section-surface chrome ownership into `sectionChrome`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Section/Container/sectionChrome.ts` so the shared surface layer now owns:
+    - section `bgColor`
+    - meta-control mode
+    - the common window/canvas surface-frame recipe
+  - Added `getWindowSectionChrome(...)` so `frontend/src/components/Section/Container/SectionWindowSurface.tsx` no longer computes its outer and inner shell classes inline.
+  - Kept the real ownership seams unchanged:
+    - `SectionAreaSwitch`
+    - `bodyOverride`
+    - the canvas externalized-window placeholder gate
+    - the canvas minimized gate
+  - Added focused coverage in:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx`
+    - result: `4` files passed, `16` tests passed
+  - Re-ran representative Playwright coverage:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat windows reopen canvas-bound sections as centered floating windows while keeping section chrome"`
+    - result: `8 passed` plus `1 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Used a matched `S0 Dict` floating-window compare to verify the shared window-shell move:
+    - move `S0 Dict` into a floating section window on both branches
+    - capture matched viewport screenshots
+    - confirm the canvas placeholder handoff still aligns with the floating window shell
+  - Saved fresh trace and screenshot artifacts under:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s3-checkpoint5/`
+  - Reused the representative `S0 Dict` size-change gate after restoring both branches to canvas:
+    - set `S0 Dict` to `300 x 300`
+    - wait for the shell to settle
+    - trace the deterministic shrink to `225 x 225` via `route_set_section_sizes(...)`
+  - Accepted target-renderer totals from the rerun pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `476.562`
+      - `UpdateLayoutTree`: `9.243`
+      - `Layout`: `1.302`
+      - `Paint`: `0.042`
+      - `RunTask`: `529.438`
+      - `EventDispatch`: `0.209`
+      - `TimerFire`: `243.827`
+      - `Commit`: `0.934`
+    - worktree
+      - `FunctionCall`: `333.795`
+      - `UpdateLayoutTree`: `9.491`
+      - `Layout`: `1.707`
+      - `Paint`: `0.762`
+      - `RunTask`: `392.411`
+      - `EventDispatch`: `0.352`
+      - `TimerFire`: `121.873`
+      - `Commit`: `1.265`
+- Interpretation:
+  - Checkpoint 5 is accepted.
+  - The worktree materially improves `FunctionCall`, `RunTask`, and `TimerFire` on the representative size-change gate after centralizing the shared chrome model.
+  - The remaining `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `Commit` tradeoffs are small enough to keep this ownership pass accepted.
+  - This is still not the final shell simplification. The next serious `Phase S3` step should target real body-shell or theme-state invalidation reduction above the accepted shared surface-chrome seam.
+- Next action:
+  - Continue `Phase S3` by targeting the remaining body-shell and theme-state duplication in `SectionWindowSurface.tsx` and the shared shell consumers above `sectionChrome.ts` without reopening the accepted controller, chrome, area-switch, active-shell, or shared surface-chrome seams unless a later trace proves it necessary.

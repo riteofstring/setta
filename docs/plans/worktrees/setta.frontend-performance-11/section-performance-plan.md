@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 4 kept static shell content out of the active `SectionContainerCore` path by memoizing the edge-handle + resizable body subtree
-- Current `Phase S3` state: checkpoint 4 accepted; the next serious step is the broader shared canvas/window shell ownership split above the accepted controller/chrome/area-switch/active-shell seams
+- Latest accepted checkpoint: `Phase S3` checkpoint 5 moved shared surface-chrome ownership into `sectionChrome` so the canvas and window shells now consume the same base chrome model
+- Current `Phase S3` state: checkpoint 5 accepted; the next serious step is real body-shell or theme-state invalidation reduction above the accepted controller/chrome/area-switch/active-shell/surface-chrome seams
 
 Non-negotiable constraints:
 
@@ -128,6 +128,26 @@ Immediate next step:
      - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
      - `frontend/src/components/Section/Container/sectionChrome.ts`
    - do not reopen the accepted controller, chrome, area-switch, or active-shell seams unless a later trace shows a boundary-specific regression
+17. Current post-checkpoint-5 direction:
+   - `frontend/src/components/Section/Container/sectionChrome.ts` now owns the shared section-surface mode split:
+     - `bgColor`
+     - meta-control mode
+     - the shared window/canvas surface frame recipe
+   - `frontend/src/components/Section/Container/SectionWindowSurface.tsx` no longer computes its shell classes inline and now consumes `getWindowSectionChrome(...)`
+   - the locked untouched-`main` vs worktree `S0 Dict` floating-window visual compare stayed aligned after moving the shared chrome ownership:
+     - header chrome
+     - floating-window controls
+     - the body shell
+     - the visible `gamma` row
+   - the rerun representative `S0 Dict` `300 x 300 -> 225 x 225` resize trace stayed acceptable:
+     - worktree improved `FunctionCall`, `RunTask`, and `TimerFire`
+     - worktree was only slightly higher on `UpdateLayoutTree`, `Layout`, `Paint`, `EventDispatch`, and `Commit`
+     - `CLS 0.00` on both traces
+   - treat this as a shared chrome-ownership checkpoint, not the final shell simplification
+   - the next serious `Phase S3` pass should target actual body-shell or theme-state invalidation reduction above this model in:
+     - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+     - the remaining shared section shell consumers above `sectionChrome.ts`
+   - do not reopen the accepted controller, chrome, area-switch, active-shell, or shared surface-chrome seams unless a later trace shows a boundary-specific regression
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
