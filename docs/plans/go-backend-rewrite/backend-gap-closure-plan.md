@@ -64,7 +64,8 @@ categorize them.
   title-clearing/dedupe, project-chat owner/mode validation, saved
   window-space owner/mode validation, and empty latest-state `windowSpaces`
   shape rows are now all proved via the default harness
-- The multi-project windowing scoping row is now proved via the default
-  harness too; after the duplicate-`sortIndex` load-normalization gap, the
-  next queue is the remaining proof-incomplete write-validation rows
+- The multi-project windowing scoping and direct
+  `setProjectChatWindowChatId` rows are now proved via the default harness
+  too; after the duplicate-`sortIndex` load-normalization gap, the next queue
+  is the remaining broader project-chat/window-space write-validation rows
 - More corpus-driven latest-state hydration / projection scenarios
