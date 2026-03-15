@@ -4,17 +4,7 @@ import "testUtils/reactRefreshPreamble";
 
 import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("components/Chat/ChatInput", () => ({
-  ChatInput: () => <div data-testid="mock-chat-input" />,
-  resolveSlashCommandRequest: vi.fn(),
-}));
-
-vi.mock("components/Chat/ChatMessages", () => ({
-  ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
-}));
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -27,59 +17,49 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-import { useAIStore, useProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
-import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
-import { ProjectChatCore } from "./ProjectChatCore";
+import { ProjectChatEmptyState } from "./projectChatEmptyState";
+import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 
-describe("ProjectChatCore workspace root scans", () => {
+describe("ProjectChatEmptyState workspace root scans", () => {
   let host: HTMLDivElement;
   let root: Root;
 
-  async function renderProjectChatCore({
+  function getCreateProjectButton(): HTMLButtonElement {
+    const button = Array.from(host.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent === "Create Project",
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("Expected the create-project starter button to render.");
+    }
+    return button;
+  }
+
+  async function renderProjectChatEmptyState({
     strictMode = false,
+    onStarterPrompt = vi.fn(),
   }: {
     strictMode?: boolean;
+    onStarterPrompt?: (prompt: string) => void;
   } = {}) {
     const content = (
-      <ProjectChatCore
-        surfaceId="surface-a"
-        chatId={null}
-        draftMessage=""
-        setDraftMessage={vi.fn()}
-        placeholderText="Type a message..."
-        conversationFilterText=""
-        hydrationAuthority={{
-          status: "ready",
-          hydrationRunType: null,
-          blockedErrorCode: null,
-        }}
-        hydrationMetadataRevision="revision-root-scan"
-        thinking={false}
-        engineConfigId="engine-a"
-        engineType={EngineTypeEnum.setta_llm}
-        hasLLMConfig={true}
-        externalEngineAvailable={false}
-        noLLMConfigsAvailable={false}
-        transcriptionProfileId={null}
-        dictationMode="auto"
-        providerDictationAvailable={false}
-        providerDictationLikelySupported={false}
-        setChatId={vi.fn()}
+      <ProjectChatEmptyState
+        projectConfigId="project-1"
+        disabled={false}
+        onStarterPrompt={onStarterPrompt}
       />
     );
 
     await act(async () => {
       root.render(strictMode ? <StrictMode>{content}</StrictMode> : content);
     });
+    return { onStarterPrompt };
   }
 
   beforeEach(() => {
-    resetProjectStores();
     vi.clearAllMocks();
     vi.useFakeTimers();
 
@@ -90,24 +70,6 @@ describe("ProjectChatCore workspace root scans", () => {
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "visible",
-    });
-
-    useProjectState.setState((state) => {
-      state.projectConfig = createProjectConfig({ id: "project-1" });
-    });
-    useLocalStorage.setState({
-      appGenerationMode: "json_render",
-      customProjectChatSlashCommandsByProjectConfigId: {},
-      projectChatDraftMessageByProjectConfigId: {},
-    });
-    useAIStore.setState({
-      chatDetails: {},
-      pendingChatDetailsBySurfaceId: {},
-      interruptedAssistantMessageIdsByChatId: {},
-      agentRuns: [],
-      agentRunsInitialLoadComplete: true,
-      agentRunsAuthorityState: "ready",
-      pendingProjectChatPrompt: null,
     });
 
     vi.mocked(route_get_file_browser_root).mockResolvedValue({
@@ -122,12 +84,11 @@ describe("ProjectChatCore workspace root scans", () => {
   });
 
   afterEach(async () => {
-    vi.useRealTimers();
     await act(async () => {
       root.unmount();
     });
     host.remove();
-    resetProjectStores();
+    vi.useRealTimers();
   });
 
   it("does not start a second workspace root scan while the first scan is still in flight", async () => {
@@ -146,7 +107,7 @@ describe("ProjectChatCore workspace root scans", () => {
         }),
     );
 
-    await renderProjectChatCore();
+    renderProjectChatEmptyState();
 
     await vi.waitFor(() => {
       expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
@@ -177,7 +138,7 @@ describe("ProjectChatCore workspace root scans", () => {
       hasResponse: true,
     });
 
-    await renderProjectChatCore({ strictMode: true });
+    renderProjectChatEmptyState({ strictMode: true });
 
     await vi.waitFor(() => {
       expect(route_get_file_browser_root).toHaveBeenCalled();
@@ -195,6 +156,86 @@ describe("ProjectChatCore workspace root scans", () => {
 
     expect(vi.mocked(route_get_file_browser_root).mock.calls.length).toBe(
       postBackoffTransitionCalls,
+    );
+  });
+
+  it("adapts the create-project starter prompt when the workspace root has no python signals", async () => {
+    const onStarterPrompt = vi.fn();
+    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+      data: {
+        rootPath: "/workspace/no-python",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      },
+      status: 200,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_folder_contents).mockResolvedValue({
+      data: [],
+      status: 200,
+      hasResponse: true,
+    });
+
+    renderProjectChatEmptyState({ onStarterPrompt });
+
+    await vi.waitFor(() => {
+      expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getCreateProjectButton().dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onStarterPrompt).toHaveBeenCalledWith(
+      buildCreateProjectStarterPrompt(false),
+    );
+  });
+
+  it("keeps the codebase-first starter prompt when the workspace root has python signals", async () => {
+    const onStarterPrompt = vi.fn();
+    vi.mocked(route_get_file_browser_root).mockResolvedValue({
+      data: {
+        rootPath: "/workspace/with-python",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      },
+      status: 200,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_folder_contents).mockResolvedValue({
+      data: [
+        {
+          name: "pyproject.toml",
+          type: "file",
+          fullPath: "/workspace/with-python/pyproject.toml",
+        },
+      ],
+      status: 200,
+      hasResponse: true,
+    });
+
+    renderProjectChatEmptyState({ onStarterPrompt });
+
+    await vi.waitFor(() => {
+      expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      getCreateProjectButton().dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onStarterPrompt).toHaveBeenCalledWith(
+      buildCreateProjectStarterPrompt(true),
     );
   });
 });

@@ -27,10 +27,10 @@ import {
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
-  resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
 } from "./ProjectChatCore";
+import { resolveWorkspaceRootPollDelayMs } from "./projectChatEmptyState";
 import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,

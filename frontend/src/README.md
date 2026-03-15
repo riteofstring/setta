@@ -10,7 +10,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1421`
+- Authored TS/TSX files under `frontend/src`: `1422`
 - Non-generated TS/TSX files at `1000+` lines: `44`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
@@ -18,12 +18,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2400`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2381`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2089`)
 
 ## Module Map
 
@@ -109,17 +109,25 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns the project-chat settings popover shell, dictation source options,
     tool quick-links, and activity-default toggles used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx`
+    owns workspace-root polling, python-signal probing, create-project starter
+    prompt adaptation, and the project-chat empty-state shell used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now focuses on
     project-chat surface orchestration, inline-thread layout, aux-view routing,
     conversation-search state, and chat-core/history composition over those
     local engine-selection, settings-popover, and hydration owners.
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` now focuses
+    on hydration retries, slash-command authority, runtime activity details,
+    message submission/edit orchestration, and chat surface composition over
+    the local empty-state owner.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now
     focuses on polling, local toolbar state, search navigation, thread/group
     commands, DnD orchestration, and the history render shells over those
     local view-model and DnD owners.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
-    hydration authority, starter prompts, slash command selection, skill viewers,
-    and project AI settings.
+    hydration authority, empty-state starter prompts, slash command selection,
+    skill viewers, and project AI settings.
   - `state/actions/aiChatStreaming.ts` owns the public streaming entrypoint
     plus managed-chat detail updates.
   - `state/actions/aiChatStreamingChunkContext.ts` owns placeholder filtering,
