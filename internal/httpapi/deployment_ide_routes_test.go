@@ -301,6 +301,150 @@ func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish(t *testing.T) {
 	}
 }
 
+func TestRegisterDeploymentIDERoutesMapSharePublishValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	for _, testCase := range []struct {
+		name         string
+		body         string
+		expectedCode int
+		errorCode    string
+	}{
+		{
+			name:         "missing project config",
+			body:         `{"deploymentName":"demo-share","projectConfigId":"missing-project"}`,
+			expectedCode: http.StatusNotFound,
+			errorCode:    "project_config_not_found",
+		},
+		{
+			name:         "invalid deployment name",
+			body:         `{"deploymentName":"demo/share","projectConfigId":"project-alpha"}`,
+			expectedCode: http.StatusBadRequest,
+			errorCode:    "invalid_deployment_name",
+		},
+		{
+			name:         "invalid deployment policy",
+			body:         `{"deploymentName":"demo-share","projectConfigId":"project-alpha","sharePolicyOverrides":{"runSnapshotMode":"never"}}`,
+			expectedCode: http.StatusBadRequest,
+			errorCode:    "invalid_deployment_policy",
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteShareDeployments, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
+			handler.ServeHTTP(response, request)
+			if response.Code != testCase.expectedCode {
+				t.Fatalf("expected share publish %d, got %d with body %q", testCase.expectedCode, response.Code, response.Body.String())
+			}
+			deploymentIDERouteErrorCode(t, response, testCase.errorCode)
+		})
+	}
+
+	entries, err := fixture.Catalog.List(context.Background(), deployments.TypeShare)
+	if err != nil {
+		t.Fatalf("list share deployments after rejected publishes: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected rejected share publishes to leave the catalog empty, got %#v", entries)
+	}
+}
+
+func TestRegisterDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("app definition required", func(t *testing.T) {
+		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
+		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteAppDeployments,
+			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected app-definition-required 400, got %d with body %q", response.Code, response.Body.String())
+		}
+		deploymentIDERouteErrorCode(t, response, "app_definition_required")
+	})
+
+	t.Run("app spec path required", func(t *testing.T) {
+		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{}))
+		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteAppDeployments,
+			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected app-spec-path-required 400, got %d with body %q", response.Code, response.Body.String())
+		}
+		deploymentIDERouteErrorCode(t, response, "app_spec_path_required")
+	})
+
+	t.Run("app spec not found", func(t *testing.T) {
+		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
+			AppSpecPath: appspec.DefaultPath(),
+		}))
+		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteAppDeployments,
+			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected app-spec-not-found 400, got %d with body %q", response.Code, response.Body.String())
+		}
+		deploymentIDERouteErrorCode(t, response, "app_spec_not_found")
+	})
+
+	t.Run("invalid app spec", func(t *testing.T) {
+		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
+			AppSpecPath: appspec.DefaultPath(),
+		}))
+		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+		appSpecPath, err := appspec.ResolvePath(fixture.SettaFilesRoot, appspec.DefaultPath())
+		if err != nil {
+			t.Fatalf("resolve app spec path: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Dir(appSpecPath), 0o755); err != nil {
+			t.Fatalf("mkdir app spec dir: %v", err)
+		}
+		if err := os.WriteFile(appSpecPath, []byte("{not-json}\n"), 0o644); err != nil {
+			t.Fatalf("write invalid app spec: %v", err)
+		}
+
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteAppDeployments,
+			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("expected invalid-app-spec 400, got %d with body %q", response.Code, response.Body.String())
+		}
+		deploymentIDERouteErrorCode(t, response, "invalid_app_spec")
+	})
+}
+
 func TestRegisterDeploymentIDERoutesIsNotMountedOutsideIDEMode(t *testing.T) {
 	t.Parallel()
 
@@ -418,6 +562,18 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 
 func (f deploymentIDERouteFixture) setPublishedAt(next time.Time) {
 	f.setPublishedAtFn(next)
+}
+
+func deploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecorder, code string) {
+	t.Helper()
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode deployment ide error response: %v", err)
+	}
+	if payload.Error.Code != code {
+		t.Fatalf("expected error code %q, got %#v", code, payload)
+	}
 }
 
 func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
