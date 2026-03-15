@@ -220,11 +220,11 @@ Listener scripts are clients that connect over websockets:
 Listener → backend error mapping for “emit to frontend” is more structured:
 
 - Listener emit translation raises typed errors (for example
-  `UnknownListenerDependencyError`) in
-  `backend/setta/listeners/listener_frontend_emit_resolver.py`.
-- The websocket receiver catches these and sends typed error messages back to the
-  listener, usually logging them as warnings
-  (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
+  `listenerEmitUnknownDependencyError`) in
+  `internal/wsapi/listener_frontend_emit.go`.
+- The Go listener websocket handler resolves those into structured
+  `ListenerError` messages back to the listener
+  (`internal/wsapi/routes.go`, `internal/wsapi/listener_frontend_emit.go`).
 
 ## MCP Tool Error Handling
 
