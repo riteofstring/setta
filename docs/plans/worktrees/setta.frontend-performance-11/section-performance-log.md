@@ -4551,3 +4551,58 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted flex lower shell for MetaControl date/time + password.
   - Re-read the remaining lower MetaControl `single-cell` consumers before widening upward again.
+
+### 2026-03-18 120
+
+- Item: Accept the lower MetaControl text/code shell flattening and leave only the color-picker wrapper as the remaining lower MetaControl `single-cell` seam.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`
+  - The accepted lower-shell move is narrow:
+    - `TextInputControl(...)` no longer uses `single-cell-container`
+    - the dummy/real editor class handoff no longer uses `single-cell-child`
+    - the compact MetaControl editor now rides a flex lower shell with `flex-1 self-stretch`
+    - the `TextAreaParam` path keeps its `min-h-24` floor
+  - Added focused direct coverage in:
+    - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - `TextAreaParam` no longer renders the lower single-cell grid shell
+      - `CodeParam` no longer renders the lower single-cell grid shell
+    - `frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts`
+      - new text-area guardrail keeps the editor inside the compact section shell
+      - the touched shell no longer exposes the old `single-cell` classes
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `1` file passed, `9` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts`
+      - result: `12` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: `http://127.0.0.1:3087/gentle_rapid`
+      - multiline MetaControl text/code shell still reads:
+        - `single-cell-container`
+        - `single-cell-child`
+      - geometry:
+        - node `202 x 50.8`
+        - shell `200 x 48.8`
+        - editor `198 x 46.8`
+    - worktree: `http://127.0.0.1:3011/kind_wet`
+      - multiline MetaControl text/code shell now reads:
+        - `relative`
+        - `flex`
+        - `items-stretch`
+        - no `single-cell-container`
+        - no `single-cell-child`
+      - geometry:
+        - node `202 x 50.8`
+        - shell `200 x 48.8`
+        - editor `198 x 46.8`
+  - Interpretation:
+    - the lower MetaControl text/code shell is now accepted
+    - the higher `sectionChrome` baseline stays closed
+    - the lower MetaControl seam is still not exhausted
+    - the next lower owner is now just the MetaControl color-picker wrapper
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_meta-control-lower-shell-text-code.md`
+- Next action:
+  - Keep the accepted flex lower shell for MetaControl text/code.
+  - Move to the remaining MetaControl color-picker wrapper before reopening any higher seam.
