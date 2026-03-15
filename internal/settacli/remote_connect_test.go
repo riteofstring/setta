@@ -1,10 +1,15 @@
 package settacli
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -355,6 +360,268 @@ func TestRunConnectForwardsDocumentedRemoteCommandAndPathFlags(t *testing.T) {
 	}
 }
 
+func TestRunConnectForegroundOpensBrowserAndPrintsKeepaliveHints(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+	tunnelArgvLogPath := filepath.Join(t.TempDir(), "ssh-tunnel-argv.log")
+	t.Setenv("SETTA_SSH_BIN", writeSettacliForegroundSSHWrapper(t, repoRoot, tunnelArgvLogPath))
+	t.Setenv("SETTA_SSH_STUB_DISABLE_FORWARD", "1")
+	t.Setenv("SETTA_SETTACLI_TUNNEL_MODE", "persist")
+	tunnelPIDPath := filepath.Join(t.TempDir(), "ssh-tunnel.pid")
+	t.Setenv("SETTA_SETTACLI_TUNNEL_PID_FILE", tunnelPIDPath)
+	browserLogPath := filepath.Join(t.TempDir(), "browser.log")
+	addSettacliBrowserWrapperToPath(t, browserLogPath)
+
+	stdoutBuffer := &lockedBuffer{}
+	stderrBuffer := &lockedBuffer{}
+	resultCh := runAsyncCLIWithBuffers(t.TempDir(), stdoutBuffer, stderrBuffer,
+		"connect", "user@host",
+		"--workspace", "/remote/workspace",
+		"--session", session.ID,
+		"--local-port", "61321",
+	)
+	pid := waitForSettacliPIDFile(t, tunnelPIDPath)
+	waitForSettacliOutput(t, stdoutBuffer, "Tunnel active (Ctrl+C to stop).")
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		t.Fatalf("find tunnel process: %v", err)
+	}
+	if err := process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("signal tunnel process: %v", err)
+	}
+	result := <-resultCh
+	stdout, stderr, err := stdoutBuffer.String(), stderrBuffer.String(), result.err
+	if err != nil {
+		t.Fatalf("run foreground connect: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "Using session "+session.ID+" (port 61234).") {
+		t.Fatalf("expected session banner, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Opening local tunnel on 61321 (keep this terminal open).") {
+		t.Fatalf("expected foreground tunnel banner, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Opening browser...") {
+		t.Fatalf("expected browser open banner, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Tunnel active (Ctrl+C to stop).") {
+		t.Fatalf("expected active tunnel hint, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Tip: use --detach to background the tunnel or --print-only to copy commands.") {
+		t.Fatalf("expected keepalive hint, got %q", stdout)
+	}
+
+	tunnelArgvLog := readSettacliCommandLog(t, tunnelArgvLogPath)
+	if !strings.Contains(tunnelArgvLog, "-L 61321:127.0.0.1:61234") {
+		t.Fatalf("expected foreground tunnel args, got %q", tunnelArgvLog)
+	}
+	if !strings.Contains(tunnelArgvLog, "user@host") {
+		t.Fatalf("expected ssh target in tunnel args, got %q", tunnelArgvLog)
+	}
+
+	browserLog := readSettacliCommandLog(t, browserLogPath)
+	if !strings.Contains(browserLog, "http://127.0.0.1:61321/__setta__/bootstrap#token=") {
+		t.Fatalf("expected bootstrap url in browser log, got %q", browserLog)
+	}
+}
+
+func TestRunConnectForegroundNoOpenSkipsBrowserLaunch(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+	tunnelArgvLogPath := filepath.Join(t.TempDir(), "ssh-tunnel-argv.log")
+	t.Setenv("SETTA_SSH_BIN", writeSettacliForegroundSSHWrapper(t, repoRoot, tunnelArgvLogPath))
+	t.Setenv("SETTA_SSH_STUB_DISABLE_FORWARD", "1")
+	t.Setenv("SETTA_SETTACLI_TUNNEL_MODE", "persist")
+	tunnelPIDPath := filepath.Join(t.TempDir(), "ssh-tunnel.pid")
+	t.Setenv("SETTA_SETTACLI_TUNNEL_PID_FILE", tunnelPIDPath)
+	browserLogPath := filepath.Join(t.TempDir(), "browser.log")
+	addSettacliBrowserWrapperToPath(t, browserLogPath)
+
+	stdoutBuffer := &lockedBuffer{}
+	stderrBuffer := &lockedBuffer{}
+	resultCh := runAsyncCLIWithBuffers(t.TempDir(), stdoutBuffer, stderrBuffer,
+		"connect", "user@host",
+		"--workspace", "/remote/workspace",
+		"--session", session.ID,
+		"--local-port", "61322",
+		"--no-open",
+	)
+	pid := waitForSettacliPIDFile(t, tunnelPIDPath)
+	waitForSettacliOutput(t, stdoutBuffer, "Tunnel active (Ctrl+C to stop).")
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		t.Fatalf("find tunnel process: %v", err)
+	}
+	if err := process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("signal tunnel process: %v", err)
+	}
+	result := <-resultCh
+	stdout, stderr, err := stdoutBuffer.String(), stderrBuffer.String(), result.err
+	if err != nil {
+		t.Fatalf("run foreground connect --no-open: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.Contains(stdout, "Opening browser...") {
+		t.Fatalf("expected no browser banner, got %q", stdout)
+	}
+	if _, err := os.Stat(browserLogPath); !os.IsNotExist(err) {
+		t.Fatalf("expected browser log to stay absent, stat err=%v", err)
+	}
+}
+
+func TestRunConnectForegroundFailsClosedWhenTunnelNeverBinds(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+	tunnelArgvLogPath := filepath.Join(t.TempDir(), "ssh-tunnel-argv.log")
+	t.Setenv("SETTA_SSH_BIN", writeSettacliForegroundSSHWrapper(t, repoRoot, tunnelArgvLogPath))
+
+	stdout, stderr, err := runCLIWithOSEnv(t.TempDir(),
+		"connect", "user@host",
+		"--workspace", "/remote/workspace",
+		"--session", session.ID,
+		"--local-port", "61323",
+		"--no-open",
+	)
+	if err == nil {
+		t.Fatal("expected bind failure")
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "SSH tunnel did not bind local port 61323 within 2 seconds." {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+	if !strings.Contains(stdout, "Using session "+session.ID+" (port 61234).") {
+		t.Fatalf("expected session banner before failure, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Opening local tunnel on 61323 (keep this terminal open).") {
+		t.Fatalf("expected tunnel banner before failure, got %q", stdout)
+	}
+	if strings.Contains(stdout, "Tunnel active (Ctrl+C to stop).") {
+		t.Fatalf("did not expect success hint on failure, got %q", stdout)
+	}
+}
+
+func TestRunConnectDetachVerbosePrintsResolutionDetailsAndBootstrapURL(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, filepath.Join(t.TempDir(), "ssh-command.log"))
+	t.Setenv("SETTA_SSH_STUB_DISABLE_FORWARD", "1")
+	cwd := t.TempDir()
+
+	stdout, stderr, err := runCLIWithOSEnv(cwd,
+		"connect", "user@host",
+		"--workspace", "/remote/workspace",
+		"--latest",
+		"--detach",
+		"--no-open",
+		"--local-port", "61324",
+		"--verbose",
+		"--ssh-args", "-p 2222",
+		"--remote-cmd", "custom-setta",
+	)
+	if err != nil {
+		t.Fatalf("run connect --detach --verbose: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "SSH args: -p 2222") {
+		t.Fatalf("expected ssh args line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Remote shell: bash") {
+		t.Fatalf("expected remote shell line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Remote workspace: /remote/workspace") {
+		t.Fatalf("expected remote workspace line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Remote Setta command: custom-setta") {
+		t.Fatalf("expected remote command line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Remote sessions found: 1") {
+		t.Fatalf("expected session-count line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Local bootstrap URL: http://127.0.0.1:61324/__setta__/bootstrap#token=") {
+		t.Fatalf("expected local bootstrap url, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Ensuring local tunnel is running (background).") {
+		t.Fatalf("expected detach banner, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Tunnel running in background") {
+		t.Fatalf("expected detach result, got %q", stdout)
+	}
+
+	runtimeRoot, err := resolveLocalConnectRuntimeRoot(cwd)
+	if err != nil {
+		t.Fatalf("resolve local connect runtime root: %v", err)
+	}
+	metadataFiles, err := filepath.Glob(filepath.Join(runtimeRoot, "ssh_tunnels", "*.json"))
+	if err != nil {
+		t.Fatalf("glob tunnel metadata: %v", err)
+	}
+	if len(metadataFiles) != 1 {
+		t.Fatalf("expected one tunnel metadata file, got %#v", metadataFiles)
+	}
+	metadata := readTunnelMetadataForSettacli(t, metadataFiles[0])
+	service, err := sshx.NewService(sshx.ServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		SSHBin:      filepath.Join(repoRoot, "scripts", "test", "ssh"),
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+	if err := service.RollbackLocalSSHTunnel(sshx.RollbackTunnelInput{
+		SSHTarget:  "user@host",
+		RemoteHost: metadata.RemoteHost,
+		RemotePort: metadata.RemotePort,
+	}); err != nil {
+		t.Fatalf("rollback local ssh tunnel: %v", err)
+	}
+	stopSettacliProcessIfRunning(t, metadata.PID)
+}
+
 func TestRunConnectValidationRejectsInvalidFlagCombinations(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -442,4 +709,162 @@ func waitForSettacliProcessExit(t *testing.T, pid int) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("process %d did not exit", pid)
+}
+
+type settacliRunResult struct {
+	stdout string
+	stderr string
+	err    error
+}
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func runCLIWithOSEnvAsync(cwd string, args ...string) <-chan settacliRunResult {
+	resultCh := make(chan settacliRunResult, 1)
+	go func() {
+		stdout, stderr, err := runCLIWithOSEnv(cwd, args...)
+		resultCh <- settacliRunResult{
+			stdout: stdout,
+			stderr: stderr,
+			err:    err,
+		}
+	}()
+	return resultCh
+}
+
+func runAsyncCLIWithBuffers(cwd string, stdout *lockedBuffer, stderr *lockedBuffer, args ...string) <-chan settacliRunResult {
+	resultCh := make(chan settacliRunResult, 1)
+	go func() {
+		err := Run(args, RunOptions{
+			Stdout:    stdout,
+			Stderr:    stderr,
+			Stdin:     strings.NewReader(""),
+			CWD:       cwd,
+			EnvLookup: os.LookupEnv,
+			Now:       func() time.Time { return time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC) },
+		})
+		resultCh <- settacliRunResult{err: err}
+	}()
+	return resultCh
+}
+
+func waitForSettacliOutput(t *testing.T, stdout *lockedBuffer, needle string) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(stdout.String(), needle) {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("stdout never contained %q; got %q", needle, stdout.String())
+}
+
+func waitForSettacliPIDFile(t *testing.T, path string) int {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			pidString := strings.TrimSpace(string(content))
+			if pidString != "" {
+				pid, convErr := strconv.Atoi(pidString)
+				if convErr != nil {
+					t.Fatalf("decode pid file %q: %v", path, convErr)
+				}
+				return pid
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("pid file %q was not created", path)
+	return 0
+}
+
+func writeSettacliForegroundSSHWrapper(t *testing.T, repoRoot string, argvLogPath string) string {
+	t.Helper()
+
+	wrapperPath := filepath.Join(t.TempDir(), "ssh-foreground-wrapper.sh")
+	script := "#!/bin/sh\n" +
+		"has_n=0\n" +
+		"has_l=0\n" +
+		"for arg in \"$@\"; do\n" +
+		"  if [ \"$arg\" = \"-N\" ]; then has_n=1; fi\n" +
+		"  if [ \"$arg\" = \"-L\" ]; then has_l=1; fi\n" +
+		"done\n" +
+		"if [ \"$has_n$has_l\" = \"11\" ]; then\n" +
+		"  printf '%s\\n' \"$*\" >> \"$SETTA_SSH_STUB_ARGV_LOG_FILE\"\n" +
+		"  if [ \"$SETTA_SETTACLI_TUNNEL_MODE\" = \"persist\" ]; then\n" +
+		"    if [ -n \"$SETTA_SETTACLI_TUNNEL_PID_FILE\" ]; then printf '%s\\n' \"$$\" > \"$SETTA_SETTACLI_TUNNEL_PID_FILE\"; fi\n" +
+		"    trap 'exit 0' TERM INT\n" +
+		"    while :; do sleep 1; done\n" +
+		"  fi\n" +
+		"  exit \"${SETTA_SETTACLI_TUNNEL_EXIT_CODE:-0}\"\n" +
+		"fi\n" +
+		"exec \"" + filepath.Join(repoRoot, "scripts", "test", "ssh") + "\" \"$@\"\n"
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write foreground ssh wrapper: %v", err)
+	}
+	t.Setenv("SETTA_SSH_STUB_ARGV_LOG_FILE", argvLogPath)
+	return wrapperPath
+}
+
+func addSettacliBrowserWrapperToPath(t *testing.T, browserLogPath string) {
+	t.Helper()
+
+	commandName := "xdg-open"
+	if runtime.GOOS == "darwin" {
+		commandName = "open"
+	}
+	wrapperDir := t.TempDir()
+	wrapperPath := filepath.Join(wrapperDir, commandName)
+	script := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$*\" >> \"" + browserLogPath + "\"\n"
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write browser wrapper: %v", err)
+	}
+	existingPath := os.Getenv("PATH")
+	if existingPath == "" {
+		t.Setenv("PATH", wrapperDir)
+		return
+	}
+	t.Setenv("PATH", wrapperDir+string(os.PathListSeparator)+existingPath)
+}
+
+func stopSettacliProcessIfRunning(t *testing.T, pid int) {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		proc, err := process.NewProcess(int32(pid))
+		if err != nil {
+			return
+		}
+		running, err := proc.IsRunning()
+		if err != nil || !running {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	processHandle, err := os.FindProcess(pid)
+	if err == nil {
+		_ = processHandle.Signal(syscall.SIGTERM)
+	}
 }
