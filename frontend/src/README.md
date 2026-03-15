@@ -317,12 +317,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - Shared state
 
-  - `state/definitions.ts` is now the shared index for the remaining
-    cross-feature Zustand stores plus the atomic project-store publication
-    helpers on this branch. It is down to `404` lines after moving the AI/chat,
-    app runtime, session/share, browser, search, feedback/status,
-    layout-interaction, UI-preference, and editor-diagnostics clusters into
-    domain-owned modules.
+  - `state/storeDefinitions.ts` now owns the remaining local cross-feature
+    Zustand stores plus the atomic project-store publication helpers on this
+    branch, while `state/definitions.ts` is down to a `93`-line shared index
+    and compatibility barrel over those local stores and the extracted
+    domain-owned store modules.
   - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
     store types such as `ChatDetails`, `ChatBranchInfo`, and
     `ProjectChatCustomSlashCommand`.

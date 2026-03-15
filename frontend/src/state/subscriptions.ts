@@ -2,13 +2,13 @@ import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  type ZustandImages,
+  type ZustandProjectState,
   useDecodedImages,
   useImages,
   useNodeInternals,
   useProjectState,
-  ZustandImages,
-  ZustandProjectState,
-} from "state/definitions";
+} from "state/storeDefinitions";
 import { useMisc } from "state/stores/layoutInteractionStores";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {

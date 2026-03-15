@@ -302,8 +302,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/definitions.ts` at 404 lines
   - `frontend/src/state/activeSectionUI.ts` at 364 lines
+  - `frontend/src/state/storeDefinitions.ts` at 338 lines
   - `frontend/src/state/utils/chatAppGeneration.ts` at 319 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
@@ -442,7 +442,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `aiExternalAgentResponses.ts` now owns:
   - external agent approval transport
   - external agent question response transport
-- `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
+- `storeDefinitions.ts` now owns the remaining local cross-feature Zustand
+  stores plus project-state atomic publication, artifact data, and realtime
+  helper ownership, while `definitions.ts` is now the thin shared barrel over
+  those local stores and the extracted AI/chat, app runtime, session/share,
+  browser, search, feedback, project-status, layout-interaction,
+  UI-preference, and editor-diagnostics stores.
 - `sectionEffectiveImplCore.ts` now owns:
   - effective-impl derivation and caching
   - low-level section/code-object entity lookups
