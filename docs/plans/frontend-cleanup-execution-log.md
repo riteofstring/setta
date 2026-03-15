@@ -5676,3 +5676,48 @@ in `frontend/src/README.md` and the cleanup plans.
   - Simplify `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`,
     which is now the largest unresolved front-door hotspot in the README after
     `frontend/src/plugins/runtime.ts` delegated its derived-view owner.
+
+## 2026-03-15 20:50:10 PDT
+
+- Slice completed: extracted TaskBoardArea schedule owners
+- This was higher value than jumping straight to `frontend/src/plugins/runtime.ts`
+  because `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` was still
+  the highest-priority unresolved section-layout front door at turn start, and
+  task due or recurrence editing was the largest mixed UI and formatting
+  responsibility still living inside that file.
+- Key files touched:
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts`
+  - `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.test.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.test.ts`
+  - `frontend/tests/e2e/editor/section-types-data-authoring.spec.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/taskBoardTaskScheduleModel.test.ts src/components/Section/Layouts/taskBoardTaskSchedule.test.tsx`
+  - `pnpm -C frontend exec vitest run src/utils/taskBoard.test.ts`
+  - `pnpm -C frontend exec vite build`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "task board and spreadsheet sections are visible and interactive"`
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/TaskBoardArea.tsx src/components/Section/Layouts/taskBoardTaskSchedule.tsx src/components/Section/Layouts/taskBoardTaskScheduleModel.ts src/components/Section/Layouts/taskBoardTaskSchedule.test.tsx src/components/Section/Layouts/taskBoardTaskScheduleModel.test.ts tests/e2e/editor/section-types-data-authoring.spec.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this was a behavior-preserving ownership
+    extraction without a meaningful render-path change, and the live CDP page
+    did not yield a stable before or after schedule-popover trace worth
+    recording.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Reloaded the live task-board page, cleared the existing maximized chat
+    overlay, verified that the list or kanban controls, add-task composer, and
+    task rows still render, and added a task to confirm the extracted `Task
+schedule settings` button still appears on the live task row.
+  - The due or recurrence editing flow itself was verified through the targeted
+    Playwright task-board authoring spec, which now also asserts the kanban due
+    and repeat summaries.
+- Commit hash:
+  - `1855d679bbfb0676988b75273279b32d1b8e6595`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/plugins/runtime.ts`, which is now the largest
+    unresolved default-priority front-door hotspot in the README and cleanup
+    plan after `TaskBoardArea.tsx` delegated its local schedule owners.
