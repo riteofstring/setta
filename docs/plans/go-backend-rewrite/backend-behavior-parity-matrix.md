@@ -218,11 +218,6 @@ It covers:
     payloads fail FastAPI/Pydantic validation with `422`
   - current Go trims those values, returns `400` browser-mutation errors, and
     also coerces blank `searchScope` strings to `recursive`
-  - source-baseline browser metadata mutation routes stay mounted in
-    share/app sessions under `allowLayoutChanges`
-  - current Go mounts those routes only in IDE even though the current browser
-    UI still wires view-mode, saved-search, hide-column, and width mutations
-    through the shared layout surface
   - source-baseline invalid spreadsheet `density` and task-board `viewMode`
     request bodies fail FastAPI/Pydantic validation with `422`
   - current Go trims those enum-like values after decode and returns `400`
@@ -918,7 +913,7 @@ It covers:
 | --- | --- | --- | --- | --- | --- |
 | `BR-01` | Browser metadata mutations persist through latest-state hydration: column widths, `viewMode`, `hideColumn`, and `savedSearches` roundtrip, and omitted saved-search `searchScope` / `typeFilters` fields default to recursive scope plus all-true type filters. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_browser_column_widths,set_browser_area_view_mode,set_browser_hide_column,set_browser_saved_searches}`; source models/defaults: `backend/setta/types/section_impls.py::{BrowserSavedSearchTypeFilters,BrowserSavedSearch}`; source request model: `backend/setta/project_state/project_manager_types.py::SetBrowserSavedSearchesRequest`. | Impl: `internal/projectstate/browser_sections.go::{SetBrowserColumnWidths,SetBrowserAreaViewMode,SetBrowserHideColumn,SetBrowserSavedSearches,normalizeBrowserSavedSearches}`; proof: `internal/projectstate/browser_sections_test.go::TestRuntimeBrowserSectionMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState`. | `Proved` | Current Go proof covers width persistence, `viewMode` / `hideColumn` updates, and saved-search defaulting for omitted `searchScope` and `typeFilters`. |
 | `BR-02` | Invalid browser `viewMode` / saved-search `searchScope` payloads should fail source FastAPI/Pydantic validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded values or coerce blank `searchScope` strings when that field is present. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetBrowserAreaViewModeRequest,SetBrowserSavedSearchesRequest}`; source models: `backend/setta/types/section_impls.py::{BrowserSavedSearch,BrowserSearchScope}`; source routes: `backend/setta/routers/project_manager.py::{route_set_browser_area_view_mode,route_set_browser_saved_searches}`. | Current Go normalizes post-decode in `internal/projectstate/browser_sections.go::{normalizeBrowserAreaViewMode,normalizeBrowserSearchScope}` and maps failures through `internal/httpapi/project_routes.go::writeBrowserSectionMutationError`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: current Go trims the enum-like values, reports `400`, and also treats blank `searchScope` as recursive, while the source typed request body would reject invalid present-field values at framework validation time with `422`. |
-| `BR-03` | In share/app sessions, browser metadata mutation routes stay mounted and are gated by `allowLayoutChanges` instead of being IDE-only. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_browser_column_widths,route_set_browser_area_view_mode,route_set_browser_hide_column,route_set_browser_saved_searches}`. | Current Go mounts all four routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still has deployment-aware callers via `frontend/src/components/Section/Layouts/BrowserArea.tsx`, `frontend/src/state/hooks/useBrowserColumnWidth.ts`, `frontend/src/components/Section/Header/MenuButton/HideColumn.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/BrowserAreaSettings.tsx`, and `frontend/src/state/hooks/share.ts`. | `Missing` | This is an active parity gap: source share/app sessions allow these browser-section metadata mutations under the layout policy gate, but current Go drops the transport entirely outside IDE while the shared browser UI still wires those mutations through the layout-edit surface. |
+| `BR-03` | In share/app sessions, browser metadata mutation routes stay mounted and are gated by `allowLayoutChanges` instead of being IDE-only. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_browser_column_widths,route_set_browser_area_view_mode,route_set_browser_hide_column,route_set_browser_saved_searches}`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,setBrowserColumnWidthsHandler,setBrowserAreaViewModeHandler,setBrowserHideColumnHandler,setBrowserSavedSearchesHandler}`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesBrowserMetadataUsesDeploymentOverlayWhenLayoutChangesAllowed,TestRegisterProjectRoutesBrowserMetadataRejectDeploymentPolicyWhenLayoutChangesDisallowed}`. | `Proved` | Current Go now keeps the full browser metadata route family mounted in deployment sessions, applies allowed writes to the request-scoped overlay, and returns typed `403 layout_changes_forbidden` responses when deployment policy blocks layout edits. |
 
 ## Group Orientation And Section-Data Mutations
 
@@ -1163,11 +1158,11 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains sixteen concrete source-parity gaps:
+1. The matrix now contains fifteen concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
-   `TB-03`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
+   `TB-03`, `CH-01`, `CH-03`, `BR-02`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
@@ -1247,9 +1242,8 @@ It covers:
 29. The chart-metadata slice mostly closes with proofs, but it adds two real
     transport/runtime gaps (`CH-01`, `CH-03`) plus one dormant
     deployment-mode route-boundary row (`CH-04`).
-30. The browser-section metadata slice mostly closes with proofs, but it adds
-    one real transport-contract gap (`BR-02`) plus one active deployment
-    policy-gated mounting gap (`BR-03`).
+30. The browser-section metadata slice mostly closes with proofs and now only
+    adds one real transport-contract gap (`BR-02`).
 31. The group-orientation / section-data slice mostly closes with proofs, but
     it adds two real transport/runtime gaps (`SD-05`, `SD-06`) plus three
     dormant route-boundary rows (`SD-07`, `SD-08`, `SD-09`).
@@ -1312,7 +1306,7 @@ It covers:
     - decide whether `US-05`,
       `WS-01`,
       `DP-08`,
-      `TB-03`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
+      `TB-03`, `CH-01`, `CH-03`, `BR-02`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`,
       `DL-02` should be restored or
       documented as intentional divergences

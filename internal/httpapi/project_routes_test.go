@@ -5490,6 +5490,171 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *tes
 	}
 }
 
+func TestRegisterProjectRoutesBrowserMetadataUsesDeploymentOverlayWhenLayoutChangesAllowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": browserSectionRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowLayoutChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteSetBrowserColumnWidths,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","columnWidth":240.5,"typesColumnWidth":160}`,
+				},
+				{
+					route: RouteSetBrowserAreaViewMode,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"thumbnail"}`,
+				},
+				{
+					route: RouteSetBrowserHideColumn,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","hideColumn":true}`,
+				},
+				{
+					route: RouteSetBrowserSavedSearches,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"images","name":"Images","query":"png","searchScope":"local","typeFilters":{"image":true,"video":false,"audio":false,"text":false,"data":false},"color":"#ef4444","quickInfo":"Only images"},{"id":"defaults","name":"Defaults","query":"todo","color":"#3b82f6","quickInfo":""}]}`,
+				},
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+				}
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlaySharedModifier := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["browser-section"].SharedModifier)
+			if overlaySharedModifier["columnWidth"] != 240.5 {
+				t.Fatalf("expected overlay columnWidth 240.5, got %#v", overlaySharedModifier["columnWidth"])
+			}
+			if overlaySharedModifier["typesColumnWidth"] != 160.0 {
+				t.Fatalf("expected overlay typesColumnWidth 160.0, got %#v", overlaySharedModifier["typesColumnWidth"])
+			}
+			if overlaySharedModifier["viewMode"] != "thumbnail" {
+				t.Fatalf("expected overlay viewMode thumbnail, got %#v", overlaySharedModifier["viewMode"])
+			}
+			if overlaySharedModifier["hideColumn"] != true {
+				t.Fatalf("expected overlay hideColumn=true, got %#v", overlaySharedModifier["hideColumn"])
+			}
+			overlaySavedSearches, ok := overlaySharedModifier["savedSearches"].([]any)
+			if !ok || len(overlaySavedSearches) != 2 {
+				t.Fatalf("expected overlay saved searches, got %#v", overlaySharedModifier["savedSearches"])
+			}
+			secondOverlaySavedSearch, ok := overlaySavedSearches[1].(map[string]any)
+			if !ok {
+				t.Fatalf("expected overlay second saved search object, got %#v", overlaySavedSearches[1])
+			}
+			if secondOverlaySavedSearch["searchScope"] != "recursive" {
+				t.Fatalf("expected overlay blank searchScope to normalize to recursive, got %#v", secondOverlaySavedSearch["searchScope"])
+			}
+
+			baseSharedModifier := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["browser-section"].SharedModifier)
+			if len(baseSharedModifier) != 0 {
+				t.Fatalf("expected base browser shared modifier unchanged, got %#v", baseSharedModifier)
+			}
+		})
+	}
+}
+
+func TestRegisterProjectRoutesBrowserMetadataRejectDeploymentPolicyWhenLayoutChangesDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": browserSectionRouteTestProject(t),
+					},
+				},
+				Policy: map[string]any{
+					"allowLayoutChanges": false,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay before rejected browser mutations: %v", err)
+			}
+			before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["browser-section"]
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteSetBrowserColumnWidths,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","columnWidth":240.5,"typesColumnWidth":160}`,
+				},
+				{
+					route: RouteSetBrowserAreaViewMode,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"thumbnail"}`,
+				},
+				{
+					route: RouteSetBrowserHideColumn,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","hideColumn":true}`,
+				},
+				{
+					route: RouteSetBrowserSavedSearches,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"images","name":"Images","query":"png","searchScope":"local","typeFilters":{"image":true,"video":false,"audio":false,"text":false,"data":false},"color":"#ef4444","quickInfo":"Only images"}]}`,
+				},
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+					t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+					t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+				}
+			}
+
+			after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["browser-section"]
+			if !reflect.DeepEqual(after, before) {
+				t.Fatalf("expected rejected browser mutations to leave overlay unchanged, got %#v", after)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSectionDataMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
