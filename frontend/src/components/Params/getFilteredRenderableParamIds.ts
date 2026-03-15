@@ -21,6 +21,7 @@ type GetFilteredRenderableParamIdLookupArgs = Omit<
 
 export type RenderableParamIdLookup = Record<string, true>;
 export type NestedParentParamIdLookup = Record<string, true>;
+const EMPTY_REQUIRED_PARAM_IDS_TO_PATHS: Record<string, Array<string>> = {};
 
 export function getNestedParentParamIdLookup(
   requiredParamIdsToPaths: Record<string, Array<string>>,
@@ -74,6 +75,44 @@ export function getFilteredRenderableParamIdLookup({
   return filteredRequired;
 }
 
+export function getVisibleRenderableParamIds({
+  renderParamIds,
+  visibleParamIdLookup,
+}: {
+  renderParamIds: Array<string>;
+  visibleParamIdLookup: RenderableParamIdLookup | null;
+}) {
+  if (!visibleParamIdLookup) {
+    return renderParamIds;
+  }
+
+  return renderParamIds.filter(
+    (paramId) => visibleParamIdLookup[paramId] || isTempParam(paramId),
+  );
+}
+
+export function getNestedParamSwitchRenderState({
+  paramId,
+  requiredParamIdsToPaths,
+  nestedParentParamIdLookup,
+  visibleParamIdLookup,
+}: {
+  paramId: string;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  nestedParentParamIdLookup: NestedParentParamIdLookup;
+  visibleParamIdLookup: RenderableParamIdLookup | null;
+}) {
+  const isNestedParent = nestedParentParamIdLookup[paramId] === true;
+
+  return {
+    requiredParamIdsToPaths: isNestedParent
+      ? requiredParamIdsToPaths
+      : EMPTY_REQUIRED_PARAM_IDS_TO_PATHS,
+    nestedParentParamIdLookup: isNestedParent ? nestedParentParamIdLookup : null,
+    visibleParamIdLookup: isNestedParent ? visibleParamIdLookup : null,
+  };
+}
+
 export function getFilteredRenderableParamIds({
   state,
   sectionId,
@@ -89,7 +128,8 @@ export function getFilteredRenderableParamIds({
     return renderParamIds;
   }
 
-  return renderParamIds.filter(
-    (paramId) => visibleParamIdLookup[paramId] || isTempParam(paramId),
-  );
+  return getVisibleRenderableParamIds({
+    renderParamIds,
+    visibleParamIdLookup,
+  });
 }

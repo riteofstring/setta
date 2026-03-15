@@ -12,7 +12,11 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getFilteredRenderableParamIds } from "./getFilteredRenderableParamIds";
+import {
+  getFilteredRenderableParamIds,
+  getNestedParamSwitchRenderState,
+  getVisibleRenderableParamIds,
+} from "./getFilteredRenderableParamIds";
 
 function setupProjectState({
   paramFilter,
@@ -311,5 +315,60 @@ describe("getFilteredRenderableParamIds", () => {
     });
 
     expect(filteredIds).toEqual([modeId]);
+  });
+
+  it("filters render ids from a visible lookup while keeping temp rows", () => {
+    const tempModeId = getTempParamDndId("mode");
+
+    expect(
+      getVisibleRenderableParamIds({
+        renderParamIds: ["encoding", "errors", "mode", tempModeId],
+        visibleParamIdLookup: {
+          encoding: true,
+          errors: true,
+        },
+      }),
+    ).toEqual(["encoding", "errors", tempModeId]);
+  });
+
+  it("only keeps nested render state for ids that still own child recursion", () => {
+    const requiredParamIdsToPaths = {
+      encoding: ["encoding"],
+      errors: ["encoding", "errors"],
+      mode: ["mode"],
+    };
+    const nestedParentParamIdLookup = {
+      encoding: true,
+    };
+    const visibleParamIdLookup = {
+      encoding: true,
+      errors: true,
+    };
+
+    expect(
+      getNestedParamSwitchRenderState({
+        paramId: "encoding",
+        requiredParamIdsToPaths,
+        nestedParentParamIdLookup,
+        visibleParamIdLookup,
+      }),
+    ).toEqual({
+      requiredParamIdsToPaths,
+      nestedParentParamIdLookup,
+      visibleParamIdLookup,
+    });
+
+    expect(
+      getNestedParamSwitchRenderState({
+        paramId: "mode",
+        requiredParamIdsToPaths,
+        nestedParentParamIdLookup,
+        visibleParamIdLookup,
+      }),
+    ).toEqual({
+      requiredParamIdsToPaths: {},
+      nestedParentParamIdLookup: null,
+      visibleParamIdLookup: null,
+    });
   });
 });

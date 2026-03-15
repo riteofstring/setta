@@ -32,8 +32,9 @@ import {
 import {
   type NestedParentParamIdLookup,
   type RenderableParamIdLookup,
+  getNestedParamSwitchRenderState,
+  getVisibleRenderableParamIds,
 } from "./getFilteredRenderableParamIds";
-import { GetParamSwitch } from "./GetParamSwitch";
 import { ParamContainer } from "./ParamContainer";
 import {
   useParamDndChildrenForParent,
@@ -228,6 +229,10 @@ function RealParamSwitch(props: ParamSwitchProps) {
     paramInfoId,
     paramChildren,
   );
+  const visibleRenderChildren = getVisibleRenderableParamIds({
+    renderParamIds: renderChildren,
+    visibleParamIdLookup: props.visibleParamIdLookup,
+  });
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const handleParamMouseDown = useCallback(
@@ -335,22 +340,33 @@ function RealParamSwitch(props: ParamSwitchProps) {
       >
         {label}
       </ParamContainer>
-      {renderChildren.length > 0 && (
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={renderChildren}
-          requiredParamIdsToPaths={props.requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          isNestedChildInTree={true}
-          nestedParentParamIdLookup={
+      {visibleRenderChildren.map((childParamId) => {
+        const nestedRenderState = getNestedParamSwitchRenderState({
+          paramId: childParamId,
+          requiredParamIdsToPaths: props.requiredParamIdsToPaths,
+          nestedParentParamIdLookup:
             props.nestedParentParamIdLookup ??
-            EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP
-          }
-          visibleParamIdLookup={props.visibleParamIdLookup}
-        />
-      )}
+            EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP,
+          visibleParamIdLookup: props.visibleParamIdLookup,
+        });
+
+        return (
+          <ParamSwitch
+            key={childParamId}
+            sectionId={sectionId}
+            paramInfoId={childParamId}
+            requiredParamIdsToPaths={nestedRenderState.requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            isNestedChildInTree={true}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            nestedParentParamIdLookup={
+              nestedRenderState.nestedParentParamIdLookup
+            }
+            visibleParamIdLookup={nestedRenderState.visibleParamIdLookup}
+          />
+        );
+      })}
     </>
   );
 }

@@ -3,9 +3,14 @@ import _ from "lodash";
 import React from "react";
 import { useMisc, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { GetParamSwitch } from "./GetParamSwitch";
 import { ParamDndProvider } from "./ParamDndContext";
+import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
+import { ParamSwitch } from "./ParamSwitch";
+import {
+  getNestedParamSwitchRenderState,
+  getVisibleRenderableParamIds,
+} from "./getFilteredRenderableParamIds";
 import { getParamDndListRenderModel } from "./getParamDndListRenderModel";
 
 type ParamDndListProps = {
@@ -17,6 +22,53 @@ type ParamDndListProps = {
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 };
+
+function ParamDndListRows({
+  sectionId,
+  paramIds,
+  requiredParamIdsToPaths,
+  onResizeStart,
+  isTopLevel,
+  listKey,
+  hasSectionStyleTheme,
+  nestedParentParamIdLookup,
+  visibleParamIdLookup,
+  dndParentId,
+}: ParamDndListProps & {
+  nestedParentParamIdLookup: Record<string, true>;
+  visibleParamIdLookup: Record<string, true> | null;
+  dndParentId: string;
+}) {
+  const renderParamIds = useParamDndChildrenForParent(dndParentId, paramIds);
+  const visibleParamIds = getVisibleRenderableParamIds({
+    renderParamIds,
+    visibleParamIdLookup,
+  });
+
+  return visibleParamIds.map((paramId, idx) => {
+    const nestedRenderState = getNestedParamSwitchRenderState({
+      paramId,
+      requiredParamIdsToPaths,
+      nestedParentParamIdLookup,
+      visibleParamIdLookup,
+    });
+
+    return (
+      <ParamSwitch
+        key={paramId}
+        sectionId={sectionId}
+        paramInfoId={paramId}
+        requiredParamIdsToPaths={nestedRenderState.requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        isTopLevelWithPad={isTopLevel && idx > 0}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        nestedParentParamIdLookup={nestedRenderState.nestedParentParamIdLookup}
+        visibleParamIdLookup={nestedRenderState.visibleParamIdLookup}
+      />
+    );
+  });
+}
 
 export function ParamDndList({
   sectionId,
@@ -52,7 +104,7 @@ export function ParamDndList({
   if (!tree) {
     return (
       <ParamDuplicateIndexProvider value={duplicateIndex}>
-        <GetParamSwitch
+        <ParamDndListRows
           sectionId={sectionId}
           paramIds={paramIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
@@ -62,6 +114,7 @@ export function ParamDndList({
           hasSectionStyleTheme={hasSectionStyleTheme}
           nestedParentParamIdLookup={nestedParentParamIdLookup}
           visibleParamIdLookup={visibleParamIdLookup}
+          dndParentId=""
         />
       </ParamDuplicateIndexProvider>
     );
@@ -75,17 +128,17 @@ export function ParamDndList({
         tree={tree}
         enabled={enabled}
       >
-        <GetParamSwitch
+        <ParamDndListRows
           sectionId={sectionId}
           paramIds={paramIds}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
           isTopLevel={isTopLevel}
-          dndParentId={tree.rootId}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
           nestedParentParamIdLookup={nestedParentParamIdLookup}
           visibleParamIdLookup={visibleParamIdLookup}
+          dndParentId={tree.rootId}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>
