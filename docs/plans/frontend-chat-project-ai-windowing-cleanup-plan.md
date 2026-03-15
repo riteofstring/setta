@@ -21,18 +21,18 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 - The largest unresolved frontend hotspots are still concentrated here:
   - `frontend/src/components/Chat/ChatInput.tsx` is now about 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and remains a large follow-through coordinator once `ProjectChatCore.tsx` is no longer the clearer first hop
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 914 lines after the local history-panel, folder-shell, and thread-row extraction and remains a large follow-through coordinator once the larger cross-domain roots are no longer the clearer first hop
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 598 lines after the local history-panel, folder-shell, thread-row, and history-DnD-session extraction and is no longer a blocking top hotspot in this domain.
 - `frontend/src/components/Chat/ChatMessages.tsx` is now about 528 lines after the local bubble-shell, action-rail, and per-message surface extraction and is no longer a blocking top hotspot in this domain.
 - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer the blocking top hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer the blocking top hotspot in this domain.
-- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 914 lines after the local history-panel, folder-shell, and thread-row extraction and is no longer the blocking front-door hotspot in this domain.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` is now about 598 lines after the local history-panel, folder-shell, thread-row, and history-DnD-session extraction and is no longer the blocking front-door hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 646 lines after the local engine-settings, hydration-selection, project-scoped aux-state, settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction and is no longer a blocking front-door hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 373 lines after the local hydration-runtime, slash-command-authority, execution-settings, conversation-model, hydration-session, and composer-session extractions and is no longer a blocking front-door hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 64 lines after delegating accordion section routing and settings-manager ownership into sharp local owners, so it is no longer a blocking front-door hotspot in this domain.
 - The next default work in this domain should continue from the remaining
   large chat/project-AI surfaces a contributor still opens first:
   - `ChatInput.tsx`, only after the larger cross-domain roots or a same-turn slice that directly shortens the remaining project-chat first hop more than those roots
-  - `ProjectChatHistory.tsx`, only after the larger cross-domain roots or a same-turn slice that directly shortens the remaining project-chat first hop more than those roots
+- `ProjectChatHistory.tsx` should now only continue when the remaining polling/search or command wiring is the clearer mixed responsibility than `ChatInput.tsx` or one of the larger cross-domain roots.
 - `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
   `ProjectChatHistory.tsx`, and
   the extracted `ProjectAISettings` manager owners still matter, but they are
@@ -69,6 +69,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/ChatWindowing/projectChatWindowShell.tsx` now owns shared section/project window shell rendering, `UnifiedChatSurface` vs `GitGraphWindowContent` body selection, and header-action adaptation for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts` now owns grouped history derivation, master-search filtering/counts, thread ordering, agent badge labels, and placeholder text for `ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDnd.ts` now owns project-chat history DnD ids, pointer geometry, drop-target resolution, and thread/group reorder math for `ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.ts` now owns project-chat history thread/group drag-session state, pointer tracking, drag sensors, hover-group state, and drop-to-mutation orchestration for `ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.ts` now owns the shared delete/undo tooltip copy, `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx` now owns thread rows plus row-level action/drop-zone rendering, `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx` now owns grouped/ungrouped folder shells plus inline group rename, and `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx` now owns the toolbar/header shell, empty state, and grouped/ungrouped panel composition for `ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts` now owns preferred-engine selection, selected-thread engine reconciliation, engine-switch continuation guards, and LLM-unavailable messaging for `ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx` now owns the project-chat settings popover shell, dictation source options, tool quick-links, and activity-default toggles for `ProjectChat.tsx`
@@ -161,7 +162,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   `ProjectChatMaximizedWindowSurface.tsx`, and
   `projectChatBottomDockSurfaceHelpers.tsx`, and window lifecycle commands plus
   animation bookkeeping moved into `projectChatBottomDockWindowLifecycle.ts`.
-- `ProjectChatHistory.tsx` is much smaller now, but it still coordinates polling, search navigation, thread/group commands, and history DnD over the new local render owners. Follow-up work here should only continue when it shortens the path from this coordinator into one remaining mixed responsibility rather than re-splitting the freshly extracted render shells.
+- `ProjectChatHistory.tsx` is much smaller now, but it still coordinates polling, search navigation, and thread/group commands over the local render owners plus `useProjectChatHistoryDndSession.ts`. Follow-up work here should only continue when it shortens the path from this coordinator into one remaining mixed responsibility rather than re-splitting the freshly extracted render shells.
 - More chat/windowing files are acceptable if the root entrypoint stays obvious.
   The real risk in this domain is generic or mixed-purpose extracted files, not
   file count by itself.

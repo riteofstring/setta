@@ -41,10 +41,10 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
-  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx`
   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,

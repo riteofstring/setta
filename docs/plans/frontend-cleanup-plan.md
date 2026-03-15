@@ -63,7 +63,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - There are 1545 authored TS/TSX files under `frontend/src`.
 - There are 28 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 598 lines after the local history-panel, folder-shell, thread-row, and history-DnD-session extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 646 lines after the local engine-settings, hydration-selection, project-scoped aux-state, settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer a top-size hotspot
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer a top-size hotspot
@@ -77,8 +77,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/components/App/appRegistry.tsx` at 654 lines after the local param-input, param-controls, param-model, and config-bound output-block extraction and remains a smaller cross-domain front door
+  - `frontend/src/components/App/appRegistry.tsx` at 654 lines after the local param-input, param-controls, param-model, and config-bound output-block extraction and is no longer a default hotspot
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 813 lines and still a large overview-pane front door
+- `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx` is now 751 lines and still a large launcher/page-shell front door.
+- `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` is now 644 lines and still a standalone route/page-shell front door.
 - `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after delegating gallery/list rendering to `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace/browser plus side-pane shells to `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`, selected-project metadata rendering to `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and shared path/count helpers to `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so it is no longer a top-size hotspot.
 - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` is
   now 333 lines after delegating standalone window hydration/merge/focus/bounds
@@ -203,6 +205,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx`,
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx`,
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx`,
+  the drag-session pointer tracking plus drop-to-mutation orchestration to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.ts`,
   and
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.ts`,
   so the next default work in that domain should continue from the remaining
@@ -414,6 +418,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Chat/useChatInputDictation.ts` now owns browser/provider dictation availability, recorder lifecycle, provider fallback policy, transcript insertion, and dictation state used by `frontend/src/components/Chat/ChatInput.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts` now owns grouped history derivation, master-search filtering/counts, thread ordering, agent badge labels, and placeholder text used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDnd.ts` now owns project-chat history DnD ids, pointer geometry, drop-target resolution, and thread/group reorder math used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.ts` now owns project-chat history thread/group drag-session state, pointer tracking, drag sensors, hover-group state, and drop-to-mutation orchestration used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.ts` now owns the delete/undo tooltip copy shared by the extracted history render owners.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx` now owns history thread rows, unread/working indicators, row action chrome, and thread drop-zone rendering, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx` now owns grouped/ungrouped folder shells, inline group rename, and default new-group naming, and `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx` now owns the history toolbar/header shell, empty state, and grouped/ungrouped panel composition used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts` now owns preferred-engine selection, selected-thread engine reconciliation, engine-switch continuation guards, and LLM-unavailable messaging used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
@@ -1052,20 +1057,20 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
-  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx`
   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
-  - history selection/search authority vs DnD/grouping vs final panel
-    composition in `ProjectChatHistory.tsx`
   - app-config authoring/load/save orchestration vs preview/spec/theme editor
     composition in `AppConfigPane.tsx`
-  - app-mode registration and mode-shell composition vs param/control wiring in
-    `appRegistry.tsx`
+  - launcher routing/session bootstrap vs project-card/list composition in
+    `LauncherHomePage.tsx`
   - standalone route target/title/share-policy gating vs page shell rendering
     in `StandaloneProjectSurfacePage.tsx`
+  - history polling/search authority vs thread/group command wiring vs final
+    panel composition in `ProjectChatHistory.tsx`
 
 ## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 
