@@ -319,6 +319,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     composition facade over those move reducers.
   - `state/actions/sections/moveSections.ts` is now the thin optimistic backend
     command facade for section moves.
+  - `state/actions/params/paramSelectionCommands.ts` owns single-param
+    selection normalization for param drag/drop flows.
+  - `state/actions/params/paramMoveCommands.ts` owns optimistic backend
+    dispatch for drag/drop param moves plus indent and unindent commands.
+  - `state/actions/params/paramMoveKeyboardCommands.ts` owns visible-sibling
+    keyboard move planning and grouped move dispatch for selected params.
+  - `state/actions/params/moveParams.ts` is now the thin compatibility facade
+    over those param move owners.
 
 - Browser and file management
 

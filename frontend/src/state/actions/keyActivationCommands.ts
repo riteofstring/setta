@@ -29,10 +29,12 @@ import {
 } from "state/actions/paramSelect";
 import {
   indentSelectedParams,
+  unindentSelectedParams,
+} from "state/actions/params/paramMoveCommands";
+import {
   moveSelectedParamsDown,
   moveSelectedParamsUp,
-  unindentSelectedParams,
-} from "state/actions/params/moveParams";
+} from "state/actions/params/paramMoveKeyboardCommands";
 import {
   selectAll,
   setTopLevelNonGroupSectionsAsActive,

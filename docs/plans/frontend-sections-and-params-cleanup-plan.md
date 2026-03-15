@@ -44,6 +44,14 @@ Make section chrome and param rendering easy to change without touching measurem
   is now the thin in-state composition facade, and
   `frontend/src/state/actions/sections/moveSections.ts` remains the thin
   optimistic backend command facade.
+- `frontend/src/state/actions/params/paramSelectionCommands.ts` now owns
+  single-param drag/drop selection normalization,
+  `frontend/src/state/actions/params/paramMoveCommands.ts` now owns optimistic
+  backend dispatch for direct moves plus indent or unindent commands,
+  `frontend/src/state/actions/params/paramMoveKeyboardCommands.ts` now owns
+  visible-sibling keyboard move planning and grouped move dispatch, and
+  `frontend/src/state/actions/params/moveParams.ts` is now the thin
+  compatibility facade.
 
 ## Current State (Observed)
 

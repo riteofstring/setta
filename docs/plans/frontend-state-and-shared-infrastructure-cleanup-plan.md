@@ -364,10 +364,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   directories.
 - The largest remaining authored state surfaces are:
   - `frontend/src/state/actions/chatBranches.ts` at 251 lines
-  - `frontend/src/state/actions/params/moveParams.ts` at 251 lines
   - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` at 250 lines
   - `frontend/src/state/actions/websocketRealtime.ts` at 250 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 249 lines
+  - `frontend/src/state/actions/websocketLifecycle.ts` at 245 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -488,9 +488,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `paramMoveMutations.ts` now owns:
   - optimistic param reparent/reorder application
   - parent promotion and shown-param top-level order synchronization
+- `paramSelectionCommands.ts` now owns:
+  - single-param drag/drop selection normalization
+- `paramMoveCommands.ts` now owns:
+  - optimistic backend dispatch for direct drag/drop param moves
+  - indent and unindent command orchestration
+- `paramMoveKeyboardCommands.ts` now owns:
+  - visible-sibling keyboard move planning
+  - grouped move dispatch for selected params
 - `moveParams.ts` now owns:
-  - public param select, drag/drop move, and keyboard indent/unindent commands
-  - optimistic backend dispatch for single-param and grouped param moves
+  - compatibility re-exports for callers that have not moved yet
 - `aiTranscriptionAudio.ts` now owns:
   - provider dictation decode, mono PCM conversion, resample, and realtime payload preparation
 - `aiTranscriptionUpload.ts` now owns:

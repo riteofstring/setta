@@ -1,7 +1,5 @@
-import {
-  moveParamsWithBackend,
-  moveSelectedParamsDown,
-} from "state/actions/params/moveParams";
+import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
+import { moveSelectedParamsDown } from "state/actions/params/paramMoveKeyboardCommands";
 import { applyParamMove } from "state/actions/params/paramMoveMutations";
 import {
   buildVisibleParamIdSet,
@@ -9,7 +7,11 @@ import {
   orderParamIdsByParent,
   resolveSectionWithSelectedParams,
 } from "state/actions/params/paramMoveQueries";
-import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionEffectiveImpls";
+import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
+import {
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionEffectiveImpls";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -28,6 +30,7 @@ import {
   createUserDefaultDictSectionImpl,
   createVariant,
   isBaseParentCodeObjImpl,
+  isBaseSectionWithParamsImpl,
   ParameterPassingStyleEnum,
   ParamNameTypeEnum,
 } from "utils/generatedTypes";
@@ -45,6 +48,16 @@ vi.mock("utils/generatedEndpoints", async () => {
       hasResponse: true,
     })),
     route_move_params: vi.fn(async () => ({
+      data: undefined,
+      status: 200,
+      hasResponse: true,
+    })),
+    route_toggle_param_selected: vi.fn(async () => ({
+      data: undefined,
+      status: 200,
+      hasResponse: true,
+    })),
+    route_unselect_all_params: vi.fn(async () => ({
       data: undefined,
       status: 200,
       hasResponse: true,
@@ -336,6 +349,25 @@ describe("moveParams feature split", () => {
       "param-a",
       "param-b",
     ]);
+  });
+
+  it("selects only the requested param when drag selection targets a sibling", () => {
+    // Param drag/drop should collapse prior multi-selection to the dragged sibling before moving it.
+    const bundle = createParamSectionBundle({
+      sectionId: "section-select-only",
+      selectedParams: ["param-a", "param-b"],
+    });
+    seedProjectState([bundle]);
+
+    selectOnlyParam(bundle.sectionId, "param-c");
+
+    expect(
+      getCurrEffectiveSectionImplWithTypeGuard(
+        useProjectState.getState(),
+        bundle.sectionId,
+        isBaseSectionWithParamsImpl,
+      ).selectedParams,
+    ).toEqual(["param-c"]);
   });
 
   it("reorders siblings and keeps shown top-level order in sync", () => {

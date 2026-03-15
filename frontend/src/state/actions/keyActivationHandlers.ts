@@ -2,7 +2,7 @@ import { removeFrozenFloatingBox } from "components/Utils/FloatingBox";
 import {
   indentSelectedParams,
   unindentSelectedParams,
-} from "state/actions/params/moveParams";
+} from "state/actions/params/paramMoveCommands";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
