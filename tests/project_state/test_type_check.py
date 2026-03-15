@@ -61,7 +61,6 @@ class TypeCheckProjectManager(BaseProjectManager):
         self,
         lsp_writers,
         websocket_msg_handler,
-        python_script_sender,
         settings_file,
         specific_file_watcher,
         dbe,
@@ -74,7 +73,6 @@ class TypeCheckProjectManager(BaseProjectManager):
         super().__init__(
             lsp_writers,
             websocket_msg_handler,
-            python_script_sender,
             settings_file,
             specific_file_watcher,
             dbe,
@@ -289,7 +287,7 @@ async def _type_check_manager(
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         listener_registry = ListenerRegistry()
-        python_script_sender = WMHPythonScriptSender(
+        WMHPythonScriptSender(
             websocket_manager, listener_registry
         )
         dbe = DBE(C.SETTA_FILES_FOLDER)
@@ -319,7 +317,6 @@ async def _type_check_manager(
         manager = TypeCheckProjectManager(
             lsp_writers,
             frontend_sender,
-            python_script_sender,
             settings_file,
             specific_file_watcher,
             dbe,

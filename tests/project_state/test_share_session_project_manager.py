@@ -178,7 +178,7 @@ def _write_project_with_states(
     backend.defaultProjectConfigId = resolved_default_id
     dbe = DBE(root)
     dbe.write_project(backend)
-    default_config = backend.projectConfigs[resolved_default_id]
+    backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -221,14 +221,13 @@ class TestShareSessionProjectManager:
             share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_manager.initialize_share_state(settings_file)
-            python_sender = WMHPythonScriptSender(
+            WMHPythonScriptSender(
                 websocket_manager,
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_manager,
                 settings_file=settings_file,
-                python_script_sender=python_sender,
                 lsp_writers=None,
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),
@@ -274,14 +273,13 @@ class TestShareSessionProjectManager:
             share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_manager.initialize_share_state(settings_file)
-            python_sender = WMHPythonScriptSender(
+            WMHPythonScriptSender(
                 websocket_manager,
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_manager,
                 settings_file=settings_file,
-                python_script_sender=python_sender,
                 lsp_writers=None,
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),

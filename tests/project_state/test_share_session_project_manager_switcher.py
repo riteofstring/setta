@@ -56,7 +56,6 @@ def _write_share_project(
 
 def _build_switcher(
     root: Path,
-    plugin_manager: object | None = None,
 ) -> tuple[ProjectManagerSwitcher, ShareRuntimeState]:
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
@@ -64,18 +63,16 @@ def _build_switcher(
     share_manager = ShareRuntimeState(dbe, root, frontend_sender)
     settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
     share_manager.initialize_share_state(settings_file)
-    python_sender = WMHPythonScriptSender(
+    WMHPythonScriptSender(
         websocket_manager,
         ListenerRegistry(),
     )
     switcher = ProjectManagerSwitcher(
         share_runtime_state=share_manager,
         settings_file=settings_file,
-        python_script_sender=python_sender,
         lsp_writers=None,
         frontend_sender=frontend_sender,
         specific_file_watcher=SpecificFileWatcher(),
-        plugin_manager=plugin_manager,  # type: ignore[arg-type]
     )
     return switcher, share_manager
 
@@ -137,33 +134,3 @@ class TestShareSessionProjectManagerSwitcher:
             assert 2 == len(results)
             assert isinstance(results[0], asyncio.CancelledError)
             assert isinstance(results[1], asyncio.CancelledError)
-
-    async def test_switcher_threads_plugin_manager_into_session_managers(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-switcher-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            plugin_manager = object()
-            switcher, _share_manager = _build_switcher(
-                root,
-                plugin_manager=plugin_manager,
-            )
-
-            manager = switcher.get(
-                project_config.id,
-                share_session_id="session-a",
-            )
-            await manager._process_queue_task_started.wait()
-            assert manager.plugin_manager is plugin_manager
-
-            manager.queue_task.cancel()
-            results = await asyncio.gather(
-                manager.queue_task,
-                return_exceptions=True,
-            )
-            assert 1 == len(results)
-            assert isinstance(results[0], asyncio.CancelledError)

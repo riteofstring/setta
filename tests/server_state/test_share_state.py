@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -12,8 +11,6 @@ from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
-
-FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
 
 def _build_share_deployment_root(
@@ -141,34 +138,6 @@ class TestShareState:
             )
             assert state.dbe.temporary_id_map.is_relative_to(runtime_root)
             assert not state.dbe.temporary_id_map.is_relative_to(deployment_root)
-            assert state.plugin_manager.workspace_root == deployment_root
-            assert state.plugin_manager.setta_files_root == deployment_root
-            assert state.plugin_manager.setta_home == runtime_root
-
-    async def test_share_state_ignores_host_global_plugin_home(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share_isolated_plugins"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-
-            host_setta_home = Path(tmpdir) / "host_home" / ".setta"
-            host_plugin_root = host_setta_home / "plugins" / "setta-fixture-frontend"
-            host_plugin_root.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(FIXTURE_PLUGIN_ROOT / "frontend", host_plugin_root)
-            monkeypatch.setenv("SETTA_HOME", str(host_setta_home))
-
-            state = await self._build_state(root)
-            plugin_ids = {
-                plugin.pluginId for plugin in state.plugin_manager.get_status_response().plugins
-            }
-            assert "setta-fixture-frontend" not in plugin_ids
 
     async def test_share_state_uses_manifest_for_relocated_runtime_root(self) -> None:
         with TemporaryDirectory() as tmpdir:

@@ -116,7 +116,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_settings,
                 frontend_sender=frontend_sender,
-                python_script_sender=python_script_sender,
                 settings_file=settings_file,
                 specific_file_watcher=specific_file_watcher,
                 dbe=dbe,
@@ -194,7 +193,6 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_main,
                 frontend_sender=frontend_sender,
-                python_script_sender=python_script_sender,
                 settings_file=settings_file,
                 specific_file_watcher=specific_file_watcher,
                 dbe=dbe,
