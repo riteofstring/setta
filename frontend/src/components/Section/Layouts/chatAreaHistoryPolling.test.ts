@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveManagedChatHistoryPollIntervalMs } from "./ChatArea";
+import { resolveManagedChatHistoryPollIntervalMs } from "./chatAreaManagedHistory";
 
 describe("resolveManagedChatHistoryPollIntervalMs", () => {
   it("polls while a section chat run is active", () => {
