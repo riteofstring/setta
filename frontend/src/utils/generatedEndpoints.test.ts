@@ -4231,6 +4231,9 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
       permissionMode: "minimal",
       searchEnabled: true,
       appGenerationMode: null,
+      appGenerationByMessageId: {
+        "message-1": "plain_chat",
+      },
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -4259,6 +4262,9 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
         permissionMode: "minimal",
         searchEnabled: true,
         appGenerationMode: null,
+        appGenerationByMessageId: {
+          "message-1": "plain_chat",
+        },
       }),
     });
   });

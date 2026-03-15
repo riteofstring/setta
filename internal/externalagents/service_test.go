@@ -78,6 +78,62 @@ func TestServiceGetChatHydratesMergedMessagesFromLatestExternalRun(t *testing.T)
 	}
 }
 
+func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T) {
+	t.Parallel()
+
+	store, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         RunTypeExternalAgent,
+		"chatId":          "chat-app-generation",
+		"projectConfigId": "project-alpha",
+		"appGenerationByMessageId": map[string]any{
+			"user-app":   agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+			"user-plain": agentruns.ChatAppGenerationMessageModePlainChat,
+			"user-bad":   "invalid_mode",
+		},
+		"messages": []any{
+			map[string]any{
+				"id":   "user-app",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Build app"},
+				},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 5, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusCompleted
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{"id": "user-app", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Build app"}}},
+			map[string]any{"id": "assistant-1", "role": "assistant", "content": []any{map[string]any{"type": "text", "text": "Done"}}},
+		},
+	}
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	service, err := NewService(ServiceOptions{Runs: store})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	hydrated, err := service.GetChat("chat-app-generation", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if len(hydrated.AppGenerationByMessageID) != 2 {
+		t.Fatalf("expected two hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-app"] != agentruns.ChatAppGenerationMessageModeJSONRenderWithImage {
+		t.Fatalf("expected image-generation provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-plain"] != agentruns.ChatAppGenerationMessageModePlainChat {
+		t.Fatalf("expected plain-chat provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+}
+
 func TestServiceGetChatSelectsLatestRunByLastUpdatedTimestamp(t *testing.T) {
 	t.Parallel()
 

@@ -9533,6 +9533,7 @@ export type GetLLMResponseRequest = {
   permissionMode: string;
   searchEnabled: boolean;
   appGenerationMode: string | null;
+  appGenerationByMessageId: Record<string, string>;
   appGenerationReferenceImageUrl: string | null;
   appGenerationReferenceImageNotes: string | null;
 };

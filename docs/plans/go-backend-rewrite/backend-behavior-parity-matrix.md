@@ -203,10 +203,6 @@ It covers:
     active `shareSessionId`
   - current Go reveal routing ignores share-session scope and treats frontend
     selection globally
-  - source-baseline managed and external chat hydration responses preserve
-    `appGenerationByMessageId` provenance from run inputs
-  - current Go hydration responses omit that field even though current
-    frontend hydration still consumes it
   - source-baseline `getAIFollowSnapshot` merges managed and external
     AI-follow state for the active project
   - current Go only returns external-agent follow state from that route
@@ -357,12 +353,12 @@ It covers:
   - four more proof-gap clusters around large-JSON/auth transport proof,
     malformed/invalid append validation variants, typed custom-message error
     propagation, and TTL pruning while append calls are in flight
-- The chat-hydration / managed-stop / external-response slice mostly closes
-  with proofs, but it adds:
-  - one concrete behavior gap around missing app-generation hydration
-    provenance (`AH-04`)
-  - two more proof-gap clusters around managed-hydration tolerance variants
-    and already-stopped stop transport proof (`AH-02`, `MS-02`)
+- The chat-hydration / managed-stop / external-response slice now closes its
+  concrete behavior gaps and retains:
+  - one proof-gap cluster around managed-hydration tolerance variants
+    (`AH-02`)
+  - one proof-gap cluster around already-stopped stop transport proof
+    (`MS-02`)
 - The AI-follow / external-run-stop / agent-run-read slice mostly closes with
   proofs, but it adds:
   - one concrete behavior gap around missing managed follow-state snapshot
@@ -750,7 +746,7 @@ It covers:
 | `AH-01` | Managed `getLLMChat` returns the latest matching run's hydrated messages, resolved `llmConfig`, normalized `contextUsage`, and typed `chat_not_found` when no run matches. | `tests/routers/test_ai_agent_run_chats.py::{test_get_llm_chat_from_agent_run,test_get_llm_chat_uses_latest_run,test_get_llm_chat_includes_context_usage,test_get_llm_chat_missing_run_returns_typed_not_found_error}`; source route: `backend/setta/routers/ai.py::route_get_llm_chat`. | Impl: `internal/managedchat/service.go::GetChat`; route mapping: `internal/httpapi/ai_routes.go::getLLMChatHandler`; proof: `internal/managedchat/service_test.go::{TestServiceGetChatReturnsLatestRunAndResolvedLLMConfig,TestServiceGetChatReturnsChatNotFound}`; route proof: `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesGetsManagedChat,TestRegisterAIRoutesReturnsNotFoundForMissingManagedChat}`. | `Proved` | Current caller transport still posts the same `chatId` / `projectConfigId` pair through `frontend/src/utils/generatedEndpoints.test.ts::it("posts llm chat hydration reads with the chat and project ids", ...)`. |
 | `AH-02` | Managed hydration overlays live state while a run is still active, resolves config/context usage from persisted run metadata instead of mutable live config, and tolerates missing or mismatched engine metadata by returning `llmConfig: null` instead of failing the read. | `tests/routers/test_ai_agent_run_chats.py::{test_get_llm_chat_uses_latest_run,test_get_llm_chat_context_uses_run_metadata_not_live_config,test_get_llm_chat_ignores_non_finite_usage_values,test_get_llm_chat_allows_missing_engine_metadata_and_returns_null_llm_config,test_get_llm_chat_allows_engine_type_mismatch_and_returns_null_llm_config,test_get_llm_chat_allows_missing_llm_config_and_returns_null_llm_config,test_get_llm_chat_allows_missing_llm_binding_and_returns_null_llm_config}`; source route: `backend/setta/routers/ai.py::route_get_llm_chat`. | Impl: `internal/managedchat/service.go::{GetChat,resolveLLMConfig,resolveContextUsage}`; partial proof: `internal/managedchat/service_test.go::{TestServiceGetChatUsesLiveOverlayWhenRunning,TestServiceGetChatAllowsMissingEngineMetadata,TestResolveContextUsageAcceptsCodexAliases,TestResolveContextUsageRejectsFractionalUsageValuesAndKeepsValidStringWindow}`; `internal/managedchat/live_runtime_test.go::TestServiceGetChatUsesConcreteLiveRuntimeOverlay`. | `Implemented, proof incomplete` | Current Go clearly implements the tolerant/null-config branches for missing engine config, non-`setta_llm` engine types, blank config ids, and unresolved configs, but this slice does not yet cite direct Go proof for every source variant or the exact persisted-metadata-over-live-config contract. |
 | `AH-03` | External `getExternalAgentChat` returns the latest or live-overlaid chat, preserves `toolCallArguments`, resolves normalized context usage from run metadata, filters placeholder response messages, and returns typed `chat_not_found` when no run matches. | `tests/routers/test_ai_agent_run_chats.py::{test_get_external_agent_chat_from_outputs,test_get_external_agent_chat_context_usage_missing_prompt_tokens,test_get_external_agent_chat_context_uses_run_metadata_not_live_config,test_get_external_agent_chat_context_usage_from_usage_payload,test_get_external_agent_chat_context_usage_prefers_context_used_tokens,test_get_external_agent_chat_ignores_non_finite_usage_values,test_get_external_agent_chat_missing_run}`; source route: `backend/setta/routers/ai.py::route_get_external_agent_chat`. | Impl: `internal/externalagents/service.go::GetChat`; route mapping: `internal/httpapi/ai_routes.go::getExternalAgentChatHandler`; proof: `internal/externalagents/service_test.go::{TestServiceGetChatHydratesMergedMessagesFromLatestExternalRun,TestServiceGetChatSelectsLatestRunByLastUpdatedTimestamp,TestServiceGetChatResolvesExternalContextUsage,TestServiceGetChatOverlaysActiveLiveStateFromRuntime,TestServiceGetChatFiltersResponsePlaceholderMessages,TestServiceGetChatReturnsNotFound,TestResolveContextUsageIgnoresNonFiniteUsageValues,TestResolveContextUsageAcceptsCodexAliasesAndPrefersExplicitContextUsedTokens,TestResolveContextUsageRejectsFractionalValuesAndKeepsValidStringWindow}`; route proof: `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesHydratesExternalAgentChat,TestRegisterAIRoutesReturnsContextUsage,TestRegisterAIRoutesReturnsTypedNotFound}`. | `Proved` | |
-| `AH-04` | Managed and external chat hydration responses preserve `appGenerationByMessageId` provenance from persisted run inputs so the frontend can rebuild app-generation state on hydrate. | Source route payloads and helper: `backend/setta/routers/ai.py::{GetLLMChatRequestResponse,GetExternalAgentChatResponse,route_get_llm_chat,route_get_external_agent_chat,_get_run_app_generation_by_message_id}`. | Current Go hydrated payloads omit the field entirely: `internal/managedchat/service.go::HydratedChat`; `internal/externalagents/service.go::HydratedChat`; `internal/httpapi/ai_routes.go::GetExternalAgentChatResponse`; current frontend hydration still consumes it: `frontend/src/state/actions/ai.ts::{applyLLMChatHydrationSuccess,applyExternalChatHydrationSuccess}`. | `Missing` | This is a concrete parity gap, not just a proof gap. The source hydration contract carried app-generation provenance, and current frontend tests still expect it during chat rehydrate: `frontend/src/state/actions/aiWaitingForResponse.test.ts::{it("hydrates app-generation provenance with the chat response",it("hydrates explicit plain-chat provenance without reviving an older app-generation mode")}`. |
+| `AH-04` | Managed and external chat hydration responses preserve `appGenerationByMessageId` provenance from persisted run inputs so the frontend can rebuild app-generation state on hydrate. | Source route payloads and helper: `backend/setta/routers/ai.py::{GetLLMChatRequestResponse,GetExternalAgentChatResponse,route_get_llm_chat,route_get_external_agent_chat,_get_run_app_generation_by_message_id}`. | Impl: `internal/agentruns/app_generation.go`; `internal/managedchat/service.go::HydratedChat`; `internal/externalagents/service.go::HydratedChat`; `internal/httpapi/ai_routes.go::{GetLLMResponseRequest,GetExternalAgentChatResponse,aiRouteAdditionalInputs}`; proof: `internal/managedchat/service_test.go::TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs`; `internal/externalagents/service_test.go::TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs`; `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesStartsExternalAgentChat,TestRegisterAIRoutesStartsManagedChat,TestRegisterAIRoutesHydratesExternalAgentChat,TestRegisterAIRoutesGetsManagedChat}`; current caller proof: `frontend/src/state/actions/aiWaitingForResponse.test.ts::{it("hydrates app-generation provenance with the chat response",it("hydrates explicit plain-chat provenance without reviving an older app-generation mode")}`; typed caller contract: `frontend/src/utils/generatedEndpoints.test.ts::it("posts llm response requests with the current chat execution payload", ...)`. | `Proved` | Go now preserves frontend-provided `appGenerationByMessageId` on chat-start requests and returns the normalized persisted mapping on both managed and external hydration reads. |
 
 ## Managed Chat Stop
 
@@ -1205,9 +1201,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains thirty-six concrete source-parity gaps:
+1. The matrix now contains thirty-five concrete source-parity gaps:
    `LS-11`, `LS-17`,
-   `US-05`, `AH-04`, `FS-01`, `WS-01`, `WS-04`,
+   `US-05`, `FS-01`, `WS-01`, `WS-04`,
    `DP-08`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
@@ -1249,9 +1245,8 @@ It covers:
     one documented auto-fallback divergence (`TS-08`), one dormant
     OpenAPI-schema row (`TS-12`), and four more proof-gap clusters
     (`TS-02`, `TS-04`, `TS-07`, `TS-11`).
-14. The chat-hydration / managed-stop / external-response slice mostly closes
-    with proofs, but it adds one real behavior gap (`AH-04`) plus two more
-    proof-gap clusters (`AH-02`, `MS-02`).
+14. The chat-hydration / managed-stop / external-response slice now closes its
+    real behavior gaps and retains two proof-gap clusters (`AH-02`, `MS-02`).
 15. The AI-follow / external-run-stop / agent-run-read slice mostly closes
     with proofs, but it adds one real behavior gap (`FS-01`).
 16. The managed-agent-run slice mostly closes with proofs, but it adds one
@@ -1360,7 +1355,7 @@ It covers:
     than obvious implementation gaps.
 53. The next high-value steps are:
     - decide whether `US-05`,
-      `AH-04`, `FS-01`, `WS-01`, `WS-04`,
+      `FS-01`, `WS-01`, `WS-04`,
       `DP-08`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,

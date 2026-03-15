@@ -46,10 +46,11 @@ type ChatContextUsage struct {
 }
 
 type HydratedChat struct {
-	Messages           []map[string]any  `json:"messages"`
-	WaitingForResponse bool              `json:"waitingForResponse"`
-	ToolCallArguments  map[string]string `json:"toolCallArguments"`
-	ContextUsage       *ChatContextUsage `json:"contextUsage"`
+	Messages                 []map[string]any  `json:"messages"`
+	WaitingForResponse       bool              `json:"waitingForResponse"`
+	ToolCallArguments        map[string]string `json:"toolCallArguments"`
+	ContextUsage             *ChatContextUsage `json:"contextUsage"`
+	AppGenerationByMessageID map[string]string `json:"appGenerationByMessageId"`
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -102,10 +103,11 @@ func (s *Service) GetChat(chatID string, projectConfigID *string) (HydratedChat,
 		}
 	}
 	return HydratedChat{
-		Messages:           cloneMessageSlice(state.Messages),
-		WaitingForResponse: state.WaitingForResponse,
-		ToolCallArguments:  cloneStringMap(state.ToolCallArguments),
-		ContextUsage:       resolveContextUsage(latestRun),
+		Messages:                 cloneMessageSlice(state.Messages),
+		WaitingForResponse:       state.WaitingForResponse,
+		ToolCallArguments:        cloneStringMap(state.ToolCallArguments),
+		ContextUsage:             resolveContextUsage(latestRun),
+		AppGenerationByMessageID: agentruns.ExtractAppGenerationByMessageID(latestRun.Inputs),
 	}, nil
 }
 

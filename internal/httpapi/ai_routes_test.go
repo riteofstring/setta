@@ -191,7 +191,8 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 			"frontendAffinityToken":"  frontend-external  ",
 			"allowUnscoped":true,
 			"permissionMode":"minimal",
-			"searchEnabled":false
+			"searchEnabled":false,
+			"appGenerationByMessageId":{"user-1":"mcp_server"}
 		}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
@@ -222,6 +223,10 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 	if got := runs[0].Inputs["frontendAffinityToken"]; got != "frontend-external" {
 		t.Fatalf("unexpected frontendAffinityToken %#v", got)
 	}
+	appGenerationByMessageID, ok := runs[0].Inputs["appGenerationByMessageId"].(map[string]any)
+	if !ok || appGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+		t.Fatalf("expected persisted app-generation provenance, got %#v", runs[0].Inputs["appGenerationByMessageId"])
+	}
 	state, err := fixture.runtime.GetLiveChatState(runs[0].ID)
 	if err != nil {
 		t.Fatalf("get live chat state: %v", err)
@@ -251,7 +256,8 @@ func TestRegisterAIRoutesStartsManagedChat(t *testing.T) {
 			"frontendAffinityToken":"  frontend-managed  ",
 			"allowUnscoped":true,
 			"permissionMode":"minimal",
-			"searchEnabled":false
+			"searchEnabled":false,
+			"appGenerationByMessageId":{"user-managed":"plain_chat"}
 		}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
@@ -284,6 +290,10 @@ func TestRegisterAIRoutesStartsManagedChat(t *testing.T) {
 	}
 	if message, ok := rawMessages[0].(map[string]any); !ok || message["id"] != "user-managed" {
 		t.Fatalf("expected managed message in starter inputs, got %#v", rawMessages[0])
+	}
+	appGenerationByMessageID, ok := fixture.managedStarter.lastInputs["appGenerationByMessageId"].(map[string]string)
+	if !ok || appGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
+		t.Fatalf("expected managed app-generation provenance, got %#v", fixture.managedStarter.lastInputs["appGenerationByMessageId"])
 	}
 	runs, err := fixture.store.List()
 	if err != nil {
@@ -687,6 +697,9 @@ func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 	}
 	if payload.ContextUsage != nil {
 		t.Fatalf("expected no context usage, got %#v", payload.ContextUsage)
+	}
+	if payload.AppGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+		t.Fatalf("expected external app-generation provenance, got %#v", payload.AppGenerationByMessageID)
 	}
 }
 
@@ -4057,6 +4070,9 @@ func TestRegisterAIRoutesGetsManagedChat(t *testing.T) {
 	if payload.ContextUsage == nil || payload.ContextUsage.ContextUsedTokens == nil || *payload.ContextUsage.ContextUsedTokens != 21 {
 		t.Fatalf("expected managed context usage payload, got %#v", payload.ContextUsage)
 	}
+	if payload.AppGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
+		t.Fatalf("expected managed plain-chat provenance, got %#v", payload.AppGenerationByMessageID)
+	}
 }
 
 // The managed chat hydrate route should map the new Go owner directly into the
@@ -4489,6 +4505,9 @@ func (f aiRouteFixture) seedHydrationRun(t *testing.T) {
 		"runType":         externalagents.RunTypeExternalAgent,
 		"chatId":          "chat-external",
 		"projectConfigId": "project-alpha",
+		"appGenerationByMessageId": map[string]any{
+			"user-1": agentruns.ChatAppGenerationMessageModeMCPServer,
+		},
 		"messages": []any{
 			map[string]any{
 				"id":   "user-1",
@@ -4535,6 +4554,9 @@ func (f aiRouteFixture) seedManagedHydrationRun(t *testing.T) {
 		"chatId":          "chat-managed",
 		"projectConfigId": "project-alpha",
 		"engineConfigId":  "engine-managed",
+		"appGenerationByMessageId": map[string]any{
+			"user-managed": agentruns.ChatAppGenerationMessageModePlainChat,
+		},
 		"messages": []any{
 			map[string]any{
 				"id":   "user-managed",

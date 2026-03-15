@@ -122,10 +122,11 @@ type ChatContextUsage struct {
 }
 
 type HydratedChat struct {
-	Messages           []map[string]any  `json:"messages"`
-	WaitingForResponse bool              `json:"waitingForResponse"`
-	LLMConfig          *llmconfig.Config `json:"llmConfig"`
-	ContextUsage       *ChatContextUsage `json:"contextUsage"`
+	Messages                 []map[string]any  `json:"messages"`
+	WaitingForResponse       bool              `json:"waitingForResponse"`
+	LLMConfig                *llmconfig.Config `json:"llmConfig"`
+	ContextUsage             *ChatContextUsage `json:"contextUsage"`
+	AppGenerationByMessageID map[string]string `json:"appGenerationByMessageId"`
 }
 
 type StartChatRequest struct {
@@ -467,10 +468,11 @@ func (s *Service) GetChat(chatID string, projectConfigID *string) (HydratedChat,
 		return HydratedChat{}, err
 	}
 	return HydratedChat{
-		Messages:           cloneMessageSlice(state.Messages),
-		WaitingForResponse: state.WaitingForResponse,
-		LLMConfig:          resolvedLLMConfig,
-		ContextUsage:       resolveContextUsage(latestRun),
+		Messages:                 cloneMessageSlice(state.Messages),
+		WaitingForResponse:       state.WaitingForResponse,
+		LLMConfig:                resolvedLLMConfig,
+		ContextUsage:             resolveContextUsage(latestRun),
+		AppGenerationByMessageID: agentruns.ExtractAppGenerationByMessageID(latestRun.Inputs),
 	}, nil
 }
 

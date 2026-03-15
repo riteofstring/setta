@@ -141,6 +141,52 @@ func TestServiceGetChatReturnsLatestRunAndResolvedLLMConfig(t *testing.T) {
 	}
 }
 
+func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-app-generation",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 11, 30, 0, 0, time.UTC),
+			status:          agentruns.RunStatusCompleted,
+			inputMessages: []map[string]any{
+				userMessage("user-plain", "Plain"),
+				userMessage("user-app", "Build app"),
+			},
+			outputMessages: []map[string]any{
+				userMessage("user-plain", "Plain"),
+				userMessage("user-app", "Build app"),
+				assistantMessage("assistant-1", "Done"),
+			},
+		},
+	)
+	run.Inputs["appGenerationByMessageId"] = map[string]any{
+		"user-plain": agentruns.ChatAppGenerationMessageModePlainChat,
+		"user-app":   agentruns.ChatAppGenerationMessageModeMCPServer,
+		"user-bad":   "invalid_mode",
+		"":           agentruns.ChatAppGenerationMessageModeJSONRender,
+	}
+	saveManagedChatRun(t, fixture.runs, run)
+
+	hydrated, err := fixture.service.GetChat("chat-app-generation", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if len(hydrated.AppGenerationByMessageID) != 2 {
+		t.Fatalf("expected two hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-plain"] != agentruns.ChatAppGenerationMessageModePlainChat {
+		t.Fatalf("expected plain chat provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-app"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+		t.Fatalf("expected app-generation provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+}
+
 func TestResolveContextUsageAcceptsCodexAliases(t *testing.T) {
 	t.Parallel()
 

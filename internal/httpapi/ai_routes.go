@@ -46,24 +46,25 @@ type aiRouteSessionProvider interface {
 }
 
 type GetLLMResponseRequest struct {
-	ChatID                           *string        `json:"chatId"`
-	ContinueFromChatID               *string        `json:"continueFromChatId"`
-	Message                          map[string]any `json:"message"`
-	EngineConfigID                   string         `json:"engineConfigId"`
-	AgentProfileID                   *string        `json:"agentProfileId"`
-	Thinking                         bool           `json:"thinking"`
-	ProjectConfigID                  string         `json:"projectConfigId"`
-	SectionID                        *string        `json:"sectionId"`
-	FrontendAffinityToken            *string        `json:"frontendAffinityToken"`
-	AllowUnscoped                    bool           `json:"allowUnscoped"`
-	BranchParentChatID               *string        `json:"branchParentChatId"`
-	BranchFromMessageID              *string        `json:"branchFromMessageId"`
-	AppSpecStreamingEnabled          bool           `json:"appSpecStreamingEnabled"`
-	PermissionMode                   string         `json:"permissionMode"`
-	SearchEnabled                    bool           `json:"searchEnabled"`
-	AppGenerationMode                *string        `json:"appGenerationMode"`
-	AppGenerationReferenceImageURL   *string        `json:"appGenerationReferenceImageUrl"`
-	AppGenerationReferenceImageNotes *string        `json:"appGenerationReferenceImageNotes"`
+	ChatID                           *string           `json:"chatId"`
+	ContinueFromChatID               *string           `json:"continueFromChatId"`
+	Message                          map[string]any    `json:"message"`
+	EngineConfigID                   string            `json:"engineConfigId"`
+	AgentProfileID                   *string           `json:"agentProfileId"`
+	Thinking                         bool              `json:"thinking"`
+	ProjectConfigID                  string            `json:"projectConfigId"`
+	SectionID                        *string           `json:"sectionId"`
+	FrontendAffinityToken            *string           `json:"frontendAffinityToken"`
+	AllowUnscoped                    bool              `json:"allowUnscoped"`
+	BranchParentChatID               *string           `json:"branchParentChatId"`
+	BranchFromMessageID              *string           `json:"branchFromMessageId"`
+	AppSpecStreamingEnabled          bool              `json:"appSpecStreamingEnabled"`
+	PermissionMode                   string            `json:"permissionMode"`
+	SearchEnabled                    bool              `json:"searchEnabled"`
+	AppGenerationMode                *string           `json:"appGenerationMode"`
+	AppGenerationByMessageID         map[string]string `json:"appGenerationByMessageId"`
+	AppGenerationReferenceImageURL   *string           `json:"appGenerationReferenceImageUrl"`
+	AppGenerationReferenceImageNotes *string           `json:"appGenerationReferenceImageNotes"`
 }
 
 type GetExternalAgentChatRequest struct {
@@ -77,10 +78,11 @@ type GetLLMChatRequest struct {
 }
 
 type GetExternalAgentChatResponse struct {
-	Messages           []map[string]any                 `json:"messages"`
-	WaitingForResponse bool                             `json:"waitingForResponse"`
-	ToolCallArguments  map[string]string                `json:"toolCallArguments"`
-	ContextUsage       *externalagents.ChatContextUsage `json:"contextUsage"`
+	Messages                 []map[string]any                 `json:"messages"`
+	WaitingForResponse       bool                             `json:"waitingForResponse"`
+	ToolCallArguments        map[string]string                `json:"toolCallArguments"`
+	ContextUsage             *externalagents.ChatContextUsage `json:"contextUsage"`
+	AppGenerationByMessageID map[string]string                `json:"appGenerationByMessageId"`
 }
 
 type StopLLMChatRequest struct {
@@ -182,6 +184,7 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 			AppGenerationMode:                payload.AppGenerationMode,
 			AppGenerationReferenceImageURL:   payload.AppGenerationReferenceImageURL,
 			AppGenerationReferenceImageNotes: payload.AppGenerationReferenceImageNotes,
+			AdditionalInputs:                 aiRouteAdditionalInputs(payload.AppGenerationByMessageID),
 		}
 		result, err := deps.ManagedChats.StartChat(managedRequest)
 		if err == nil {
@@ -212,6 +215,7 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 			AppGenerationMode:                payload.AppGenerationMode,
 			AppGenerationReferenceImageURL:   payload.AppGenerationReferenceImageURL,
 			AppGenerationReferenceImageNotes: payload.AppGenerationReferenceImageNotes,
+			AdditionalInputs:                 aiRouteAdditionalInputs(payload.AppGenerationByMessageID),
 		})
 		if err != nil {
 			writeGetLLMResponseError(w, r, err)
@@ -317,11 +321,25 @@ func getExternalAgentChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, GetExternalAgentChatResponse{
-			Messages:           hydrated.Messages,
-			WaitingForResponse: hydrated.WaitingForResponse,
-			ToolCallArguments:  hydrated.ToolCallArguments,
-			ContextUsage:       hydrated.ContextUsage,
+			Messages:                 hydrated.Messages,
+			WaitingForResponse:       hydrated.WaitingForResponse,
+			ToolCallArguments:        hydrated.ToolCallArguments,
+			ContextUsage:             hydrated.ContextUsage,
+			AppGenerationByMessageID: hydrated.AppGenerationByMessageID,
 		})
+	}
+}
+
+func aiRouteAdditionalInputs(appGenerationByMessageID map[string]string) map[string]any {
+	if len(appGenerationByMessageID) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(appGenerationByMessageID))
+	for messageID, mode := range appGenerationByMessageID {
+		cloned[messageID] = mode
+	}
+	return map[string]any{
+		"appGenerationByMessageId": cloned,
 	}
 }
 
