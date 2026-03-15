@@ -16,10 +16,10 @@ import {
 import { toggleParamSelected } from "state/actions/projectStateCommands";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import { useProjectState, useResizeEvent } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionScrollability";

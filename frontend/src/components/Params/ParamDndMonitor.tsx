@@ -48,8 +48,8 @@ import {
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
 } from "state/actions/sectionInfos";
+import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import {
   useMisc,
   useProjectState,

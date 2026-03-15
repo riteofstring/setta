@@ -7,8 +7,8 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
-  updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
+import { updateShownParamIdsForPinnedParams } from "state/actions/sectionShownParams";
 import { useIsSolelySectionUIActive } from "state/activeSectionUI";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";

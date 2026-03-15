@@ -10,8 +10,8 @@ import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionEffectiveImpls
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
 } from "state/actions/sectionInfos";
+import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useProjectState,

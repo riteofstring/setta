@@ -297,9 +297,16 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/sectionEffectiveImplMutations.ts` owns low-level
     section/code-object impl mutation helpers and cache invalidation for local
     impl writes.
-  - `state/actions/sectionInfos.ts` now owns streaming chat merge behavior,
-    shown-param/pinned-param updates, ancestry helpers, and tool-preview
-    cleanup that still sit beside the remaining shared section helper surface.
+  - `state/actions/sectionStreamingMerge.ts` owns streaming chat merge
+    reconciliation for backend project-state snapshots.
+  - `state/actions/sectionShownParams.ts` owns shown-param and pinned-param
+    bucket helpers used by param layout and section config surfaces.
+  - `state/actions/sectionHierarchy.ts` owns section ancestry, descendants,
+    parent-child mutation helpers, and reset-to-default-version commands.
+  - `state/actions/sectionToolArgumentPreview.ts` owns tool-preview cleanup
+    against the current project-state snapshot.
+  - `state/actions/sectionInfos.ts` is now a thin compatibility facade over the
+    narrower section helper owners.
   - `state/actions/topLevelSectionLayouts.ts` owns active-view top-level layout
     selection plus layout snapshot building from current node internals.
   - `state/actions/topLevelLayoutPersistence.ts` owns pending-op reconciliation
@@ -401,25 +408,26 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionInfos.ts` is now the largest authored/shared state
-  hotspot, so follow-up cleanup should keep shrinking the remaining streaming
-  merge, shown-param, ancestry, and tool-preview helpers instead of regrowing
-  `state/actions/sectionDisplayQueries.ts` or the newer project-state modules
-- `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
-  effective-impl selector surface, so any follow-up there should stay local to
-  selector derivation rather than regrowing layout or mutation ownership
+- `state/actions/sectionEffectiveImpls.ts` is now the largest authored/shared
+  state hotspot, so follow-up cleanup should keep shrinking the remaining
+  effective-impl selector surface instead of regrowing layout or mutation
+  ownership.
+- `state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns the remaining
+  restore planning and remapping policy for saved window spaces, so follow-up
+  cleanup there should stay local to restore-layout helpers instead of
+  regrowing `state/actions/windowSpaces.ts`.
+- `state/actions/sections/createSectionFileOpeners.ts` now owns the largest
+  remaining section-creation helper cluster, so any follow-up there should stay
+  local to file-open reuse and drop-routing instead of regrowing
+  `state/actions/sections/createSections.ts`.
 - `state/actions/projectChatWindowingWritePipeline.ts` is now the largest
   remaining project-chat windowing coordination surface, so follow-up windowing
   cleanup should stay local to the write pipeline or the new command modules
   instead of regrowing the reducer owners
-- `state/actions/sectionInfos.ts` now owns the remaining streaming merge,
-  shown-param, ancestry, and tool-preview cleanup surface, so any follow-up
-  cleanup there should stay local to those helpers instead of regrowing
-  `state/actions/sectionDisplayQueries.ts`
-- `state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns the remaining
-  restore planning and remapping policy for saved window spaces, so any
-  follow-up cleanup there should stay local to restore-layout helpers instead
-  of regrowing `state/actions/windowSpaces.ts`
+- `state/actions/sectionStreamingMerge.ts`,
+  `state/actions/sectionShownParams.ts`, `state/actions/sectionHierarchy.ts`,
+  and `state/actions/sectionToolArgumentPreview.ts` should stay feature-local
+  and avoid regrowing `state/actions/sectionInfos.ts`.
 - `state/actions/websocketLifecycle.ts`, `websocketBootstrap.ts`,
   `websocketAuthRecovery.ts`, and `websocketShareSessionRecovery.ts` now split
   transport, bootstrap, auth recovery, and share-session restoration, so any

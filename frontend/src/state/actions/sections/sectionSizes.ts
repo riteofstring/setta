@@ -4,7 +4,7 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImpls
 import {
   getHighestAncestor,
   getSectionDescendants,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionHierarchy";
 import { getEmbeddedAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionLayoutQueries";
 import { ZustandProjectState } from "state/definitions";
 import {

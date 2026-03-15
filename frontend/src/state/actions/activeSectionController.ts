@@ -14,7 +14,7 @@ import {
   setActiveSectionIds,
 } from "./activeSections";
 import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
-import { getHighestAncestor } from "./sectionInfos";
+import { getHighestAncestor } from "./sectionHierarchy";
 import { setZIndices } from "./sections/sectionPositions";
 
 type SectionClickIntent = {

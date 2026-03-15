@@ -12,11 +12,11 @@ import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { dispatchOptimisticProjectStateUpdate } from "../projectStateOptimisticUpdates";
 import { setCurrEffectiveSectionImplValue } from "../sectionEffectiveImplMutations";
+import { setSectionChildren } from "../sectionHierarchy";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   isBaseCodeSectionType,
-  setSectionChildren,
 } from "../sectionInfos";
 
 type MoveSectionsInput = {

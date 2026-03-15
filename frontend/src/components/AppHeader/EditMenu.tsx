@@ -11,7 +11,7 @@ import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { setColorModePreference } from "state/actions/localStorage";
 import { restartLanguageServer } from "state/actions/lsp";
-import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
+import { resetAllSectionsToDefaultVersions } from "state/actions/sectionHierarchy";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,

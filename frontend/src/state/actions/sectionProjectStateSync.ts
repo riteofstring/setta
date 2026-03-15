@@ -28,10 +28,8 @@ import {
 } from "./renameRefactors";
 import { createNodesMapFromProjectConfigChildren } from "./sectionDisplayQueries";
 import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
-import {
-  clearToolArgumentPreviewForProjectState,
-  mergeStreamingChatSections,
-} from "./sectionInfos";
+import { mergeStreamingChatSections } from "./sectionStreamingMerge";
+import { clearToolArgumentPreviewForProjectState } from "./sectionToolArgumentPreview";
 import { reconcilePendingTopLevelLayout } from "./topLevelLayoutPersistence";
 import { getActiveViewModeTopLevelSections } from "./topLevelSectionLayouts";
 

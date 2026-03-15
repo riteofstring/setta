@@ -75,6 +75,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
   section-render/display queries on that dedicated surface instead of adding
   them back to the remaining streaming/tool-preview helper file.
+- `frontend/src/state/actions/sectionStreamingMerge.ts` now owns streaming chat
+  merge reconciliation for backend project-state snapshots,
+  `frontend/src/state/actions/sectionShownParams.ts` now owns shown-param and
+  pinned-param helpers, `frontend/src/state/actions/sectionHierarchy.ts` now
+  owns ancestry/descendant helpers plus reset-to-default and parent-child
+  mutation helpers, and
+  `frontend/src/state/actions/sectionToolArgumentPreview.ts` now owns
+  tool-preview cleanup; `frontend/src/state/actions/sectionInfos.ts` is now a
+  thin compatibility facade over those dedicated surfaces.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling that previously lived in
@@ -181,7 +190,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 459 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` at 405 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
@@ -191,7 +199,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sectionInfos.ts` at 459 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` at 405 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
@@ -297,6 +304,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - top-level display selection and displayed-child tree derivation
   - node-map creation from current layouts and effective section styling
   - DnD child reset plus view-mode visibility/render queries
+- `sectionStreamingMerge.ts` now owns:
+  - backend snapshot merge reconciliation for streaming chat sections
+- `sectionShownParams.ts` now owns:
+  - shown-param and pinned-param bucket reads and rebalancing helpers
+- `sectionHierarchy.ts` now owns:
+  - section ancestry and descendant queries
+  - parent-child mutation helpers and reset-to-default-version commands
+- `sectionToolArgumentPreview.ts` now owns:
+  - tool-preview cleanup against the current project-state snapshot
 - `gitGraphLog.ts` now owns:
   - git graph overlay boot and initial graph-state seeding
   - git graph/log refresh, pagination, and all-refs/filter refresh behavior
@@ -310,10 +326,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - frontend websocket payload parsing and feature-specific dispatch
   - project/app snapshot routing for inbound websocket updates
   - `UISettingReveal` ACK validation and failure-status construction
-- `sectionInfos.ts` currently mixes:
-  - streaming chat merge behavior
-  - shown-param and pinned-param update helpers
-  - ancestry helpers and tool-preview cleanup
+- `sectionInfos.ts` is now:
+  - a thin compatibility facade that re-exports the narrower section helper owners
+  - the last place carrying the legacy `updateProjectState` helper
 - `sectionProjectStateSync.ts` now owns:
   - backend snapshot reconciliation
   - active-section sync from authoritative project state
@@ -479,13 +494,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `sectionInfos.ts` into query and command layers
+2. Split `sectionEffectiveImpls.ts` into narrower selector clusters
 
-- Extract:
-  - effective impl/read helpers
-  - section metadata selectors
-  - top-level layout persistence helpers
-- Keep naming explicit so agents can tell whether they are calling a read helper or a mutating command.
+- Separate core effective-impl derivation from the remaining current-section
+  and current-code-object selector helpers.
+- Keep naming explicit so agents can tell whether they are calling a low-level
+  derivation helper, a typed selector, or a cache-aware read.
 
 3. Normalize optimistic mutation infrastructure
 

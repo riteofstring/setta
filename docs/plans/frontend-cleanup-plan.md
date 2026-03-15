@@ -145,6 +145,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/sectionInfos.ts` further to 457 lines for the
   remaining streaming merge, shown-param, ancestry, and tool-preview cleanup
   surface.
+- `frontend/src/state/actions/sectionStreamingMerge.ts`,
+  `frontend/src/state/actions/sectionShownParams.ts`,
+  `frontend/src/state/actions/sectionHierarchy.ts`, and
+  `frontend/src/state/actions/sectionToolArgumentPreview.ts` now own the last
+  streaming merge, shown-param, ancestry, and tool-preview cleanup helpers that
+  used to live in `frontend/src/state/actions/sectionInfos.ts`, reducing
+  `frontend/src/state/actions/sectionInfos.ts` to a 67-line compatibility
+  facade.
 - `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
   section/code-object resolution, typed current-section/code-object selectors,
   and effective-impl cache helpers, while

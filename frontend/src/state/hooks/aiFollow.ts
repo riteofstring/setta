@@ -7,7 +7,7 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getHighestAncestor } from "state/actions/sectionInfos";
+import { getHighestAncestor } from "state/actions/sectionHierarchy";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import {
   getAllowedChatIdsForProject,
