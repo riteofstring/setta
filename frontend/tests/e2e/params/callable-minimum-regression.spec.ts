@@ -883,7 +883,7 @@ async function runReorderAndIndentFlow(
         `#ParamContainer-${sectionId}-${idsByName.h} + #ParamContainer-${sectionId}-${idsByName.i}`,
       ),
     ).toHaveCount(1);
-    await expect(rowI).toHaveClass(/ml-\[0\.9rem\]/);
+    await expect(rowI).toHaveClass(/ml-\[1\.44rem\]/);
     await waitForVisibleUnpinnedOrder(root, sectionId, idsByName, [
       "k",
       "h",
@@ -897,7 +897,7 @@ async function runReorderAndIndentFlow(
     await captureSurfaceScreenshot(root, testInfo, `${prefix}-03-indented`);
 
     await pressParamIndentShortcut(page, true);
-    await expect(rowI).not.toHaveClass(/ml-\[0\.9rem\]/);
+    await expect(rowI).not.toHaveClass(/ml-\[1\.44rem\]/);
     await waitForVisibleUnpinnedOrder(root, sectionId, idsByName, [
       "k",
       "h",
