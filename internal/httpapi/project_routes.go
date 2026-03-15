@@ -2902,9 +2902,6 @@ func prepareSectionsForCopyHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if !ensureProjectParamMutationsAllowed(w, r, deps) {
-			return
-		}
 
 		runtime, err := projectRuntimeForRequest(deps, r)
 		if err != nil {

@@ -4533,108 +4533,65 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsRejectInvalidInputs(t *test
 	}
 }
 
-func TestRegisterProjectRoutesPrepareSectionsForCopyUsesDeploymentOverlayWhenParamChangesAllowed(t *testing.T) {
+func TestRegisterProjectRoutesPrepareSectionsForCopyUsesDeploymentOverlayRegardlessOfParamPolicy(t *testing.T) {
 	t.Parallel()
 
 	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
-		t.Run(string(mode), func(t *testing.T) {
-			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-				Mode: mode,
-				Document: projectstate.Document{
-					SchemaVersion:    projectstate.CurrentSchemaVersion,
-					DefaultProjectID: "project-source",
-					Projects: map[string]projectstate.Project{
-						"project-source": copyPasteRouteSourceProject(t),
+		for _, allowParamChanges := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/%t", mode, allowParamChanges), func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-source",
+						Projects: map[string]projectstate.Project{
+							"project-source": copyPasteRouteSourceProject(t),
+						},
 					},
-				},
-				Policy: map[string]any{
-					"allowParamChanges": true,
-				},
-			})
-			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-				t.Fatalf("create deployment session: %v", err)
-			}
-
-			overlay, err := deploymentRuntime.Overlay("share-a")
-			if err != nil {
-				t.Fatalf("deployment overlay: %v", err)
-			}
-			if _, err := overlay.SetSectionVariantName(context.Background(), "project-source", "group-root-variant", "Overlay Variant"); err != nil {
-				t.Fatalf("set overlay variant name: %v", err)
-			}
-
-			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-			request := httptest.NewRequest(
-				http.MethodPost,
-				"/api"+RoutePrepareSectionsForCopy,
-				strings.NewReader(`{"projectConfigId":"project-source","sectionIds":["group-root"]}`),
-			)
-			request.Header.Set("Content-Type", "application/json")
-			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			if response.Code != http.StatusOK {
-				t.Fatalf("expected 200 for %s, got %d with body %q", RoutePrepareSectionsForCopy, response.Code, response.Body.String())
-			}
-
-			var clipboard projectstate.SectionsClipboardData
-			if err := json.Unmarshal(response.Body.Bytes(), &clipboard); err != nil {
-				t.Fatalf("decode prepareSectionsForCopy payload: %v", err)
-			}
-			if got := clipboard.Data.Core.SectionVariants["group-root-variant"].Name; got != "Overlay Variant" {
-				t.Fatalf("expected clipboard to use overlay variant name %q, got %q", "Overlay Variant", got)
-			}
-
-			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-source"]
-			if got := baseProject.SectionVariants["group-root-variant"].Name; got != "" {
-				t.Fatalf("expected base variant name unchanged, got %q", got)
-			}
-		})
-	}
-}
-
-func TestRegisterProjectRoutesPrepareSectionsForCopyRejectsDeploymentPolicyWhenParamChangesDisallowed(t *testing.T) {
-	t.Parallel()
-
-	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
-		t.Run(string(mode), func(t *testing.T) {
-			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-				Mode: mode,
-				Document: projectstate.Document{
-					SchemaVersion:    projectstate.CurrentSchemaVersion,
-					DefaultProjectID: "project-source",
-					Projects: map[string]projectstate.Project{
-						"project-source": copyPasteRouteSourceProject(t),
+					Policy: map[string]any{
+						"allowParamChanges": allowParamChanges,
 					},
-				},
-				Policy: map[string]any{
-					"allowParamChanges": false,
-				},
-			})
-			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-				t.Fatalf("create deployment session: %v", err)
-			}
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
 
-			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-			request := httptest.NewRequest(
-				http.MethodPost,
-				"/api"+RoutePrepareSectionsForCopy,
-				strings.NewReader(`{"projectConfigId":"project-source","sectionIds":["group-root"]}`),
-			)
-			request.Header.Set("Content-Type", "application/json")
-			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			if response.Code != http.StatusForbidden {
-				t.Fatalf("expected 403 for %s, got %d with body %q", RoutePrepareSectionsForCopy, response.Code, response.Body.String())
-			}
-			if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
-				t.Fatalf("expected param_changes_forbidden body, got %q", response.Body.String())
-			}
-			if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
-				t.Fatalf("expected deployment param policy denial, got %q", response.Body.String())
-			}
-		})
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				if _, err := overlay.SetSectionVariantName(context.Background(), "project-source", "group-root-variant", "Overlay Variant"); err != nil {
+					t.Fatalf("set overlay variant name: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RoutePrepareSectionsForCopy,
+					strings.NewReader(`{"projectConfigId":"project-source","sectionIds":["group-root"]}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", RoutePrepareSectionsForCopy, response.Code, response.Body.String())
+				}
+
+				var clipboard projectstate.SectionsClipboardData
+				if err := json.Unmarshal(response.Body.Bytes(), &clipboard); err != nil {
+					t.Fatalf("decode prepareSectionsForCopy payload: %v", err)
+				}
+				if got := clipboard.Data.Core.SectionVariants["group-root-variant"].Name; got != "Overlay Variant" {
+					t.Fatalf("expected clipboard to use overlay variant name %q, got %q", "Overlay Variant", got)
+				}
+
+				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-source"]
+				if got := baseProject.SectionVariants["group-root-variant"].Name; got != "" {
+					t.Fatalf("expected base variant name unchanged, got %q", got)
+				}
+			})
+		}
 	}
 }
 
