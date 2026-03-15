@@ -6545,3 +6545,47 @@ schedule settings` button still appears on the live task row.
   - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the
     highest-value unresolved chat/project-AI front door after `ProjectChat.tsx`
     delegated its thread-session continuity into a sharp local owner.
+
+## 2026-03-16 05:44:21 PDT
+
+- Slice completed: extracted the chat-input draft-session and queued-draft rail
+  owners out of `frontend/src/components/Chat/ChatInput.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Section/Layouts/BrowserArea.tsx` or
+  `frontend/src/components/Chat/ChatMessages.tsx` because
+  `frontend/src/components/Chat/ChatInput.tsx` was still the largest remaining
+  chat/project-AI front door at the start of the turn and still mixed
+  queued-draft session state, submitted-history selection, escape
+  clear/restore behavior, and the queued-draft rail into the first composer
+  file contributors opened.
+- Key files touched:
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Chat/chatInputDraftSession.ts`
+  - `frontend/src/components/Chat/ChatInputQueuedDraftStack.tsx`
+  - `frontend/src/components/Chat/chatInputDraftSession.test.tsx`
+  - `frontend/src/components/Chat/ChatInput.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-input-draft-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatInputDraftSession.test.tsx src/components/Chat/ChatInput.test.tsx src/components/Chat/ChatInput.submit.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-queued-drafts.spec.ts frontend/tests/e2e/chat/chat-composer-controls.spec.ts --grep "queues drafts with Tab, supports keyboard restore/edit, and dispatches when waiting is stopped|project chat shows starter controls with visible slash menu and full execution footer|project chat ArrowUp cycles submitted prompts from prior conversations"`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatInput.tsx src/components/Chat/chatInputDraftSession.ts src/components/Chat/ChatInputQueuedDraftStack.tsx src/components/Chat/ChatInput.test.tsx src/components/Chat/chatInputDraftSession.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-input-draft-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-input-draft-session-2026-03-16.md`
+    with the before/after Project AI chat composer measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`.
+    `ChatInput.tsx` dropped from `1605` to `999` lines while the measured
+    default Project AI composer form dropped from `25` to `24` nodes with the
+    same `5` buttons, the same `442px` textarea width, the same `442px` form
+    width, the same `458px` surface width, and no horizontal overflow at
+    `960x900`.
+- Commit hash:
+  - `3eb6a2b7868bf2ddc388d43465453cde08b7a59c`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Section/Layouts/BrowserArea.tsx`, which
+    is now the highest unresolved front-door hotspot after `ChatInput.tsx`
+    dropped below the 1000-line review threshold and delegated its
+    draft-session ownership into sharp local chat owners.
