@@ -1,5 +1,5 @@
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -652,7 +652,8 @@ class TestMultiMCPClientRuntimeStatus:
 
 
 class TestMultiMCPClientHTTPHeaders:
-    def test_build_http_headers_merges_config_and_setta_auth(
+    @pytest.mark.asyncio
+    async def test_open_transport_merges_config_and_setta_auth(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -669,13 +670,24 @@ class TestMultiMCPClientHTTPHeaders:
         client = MultiMCPClient(
             {
                 SETTA_MCP_SERVER_ID: MCPServerConfig(
-                    transport="streamable_http",
+                    transport="sse",
                     url="http://localhost:9000/mcp",
                     http_headers={"Authorization": "Bearer custom-token"},
                 )
             }
         )
         config = client.server_configs[SETTA_MCP_SERVER_ID]
+        sse_calls: list[tuple[str, dict[str, str] | None]] = []
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str] | None):
+            sse_calls.append((url, headers))
+            read_send, read_stream = anyio.create_memory_object_stream(1)
+            write_stream, write_receive = anyio.create_memory_object_stream(1)
+            read_send.close()
+            write_receive.close()
+            yield read_stream, write_stream
+
         monkeypatch.setattr(
             client_mod,
             "load_current_session_secret",
@@ -686,28 +698,46 @@ class TestMultiMCPClientHTTPHeaders:
             "mint",
             lambda _session_id, _secret: "cookie-value",
         )
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
 
-        headers = client._build_http_headers(SETTA_MCP_SERVER_ID, config)
+        async with AsyncExitStack() as stack:
+            await client._open_transport(stack, SETTA_MCP_SERVER_ID, config)
 
-        assert headers == {
-            "Authorization": "Bearer custom-token",
-            "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value",
-        }
+        assert sse_calls == [
+            (
+                "http://localhost:9000/mcp",
+                {
+                    "Authorization": "Bearer custom-token",
+                    "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value",
+                },
+            )
+        ]
 
-    def test_build_http_headers_excludes_setta_auth_for_non_setta_server(
+    @pytest.mark.asyncio
+    async def test_open_transport_excludes_setta_auth_for_non_setta_server(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = MultiMCPClient(
             {
                 "github": MCPServerConfig(
-                    transport="streamable_http",
+                    transport="sse",
                     url="http://localhost:9001/mcp",
                     http_headers={"X-Api-Key": "github-token"},
                 )
             }
         )
         config = client.server_configs["github"]
+        sse_calls: list[tuple[str, dict[str, str] | None]] = []
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str] | None):
+            sse_calls.append((url, headers))
+            read_send, read_stream = anyio.create_memory_object_stream(1)
+            write_stream, write_receive = anyio.create_memory_object_stream(1)
+            read_send.close()
+            write_receive.close()
+            yield read_stream, write_stream
 
         def _unexpected_session_lookup() -> None:
             raise AssertionError("non-Setta server should not read Setta session auth")
@@ -717,7 +747,14 @@ class TestMultiMCPClientHTTPHeaders:
             "load_current_session_secret",
             _unexpected_session_lookup,
         )
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
 
-        headers = client._build_http_headers("github", config)
+        async with AsyncExitStack() as stack:
+            await client._open_transport(stack, "github", config)
 
-        assert headers == {"X-Api-Key": "github-token"}
+        assert sse_calls == [
+            (
+                "http://localhost:9001/mcp",
+                {"X-Api-Key": "github-token"},
+            )
+        ]

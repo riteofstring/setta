@@ -520,10 +520,20 @@ class MultiMCPClient:
                 return value
             return _ENV_PLACEHOLDER.sub(replace, value)
 
-        http_headers = self._build_http_headers(server_id, config)
+        http_headers: dict[str, str] = {}
+        if config.http_headers:
+            http_headers.update(config.http_headers)
+        if server_id == SETTA_MCP_SERVER_ID:
+            session_info = load_current_session_secret()
+            if session_info is not None:
+                session_metadata, secret = session_info
+                cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+                http_headers["Cookie"] = (
+                    f"{auth_cookie_name(session_metadata.id)}={cookie_value}"
+                )
         if config.transport == "sse":
             read_stream, write_stream = await exit_stack.enter_async_context(
-                sse_client(url=config.url or "", headers=http_headers)
+                sse_client(url=config.url or "", headers=http_headers or None)
             )
             return read_stream, write_stream
         if config.transport == "streamable_http":
@@ -557,24 +567,6 @@ class MultiMCPClient:
             stdio_client(params)
         )
         return read_stream, write_stream
-
-    def _build_http_headers(
-        self,
-        server_id: str,
-        config: MCPServerConfig,
-    ) -> dict[str, str] | None:
-        combined_headers: dict[str, str] = {}
-        if config.http_headers:
-            combined_headers.update(config.http_headers)
-        if server_id == SETTA_MCP_SERVER_ID:
-            session_info = load_current_session_secret()
-            if session_info is not None:
-                session_metadata, secret = session_info
-                cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-                combined_headers["Cookie"] = (
-                    f"{auth_cookie_name(session_metadata.id)}={cookie_value}"
-                )
-        return combined_headers or None
 
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)
