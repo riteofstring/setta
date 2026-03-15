@@ -9,7 +9,7 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
-import { EditorState, Prec, type Extension } from "@codemirror/state";
+import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
@@ -29,12 +29,6 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
-const SINGLE_LINE_TRANSACTION_FILTER = EditorState.transactionFilter.of((tr) =>
-  tr.newDoc.lines > 1 ? [] : tr,
-);
-const READ_ONLY_EXTENSION = EditorState.readOnly.of(true);
-const EXTENSION_PREFIX_CACHE = new Map<string, Array<Extension>>();
-const EXTENSION_SUFFIX_CACHE = new Map<string, Array<Extension>>();
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
@@ -72,10 +66,13 @@ export function getExtensions({
   triggerCompletionAfterAccept,
   completionTriggerChars,
 }: GetExtensionsOptions) {
+  const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
   const shouldWrap = wrapLines ?? !singleLine;
   const triggerChars = completionTriggerChars ?? ["/", "\\"];
+  if (shouldWrap) {
+    extensions.push(EditorView.lineWrapping);
+  }
   const enableJsx = useJsx === true;
-  const extensions = [...getExtensionPrefix(shouldWrap)];
 
   if (parent) {
     extensions.push(
@@ -85,14 +82,7 @@ export function getExtensions({
     );
   }
 
-  extensions.push(
-    ...getExtensionSuffix({
-      language,
-      useJsx: enableJsx,
-      singleLine: Boolean(singleLine),
-      isDisabled: Boolean(isDisabled),
-    }),
-  );
+  extensions.push(...getLanguageExtensions(language, enableJsx));
 
   // autocomplete
   if (completionsFn) {
@@ -178,6 +168,16 @@ export function getExtensions({
     }
   }
 
+  if (singleLine) {
+    extensions.push(
+      EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
+    );
+  }
+
+  if (isDisabled) {
+    extensions.push(EditorState.readOnly.of(true));
+  }
+
   const keymapArray = getKeyMapArray({
     hasCompletions: Boolean(completionsFn),
     indentWithTab,
@@ -202,49 +202,6 @@ export function getLanguageExtensions(
   useJsx: boolean,
 ) {
   return getCodeMirrorLanguageExtensions(language, useJsx);
-}
-
-function getExtensionPrefix(shouldWrap: boolean): Array<Extension> {
-  const cacheKey = shouldWrap ? "wrap" : "nowrap";
-  const cached = EXTENSION_PREFIX_CACHE.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-  const extensions: Array<Extension> = [CODEMIRROR_GUTTER_LAYOUT_FIX];
-  if (shouldWrap) {
-    extensions.push(EditorView.lineWrapping);
-  }
-  EXTENSION_PREFIX_CACHE.set(cacheKey, extensions);
-  return extensions;
-}
-
-function getExtensionSuffix({
-  language,
-  useJsx,
-  singleLine,
-  isDisabled,
-}: {
-  language: CodeLanguage | null | undefined;
-  useJsx: boolean;
-  singleLine: boolean;
-  isDisabled: boolean;
-}): Array<Extension> {
-  const cacheKey = `${language ?? ""}|${useJsx ? 1 : 0}|${singleLine ? 1 : 0}|${isDisabled ? 1 : 0}`;
-  const cached = EXTENSION_SUFFIX_CACHE.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-  const extensions: Array<Extension> = [
-    ...getLanguageExtensions(language, useJsx),
-  ];
-  if (singleLine) {
-    extensions.push(SINGLE_LINE_TRANSACTION_FILTER);
-  }
-  if (isDisabled) {
-    extensions.push(READ_ONLY_EXTENSION);
-  }
-  EXTENSION_SUFFIX_CACHE.set(cacheKey, extensions);
-  return extensions;
 }
 
 function getKeyMapArray({

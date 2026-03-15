@@ -11,7 +11,8 @@ import { useLocalStorage } from "state/definitions";
 const commonSettings = {
   background: "#ffffff00",
   gutterBackground: "#FFFFFF00",
-  fontFamily: "inherit",
+  // fontFamily:
+  //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
   // gutterForeground: "#4D4D4C00",
   gutterBorder: "#dddddd00",
 };
