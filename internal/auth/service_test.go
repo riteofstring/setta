@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
@@ -287,6 +288,69 @@ func TestServiceBootstrapTokenRejectsLaunchIntentToken(t *testing.T) {
 	}
 }
 
+func TestServiceBootstrapTokenRejectsMismatchedSessionID(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	currentSession, ok := service.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := encodeSignedToken(map[string]any{
+		"exp":       issuedAt.Add(time.Minute).Unix(),
+		"nonce":     "nonce-1",
+		"sessionId": "other-session",
+	}, currentSession.Secret)
+	if err != nil {
+		t.Fatalf("encode bootstrap token: %v", err)
+	}
+
+	if _, err := service.ConsumeBootstrapToken(token, issuedAt); err != ErrInvalidBootstrapToken {
+		t.Fatalf("expected mismatched session bootstrap token to fail closed, got %v", err)
+	}
+}
+
+func TestServiceBootstrapTokenRejectsMalformedPayloadOrEncoding(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	currentSession, ok := service.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	testCases := []struct {
+		name  string
+		token string
+	}{
+		{
+			name:  "invalid_format",
+			token: "not-a-token",
+		},
+		{
+			name:  "invalid_base64",
+			token: "!!!.abc",
+		},
+		{
+			name:  "invalid_json_payload",
+			token: mustSignedRawToken(t, []byte("{"), currentSession.Secret),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := service.ConsumeBootstrapToken(testCase.token, issuedAt); err != ErrInvalidBootstrapToken {
+				t.Fatalf("expected malformed bootstrap token to fail closed, got %v", err)
+			}
+		})
+	}
+}
+
 func TestServiceAuthCookieRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -310,6 +374,68 @@ func TestServiceAuthCookieRoundTrip(t *testing.T) {
 	}
 	if requestInfo.SessionID != payload.SessionID {
 		t.Fatalf("expected session id %q, got %q", payload.SessionID, requestInfo.SessionID)
+	}
+}
+
+func TestServiceAuthCookieRejectsMismatchedSessionID(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	currentSession, ok := service.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := encodeSignedToken(map[string]any{
+		"exp":       issuedAt.Add(time.Minute).Unix(),
+		"sessionId": "other-session",
+	}, currentSession.Secret)
+	if err != nil {
+		t.Fatalf("encode auth cookie: %v", err)
+	}
+
+	if _, err := service.ValidateAuthCookie(token, issuedAt); err != ErrInvalidAuthCookie {
+		t.Fatalf("expected mismatched session auth cookie to fail closed, got %v", err)
+	}
+}
+
+func TestServiceAuthCookieRejectsMalformedPayloadOrEncoding(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	currentSession, ok := service.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	testCases := []struct {
+		name  string
+		token string
+	}{
+		{
+			name:  "invalid_format",
+			token: "not-a-token",
+		},
+		{
+			name:  "invalid_base64",
+			token: "!!!.abc",
+		},
+		{
+			name:  "invalid_json_payload",
+			token: mustSignedRawToken(t, []byte("{"), currentSession.Secret),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := service.ValidateAuthCookie(testCase.token, issuedAt); err != ErrInvalidAuthCookie {
+				t.Fatalf("expected malformed auth cookie to fail closed, got %v", err)
+			}
+		})
 	}
 }
 
@@ -487,4 +613,14 @@ func writeSessionFixture(t *testing.T, runtimeRoot string, sessionID string, sec
 		t.Fatalf("write metadata: %v", err)
 	}
 	return metadata
+}
+
+func mustSignedRawToken(t *testing.T, payload []byte, secret []byte) string {
+	t.Helper()
+
+	signature, err := signPayload(payload, secret)
+	if err != nil {
+		t.Fatalf("sign raw token payload: %v", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(signature)
 }

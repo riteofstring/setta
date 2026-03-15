@@ -1863,6 +1863,139 @@ func TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFront
 	}
 }
 
+func TestRegisterRoutesListenerFrontendEmitUpdatesChatSectionState(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	chatSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Chat", "chat")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", chatSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":{"messages":[{"role":"user","content":"hello"}],"inputText":"draft","waitingForResponse":true,"toolCallArguments":{"tool-1":"args"},"branches":{}}}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit chat update: %v", err)
+	}
+
+	assertRouteProjectStateUpdate(
+		t,
+		readUntilMessageType(t, frontend, realtime.MessageTypeUpdateFrontendProjectState, 4),
+		"project-a",
+	)
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project after listener chat emit: %v", err)
+	}
+	section, variant, _, err := project.ResolveSection(chatSectionID)
+	if err != nil {
+		t.Fatalf("resolve chat section after listener emit: %v", err)
+	}
+	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
+	if err != nil {
+		t.Fatalf("effective payload after listener chat emit: %v", err)
+	}
+	messages, ok := payload["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected one chat message, got %#v", payload["messages"])
+	}
+	if payload["inputText"] != "draft" {
+		t.Fatalf("expected updated chat inputText, got %#v", payload["inputText"])
+	}
+	if payload["waitingForResponse"] != true {
+		t.Fatalf("expected waitingForResponse=true, got %#v", payload["waitingForResponse"])
+	}
+}
+
+func TestRegisterRoutesListenerFrontendEmitUpdatesPluginSectionData(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	pluginSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Plugin", "plugin")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", pluginSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":{"answer":42}}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit plugin update: %v", err)
+	}
+
+	assertRouteProjectStateUpdate(
+		t,
+		readUntilMessageType(t, frontend, realtime.MessageTypeUpdateFrontendProjectState, 4),
+		"project-a",
+	)
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project after listener plugin emit: %v", err)
+	}
+	section, variant, _, err := project.ResolveSection(pluginSectionID)
+	if err != nil {
+		t.Fatalf("resolve plugin section after listener emit: %v", err)
+	}
+	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
+	if err != nil {
+		t.Fatalf("effective payload after listener plugin emit: %v", err)
+	}
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected plugin data payload, got %#v", payload["data"])
+	}
+	if got := data["answer"]; got != float64(42) {
+		t.Fatalf("expected plugin data answer=42, got %#v", got)
+	}
+}
+
 func TestRegisterRoutesListenerFrontendEmitAcceptsTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 
@@ -2228,6 +2361,46 @@ func TestRegisterRoutesListenerFrontendEmitRejectsInvalidDependencyValue(t *test
 	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_value", map[string]any{
 		"dependencyName": dependencyName,
 		"expectedType":   "Literal",
+	})
+}
+
+func TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedWritableSectionTarget(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	drawSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Draw", "draw")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", drawSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":"updated"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit unsupported dependency: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_unsupported_dependency", map[string]any{
+		"dependencyName": dependencyName,
+		"reason":         "dependency does not expose a writable value",
 	})
 }
 

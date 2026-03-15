@@ -289,6 +289,84 @@ func TestHandlerAllowsTrustedFrontendOriginsForCurrentSession(t *testing.T) {
 	}
 }
 
+func TestHandlerLauncherPreflightPreservesCredentialedCORSHeadersForAllowedLoopbackOrigins(t *testing.T) {
+	testCases := []struct {
+		name           string
+		origin         string
+		configureEnv   bool
+		configureTrust bool
+	}{
+		{
+			name:         "configured_loopback",
+			origin:       "http://127.0.0.1:3000",
+			configureEnv: true,
+		},
+		{
+			name:           "trusted_loopback",
+			origin:         "http://127.0.0.1:9001",
+			configureTrust: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.configureEnv {
+				t.Setenv(devFrontendPortEnv, "3000")
+				t.Setenv(devFrontendSchemeEnv, "http")
+			}
+
+			authService := newTestAuthService(t)
+			currentSession, ok := authService.CurrentSession()
+			if !ok {
+				t.Fatal("expected current session")
+			}
+			trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+				RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+			})
+			if err != nil {
+				t.Fatalf("new trusted origins service: %v", err)
+			}
+			if testCase.configureTrust {
+				if _, err := trustedOrigins.TrustOrigin(testCase.origin, currentSession.Metadata.ID, time.Now().Add(time.Hour).Unix()); err != nil {
+					t.Fatalf("trust origin: %v", err)
+				}
+			}
+
+			handler, err := NewHandler(Dependencies{
+				Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+				Info:           stubInfoService{mode: "launcher", info: RuntimeInfo{Mode: "launcher"}},
+				Auth:           authService,
+				TrustedOrigins: trustedOrigins,
+			})
+			if err != nil {
+				t.Fatalf("new handler: %v", err)
+			}
+
+			request := httptest.NewRequest(http.MethodOptions, "http://127.0.0.1:8000/api/serverMode", nil)
+			request.Header.Set("Origin", testCase.origin)
+			request.Header.Set("Access-Control-Request-Method", http.MethodPost)
+			request.Header.Set("Access-Control-Request-Headers", "content-type,x-share-session-id")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusNoContent {
+				t.Fatalf("expected 204, got %d with body %q", response.Code, response.Body.String())
+			}
+			if got := response.Header().Get("Access-Control-Allow-Origin"); got != testCase.origin {
+				t.Fatalf("expected reflected origin %q, got %q", testCase.origin, got)
+			}
+			if got := response.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+				t.Fatalf("expected credentialed CORS response, got %q", got)
+			}
+			if got := response.Header().Get("Access-Control-Allow-Headers"); got != "content-type,x-share-session-id" {
+				t.Fatalf("expected reflected allow-headers, got %q", got)
+			}
+			if got := response.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPost) {
+				t.Fatalf("expected POST in allow-methods, got %q", got)
+			}
+		})
+	}
+}
+
 func TestHandlerReturnsJSONNotFoundEnvelope(t *testing.T) {
 	t.Parallel()
 
@@ -475,6 +553,90 @@ func TestBootstrapConsumeAcceptsBearerTokenWhenBodyOmitsToken(t *testing.T) {
 	handler.ServeHTTP(protectedResponse, protectedRequest)
 	if protectedResponse.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", protectedResponse.Code, protectedResponse.Body.String())
+	}
+}
+
+func TestBootstrapConsumeSetsExpectedAuthCookieTransportAttributes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		requestURL     string
+		forwardedProto string
+		wantSecure     bool
+	}{
+		{
+			name:       "http_request",
+			requestURL: "http://127.0.0.1:8000/__setta__/bootstrap/consume",
+			wantSecure: false,
+		},
+		{
+			name:       "https_request",
+			requestURL: "https://127.0.0.1:8000/__setta__/bootstrap/consume",
+			wantSecure: true,
+		},
+		{
+			name:           "forwarded_https",
+			requestURL:     "http://127.0.0.1:8000/__setta__/bootstrap/consume",
+			forwardedProto: "https",
+			wantSecure:     true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			authService := newTestAuthService(t)
+			handler, err := NewHandler(Dependencies{
+				Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+				Info: stubInfoService{
+					mode: "ide",
+					info: RuntimeInfo{Mode: "ide"},
+				},
+				Auth: authService,
+			})
+			if err != nil {
+				t.Fatalf("new handler: %v", err)
+			}
+
+			token, err := authService.MintBootstrapToken(time.Now().UTC())
+			if err != nil {
+				t.Fatalf("mint bootstrap token: %v", err)
+			}
+
+			request := httptest.NewRequest(http.MethodPost, testCase.requestURL, bytes.NewBufferString(`{"token":"`+token+`"}`))
+			request.Header.Set("Content-Type", "application/json")
+			if testCase.forwardedProto != "" {
+				request.Header.Set("X-Forwarded-Proto", testCase.forwardedProto)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			responseCookies := response.Result().Cookies()
+			if len(responseCookies) != 1 {
+				t.Fatalf("expected one auth cookie, got %d", len(responseCookies))
+			}
+			cookie := responseCookies[0]
+			if cookie.Secure != testCase.wantSecure {
+				t.Fatalf("expected Secure=%t, got %t", testCase.wantSecure, cookie.Secure)
+			}
+			if cookie.Path != "/" {
+				t.Fatalf("expected Path=/, got %q", cookie.Path)
+			}
+			if cookie.MaxAge != int(auth.DefaultAuthCookieTTL/time.Second) {
+				t.Fatalf("expected MaxAge=%d, got %d", int(auth.DefaultAuthCookieTTL/time.Second), cookie.MaxAge)
+			}
+			if !cookie.HttpOnly {
+				t.Fatal("expected HttpOnly auth cookie")
+			}
+			if cookie.SameSite != http.SameSiteLaxMode {
+				t.Fatalf("expected SameSite=Lax, got %v", cookie.SameSite)
+			}
+		})
 	}
 }
 
