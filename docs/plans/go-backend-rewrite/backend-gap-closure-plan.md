@@ -49,10 +49,10 @@ categorize them.
   create-defaults / dedicated-`/settings` shell / settings-live-hydration /
   reserved-name-save / required-view-mode-repair /
   deleted-active-tab-repair / missing-required-section /
-  code-obj-backfill / workspace-launch outdated-settings slice
-- Add executable proof for the remaining dedicated-`/settings` rows that are
-  still open, especially
-  `settings_project.display_names.reload_backfill_only_fills_new_blank_labels`
+  code-obj-backfill / display-name-backfill / workspace-launch
+  outdated-settings slice
+- The remaining explicit dedicated-`/settings` parity gap is
+  `settings_project.load.partial_layout_visible_section_repair_is_ephemeral_on_disk_in_source`
 - Keep newly isolated non-caller-visible mismatches explicit instead of folding
   them back into broader live-contract rows; the next example is
   `settings_project.load.partial_layout_visible_section_repair_is_ephemeral_on_disk_in_source`
