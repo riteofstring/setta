@@ -1,9 +1,8 @@
 from pathlib import Path
 
 from setta.utils.format_code import ruff_format
-from setta.utils.utils import get_absolute_path
 
-from .utils import ImplClassInfoForGeneration, get_impl_classes
+from .utils import ImplClassInfoForGeneration, get_impl_classes, resolve_generation_path
 
 
 def generate_field_literal_type(impl_class_name: str, field_names: set[str]) -> str:
@@ -37,7 +36,7 @@ from typing import Literal
 if __name__ == "__main__":
     classes = get_impl_classes()
     generate_all_impl_field_literals(
-        get_absolute_path(
+        resolve_generation_path(
             __file__,
             Path("../../backend/setta/types/generated") / "impl_field_literals.py",
         ),
