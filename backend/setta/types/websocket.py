@@ -3,18 +3,11 @@ from enum import Enum
 from typing import Any, Literal
 
 from fastapi import WebSocket
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.mcp.tool_metadata import FollowIdType
-from setta.types.agentic import (
-    AgentProfileList,
-    AgentRun,
-    EngineConfigList,
-    TranscriptionProfileList,
-)
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
-from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID, create_new_id
@@ -38,7 +31,7 @@ from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConf
 from setta.types.prompt import PromptTemplateList
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.constants import C
-from setta.utils.timestamps import get_now_timestamp
+from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
 class UpdateArtifactMsgContent(BaseModel):
@@ -96,6 +89,209 @@ class ManagedAPIKeysSnapshot(BaseModel):
     corrupt: bool = False
     errorCode: str | None = None
     message: str | None = None
+
+
+class EngineType(str, Enum):
+    setta_llm = "setta_llm"
+    external_agent = "external_agent"
+
+
+class EngineConfigDefaults(BaseModel, extra="forbid"):
+    thinking: bool | None = None
+
+
+class EngineConfig(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    engineType: EngineType
+    settaLlmConfigId: str | None = None
+    externalAgentConfigId: ID | None = None
+    defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
+
+
+class EngineConfigList(BaseModel, extra="forbid"):
+    configs: list[EngineConfig]
+
+
+class TranscriptionTransportMode(str, Enum):
+    auto = "auto"
+    file = "file"
+    realtime = "realtime"
+
+
+class TranscriptionProfile(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    transcriptionLlmConfigId: str
+    transportMode: TranscriptionTransportMode
+    chunkMs: int = Field(ge=200, le=10_000)
+    supportsRealtimeTranscription: bool = False
+    language: str | None = None
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def parse_language(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("language must be a string or null")
+        stripped = value.strip()
+        return stripped or None
+
+
+class TranscriptionProfileList(BaseModel, extra="forbid"):
+    profiles: list[TranscriptionProfile]
+
+
+class AgentProfile(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    description: str = ""
+    systemPrompt: str = ""
+    enableBackgroundSummaryFill: bool = False
+    enableLlmChatTitles: bool = False
+    engineConfigId: ID | None = None
+    toolAllowlist: list[str] = Field(default_factory=list)
+    memoryScope: str | None = None
+
+
+class AgentRunStatus(str, Enum):
+    queued = "queued"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+
+class RunEvent(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    timestamp: datetime = Field(default_factory=get_now_timestamp)
+    type: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def parse_timestamp(cls, value: Any) -> datetime:
+        if isinstance(value, str):
+            return parse_timestamp_str(value)
+        return value
+
+
+class AgentRun(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    profileId: ID | None = None
+    status: AgentRunStatus = AgentRunStatus.queued
+    startedAt: datetime | None = None
+    finishedAt: datetime | None = None
+    inputs: dict[str, Any] | None = None
+    outputs: dict[str, Any] | None = None
+    toolCalls: list[dict[str, Any]] = Field(default_factory=list)
+    cost: float | None = None
+    events: list[RunEvent] = Field(default_factory=list)
+
+    @field_validator("startedAt", "finishedAt", mode="before")
+    @classmethod
+    def parse_timestamp(cls, value: Any) -> datetime | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return parse_timestamp_str(value)
+        return value
+
+
+class AgentProfileList(BaseModel, extra="forbid"):
+    profiles: list[AgentProfile]
+
+
+class ExternalAgentToolType(str, Enum):
+    claude_code = "claude_code"
+    codex = "codex"
+    opencode = "opencode"
+
+
+class ExternalAgentRunMode(str, Enum):
+    mcp = "mcp"
+    server = "server"
+    sdk = "sdk"
+    app_server = "app_server"
+
+
+class ExternalAgentWorkingDirStrategy(str, Enum):
+    project_root = "project_root"
+    temp_dir = "temp_dir"
+    custom = "custom"
+
+
+class ExternalAgentSettingsMode(str, Enum):
+    read_only = "read_only"
+    managed_local = "managed_local"
+    managed_project = "managed_project"
+    explicit_path = "explicit_path"
+
+
+class ClaudeSettingsSource(str, Enum):
+    user = "user"
+    project = "project"
+    local = "local"
+
+
+class ClaudeSettingsPermissions(BaseModel, extra="forbid"):
+    allow: list[str] = Field(default_factory=list)
+    ask: list[str] = Field(default_factory=list)
+    deny: list[str] = Field(default_factory=list)
+
+
+class ClaudeSettingsManaged(BaseModel, extra="forbid"):
+    permissions: ClaudeSettingsPermissions | None = None
+    defaultMode: str | None = None
+    mcp: dict[str, Any] | None = None
+
+
+class CodexSettingsManaged(BaseModel, extra="forbid"):
+    approvalPolicy: str | None = None
+    sandboxMode: str | None = None
+    enabledTools: list[str] | None = None
+    model: str | None = None
+
+
+class OpenCodeSettingsManaged(BaseModel, extra="forbid"):
+    permission: dict[str, str | dict[str, str]] | None = None
+    mcp: dict[str, Any] | None = None
+    model: str | None = None
+
+
+class ExternalAgentSettingsManagedBlock(BaseModel, extra="forbid"):
+    claude: ClaudeSettingsManaged | None = None
+    codex: CodexSettingsManaged | None = None
+    opencode: OpenCodeSettingsManaged | None = None
+
+
+class ExternalAgentConfig(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    description: str = ""
+    toolType: ExternalAgentToolType
+    runMode: ExternalAgentRunMode
+    commandPath: str | None = None
+    baseUrl: str | None = None
+    defaultModel: str | None = None
+    sandboxPolicy: str | None = None
+    approvalPolicy: str | None = None
+    settingsMode: ExternalAgentSettingsMode = ExternalAgentSettingsMode.managed_local
+    settingsSources: list[ClaudeSettingsSource] | None = None
+    settingsFilePath: str | None = None
+    settingsAllowSettaEdits: bool = True
+    settingsManagedBlock: ExternalAgentSettingsManagedBlock | None = None
+    envVarWhitelist: list[str] = Field(default_factory=list)
+    workingDirStrategy: ExternalAgentWorkingDirStrategy = (
+        ExternalAgentWorkingDirStrategy.project_root
+    )
+    workingDir: str | None = None
+    codexSkipGitRepoCheck: bool | None = None
+
+
+class ExternalAgentConfigList(BaseModel, extra="forbid"):
+    configs: list[ExternalAgentConfig]
 
 
 class SettaNotificationType(str, Enum):

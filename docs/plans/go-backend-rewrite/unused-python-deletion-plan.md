@@ -462,6 +462,16 @@ Current tree note:
   backend or test caller imported those modules, and the old
   `SettaLSPPosition` dataclass in `types/lsp.py` had no remaining caller at
   all.
+- The remaining single-consumer typed support leaves are also smaller in the
+  current worktree: `backend/setta/types/app_definition.py` and
+  `backend/setta/types/shown_params.py` were folded into
+  `backend/setta/types/project_state.py`, while
+  `backend/setta/types/agentic.py` and
+  `backend/setta/types/external_agents.py` were folded into
+  `backend/setta/types/websocket.py`. Each file had exactly one live backend
+  importer, no direct test imports, and no retained public API obligation of
+  its own, so the separate Python files were dead support leaves rather than
+  meaningful boundaries.
 - The dead generated Python type-definition tail is also smaller in the current
   worktree: `backend/scripts/prune_generated_types.py` pruned repo-unreferenced
   adapters, type-set constants, and the unused `ProjectConfigArgs` typed dict
