@@ -1,4 +1,4 @@
-import { useHomePageSearch } from "state/stores/searchStores";
+import { useHomePageSearch } from "state/definitions";
 
 export function HomePageSearchBar({ className = "" }: { className?: string }) {
   const value = useHomePageSearch((x) => x.value);
