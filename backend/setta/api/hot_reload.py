@@ -191,7 +191,11 @@ class ListenerHotReloader:
         def _filter(change: Change, path: str) -> bool:
             if change not in allowed_changes:
                 return False
-            candidate = self._normalize_event_path(path)
+            candidate_path = Path(path)
+            try:
+                candidate = candidate_path.resolve()
+            except RuntimeError:
+                candidate = candidate_path.absolute()
             for spec in self._watch_specs:
                 if spec.accepts(candidate):
                     return True
@@ -249,14 +253,6 @@ class ListenerHotReloader:
                 builder,
                 trigger_refresh=self._trigger_refresh,
             )
-
-    @staticmethod
-    def _normalize_event_path(raw_path: str) -> Path:
-        path = Path(raw_path)
-        try:
-            return path.resolve()
-        except RuntimeError:
-            return path.absolute()
 
     @staticmethod
     def _resolve_path(raw_path: Path) -> Path:
