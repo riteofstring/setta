@@ -9,7 +9,7 @@ import {
   it,
 } from "vitest";
 
-let useAIStore: typeof import("state/stores/aiStores").useAIStore;
+let useAIStore: typeof import("state/definitions").useAIStore;
 let memoryStorage: Storage;
 
 type PersistedAIStoreSlice = {
@@ -43,8 +43,8 @@ describe("useAIStore persistence", () => {
     };
     (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
 
-    const aiStores = await import("state/stores/aiStores");
-    useAIStore = aiStores.useAIStore;
+    const definitions = await import("state/definitions");
+    useAIStore = definitions.useAIStore;
   });
 
   beforeEach(() => {

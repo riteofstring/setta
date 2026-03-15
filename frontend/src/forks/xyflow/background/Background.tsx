@@ -1,5 +1,5 @@
 import { memo, useRef } from "react";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { useReactFlow } from "../core/store";
