@@ -88,8 +88,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     composes the outcome and apply owners.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
     single-run/update reconciliation.
-  - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration,
-    backend request payload assembly, and the pending-surface promotion flow.
+  - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration
+    plus pending-surface promotion flow, while
+    `state/actions/aiChatSubmissionPayload.ts` owns request payload assembly,
+    app-generation request metadata, and edited-chat engine fallback
+    resolution.
   - `state/actions/aiChatControls.ts` owns public stop orchestration for
     project and managed section chats plus shared LLM stop fallback handling.
   - `state/actions/aiExternalAgentStop.ts` owns external-run lookup, external
@@ -475,10 +478,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/uiSettingRevealMutationRestore.ts` now owns rollback and owned
   restore helpers; follow-up cleanup there should stay local to one of those
   owners instead of regrowing `state/actions/uiSettingRevealMutationSnapshots.ts`.
-- `state/actions/aiChatSubmission.ts` now owns the largest remaining chat
-  submission/edit orchestration cluster, so any follow-up there should stay
-  local to submission payload assembly and pending-surface setup instead of
-  regrowing the old `ai.ts` surface.
+- `state/actions/aiChatSubmission.ts` and
+  `state/actions/aiChatSubmissionPayload.ts` now split pending-surface
+  submission orchestration from request payload assembly; follow-up cleanup
+  there should stay local to one of those owners instead of regrowing the old
+  `ai.ts` surface.
+- `state/actions/windowSpaceSnapshots.ts` now owns the largest remaining saved
+  workspace snapshot/restore conversion cluster, so any follow-up there should
+  stay local to snapshot build and restore conversion helpers instead of
+  regrowing `state/actions/windowSpaces.ts`.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

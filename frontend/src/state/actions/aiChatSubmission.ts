@@ -2,57 +2,36 @@ import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAff
 import { addTemporaryNotification } from "state/actions/notifications";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useAIStore } from "state/stores/aiStores";
-import {
-  normalizeChatAppGenerationContext,
-  retainChatAppGenerationDetailsForMessages,
-  serializeChatAppGenerationByMessageId,
-  setChatAppGenerationForMessage,
-  type ChatAppGenerationContext,
-} from "state/utils/chatAppGeneration";
+import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_llm_response,
   route_set_chat_section_chat_id,
 } from "utils/generatedEndpoints";
 import {
-  AgentRun,
   BaseChatMessageUnion,
   ChatFileAttachment,
-  ChatPermissionMode,
-  ChatPermissionModeEnum,
-  ChatRoleEnum,
   SettaNotificationTypeEnum,
-  createMessageTextContent,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
-import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
-import { loadAgentRuns, refreshAgentRunsAfterSubmit } from "./aiAgentRuns";
-import { requirePendingChatSurfaceId } from "./aiChatState";
+import { refreshAgentRunsAfterSubmit } from "./aiAgentRuns";
+import {
+  prepareEditedMessageRequest,
+  prepareSubmitMessageRequest,
+  type ChatExecutionSettings,
+  type PreparedEditedMessageRequest,
+} from "./aiChatSubmissionPayload";
 import { getExternalAgentChat, getLLMChat } from "./aiHydration";
 import {
   applyOptimisticUserMessage,
   clearPendingChatDetails,
   commitPendingChatDetails,
   finalizePendingChatDetails,
-  getChatAppGenerationDetailsForTarget,
   initializePendingChatDetails,
   initializePendingChatDetailsWithMessages,
   rollbackOptimisticUserMessage,
   seedPendingChatDetails,
 } from "./aiPendingChatState";
-import { buildEditedMessageHistory } from "./chatBranches";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
-
-type ChatExecutionSettings = {
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-};
-
-const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeEnum.minimal,
-  searchEnabled: true,
-};
 
 export {
   clearPendingChatDetails,
@@ -78,59 +57,27 @@ export async function submitMessage(
     appGeneration?: ChatAppGenerationContext | null;
   } = {},
 ): Promise<string | null> {
-  const trimmed = message.trim();
-  if ((!trimmed && attachments.length === 0) || !engineConfigId) {
+  const preparedRequest = prepareSubmitMessageRequest({
+    chatId,
+    message,
+    attachments,
+    thinking,
+    engineConfigId,
+    options,
+  });
+  if (!preparedRequest) {
     return null;
   }
-  const resolvedPendingSurfaceId =
-    chatId === null
-      ? requirePendingChatSurfaceId(options.pendingSurfaceId ?? null)
-      : options.pendingSurfaceId ?? null;
-  const resolvedExecutionSettings =
-    options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const appGeneration = normalizeChatAppGenerationContext(
-    options.appGeneration ?? null,
-  );
-  const existingAppGenerationDetails = getChatAppGenerationDetailsForTarget(
-    useAIStore.getState(),
-    chatId,
+  const {
+    requestPayload,
     resolvedPendingSurfaceId,
-  );
-
-  const content = [];
-  if (trimmed) {
-    content.push(createMessageTextContent({ text: message }));
-  }
-  const userMessage = {
-    id: options.messageId ?? createNewId(),
-    role: ChatRoleEnum.user,
-    content,
-    attachments,
-    createdAt: Date.now(),
-  };
-  const userMessageId = userMessage.id;
-  const nextMessages =
-    chatId === null
-      ? [
-          ...(useAIStore.getState().pendingChatDetailsBySurfaceId[
-            resolvedPendingSurfaceId
-          ]?.messages ?? []),
-          userMessage,
-        ]
-      : [
-          ...(useAIStore.getState().chatDetails[chatId]?.messages ?? []),
-          userMessage,
-        ];
-  const nextAppGenerationDetails = setChatAppGenerationForMessage(
-    existingAppGenerationDetails,
-    nextMessages,
-    userMessage.id,
+    userMessageId,
     appGeneration,
-  );
+  } = preparedRequest;
 
   applyOptimisticUserMessage(
     chatId,
-    userMessage,
+    requestPayload.message,
     resolvedPendingSurfaceId,
     appGeneration,
   );
@@ -138,24 +85,10 @@ export async function submitMessage(
   try {
     const projectConfigId = getCurrProjectConfigId();
     const frontendAffinityToken = await waitForFrontendAffinityToken();
-    const appGenerationMode = appGeneration?.mode ?? null;
     const res = await route_get_llm_response({
-      message: userMessage,
-      thinking,
-      chatId,
-      continueFromChatId: options.continueFromChatId ?? null,
-      engineConfigId,
-      agentProfileId: options.agentProfileId ?? null,
-      appGenerationMode,
-      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
-        nextAppGenerationDetails,
-      ),
+      ...requestPayload,
       projectConfigId,
-      sectionId: options.sectionId ?? null,
       frontendAffinityToken,
-      allowUnscoped: options.sectionId == null,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
       const returnedChatId = res.data.chatId;
@@ -165,10 +98,13 @@ export async function submitMessage(
           await getExternalAgentChat(
             returnedChatId,
             projectConfigId,
-            options.sectionId ?? undefined,
+            requestPayload.sectionId ?? undefined,
           );
         } else {
-          await getLLMChat(returnedChatId, options.sectionId ?? undefined);
+          await getLLMChat(
+            returnedChatId,
+            requestPayload.sectionId ?? undefined,
+          );
         }
       }
       return returnedChatId;
@@ -223,55 +159,29 @@ export async function submitEditedMessage({
   executionSettings?: ChatExecutionSettings | null;
   appGeneration?: ChatAppGenerationContext | null;
 }): Promise<string | null> {
-  const trimmed = message.trim();
-  if (!trimmed && attachments.length === 0) {
-    return null;
-  }
-  const resolvedExecutionSettings =
-    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const resolvedAppGeneration = normalizeChatAppGenerationContext(
-    appGeneration ?? null,
-  );
-
-  const content = [];
-  if (trimmed) {
-    content.push(createMessageTextContent({ text: message }));
-  }
-  const editedMessage = {
-    id: messageId,
-    role: ChatRoleEnum.user,
-    content,
-    attachments,
-    createdAt: Date.now(),
-  };
-  const nextMessages = buildEditedMessageHistory(messages, editedMessage);
-  if (!nextMessages) {
-    return null;
-  }
-  const resolvedPendingSurfaceId = requirePendingChatSurfaceId(
-    pendingSurfaceId ?? null,
-  );
-  const parentAppGenerationDetails = getChatAppGenerationDetailsForTarget(
-    useAIStore.getState(),
+  const preparedRequest = await prepareEditedMessageRequest({
     parentChatId,
-    null,
-  );
-  const nextAppGenerationDetails = setChatAppGenerationForMessage(
-    retainChatAppGenerationDetailsForMessages(
-      parentAppGenerationDetails,
-      nextMessages,
-    ),
-    nextMessages,
+    messages,
     messageId,
-    resolvedAppGeneration,
-  );
-  const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
-    parentChatId,
+    message,
+    attachments,
+    thinking,
     engineConfigId,
-  );
-  if (!resolvedEngineConfigId) {
+    agentProfileId,
+    sectionId,
+    pendingSurfaceId,
+    executionSettings,
+    appGeneration,
+  });
+  if (!preparedRequest) {
     return null;
   }
+  const {
+    requestPayload,
+    resolvedPendingSurfaceId,
+    nextMessages,
+    nextAppGenerationDetails,
+  }: PreparedEditedMessageRequest = preparedRequest;
   initializePendingChatDetailsWithMessages(
     nextMessages,
     true,
@@ -306,23 +216,9 @@ export async function submitEditedMessage({
   try {
     const frontendAffinityToken = await waitForFrontendAffinityToken();
     const res = await route_get_llm_response({
-      message: editedMessage,
-      thinking,
-      chatId: null,
-      engineConfigId: resolvedEngineConfigId,
-      agentProfileId: agentProfileId ?? null,
+      ...requestPayload,
       projectConfigId,
-      sectionId: sectionId ?? null,
       frontendAffinityToken,
-      allowUnscoped: sectionId == null,
-      branchParentChatId: parentChatId,
-      branchFromMessageId: messageId,
-      appGenerationMode: resolvedAppGeneration?.mode ?? null,
-      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
-        nextAppGenerationDetails,
-      ),
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (!res200(res)) {
       const detail =
@@ -344,10 +240,10 @@ export async function submitEditedMessage({
         await getExternalAgentChat(
           returnedChatId,
           projectConfigId,
-          sectionId ?? undefined,
+          requestPayload.sectionId ?? undefined,
         );
       } else {
-        await getLLMChat(returnedChatId, sectionId ?? undefined);
+        await getLLMChat(returnedChatId, requestPayload.sectionId ?? undefined);
       }
       if (sectionId) {
         await setSectionChatId(returnedChatId);
@@ -369,55 +265,4 @@ export async function submitEditedMessage({
     }
     throw err;
   }
-}
-
-async function resolveEngineConfigIdForChat(
-  chatId: string,
-  engineConfigId: string | null,
-): Promise<string | null> {
-  if (engineConfigId) {
-    return engineConfigId;
-  }
-  const resolveFromRuns = (runs: AgentRun[]): string | null => {
-    const matchingRuns = runs.filter(
-      (run) => getRunInputString(run, "chatId") === chatId,
-    );
-    const runsWithEngine = matchingRuns.filter((run) =>
-      getRunInputString(run, "engineConfigId"),
-    );
-    if (runsWithEngine.length === 0) {
-      return null;
-    }
-    const [latestRun] = [...runsWithEngine].sort(
-      (a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a),
-    );
-    return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
-  };
-
-  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
-  if (!agentRunsInitialLoadComplete) {
-    await loadAgentRuns();
-    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
-  }
-  if (!agentRunsInitialLoadComplete) {
-    return null;
-  }
-  let resolved = resolveFromRuns(agentRuns);
-  if (!resolved) {
-    await loadAgentRuns();
-    ({ agentRuns } = useAIStore.getState());
-    resolved = resolveFromRuns(agentRuns);
-  }
-  if (resolved) {
-    return resolved;
-  }
-  const { chatDetails, engineConfigs } = useAIStore.getState();
-  const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
-  if (!llmConfigId) {
-    return null;
-  }
-  const matchingEngine = engineConfigs.find(
-    (config) => config.settaLlmConfigId === llmConfigId,
-  );
-  return matchingEngine?.id ?? null;
 }

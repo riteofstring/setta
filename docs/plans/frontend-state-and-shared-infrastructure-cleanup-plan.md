@@ -229,7 +229,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/aiChatSubmission.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
@@ -237,13 +236,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
+  - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/aiChatSubmission.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
+  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
+  - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
+  - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
+  - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
   - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
