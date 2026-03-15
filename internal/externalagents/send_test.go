@@ -231,6 +231,67 @@ func TestSendServiceComposesExternalPromptFromProfileAndAppGenerationMode(t *tes
 	if !containsText(systemPrompt, "- permissionMode: yolo") {
 		t.Fatalf("expected system prompt to include execution policy prompt, got %q", systemPrompt)
 	}
+	if got := fixture.executor.last.Inputs["approvalPolicy"]; got != "never" {
+		t.Fatalf("expected yolo approval override, got %#v", got)
+	}
+	if got := fixture.executor.last.Inputs["sandboxPolicy"]; got != "danger-full-access" {
+		t.Fatalf("expected yolo sandbox override, got %#v", got)
+	}
+}
+
+func TestSendServiceLeavesConfiguredPoliciesRuntimeOwnedForConfigTomlCustom(t *testing.T) {
+	t.Parallel()
+
+	approvalPolicy := "never"
+	sandboxPolicy := "danger-full-access"
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		approvalPolicy: &approvalPolicy,
+		sandboxPolicy:  &sandboxPolicy,
+	})
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Use the configured runtime policy."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeConfigTomlCustom,
+		SearchEnabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("start external chat with config_toml_custom: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+
+	inputs := fixture.executor.last.Inputs
+	if got := inputs["permissionMode"]; got != "config_toml_custom" {
+		t.Fatalf("unexpected permissionMode %#v", got)
+	}
+	if got := inputs["searchEnabled"]; got != true {
+		t.Fatalf("unexpected searchEnabled %#v", got)
+	}
+	if _, ok := inputs["approvalPolicy"]; ok {
+		t.Fatalf("expected config_toml_custom to omit approval override, got %#v", inputs["approvalPolicy"])
+	}
+	if _, ok := inputs["sandboxPolicy"]; ok {
+		t.Fatalf("expected config_toml_custom to omit sandbox override, got %#v", inputs["sandboxPolicy"])
+	}
+
+	systemPrompt, _ := inputs["systemPrompt"].(string)
+	if !containsText(systemPrompt, "- permissionMode: config_toml_custom") {
+		t.Fatalf("expected system prompt to include config_toml_custom policy, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "- searchEnabled: true") {
+		t.Fatalf("expected system prompt to include searchEnabled, got %q", systemPrompt)
+	}
 }
 
 func TestSendServiceBuildsCodexAttachmentPayload(t *testing.T) {
@@ -782,6 +843,8 @@ type sendFixtureOptions struct {
 	preflightStatus  *externalagentconfigs.Status
 	externalToolType externalagentconfigs.ToolType
 	externalRunMode  externalagentconfigs.RunMode
+	approvalPolicy   *string
+	sandboxPolicy    *string
 }
 
 type sendServiceFixture struct {
@@ -862,6 +925,8 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 			ToolType:           toolType,
 			RunMode:            runMode,
 			CommandPath:        &commandPath,
+			ApprovalPolicy:     cloneOptionalString(options.approvalPolicy),
+			SandboxPolicy:      cloneOptionalString(options.sandboxPolicy),
 			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 		},
 	}); err != nil {

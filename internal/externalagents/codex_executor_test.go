@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	toml "github.com/pelletier/go-toml/v2"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
@@ -65,6 +66,72 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	if liveState != nil {
 		fixture.waitForLiveStateCleanup(t, result.Run.ID)
 	}
+}
+
+func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "complete")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello from Codex"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+
+	configPath := filepath.Join(
+		fixture.root,
+		codexSettingsRootName,
+		"codex",
+		fixture.configID,
+		"sessions",
+		result.ChatID,
+		codexConfigFileName,
+	)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read runtime codex config: %v", err)
+	}
+	runtimeConfig := map[string]any{}
+	if err := toml.Unmarshal(content, &runtimeConfig); err != nil {
+		t.Fatalf("decode runtime codex config: %v", err)
+	}
+	if got := stringValue(runtimeConfig["approval_policy"]); got != "on-request" {
+		t.Fatalf("expected runtime approval policy, got %#v", runtimeConfig["approval_policy"])
+	}
+	if got := stringValue(runtimeConfig["sandbox_mode"]); got != "workspace-write" {
+		t.Fatalf("expected runtime sandbox mode, got %#v", runtimeConfig["sandbox_mode"])
+	}
+	if got := stringValue(runtimeConfig["model_reasoning_summary"]); got != "none" {
+		t.Fatalf("expected runtime reasoning summary default, got %#v", runtimeConfig["model_reasoning_summary"])
+	}
+	if !containsText(stringValue(runtimeConfig["developer_instructions"]), "## Runtime execution settings") {
+		t.Fatalf("expected runtime developer instructions to include execution settings, got %#v", runtimeConfig["developer_instructions"])
+	}
+	projects, ok := mapValue(runtimeConfig["projects"])
+	if !ok {
+		t.Fatalf("expected runtime projects map, got %#v", runtimeConfig["projects"])
+	}
+	projectEntry, ok := mapValue(projects[fixture.root])
+	if !ok || stringValue(projectEntry["trust_level"]) != "trusted" {
+		t.Fatalf("expected trusted runtime project entry, got %#v", runtimeConfig["projects"])
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
 func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
@@ -546,6 +613,8 @@ func TestApplyCodexStreamEventReusesSyntheticToolMessageForAssistantDelta(t *tes
 }
 
 type codexExecutorFixture struct {
+	root     string
+	configID string
 	send     *SendService
 	runtime  *Runtime
 	runs     *agentruns.RunStore
@@ -663,6 +732,8 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 	}
 
 	return codexExecutorFixture{
+		root:     root,
+		configID: configID,
 		send:     send,
 		runtime:  runtime,
 		runs:     runs,

@@ -111,6 +111,48 @@ func TestResolvePythonCodeObjValuePolicyUsesOverride(t *testing.T) {
 	}
 }
 
+// Code object value policy resolution should preserve the documented defaults for common types and reject unsupported combinations.
+func TestResolvePythonCodeObjValuePolicyUsesDefaultsAndValidation(t *testing.T) {
+	t.Parallel()
+
+	policy := DefaultPythonCodeObjValuePolicy()
+
+	textResolved, err := ResolvePythonCodeObjValuePolicy(policy, "param-text", "TextParam")
+	if err != nil {
+		t.Fatalf("resolve default text param policy: %v", err)
+	}
+	if textResolved.Representation != PythonCodeObjValueRepresentationString {
+		t.Fatalf("expected default text param representation string, got %q", textResolved.Representation)
+	}
+
+	dropzoneResolved, err := ResolvePythonCodeObjValuePolicy(policy, "param-dropzone", "DropzoneParam")
+	if err != nil {
+		t.Fatalf("resolve default dropzone policy: %v", err)
+	}
+	if dropzoneResolved.Representation != PythonCodeObjValueRepresentationFilePath {
+		t.Fatalf("expected default dropzone representation file_path, got %q", dropzoneResolved.Representation)
+	}
+
+	policy.TypePolicies["DropzoneParam"] = PythonCodeObjTypeValuePolicy{
+		Representation: PythonCodeObjValueRepresentationFileRead,
+	}
+	fileReadResolved, err := ResolvePythonCodeObjValuePolicy(policy, "param-dropzone", "DropzoneParam")
+	if err != nil {
+		t.Fatalf("resolve dropzone file_read policy: %v", err)
+	}
+	if fileReadResolved.Representation != PythonCodeObjValueRepresentationFileRead {
+		t.Fatalf("expected dropzone file_read representation, got %q", fileReadResolved.Representation)
+	}
+
+	policy.TypePolicies["TextParam"] = PythonCodeObjTypeValuePolicy{
+		Representation: PythonCodeObjValueRepresentationExpression,
+	}
+	_, err = ResolvePythonCodeObjValuePolicy(policy, "param-text-invalid", "TextParam")
+	if !errors.Is(err, ErrPythonCodeObjValueRepresentationUnsupported) {
+		t.Fatalf("expected unsupported text param representation error, got %v", err)
+	}
+}
+
 // The export surface should merge effective section/code-object state and expose resolved policies without re-parsing raw JSON in callers.
 func TestProjectPythonCodegenExportResolvesEffectiveSectionAndCodeObject(t *testing.T) {
 	t.Parallel()

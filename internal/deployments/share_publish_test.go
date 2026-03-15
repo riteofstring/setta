@@ -3,6 +3,7 @@ package deployments
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,6 +130,7 @@ func TestSharePublisherWritesStructuredDataAndSupportsFormats(t *testing.T) {
 	}{
 		{name: "json", extension: ".json", sourceContent: "{\n  \"foo\": 1\n}\n"},
 		{name: "yaml", extension: ".yaml", sourceContent: "foo: 1\n"},
+		{name: "yml", extension: ".yml", sourceContent: "foo: 1\n"},
 		{name: "toml", extension: ".toml", sourceContent: "foo = 1\n"},
 	}
 
@@ -180,6 +182,24 @@ func TestSharePublisherWritesStructuredDataAndSupportsFormats(t *testing.T) {
 				t.Fatalf("expected source file to stay at 1, got %#v", original["foo"])
 			}
 		})
+	}
+}
+
+func TestWriteStructuredDataPayloadRejectsNonJSONSubsetValues(t *testing.T) {
+	t.Parallel()
+
+	targetPath := filepath.Join(t.TempDir(), "source.yaml")
+	err := writeStructuredDataPayload(targetPath, map[string]any{
+		"timestamp": time.Date(2026, 3, 17, 9, 30, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected non-JSON-subset payload to fail")
+	}
+	if !errors.Is(err, ErrStructuredDataRootObjectRequired) {
+		t.Fatalf("expected ErrStructuredDataRootObjectRequired, got %v", err)
+	}
+	if _, statErr := os.Stat(targetPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected no structured data file to be written, stat err=%v", statErr)
 	}
 }
 

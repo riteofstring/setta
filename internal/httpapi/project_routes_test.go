@@ -3443,6 +3443,64 @@ func TestRegisterProjectRoutesRejectsPythonCodegenTargetsWithInvalidNestedPolicy
 	}
 }
 
+func TestRegisterProjectRoutesRejectsPythonCodegenTargetsWithInvalidCodeObjValuePolicyAs422(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+		nil,
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectConfigCodegenTargets,
+		strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"python","codeObjValuePolicy":{"unexpected":true}}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_project_codegen_targets"`) {
+		t.Fatalf("expected invalid_project_codegen_targets error, got %q", response.Body.String())
+	}
+
+	snapshot := projectRuntime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after validation failure, got %#v", project.CodegenTargets)
+	}
+}
+
 func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSections(t *testing.T) {
 	t.Parallel()
 
