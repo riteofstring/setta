@@ -275,24 +275,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
     border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 
-  const label = isKwarg ? (
-    <ParamNameInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      hasChildren={hasChildren}
-      onMouseDown={onMouseDownConditional}
-      border={hasChildren ? border : ""}
-      bg={hasChildren ? bg : ""}
-    />
-  ) : (
-    <ParamTextLabel
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      onMouseDown={onMouseDownConditional}
-      bg={hasChildren ? bg : ""}
-      hasChildren={hasChildren}
-    />
-  );
   let labelShapeKey:
     | "nameInputLeaf"
     | "nameInputParent"
@@ -303,6 +285,26 @@ function RealParamSwitch(props: ParamSwitchProps) {
   } else {
     labelShapeKey = hasChildren ? "textLabelParent" : "textLabelLeaf";
   }
+  const label = isKwarg ? (
+    <ParamNameInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      labelShapeKey={labelShapeKey}
+      hasChildren={hasChildren}
+      onMouseDown={onMouseDownConditional}
+      border={hasChildren ? border : ""}
+      bg={hasChildren ? bg : ""}
+    />
+  ) : (
+    <ParamTextLabel
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      labelShapeKey={labelShapeKey}
+      onMouseDown={onMouseDownConditional}
+      bg={hasChildren ? bg : ""}
+      hasChildren={hasChildren}
+    />
+  );
 
   const hasNested = paramChildren.length > 0;
   const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;

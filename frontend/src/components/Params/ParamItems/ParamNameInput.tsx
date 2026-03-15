@@ -42,6 +42,11 @@ type ParamNameInputProps = {
   bg: string;
   sectionId: string;
   paramInfoId: string;
+  labelShapeKey:
+    | "nameInputLeaf"
+    | "nameInputParent"
+    | "textLabelLeaf"
+    | "textLabelParent";
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
 };
@@ -81,6 +86,7 @@ export function ParamNameInput({
   bg,
   sectionId,
   paramInfoId,
+  labelShapeKey,
   hasChildren,
   onMouseDown,
 }: ParamNameInputProps) {
@@ -316,7 +322,10 @@ export function ParamNameInput({
 
   return (
     <>
-      <div className={wrapperClassName}>
+      <div
+        className={wrapperClassName}
+        data-param-label-shape={labelShapeKey}
+      >
         <TextInputCodeMirror
           sectionId={sectionId}
           paramInfoId={paramInfoId}

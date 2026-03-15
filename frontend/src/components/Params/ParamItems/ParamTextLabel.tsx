@@ -5,12 +5,18 @@ import type { MouseEventHandler } from "react";
 export function ParamTextLabel({
   sectionId,
   paramInfoId,
+  labelShapeKey,
   onMouseDown,
   bg,
   hasChildren = false,
 }: {
   sectionId: string;
   paramInfoId: string;
+  labelShapeKey:
+    | "nameInputLeaf"
+    | "nameInputParent"
+    | "textLabelLeaf"
+    | "textLabelParent";
   onMouseDown?: MouseEventHandler;
   bg: string;
   hasChildren?: boolean;
@@ -34,6 +40,7 @@ export function ParamTextLabel({
   return (
     <p
       className={`${hasChildren ? "section-key-value" : "section-key"} param-row-label overflow-hidden ${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
+      data-param-label-shape={labelShapeKey}
       style={
         hasChildren ? undefined : { width: "var(--param-column-width, 200px)" }
       }

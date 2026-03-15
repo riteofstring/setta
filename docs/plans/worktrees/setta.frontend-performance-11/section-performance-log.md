@@ -3844,3 +3844,36 @@ Append-only log for the section performance refactor.
   - Aim the next lower-seam attempt at preserving the clean branch's final top-row `pastHalfway: false` to `placeholder:reorder nextIndex 0` transition inside the `resolveOverCollisionId` / `getPastHalfway` / `computeNewIndex` stack.
   - Do not spend the next pass in `resolveFullIndexForVisibleInsertion()` unless fresh evidence shows the temp placeholder index is already correct before drag end.
   - If the next geometry candidate returns to row-level CSS, expose a shape-specific modifier seam without changing the row hitbox before rerunning the callable reorder representative and the shared-row compare.
+
+### 2026-03-18 104
+
+- Item: Land the shape-specific DOM seam on the existing label roots without perturbing the draggable row owner.
+- Status: `needs_more_work`
+- Details:
+  - Implemented the seam in:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+  - Change shape:
+    - kept `labelShapeKey` computation in `ParamSwitch.tsx`
+    - threaded that value into the existing label components
+    - rendered `data-param-label-shape` only on the existing label root nodes:
+      - the outer wrapper div in `ParamNameInput.tsx`
+      - the root `<p>` in `ParamTextLabel.tsx`
+    - did not attach the seam to `ParamRowShell.tsx`, so the draggable row `<article>` keeps the same DnD ref/listener ownership and hitbox
+  - Why this is the current accepted enabling step:
+    - the row `<article>` remains the drag owner through `ParamContainer` -> `ParamRowShell`
+    - `ParamContainer.tsx` still renders the label child before the adjacent `ParamInput` value wrapper
+    - that means the next row-level CSS attempt can target label-root selectors and sibling selectors into `.section-value` without moving the seam onto the row owner
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `2 passed`
+  - Recorded the seam activation in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-label-root-shape-seam.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Use the new `data-param-label-shape` seam for the next local geometry candidate instead of styling the row owner directly.
+  - Keep the next candidate scoped to label-root and sibling selectors first; if that still changes the row height enough to miss the final top-row `pastHalfway: false` flip, record that explicitly before trying a different lower seam.
+  - Rerun the callable reorder representative before any shared-row compare against untouched `main`.
