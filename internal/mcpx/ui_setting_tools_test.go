@@ -975,6 +975,204 @@ func TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingD
 	}
 }
 
+func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKeepHealthySibling(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	schemaPath := filepath.Join(
+		roots.workspaceRoot,
+		".setta_plugins",
+		"setta-fixture-full",
+		"content",
+		"config",
+		"schema.json",
+	)
+	schemaPayload, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatalf("read plugin schema: %v", err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(schemaPayload, &schema); err != nil {
+		t.Fatalf("decode plugin schema: %v", err)
+	}
+	rawEntries, ok := schema["x-setta-ui-settings"].([]any)
+	if !ok || len(rawEntries) == 0 {
+		t.Fatalf("expected x-setta-ui-settings entries, got %#v", schema["x-setta-ui-settings"])
+	}
+	firstEntry, ok := rawEntries[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first ui setting entry to be an object, got %#v", rawEntries[0])
+	}
+	firstEntry["defaultValue"] = "not-a-boolean-default"
+	encodedSchema, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin schema: %v", err)
+	}
+	encodedSchema = append(encodedSchema, '\n')
+	if err := os.WriteFile(schemaPath, encodedSchema, 0o644); err != nil {
+		t.Fatalf("write plugin schema: %v", err)
+	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan plugin runtime after invalid default injection: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	invalidResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call schema-invalid plugin setting get_ui_setting_value: %v", err)
+	}
+	if invalidResult.IsError {
+		t.Fatalf("expected structured schema-invalid response, got %#v", invalidResult.StructuredContent)
+	}
+	invalidPayload := mustStructuredMap(t, invalidResult.StructuredContent)
+	invalidError := mustStructuredMap(t, invalidPayload["error"])
+	if invalidError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for schema-invalid plugin setting, got %#v", invalidError["code"])
+	}
+
+	healthyResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::label",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call healthy sibling plugin get_ui_setting_value: %v", err)
+	}
+	if healthyResult.IsError {
+		t.Fatalf("expected healthy sibling plugin setting success, got %#v", healthyResult.StructuredContent)
+	}
+	healthyPayload := mustStructuredMap(t, healthyResult.StructuredContent)
+	if healthyPayload["value"] != "unset" {
+		t.Fatalf("expected healthy sibling plugin setting to remain readable, got %#v", healthyPayload["value"])
+	}
+}
+
+func TestServerUISettingToolsReturnPluginUnavailableForReadWriteWhenRegisterPaneCapabilityNotEffective(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	manifestPath := filepath.Join(
+		roots.workspaceRoot,
+		".setta_plugins",
+		"setta-fixture-full",
+		"setta.plugin.json",
+	)
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode plugin manifest: %v", err)
+	}
+	manifest["capabilities"] = []any{"registerSectionKinds", "registerCommand"}
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write plugin manifest: %v", err)
+	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan plugin runtime after capability edit: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call capability-gated get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected structured capability-gated read response, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	getError := mustStructuredMap(t, getPayload["error"])
+	if getError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for capability-gated read, got %#v", getError["code"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call capability-gated set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured capability-gated write response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for capability-gated write, got %#v", setError["code"])
+	}
+}
+
 func mustFindPluginListEntry(t *testing.T, entries []plugins.ListEntry, pluginID string) plugins.ListEntry {
 	t.Helper()
 

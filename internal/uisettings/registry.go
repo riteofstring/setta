@@ -13,6 +13,7 @@ type Registry struct {
 	entriesByID            map[string]RuntimeEntry
 	knownPluginIDs         map[string]struct{}
 	knownPluginSettingIDs  map[string]struct{}
+	invalidPluginSettings  map[string]SettingError
 	pluginStatusByPluginID map[string]pluginRegistryStatus
 }
 
@@ -23,6 +24,7 @@ func New(entries []RuntimeEntry) (*Registry, error) {
 type registryPluginMetadata struct {
 	knownPluginIDs         map[string]struct{}
 	knownPluginSettingIDs  map[string]struct{}
+	invalidPluginSettings  map[string]SettingError
 	pluginStatusByPluginID map[string]pluginRegistryStatus
 }
 
@@ -59,6 +61,7 @@ func newRegistry(entries []RuntimeEntry, metadata registryPluginMetadata) (*Regi
 		entriesByID:            entriesByID,
 		knownPluginIDs:         cloneStringSet(metadata.knownPluginIDs),
 		knownPluginSettingIDs:  cloneStringSet(metadata.knownPluginSettingIDs),
+		invalidPluginSettings:  cloneSettingErrorMap(metadata.invalidPluginSettings),
 		pluginStatusByPluginID: clonePluginRegistryStatusMap(metadata.pluginStatusByPluginID),
 	}, nil
 }
@@ -249,6 +252,9 @@ func (r *Registry) MissingSettingError(settingID string) error {
 			)
 		}
 	}
+	if settingErr, ok := r.invalidPluginSettings[normalizedSettingID]; ok {
+		return newSettingError(settingErr.Code, "%s", settingErr.Message)
+	}
 
 	if !r.HasKnownPluginSetting(pluginID, localSettingID) {
 		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
@@ -338,6 +344,17 @@ func clonePluginRegistryStatusMap(values map[string]pluginRegistryStatus) map[st
 			RuntimeEntryAvailable: value.RuntimeEntryAvailable,
 			SupportsUISettings:    value.SupportsUISettings,
 		}
+	}
+	return cloned
+}
+
+func cloneSettingErrorMap(values map[string]SettingError) map[string]SettingError {
+	if len(values) == 0 {
+		return map[string]SettingError{}
+	}
+	cloned := make(map[string]SettingError, len(values))
+	for key, value := range values {
+		cloned[key] = value
 	}
 	return cloned
 }

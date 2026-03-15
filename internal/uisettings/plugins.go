@@ -37,6 +37,11 @@ type pluginUISettingDefinition struct {
 	DefaultValue   any
 }
 
+type pluginUISettingParseResult struct {
+	Definitions           []pluginUISettingDefinition
+	InvalidSettingErrors  map[string]SettingError
+}
+
 func NewScopedRegistry(runtime CoreProjectState, workspaceRoot string, pluginService PluginRuntimeService) (*Registry, error) {
 	coreRegistry, err := NewCoreRegistry(runtime, workspaceRoot)
 	if err != nil {
@@ -73,11 +78,14 @@ func NewScopedRegistry(runtime CoreProjectState, workspaceRoot string, pluginSer
 		if !pluginHasRegisterPaneCapability(pluginEntry.EffectiveCapabilities) {
 			continue
 		}
-		definitions, err := parsePluginUISettingDefinitions(pluginID, pluginEntry.Config.SchemaJSON)
+		parseResult, err := parsePluginUISettingDefinitions(pluginID, pluginEntry.Config.SchemaJSON)
 		if err != nil {
 			continue
 		}
-		for _, definition := range definitions {
+		for localSettingID, settingErr := range parseResult.InvalidSettingErrors {
+			metadata.invalidPluginSettings[buildPluginSettingID(pluginID, localSettingID)] = settingErr
+		}
+		for _, definition := range parseResult.Definitions {
 			metadata.knownPluginSettingIDs[pluginSettingKey(pluginID, definition.LocalSettingID)] = struct{}{}
 			entries = append(entries, buildPluginRuntimeEntry(pluginService, pluginID, definition))
 		}
@@ -90,6 +98,7 @@ func buildPluginRegistryMetadata(runtime plugins.RuntimeResponse) registryPlugin
 	metadata := registryPluginMetadata{
 		knownPluginIDs:         map[string]struct{}{},
 		knownPluginSettingIDs:  map[string]struct{}{},
+		invalidPluginSettings:  map[string]SettingError{},
 		pluginStatusByPluginID: map[string]pluginRegistryStatus{},
 	}
 	for _, statusEntry := range runtime.Status.Plugins {
@@ -287,27 +296,83 @@ func normalizePluginConfigMutationError(pluginID string, settingID string, err e
 	}
 }
 
-func parsePluginUISettingDefinitions(pluginID string, schemaJSON map[string]any) ([]pluginUISettingDefinition, error) {
+func parsePluginUISettingDefinitions(pluginID string, schemaJSON map[string]any) (pluginUISettingParseResult, error) {
+	result := pluginUISettingParseResult{
+		Definitions:          nil,
+		InvalidSettingErrors: map[string]SettingError{},
+	}
 	if len(schemaJSON) == 0 {
-		return nil, nil
+		return result, nil
 	}
 	rawDefinitions, ok := schemaJSON[pluginUISettingsSchemaKey]
 	if !ok {
-		return nil, nil
+		return result, nil
 	}
 	items, ok := rawDefinitions.([]any)
 	if !ok {
-		return nil, fmt.Errorf("plugin %s %s must be a list", pluginID, pluginUISettingsSchemaKey)
+		return result, fmt.Errorf("plugin %s %s must be a list", pluginID, pluginUISettingsSchemaKey)
 	}
 	definitions := make([]pluginUISettingDefinition, 0, len(items))
+	countBySettingID := make(map[string]int, len(items))
 	for index, item := range items {
 		definition, err := parsePluginUISettingDefinition(pluginID, schemaJSON, index, item)
 		if err != nil {
-			return nil, err
+			if localSettingID, ok := maybePluginLocalSettingID(item); ok {
+				result.InvalidSettingErrors[localSettingID] = newSettingErrorValue(
+					ErrorCodePluginUnavailable,
+					"Plugin %s setting %s is unavailable for UI setting access (%s).",
+					pluginID,
+					localSettingID,
+					err.Error(),
+				)
+				continue
+			}
+			return result, err
 		}
 		definitions = append(definitions, definition)
+		countBySettingID[definition.LocalSettingID]++
 	}
-	return definitions, nil
+	filtered := make([]pluginUISettingDefinition, 0, len(definitions))
+	for _, definition := range definitions {
+		if countBySettingID[definition.LocalSettingID] > 1 {
+			result.InvalidSettingErrors[definition.LocalSettingID] = newSettingErrorValue(
+				ErrorCodePluginUnavailable,
+				"Plugin %s setting %s is unavailable for UI setting access (duplicated ui settingId).",
+				pluginID,
+				definition.LocalSettingID,
+			)
+			continue
+		}
+		filtered = append(filtered, definition)
+	}
+	result.Definitions = filtered
+	return result, nil
+}
+
+func maybePluginLocalSettingID(raw any) (string, bool) {
+	definitionMap, ok := raw.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	value, ok := definitionMap["settingId"]
+	if !ok {
+		return "", false
+	}
+	localSettingID, err := requireNonEmptyString(value)
+	if err != nil {
+		return "", false
+	}
+	if strings.Contains(localSettingID, "::") {
+		return "", false
+	}
+	return localSettingID, true
+}
+
+func newSettingErrorValue(code ErrorCode, format string, args ...any) SettingError {
+	return SettingError{
+		Code:    code,
+		Message: fmt.Sprintf(format, args...),
+	}
 }
 
 func parsePluginUISettingDefinition(pluginID string, schemaJSON map[string]any, index int, raw any) (pluginUISettingDefinition, error) {
