@@ -3289,3 +3289,36 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiLLMConfiguration.ts`, now the largest
     authored/shared hotspot at 306 lines, by separating LLM config load/save
     orchestration from managed API-key snapshot and conflict handling helpers.
+
+## 2026-03-15 07:44:07 PDT
+
+- Slice completed: split managed API-key ownership out of
+  `frontend/src/state/actions/aiLLMConfiguration.ts`
+- Key files touched:
+  - `frontend/src/state/actions/aiManagedApiKeys.ts`
+  - `frontend/src/state/actions/aiLLMConfiguration.ts`
+  - `frontend/src/state/actions/aiConfiguration.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/state/actions/aiSaveLLMApiKeys.test.ts`
+  - `frontend/src/state/actions/aiResourceLoadGuards.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateLLMState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiSaveLLMConfig.test.ts src/state/actions/aiSaveLLMApiKeys.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiManagedApiKeys.ts src/state/actions/aiLLMConfiguration.ts src/state/actions/aiConfiguration.ts src/state/actions/websocketIncomingMessages.ts src/state/actions/aiSaveLLMApiKeys.test.ts src/state/actions/aiSaveLLMConfig.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/components/Panes/Overview/ProjectLevelAI/useHydrateLLMState.ts src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `83882a9f5dea07e2c6686b850a1aea6fa9cb352b`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiFollow.ts`, now the largest
+    authored/shared hotspot at 304 lines, by separating tool-argument snapshot
+    reads or writes from result-highlight and scope-violation timeout
+    orchestration.
