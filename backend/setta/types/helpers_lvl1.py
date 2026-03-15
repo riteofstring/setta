@@ -7,7 +7,6 @@ from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
-    BaseCodeObjImplArgsWithCallable,
     BaseSectionImplArgsWithCallable,
 )
 from setta.types.id import ID
@@ -59,15 +58,6 @@ def get_curr_effective_section_impl_with_type_guard(
         raise ValueError(f"Section {section_id} failed type guard")
 
     return impl
-
-
-def get_variant_effective_section_impl(
-    p: "ProjectStateCore", sectionId: ID, variantId: ID
-):
-    variant = p.sectionVariants[variantId]
-    impl = p.sectionImpls[variant.impl]
-    core = p.sections[sectionId]
-    return get_effective_impl(impl, core, variant)
 
 
 def get_variant_base_and_effective_section_impl(
@@ -149,14 +139,3 @@ def set_curr_effective_section_impl_value(
     core = p.sections[sectionId]
     set_effective_impl_value(impl, core, variant, args)
 
-
-def set_curr_effective_code_obj_impl_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    codeObjId: ID,
-    args: BaseCodeObjImplArgsWithCallable,
-):
-    variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
-    impl = p.codeObjImpls[variant.impl]
-    core = p.codeObjs[codeObjId]
-    set_effective_impl_value(impl, core, variant, args)

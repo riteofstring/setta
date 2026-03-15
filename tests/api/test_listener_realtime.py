@@ -22,7 +22,7 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     ParameterPassingStyle,
 )
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.dependency_key import create_dep_key
 from setta.types.binary_content import BinaryContentRef
 from setta.types.dependency_value import BinaryDependencyValue, LiteralDependencyValue
@@ -59,6 +59,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
 )
 from tests.helpers.binary_frames import encode_binary_frame
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 if TYPE_CHECKING:
     from websockets import ClientConnection

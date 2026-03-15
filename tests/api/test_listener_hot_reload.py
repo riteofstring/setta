@@ -12,7 +12,7 @@ import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
@@ -23,6 +23,7 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from watchfiles import Change
 
 if TYPE_CHECKING:

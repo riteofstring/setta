@@ -2,7 +2,7 @@ import math
 import re
 from typing import TYPE_CHECKING, assert_never
 
-from setta.secrets.password_store import get_password_secret, set_password_secret
+from setta.secrets.password_store import get_password_secret
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -16,8 +16,7 @@ from setta.types.code_obj_impls import (
     PasswordParamCodeObjImpl,
     SectionParamCodeObjTypeSet,
 )
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.dropzone import normalize_dropzone_value
+from setta.types.core import Core, Variant
 from setta.types.edges import Edge
 from setta.types.generated.effective_impls import (
     get_effective_impl,
@@ -51,7 +50,6 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     get_curr_section_variant,
     get_variant_base_and_effective_code_obj_impl_with_type_guard,
-    set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
 from setta.types.id import ID
@@ -62,6 +60,12 @@ from setta.types.section_impls import (
     MetaControlSectionImpl,
 )
 from setta.utils.name_validation import validate_project_name, validate_section_name
+from tests.helpers.dropzone import normalize_dropzone_value
+from tests.helpers.password_store import set_password_secret
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
+from tests.helpers.project_state_effective_impls import (
+    set_curr_effective_code_obj_impl_value,
+)
 
 if TYPE_CHECKING:
     from setta.types.project_state import (

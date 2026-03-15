@@ -10,12 +10,13 @@ from setta.auth.cookies import auth_cookie_name
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
 def _build_project_state() -> ProjectStateSingleConfig:

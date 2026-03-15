@@ -7,7 +7,7 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -25,6 +25,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
 def _build_project_state(project_config_id: ID) -> ProjectStateSingleConfig:

@@ -4,12 +4,7 @@ import re
 from typing import TYPE_CHECKING
 
 from setta.types.artifact import DrawAreaLayer
-from setta.types.core import (
-    Core,
-    Variant,
-    compute_initial_nonPresetImpls,
-    get_default_section_core_name,
-)
+from setta.types.core import Core, Variant
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseParentSectionImplArgsWithCallable,
     CoreArgs,
@@ -43,6 +38,10 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.utils.utils import insert_into_array
+from tests.helpers.project_state_core import (
+    compute_initial_nonPresetImpls,
+    get_default_section_core_name,
+)
 from tests.helpers.project_state_mutations import add_meta_control_code_obj
 
 if TYPE_CHECKING:

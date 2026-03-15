@@ -14,7 +14,7 @@ from setta.types.code_obj_impls import (
     CodeParamCodeObjImpl,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -34,6 +34,7 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import DictSectionImpl
 from setta.types.websocket import WebsocketMsgListenerRegister
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
 def build_project_state(param_value: str) -> tuple[ProjectStateSingleConfig, ID, ID]:

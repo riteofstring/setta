@@ -19,7 +19,6 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
-    set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
@@ -72,6 +71,9 @@ from tests.helpers.project_state_mutations import (
     add_meta_control_code_obj,
     set_project_config_name,
     set_section_name,
+)
+from tests.helpers.project_state_effective_impls import (
+    set_curr_effective_code_obj_impl_value,
 )
 from tests.helpers.project_state_sections import (
     create_child_sections,

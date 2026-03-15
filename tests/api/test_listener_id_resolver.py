@@ -7,7 +7,7 @@ from setta.api.listener import (
 )
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.dependency_key import SectionParamDependencyKey, create_dep_key
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -26,6 +26,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from tests.helpers.project_state_mutations import add_kwarg
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from tests.helpers.project_state_sections import create_top_level_section
 
 

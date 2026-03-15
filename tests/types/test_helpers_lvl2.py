@@ -11,7 +11,7 @@ from setta.types.code_obj_impls import (
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.dropzone import parse_dropzone_value
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
@@ -47,6 +47,7 @@ from tests.helpers.project_state_mutations import (
     set_param_entered_value,
     update_param_impl_config,
 )
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from tests.helpers.project_state_sections import (
     create_top_level_section,
     get_first_markdown_heading,

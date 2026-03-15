@@ -9,7 +9,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     UserChatMessage,
 )
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant
 from setta.types.dependency_key import SectionDependencyKey
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.websocket_unions import (
@@ -40,6 +40,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
+from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 
 
 def _build_chat_project_state(
