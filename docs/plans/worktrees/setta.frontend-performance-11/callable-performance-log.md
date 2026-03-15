@@ -1155,3 +1155,31 @@ Append-only log for the callable DOM-first performance refactor.
   - It should be treated as opportunistic cleanup in the second pass, not as a reason to complicate parity-sensitive checkpoints.
 - Next action:
   - Keep semantic HTML as a lower-priority second-pass concern while the shared section-shell baseline and non-grid simplification are still in progress.
+
+### 2026-03-16 48
+
+- Item: Clarified that the active sections-wide refactor is anti-div-soup and parity-first.
+- Status: `done`
+- Details:
+  - Tightened the active plan so the intended outcome is now explicit:
+    - eliminate div soup wherever wrappers are not carrying real value
+    - keep using the simplest rendering/layout technique available
+    - preserve all existing features and interactions
+    - aim for user-visible performance gain only, not visual or UX change
+  - Recorded that wrappers should survive only when they carry:
+    - real behavior
+    - semantic value
+    - measurement ownership
+    - unavoidable positioning responsibility
+  - Added explicit examples of features that must remain intact during the simplification passes:
+    - resize
+    - drag/reorder
+    - keyboard interactions
+    - standalone routes
+    - theme variants
+    - handles and overlays
+- Interpretation:
+  - This removes any remaining ambiguity about the active refactor target.
+  - The branch is now explicitly aimed at structural simplification with user-visible parity, not redesign.
+- Next action:
+  - Continue the shared section-shell baseline under the clarified anti-div-soup and parity-first constraints.

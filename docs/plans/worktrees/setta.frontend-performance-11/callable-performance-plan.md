@@ -14,11 +14,14 @@ This file started as a callable-only plan. The accepted callable work now serves
 Active goal now:
 
 - Reduce section-shell DOM complexity across shared section infrastructure, not just callables.
+- Eliminate div soup wherever wrappers are not carrying real value.
 - Prefer the simplest layout/rendering technique that preserves behavior and parity.
 - Treat performance wins as likely upside, but not as guaranteed proof before the shared section-shell work is complete.
 - Keep comparing untouched `main` vs this worktree in Chrome DevTools at each accepted checkpoint.
 - Work from the deepest nested structures outward/upward into the shared section shell.
 - Expect multiple passes. Do not assume the first grid-removal pass will reveal the final target structure.
+- The intended user-facing result is performance gain only, not visual or UX change.
+- All existing features and interactions must remain intact.
 
 Historical callable-only phases below remain valid as an append-only record of the pilot work that already landed.
 
@@ -91,6 +94,9 @@ For the broadened sections-wide pass, treat these as the shared architecture clu
 ## Layout Principles
 
 - Default to the flattest DOM structure that preserves behavior.
+- Eliminate div soup aggressively:
+  - remove generic wrappers that exist only for grouping
+  - keep wrappers only when they carry real behavior, semantic value, measurement ownership, or unavoidable positioning responsibility
 - Rule out `grid` for the active sections-wide refactor.
 - Do not add new `grid` or `subgrid` layout in the implementation path.
 - Work from deeply nested layout ownership outward/upward:
@@ -107,6 +113,7 @@ For the broadened sections-wide pass, treat these as the shared architecture clu
 - Use `flex` only when the layout is truly one-dimensional and it simplifies the contract without introducing extra measurement or wrapper work.
 - Existing `grid` / `subgrid` usage is now something to remove, not something to preserve by default.
 - If a target layout truly cannot be achieved without `grid`, stop implementation and report that explicitly instead of introducing `grid` anyway.
+- The rendering rule is: use the simplest technique that preserves parity and all existing features.
 - Use semantic HTML where it fits naturally, but treat that as a second-pass improvement after the structural/performance simplification is already stable.
 - Good candidates for later passes include `section`, `header`, `nav`, `aside`, lists, and other semantic containers that can replace generic wrappers without adding layout risk.
 - Do not force semantic tags into places where they complicate parity or make the structure harder to reason about.
@@ -530,6 +537,14 @@ Implementation order for the broadened pass:
 2. Move outward/upward only after the inner contract for that slice is stable and screenshot-verified.
 3. Do not start by flattening the top-level section shell while the inner row/group contract is still noisy.
 4. After the top-most shared grid layer is removed, pause and re-analyze the remaining structure before committing to the next pass.
+5. Preserve all existing user-facing features while simplifying the structure:
+   - resize
+   - drag/reorder
+   - keyboard interactions
+   - standalone routes
+   - theme variants
+   - handles and overlays
+   - any other existing section behavior on the representative scenes
 
 ### Representative scenarios
 
