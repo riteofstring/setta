@@ -5598,3 +5598,49 @@ in `frontend/src/README.md` and the cleanup plans.
     is now the top unresolved default-priority front-door hotspot in the README
     and cleanup plan after `ProjectChatHistory.tsx` delegated the history panel
     and row render shells to local owners.
+
+## 2026-03-15 20:12:50 PDT
+
+- Slice completed: extracted BrowserArea preview surface owners
+- This was higher value than jumping straight to `frontend/src/plugins/runtime.ts`
+  because `frontend/src/components/Section/Layouts/BrowserArea.tsx` was still
+  the highest-priority unresolved front-door layout surface at turn start, and
+  the icon/carousel preview path was the largest mixed responsibility still
+  living inside it.
+- Key files touched:
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx`
+  - `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`
+  - `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts`
+  - `frontend/src/components/Section/Layouts/BrowserAreaContentView.test.tsx`
+  - `frontend/src/components/Section/Layouts/browserAreaPreviewModel.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `perf/reports/frontend/browser-area-preview-surface-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/BrowserArea.test.tsx src/components/Section/Layouts/BrowserAreaContentView.test.tsx src/components/Section/Layouts/browserAreaPreviewModel.test.ts`
+  - `pnpm -C frontend exec vite build`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-carousel-spreadsheet-preview.spec.ts frontend/tests/e2e/file-browser/browser-icon-scroll.spec.ts frontend/tests/e2e/file-browser/browser-file-open.spec.ts frontend/tests/e2e/file-browser/browser-filters.spec.ts --grep "browser carousel previews and edits csv/xlsx spreadsheets|icon view scrolls with trackpad wheel \\(does not get eaten by canvas pan\\)|browser opens markdown and text files in text sections|browser opens image files in image sections on double click"`
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/BrowserArea.tsx src/components/Section/Layouts/BrowserAreaContentView.tsx src/components/Section/Layouts/useBrowserAreaPreviewState.ts src/components/Section/Layouts/browserAreaPreviewModel.ts src/components/Section/Layouts/BrowserArea.test.tsx src/components/Section/Layouts/BrowserAreaContentView.test.tsx src/components/Section/Layouts/browserAreaPreviewModel.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../perf/reports/frontend/browser-area-preview-surface-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/browser-area-preview-surface-2026-03-15.md`
+    with the Browser section before/after CDP notes for `List view -> Icon view`.
+  - The pre-refactor trace reported `47` rendered icon thumbnails and `0.00`
+    CLS without additional insight cards.
+  - The post-refactor trace reported the same `47` rendered icon thumbnails and
+    `0.00` CLS; DevTools surfaced a `ForcedReflow` insight, but the top frames
+    were shared hooks/chrome (`projectChatBottomDockPillStrip.tsx`,
+    `useColumnWidthDrag.ts`, `useBrowserColumnWidth.ts`,
+    `sectionScrollability.ts`) rather than the new BrowserArea local owners.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that the extracted Browser section still switches between icon and
+    carousel views, that icon view renders the expected repo-root thumbnails,
+    and that carousel view still renders the preview shell with a thumbnail row.
+- Commit hash:
+  - `1d392e769e8739327620a1e1d8206857c14575bf`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/plugins/runtime.ts`, which is now the top unresolved
+    default-priority front-door hotspot in the README and cleanup plan after
+    `BrowserArea.tsx` delegated its preview surface and preview-state owners.
