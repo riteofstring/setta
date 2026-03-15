@@ -134,3 +134,170 @@ func TestDocumentPasteSectionsClonesNestedIDsAndClearsPasswordSecrets(t *testing
 		t.Fatalf("expected password param id to be remapped, got %q", passwordParamID)
 	}
 }
+
+func TestDocumentPasteSectionsPreservesCopiedDescendantActiveVariants(t *testing.T) {
+	t.Parallel()
+
+	sourceProject := clipboardVariantPreservationSourceProject(t)
+	clipboard, err := sourceProject.prepareSectionsForCopy([]string{"group-root"})
+	if err != nil {
+		t.Fatalf("prepareSectionsForCopy variant source: %v", err)
+	}
+
+	if got := clipboard.Data.SectionVariantMap["group-root"]; got != "group-root-variant" {
+		t.Fatalf("expected copied root active variant group-root-variant, got %q", got)
+	}
+	if got := clipboard.Data.SectionVariantMap["group-child-a"]; got != "group-child-a-variant-alt" {
+		t.Fatalf("expected copied descendant active variant group-child-a-variant-alt, got %q", got)
+	}
+	if got := clipboard.Data.SectionVariantMap["group-child-b"]; got != "group-child-b-variant-default" {
+		t.Fatalf("expected copied descendant active variant group-child-b-variant-default, got %q", got)
+	}
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-target",
+		Projects: map[string]Project{
+			"project-target": {
+				ID:   "project-target",
+				Name: "Target",
+			},
+		},
+	}
+
+	if err := document.PasteSections("project-target", PasteSectionsInput{
+		Data:     clipboard.Data,
+		Position: Position{X: 180, Y: 120},
+		AsRef:    false,
+	}); err != nil {
+		t.Fatalf("PasteSections variant source: %v", err)
+	}
+
+	targetProject := document.Projects["project-target"]
+	var pastedRootID string
+	for sectionID, section := range targetProject.Sections {
+		if section.ParentSectionID == "" {
+			pastedRootID = sectionID
+			break
+		}
+	}
+	if pastedRootID == "" {
+		t.Fatalf("expected pasted root section, got %#v", targetProject.Sections)
+	}
+
+	rootVariantID := targetProject.SectionVariantMap[pastedRootID]
+	if rootVariantID == "" {
+		t.Fatalf("expected pasted root active variant, got %#v", targetProject.SectionVariantMap)
+	}
+	rootPayload, err := targetProject.EffectiveSectionPayload(pastedRootID, rootVariantID)
+	if err != nil {
+		t.Fatalf("resolve pasted root payload: %v", err)
+	}
+
+	children := payloadStringArrayField(rootPayload, "children")
+	if len(children) != 2 {
+		t.Fatalf("expected two pasted children, got %#v", children)
+	}
+
+	for _, childID := range children {
+		child := targetProject.Sections[childID]
+		childVariantID := targetProject.SectionVariantMap[childID]
+		if childVariantID == "" {
+			t.Fatalf("expected pasted child %q to keep an explicit active variant entry, got %#v", childID, targetProject.SectionVariantMap)
+		}
+		childPayload, err := targetProject.EffectiveSectionPayload(childID, childVariantID)
+		if err != nil {
+			t.Fatalf("resolve pasted child payload %q: %v", childID, err)
+		}
+		switch child.Name {
+		case "Group Child A":
+			if got := payloadStringField(childPayload, "text"); got != "Child A Alt" {
+				t.Fatalf("expected pasted Group Child A active payload text %q, got %q", "Child A Alt", got)
+			}
+		case "Group Child B":
+			if got := payloadStringField(childPayload, "text"); got != "Child B Default" {
+				t.Fatalf("expected pasted Group Child B active payload text %q, got %q", "Child B Default", got)
+			}
+		default:
+			t.Fatalf("unexpected pasted child section %#v", child)
+		}
+	}
+}
+
+func clipboardVariantPreservationSourceProject(t *testing.T) Project {
+	t.Helper()
+
+	project, err := (Project{
+		ID:   "project-source",
+		Name: "Source",
+		SectionVariantMap: map[string]string{
+			"group-root":    "group-root-variant",
+			"group-child-a": "group-child-a-variant-alt",
+			"group-child-b": "group-child-b-variant-default",
+		},
+		TopLevelSectionIDs: []string{"group-root"},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"group-root": {X: 40, Y: 60, ZIndex: 1},
+		},
+		Sections: map[string]Section{
+			"group-root": {
+				ID:               "group-root",
+				Name:             "Group Root",
+				VariantIDs:       []string{"group-root-variant"},
+				DefaultVariantID: "group-root-variant",
+			},
+			"group-child-a": {
+				ID:               "group-child-a",
+				Name:             "Group Child A",
+				ParentSectionID:  "group-root",
+				VariantIDs:       []string{"group-child-a-variant-default", "group-child-a-variant-alt"},
+				DefaultVariantID: "group-child-a-variant-default",
+			},
+			"group-child-b": {
+				ID:               "group-child-b",
+				Name:             "Group Child B",
+				ParentSectionID:  "group-root",
+				VariantIDs:       []string{"group-child-b-variant-default", "group-child-b-variant-alt"},
+				DefaultVariantID: "group-child-b-variant-default",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"group-root-variant":            {ID: "group-root-variant", ImplID: "group-root-impl"},
+			"group-child-a-variant-default": {ID: "group-child-a-variant-default", ImplID: "group-child-a-impl-default"},
+			"group-child-a-variant-alt":     {ID: "group-child-a-variant-alt", ImplID: "group-child-a-impl-alt"},
+			"group-child-b-variant-default": {ID: "group-child-b-variant-default", ImplID: "group-child-b-impl-default"},
+			"group-child-b-variant-alt":     {ID: "group-child-b-variant-alt", ImplID: "group-child-b-impl-alt"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"group-root-impl": {
+				ID:      "group-root-impl",
+				Kind:    SectionKind("group"),
+				Payload: RawJSON(`{"id":"group-root-impl","type":"Group","children":["group-child-a","group-child-b"]}`),
+			},
+			"group-child-a-impl-default": {
+				ID:      "group-child-a-impl-default",
+				Kind:    SectionKind("frontend"),
+				Payload: RawJSON(`{"id":"group-child-a-impl-default","type":"TextBlock","text":"Child A Default"}`),
+			},
+			"group-child-a-impl-alt": {
+				ID:      "group-child-a-impl-alt",
+				Kind:    SectionKind("frontend"),
+				Payload: RawJSON(`{"id":"group-child-a-impl-alt","type":"TextBlock","text":"Child A Alt"}`),
+			},
+			"group-child-b-impl-default": {
+				ID:      "group-child-b-impl-default",
+				Kind:    SectionKind("frontend"),
+				Payload: RawJSON(`{"id":"group-child-b-impl-default","type":"TextBlock","text":"Child B Default"}`),
+			},
+			"group-child-b-impl-alt": {
+				ID:      "group-child-b-impl-alt",
+				Kind:    SectionKind("frontend"),
+				Payload: RawJSON(`{"id":"group-child-b-impl-alt","type":"TextBlock","text":"Child B Alt"}`),
+			},
+		},
+	}).Normalized()
+	if err != nil {
+		t.Fatalf("normalize clipboard variant-preservation source project: %v", err)
+	}
+	return project
+}

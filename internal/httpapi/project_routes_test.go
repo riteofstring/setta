@@ -4039,6 +4039,15 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testi
 	if len(clipboard.Data.Core.Sections) != 3 {
 		t.Fatalf("expected copied subtree with three sections, got %#v", clipboard.Data.Core.Sections)
 	}
+	if got := clipboard.Data.SectionVariantMap["group-root"]; got != "group-root-variant" {
+		t.Fatalf("expected copied root active variant group-root-variant, got %q", got)
+	}
+	if got := clipboard.Data.SectionVariantMap["group-child-a"]; got != "group-child-a-variant-alt" {
+		t.Fatalf("expected copied descendant active variant group-child-a-variant-alt, got %q", got)
+	}
+	if got := clipboard.Data.SectionVariantMap["group-child-b"]; got != "group-child-b-variant-default" {
+		t.Fatalf("expected copied descendant active variant group-child-b-variant-default, got %q", got)
+	}
 
 	pasteBody, err := json.Marshal(PasteSectionsRequest{
 		ProjectID: "project-target",
@@ -4109,6 +4118,26 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testi
 		childSection := targetProject.Sections[childID]
 		if childSection.ParentSectionID != pastedRootID {
 			t.Fatalf("expected pasted child %q parent %q, got %#v", childID, pastedRootID, childSection)
+		}
+		childVariantID := targetProject.SectionVariantMap[childID]
+		if childVariantID == "" {
+			t.Fatalf("expected pasted child %q to keep an explicit active variant entry, got %#v", childID, targetProject.SectionVariantMap)
+		}
+		childPayload, err := targetProject.EffectiveSectionPayload(childID, childVariantID)
+		if err != nil {
+			t.Fatalf("resolve pasted child payload %q: %v", childID, err)
+		}
+		switch childSection.Name {
+		case "Group Child A":
+			if got := fmt.Sprint(childPayload["text"]); got != "Child A Alt" {
+				t.Fatalf("expected pasted Group Child A active payload text %q, got %q", "Child A Alt", got)
+			}
+		case "Group Child B":
+			if got := fmt.Sprint(childPayload["text"]); got != "Child B Default" {
+				t.Fatalf("expected pasted Group Child B active payload text %q, got %q", "Child B Default", got)
+			}
+		default:
+			t.Fatalf("unexpected pasted child section %#v", childSection)
 		}
 	}
 }
@@ -9392,8 +9421,8 @@ func copyPasteRouteSourceProject(t *testing.T) projectstate.Project {
 		Name: "Source",
 		SectionVariantMap: map[string]string{
 			"group-root":    "group-root-variant",
-			"group-child-a": "group-child-a-variant",
-			"group-child-b": "group-child-b-variant",
+			"group-child-a": "group-child-a-variant-alt",
+			"group-child-b": "group-child-b-variant-default",
 		},
 		TopLevelSectionIDs: []string{"group-root"},
 		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
@@ -9410,21 +9439,23 @@ func copyPasteRouteSourceProject(t *testing.T) projectstate.Project {
 				ID:               "group-child-a",
 				Name:             "Group Child A",
 				ParentSectionID:  "group-root",
-				VariantIDs:       []string{"group-child-a-variant"},
-				DefaultVariantID: "group-child-a-variant",
+				VariantIDs:       []string{"group-child-a-variant-default", "group-child-a-variant-alt"},
+				DefaultVariantID: "group-child-a-variant-default",
 			},
 			"group-child-b": {
 				ID:               "group-child-b",
 				Name:             "Group Child B",
 				ParentSectionID:  "group-root",
-				VariantIDs:       []string{"group-child-b-variant"},
-				DefaultVariantID: "group-child-b-variant",
+				VariantIDs:       []string{"group-child-b-variant-default", "group-child-b-variant-alt"},
+				DefaultVariantID: "group-child-b-variant-default",
 			},
 		},
 		SectionVariants: map[string]projectstate.SectionVariant{
-			"group-root-variant":    {ID: "group-root-variant", ImplID: "group-root-impl"},
-			"group-child-a-variant": {ID: "group-child-a-variant", ImplID: "group-child-a-impl"},
-			"group-child-b-variant": {ID: "group-child-b-variant", ImplID: "group-child-b-impl"},
+			"group-root-variant":            {ID: "group-root-variant", ImplID: "group-root-impl"},
+			"group-child-a-variant-default": {ID: "group-child-a-variant-default", ImplID: "group-child-a-impl-default"},
+			"group-child-a-variant-alt":     {ID: "group-child-a-variant-alt", ImplID: "group-child-a-impl-alt"},
+			"group-child-b-variant-default": {ID: "group-child-b-variant-default", ImplID: "group-child-b-impl-default"},
+			"group-child-b-variant-alt":     {ID: "group-child-b-variant-alt", ImplID: "group-child-b-impl-alt"},
 		},
 		SectionImpls: map[string]projectstate.SectionImpl{
 			"group-root-impl": {
@@ -9434,15 +9465,25 @@ func copyPasteRouteSourceProject(t *testing.T) projectstate.Project {
 					`{"id":"group-root-impl","type":"Group","children":["group-child-a","group-child-b"]}`,
 				),
 			},
-			"group-child-a-impl": {
-				ID:      "group-child-a-impl",
+			"group-child-a-impl-default": {
+				ID:      "group-child-a-impl-default",
 				Kind:    projectstate.SectionKind("frontend"),
-				Payload: projectstate.RawJSON(`{"id":"group-child-a-impl","type":"TextBlock"}`),
+				Payload: projectstate.RawJSON(`{"id":"group-child-a-impl-default","type":"TextBlock","text":"Child A Default"}`),
 			},
-			"group-child-b-impl": {
-				ID:      "group-child-b-impl",
+			"group-child-a-impl-alt": {
+				ID:      "group-child-a-impl-alt",
 				Kind:    projectstate.SectionKind("frontend"),
-				Payload: projectstate.RawJSON(`{"id":"group-child-b-impl","type":"TextBlock"}`),
+				Payload: projectstate.RawJSON(`{"id":"group-child-a-impl-alt","type":"TextBlock","text":"Child A Alt"}`),
+			},
+			"group-child-b-impl-default": {
+				ID:      "group-child-b-impl-default",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: projectstate.RawJSON(`{"id":"group-child-b-impl-default","type":"TextBlock","text":"Child B Default"}`),
+			},
+			"group-child-b-impl-alt": {
+				ID:      "group-child-b-impl-alt",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: projectstate.RawJSON(`{"id":"group-child-b-impl-alt","type":"TextBlock","text":"Child B Alt"}`),
 			},
 		},
 	}).Normalized()
