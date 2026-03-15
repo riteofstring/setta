@@ -239,9 +239,11 @@ func normalizeCreateChildSectionsInput(input CreateChildSectionsInput) (CreateCh
 	if normalized.ImplType == "" {
 		return CreateChildSectionsInput{}, ErrChildSectionImplTypeRequired
 	}
-	if !isSupportedChildSectionImplType(normalized.ImplType) {
-		return CreateChildSectionsInput{}, fmt.Errorf("%w: %q", ErrChildSectionImplTypeUnsupported, normalized.ImplType)
+	normalizedImplType, err := normalizeCreateChildSectionImplType(normalized.ImplType)
+	if err != nil {
+		return CreateChildSectionsInput{}, err
 	}
+	normalized.ImplType = normalizedImplType
 	if normalized.NumChildren < 1 {
 		return CreateChildSectionsInput{}, ErrChildSectionCountInvalid
 	}
@@ -251,6 +253,18 @@ func normalizeCreateChildSectionsInput(input CreateChildSectionsInput) (CreateCh
 func isSupportedChildSectionImplType(implType string) bool {
 	_, err := normalizeDefaultChildSectionType(implType)
 	return err == nil
+}
+
+func normalizeCreateChildSectionImplType(implType string) (string, error) {
+	trimmed := strings.TrimSpace(implType)
+	switch trimmed {
+	case "", "StateMachineStart", "StateMachineGate", "StateMachineEnd":
+		return "", fmt.Errorf("%w: %q", ErrChildSectionImplTypeUnsupported, trimmed)
+	}
+	if !isSupportedTopLevelSectionImplType(trimmed) {
+		return "", fmt.Errorf("%w: %q", ErrChildSectionImplTypeUnsupported, trimmed)
+	}
+	return trimmed, nil
 }
 
 func validateCreateChildSectionsParent(
@@ -422,7 +436,10 @@ func childSiblingNames(project Project, childIDs []string) ([]string, error) {
 	return names, nil
 }
 
-func nextAvailableCreatedChildSectionName(existingNames []string, _ string) (string, error) {
+func nextAvailableCreatedChildSectionName(existingNames []string, implType string) (string, error) {
+	if preferredName, ok := preferredCreatedSectionName(implType); ok && createdSectionNameAvailable(existingNames, preferredName) {
+		return preferredName, nil
+	}
 	return nextAvailableMemorableName(func(candidate string) (bool, error) {
 		return createdSectionNameAvailable(existingNames, candidate), nil
 	})

@@ -107,6 +107,25 @@ func TestProjectCreateChildSectionsViaIncrementerSupportsExpandedChildTypes(t *t
 	}
 }
 
+// Incrementer creation follows the narrower default-child family rather than the
+// broader source direct create_child_sections helper.
+func TestProjectCreateChildSectionsViaIncrementerRejectsSourceDirectOnlyTypes(t *testing.T) {
+	t.Parallel()
+
+	for _, implType := range []string{"GlobalVariables", "GenPythonCode", "GenPythonMetadata"} {
+		project := testIncrementerProject()
+
+		_, err := project.CreateChildSectionsViaIncrementer(CreateChildSectionsViaIncrementerInput{
+			CalledBy:    "child-a",
+			ImplType:    implType,
+			NumChildren: 1,
+		}, DefaultStructuralMutationSettings())
+		if !errors.Is(err, ErrChildSectionImplTypeUnsupported) {
+			t.Fatalf("expected ErrChildSectionImplTypeUnsupported for %s, got %v", implType, err)
+		}
+	}
+}
+
 func TestProjectCreateChildSectionsViaIncrementerRejectsUnsupportedCallerState(t *testing.T) {
 	t.Parallel()
 

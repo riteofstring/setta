@@ -4931,6 +4931,147 @@ func TestRegisterProjectRoutesChildSectionMutationsSupportExpandedTypes(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateChildSections, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	testCases := []struct {
+		name         string
+		implType     string
+		expectedName string
+		expectedKind projectstate.SectionKind
+		expectedGen  projectstate.GeneratedSectionKind
+	}{
+		{
+			name:         "global variables",
+			implType:     "GlobalVariables",
+			expectedName: "Global Variables",
+			expectedKind: projectstate.SectionKind("frontend"),
+		},
+		{
+			name:         "generated python code",
+			implType:     "GenPythonCode",
+			expectedName: projectstate.GeneratedPythonCodeSectionName,
+			expectedKind: projectstate.SectionKindGenerated,
+			expectedGen:  projectstate.GeneratedSectionKindPythonCode,
+		},
+		{
+			name:         "generated python metadata",
+			implType:     "GenPythonMetadata",
+			expectedName: projectstate.GeneratedPythonMetadataSectionName,
+			expectedKind: projectstate.SectionKindGenerated,
+			expectedGen:  projectstate.GeneratedSectionKindPythonMetadata,
+		},
+	}
+
+	for _, tc := range testCases {
+		response := post(fmt.Sprintf(`{"projectConfigId":"project-alpha","parentId":"group-parent","implType":"%s","numChildren":1}`, tc.implType))
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s child create, got %d with body %q", tc.name, response.Code, response.Body.String())
+		}
+
+		var payload projectstate.CreateChildSectionsResult
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode %s child create response: %v", tc.name, err)
+		}
+		if len(payload.SectionIDs) != 1 {
+			t.Fatalf("expected one %s child id, got %#v", tc.name, payload.SectionIDs)
+		}
+
+		project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+		if err != nil {
+			t.Fatalf("project snapshot after %s child create: %v", tc.name, err)
+		}
+		createdSection, ok := project.Sections[payload.SectionIDs[0]]
+		if !ok {
+			t.Fatalf("expected created %s section %q", tc.name, payload.SectionIDs[0])
+		}
+		if createdSection.Name != tc.expectedName {
+			t.Fatalf("expected %s child name %q, got %q", tc.name, tc.expectedName, createdSection.Name)
+		}
+		_, _, impl, err := project.ResolveSection(payload.SectionIDs[0])
+		if err != nil {
+			t.Fatalf("resolve %s child section: %v", tc.name, err)
+		}
+		if impl.Kind != tc.expectedKind {
+			t.Fatalf("expected %s child kind %q, got %q", tc.name, tc.expectedKind, impl.Kind)
+		}
+		if tc.expectedKind == projectstate.SectionKindGenerated {
+			if impl.Generated == nil || impl.Generated.Kind != tc.expectedGen {
+				t.Fatalf("expected %s generated kind %q, got %#v", tc.name, tc.expectedGen, impl.Generated)
+			}
+		}
+
+		implPayload := decodeProjectRouteRawObject(t, impl.Payload)
+		if got, _ := implPayload["type"].(string); got != tc.implType {
+			t.Fatalf("expected %s child payload type %q, got %#v", tc.name, tc.implType, implPayload["type"])
+		}
+	}
+}
+
+func TestRegisterProjectRoutesCreateChildSectionsViaIncrementerRejectsSourceDirectOnlyTypes(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	for _, implType := range []string{"GlobalVariables", "GenPythonCode", "GenPythonMetadata"} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteCreateChildSectionsViaIncrementer,
+			strings.NewReader(fmt.Sprintf(`{"projectConfigId":"project-alpha","calledBy":"child-a","implType":"%s","numChildren":1}`, implType)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("expected 422 for incrementer %s create, got %d with body %q", implType, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"child_section_mutation_invalid"`) {
+			t.Fatalf("expected child_section_mutation_invalid for %s, got %q", implType, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesChildSectionMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 

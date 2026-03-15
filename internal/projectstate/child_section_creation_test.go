@@ -375,6 +375,195 @@ func TestProjectCreateChildSectionsSupportsExpandedActiveTypes(t *testing.T) {
 	}
 }
 
+// Direct child creation should keep the broader Python-source allowlist even
+// though these singleton/generated types remain disallowed as default children.
+func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		implType      string
+		expectedKind  SectionKind
+		expectedGen   GeneratedSectionKind
+		assertPayload func(*testing.T, map[string]any)
+	}{
+		{
+			name:         "global variables",
+			implType:     "GlobalVariables",
+			expectedKind: SectionKind("frontend"),
+			assertPayload: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "GlobalVariables" {
+					t.Fatalf("expected GlobalVariables payload type, got %q", got)
+				}
+				if got, ok := payload["topLevelParamId"]; !ok || got != nil {
+					t.Fatalf("expected nil topLevelParamId default, got %#v", payload["topLevelParamId"])
+				}
+			},
+		},
+		{
+			name:         "generated python code",
+			implType:     "GenPythonCode",
+			expectedKind: SectionKindGenerated,
+			expectedGen:  GeneratedSectionKindPythonCode,
+			assertPayload: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
+					t.Fatalf("expected GenPythonCode payload type, got %q", got)
+				}
+				if got := payloadRawStringField(payload, "code"); got != "" {
+					t.Fatalf("expected empty generated python code payload, got %q", got)
+				}
+			},
+		},
+		{
+			name:         "generated python metadata",
+			implType:     "GenPythonMetadata",
+			expectedKind: SectionKindGenerated,
+			expectedGen:  GeneratedSectionKindPythonMetadata,
+			assertPayload: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "GenPythonMetadata" {
+					t.Fatalf("expected GenPythonMetadata payload type, got %q", got)
+				}
+				if got := payloadRawStringField(payload, "code"); got != "" {
+					t.Fatalf("expected empty generated python metadata payload, got %q", got)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		project := testIncrementerProject()
+
+		result, err := project.CreateChildSections(CreateChildSectionsInput{
+			ParentID:    "parent",
+			ImplType:    tc.implType,
+			NumChildren: 1,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s child section: %v", tc.name, err)
+		}
+		if len(result.SectionIDs) != 1 {
+			t.Fatalf("expected one created %s child id, got %#v", tc.name, result.SectionIDs)
+		}
+
+		createdID := result.SectionIDs[0]
+		payload, err := effectiveSectionPayload(project, createdID, project.SectionVariantMap[createdID])
+		if err != nil {
+			t.Fatalf("effective %s payload: %v", tc.name, err)
+		}
+		_, _, impl, err := project.ResolveSection(createdID)
+		if err != nil {
+			t.Fatalf("resolve %s child section: %v", tc.name, err)
+		}
+		if impl.Kind != tc.expectedKind {
+			t.Fatalf("expected %s kind %q, got %q", tc.name, tc.expectedKind, impl.Kind)
+		}
+		if tc.expectedKind == SectionKindGenerated {
+			if impl.Generated == nil || impl.Generated.Kind != tc.expectedGen {
+				t.Fatalf("expected %s generated kind %q, got %#v", tc.name, tc.expectedGen, impl.Generated)
+			}
+		}
+
+		tc.assertPayload(t, payload)
+	}
+}
+
+// The source direct create_child_sections helper accepts singleton/generated section
+// types even though the default-child and incrementer family stays narrower.
+func TestProjectCreateChildSectionsSupportsSourceDirectOnlyTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		implType     string
+		expectedName string
+		assert       func(*testing.T, Project, string, map[string]any, SectionImpl)
+	}{
+		{
+			name:         "global variables",
+			implType:     "GlobalVariables",
+			expectedName: "Global Variables",
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "GlobalVariables" {
+					t.Fatalf("expected GlobalVariables payload type, got %q", got)
+				}
+				if got, ok := payload["topLevelParamId"]; !ok || got != nil {
+					t.Fatalf("expected nil GlobalVariables topLevelParamId default, got %#v", payload["topLevelParamId"])
+				}
+				if impl.IsGenerated() {
+					t.Fatalf("did not expect generated impl for GlobalVariables, got %#v", impl)
+				}
+			},
+		},
+		{
+			name:         "generated python",
+			implType:     "GenPythonCode",
+			expectedName: GeneratedPythonCodeSectionName,
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
+					t.Fatalf("expected GenPythonCode payload type, got %q", got)
+				}
+				if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
+					t.Fatalf("expected generated python impl, got %#v", impl)
+				}
+			},
+		},
+		{
+			name:         "generated python metadata",
+			implType:     "GenPythonMetadata",
+			expectedName: GeneratedPythonMetadataSectionName,
+			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any, impl SectionImpl) {
+				t.Helper()
+				if got := payloadStringField(payload, "type"); got != "GenPythonMetadata" {
+					t.Fatalf("expected GenPythonMetadata payload type, got %q", got)
+				}
+				if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonMetadata {
+					t.Fatalf("expected generated python metadata impl, got %#v", impl)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		project := testIncrementerProject()
+
+		result, err := project.CreateChildSections(CreateChildSectionsInput{
+			ParentID:    "parent",
+			ImplType:    tc.implType,
+			NumChildren: 1,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s child section: %v", tc.name, err)
+		}
+		if len(result.SectionIDs) != 1 {
+			t.Fatalf("expected one created %s child id, got %#v", tc.name, result.SectionIDs)
+		}
+
+		sectionID := result.SectionIDs[0]
+		section := project.Sections[sectionID]
+		if section.ParentSectionID != "parent" {
+			t.Fatalf("expected created %s parent parent, got %#v", tc.name, section)
+		}
+		if section.Name != tc.expectedName {
+			t.Fatalf("expected created %s name %q, got %q", tc.name, tc.expectedName, section.Name)
+		}
+
+		payload, err := effectiveSectionPayload(project, sectionID, project.SectionVariantMap[sectionID])
+		if err != nil {
+			t.Fatalf("effective payload for %s: %v", tc.name, err)
+		}
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			t.Fatalf("resolve %s section: %v", tc.name, err)
+		}
+		tc.assert(t, project, sectionID, payload, impl)
+	}
+}
+
 func TestProjectCreateChildSectionsAppliesSettingsBackedTaskBoardDefaults(t *testing.T) {
 	t.Parallel()
 

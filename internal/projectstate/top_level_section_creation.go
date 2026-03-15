@@ -408,7 +408,7 @@ func buildCreatedTopLevelSectionImpl(
 		if err != nil {
 			return SectionImpl{}, nil, nil, nil, err
 		}
-		payloadObject, err := rawObjectFromProjectPayload(payload)
+		payloadObject, err = rawObjectFromProjectPayload(payload)
 		if err != nil {
 			return SectionImpl{}, nil, nil, nil, err
 		}
@@ -1584,10 +1584,26 @@ func (p *Project) pruneTopLevelCreationViewState() {
 	}
 }
 
-func nextAvailableCreatedTopLevelSectionName(project Project, _ string) (string, error) {
+func nextAvailableCreatedTopLevelSectionName(project Project, implType string) (string, error) {
+	if preferredName, ok := preferredCreatedSectionName(implType); ok && createTopLevelSectionNameAvailable(project, preferredName) {
+		return preferredName, nil
+	}
 	return nextAvailableMemorableName(func(candidate string) (bool, error) {
 		return createTopLevelSectionNameAvailable(project, candidate), nil
 	})
+}
+
+func preferredCreatedSectionName(implType string) (string, bool) {
+	switch strings.TrimSpace(implType) {
+	case "GlobalVariables":
+		return "Global Variables", true
+	case "GenPythonCode":
+		return GeneratedPythonCodeSectionName, true
+	case "GenPythonMetadata":
+		return GeneratedPythonMetadataSectionName, true
+	default:
+		return "", false
+	}
 }
 
 func createTopLevelSectionNameAvailable(project Project, candidate string) bool {

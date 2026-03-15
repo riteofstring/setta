@@ -544,6 +544,40 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 	}
 }
 
+// Source create_section seeds fixed core names for singleton/generated families
+// before falling back to memorable-name generation for ordinary sections.
+func TestProjectCreateTopLevelSectionUsesSourceDefaultNamesForSingletonAndGeneratedTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		implType     string
+		expectedName string
+	}{
+		{implType: "GlobalVariables", expectedName: "Global Variables"},
+		{implType: "GenPythonCode", expectedName: GeneratedPythonCodeSectionName},
+		{implType: "GenPythonMetadata", expectedName: GeneratedPythonMetadataSectionName},
+	}
+
+	for _, tc := range testCases {
+		project := testCreateTopLevelSectionProject(t)
+
+		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+			ImplType: tc.implType,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s top level section: %v", tc.implType, err)
+		}
+
+		createdSection, ok := project.Sections[result.SectionID]
+		if !ok {
+			t.Fatalf("expected created section %q for %s", result.SectionID, tc.implType)
+		}
+		if createdSection.Name != tc.expectedName {
+			t.Fatalf("expected %s name %q, got %q", tc.implType, tc.expectedName, createdSection.Name)
+		}
+	}
+}
+
 func TestProjectCreateTopLevelSectionAppliesSettingsBackedTaskBoardDefaults(t *testing.T) {
 	t.Parallel()
 
