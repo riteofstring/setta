@@ -4653,3 +4653,38 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/projectChatWindowingInstanceState.ts`
     so window instance creation, next-instance-id allocation, and shared
     per-window update helpers stop sharing one action surface.
+
+## 2026-03-15 12:43:43 PDT
+
+- Slice completed: split project chat window instance creation from updates
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingInstanceCreation.ts`
+  - `frontend/src/state/actions/projectChatWindowingInstanceUpdates.ts`
+  - `frontend/src/state/actions/projectChatWindowingInstanceState.ts`
+  - `frontend/src/state/actions/projectChatWindowingInstanceCreation.test.ts`
+  - `frontend/src/state/actions/projectChatWindowingInstanceUpdates.test.ts`
+  - `frontend/src/state/actions/projectChatWindowingLayoutState.ts`
+  - `frontend/src/state/actions/projectChatWindowingPlacementState.ts`
+  - `frontend/src/state/actions/projectChatWindowingBoundsState.ts`
+  - `frontend/src/state/actions/projectChatWindowingSectionState.ts`
+  - `frontend/src/state/actions/projectChatWindowingMetadataState.ts`
+  - `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowSectionCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
+  - `frontend/src/state/actions/projectChatWindowing.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowingInstanceCreation.test.ts src/state/actions/projectChatWindowingInstanceUpdates.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.rollback.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowingInstanceCreation.ts src/state/actions/projectChatWindowingInstanceUpdates.ts src/state/actions/projectChatWindowingInstanceState.ts src/state/actions/projectChatWindowingInstanceCreation.test.ts src/state/actions/projectChatWindowingInstanceUpdates.test.ts src/state/actions/projectChatWindowingMetadataState.ts src/state/actions/projectChatWindowingPlacementState.ts src/state/actions/projectChatWindowingBoundsState.ts src/state/actions/projectChatWindowingSectionState.ts src/state/actions/projectChatWindowingLayoutState.ts src/state/actions/projectChatWindowLifecycleCommands.ts src/state/actions/projectChatWindowSectionCommands.ts src/state/actions/projectChatWindowingTrackedGitPane.ts src/state/actions/projectChatWindowing.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual project-chat windowing state
+    ownership split and did not change frontend rendering behavior.
+- Commit hash:
+  - `47d797006e32723e85ca323b81438f7a250237b4`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/params/paramMoveQueries.ts` so param
+    move target resolution, visible-tree insertion planning, and backend move
+    payload preparation stop sharing one action surface.
