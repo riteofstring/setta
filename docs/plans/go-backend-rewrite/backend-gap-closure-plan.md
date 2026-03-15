@@ -141,3 +141,6 @@ categorize them.
   latest-selection, and outside-cwd workspace-selection rows are now proved
   too; that makes the local status/connect-info cluster largely exhausted, so
   the next cheap wins are probably outside this owner
+- The backups-list restore-stash suppression row is now proved too; keep taking
+  these one-branch packaged CLI rows when they fall out of an already-open
+  owner before switching to a wider runtime or websocket slice
