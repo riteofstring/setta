@@ -1020,3 +1020,35 @@ Append-only log for the callable DOM-first performance refactor.
   - That means the callable track remains stopped short of completion, and there is still no justified next callable-specific step inside this plan.
 - Next action:
   - Do not continue callable-specific implementation work under this plan unless the scope explicitly expands beyond the callable subtree or a later fresh trace produces a clearly callable-owned hotspot.
+
+### 2026-03-16 42
+
+- Item: Scope reset from callable-only performance work to sections-wide DOM simplification.
+- Status: `done`
+- Details:
+  - Re-read the accepted callable pilot work and the remaining grid/subgrid usage still visible above the callable subtree.
+  - Confirmed that the surviving contract is not just in the callable rows:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - Updated the plan so the active goal is now:
+    - sections-wide DOM simplification
+    - simplest viable rendering/layout technique
+    - grid only where it clearly earns its keep
+    - pseudo-elements / absolute positioning for visual-only affordances where that removes wrappers and coupling
+    - Chrome DevTools comparison against untouched `main` after each accepted checkpoint
+  - Added explicit language to the plan defining the "shared chrome / editor path" as shared section infrastructure rather than callable-specific code.
+  - Added new active phases:
+    - shared section-shell baseline
+    - decorative/wrapper flattening
+    - shared row/shell simplification
+    - shared resizable/container simplification
+    - trace-backed follow-up
+- Interpretation:
+  - The callable entries earlier in this log remain valid as pilot evidence and regression history.
+  - The plan is now structurally aligned with the actual problem:
+    - the remaining grid and shell complexity is higher than the callable subtree
+    - the next serious DOM rethink should happen at the section-shell level
+- Next action:
+  - Start the new shared section-shell baseline phase before more implementation work.

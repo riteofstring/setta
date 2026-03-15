@@ -893,3 +893,13 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
     - the dominant unresolved resize work is still shared page chrome / editor work
     - callable-owned contributions remain present but minor
   - Treat this as confirmation that the callable track remains incomplete rather than as evidence for a new callable Phase 4 checkpoint.
+
+### Scope reset note
+
+- Date/time: 2026-03-16
+- Note:
+  - This report now serves as the callable pilot record for a broader sections-wide DOM simplification effort.
+  - The accepted callable work remains useful because it established:
+    - parity-preserving subtree flattening is possible
+    - the unresolved layout/render cost is higher in the section stack than the callable subtree itself
+  - Future measurements for the broadened effort should be recorded as shared section-shell reports rather than appended here unless the run is still specifically about the callable pilot scenes.

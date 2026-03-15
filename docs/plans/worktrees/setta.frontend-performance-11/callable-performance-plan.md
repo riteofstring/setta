@@ -1,4 +1,4 @@
-# Callable Performance Refactor Plan
+# Section DOM Simplification Plan
 
 Date: 2026-03-16
 Worktree: `setta.frontend-performance-11`
@@ -7,14 +7,18 @@ Related log: `docs/plans/worktrees/setta.frontend-performance-11/callable-perfor
 
 ## Goal
 
-Improve callable-section pan, zoom, and resize performance with a DOM-first refactor, while keeping visible layout and interaction behavior effectively identical to untouched `main`.
+Simplify the section DOM structure as aggressively as possible, while keeping visible layout and interaction behavior effectively identical to untouched `main`.
 
-This plan is intentionally narrow:
+This file started as a callable-only plan. The accepted callable work now serves as the pilot/baseline for a broader sections-wide DOM simplification effort because the remaining grid and measurement contracts live above the callable subtree.
 
-- Scope the first pass to the callable section only.
-- Refactor deepest nested callable components first, then move upward.
-- Finish the DOM/layout pass before starting React/JS optimization.
-- Stop and prompt the user before moving from one phase to the next.
+Active goal now:
+
+- Reduce section-shell DOM complexity across shared section infrastructure, not just callables.
+- Prefer the simplest layout/rendering technique that preserves behavior and parity.
+- Treat performance wins as likely upside, but not as guaranteed proof before the shared section-shell work is complete.
+- Keep comparing untouched `main` vs this worktree in Chrome DevTools at each accepted checkpoint.
+
+Historical callable-only phases below remain valid as an append-only record of the pilot work that already landed.
 
 ## Planning Inputs
 
@@ -50,6 +54,18 @@ This plan is intentionally narrow:
   - canvas-engine rewrite under always-live DOM
 - The current callable subtree still uses recursive `grid` / `subgrid` contracts heavily in the row and group layers, so the next focused pass should attack that directly.
 
+## What "Shared Chrome / Editor Path" Means
+
+When the log/report says the remaining hotspot is in the "shared chrome / editor path", it means the dominant work is no longer isolated to callable-specific row rendering. It is in shared infrastructure that many section types pay for:
+
+- section container and resize shell work
+- shared section chrome and overlays
+- edge-handle positioning work
+- CodeMirror/editor layout work
+- shared chat/window chrome such as `ProjectChatBottomDock`
+
+In other words, the remaining cost is higher in the section stack than `CallableArea` itself.
+
 ## Architectural Focus
 
 - Treat the row/tree path as one architecture cluster, not as isolated files:
@@ -60,6 +76,26 @@ This plan is intentionally narrow:
 - The main structural goal is to replace the current recursive row shell contract with a smaller row primitive and a clearer shell boundary.
 - Use `improve-codebase-architecture` when the row primitive, shell boundary, or ownership split becomes unclear during implementation.
 - Use `debug-with-http-logging` when parity or perf behavior becomes ambiguous enough that traces and screenshots are not sufficient to explain the mechanism.
+
+For the broadened sections-wide pass, treat these as the shared architecture cluster:
+
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+- `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+- `frontend/src/components/Section/Container/sectionChrome.ts`
+- `frontend/src/components/Params/GroupContainer.tsx`
+- `frontend/src/components/Params/ParamContainer.tsx`
+- `frontend/src/components/Params/ParamSwitch.tsx`
+
+## Layout Principles
+
+- Default to the flattest DOM structure that preserves behavior.
+- Do not assume `grid` is the right answer just because the layout is complex.
+- Keep `grid` only where it clearly earns its keep through a simpler contract or lower DOM cost.
+- Prefer `relative` + `absolute` positioning for decorative layers, underlines, badges, hover chrome, and overlays when that removes wrapper nodes or layout coupling.
+- Prefer pseudo-elements over extra DOM nodes for purely visual affordances.
+- Use `flex` only when the layout is truly one-dimensional and it simplifies the contract without introducing extra measurement or wrapper work.
+- Avoid using `grid` for effects that do not need grid semantics, such as input underlines, status chips, hover frames, or resize visuals.
+- If a layout choice is not clearly simpler or clearly faster, do not keep it by inertia; measure it.
 
 ## Current Callable Hotspot Map
 
@@ -463,6 +499,137 @@ Current closeout status:
 - Only reopen the callable track if:
   - a fresh trace proves the locked pan/zoom/resize gap is still callable-owned, or
   - the scope explicitly expands to shared page chrome / editor work that sits outside the callable subtree.
+
+## Active Continuation After The Callable Pilot
+
+The active work is now sections-wide DOM simplification.
+
+The callable work already completed in this branch remains important because it proved two things:
+
+- flattening the subtree is possible without user-facing regression
+- the remaining layout contract is defined above the callable subtree, so a broader section-shell pass is justified
+
+### Representative scenarios
+
+Keep the callable scenarios as required controls:
+
+- locked `open` control scene
+- `math.sqrt` minimum regression matrix
+
+Add at least two shared section-shell controls before implementation resumes:
+
+- one editor-backed non-callable section
+- one non-editor section that still exercises the shared section shell and resizing path
+
+Each accepted checkpoint should compare untouched `main` and this worktree on the same representative scene set in Chrome DevTools.
+
+### Active phases
+
+#### Phase S0: Shared Section-Shell Baseline
+
+Purpose: identify the section-level grid/subgrid and wrapper contracts that survive above the callable pilot.
+
+Tasks:
+
+1. Capture a fresh DOM audit for representative section types on `main` and this worktree:
+   - total nodes
+   - max depth
+   - grid count
+   - subgrid count
+   - wrapper-only nodes
+2. Capture DevTools traces for the shared resize path and any obviously coupled pan/zoom path.
+3. Map the shared shell ownership:
+   - `SectionContainerCoreResizabe`
+   - `CustomResizable`
+   - `sectionChrome`
+   - shared edge-handle work
+   - editor/chat chrome that fires during section resize
+
+Exit criteria:
+
+- The shared section-shell hotspot map is written down.
+- The representative scene set is locked.
+
+#### Phase S1: Decorative And Wrapper Flattening Across Shared Section Shells
+
+Purpose: remove visual-only nodes and grid usage that are not carrying real layout semantics.
+
+Targets:
+
+- resize visuals
+- section hover/selection chrome
+- underlines and focus affordances
+- status/error badges
+- purely visual gutters/dividers
+
+Tasks:
+
+1. Replace wrapper nodes with pseudo-elements where possible.
+2. Replace visual-only grid usage with absolute positioning where it keeps parity and reduces coupling.
+3. Keep each checkpoint small and screenshot-gated.
+
+Exit criteria:
+
+- Visual-only wrappers are materially reduced across the shared shell.
+- No user-facing behavior changes.
+
+#### Phase S2: Shared Row / Shell Contract Simplification
+
+Purpose: replace the surviving grid/subgrid section-row contract with a simpler shared primitive where that actually reduces DOM and layout work.
+
+Targets:
+
+- `GroupContainer`
+- `ParamContainer`
+- `ParamSwitch`
+- any shared section-row shell in the section container stack
+
+Tasks:
+
+1. Remove `grid-cols-subgrid` where a simpler contract can preserve parity.
+2. Collapse nested row shells that still exist only to satisfy the old grid contract.
+3. Prefer a single shared row primitive instead of multiple similar grid wrappers.
+
+Exit criteria:
+
+- The shared row/shell contract is materially simpler than untouched `main`.
+- Grid remains only where it clearly carries real structural value.
+
+#### Phase S3: Shared Resizable / Container Simplification
+
+Purpose: simplify the high-level section frame and resize path now that the inner shell has been reduced.
+
+Targets:
+
+- `SectionContainerCoreResizabe`
+- `CustomResizable`
+- `sectionChrome`
+
+Tasks:
+
+1. Remove unnecessary frame/layout wrappers in the section shell.
+2. Reduce layout reads/writes in the resize path where a simpler shell makes them unnecessary.
+3. Keep parity on handles, selection, hover, and minimized/fullscreen behavior.
+
+Exit criteria:
+
+- The shared section shell is flatter than untouched `main`.
+- The resize path is re-measured on the representative scenes.
+
+#### Phase S4: Trace-Backed Follow-Up
+
+Purpose: only after the shared DOM simplification lands, revisit any remaining scripting/layout hotspots shown by DevTools.
+
+Tasks:
+
+1. Re-run Chrome DevTools traces on `main` vs this worktree.
+2. Continue only where the next hotspot is proven by measurement.
+3. Do not keep refactoring by aesthetics alone once the structural work is done.
+
+Exit criteria:
+
+- The next remaining hotspot is explicitly identified.
+- Any further work is justified by evidence rather than assumption.
 
 ## Current Blockers At Planning Time
 
