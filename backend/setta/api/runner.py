@@ -274,7 +274,7 @@ class SettaRunner:
         )
         entry_section_id = active_override.entry_section_id
         if entry_section is not None:
-            entry_section_id = self._resolve_section_id(entry_section)
+            entry_section_id = self.summary().section(str(entry_section)).id
         payload = {
             "projectConfigId": project_config_id,
             "entrySectionId": entry_section_id,
@@ -403,10 +403,6 @@ class SettaRunner:
             if config.name == project_name or config.id == project_name:
                 return config.id
         raise KeyError(f"Unknown project config: {project_name}")
-
-    def _resolve_section_id(self, section_ref: str | ID) -> ID:
-        summary = self.summary()
-        return summary.section(str(section_ref)).id
 
     def _encode_param_overrides(
         self,

@@ -263,3 +263,49 @@ def test_resolve_auth_headers_consumes_bootstrap_token(monkeypatch) -> None:
             {"token": "bootstrap-token"},
         )
     ]
+
+
+def test_run_detached_resolves_entry_section_name_via_summary(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com", auth_headers={"Cookie": "x=y"})
+    project_state = _build_project_state()
+    observed_requests: list[tuple[runner_mod.Route, dict]] = []
+
+    def post(route: runner_mod.Route, payload: dict) -> dict:
+        observed_requests.append((route, payload))
+        if route is runner_mod.Route.GET_LATEST_PROJECT_STATE:
+            return {"projectState": project_state.model_dump(mode="json")}
+        if route is runner_mod.Route.RUN_DETACHED:
+            return {"runId": "run-1", "status": "queued"}
+        raise AssertionError(f"unexpected route {route}")
+
+    monkeypatch.setattr(runner, "_post", post)
+    monkeypatch.setattr(
+        runner,
+        "_resolve_project_config_id",
+        lambda _ref: project_state.projectConfig.id,
+    )
+
+    # Detached runs should resolve an entry section name through RunnerSummary
+    # and send the canonical section id in the detached-run payload.
+    response = runner.run_detached(entry_section="Welcome")
+
+    assert response.runId == "run-1"
+    assert observed_requests == [
+        (
+            runner_mod.Route.GET_LATEST_PROJECT_STATE,
+            {"projectConfigId": project_state.projectConfig.id},
+        ),
+        (
+            runner_mod.Route.RUN_DETACHED,
+            {
+                "projectConfigId": project_state.projectConfig.id,
+                "entrySectionId": ID("section-welcome"),
+                "runSnapshotMode": None,
+                "sectionVariantOverrides": {},
+                "paramOverrides": {},
+                "tags": {},
+            },
+        ),
+    ]
