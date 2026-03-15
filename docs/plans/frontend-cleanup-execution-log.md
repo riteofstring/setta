@@ -6150,3 +6150,46 @@ schedule settings` button still appears on the live task row.
     `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
     dropped to about 1377 lines and delegated its surface chrome/body plus
     conversation-search ownership into feature-local modules.
+
+## 2026-03-16 00:22:28 PDT
+
+- Slice completed: extracted appRegistry param-input owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` because
+  `frontend/src/components/App/appRegistry.tsx` was still the highest-value
+  unresolved app-mode front door at the start of the turn and it still mixed
+  param binding lookup, app-mode edit gating, backend writes, and per-control
+  render switching into one first-hop file.
+- Key files touched:
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/App/appRegistryShared.ts`
+  - `frontend/src/components/App/appRegistryParamModel.ts`
+  - `frontend/src/components/App/appRegistryParamControls.tsx`
+  - `frontend/src/components/App/appRegistryParamInput.tsx`
+  - `frontend/src/components/App/appRegistryParamModel.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `perf/reports/frontend/app-registry-param-owners-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/App/appRegistryParamModel.test.ts src/components/App/AppRenderer.policy.test.tsx src/components/App/AppRenderer.test.tsx src/components/App/AppRenderer.dataBindings.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-dropdown-portal-theme.spec.ts frontend/tests/e2e/app/app-mode-colorpicker-dropzone-theme.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/App/appRegistry.tsx src/components/App/appRegistryShared.ts src/components/App/appRegistryParamModel.ts src/components/App/appRegistryParamControls.tsx src/components/App/appRegistryParamInput.tsx src/components/App/appRegistryParamModel.test.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../perf/reports/frontend/app-registry-param-owners-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/app-registry-param-owners-2026-03-16.md`
+    with before/after DOM metrics for a controlled app-mode param fixture.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy`
+    with a fixture app containing one text param and one dropdown param; the
+    before/after app subtree metrics stayed at `107` total document nodes and
+    `27` app-subtree nodes, the shell width stayed at `1024px`, and the
+    dropdown portal still expanded with `3` options while body horizontal
+    overflow stayed hidden.
+- Commit hash:
+  - `841cfc000ecd248c516bb83ae1444869988dbf52`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`,
+    which is now the top unresolved front-door hotspot after
+    `frontend/src/components/App/appRegistry.tsx` dropped to about 888 lines
+    and delegated its app param binding, edit gating, mutation, and control
+    rendering ownership into feature-local modules.
