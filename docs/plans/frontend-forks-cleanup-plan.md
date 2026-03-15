@@ -72,7 +72,8 @@ Make the frontend code under `frontend/src/forks/**` easy to navigate and safe t
 
 1. Clarify fork ownership and allowed boundaries
 
-- Add short fork-local guidance (for example README notes) that answers:
+- Prefer clear fork-local entry modules, names, or small domain subfolders that
+  make these answers obvious:
   - why the fork exists
   - what it owns today
   - where new related code should live

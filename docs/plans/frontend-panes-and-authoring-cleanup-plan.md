@@ -150,6 +150,8 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 4. Generated route/type usage should be wrapped by pane-local APIs before it reaches leaf UI.
 5. Start with pane front doors and 2000+ entry surfaces before medium-sized authoring cleanup in the same domain.
 6. Do not move a pane monolith into one new 1000+ helper file. Prefer a small pane shell plus a few clear local owners.
+7. Prefer pane-domain names over generic buckets like `helpers`, `shared`, or `viewModel`. More files is fine if the owning pane and neighboring modules stay obvious.
+8. When pane directories become too flat to scan, prefer stable pane-domain subfolders over directory `README.md` files.
 
 ## Plan
 
@@ -232,16 +234,16 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 - Move UI-editor tab compatibility and stored-tab selection logic into a clearly named authoring state module.
 - Reduce the mental jump between `constants.ts`, `uiTypes.ts`, and `UiEditor.tsx`.
 
-9. Document pane ownership once a root surface stabilizes
+9. Add pane-domain subfolders only when a stabilized dense area still needs them
 
-- Add short feature READMEs for:
+- Add pane-domain subfolders only when grep plus naming still leaves multiple
+  plausible entry points for:
   - git overlay
   - file browser pane
   - overview pane
   - app config pane
   - UI editor
-- Include “where to add a new pane/tab/settings group” guidance.
-- Do not spend a cleanup slice on README-only work while the larger pane roots
+- Do not spend a cleanup slice on docs-only work while the larger pane roots
   above remain unresolved.
 
 ## Risks And Mitigations

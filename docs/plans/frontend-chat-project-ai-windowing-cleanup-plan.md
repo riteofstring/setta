@@ -4,7 +4,7 @@ Companion to [frontend-cleanup-plan.md](./frontend-cleanup-plan.md).
 
 ## Goal
 
-Make shared chat rendering, project-AI orchestration, and project chat windowing easy to navigate by separating render surfaces, view models, commands, and interaction math.
+Make shared chat rendering, project-AI orchestration, and project chat windowing easy to navigate by separating render surfaces, commands, interaction math, and other clearly named local owners.
 
 ## Scope
 
@@ -86,9 +86,10 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - Future cleanup in this domain should default to simplifying the giant
   render-heavy files above instead of creating more facade-only state modules or
   moving mixed responsibilities into new 1000+ local helper files.
-- Local `README.md` files in `ProjectLevelAI/`, `Chat/`, or `ChatWindowing/`
-  are useful only after one of the roots above stabilizes. Do not spend a
-  slice on docs-only work while those front doors remain large.
+- Once one of the roots above stabilizes, prefer domain subfolders in
+  `ProjectLevelAI/`, `Chat/`, or `ChatWindowing/` over any new directory
+  `README.md` files. Do not spend a slice on docs-only work while those front
+  doors remain large.
 
 ## Current Problems
 
@@ -119,6 +120,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   `projectChatSlashCommandsViewState.ts`.
 - `ProjectChatBottomDock.tsx` is smaller now, but it still combines viewport or tracked-git-pane state, animation lifecycle, focus/placement commands, and floating-bounds or snap orchestration even after dock keyboard shortcut parsing moved into `projectChatWindowShortcuts.ts`, dock layout math moved into `projectChatBottomDockLayout.ts`, dock-resize state moved into `projectChatDockResize.ts`, floating drag/resize or snap-preview state moved into `projectChatFloatingInteractions.ts`, minimized-pill strip responsiveness plus menu/animation ownership moved into `projectChatBottomDockPillStrip.tsx`, shared project-vs-section shell rendering plus body selection moved into `projectChatWindowShell.tsx`, and the docked/floating/maximized render shells moved into `ProjectChatDockedWindowsSurface.tsx`, `ProjectChatFloatingWindowsLayer.tsx`, `ProjectChatMaximizedWindowSurface.tsx`, and `projectChatBottomDockSurfaceHelpers.tsx`.
 - `ProjectChatHistory.tsx` is much smaller now, but it still coordinates polling, search navigation, thread/group commands, and history DnD over the new local render owners. Follow-up work here should only continue when it shortens the path from this coordinator into one remaining mixed responsibility rather than re-splitting the freshly extracted render shells.
+- More chat/windowing files are acceptable if the root entrypoint stays obvious.
+  The real risk in this domain is generic or mixed-purpose extracted files, not
+  file count by itself.
 - Some extracted helpers are still coarse enough to be cleanup targets in their
   own right, especially when they hide multiple concerns behind a single new
   file. Do not keep pushing more behavior into `chatAssistantActivityCard.tsx`
@@ -130,10 +134,13 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 1. Start from the giant render surface, then extract feature-local helpers around it.
 2. Prefer local view-model helpers, render subcomponents, and command adapters over generic abstractions.
-3. Only take a lower-level chat/windowing state split when it is a direct prerequisite for simplifying a remaining large UI file in this domain.
-4. Treat thin compatibility facades as acceptable transitional surfaces. Do not spend a slice extending them unless doing so removes mixed responsibilities from a top hotspot in the same turn.
-5. Do not replace one giant file with another giant helper. Prefer a coordinator plus several narrow local owners over a coordinator plus one new 1200-line “helper”.
-6. Keep render-heavy behavior measurable: large message lists, docked/floating windows, and project-chat history surfaces should remain at least as fast as before.
+3. Prefer specific domain names such as `projectChatHistoryDnd` or `chatInputSubmission` over generic buckets such as `helpers`, `shared`, `runtime`, or `viewModel` unless the file truly owns that one narrow cross-feature concern.
+4. When `ProjectLevelAI/`, `Chat/`, or `ChatWindowing/` becomes too flat to scan quickly, prefer stable domain subfolders such as `history/`, `surface/`, `settings/`, `skills-mcp/`, or `windowing/` over piling on more ambiguous siblings.
+5. If a chat/windowing root still needs local explanation after naming cleanup, use a short top-of-file ownership comment in the code instead of local docs.
+6. Only take a lower-level chat/windowing state split when it is a direct prerequisite for simplifying a remaining large UI file in this domain.
+7. Treat thin compatibility facades as acceptable transitional surfaces. Do not spend a slice extending them unless doing so removes mixed responsibilities from a top hotspot in the same turn.
+8. Do not replace one giant file with another giant helper. Prefer a coordinator plus several narrow local owners over a coordinator plus one new 1200-line “helper”.
+9. Keep render-heavy behavior measurable: large message lists, docked/floating windows, and project-chat history surfaces should remain at least as fast as before.
 
 ## Plan
 
@@ -195,14 +202,18 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - the change directly simplifies `ProjectChat.tsx`, `ProjectChatCore.tsx`, or
     another higher-priority entry surface.
 
-5. Add local ownership docs once a root surface stabilizes
+5. Add subfolders only when a stabilized dense directory still needs them
 
-- For any stabilized chat/project-AI/windowing root, add a short local
-  `README.md` describing:
-  - the main entry surfaces
-  - the owning selectors/commands
-  - generated endpoint dependencies
-  - the most relevant tests
+- For any stabilized chat/project-AI/windowing root, add a small domain
+  subfolder only when it reduces the number of plausible first hops from the
+  parent directory.
+- Prefer folders like:
+  - `history/`
+  - `surface/`
+  - `settings/`
+  - `skills-mcp/`
+  - `windowing/`
+- Do not take a structure-only slice in this domain while front-door hotspots remain unless the move directly shortens future navigation.
 
 ## Verification
 

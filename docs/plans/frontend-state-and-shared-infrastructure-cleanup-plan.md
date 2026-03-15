@@ -1225,6 +1225,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 4. Keep shared infrastructure small and layered.
    Routing constants, layout constants, measurement keys, and interaction-class names do not belong in one catch-all module.
 
+5. When flat shared namespaces get crowded, prefer sharper domain prefixes or a small domain subdirectory over adding more siblings with generic names such as `helpers`, `shared`, `runtime`, or `utils`.
+6. If a shared entry module still needs explanation after naming cleanup, prefer a short ownership comment in the file over creating extra docs.
+
 ## Plan
 
 1. Split store definitions by domain
@@ -1237,6 +1240,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - temporary measurement state
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
+- If discovery in a flat namespace is still poor, prefer a clearer domain entry
+  module or small subdirectory over another generic sibling file.
 
 2. Keep project-chat window command ownership explicit
 
@@ -1283,13 +1288,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - DOM resize wrappers
   - focus behavior
 
-6. Add domain READMEs and import guidance
+6. Add targeted import and placement guidance only where it still helps
 
-- Document:
+- Prefer clearer domain entry modules and subdirectories first.
+- Document only in the cleanup plans or execution log when a shared domain
+  still needs extra guidance about:
   - where new store state belongs
   - when to add a selector vs a command
   - when `utils/` is appropriate vs feature-local helpers
 - Prefer explicit module imports over “just import from whichever mega-file already has something close”.
+- Do not use docs as a substitute for better domain names or clearer import
+  boundaries.
 
 ## Risks And Mitigations
 

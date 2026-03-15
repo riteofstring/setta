@@ -7,9 +7,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## What "Clean" Means Here
 
 - A contributor should be able to answer "where does this behavior live?" within a few file opens.
+- Grep on feature terms should usually land on the owning file because names are concrete; if naming alone is still not enough, add a short file-level ownership comment or docstring in the code rather than another local doc.
 - Render components should mostly describe UI, not also fetch data, mutate multiple stores, parse protocol payloads, and manage timers.
 - State writes should happen through small, named domain commands instead of ad hoc `getState()` / `setState()` reach-through from many places.
 - Expensive derivation should live in pure functions or selectors with tests, then feed lightweight React components.
+- More files is fine when the root entry surface stays obvious and each nearby file has one clear concern.
+- Avoid generic catch-all names such as `helpers`, `shared`, `runtime`, `viewModel`, or `utils` unless the file truly owns that single narrow cross-feature concern.
+- Use comments sparingly: prefer a short top-of-file ownership note or a targeted function comment only when the code boundary is otherwise hard to infer.
 - Performance work should be measured with existing Vitest/Playwright coverage plus CDP/`perf/reports` profiling for significant refactors.
 
 ## Scope
@@ -17,7 +21,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - In scope:
   - Authored frontend code under `frontend/src/**`
   - Refactors that improve readability, feature ownership, and render/update performance
-  - Documentation that helps agents quickly find the right file, state owner, and test entry points
+- Minimal branch-level cleanup guidance for prioritization and placement rules
 - Out of scope for the first pass:
   - `frontend/src/utils/generated*`
   - visual redesigns
@@ -27,7 +31,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Status Refresh (2026-03-14)
 
 - The overall direction in this plan is still valid, but this branch is no longer at the original planning snapshot.
-- Phase 0 foundation guidance now lives in `frontend/src/README.md`, and the
+- Phase 0 foundation guidance now lives in these cleanup plans, and the
   append-only branch log lives in `docs/plans/frontend-cleanup-execution-log.md`.
 - Some useful seams already exist and should be extended rather than recreated:
   - page routing already uses `frontend/src/components/Pages/routeConfig.ts` and `frontend/src/components/Pages/modeRouteResolver.ts`
@@ -54,6 +58,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
+- The next readability problem after file scope is oversized flat namespaces
+  where too many sibling files compete as plausible entry points.
 - There are 1503 authored TS/TSX files under `frontend/src`.
 - There are 36 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
 - Chat and project-AI code is the densest cluster:
@@ -279,9 +285,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/components/Section/Layouts/taskBoardAreaModel.test.ts`. If a
   future slice moves more root ownership there, update that coverage in the
   same change.
-- Local feature `README.md` files are useful once a root surface stabilizes,
-  but they are supporting work. Do not spend a cleanup slice on docs-only
-  churn.
+- Once a root surface stabilizes, prefer reshaping oversized flat namespaces
+  with clearer domain folders over adding any directory `README.md` files.
 - Use [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
   for the shared chat/project-AI/windowing cluster,
   [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md)
@@ -884,31 +889,35 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 For major hotspots, aim for a feature-local shape like this:
 
 ```text
-<feature>/
-  README.md
-  components/
-  hooks/
-  selectors/
-  commands/
-  api/
-  model/
-  *.test.ts(x)
-  *.perf.test.ts(x)
+<domain>/
+  <FeatureRoot>.tsx
+  <featureConcern>.ts
+  <featureConcern>.tsx
+  use<FeatureConcern>.ts
+  <featureConcern>.test.ts(x)
+  <featureConcern>.perf.test.ts(x)
 ```
 
 Notes:
 
-- This is a target shape, not a mandatory first-step directory migration.
+- This is a target shape, not a mandatory directory migration.
+- A good cleanup slice may still be 4 to 8 sibling files in one directory if the entrypoint and names stay obvious.
+- Add a domain subdirectory only when a flat sibling namespace is becoming harder to scan than the UI itself.
+- Prefer domain folders such as `history/`, `surface/`, `settings/`, `skills-mcp/`, `windowing/`, `sections/`, `websocket/`, or `window-space/` over generic buckets such as `helpers/`, `shared/`, `runtime/`, `model/`, or `components/`.
+- Do not add directory `README.md` files as a default navigation tool.
 - Keep truly generic primitives in shared locations.
 - Prefer explicit imports from owning modules over large barrel files.
 
 ## Phase 0: Guardrails And Mapping
 
-- Create or refresh a short frontend module map doc that tells agents where chat, project chat, browser/file management, app runtime, plugin runtime, and shared stores live.
 - Add clear "where new code goes" rules:
   - feature-local helpers stay with the feature
   - `utils/` is reserved for low-level cross-feature helpers
   - shared store definitions and selectors must name their owning feature
+- Prefer code-local guidance over docs:
+  - if a root file still needs context, add a short ownership comment at the top
+  - if a function has non-obvious invariants, add a targeted comment there
+  - do not create folder-level README navigation maps
 - If the branch does not already have one, create an append-only cleanup execution log so future agents can see which slices have already landed.
 - Define file-size guidance:
   - preferred: under 500 lines for new/refactored production files
@@ -978,22 +987,22 @@ Notes:
 - Do not take a state-only slice just to split an already small module or to
   create another thin compatibility facade.
 
-## Phase 5: Add Local Ownership Docs After A Root Surface Stabilizes
+## Phase 5: Reshape Oversized Flat Namespaces
 
 - Once a feature root becomes meaningfully smaller and its boundaries hold
-  across a few slices, add a short local `README.md`.
+  across a few slices, reshape the surrounding namespace if it is still too
+  flat to scan quickly.
 - Good candidates after stabilization include:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/`
-  - `frontend/src/components/Git/`
-  - `frontend/src/components/Section/Layouts/`
-  - `frontend/src/components/Panes/Overview/`
-- Each README should answer:
-  - what this feature owns
-  - main entry components
-  - primary stores/selectors/commands
-  - generated API dependencies
-  - most relevant tests
-- Do not spend a cleanup slice on README-only churn while large front-door
+  - `frontend/src/components/Chat/`
+  - `frontend/src/components/ChatWindowing/`
+  - `frontend/src/state/actions/`
+- Prefer stable domain folders over documentation:
+  - `history/`, `surface/`, `settings/`, `skills-mcp/`
+  - `windowing/`, `window-space/`, `websocket/`, `sections/`
+- Keep the public entry surface obvious after moving files. A subdirectory is a
+  win only if it reduces the number of plausible first hops.
+- Do not spend a cleanup slice on docs-only churn while large front-door
   hotspots remain.
 
 ## Verification Strategy
@@ -1008,16 +1017,20 @@ Notes:
 ## Success Criteria
 
 - Major frontend features have obvious entry points, state owners, and mutation paths.
-- New contributors and coding agents can usually identify the right file to change without opening a large cluster of unrelated files.
+- New contributors and coding agents can usually identify the right file to change from grep, names, and nearby tests without opening a large cluster of unrelated files.
 - Large shared surfaces no longer combine transport, state mutation, heavy derivation, and rendering in a single file.
 - Render-heavy flows remain at least as fast as today, with before/after profiling recorded for significant refactors.
-- The repo gains durable local guidance so future code does not collapse back into mega-files.
+- The repo gains durable naming, folder boundaries, and placement guidance so
+  future code does not collapse back into mega-files, giant flat namespaces, or
+  generic helper buckets.
 
 ## Recommended Execution Order
 
-1. Refresh or add the module map, placement rules, and execution log only if
-   they are missing, stale, or changed by your slice.
-2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
+1. Refresh the cleanup plans or execution log only if they are missing, stale,
+   or changed by your slice. Do not treat doc churn as a substitute for sharper
+   file names, clearer subfolders, and colocated tests.
+2. Choose the highest unresolved UI hotspot from the current tree and the
+   companion plans,
    usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
    `components/App/appRegistry.tsx`,
    `components/Section/Layouts/TaskBoardArea.tsx`,
@@ -1034,7 +1047,8 @@ Notes:
    `ChatInput.tsx`, `ChatMessages.tsx`, or `ProjectChatHistory.tsx` only after
    the larger same-domain front doors above are materially smaller, or when the
    same-turn slice directly shortens them.
-5. Add feature `README.md` files only after each area stabilizes.
+5. Add domain subfolders in oversized flat namespaces only after each area
+   stabilizes and only when they make the next edit path more obvious.
 
 ## Notes
 

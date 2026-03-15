@@ -196,6 +196,7 @@ Make section chrome and param rendering easy to change without touching measurem
 3. Measurement and observer logic should live outside JSX-heavy render files.
 4. Container hierarchy should be as flat as possible without losing behavior.
 5. High-DOM section surfaces must keep performance guardrails during cleanup.
+6. More feature-local files are fine when the owning layout surface stays obvious; avoid routing layout-specific logic into generic shared helper buckets too early.
 
 ## Plan
 

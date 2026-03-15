@@ -63,6 +63,7 @@ Make page-level code easy to follow by giving routing, page loading, page shells
 2. Page components should own page flow, not low-level resize/snap math.
 3. Route target resolution, loading state, and rendering should be separate modules.
 4. Standalone surfaces should reuse shared window/surface helpers when the behavior is the same.
+5. More page-domain files are acceptable when the entry surface stays obvious; avoid generic `helpers` buckets when a sharper page-domain name would make grep sufficient.
 
 ## Plan
 
@@ -74,8 +75,9 @@ Make page-level code easy to follow by giving routing, page loading, page shells
   - layout mode calculation
   - project list/gallery rendering
   - workspace/file-browser side pane
-- Add a small domain README for home-page ownership only after those boundaries
-  stabilize.
+- Add a small home-page domain subfolder only after those boundaries stabilize
+  and only if grep, names, and tests still leave the home-page boundary
+  ambiguous.
 
 2. Split route assembly from route behavior
 

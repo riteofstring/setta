@@ -1,14 +1,11 @@
 # Frontend Cleanup Plan Index
 
-This index groups the frontend cleanup work into smaller domain plans so Codex agents can start in the right place instead of scanning the whole tree.
+This index groups the frontend cleanup work into smaller domain plans for the few dense areas where the current tree is still hard to scan quickly.
 
-These plans describe the intended cleanup direction, but the exact hotspot sizes and helper boundaries can drift as refactors land. Treat the current tree as the source of truth for exact file ownership, and refresh these docs when a cleanup slice materially changes that map.
+These plans describe the intended cleanup direction, but the exact hotspot sizes and helper boundaries can drift as refactors land. Treat the current tree, grep results, nearby tests, and any file-level ownership comments as the source of truth for exact file ownership. Use these plans for branch-level prioritization and refresh them when a cleanup slice materially changes that map.
 
 ## Foundation Docs
 
-- [frontend/src/README.md](../../frontend/src/README.md)
-  - Current frontend module map, placement rules, and file-size guidance for
-    authored code under `frontend/src`.
 - [frontend-cleanup-execution-log.md](./frontend-cleanup-execution-log.md)
   - Append-only log of completed cleanup slices on this branch.
 
@@ -34,12 +31,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 
 ## Suggested Reading Order
 
-1. Read [frontend/src/README.md](../../frontend/src/README.md) for the current hotspot list, ownership map, and placement rules.
-2. Read [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) for the overall direction and current prioritization pivot.
+1. Read [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) for the overall direction and current prioritization pivot.
+2. Re-check the current tree with grep and nearby tests before acting on any exact file-size or hotspot claim in these docs.
 3. Read [frontend-cleanup-execution-log.md](./frontend-cleanup-execution-log.md) for recent slices, but treat older "next slice" notes as historical context rather than automatic instructions.
 4. Pick the companion plan that matches the highest-value front-door surface you are changing.
-5. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
-6. Re-check the current tree before acting on any exact file-size or hotspot claim in these docs.
+5. If grep and naming already make the ownership boundary obvious, use only the relevant docs instead of over-reading the whole plan set.
+6. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
 
 ## Current Default Starting Points (2026-03-16)
 
@@ -59,8 +56,8 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and `appRegistry.tsx` are now
   second-order work unless the same slice directly shortens one of the entry
   surfaces above.
-- Local feature `README.md` files are useful once a root surface stabilizes,
-  but they should not be the primary work item for a cleanup slice.
+- Once a root surface stabilizes, prefer domain subfolders in oversized flat
+  namespaces over any new directory `README.md` files.
 
 ## Coverage Notes
 

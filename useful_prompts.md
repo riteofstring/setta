@@ -98,14 +98,16 @@ Goal: clean up the authored frontend so it is easier for coding agents and human
 
 This stage is about unresolved front-door surfaces: the large files a contributor still opens first to understand a feature. Do not default to polishing already-improved coordinators or splitting smaller state modules unless that is required to shrink one of those front doors in the same turn.
 
+Navigation rule: Codex should usually find the right file by grep, sharp names, and nearby tests. If naming alone still leaves ambiguity in a dense area, prefer a short file-level ownership comment or docstring in the code over any dedicated folder README.
+
 This is an autonomous execution session. Work independently from the current tree and docs. Do not follow stale plan snapshots blindly.
 
 Read in this order:
 
-1. `frontend/src/README.md`
-2. `docs/plans/frontend-cleanup-plan-index.md`
-3. `docs/plans/frontend-cleanup-plan.md`
-4. `docs/plans/frontend-cleanup-execution-log.md` if it exists
+1. `docs/plans/frontend-cleanup-plan-index.md`
+2. `docs/plans/frontend-cleanup-plan.md`
+3. `docs/plans/frontend-cleanup-execution-log.md` if it exists
+4. Grep the current tree and inspect nearby tests so you know the real current entry surface and existing seams before relying on any plan snapshot.
 5. The one companion plan that matches the root surface you pick:
    - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md` for `ProjectChat.tsx`, `ProjectChatCore.tsx`, `ProjectAISettings.tsx`, `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatBottomDock.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx`
    - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md` for `GitGraphOverlay.tsx`, `PluginsPane.tsx`, `RunInstructions.tsx`, `FileBrowserPane.tsx`, `AppConfigPane.tsx`, and overview/UI-editor surfaces
@@ -116,10 +118,11 @@ Read in this order:
    - For `frontend/src/components/App/appRegistry.tsx`, there is no dedicated companion plan yet; use the core plan plus nearby code/tests, and only pull in the state/shared plan if the slice crosses into runtime/store boundaries
 6. A second companion plan only if the slice truly crosses domains
 
-Treat `frontend/src/README.md` as the current source of truth for hotspot rankings, ownership, and placement rules.
+Treat the current tree, names, and tests as the source of truth for exact ownership boundaries.
 Treat older execution-log "next slice" notes as historical context, not automatic instructions.
 Choose the companion plan for the root surface you are shrinking, not for the first helper you expect to touch underneath it.
 If the docs and the current tree disagree, trust the current tree and update the docs in the same turn when your slice materially changes the map.
+If grep and the current tree already make the ownership boundary obvious, do not over-read the whole plan set.
 
 Default slice-selection rules:
 
@@ -147,13 +150,19 @@ Default slice-selection rules:
 - Do not choose a smaller `state/actions` or `state/hooks` split while a same-domain front-door file above is still the clearer entry point, unless the lower-level split is a direct prerequisite for simplifying that file in the same turn.
 - Treat thin compatibility facades as transitional debt, not as default cleanup targets. Do not spend a turn creating or extending a facade/barrel unless the same turn also shrinks a front-door hotspot.
 - Prefer feature-local extraction: pure helpers, selectors, hooks, render subcomponents, and command adapters next to the owning large file.
+- File count is not the main problem. The main problems are mixed responsibilities, ambiguous entrypoints, and generic bucket names.
+- Prefer sharp domain names such as `projectChatHistoryDnd`, `chatInputSubmission`, or `fileBrowserPaneTreeModel` over generic names such as `helpers`, `shared`, `runtime`, `viewModel`, or `utils` unless the file truly owns that narrow cross-feature concern.
 - Do not move mixed responsibilities from one giant file into another giant helper. Prefer a coordinator plus several narrow local owners over a coordinator plus one new 1000+ helper file.
+- When a directory becomes hard to scan, prefer a small stable domain subdirectory or clearer prefixes over adding many ambiguous sibling files.
+- Prefer domain subfolders like `history/`, `surface/`, `settings/`, `skills-mcp/`, `windowing/`, `sections/`, `websocket/`, or `window-space/` over generic folders like `helpers/`, `shared/`, `runtime/`, `model/`, or `components/`.
 - If you pick `frontend/src/components/App/appRegistry.tsx` or `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`, add or update direct Vitest coverage for the extracted ownership boundary as part of the same slice.
-- Local feature `README.md` files are supporting work only. Add them after a root surface stabilizes; do not spend a cleanup slice on docs-only churn.
+- Do not add directory `README.md` files as a cleanup deliverable. If navigation is still bad after a slice, improve names or introduce a small stable domain subfolder instead.
+- If a front-door file or extracted owner still needs explanation after naming cleanup, add a short top-of-file ownership comment or targeted function comment instead of creating more docs.
 
 Autonomy rules:
 
 - Prioritize agent legibility: clear module ownership, smaller first-hop files, fewer mixed responsibilities, obvious read/write boundaries, feature-local helpers, and less cross-layer jumping.
+- Prefer sharper names before more documentation. If a module is still hard to find after grep, fix the boundary or the name first.
 - Preserve user-visible behavior unless you intentionally fix a concrete bug.
 - Prefer incremental refactors over broad directory churn. Prove boundaries first, then move files only when ownership becomes clearer.
 - Continue from seams that already exist on the branch instead of recreating older plan snapshots.
@@ -174,7 +183,7 @@ Execution rules:
 Tracking rules:
 
 - If `docs/plans/frontend-cleanup-execution-log.md` does not exist on the branch, create it first and maintain it as an append-only work log.
-- If hotspot rankings, ownership boundaries, or acceptable entrypoints change materially, update `frontend/src/README.md` and the relevant cleanup docs as part of the slice.
+- If hotspot rankings, ownership boundaries, or acceptable entrypoints change materially, update the relevant cleanup docs as part of the slice.
 - After each completed slice, append:
   - date/time
   - slice completed
@@ -188,9 +197,8 @@ Tracking rules:
 
 When you get a message like "proceed" or "proceed with the next step", interpret it as:
 
-- read `frontend/src/README.md`
 - read the execution log if it exists
-- choose the highest-value unresolved front-door hotspot
+- grep the current tree and choose the highest-value unresolved front-door hotspot
 - read the matching companion plan(s) for that hotspot
 - implement the slice end-to-end
 - verify it
