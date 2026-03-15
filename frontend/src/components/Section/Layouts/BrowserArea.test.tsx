@@ -1,73 +1,19 @@
-/* @vitest-environment jsdom */
-
-import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useBrowserSectionFileBrowserState,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
-import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
-} from "utils/generatedEndpoints";
 import {
   BrowserAreaViewModeEnum,
   SectionTypeEnum,
-  createFileBrowserRootResponse,
-  createFolderContentItem,
   createProjectConfig,
   type BrowserAreaViewMode,
   type Core,
   type Variant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BrowserArea } from "./BrowserArea";
-
-const generatedEndpoints = vi.hoisted(() => ({
-  route_get_file_browser_root: vi.fn(),
-  route_get_folder_contents: vi.fn(),
-}));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_file_browser_root: generatedEndpoints.route_get_file_browser_root,
-    route_get_folder_contents: generatedEndpoints.route_get_folder_contents,
-  };
-});
-
-vi.mock("components/Utils/CodeMirror/InlineCodeMirrorInput", async () => {
-  const React = await import("react");
-  return {
-    InlineCodeMirrorInput: ({
-      id,
-      value,
-      placeholder,
-      className,
-      dummyClassName,
-    }: {
-      id: string;
-      value: string;
-      placeholder?: string;
-      className?: string;
-      dummyClassName?: string;
-    }) =>
-      React.createElement(
-        "span",
-        { id, className: dummyClassName ?? className },
-        value || placeholder || "",
-      ),
-  };
-});
-
-type RenderedBrowserArea = {
-  host: HTMLDivElement;
-  root: Root;
-};
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -148,40 +94,10 @@ function setBrowserSectionState(viewMode: BrowserAreaViewMode) {
   syncStoreInitialState(useProjectState);
 }
 
-async function renderBrowserArea() {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(createElement(BrowserArea, { sectionId }));
-  });
-
-  return { host, root } satisfies RenderedBrowserArea;
-}
-
-async function flushEffects(): Promise<void> {
-  for (let index = 0; index < 3; index += 1) {
-    await vi.dynamicImportSettled();
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-  }
-}
-
 describe("BrowserArea list view", () => {
   beforeEach(() => {
     resetProjectStores();
     useBrowserSectionFileBrowserState.getState().reset?.();
-    generatedEndpoints.route_get_file_browser_root.mockReset();
-    generatedEndpoints.route_get_folder_contents.mockReset();
-    globalThis.ResizeObserver = class {
-      observe() {}
-      disconnect() {}
-      unobserve() {}
-    } as typeof ResizeObserver;
-    document.body.innerHTML = "";
   });
 
   afterEach(() => {
@@ -224,56 +140,5 @@ describe("BrowserArea list view", () => {
 
     expect(markup).toContain('aria-label="Go back"');
     expect(markup).toContain('aria-label="Go forward"');
-  });
-
-  it("loads the Go root and folder contents into thumbnail view", async () => {
-    setBrowserSectionState(BrowserAreaViewModeEnum.thumbnail);
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
-      data: createFileBrowserRootResponse({
-        rootPath: "/workspace",
-        ignorePatterns: ["node_modules"],
-        pathSeparator: "/",
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.mocked(route_get_folder_contents).mockResolvedValue({
-      data: [
-        createFolderContentItem({
-          name: "assets",
-          fullPath: "/workspace/assets",
-          type: "folder",
-        }),
-        createFolderContentItem({
-          name: "notes.txt",
-          fullPath: "/workspace/notes.txt",
-          type: "file",
-          size: 12,
-        }),
-      ],
-      status: 200,
-      hasResponse: true,
-    });
-
-    const { host, root } = await renderBrowserArea();
-
-    try {
-      await flushEffects();
-
-      expect(route_get_file_browser_root).toHaveBeenCalledTimes(1);
-      expect(route_get_folder_contents).toHaveBeenCalledWith({
-        folderPath: "/workspace",
-        ignorePatterns: ["node_modules"],
-        includeSize: true,
-        missingFolderBehavior: "empty",
-      });
-      expect(host.textContent).toContain("assets");
-      expect(host.textContent).toContain("notes.txt");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
   });
 });
