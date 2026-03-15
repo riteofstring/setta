@@ -513,6 +513,109 @@ func (p Project) validTopLevelSectionIDs() map[string]struct{} {
 	return validIDs
 }
 
+func (p *Project) normalizeViewModesOnLoad() error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+
+	sectionIDs := make(map[string]struct{}, len(p.Sections))
+	for sectionID := range p.Sections {
+		sectionIDs[sectionID] = struct{}{}
+	}
+
+	for sectionID := range p.TopLevelSections {
+		if _, ok := sectionIDs[sectionID]; !ok {
+			delete(p.TopLevelSections, sectionID)
+		}
+	}
+
+	if len(p.ViewModes) == 0 {
+		viewModeID, err := newProjectStateID()
+		if err != nil {
+			return err
+		}
+		viewModeName, err := nextAvailableViewModeName(*p)
+		if err != nil {
+			return err
+		}
+		visibilityBySectionID := make(map[string]bool, len(p.Sections))
+		for sectionID := range p.Sections {
+			visibilityBySectionID[sectionID] = true
+		}
+		p.ViewModes = map[string]ViewMode{
+			viewModeID: {
+				ID:                    viewModeID,
+				Name:                  viewModeName,
+				VisibilityBySectionID: visibilityBySectionID,
+				Viewport:              cloneViewport(p.Viewport),
+				ViewportInitialized:   p.ViewportInitialized,
+				TopLevelSections:      cloneTopLevelSectionsMap(p.TopLevelSections),
+			},
+		}
+		p.ActiveViewModeID = viewModeID
+		return nil
+	}
+
+	sortIndexCounts := make(map[int]int, len(p.ViewModes))
+	for viewModeID, viewMode := range p.ViewModes {
+		if viewMode.VisibilityBySectionID == nil {
+			viewMode.VisibilityBySectionID = map[string]bool{}
+		}
+		for sectionID := range p.Sections {
+			if _, ok := viewMode.VisibilityBySectionID[sectionID]; !ok {
+				viewMode.VisibilityBySectionID[sectionID] = true
+			}
+		}
+		for sectionID := range viewMode.VisibilityBySectionID {
+			if _, ok := sectionIDs[sectionID]; !ok {
+				delete(viewMode.VisibilityBySectionID, sectionID)
+			}
+		}
+
+		if len(viewMode.TopLevelSections) == 0 {
+			viewMode.TopLevelSections = cloneTopLevelSectionsMap(p.TopLevelSections)
+		} else {
+			for sectionID, layout := range p.TopLevelSections {
+				if _, ok := viewMode.TopLevelSections[sectionID]; !ok {
+					viewMode.TopLevelSections[sectionID] = layout.Clone()
+				}
+			}
+			for sectionID := range viewMode.TopLevelSections {
+				if _, ok := p.TopLevelSections[sectionID]; !ok {
+					delete(viewMode.TopLevelSections, sectionID)
+				}
+			}
+		}
+
+		if viewMode.Viewport == nil {
+			viewMode.ViewportInitialized = false
+		}
+		sortIndexCounts[viewMode.SortIndex]++
+		p.ViewModes[viewModeID] = viewMode
+	}
+
+	for _, count := range sortIndexCounts {
+		if count < 2 {
+			continue
+		}
+		for index, viewModeID := range sortedViewModeIDs(p.ViewModes) {
+			viewMode := p.ViewModes[viewModeID]
+			viewMode.SortIndex = index
+			p.ViewModes[viewModeID] = viewMode
+		}
+		break
+	}
+
+	if _, ok := p.ViewModes[p.ActiveViewModeID]; !ok {
+		p.ActiveViewModeID = sortedViewModeIDs(p.ViewModes)[0]
+	}
+	activeViewMode := p.ViewModes[p.ActiveViewModeID]
+	p.TopLevelSections = cloneTopLevelSectionsMap(activeViewMode.TopLevelSections)
+	p.Viewport = cloneViewport(activeViewMode.Viewport)
+	p.ViewportInitialized = activeViewMode.ViewportInitialized
+	return nil
+}
+
 func (p *Project) toggleViewModeBoolField(viewModeID string, update func(*ViewMode)) error {
 	trimmedViewModeID := strings.TrimSpace(viewModeID)
 	if trimmedViewModeID == "" {

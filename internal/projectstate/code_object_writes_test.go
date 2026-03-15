@@ -112,6 +112,29 @@ func TestProjectSetSectionCodeObjectValueClearsStatelessDropzoneValue(t *testing
 	}
 }
 
+// Parsed stateful dropzone payloads with no attachments should collapse to
+// blank even when the JSON omits the attachments key entirely.
+func TestProjectSetSectionCodeObjectValueClearsParsedStatefulDropzonePayloadWithoutAttachments(t *testing.T) {
+	t.Parallel()
+
+	project := codeObjectNameTestProject(t)
+	if err := project.ChangeParamImpl("meta-section", "meta-param", "DropzoneParam"); err != nil {
+		t.Fatalf("change meta control impl to dropzone: %v", err)
+	}
+
+	if err := project.SetSectionCodeObjectValue("meta-section", "meta-param", `{"version":1}`); err != nil {
+		t.Fatalf("set stateful dropzone value without attachments: %v", err)
+	}
+
+	payload, _, _, _, err := project.ResolveSectionCodeObject("meta-section", "meta-param")
+	if err != nil {
+		t.Fatalf("resolve stateful dropzone param: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "" {
+		t.Fatalf("expected parsed-empty stateful dropzone payload to clear, got %q", got)
+	}
+}
+
 func TestProjectSetTypeErrorIgnorePersistsCallableAndParamFlags(t *testing.T) {
 	t.Parallel()
 

@@ -605,7 +605,11 @@ func normalizeDropzoneValue(value string, maxAttachments *int) string {
 	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
 		return value
 	}
-	rawAttachments, ok := payload["attachments"].([]any)
+	rawAttachmentsValue, ok := payload["attachments"]
+	if !ok {
+		return ""
+	}
+	rawAttachments, ok := rawAttachmentsValue.([]any)
 	if !ok {
 		return value
 	}

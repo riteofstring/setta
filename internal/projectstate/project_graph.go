@@ -585,6 +585,10 @@ func (p Project) Normalized() (Project, error) {
 		normalized.CodeObjImpls[implKey] = impl.Clone()
 	}
 
+	if err := normalized.normalizeViewModesOnLoad(); err != nil {
+		return Project{}, fmt.Errorf("normalize view modes: %w", err)
+	}
+
 	topLevelSeen := make(map[string]struct{}, len(normalized.TopLevelSectionIDs))
 	for _, sectionID := range normalized.TopLevelSectionIDs {
 		if _, ok := normalized.Sections[sectionID]; !ok {

@@ -7,6 +7,212 @@ import (
 	"testing"
 )
 
+func TestDocumentNormalizedBootstrapsDefaultViewModeFromProjectStateWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	project := viewModesTestProject(t)
+	project.ViewModes = map[string]ViewMode{}
+	project.ActiveViewModeID = ""
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize document: %v", err)
+	}
+
+	normalizedProject := normalized.Projects["project-alpha"]
+	if len(normalizedProject.ViewModes) != 1 {
+		t.Fatalf("expected one bootstrapped view mode, got %d", len(normalizedProject.ViewModes))
+	}
+	bootstrappedViewMode, ok := normalizedProject.ViewModes[normalizedProject.ActiveViewModeID]
+	if !ok {
+		t.Fatalf("expected active view mode %q to exist", normalizedProject.ActiveViewModeID)
+	}
+	if bootstrappedViewMode.Name == "" {
+		t.Fatal("expected bootstrapped view mode name")
+	}
+	if !reflect.DeepEqual(bootstrappedViewMode.TopLevelSections, normalizedProject.TopLevelSections) {
+		t.Fatalf("expected bootstrapped top-level sections %#v, got %#v", normalizedProject.TopLevelSections, bootstrappedViewMode.TopLevelSections)
+	}
+	if !reflect.DeepEqual(bootstrappedViewMode.Viewport, normalizedProject.Viewport) {
+		t.Fatalf("expected bootstrapped viewport %#v, got %#v", normalizedProject.Viewport, bootstrappedViewMode.Viewport)
+	}
+	if bootstrappedViewMode.ViewportInitialized != normalizedProject.ViewportInitialized {
+		t.Fatalf("expected viewport initialized %t, got %t", normalizedProject.ViewportInitialized, bootstrappedViewMode.ViewportInitialized)
+	}
+	for sectionID := range normalizedProject.Sections {
+		if visible := bootstrappedViewMode.VisibilityBySectionID[sectionID]; !visible {
+			t.Fatalf("expected section %q to be visible in bootstrapped view mode", sectionID)
+		}
+	}
+}
+
+func TestDocumentNormalizedRepairsViewModesAndProjectsActiveState(t *testing.T) {
+	t.Parallel()
+
+	project := viewModesTestProject(t)
+	project.ActiveViewModeID = "missing-view-mode"
+	project.TopLevelSections = map[string]TopLevelSectionLayout{
+		"parent-section":     {X: 10, Y: 20, ZIndex: 1},
+		"standalone-section": {X: 30, Y: 40, ZIndex: 2},
+		"stale-section":      {X: 50, Y: 60, ZIndex: 3},
+	}
+	project.Viewport = &Viewport{X: 90, Y: 80, Zoom: 1.5}
+	project.ViewportInitialized = true
+	project.ViewModes = map[string]ViewMode{
+		"alpha": {
+			ID:                  "alpha",
+			Name:                "Alpha",
+			SortIndex:           7,
+			Viewport:            nil,
+			TopLevelSections:    map[string]TopLevelSectionLayout{},
+			ViewportInitialized: true,
+			VisibilityBySectionID: map[string]bool{
+				"parent-section": true,
+				"stale-section":  false,
+			},
+		},
+		"beta": {
+			ID:        "beta",
+			Name:      "Beta",
+			SortIndex: 7,
+			Viewport:  &Viewport{X: 5, Y: 6, Zoom: 0.7},
+			TopLevelSections: map[string]TopLevelSectionLayout{
+				"parent-section": {X: 1, Y: 2, ZIndex: 9},
+				"stale-section":  {X: 3, Y: 4, ZIndex: 10},
+			},
+			VisibilityBySectionID: map[string]bool{
+				"standalone-section": false,
+				"stale-section":      true,
+			},
+		},
+	}
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize document: %v", err)
+	}
+
+	normalizedProject := normalized.Projects["project-alpha"]
+	if normalizedProject.ActiveViewModeID != "alpha" {
+		t.Fatalf("expected invalid active view mode to fall back to alpha, got %q", normalizedProject.ActiveViewModeID)
+	}
+	if _, ok := normalizedProject.TopLevelSections["stale-section"]; ok {
+		t.Fatal("expected stale project top-level layout to be pruned")
+	}
+
+	alpha := normalizedProject.ViewModes["alpha"]
+	if _, ok := alpha.VisibilityBySectionID["stale-section"]; ok {
+		t.Fatal("expected stale visibility id to be pruned from alpha")
+	}
+	if !alpha.VisibilityBySectionID["standalone-section"] {
+		t.Fatal("expected missing section visibility to backfill to true on alpha")
+	}
+	if !reflect.DeepEqual(alpha.TopLevelSections, normalizedProject.TopLevelSections) {
+		t.Fatalf("expected alpha layouts %#v, got %#v", normalizedProject.TopLevelSections, alpha.TopLevelSections)
+	}
+	if alpha.Viewport != nil {
+		t.Fatalf("expected alpha viewport to remain nil, got %#v", alpha.Viewport)
+	}
+	if alpha.ViewportInitialized {
+		t.Fatal("expected nil alpha viewport to clear viewportInitialized")
+	}
+
+	beta := normalizedProject.ViewModes["beta"]
+	if _, ok := beta.TopLevelSections["stale-section"]; ok {
+		t.Fatal("expected stale beta layout to be pruned")
+	}
+	if _, ok := beta.TopLevelSections["standalone-section"]; !ok {
+		t.Fatal("expected beta layout to backfill missing standalone section")
+	}
+	if _, ok := beta.VisibilityBySectionID["stale-section"]; ok {
+		t.Fatal("expected stale visibility id to be pruned from beta")
+	}
+	if !beta.VisibilityBySectionID["parent-section"] {
+		t.Fatal("expected missing parent-section visibility to backfill to true on beta")
+	}
+	if alpha.SortIndex != 0 || beta.SortIndex != 1 {
+		t.Fatalf("expected duplicate sort indices to compact to alpha=0 beta=1, got alpha=%d beta=%d", alpha.SortIndex, beta.SortIndex)
+	}
+	if normalizedProject.Viewport != nil {
+		t.Fatalf("expected projected active viewport to be nil, got %#v", normalizedProject.Viewport)
+	}
+	if normalizedProject.ViewportInitialized {
+		t.Fatal("expected projected active viewportInitialized to be false")
+	}
+}
+
+func TestDocumentNormalizedViewportInitializedDefaultsFalseAndPreservesExplicitTrue(t *testing.T) {
+	t.Parallel()
+
+	document := Document{
+		SchemaVersion: CurrentSchemaVersion,
+		Projects: map[string]Project{
+			"project-false": {
+				ID:               "project-false",
+				Name:             "False",
+				ActiveViewModeID: "focus",
+				Viewport:         &Viewport{X: 1, Y: 2, Zoom: 1},
+				ViewModes: map[string]ViewMode{
+					"focus": {
+						ID:       "focus",
+						Name:     "Focus",
+						Viewport: &Viewport{X: 1, Y: 2, Zoom: 1},
+					},
+				},
+			},
+			"project-true": {
+				ID:                  "project-true",
+				Name:                "True",
+				ActiveViewModeID:    "focus",
+				Viewport:            &Viewport{X: 3, Y: 4, Zoom: 2},
+				ViewportInitialized: true,
+				ViewModes: map[string]ViewMode{
+					"focus": {
+						ID:                  "focus",
+						Name:                "Focus",
+						Viewport:            &Viewport{X: 3, Y: 4, Zoom: 2},
+						ViewportInitialized: true,
+					},
+				},
+			},
+		},
+	}
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize document: %v", err)
+	}
+
+	if normalized.Projects["project-false"].ViewportInitialized {
+		t.Fatal("expected omitted project viewportInitialized to default false")
+	}
+	if normalized.Projects["project-false"].ViewModes["focus"].ViewportInitialized {
+		t.Fatal("expected omitted view mode viewportInitialized to default false")
+	}
+	if !normalized.Projects["project-true"].ViewportInitialized {
+		t.Fatal("expected explicit project viewportInitialized true to be preserved")
+	}
+	if !normalized.Projects["project-true"].ViewModes["focus"].ViewportInitialized {
+		t.Fatal("expected explicit view mode viewportInitialized true to be preserved")
+	}
+}
+
 func TestRuntimeSetTopLevelSectionLayoutFiltersInvalidSectionsAndRestoresMissingValidSection(t *testing.T) {
 	t.Parallel()
 
