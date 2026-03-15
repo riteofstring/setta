@@ -27,7 +27,7 @@ import {
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import type { ChatAppGenerationContext } from "state/utils/chatAppGenerationDetails";
+import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { isImageAttachment } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";

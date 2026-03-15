@@ -1,7 +1,10 @@
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useProjectState, useShareSession } from "state/definitions";
-import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   CodeLanguageEnum,
@@ -54,7 +57,7 @@ vi.mock("forks/xyflow/core/store", () => ({
   ) => selector({ fitViewOnInit: false, fitViewOnInitDone: false }),
 }));
 
-vi.mock("state/hooks/sectionMinMaxDims", () => ({
+vi.mock("state/hooks/sectionSizes", () => ({
   useSectionMinMaxDims: () => ({ maxHeight: 600, maxWidth: 800 }),
   getMinSectionHeight: () => 120,
 }));

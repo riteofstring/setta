@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { loadLLMConfig } from "state/actions/aiLLMConfiguration";
-import { loadLLMApiKeys } from "state/actions/aiManagedApiKeyState";
+import { loadLLMApiKeys, loadLLMConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 
 export function useHydrateLLMState() {
