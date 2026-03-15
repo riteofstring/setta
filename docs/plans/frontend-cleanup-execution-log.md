@@ -3135,3 +3135,34 @@ module map and placement guide while this cleanup progresses.
     authored/shared state hotspot at 418 lines, by separating persisted UI
     preference normalization and defaults from the persisted store creation
     surface.
+
+## 2026-03-15 06:55:54 PDT
+
+- Slice completed: split UI preference persistence from UI preference stores
+- Key files touched:
+  - `frontend/src/state/stores/uiPreferenceState.ts`
+  - `frontend/src/state/stores/uiPreferencePersistence.ts`
+  - `frontend/src/state/stores/uiPreferenceStores.ts`
+  - `frontend/src/state/stores/uiPreferencePersistence.test.ts`
+  - `frontend/src/state/stores/uiPreferenceStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/actions/localStorage.ts`
+  - `frontend/src/components/AppHeader/EditMenu.tsx`
+  - `frontend/src/components/Modals/SaveLoadModal/SaveLoadModal.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/stores/uiPreferencePersistence.test.ts src/state/stores/uiPreferenceStores.test.ts src/state/actions/localStorage.test.ts src/components/Panes/paneLayout.test.ts src/components/AppHeader/ProjectNav.test.tsx`
+  - `pnpm -C frontend exec vitest run src/components/Modals/SaveLoadModal/SaveLoadModal.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/stores/uiPreferenceStores.ts src/state/stores/uiPreferencePersistence.ts src/state/stores/uiPreferenceState.ts src/state/stores/uiPreferenceStores.test.ts src/state/stores/uiPreferencePersistence.test.ts src/state/definitions.ts src/state/actions/localStorage.ts src/components/AppHeader/EditMenu.tsx src/components/Modals/SaveLoadModal/SaveLoadModal.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `7c6133cd26`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/definitions.ts`, now the largest
+    authored/shared state hotspot at 404 lines, by separating local standalone
+    store definitions from the remaining domain re-export barrel.
