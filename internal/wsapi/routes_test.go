@@ -1499,6 +1499,38 @@ func TestRegisterRoutesListenerFrontendEmitAcceptsTemporaryProjectID(t *testing.
 	}
 }
 
+func TestRegisterRoutesListenerFrontendEmitRejectsUnregisteredSocket(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"Section":"value"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit without registration: %v", err)
+	}
+
+	// The retained listener caller refuses to emit before registration; the
+	// transport must also fail closed if a raw websocket skips that precondition.
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_not_registered", map[string]any{
+		"websocketId": "listener-a",
+	})
+}
+
 func TestRegisterRoutesListenerFrontendEmitUpdatesSectionParamValue(t *testing.T) {
 	t.Parallel()
 
@@ -1558,6 +1590,86 @@ func TestRegisterRoutesListenerFrontendEmitUpdatesSectionParamValue(t *testing.T
 	if payload["value"] != "hello" {
 		t.Fatalf("expected updated section param value, got %#v", payload["value"])
 	}
+}
+
+func TestRegisterRoutesListenerFrontendEmitRejectsProjectMismatch(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-b","dependencyValues":{"Section":"value"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit project mismatch: %v", err)
+	}
+
+	// Frontend emits are scoped to the registered project and must reject
+	// mismatched project ids before any mutation work begins.
+	assertRouteListenerError(t, readNextMessage(t, listener), "project_config_mismatch", map[string]any{
+		"expectedProjectConfigId": "project-a",
+		"receivedProjectConfigId": "project-b",
+	})
+}
+
+func TestRegisterRoutesListenerFrontendEmitRejectsEmptyPayload(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a"}}`)); err != nil {
+		t.Fatalf("write listener frontend emit empty payload: %v", err)
+	}
+
+	// Raw websocket callers must still provide the same non-empty emit payload
+	// that the retained Python client enforces locally.
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_payload", map[string]any{
+		"message": "listener emits require dependencyValues or artifactUpdates",
+	})
 }
 
 func TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency(t *testing.T) {
@@ -1798,6 +1910,58 @@ func TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedArtifactUpdate(t *t
 
 	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_unsupported_artifact_update", map[string]any{
 		"path": "artifacts/image.png",
+	})
+}
+
+func TestRegisterRoutesShareListenerFrontendEmitRejectsMissingShareSessionContext(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write share listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+
+	broadcaster.RemoveConnection("listener-a")
+	if err := broadcaster.Registry().UpsertRegistration("listener-a", "project-a", map[string]realtime.ListenerCallback{
+		"cb-a": {
+			Dependencies:   []string{},
+			DependencyMode: "refresh_only",
+		},
+	}, ""); err != nil {
+		t.Fatalf("strip share session from listener registration: %v", err)
+	}
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"Section":"value"}}}`)); err != nil {
+		t.Fatalf("write share listener frontend emit without share session context: %v", err)
+	}
+
+	// Deployment listeners must keep the registration's share-session scope so
+	// emit mutations cannot bleed across sessions.
+	assertRouteListenerError(t, readNextMessage(t, listener), "share_session_missing", map[string]any{
+		"websocketId": "listener-a",
 	})
 }
 
