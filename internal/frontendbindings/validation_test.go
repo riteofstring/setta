@@ -977,6 +977,36 @@ func TestCurrentEndpointsCoverEveryRegisteredHTTPRouteMethod(t *testing.T) {
 	}
 }
 
+func TestCurrentEndpointsKeepAppendTranscriptionAudioJSONRequestContract(t *testing.T) {
+	t.Helper()
+
+	for _, spec := range CurrentEndpoints() {
+		if spec.RouteCollection != "GoHTTPRoutes" || spec.RouteName != "appendTranscriptionAudio" {
+			continue
+		}
+		if spec.Method != "POST" {
+			t.Fatalf("appendTranscriptionAudio method = %q, want %q", spec.Method, "POST")
+		}
+		if spec.RequestType != reflect.TypeOf(httpapi.AppendTranscriptionAudioRequest{}) {
+			t.Fatalf(
+				"appendTranscriptionAudio request type = %v, want %v",
+				spec.RequestType,
+				reflect.TypeOf(httpapi.AppendTranscriptionAudioRequest{}),
+			)
+		}
+		if spec.ResponseType != reflect.TypeOf(TranscriptionSessionDeltaResponse{}) {
+			t.Fatalf(
+				"appendTranscriptionAudio response type = %v, want %v",
+				spec.ResponseType,
+				reflect.TypeOf(TranscriptionSessionDeltaResponse{}),
+			)
+		}
+		return
+	}
+
+	t.Fatal("appendTranscriptionAudio endpoint spec not found")
+}
+
 func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 	expectedRouteOnly := map[string]map[string]struct{}{
 		"GoRoutePrefixes": {

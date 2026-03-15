@@ -5087,6 +5087,52 @@ func TestRegisterAIRoutesAcceptsLargeJSONTranscriptionAudioPayload(t *testing.T)
 	}
 }
 
+func TestRegisterAIRoutesRejectsTranscriptionAppendBeforeDecodeWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Policy: map[string]any{"allowLLM": false},
+	})
+	handler := newAIRouteTestHandlerWithTranscriptionDeployment(
+		t,
+		config.ModeShare,
+		deploymentRuntime,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"session-1","audioPcm16Base64":"%%%","sampleRateHz":24000,"channels":1}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "llm_access_forbidden" {
+		t.Fatalf("expected llm_access_forbidden, got %#v", payload)
+	}
+	if payload.Error.Message != "Deployment policy disallows LLM access." {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesRejectInvalidTranscriptionAppendPayloads(t *testing.T) {
 	t.Parallel()
 
