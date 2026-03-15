@@ -201,8 +201,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/ChatWindowing/*` owns dock/window rendering, surface ids, snap
     layout helpers, and viewport math.
-  - `state/actions/projectChatWindowingNormalization.ts` owns pure windowing
-    normalization and default-bounds helpers.
+  - `state/actions/projectChatWindowingDefaultBounds.ts` owns pure floating and
+    docked default-bounds math.
+  - `state/actions/projectChatWindowingStateNormalization.ts` owns order and
+    z-index normalization for persisted windowing state.
+  - `state/actions/projectChatWindowingNormalization.ts` is now the thin
+    compatibility facade over those normalization helpers.
   - `state/actions/projectChatWindowingSelectors.ts` owns section-binding and
     visible-window selector reads.
   - `state/actions/projectChatWindowingInstanceState.ts` owns window-instance

@@ -5,41 +5,35 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
+  normalizeProjectChatWindowingOrder,
   normalizeProjectChatWindowingState,
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
-} from "./projectChatWindowingNormalization";
+} from "./projectChatWindowingStateNormalization";
 
-describe("projectChatWindowingNormalization", () => {
-  it("resolves default docked chat height from the viewport height", () => {
-    // Default docked windows should take seventy percent of the viewport, clamped to the dock space.
-    expect(
-      resolveDefaultDockedChatHeightPx({
-        viewportHeightPx: 900,
-        workspaceTopInsetPx: 40,
-        bottomInsetPx: 36,
-      }),
-    ).toBe(630);
-  });
-
-  it("resolves default floating chat bounds in the center at seventy percent viewport height", () => {
-    // Explicit floating windows should open centered within the floating work area.
-    const bounds = resolveDefaultFloatingChatBounds({
-      viewportWidthPx: 1440,
-      viewportHeightPx: 900,
-      workspaceTopInsetPx: 40,
-      bottomInsetPx: 0,
+describe("projectChatWindowingStateNormalization", () => {
+  it("dedupes order entries and appends instances missing from the order", () => {
+    // Order normalization should keep one entry per existing instance before selector reads.
+    const first = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+    });
+    const second = createProjectChatWindowInstance({
+      instanceId: "chat-window-b",
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [first.instanceId]: first,
+        [second.instanceId]: second,
+      },
+      order: [second.instanceId, second.instanceId, "missing-window"],
+      nextInstanceNumber: 3,
     });
 
-    expect(bounds).toEqual({
-      x: 310,
-      y: 155,
-      width: 820,
-      height: 630,
-    });
+    expect(normalizeProjectChatWindowingOrder(initial).state.order).toEqual([
+      second.instanceId,
+      first.instanceId,
+    ]);
   });
 
-  it("dedupes order entries and reassigns duplicate z-indexes deterministically", () => {
+  it("reassigns duplicate z-indexes deterministically", () => {
     // Duplicate order ids and duplicate z-indexes should normalize to one order
     // entry per instance with a stable front-to-back layering sequence.
     const first = createProjectChatWindowInstance({

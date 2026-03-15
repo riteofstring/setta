@@ -61,7 +61,7 @@ import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatW
 import {
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
-} from "state/actions/projectChatWindowingNormalization";
+} from "state/actions/projectChatWindowingDefaultBounds";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import {
   clearTrackedGitPaneGraphWindowIfMatches,

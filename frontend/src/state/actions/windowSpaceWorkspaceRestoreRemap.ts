@@ -1,4 +1,4 @@
-import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingNormalization";
+import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingStateNormalization";
 import {
   ChatWindowPlacementEnum,
   createProjectChatWindowingState,

@@ -6,7 +6,7 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { normalizeProjectChatWindowingOrder } from "./projectChatWindowingNormalization";
+import { normalizeProjectChatWindowingOrder } from "./projectChatWindowingStateNormalization";
 
 export function shouldSyncActiveProjectChatId(
   window: ProjectChatWindowInstance | null | undefined,
