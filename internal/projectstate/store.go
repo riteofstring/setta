@@ -1,0 +1,106 @@
+package projectstate
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"setta/internal/statefs"
+)
+
+const defaultFileMode = 0o644
+
+type StoreOptions struct {
+	Locker statefs.Locker
+}
+
+type Store struct {
+	path   string
+	locker statefs.Locker
+}
+
+func NewStore(path string, opts StoreOptions) (*Store, error) {
+	resolvedPath, err := statefs.NormalizePath(path, "")
+	if err != nil {
+		return nil, fmt.Errorf("resolve project store path: %w", err)
+	}
+
+	locker := opts.Locker
+	if locker == nil {
+		locker = statefs.NoopLocker{}
+	}
+
+	return &Store{
+		path:   resolvedPath,
+		locker: locker,
+	}, nil
+}
+
+func (s *Store) Path() string {
+	if s == nil {
+		return ""
+	}
+	return s.path
+}
+
+func (s *Store) Load(ctx context.Context) (Document, error) {
+	if s == nil {
+		return Document{}, fmt.Errorf("project store is required")
+	}
+
+	unlock, err := s.locker.Lock(ctx, s.path)
+	if err != nil {
+		return Document{}, fmt.Errorf("lock project store for load: %w", err)
+	}
+	defer unlock()
+
+	content, err := os.ReadFile(s.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return NewDocument(), nil
+		}
+		return Document{}, fmt.Errorf("read project document: %w", err)
+	}
+
+	var rawPayload any
+	if err := json.Unmarshal(content, &rawPayload); err != nil {
+		return Document{}, fmt.Errorf("decode project document: %w", err)
+	}
+	if _, ok := rawPayload.(map[string]any); !ok {
+		return Document{}, ErrProjectPayloadNotObject
+	}
+
+	var document Document
+	if err := json.Unmarshal(content, &document); err != nil {
+		return Document{}, fmt.Errorf("decode project document: %w", err)
+	}
+	return document.Normalized()
+}
+
+func (s *Store) Save(ctx context.Context, document Document) error {
+	if s == nil {
+		return fmt.Errorf("project store is required")
+	}
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		return err
+	}
+
+	unlock, err := s.locker.Lock(ctx, s.path)
+	if err != nil {
+		return fmt.Errorf("lock project store for save: %w", err)
+	}
+	defer unlock()
+
+	content, err := json.MarshalIndent(normalized, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode project document: %w", err)
+	}
+	content = append(content, '\n')
+	if err := statefs.AtomicWriteFile(s.path, content, defaultFileMode); err != nil {
+		return fmt.Errorf("write project document: %w", err)
+	}
+	return nil
+}

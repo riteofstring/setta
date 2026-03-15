@@ -20,9 +20,6 @@ def _prepend_router_dependency(
 
 
 class SettaAPIRouter(APIRouter):
-    def websocket(self, path: Route, **kwargs: Any) -> Callable:  # type: ignore
-        return super().websocket(path.value, **kwargs)
-
     def get(self, path: Route, **kwargs: Any) -> Callable:  # type: ignore
         return super().get(path.value, **kwargs)
 
@@ -108,15 +105,6 @@ class SettaProjectContextFullRuntimeAPIRouter(SettaProjectContextAPIRouter):
             dependencies=dependencies,
             **kwargs,
         )
-
-
-class SettaNonLauncherAPIRouter(SettaAPIRouter):
-    def __init__(self, **kwargs: Any) -> None:
-        dependencies = _prepend_router_dependency(
-            kwargs.pop("dependencies", None),
-            Depends(require_not_launcher_mode),
-        )
-        super().__init__(dependencies=dependencies, **kwargs)
 
 
 class SettaProjectContextNonLauncherAPIRouter(SettaProjectContextAPIRouter):
