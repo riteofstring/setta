@@ -70,6 +70,12 @@ type pluginMaterializerResolvedTarget struct {
 	targetOptions map[string]any
 }
 
+type preparedPluginGeneratedFile struct {
+	relativePath string
+	outputPath   string
+	content      string
+}
+
 func NewPluginMaterializer(options PluginMaterializerOptions) (*PluginMaterializer, error) {
 	settaFilesRoot, err := statefs.NormalizePath(options.SettaFilesRoot, "")
 	if err != nil {
@@ -222,6 +228,7 @@ func (m *PluginMaterializer) materializeProjectLocked(
 		}
 		outputHashes := make(map[string]string, len(generatedFiles))
 		expectedPaths := make(map[string]struct{}, len(generatedFiles))
+		preparedFiles := make([]preparedPluginGeneratedFile, 0, len(generatedFiles))
 		for _, file := range generatedFiles {
 			normalizedRelativePath, err := normalizePluginGeneratedRelativePath(file.RelativePath)
 			if err != nil {
@@ -231,28 +238,18 @@ func (m *PluginMaterializer) materializeProjectLocked(
 			if err != nil {
 				return pluginMaterializerProjectState{}, false, err
 			}
-			if err := preparePluginOutputPathForWrite(targetRoot, outputPath); err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
-				return pluginMaterializerProjectState{}, false, fmt.Errorf("create plugin codegen parent dir %s: %w", filepath.Dir(outputPath), err)
-			}
-
 			expectedPaths[normalizedRelativePath] = struct{}{}
 			outputHashes[normalizedRelativePath] = hashPluginGeneratedContent(file.Content)
-			existingContent, err := os.ReadFile(outputPath)
-			switch {
-			case err == nil && string(existingContent) == file.Content:
-				continue
-			case err == nil, errors.Is(err, os.ErrNotExist):
-				if err := statefs.AtomicWriteFile(outputPath, []byte(file.Content), 0o644); err != nil {
-					return pluginMaterializerProjectState{}, false, fmt.Errorf("write plugin generated output %s: %w", outputPath, err)
-				}
-			default:
-				return pluginMaterializerProjectState{}, false, fmt.Errorf("read plugin generated output %s: %w", outputPath, err)
-			}
+			preparedFiles = append(preparedFiles, preparedPluginGeneratedFile{
+				relativePath: normalizedRelativePath,
+				outputPath:   outputPath,
+				content:      file.Content,
+			})
 		}
 
+		// Remove stale outputs from the previous shape before writing the new one
+		// so file<->directory transitions on the same path do not collide with
+		// later stale-output cleanup.
 		staleRelativePaths := previousRelativePaths(previousTargetState.OutputHashes, expectedPaths)
 		for _, relativePath := range staleRelativePaths {
 			stalePath, err := resolvePluginGeneratedOutputPath(targetRoot, relativePath)
@@ -264,6 +261,27 @@ func (m *PluginMaterializer) materializeProjectLocked(
 			}
 			if err := pruneEmptyPluginOutputDirectories(filepath.Dir(stalePath), targetRoot); err != nil {
 				return pluginMaterializerProjectState{}, false, err
+			}
+		}
+
+		for _, prepared := range preparedFiles {
+			if err := preparePluginOutputPathForWrite(targetRoot, prepared.outputPath); err != nil {
+				return pluginMaterializerProjectState{}, false, err
+			}
+			if err := os.MkdirAll(filepath.Dir(prepared.outputPath), 0o755); err != nil {
+				return pluginMaterializerProjectState{}, false, fmt.Errorf("create plugin codegen parent dir %s: %w", filepath.Dir(prepared.outputPath), err)
+			}
+
+			existingContent, err := os.ReadFile(prepared.outputPath)
+			switch {
+			case err == nil && string(existingContent) == prepared.content:
+				continue
+			case err == nil, errors.Is(err, os.ErrNotExist):
+				if err := statefs.AtomicWriteFile(prepared.outputPath, []byte(prepared.content), 0o644); err != nil {
+					return pluginMaterializerProjectState{}, false, fmt.Errorf("write plugin generated output %s: %w", prepared.outputPath, err)
+				}
+			default:
+				return pluginMaterializerProjectState{}, false, fmt.Errorf("read plugin generated output %s: %w", prepared.outputPath, err)
 			}
 		}
 		if err := pruneUnexpectedPluginOutputs(targetRoot, expectedPaths); err != nil {

@@ -307,6 +307,131 @@ func TestPluginMaterializerRegeneratesWhenImplementationKeyChanges(t *testing.T)
 	}
 }
 
+func TestPluginMaterializerTransitionsFileOutputToDirectoryOutput(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	generator := newStubPluginCodegenGenerator()
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-a",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "nested", Content: "export const mode = 'file'\n"},
+	}
+
+	materializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new plugin materializer: %v", err)
+	}
+
+	document := pluginMaterializerTestDocument(pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`))
+	if err := materializer.MaterializeDocument(context.Background(), document); err != nil {
+		t.Fatalf("first materialize: %v", err)
+	}
+
+	targetRoot := filepath.Join(pluginCodegenOutputRoot(settaFilesRoot, "Alpha"), pluginCodegenTargetDirName("stub-plugin:target-a"))
+	filePath := filepath.Join(targetRoot, "nested")
+	if info, err := os.Stat(filePath); err != nil || !info.Mode().IsRegular() {
+		t.Fatalf("expected initial file output, info=%#v err=%v", info, err)
+	}
+
+	// A later generation can legitimately turn the same output path into a
+	// directory; the materializer must remove the old file before writing the
+	// nested child output.
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-b",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "nested/setta_gen.ts", Content: "export const mode = 'dir'\n"},
+	}
+
+	if err := materializer.MaterializeDocument(context.Background(), document); err != nil {
+		t.Fatalf("second materialize: %v", err)
+	}
+
+	dirInfo, err := os.Stat(filePath)
+	if err != nil {
+		t.Fatalf("stat transitioned dir path: %v", err)
+	}
+	if !dirInfo.IsDir() {
+		t.Fatalf("expected file output path to become a directory, got %#v", dirInfo.Mode())
+	}
+	content, err := os.ReadFile(filepath.Join(filePath, "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("read nested output: %v", err)
+	}
+	if string(content) != "export const mode = 'dir'\n" {
+		t.Fatalf("unexpected nested output %q", string(content))
+	}
+}
+
+func TestPluginMaterializerTransitionsDirectoryOutputToFileOutput(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	generator := newStubPluginCodegenGenerator()
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-a",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "nested/setta_gen.ts", Content: "export const mode = 'dir'\n"},
+	}
+
+	materializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Generator:      generator,
+	})
+	if err != nil {
+		t.Fatalf("new plugin materializer: %v", err)
+	}
+
+	document := pluginMaterializerTestDocument(pluginMaterializerTestProject(t, "Alpha", "stub-plugin:target-a", `{"language":"stub-plugin:target-a"}`))
+	if err := materializer.MaterializeDocument(context.Background(), document); err != nil {
+		t.Fatalf("first materialize: %v", err)
+	}
+
+	targetRoot := filepath.Join(pluginCodegenOutputRoot(settaFilesRoot, "Alpha"), pluginCodegenTargetDirName("stub-plugin:target-a"))
+	dirPath := filepath.Join(targetRoot, "nested")
+	if info, err := os.Stat(dirPath); err != nil || !info.IsDir() {
+		t.Fatalf("expected initial directory output, info=%#v err=%v", info, err)
+	}
+
+	// The inverse transition must remove the stale directory tree before
+	// rewriting the output path as a file.
+	generator.resolved["stub-plugin:target-a"] = codegencontracts.PluginTargetResolution{
+		DefaultFileName:   "fixture_state.ts",
+		ImplementationKey: "impl-b",
+	}
+	generator.generated["stub-plugin:target-a"] = []codegencontracts.PluginGeneratedFile{
+		{RelativePath: "nested", Content: "export const mode = 'file'\n"},
+	}
+
+	if err := materializer.MaterializeDocument(context.Background(), document); err != nil {
+		t.Fatalf("second materialize: %v", err)
+	}
+
+	fileInfo, err := os.Stat(dirPath)
+	if err != nil {
+		t.Fatalf("stat transitioned file path: %v", err)
+	}
+	if !fileInfo.Mode().IsRegular() {
+		t.Fatalf("expected directory output path to become a file, got %#v", fileInfo.Mode())
+	}
+	content, err := os.ReadFile(dirPath)
+	if err != nil {
+		t.Fatalf("read transitioned file output: %v", err)
+	}
+	if string(content) != "export const mode = 'file'\n" {
+		t.Fatalf("unexpected transitioned file output %q", string(content))
+	}
+}
+
 type stubPluginCodegenGenerator struct {
 	resolved  map[string]codegencontracts.PluginTargetResolution
 	generated map[string][]codegencontracts.PluginGeneratedFile
