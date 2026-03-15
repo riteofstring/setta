@@ -257,7 +257,13 @@ class MultiMCPClient:
         try:
             return await session.call_tool(tool_id, tool_args, meta=meta)
         except anyio.ClosedResourceError:
-            if not self._should_retry_after_disconnect(tool_name):
+            annotations = self.tool_annotations_by_name.get(tool_name)
+            should_retry = (
+                annotations is not None
+                and annotations.accessType == "read"
+                and getattr(annotations, "retryOnDisconnect", True) is True
+            )
+            if not should_retry:
                 logger.warning(
                     "MCP session for server '%s' closed during tool call '%s'; not retrying because the tool is not retryable after disconnect",
                     server_id,
@@ -285,15 +291,6 @@ class MultiMCPClient:
                 server_id,
             )
             return await reconnected_session.call_tool(tool_id, tool_args, meta=meta)
-
-    def _should_retry_after_disconnect(self, tool_name: str) -> bool:
-        annotations = self.tool_annotations_by_name.get(tool_name)
-        if annotations is None:
-            return False
-        return (
-            annotations.accessType == "read"
-            and getattr(annotations, "retryOnDisconnect", True) is True
-        )
 
     async def _wait_for_session_reconnect(
         self,
