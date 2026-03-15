@@ -181,6 +181,7 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 		t.Fatal("expected settings project active view mode id")
 	}
 	assertSettingsProjectViewModeRouteContract(t, loadSettingsPayload)
+	assertSettingsProjectRouteBootstrapMetadataContract(t, loadSettingsPayload)
 
 	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
 	if err != nil {
@@ -210,6 +211,7 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 		t.Fatalf("expected latest-state settings project name %q, got %q", settingsstate.SettingsProjectName, latestStatePayload.ProjectState.ProjectConfig.Name)
 	}
 	assertSettingsProjectViewModeRouteContract(t, latestStatePayload.ProjectState)
+	assertSettingsProjectRouteBootstrapMetadataContract(t, latestStatePayload.ProjectState)
 }
 
 func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testing.T) {
@@ -939,6 +941,100 @@ func settingsPayloadViewModeByName(
 	}
 	t.Fatalf("expected settings payload view mode %q", viewModeName)
 	return projectstate.ViewMode{}
+}
+
+func assertSettingsProjectRouteBootstrapMetadataContract(
+	t *testing.T,
+	payload projectview.SingleConfig,
+) {
+	t.Helper()
+
+	for sectionID, section := range payload.Sections {
+		variantID, ok := payload.ProjectConfig.SectionVariantMap[sectionID]
+		if !ok {
+			t.Fatalf("expected section variant map entry for %q", section.Name)
+		}
+		variant, ok := payload.SectionVariants[variantID]
+		if !ok {
+			t.Fatalf("expected section variant %q for %q", variantID, section.Name)
+		}
+		sectionImplPayload := settingsPayloadSectionImplByID(t, payload, variant.Impl)
+		size, ok := sectionImplPayload["size"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected settings route payload section %q to include size", section.Name)
+		}
+		width, ok := size["width"].(float64)
+		if !ok {
+			t.Fatalf("expected settings route payload section %q width to be numeric, got %#v", section.Name, size["width"])
+		}
+		if width != 550 {
+			t.Fatalf("expected settings route payload section %q width 550, got %v", section.Name, width)
+		}
+	}
+
+	expectedDisplayNames := map[string]string{
+		"gui":                         "GUI",
+		"languageServer":              "Language Server",
+		"iFrameSectionDefault":        "IFrame Section Default",
+		"genPythonCodeSectionDefault": "Generated Python Code Section Default",
+	}
+	for sectionName, expectedDisplayName := range expectedDisplayNames {
+		section := settingsPayloadSectionByName(t, payload.Sections, sectionName)
+		if section.DisplayName != "" {
+			t.Fatalf("expected route section %q display name to stay blank, got %q", sectionName, section.DisplayName)
+		}
+		codeObj := settingsPayloadCodeObjByName(t, payload.CodeObjs, sectionName)
+		if codeObj.DisplayName != expectedDisplayName {
+			t.Fatalf("expected route root code obj %q display name %q, got %q", sectionName, expectedDisplayName, codeObj.DisplayName)
+		}
+	}
+}
+
+func settingsPayloadSectionByName(
+	t *testing.T,
+	sections map[string]projectview.Core,
+	sectionName string,
+) projectview.Core {
+	t.Helper()
+	for _, section := range sections {
+		if section.Name == sectionName {
+			return section
+		}
+	}
+	t.Fatalf("expected settings route section %q", sectionName)
+	return projectview.Core{}
+}
+
+func settingsPayloadCodeObjByName(
+	t *testing.T,
+	codeObjs map[string]projectview.Core,
+	codeObjName string,
+) projectview.Core {
+	t.Helper()
+	for _, codeObj := range codeObjs {
+		if codeObj.Name == codeObjName {
+			return codeObj
+		}
+	}
+	t.Fatalf("expected settings route code obj %q", codeObjName)
+	return projectview.Core{}
+}
+
+func settingsPayloadSectionImplByID(
+	t *testing.T,
+	payload projectview.SingleConfig,
+	implID string,
+) map[string]any {
+	t.Helper()
+	encoded, ok := payload.SectionImpls[implID]
+	if !ok {
+		t.Fatalf("expected settings route section impl %q", implID)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("unmarshal settings route section impl %q: %v", implID, err)
+	}
+	return decoded
 }
 
 func assertSettingsPayloadViewModeLayouts(

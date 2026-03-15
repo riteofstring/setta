@@ -282,6 +282,87 @@ class Route:
     def test_summarize_settings_project_shell_detects_expected_contract(self) -> None:
         harness = load_harness_module()
 
+        sections = {
+            "section-a": {"name": "shortcuts", "displayName": "Shortcuts"},
+            "section-b": {"name": "gui", "displayName": ""},
+            "section-c": {"name": "backend", "displayName": "Backend"},
+            "section-d": {
+                "name": "sectionSizingPolicy",
+                "displayName": "Section Sizing Policy",
+            },
+            "section-e": {"name": "languageServer", "displayName": ""},
+            "section-f": {
+                "name": "buttonParamCodeObjDefault",
+                "displayName": "Button Param Code Obj Default",
+            },
+            "section-g": {
+                "name": "codeCallableCodeObjDefault",
+                "displayName": "Code Callable Code Obj Default",
+            },
+            "section-h": {
+                "name": "codeParamCodeObjDefault",
+                "displayName": "Code Param Code Obj Default",
+            },
+            "section-i": {
+                "name": "stateMachineStartSectionDefault",
+                "displayName": "State Machine Start Section Default",
+            },
+            "section-j": {
+                "name": "stateMachineGateSectionDefault",
+                "displayName": "State Machine Gate Section Default",
+            },
+            "section-k": {
+                "name": "stateMachineEndSectionDefault",
+                "displayName": "State Machine End Section Default",
+            },
+            "section-l": {
+                "name": "browserSectionDefault",
+                "displayName": "Browser Section Default",
+            },
+            "section-m": {
+                "name": "callableSectionDefault",
+                "displayName": "Callable Section Default",
+            },
+            "section-n": {"name": "chatWindowing", "displayName": "Chat Windowing"},
+            "section-o": {
+                "name": "iFrameSectionDefault",
+                "displayName": "",
+            },
+            "section-p": {
+                "name": "genPythonCodeSectionDefault",
+                "displayName": "",
+            },
+        }
+        section_variant_map = {
+            section_id: f"{section_id}-variant" for section_id in sections
+        }
+        section_variants = {
+            variant_id: {"id": variant_id, "impl": f"{section_id}-impl"}
+            for section_id, variant_id in section_variant_map.items()
+        }
+        section_impls = {
+            f"{section_id}-impl": {
+                "id": f"{section_id}-impl",
+                "type": "Dict",
+                "size": {"width": 550.0},
+            }
+            for section_id in sections
+        }
+        code_objs = {
+            "code-obj-gui": {"name": "gui", "displayName": "GUI"},
+            "code-obj-language-server": {
+                "name": "languageServer",
+                "displayName": "Language Server",
+            },
+            "code-obj-iframe": {
+                "name": "iFrameSectionDefault",
+                "displayName": "IFrame Section Default",
+            },
+            "code-obj-generated-python": {
+                "name": "genPythonCodeSectionDefault",
+                "displayName": "Generated Python Code Section Default",
+            },
+        }
         payload = {
             "projectConfig": {
                 "id": "settings",
@@ -289,6 +370,7 @@ class Route:
                 "activeViewModeId": "settings-core",
                 "showParamDisplayNames": True,
                 "allowJsonSourceKeyEdits": False,
+                "sectionVariantMap": section_variant_map,
                 "viewModes": {
                     "settings-core": {
                         "id": "settings-core",
@@ -376,22 +458,10 @@ class Route:
                     },
                 },
             },
-            "sections": {
-                "section-a": {"name": "shortcuts"},
-                "section-b": {"name": "gui"},
-                "section-c": {"name": "backend"},
-                "section-d": {"name": "sectionSizingPolicy"},
-                "section-e": {"name": "languageServer"},
-                "section-f": {"name": "buttonParamCodeObjDefault"},
-                "section-g": {"name": "codeCallableCodeObjDefault"},
-                "section-h": {"name": "codeParamCodeObjDefault"},
-                "section-i": {"name": "stateMachineStartSectionDefault"},
-                "section-j": {"name": "stateMachineGateSectionDefault"},
-                "section-k": {"name": "stateMachineEndSectionDefault"},
-                "section-l": {"name": "browserSectionDefault"},
-                "section-m": {"name": "callableSectionDefault"},
-                "section-n": {"name": "chatWindowing"},
-            },
+            "sections": sections,
+            "sectionVariants": section_variants,
+            "sectionImpls": section_impls,
+            "codeObjs": code_objs,
             "projectChatWindowing": {
                 "instancesById": {},
                 "nextInstanceNumber": 1,
@@ -413,7 +483,7 @@ class Route:
                 "httpStatus": 200,
                 "latestHttpStatus": 200,
                 "projectName": "settings",
-                "sectionCount": 14,
+                "sectionCount": 16,
                 "sectionNames": [
                     "backend",
                     "browserSectionDefault",
@@ -422,7 +492,9 @@ class Route:
                     "chatWindowing",
                     "codeCallableCodeObjDefault",
                     "codeParamCodeObjDefault",
+                    "genPythonCodeSectionDefault",
                     "gui",
+                    "iFrameSectionDefault",
                     "languageServer",
                     "sectionSizingPolicy",
                     "shortcuts",
@@ -445,6 +517,25 @@ class Route:
                     "Section Defaults Content and Media": 0,
                     "Param Defaults": 3,
                     "All Settings": 4,
+                },
+                "fixedWidthSectionCount": 16,
+                "sectionWidthSamples": {
+                    "gui": 550.0,
+                    "languageServer": 550.0,
+                    "iFrameSectionDefault": 550.0,
+                    "genPythonCodeSectionDefault": 550.0,
+                },
+                "sectionDisplayNameSamples": {
+                    "gui": "",
+                    "languageServer": "",
+                    "iFrameSectionDefault": "",
+                    "genPythonCodeSectionDefault": "",
+                },
+                "rootCodeObjDisplayNameSamples": {
+                    "gui": "GUI",
+                    "languageServer": "Language Server",
+                    "iFrameSectionDefault": "IFrame Section Default",
+                    "genPythonCodeSectionDefault": "Generated Python Code Section Default",
                 },
                 "viewModeViewportDefaults": {
                     "Core": {
@@ -507,6 +598,25 @@ class Route:
                     "Param Defaults",
                     "All Settings",
                 ],
+                "latestFixedWidthSectionCount": 16,
+                "latestSectionWidthSamples": {
+                    "gui": 550.0,
+                    "languageServer": 550.0,
+                    "iFrameSectionDefault": 550.0,
+                    "genPythonCodeSectionDefault": 550.0,
+                },
+                "latestSectionDisplayNameSamples": {
+                    "gui": "",
+                    "languageServer": "",
+                    "iFrameSectionDefault": "",
+                    "genPythonCodeSectionDefault": "",
+                },
+                "latestRootCodeObjDisplayNameSamples": {
+                    "gui": "GUI",
+                    "languageServer": "Language Server",
+                    "iFrameSectionDefault": "IFrame Section Default",
+                    "genPythonCodeSectionDefault": "Generated Python Code Section Default",
+                },
                 "latestViewModeViewportDefaults": {
                     "Core": {
                         "viewportIsNone": True,

@@ -17,6 +17,7 @@ const (
 	SettingsProjectName             = "settings"
 	settingsViewGridColumns         = 3
 	settingsViewGridSpacing float64 = 600
+	settingsSectionWidth    float64 = 550
 )
 
 var hexColorPattern = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
@@ -479,6 +480,7 @@ func addSettingsSection(project *projectstate.Project, sectionName string, rawVa
 		"type":              "Dict",
 		"isJsonSource":      true,
 		"jsonSourceKeys":    []string{sectionName},
+		"size":              map[string]any{"width": settingsSectionWidth},
 		"topLevelParamId":   rootCodeObjID,
 		"codeObjVariantMap": codeObjVariantMap,
 	})
@@ -491,7 +493,7 @@ func addSettingsSection(project *projectstate.Project, sectionName string, rawVa
 	project.Sections[sectionID] = projectstate.Section{
 		ID:               sectionID,
 		Name:             sectionName,
-		DisplayName:      humanizeSettingsIdentifier(sectionName),
+		DisplayName:      "",
 		VariantIDs:       []string{sectionVariantID},
 		DefaultVariantID: sectionVariantID,
 	}
@@ -881,7 +883,7 @@ func humanizeSettingsIdentifier(identifier string) string {
 	}
 
 	replacer := strings.NewReplacer(
-		"iFrame", "IFrame",
+		"iFrame", "Iframe",
 		"genPython", "GeneratedPython",
 		"autobackup", "AutoBackup",
 	)
@@ -894,7 +896,11 @@ func humanizeSettingsIdentifier(identifier string) string {
 	output := make([]string, 0, len(tokens))
 	for _, token := range tokens {
 		switch strings.ToUpper(token) {
-		case "API", "CPU", "CSS", "CSV", "DB", "GPU", "GUI", "HTML", "HTTP", "HTTPS", "ID", "IO", "JSON", "JS", "LSP", "PDF", "SQL", "SVG", "UI", "URL", "XML", "YAML":
+		case "API", "CPU", "CSS", "CSV", "DB", "GPU", "GUI", "HTML", "HTTP", "HTTPS", "ID", "IFRAME", "IO", "JSON", "JS", "LSP", "PDF", "SQL", "SVG", "UI", "URL", "XML", "YAML":
+			if strings.ToUpper(token) == "IFRAME" {
+				output = append(output, "IFrame")
+				continue
+			}
 			output = append(output, strings.ToUpper(token))
 		default:
 			if len(token) == 1 {

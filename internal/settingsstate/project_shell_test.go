@@ -10,6 +10,13 @@ import (
 	"setta/internal/projectstate"
 )
 
+var expectedSettingsBootstrapRootCodeObjDisplayNames = map[string]string{
+	"gui":                         "GUI",
+	"languageServer":              "Language Server",
+	"iFrameSectionDefault":        "IFrame Section Default",
+	"genPythonCodeSectionDefault": "Generated Python Code Section Default",
+}
+
 func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	t.Parallel()
 
@@ -52,6 +59,7 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 		t.Fatalf("expected shared settings layout to include 46 sections, got %d", len(project.TopLevelSections))
 	}
 	assertSettingsProjectViewModeLayoutAndViewportContract(t, project)
+	assertSettingsProjectBootstrapMetadataContract(t, project)
 
 	expectedCountsByView := map[string]int{
 		"All Settings":                        46,
@@ -582,6 +590,57 @@ func assertSettingsProjectViewModeLayoutAndViewportContract(
 	coreViewMode := settingsProjectViewModeByName(t, project, "Core")
 	if coreViewMode.VisibilityBySectionID[hiddenSectionID] {
 		t.Fatal("expected buttonParamCodeObjDefault to remain hidden in the Core settings tab")
+	}
+}
+
+func assertSettingsProjectBootstrapMetadataContract(
+	t *testing.T,
+	project projectstate.Project,
+) {
+	t.Helper()
+
+	for _, sectionName := range settingsSectionOrder {
+		sectionImpl, ok := project.SectionImpls[settingsSectionImplID(sectionName)]
+		if !ok {
+			t.Fatalf("expected settings section impl for %q", sectionName)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
+			t.Fatalf("unmarshal settings section impl %q: %v", sectionName, err)
+		}
+		size, ok := payload["size"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected settings section %q to include a size payload", sectionName)
+		}
+		width, ok := size["width"].(float64)
+		if !ok {
+			t.Fatalf("expected settings section %q width to be numeric, got %#v", sectionName, size["width"])
+		}
+		if width != settingsSectionWidth {
+			t.Fatalf("expected settings section %q width %v, got %v", sectionName, settingsSectionWidth, width)
+		}
+	}
+
+	for sectionName, expectedDisplayName := range expectedSettingsBootstrapRootCodeObjDisplayNames {
+		section, ok := project.Sections[settingsSectionID(sectionName)]
+		if !ok {
+			t.Fatalf("expected settings section %q", sectionName)
+		}
+		if section.DisplayName != "" {
+			t.Fatalf("expected section %q display name to stay blank, got %q", sectionName, section.DisplayName)
+		}
+		rootCodeObj, ok := project.CodeObjs[settingsCodeObjID(sectionName, []string{sectionName})]
+		if !ok {
+			t.Fatalf("expected root settings code object for %q", sectionName)
+		}
+		if rootCodeObj.DisplayName != expectedDisplayName {
+			t.Fatalf(
+				"expected root code object %q display name %q, got %q",
+				sectionName,
+				expectedDisplayName,
+				rootCodeObj.DisplayName,
+			)
+		}
 	}
 }
 

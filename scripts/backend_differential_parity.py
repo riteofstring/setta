@@ -1978,6 +1978,12 @@ def summarize_settings_project_shell(
     if http_status != 200 or not isinstance(payload, dict):
         return summary
 
+    display_name_sample_names = [
+        "gui",
+        "languageServer",
+        "iFrameSectionDefault",
+        "genPythonCodeSectionDefault",
+    ]
     project_config = object_field(payload, "projectConfig")
     sections = object_field(payload, "sections", allow_missing=True)
     view_modes = object_field(project_config, "viewModes", allow_missing=True)
@@ -2031,6 +2037,22 @@ def summarize_settings_project_shell(
             "viewModeNames": ordered_view_mode_names_list,
             "activeViewModeName": active_view_mode_name,
             "countsByView": counts_by_view,
+            "fixedWidthSectionCount": settings_payload_fixed_width_section_count(
+                payload,
+                expected_width=550,
+            ),
+            "sectionWidthSamples": settings_payload_section_width_samples(
+                payload,
+                display_name_sample_names,
+            ),
+            "sectionDisplayNameSamples": settings_payload_section_display_name_samples(
+                payload,
+                display_name_sample_names,
+            ),
+            "rootCodeObjDisplayNameSamples": settings_payload_code_obj_display_name_samples(
+                payload,
+                display_name_sample_names,
+            ),
             "showParamDisplayNames": bool(
                 project_config.get("showParamDisplayNames", False)
             ),
@@ -2058,6 +2080,26 @@ def summarize_settings_project_shell(
                 sections=latest_sections,
                 key_prefix="latest",
             )
+        )
+        summary.update(
+            {
+                "latestFixedWidthSectionCount": settings_payload_fixed_width_section_count(
+                    latest_project_state,
+                    expected_width=550,
+                ),
+                "latestSectionWidthSamples": settings_payload_section_width_samples(
+                    latest_project_state,
+                    display_name_sample_names,
+                ),
+                "latestSectionDisplayNameSamples": settings_payload_section_display_name_samples(
+                    latest_project_state,
+                    display_name_sample_names,
+                ),
+                "latestRootCodeObjDisplayNameSamples": settings_payload_code_obj_display_name_samples(
+                    latest_project_state,
+                    display_name_sample_names,
+                ),
+            }
         )
     return summary
 
@@ -2770,6 +2812,95 @@ def settings_payload_view_mode_layout_contains_section(
     return visibility.get(section_id) is True and section_id in top_level_sections
 
 
+def settings_payload_fixed_width_section_count(
+    payload: dict[str, Any],
+    expected_width: float,
+) -> int:
+    sections = object_field(payload, "sections", allow_missing=True)
+    count = 0
+    for raw_section in sections.values():
+        section = expect_object(raw_section, "sections.<value>")
+        section_name = normalized_string(section.get("name"))
+        if not section_name:
+            continue
+        if settings_payload_section_width(payload, section_name) == float(expected_width):
+            count += 1
+    return count
+
+
+def settings_payload_section_width_samples(
+    payload: dict[str, Any],
+    section_names: list[str],
+) -> dict[str, Any]:
+    return {
+        section_name: settings_payload_section_width(payload, section_name)
+        for section_name in section_names
+    }
+
+
+def settings_payload_section_display_name_samples(
+    payload: dict[str, Any],
+    section_names: list[str],
+) -> dict[str, str]:
+    sections = object_field(payload, "sections", allow_missing=True)
+    display_names: dict[str, str] = {}
+    for section_name in section_names:
+        section_id = find_section_id_by_name(sections, section_name)
+        section = expect_object(sections.get(section_id), f"sections.{section_id}")
+        display_names[section_name] = normalized_string(section.get("displayName"))
+    return display_names
+
+
+def settings_payload_code_obj_display_name_samples(
+    payload: dict[str, Any],
+    code_obj_names: list[str],
+) -> dict[str, str]:
+    code_objs = object_field(payload, "codeObjs", allow_missing=True)
+    display_names: dict[str, str] = {}
+    for code_obj_name in code_obj_names:
+        code_obj_id = find_code_obj_id_by_name(code_objs, code_obj_name)
+        code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
+        display_names[code_obj_name] = normalized_string(code_obj.get("displayName"))
+    return display_names
+
+
+def settings_payload_section_width(
+    payload: dict[str, Any],
+    section_name: str,
+) -> Any:
+    section_impl = settings_payload_section_impl(payload, section_name)
+    size = object_field(section_impl, "size", allow_missing=True)
+    width = size.get("width")
+    if isinstance(width, (int, float)):
+        return float(width)
+    return width
+
+
+def settings_payload_section_impl(
+    payload: dict[str, Any],
+    section_name: str,
+) -> dict[str, Any]:
+    project_config = object_field(payload, "projectConfig")
+    sections = object_field(payload, "sections", allow_missing=True)
+    section_id = find_section_id_by_name(sections, section_name)
+    section_variant_map = object_field(project_config, "sectionVariantMap", allow_missing=True)
+    section_variant_id = expect_non_empty_string(
+        section_variant_map.get(section_id),
+        f"projectConfig.sectionVariantMap.{section_id}",
+    )
+    section_variants = object_field(payload, "sectionVariants", allow_missing=True)
+    section_variant = expect_object(
+        section_variants.get(section_variant_id),
+        f"sectionVariants.{section_variant_id}",
+    )
+    section_impl_id = expect_non_empty_string(
+        section_variant.get("impl"),
+        f"sectionVariants.{section_variant_id}.impl",
+    )
+    section_impls = object_field(payload, "sectionImpls", allow_missing=True)
+    return expect_object(section_impls.get(section_impl_id), f"sectionImpls.{section_impl_id}")
+
+
 def settings_project_payload_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if "projectConfig" in payload:
         return payload
@@ -3084,6 +3215,16 @@ def find_section_id_by_name(sections: dict[str, Any], section_name: str) -> str:
             return section_id
     raise ParityHarnessError(
         f"Unable to find settings section named {section_name!r}"
+    )
+
+
+def find_code_obj_id_by_name(code_objs: dict[str, Any], code_obj_name: str) -> str:
+    for code_obj_id, raw_code_obj in code_objs.items():
+        code_obj = expect_object(raw_code_obj, f"codeObjs.{code_obj_id}")
+        if normalized_string(code_obj.get("name")) == code_obj_name:
+            return code_obj_id
+    raise ParityHarnessError(
+        f"Unable to find code object named {code_obj_name!r}"
     )
 
 
