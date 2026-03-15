@@ -37,27 +37,23 @@ class ShareListenerRuntime:
         self._deployment_root = deployment_root
         self._manifest = manifest
         self._listener_config = None if manifest is None else manifest.listener
-        self._entrypoint_path = self._resolve_entrypoint_path()
+        if self._listener_config is None or not self._listener_config.enabled:
+            self._entrypoint_path = None
+        else:
+            entrypoint = (
+                self._deployment_root / self._listener_config.entrypoint
+            ).resolve()
+            if not entrypoint.exists():
+                raise FileNotFoundError(
+                    f"Share listener entrypoint not found: {entrypoint}"
+                )
+            self._entrypoint_path = entrypoint
         self._session_handles: dict[tuple[str, ID], _ListenerHandle] = {}
         self._runtime_root = (
             runtime_root.resolve() if runtime_root is not None else None
         )
         if self._runtime_root is not None:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self._runtime_root))
-
-    def _resolve_entrypoint_path(self) -> Path | None:
-        if self._listener_config is None:
-            return None
-        if not self._listener_config.enabled:
-            return None
-        entrypoint = (
-            self._deployment_root / self._listener_config.entrypoint
-        ).resolve()
-        if not entrypoint.exists():
-            raise FileNotFoundError(
-                f"Share listener entrypoint not found: {entrypoint}"
-            )
-        return entrypoint
 
     def _is_enabled(self) -> bool:
         return self._entrypoint_path is not None
