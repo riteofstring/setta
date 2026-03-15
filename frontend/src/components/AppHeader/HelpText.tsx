@@ -1,4 +1,4 @@
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 
 export function HelpText() {

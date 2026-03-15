@@ -2,9 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_serializer
-
-from setta.database.utils import create_new_id
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
