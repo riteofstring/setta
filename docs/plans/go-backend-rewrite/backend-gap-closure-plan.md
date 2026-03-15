@@ -45,8 +45,13 @@ categorize them.
 
 ## Current Starting Backlog
 
-- Expand the differential manifest beyond the first bootstrap / websocket /
-  view-mode / create-defaults slice
+- Expand the differential manifest beyond the current bootstrap / websocket /
+  create-defaults / dedicated-`/settings` shell slice
+- Dedicated `/settings` live-hydration parity:
+  `settings_project.load.json_source_sections_hydrate_from_live_settings_snapshot`
+- Dedicated `/settings` load-repair parity:
+  `settings_project.load.repairs_write_back_updated_settings_project_document`
+  and related compatibility / integrity follow-ups
+- Workspace-launch outdated-settings preflight parity:
+  `settings_project.launch.missing_required_section_surfaces_typed_outdated_settings_error`
 - More corpus-driven latest-state hydration / projection scenarios
-- Matrix rows that are still explicitly `Missing`, starting with
-  the caller-backed settings-project bootstrap / dedicated `/settings` gap
