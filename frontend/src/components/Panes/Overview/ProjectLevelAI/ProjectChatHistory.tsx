@@ -1,4 +1,5 @@
 import { PointerSensor } from "@dnd-kit/dom";
+import { arrayMove } from "@dnd-kit/helpers";
 import { useSortableListItem as useDisplacementSortableListItem } from "components/Pages/Project/ViewModeDnd";
 import {
   BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME,
@@ -13,6 +14,7 @@ import {
   type DragEndEvent,
   type DragMoveEvent,
   type DragStartEvent,
+  type SettaCollision,
 } from "forks/dnd-kit/adapter";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import {
@@ -40,64 +42,64 @@ import {
 import { RiChatNewFill } from "react-icons/ri";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbFolder, TbFolderOpen } from "react-icons/tb";
-import { loadAgentRuns } from "state/actions/aiAgentRuns";
-import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
-import type { ChatRunType } from "state/actions/chatHistoryTypes";
+import { getRunInputString } from "state/actions/agentRunUtils";
+import { loadAgentRuns } from "state/actions/ai";
 import {
-  deleteProjectChatThreadGroup,
-  setProjectChatThreadGroupAssignment,
-} from "state/actions/projectChatThreadGroupAssignments";
+  buildChatHistoryEntries,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import {
+  canUndoLastProjectChatThreadStorageMutation,
   createProjectChatThreadGroup,
+  deleteProjectChatThread,
+  deleteProjectChatThreadGroup,
+  markProjectChatThreadViewed,
   renameProjectChatThreadGroup,
-} from "state/actions/projectChatThreadGroupCrud";
-import {
   reorderProjectChatThreadGroups,
+  reorderProjectChatThreads,
+  setProjectChatThreadGroupAssignment,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-} from "state/actions/projectChatThreadGroupOrdering";
-import {
-  deleteProjectChatThread,
-  markProjectChatThreadViewed,
-  reorderProjectChatThreads,
   toggleProjectChatThreadPinned,
-} from "state/actions/projectChatThreadMutations";
-import { undoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoApply";
-import { canUndoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoStack";
-import { useAIStore, useProjectState } from "state/definitions";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+  undoLastProjectChatThreadStorageMutation,
+} from "state/actions/projectChatThreads";
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
+import {
+  buildSearchableTextForMessages,
+  countConversationSearchTextMatches,
+  extractRunMessagesForConversationSearch,
+  matchesConversationSearchText,
+  tokenizeConversationSearchQuery,
+} from "utils/conversationSearch";
+import {
+  EngineTypeEnum,
+  ExternalAgentToolTypeEnum,
+  type EngineConfig,
+  type ExternalAgentConfig,
+} from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import {
-  buildNextThreadOrder,
-  getGroupIdFromThreadSectionDropTargetId,
-  getPointerClientPoint,
-  getThreadGroupIdFromDndId,
-  getThreadIdFromDndId,
-  isPointerWithinThreadGroupDomain,
-  PROJECT_CHAT_HISTORY_DRAG_RELEASE_THRESHOLD_PX,
-  resolveGroupIdFromPointerPosition,
-  resolveNextGroupOrderFromDrag,
-  resolveThreadDropTarget,
-  toThreadDndId,
-  toThreadDropTargetId,
-  toThreadGroupDndId,
-  toThreadSectionDropTargetId,
-  type ThreadDropTarget,
-} from "./projectChatHistoryDnd";
-import {
-  buildProjectChatHistoryViewModel,
-  DRAFT_THREAD_ENTRY_ID,
-  isDraftThreadEntry,
-  normalizeUniqueThreadIds,
-  PINNED_THREAD_DOMAIN,
-  UNPINNED_THREAD_DOMAIN,
-  type ProjectChatHistoryEntry,
-  type ThreadGroupSection,
-  type ThreadPinDomain,
-} from "./projectChatHistoryViewModel";
+
+type ProjectChatHistoryEntry = ReturnType<
+  typeof buildChatHistoryEntries
+>[number];
+const DRAFT_THREAD_ENTRY_ID = "__setta_project_chat_draft_thread__";
+const DRAFT_THREAD_LABEL = "New thread...";
+const THREAD_DND_PREFIX = "project-chat-thread::";
+const THREAD_GROUP_DND_PREFIX = "project-chat-thread-group::";
+const THREAD_SECTION_DROP_TARGET_PREFIX = "project-chat-thread-section-drop::";
+const THREAD_DROP_TARGET_PREFIX = "project-chat-thread-drop::";
+const GROUP_DRAG_RELEASE_THRESHOLD_PX = 4;
 const PROJECT_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
 const PROJECT_CHAT_HISTORY_MISSING_SELECTED_CHAT_POLL_INTERVAL_MS = 1500;
 const PROJECT_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
+
+type ThreadPinDomain = "pinned" | "unpinned";
+const PINNED_THREAD_DOMAIN: ThreadPinDomain = "pinned";
+const UNPINNED_THREAD_DOMAIN: ThreadPinDomain = "unpinned";
 
 export function getProjectChatDeleteRecoveryTooltipContent(
   target: "thread" | "group",
@@ -107,6 +109,26 @@ export function getProjectChatDeleteRecoveryTooltipContent(
   }
   return "Remove this chat from history. Use Undo Delete in the toolbar to undo.";
 }
+
+type ThreadGroup = {
+  id: string;
+  name: string;
+  collapsed: boolean;
+  pinned?: boolean;
+};
+
+type ThreadGroupSection = ThreadGroup & {
+  entries: Array<ProjectChatHistoryEntry>;
+};
+
+type ThreadDropPlacement = "before" | "after";
+
+type ThreadDropTarget = {
+  groupId: string | null;
+  targetThreadId: string | null;
+  placement: ThreadDropPlacement;
+  pinDomain: ThreadPinDomain;
+};
 
 function resolveProjectChatHistoryPollIntervalMs({
   hasLoadError,
@@ -312,71 +334,194 @@ export function ProjectChatHistory({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [historyPollIntervalMs]);
+  const displayEntries = useMemo(() => {
+    if (!draftThread || !draftThread.chatId) {
+      return historyEntries;
+    }
+    return historyEntries.map((entry) => {
+      if (entry.chatId !== draftThread.chatId || entry.nameSource !== null) {
+        return entry;
+      }
+      return {
+        ...entry,
+        label: DRAFT_THREAD_LABEL,
+      };
+    });
+  }, [draftThread, historyEntries]);
+  const hasDraftThreadEntry = useMemo(() => {
+    if (!draftThread?.chatId) {
+      return false;
+    }
+    return displayEntries.some((entry) => entry.chatId === draftThread.chatId);
+  }, [displayEntries, draftThread]);
+  const syntheticDraftThreadEntry =
+    useMemo<ProjectChatHistoryEntry | null>(() => {
+      if (!draftThread) {
+        return null;
+      }
+      if (draftThread.chatId !== null && hasDraftThreadEntry) {
+        return null;
+      }
+      return {
+        chatId: DRAFT_THREAD_ENTRY_ID,
+        label: DRAFT_THREAD_LABEL,
+        nameSource: null,
+        lastUpdatedMs: Number.MAX_SAFE_INTEGER,
+        waitingForResponse: chatId === null,
+        runType,
+        engineConfigId,
+      };
+    }, [chatId, draftThread, engineConfigId, hasDraftThreadEntry, runType]);
+  const engineConfigById = useMemo(() => {
+    return new Map(engineConfigs.map((config) => [config.id, config]));
+  }, [engineConfigs]);
+  const externalAgentConfigById = useMemo(() => {
+    return new Map(externalAgentConfigs.map((config) => [config.id, config]));
+  }, [externalAgentConfigs]);
+  const normalizedMasterSearchTerms = useMemo(
+    () => tokenizeConversationSearchQuery(masterSearchInput),
+    [masterSearchInput],
+  );
+  const hasMasterSearch = normalizedMasterSearchTerms.length > 0;
+  const searchableTextByChatId = useMemo(() => {
+    const byChatId = new Map<string, string>();
+    if (!hasMasterSearch) {
+      return byChatId;
+    }
+    const candidateChatIds = new Set(
+      displayEntries.map((entry) => entry.chatId),
+    );
+    if (candidateChatIds.size === 0) {
+      return byChatId;
+    }
+    const segmentsByChatId = new Map<string, Array<string>>();
+    for (const entry of displayEntries) {
+      segmentsByChatId.set(entry.chatId, [entry.label]);
+    }
+    for (const run of agentRuns) {
+      const runChatId = getRunInputString(run, "chatId");
+      if (!runChatId || !candidateChatIds.has(runChatId)) {
+        continue;
+      }
+      const runMessages = extractRunMessagesForConversationSearch(run);
+      const runSearchText = buildSearchableTextForMessages(runMessages);
+      if (runSearchText.length === 0) {
+        continue;
+      }
+      const existingSegments = segmentsByChatId.get(runChatId);
+      if (!existingSegments) {
+        continue;
+      }
+      existingSegments.push(runSearchText);
+    }
+    for (const [chatId, segments] of segmentsByChatId.entries()) {
+      byChatId.set(chatId, segments.join("\n"));
+    }
+    return byChatId;
+  }, [agentRuns, displayEntries, hasMasterSearch]);
+  const masterSearchMatchCountByChatId = useMemo(() => {
+    const countsByChatId = new Map<string, number>();
+    if (!hasMasterSearch) {
+      return countsByChatId;
+    }
+    for (const entry of displayEntries) {
+      const searchableText =
+        searchableTextByChatId.get(entry.chatId) ?? entry.label;
+      const matchCount = countConversationSearchTextMatches(
+        searchableText,
+        normalizedMasterSearchTerms,
+      );
+      if (matchCount <= 0) {
+        continue;
+      }
+      countsByChatId.set(entry.chatId, matchCount);
+    }
+    if (syntheticDraftThreadEntry) {
+      const draftMatchCount = countConversationSearchTextMatches(
+        syntheticDraftThreadEntry.label,
+        normalizedMasterSearchTerms,
+      );
+      if (draftMatchCount > 0) {
+        countsByChatId.set(syntheticDraftThreadEntry.chatId, draftMatchCount);
+      }
+    }
+    return countsByChatId;
+  }, [
+    displayEntries,
+    hasMasterSearch,
+    normalizedMasterSearchTerms,
+    searchableTextByChatId,
+    syntheticDraftThreadEntry,
+  ]);
+  const searchableDisplayEntries = useMemo(() => {
+    if (!hasMasterSearch) {
+      return displayEntries;
+    }
+    return displayEntries.filter((entry) => {
+      const searchableText =
+        searchableTextByChatId.get(entry.chatId) ?? entry.label;
+      return matchesConversationSearchText(
+        searchableText,
+        normalizedMasterSearchTerms,
+      );
+    });
+  }, [
+    displayEntries,
+    hasMasterSearch,
+    normalizedMasterSearchTerms,
+    searchableTextByChatId,
+  ]);
+
+  const sortedEntries = useMemo(() => {
+    const nextEntries = [...searchableDisplayEntries];
+    const shouldIncludeSyntheticDraft =
+      syntheticDraftThreadEntry &&
+      (!hasMasterSearch ||
+        matchesConversationSearchText(
+          syntheticDraftThreadEntry.label,
+          normalizedMasterSearchTerms,
+        ));
+    if (shouldIncludeSyntheticDraft) {
+      nextEntries.push(syntheticDraftThreadEntry);
+    }
+    return nextEntries.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs);
+  }, [
+    hasMasterSearch,
+    normalizedMasterSearchTerms,
+    searchableDisplayEntries,
+    syntheticDraftThreadEntry,
+  ]);
+
   const viewedThreadIdsSet = useMemo(() => {
     return new Set(viewedThreadIds);
   }, [viewedThreadIds]);
   const pinnedThreadIdsSet = useMemo(() => {
     return new Set(pinnedThreadIds);
   }, [pinnedThreadIds]);
-  const {
-    groupIdSet,
-    groupSections,
-    groupSortableEnabledById,
-    groupsSortableEnabled,
-    hasMasterSearch,
-    masterSearchMatchCount,
-    masterSearchMatchCountByChatId,
-    masterSearchQueryKey,
-    orderedVisibleThreadIds,
-    pinnedSearchableGroupSections,
-    pinnedSortableGroupIds,
-    placeholderText,
-    searchableGroupSections,
-    threadAgentBadgeLabelByChatId,
-    threadGroupById,
-    threadPinnedById,
-    ungroupedEntries,
-    unpinnedSearchableGroupSections,
-    unpinnedSortableGroupIds,
-  } = useMemo(
-    () =>
-      buildProjectChatHistoryViewModel({
-        activeChatId: chatId,
-        agentRuns,
-        draftThread,
-        engineConfigId,
-        engineConfigs,
-        externalAgentConfigs,
-        historyEntries,
-        initialLoadComplete: agentRunsInitialLoadComplete,
-        loadError: agentRunsLoadError,
-        masterSearchInput,
-        pinnedThreadIds,
-        runType,
-        threadAssignments,
-        threadGroups,
-        threadOrderIds,
-        trashedThreadIds,
-      }),
-    [
-      agentRuns,
-      agentRunsInitialLoadComplete,
-      agentRunsLoadError,
-      chatId,
-      draftThread,
-      engineConfigId,
-      engineConfigs,
-      externalAgentConfigs,
-      historyEntries,
-      masterSearchInput,
-      pinnedThreadIds,
-      runType,
-      threadAssignments,
-      threadGroups,
-      threadOrderIds,
-      trashedThreadIds,
-    ],
-  );
+  const trashedThreadIdsSet = useMemo(() => {
+    return new Set(trashedThreadIds);
+  }, [trashedThreadIds]);
+  const visibleSortedEntries = useMemo(() => {
+    return sortedEntries.filter(
+      (entry) =>
+        isDraftThreadEntry(entry) || !trashedThreadIdsSet.has(entry.chatId),
+    );
+  }, [sortedEntries, trashedThreadIdsSet]);
+  const threadAgentBadgeLabelByChatId = useMemo(() => {
+    const labelByChatId = new Map<string, string>();
+    for (const entry of visibleSortedEntries) {
+      const label = resolveThreadAgentBadgeLabel({
+        entry,
+        engineConfigById,
+        externalAgentConfigById,
+      });
+      if (!label) {
+        continue;
+      }
+      labelByChatId.set(entry.chatId, label);
+    }
+    return labelByChatId;
+  }, [engineConfigById, externalAgentConfigById, visibleSortedEntries]);
 
   useEffect(() => {
     if (!editingGroupId) {
@@ -388,6 +533,106 @@ export function ProjectChatHistory({
     }
   }, [editingGroupId, threadGroups]);
 
+  const { groupSections, ungroupedEntries } = useMemo(() => {
+    const groupsById = new Map<string, ThreadGroup>();
+    threadGroups.forEach((group) => {
+      groupsById.set(group.id, group);
+    });
+    const pinnedThreadIdsSet = new Set(pinnedThreadIds);
+    const normalizedThreadOrder = normalizeUniqueThreadIds(threadOrderIds);
+    const threadOrderIndexById = new Map<string, number>();
+    for (let index = 0; index < normalizedThreadOrder.length; index += 1) {
+      const threadId = normalizedThreadOrder[index];
+      if (!threadId) {
+        continue;
+      }
+      threadOrderIndexById.set(threadId, index);
+    }
+
+    const sortThreadEntries = (entries: Array<ProjectChatHistoryEntry>) => {
+      return [...entries].sort((left, right) => {
+        const leftPinned = pinnedThreadIdsSet.has(left.chatId);
+        const rightPinned = pinnedThreadIdsSet.has(right.chatId);
+        if (leftPinned !== rightPinned) {
+          return leftPinned ? -1 : 1;
+        }
+        const leftOrderIndex = threadOrderIndexById.get(left.chatId);
+        const rightOrderIndex = threadOrderIndexById.get(right.chatId);
+        if (leftOrderIndex !== undefined || rightOrderIndex !== undefined) {
+          if (leftOrderIndex === undefined) {
+            return 1;
+          }
+          if (rightOrderIndex === undefined) {
+            return -1;
+          }
+          if (leftOrderIndex !== rightOrderIndex) {
+            return leftOrderIndex - rightOrderIndex;
+          }
+        }
+        return right.lastUpdatedMs - left.lastUpdatedMs;
+      });
+    };
+
+    const entriesByGroupId = new Map<string, Array<ProjectChatHistoryEntry>>();
+    const nextUngroupedEntries: Array<ProjectChatHistoryEntry> = [];
+    const draftGroupId = draftThread?.groupId ?? null;
+
+    for (const entry of visibleSortedEntries) {
+      const groupId =
+        isDraftThreadEntry(entry) && draftGroupId
+          ? draftGroupId
+          : threadAssignments[entry.chatId] ?? null;
+      if (!groupId || !groupsById.has(groupId)) {
+        nextUngroupedEntries.push(entry);
+        continue;
+      }
+      const groupEntries = entriesByGroupId.get(groupId);
+      if (groupEntries) {
+        groupEntries.push(entry);
+      } else {
+        entriesByGroupId.set(groupId, [entry]);
+      }
+    }
+
+    return {
+      groupSections: threadGroups.map((group) => {
+        return {
+          ...group,
+          pinned: group.pinned ?? false,
+          entries: sortThreadEntries(entriesByGroupId.get(group.id) ?? []),
+        };
+      }),
+      ungroupedEntries: sortThreadEntries(nextUngroupedEntries),
+    };
+  }, [
+    draftThread,
+    pinnedThreadIds,
+    visibleSortedEntries,
+    threadAssignments,
+    threadGroups,
+    threadOrderIds,
+  ]);
+
+  const searchableGroupSections = useMemo(() => {
+    if (!hasMasterSearch) {
+      return groupSections;
+    }
+    return groupSections.filter((section) => section.entries.length > 0);
+  }, [groupSections, hasMasterSearch]);
+  const pinnedSearchableGroupSections = useMemo(() => {
+    return searchableGroupSections.filter((section) => section.pinned ?? false);
+  }, [searchableGroupSections]);
+  const unpinnedSearchableGroupSections = useMemo(() => {
+    return searchableGroupSections.filter(
+      (section) => !(section.pinned ?? false),
+    );
+  }, [searchableGroupSections]);
+  const pinnedSortableGroupIds = useMemo(() => {
+    return pinnedSearchableGroupSections.map((section) => section.id);
+  }, [pinnedSearchableGroupSections]);
+  const unpinnedSortableGroupIds = useMemo(() => {
+    return unpinnedSearchableGroupSections.map((section) => section.id);
+  }, [unpinnedSearchableGroupSections]);
   const pinnedSortableGroupDndIds = useMemo(() => {
     return pinnedSortableGroupIds.map((groupId) => toThreadGroupDndId(groupId));
   }, [pinnedSortableGroupIds]);
@@ -396,6 +641,51 @@ export function ProjectChatHistory({
       toThreadGroupDndId(groupId),
     );
   }, [unpinnedSortableGroupIds]);
+  const groupSortableEnabledById = useMemo(() => {
+    const sortableById = new Map<string, boolean>();
+    const pinnedSortableEnabled = pinnedSortableGroupIds.length > 1;
+    const unpinnedSortableEnabled = unpinnedSortableGroupIds.length > 1;
+    for (const groupId of pinnedSortableGroupIds) {
+      sortableById.set(groupId, pinnedSortableEnabled);
+    }
+    for (const groupId of unpinnedSortableGroupIds) {
+      sortableById.set(groupId, unpinnedSortableEnabled);
+    }
+    return sortableById;
+  }, [pinnedSortableGroupIds, unpinnedSortableGroupIds]);
+  const groupsSortableEnabled =
+    !hasMasterSearch &&
+    (pinnedSortableGroupIds.length > 1 || unpinnedSortableGroupIds.length > 1);
+
+  const groupIdSet = useMemo(() => {
+    return new Set(groupSections.map((section) => section.id));
+  }, [groupSections]);
+
+  const orderedVisibleThreadIds = useMemo(() => {
+    const nextIds: Array<string> = [];
+    for (const section of searchableGroupSections) {
+      for (const entry of section.entries) {
+        if (isDraftThreadEntry(entry)) {
+          continue;
+        }
+        nextIds.push(entry.chatId);
+      }
+    }
+    for (const entry of ungroupedEntries) {
+      if (isDraftThreadEntry(entry)) {
+        continue;
+      }
+      nextIds.push(entry.chatId);
+    }
+    return normalizeUniqueThreadIds(nextIds);
+  }, [searchableGroupSections, ungroupedEntries]);
+  const masterSearchMatchCount = hasMasterSearch
+    ? orderedVisibleThreadIds.length
+    : 0;
+  const masterSearchQueryKey = useMemo(
+    () => normalizedMasterSearchTerms.join("\u0000"),
+    [normalizedMasterSearchTerms],
+  );
   useEffect(() => {
     if (!hasMasterSearch || masterSearchMatchCount === 0) {
       setActiveMasterSearchMatchIndex(null);
@@ -465,6 +755,21 @@ export function ProjectChatHistory({
     });
   }, [activeMasterSearchMatchThreadId]);
 
+  const threadGroupById = useMemo(() => {
+    const next = new Map<string, string | null>();
+    for (const threadId of orderedVisibleThreadIds) {
+      next.set(threadId, threadAssignments[threadId] ?? null);
+    }
+    return next;
+  }, [orderedVisibleThreadIds, threadAssignments]);
+  const threadPinnedById = useMemo(() => {
+    const next = new Map<string, boolean>();
+    for (const threadId of orderedVisibleThreadIds) {
+      next.set(threadId, pinnedThreadIdsSet.has(threadId));
+    }
+    return next;
+  }, [orderedVisibleThreadIds, pinnedThreadIdsSet]);
+
   const threadsSortableEnabled =
     !hasMasterSearch && orderedVisibleThreadIds.length > 0;
   const threadDndSensors = useMemo(() => {
@@ -490,6 +795,14 @@ export function ProjectChatHistory({
     }),
     [],
   );
+
+  const placeholderText = useMemo(() => {
+    return getPlaceholderText(
+      agentRunsInitialLoadComplete,
+      agentRunsLoadError,
+      sortedEntries.length,
+    );
+  }, [agentRunsInitialLoadComplete, agentRunsLoadError, sortedEntries.length]);
 
   const handleCreateGroup = useCallback(() => {
     const groupName = buildDefaultThreadGroupName(
@@ -724,8 +1037,8 @@ export function ProjectChatHistory({
         const primaryDelta = Math.abs(event.delta.y);
         const secondaryDelta = Math.abs(event.delta.x);
         if (
-          primaryDelta <= PROJECT_CHAT_HISTORY_DRAG_RELEASE_THRESHOLD_PX &&
-          secondaryDelta <= PROJECT_CHAT_HISTORY_DRAG_RELEASE_THRESHOLD_PX
+          primaryDelta <= GROUP_DRAG_RELEASE_THRESHOLD_PX &&
+          secondaryDelta <= GROUP_DRAG_RELEASE_THRESHOLD_PX
         ) {
           latestThreadDropTargetRef.current = null;
           return;
@@ -2229,6 +2542,56 @@ function onThreadEntryKeyDown(
   onSelect(entry);
 }
 
+function resolveThreadAgentBadgeLabel({
+  entry,
+  engineConfigById,
+  externalAgentConfigById,
+}: {
+  entry: ProjectChatHistoryEntry;
+  engineConfigById: Map<string, EngineConfig>;
+  externalAgentConfigById: Map<string, ExternalAgentConfig>;
+}): string | null {
+  const llmFallbackBadge = entry.runType === "llm_chat" ? "setta" : null;
+  if (!entry.engineConfigId) {
+    return llmFallbackBadge;
+  }
+  const engineConfig = engineConfigById.get(entry.engineConfigId);
+  if (!engineConfig) {
+    return llmFallbackBadge;
+  }
+  if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
+    return "setta";
+  }
+  if (engineConfig.engineType === EngineTypeEnum.external_agent) {
+    if (!engineConfig.externalAgentConfigId) {
+      return null;
+    }
+    const externalAgentConfig = externalAgentConfigById.get(
+      engineConfig.externalAgentConfigId,
+    );
+    if (!externalAgentConfig) {
+      return null;
+    }
+    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.codex) {
+      return "codex";
+    }
+    if (
+      externalAgentConfig.toolType === ExternalAgentToolTypeEnum.claude_code
+    ) {
+      return "claude";
+    }
+    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.opencode) {
+      return "opencode";
+    }
+    return null;
+  }
+  return null;
+}
+
+function isDraftThreadEntry(entry: ProjectChatHistoryEntry): boolean {
+  return entry.chatId === DRAFT_THREAD_ENTRY_ID;
+}
+
 function isThreadEntryActive(
   entry: ProjectChatHistoryEntry,
   chatId: string | null | undefined,
@@ -2237,6 +2600,656 @@ function isThreadEntryActive(
     return chatId === null || chatId === undefined;
   }
   return entry.chatId === chatId;
+}
+
+function normalizeUniqueThreadIds(threadIds: Array<string>): Array<string> {
+  const seen = new Set<string>();
+  const normalized: Array<string> = [];
+  for (const threadId of threadIds) {
+    const nextId = threadId.trim();
+    if (!nextId || seen.has(nextId)) {
+      continue;
+    }
+    seen.add(nextId);
+    normalized.push(nextId);
+  }
+  return normalized;
+}
+
+function toThreadDndId(threadId: string): string {
+  return `${THREAD_DND_PREFIX}${threadId}`;
+}
+
+function getThreadIdFromDndId(dndId: string): string | null {
+  if (!dndId.startsWith(THREAD_DND_PREFIX)) {
+    return null;
+  }
+  const threadId = dndId.slice(THREAD_DND_PREFIX.length).trim();
+  if (!threadId) {
+    return null;
+  }
+  return threadId;
+}
+
+function toThreadGroupDndId(groupId: string): string {
+  return `${THREAD_GROUP_DND_PREFIX}${groupId}`;
+}
+
+function getThreadGroupIdFromDndId(
+  dndId: string,
+  groupIdSet: Set<string>,
+): string | null {
+  if (!dndId.startsWith(THREAD_GROUP_DND_PREFIX)) {
+    return null;
+  }
+  const groupId = dndId.slice(THREAD_GROUP_DND_PREFIX.length).trim();
+  if (!groupId || !groupIdSet.has(groupId)) {
+    return null;
+  }
+  return groupId;
+}
+
+function toThreadDropTargetId(
+  groupId: string | null,
+  pinDomain: ThreadPinDomain,
+): string {
+  const groupToken = groupId === null ? "ungrouped" : groupId;
+  return `${THREAD_DROP_TARGET_PREFIX}${groupToken}::${pinDomain}`;
+}
+
+function toThreadSectionDropTargetId(groupId: string): string {
+  return `${THREAD_SECTION_DROP_TARGET_PREFIX}${groupId}`;
+}
+
+function parseThreadDropTargetId(
+  dndId: string,
+  groupIdSet: Set<string>,
+): { groupId: string | null; pinDomain: ThreadPinDomain } | undefined {
+  if (!dndId.startsWith(THREAD_DROP_TARGET_PREFIX)) {
+    return undefined;
+  }
+  const rawPayload = dndId.slice(THREAD_DROP_TARGET_PREFIX.length).trim();
+  if (!rawPayload) {
+    return undefined;
+  }
+  const [groupToken, pinDomainToken] = rawPayload.split("::");
+  if (!groupToken || !pinDomainToken) {
+    return undefined;
+  }
+  const pinDomain =
+    pinDomainToken === PINNED_THREAD_DOMAIN
+      ? PINNED_THREAD_DOMAIN
+      : pinDomainToken === UNPINNED_THREAD_DOMAIN
+        ? UNPINNED_THREAD_DOMAIN
+        : null;
+  if (!pinDomain) {
+    return undefined;
+  }
+  if (groupToken === "ungrouped") {
+    return { groupId: null, pinDomain };
+  }
+  if (!groupIdSet.has(groupToken)) {
+    return undefined;
+  }
+  return { groupId: groupToken, pinDomain };
+}
+
+function getGroupIdFromThreadSectionDropTargetId(
+  dndId: string,
+  groupIdSet: Set<string>,
+): string | undefined {
+  if (!dndId.startsWith(THREAD_SECTION_DROP_TARGET_PREFIX)) {
+    return undefined;
+  }
+  const groupId = dndId.slice(THREAD_SECTION_DROP_TARGET_PREFIX.length).trim();
+  if (!groupId || !groupIdSet.has(groupId)) {
+    return undefined;
+  }
+  return groupId;
+}
+
+function resolveThreadDropTarget({
+  event,
+  sourceThreadId,
+  groupIdSet,
+  threadGroupById,
+  threadPinnedById,
+}: {
+  event: DragEndEvent;
+  sourceThreadId: string;
+  groupIdSet: Set<string>;
+  threadGroupById: Map<string, string | null>;
+  threadPinnedById: Map<string, boolean>;
+}): ThreadDropTarget | null {
+  const sourceThreadPinned = threadPinnedById.get(sourceThreadId) ?? false;
+  const sourcePinDomain = sourceThreadPinned
+    ? PINNED_THREAD_DOMAIN
+    : UNPINNED_THREAD_DOMAIN;
+  const candidateIds: Array<string> = [];
+  const overId = event.over ? String(event.over.id) : null;
+  if (overId) {
+    candidateIds.push(overId);
+  }
+  for (const collision of event.collisions ?? []) {
+    const collisionId = String(collision.id);
+    if (candidateIds.includes(collisionId)) {
+      continue;
+    }
+    candidateIds.push(collisionId);
+  }
+
+  if (overId) {
+    const overThreadId = getThreadIdFromDndId(overId);
+    const overThreadGroupId =
+      overThreadId && overThreadId !== DRAFT_THREAD_ENTRY_ID
+        ? threadGroupById.get(overThreadId) ?? null
+        : null;
+    const overThreadPinned =
+      overThreadId && overThreadId !== DRAFT_THREAD_ENTRY_ID
+        ? threadPinnedById.get(overThreadId) ?? false
+        : sourceThreadPinned;
+    if (
+      overThreadId &&
+      overThreadId !== sourceThreadId &&
+      overThreadId !== DRAFT_THREAD_ENTRY_ID &&
+      overThreadPinned === sourceThreadPinned
+    ) {
+      const conflictingDropGroupId = resolveFirstConflictingDropGroupId({
+        candidateIds,
+        groupIdSet,
+        overThreadGroupId,
+      });
+      if (conflictingDropGroupId !== undefined) {
+        return {
+          groupId: conflictingDropGroupId,
+          targetThreadId: null,
+          placement: "after",
+          pinDomain: sourcePinDomain,
+        };
+      }
+      return {
+        groupId: overThreadGroupId,
+        targetThreadId: overThreadId,
+        placement: resolveThreadPlacement(event, overId),
+        pinDomain: sourcePinDomain,
+      };
+    }
+    if (
+      overThreadId &&
+      overThreadId !== sourceThreadId &&
+      overThreadId !== DRAFT_THREAD_ENTRY_ID &&
+      overThreadPinned !== sourceThreadPinned
+    ) {
+      return null;
+    }
+    const parsedDropTarget = parseThreadDropTargetId(overId, groupIdSet);
+    if (parsedDropTarget && parsedDropTarget.pinDomain !== sourcePinDomain) {
+      return null;
+    }
+    if (parsedDropTarget && parsedDropTarget.pinDomain === sourcePinDomain) {
+      return {
+        groupId: parsedDropTarget.groupId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+    const overSectionDropGroupId = getGroupIdFromThreadSectionDropTargetId(
+      overId,
+      groupIdSet,
+    );
+    if (overSectionDropGroupId !== undefined) {
+      return {
+        groupId: overSectionDropGroupId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+    const overGroupId = getThreadGroupIdFromDndId(overId, groupIdSet);
+    if (overGroupId) {
+      return {
+        groupId: overGroupId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+    if (groupIdSet.has(overId)) {
+      return {
+        groupId: overId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+  }
+
+  for (const candidateId of candidateIds) {
+    const parsedDropTarget = parseThreadDropTargetId(candidateId, groupIdSet);
+    if (parsedDropTarget && parsedDropTarget.pinDomain === sourcePinDomain) {
+      return {
+        groupId: parsedDropTarget.groupId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+    const sectionGroupId = getGroupIdFromThreadSectionDropTargetId(
+      candidateId,
+      groupIdSet,
+    );
+    if (sectionGroupId !== undefined) {
+      return {
+        groupId: sectionGroupId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+  }
+
+  for (const candidateId of candidateIds) {
+    const targetThreadId = getThreadIdFromDndId(candidateId);
+    if (!targetThreadId || targetThreadId === sourceThreadId) {
+      continue;
+    }
+    if (targetThreadId === DRAFT_THREAD_ENTRY_ID) {
+      continue;
+    }
+    const targetThreadPinned = threadPinnedById.get(targetThreadId) ?? false;
+    if (targetThreadPinned !== sourceThreadPinned) {
+      continue;
+    }
+    return {
+      groupId: threadGroupById.get(targetThreadId) ?? null,
+      targetThreadId,
+      placement: resolveThreadPlacement(event, candidateId),
+      pinDomain: sourcePinDomain,
+    };
+  }
+
+  for (const candidateId of candidateIds) {
+    const groupId = getThreadGroupIdFromDndId(candidateId, groupIdSet);
+    if (!groupId) {
+      if (!groupIdSet.has(candidateId)) {
+        continue;
+      }
+      return {
+        groupId: candidateId,
+        targetThreadId: null,
+        placement: "after",
+        pinDomain: sourcePinDomain,
+      };
+    }
+    if (!groupIdSet.has(groupId)) {
+      continue;
+    }
+    return {
+      groupId,
+      targetThreadId: null,
+      placement: "after",
+      pinDomain: sourcePinDomain,
+    };
+  }
+
+  return null;
+}
+
+function resolveFirstConflictingDropGroupId({
+  candidateIds,
+  groupIdSet,
+  overThreadGroupId,
+}: {
+  candidateIds: Array<string>;
+  groupIdSet: Set<string>;
+  overThreadGroupId: string | null;
+}): string | null | undefined {
+  for (const candidateId of candidateIds) {
+    const parsedDropTarget = parseThreadDropTargetId(candidateId, groupIdSet);
+    const groupId =
+      parsedDropTarget?.groupId ??
+      getGroupIdFromThreadSectionDropTargetId(candidateId, groupIdSet) ??
+      getThreadGroupIdFromDndId(candidateId, groupIdSet);
+    if (
+      groupId === undefined ||
+      groupId === null ||
+      groupId === overThreadGroupId
+    ) {
+      continue;
+    }
+    return groupId;
+  }
+  for (const candidateId of candidateIds) {
+    if (!groupIdSet.has(candidateId) || candidateId === overThreadGroupId) {
+      continue;
+    }
+    return candidateId;
+  }
+  return undefined;
+}
+
+function resolveNextGroupOrderFromDrag({
+  event,
+  sourceGroupId,
+  orderedGroupIds,
+  groupIdSet,
+}: {
+  event: DragEndEvent;
+  sourceGroupId: string;
+  orderedGroupIds: Array<string>;
+  groupIdSet: Set<string>;
+}): Array<string> | null {
+  const primaryDelta = Math.abs(event.delta.y);
+  const secondaryDelta = Math.abs(event.delta.x);
+  if (
+    primaryDelta <= GROUP_DRAG_RELEASE_THRESHOLD_PX &&
+    secondaryDelta <= GROUP_DRAG_RELEASE_THRESHOLD_PX
+  ) {
+    return null;
+  }
+  const sourceIndex = orderedGroupIds.indexOf(sourceGroupId);
+  if (sourceIndex < 0) {
+    return null;
+  }
+  const overGroupId = resolveGroupDropOverId({
+    event,
+    sourceGroupId,
+    groupIdSet,
+  });
+  if (!overGroupId) {
+    return null;
+  }
+  const overIndex = orderedGroupIds.indexOf(overGroupId);
+  if (overIndex < 0 || overIndex === sourceIndex) {
+    return null;
+  }
+  if (event.delta.y < 0 && overIndex > sourceIndex) {
+    return null;
+  }
+  if (event.delta.y > 0 && overIndex < sourceIndex) {
+    return null;
+  }
+  const nextGroupOrder = arrayMove(orderedGroupIds, sourceIndex, overIndex);
+  if (isSameGroupOrder(nextGroupOrder, orderedGroupIds)) {
+    return null;
+  }
+  return nextGroupOrder;
+}
+
+function resolveGroupDropOverId({
+  event,
+  sourceGroupId,
+  groupIdSet,
+}: {
+  event: DragEndEvent;
+  sourceGroupId: string;
+  groupIdSet: Set<string>;
+}): string | null {
+  const candidateIds: Array<string> = [];
+  if (event.over) {
+    candidateIds.push(String(event.over.id));
+  }
+  for (const collision of event.collisions ?? []) {
+    const collisionId = String(collision.id);
+    if (candidateIds.includes(collisionId)) {
+      continue;
+    }
+    candidateIds.push(collisionId);
+  }
+  for (const candidateId of candidateIds) {
+    const candidateGroupId =
+      getThreadGroupIdFromDndId(candidateId, groupIdSet) ??
+      getGroupIdFromThreadSectionDropTargetId(candidateId, groupIdSet) ??
+      (groupIdSet.has(candidateId) ? candidateId : null);
+    if (!candidateGroupId || candidateGroupId === sourceGroupId) {
+      continue;
+    }
+    return candidateGroupId;
+  }
+  return null;
+}
+
+function isSameGroupOrder(left: Array<string>, right: Array<string>): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function getPointerClientPoint(
+  activatorEvent: Event | null,
+): { x: number; y: number } | null {
+  if (!activatorEvent) {
+    return null;
+  }
+  const mouseLike = activatorEvent as Event & {
+    clientX?: number;
+    clientY?: number;
+  };
+  if (
+    typeof mouseLike.clientX === "number" &&
+    typeof mouseLike.clientY === "number"
+  ) {
+    return { x: mouseLike.clientX, y: mouseLike.clientY };
+  }
+  const touchLike = activatorEvent as TouchEvent;
+  const touch = touchLike.touches?.[0] ?? touchLike.changedTouches?.[0] ?? null;
+  if (!touch) {
+    return null;
+  }
+  return {
+    x: touch.clientX,
+    y: touch.clientY,
+  };
+}
+
+function resolvePointerLocation({
+  pointerCurrent,
+  pointerStart,
+  delta,
+}: {
+  pointerCurrent: { x: number; y: number } | null;
+  pointerStart: { x: number; y: number } | null;
+  delta: { x: number; y: number };
+}): { x: number; y: number } | null {
+  const resolvedPointer =
+    pointerCurrent ??
+    (pointerStart
+      ? {
+          x: pointerStart.x + delta.x,
+          y: pointerStart.y + delta.y,
+        }
+      : null);
+  if (!resolvedPointer) {
+    return null;
+  }
+  if (
+    !Number.isFinite(resolvedPointer.x) ||
+    !Number.isFinite(resolvedPointer.y)
+  ) {
+    return null;
+  }
+  return resolvedPointer;
+}
+
+function resolveGroupIdFromPointerPosition({
+  pointerCurrent,
+  pointerStart,
+  delta,
+  groupIdSet,
+}: {
+  pointerCurrent: { x: number; y: number } | null;
+  pointerStart: { x: number; y: number } | null;
+  delta: { x: number; y: number };
+  groupIdSet: Set<string>;
+}): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const resolvedPointer = resolvePointerLocation({
+    pointerCurrent,
+    pointerStart,
+    delta,
+  });
+  if (!resolvedPointer) {
+    return null;
+  }
+  const targetX = resolvedPointer.x;
+  const targetY = resolvedPointer.y;
+  const elementsAtPoint =
+    typeof document.elementsFromPoint === "function"
+      ? document.elementsFromPoint(targetX, targetY)
+      : [];
+  const fallbackElement = document.elementFromPoint(targetX, targetY);
+  if (elementsAtPoint.length === 0 && !fallbackElement) {
+    return null;
+  }
+  const candidates =
+    elementsAtPoint.length > 0
+      ? elementsAtPoint
+      : fallbackElement
+        ? [fallbackElement]
+        : [];
+  for (const element of candidates) {
+    const groupRow = element.closest(
+      '[data-testid="project-chat-thread-group-row"]',
+    );
+    if (!groupRow) {
+      continue;
+    }
+    const rawGroupId = groupRow.getAttribute("data-group-id") ?? "";
+    const groupId = rawGroupId.trim();
+    if (!groupId || !groupIdSet.has(groupId)) {
+      continue;
+    }
+    return groupId;
+  }
+  return null;
+}
+
+function isPointerWithinThreadGroupDomain({
+  pointerCurrent,
+  pointerStart,
+  delta,
+  pinDomain,
+}: {
+  pointerCurrent: { x: number; y: number } | null;
+  pointerStart: { x: number; y: number } | null;
+  delta: { x: number; y: number };
+  pinDomain: ThreadPinDomain;
+}): boolean | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const resolvedPointer = resolvePointerLocation({
+    pointerCurrent,
+    pointerStart,
+    delta,
+  });
+  if (!resolvedPointer) {
+    return null;
+  }
+  const domainContainer = document.querySelector(
+    `[data-thread-group-domain="${pinDomain}"]`,
+  );
+  if (!domainContainer) {
+    return null;
+  }
+  const domainRect = domainContainer.getBoundingClientRect();
+  return (
+    resolvedPointer.x >= domainRect.left &&
+    resolvedPointer.x <= domainRect.right &&
+    resolvedPointer.y >= domainRect.top &&
+    resolvedPointer.y <= domainRect.bottom
+  );
+}
+
+function resolveThreadPlacement(
+  event: DragEndEvent,
+  overId: string,
+): ThreadDropPlacement {
+  const collisions = event.collisions as SettaCollision[] | null;
+  const collision = collisions?.find(
+    (candidate) => String(candidate.id) === overId,
+  );
+  if (collision?.pastHalfway === true) {
+    return "after";
+  }
+  if (collision?.pastHalfway === false) {
+    return "before";
+  }
+  return event.delta.y >= 0 ? "after" : "before";
+}
+
+function buildNextThreadOrder({
+  sourceThreadId,
+  targetThreadId,
+  targetGroupId,
+  placement,
+  sourceThreadPinned,
+  preferredOrder,
+  fallbackOrder,
+  threadGroupById,
+  threadPinnedById,
+}: {
+  sourceThreadId: string;
+  targetThreadId: string | null;
+  targetGroupId: string | null;
+  placement: ThreadDropPlacement;
+  sourceThreadPinned: boolean;
+  preferredOrder: Array<string>;
+  fallbackOrder: Array<string>;
+  threadGroupById: Map<string, string | null>;
+  threadPinnedById: Map<string, boolean>;
+}): Array<string> {
+  const visibleThreadIds = new Set(fallbackOrder);
+  const nextOrder = normalizeUniqueThreadIds([
+    ...preferredOrder.filter((threadId) => visibleThreadIds.has(threadId)),
+    ...fallbackOrder,
+  ]).filter((threadId) => threadId !== sourceThreadId);
+
+  let insertIndex = nextOrder.length;
+  const normalizedTargetThreadId =
+    targetThreadId && visibleThreadIds.has(targetThreadId)
+      ? targetThreadId
+      : null;
+  const targetPinned =
+    normalizedTargetThreadId !== null
+      ? threadPinnedById.get(normalizedTargetThreadId) ?? false
+      : null;
+  if (
+    normalizedTargetThreadId !== null &&
+    targetPinned === sourceThreadPinned
+  ) {
+    const targetIndex = nextOrder.indexOf(normalizedTargetThreadId);
+    if (targetIndex >= 0) {
+      insertIndex = placement === "after" ? targetIndex + 1 : targetIndex;
+    }
+  } else {
+    let lastMatchIndex = -1;
+    for (let index = 0; index < nextOrder.length; index += 1) {
+      const candidateThreadId = nextOrder[index];
+      const candidateGroupId = threadGroupById.get(candidateThreadId) ?? null;
+      const candidatePinned = threadPinnedById.get(candidateThreadId) ?? false;
+      if (
+        candidateGroupId === targetGroupId &&
+        candidatePinned === sourceThreadPinned
+      ) {
+        lastMatchIndex = index;
+      }
+    }
+    if (lastMatchIndex >= 0) {
+      insertIndex = lastMatchIndex + 1;
+    }
+  }
+  nextOrder.splice(insertIndex, 0, sourceThreadId);
+  return normalizeUniqueThreadIds(nextOrder);
 }
 
 function ThreadDropZone({
@@ -2271,6 +3284,23 @@ function ThreadDropZone({
       {children}
     </div>
   );
+}
+
+function getPlaceholderText(
+  initialLoadComplete: boolean,
+  loadError: string | null,
+  entryCount: number,
+): string {
+  if (loadError) {
+    return loadError;
+  }
+  if (!initialLoadComplete) {
+    return "Loading threads...";
+  }
+  if (entryCount === 0) {
+    return "No threads yet";
+  }
+  return "";
 }
 
 function normalizeThreadGroupNameForEditing(name: string): string | null {
