@@ -50,9 +50,9 @@ categorize them.
   required-view-mode-repair / deleted-active-tab-repair /
   missing-required-section / code-obj-backfill / workspace-launch
   outdated-settings slice
-- Add executable proof for the still-open dedicated-`/settings` layout-shape
-  rows, especially:
-  `settings_project.view_modes.builtin_tab_order_and_three_column_600px_layout_shape`
-  and
-  `settings_project.view_modes.default_layout_and_viewport_seeded_for_builtin_tabs`
+- Add executable proof for the remaining dedicated-`/settings` rows that are
+  still open or only indirectly covered, especially:
+  `settings_project.view_modes.partial_layout_payload_repairs_visible_sections`,
+  `settings_project.scaffold.sections_seed_fixed_550px_width_defaults`, and
+  `settings_project.display_names.humanized_labels_seeded_for_settings_params`
 - More corpus-driven latest-state hydration / projection scenarios
