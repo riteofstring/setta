@@ -61,7 +61,7 @@ def save_agent_run(dbe: DBE, run: AgentRun) -> None:
     if index.get(raw_run_id) == entry:
         return
     index[raw_run_id] = entry
-    _write_agent_run_index(dbe, index)
+    dbe.write_agent_run_index({"version": 1, "runs": index})
 
 
 def delete_agent_run(dbe: DBE, run_id: ID) -> None:
@@ -74,7 +74,7 @@ def delete_agent_run(dbe: DBE, run_id: ID) -> None:
     if raw_run_id not in runs:
         return
     del runs[raw_run_id]
-    _write_agent_run_index(dbe, runs)
+    dbe.write_agent_run_index({"version": 1, "runs": runs})
 
 
 def list_agent_runs_by_metadata(
@@ -109,7 +109,7 @@ def list_agent_runs_by_metadata(
                     del indexed_runs[raw_run_id]
                     updated = True
             if updated:
-                _write_agent_run_index(dbe, indexed_runs)
+                dbe.write_agent_run_index({"version": 1, "runs": indexed_runs})
     return runs
 
 
@@ -135,6 +135,8 @@ def list_agent_run_ids_by_metadata(
             continue
         run_ids.append(ID(raw_run_id))
     return sorted(run_ids, key=lambda run_id: str(run_id))
+
+
 def _load_agent_run_index(dbe: DBE) -> dict[str, dict[str, Any]]:
     payload = dbe.read_agent_run_index()
     runs = payload.get("runs")
@@ -166,13 +168,9 @@ def _load_agent_run_index(dbe: DBE) -> dict[str, dict[str, Any]]:
                 "chatId": chat_id,
                 "projectConfigId": project_config_id,
             }
-        _write_agent_run_index(dbe, rebuilt_runs)
+        dbe.write_agent_run_index({"version": 1, "runs": rebuilt_runs})
         return rebuilt_runs
     return {}
-
-
-def _write_agent_run_index(dbe: DBE, runs: dict[str, dict[str, Any]]) -> None:
-    dbe.write_agent_run_index({"version": 1, "runs": runs})
 
 
 def load_prompt_template(dbe: DBE, prompt_id: ID) -> PromptTemplate | None:
