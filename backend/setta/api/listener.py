@@ -2141,21 +2141,6 @@ class SettaListener:
             mode=PythonValueMode.LIVE_RUNTIME,
         )
 
-    def _new_metadata_value_codec(self) -> PythonValueCodec:
-        return PythonValueCodec(
-            SimpleNamespace(graph={}),
-            self._unexpected_metadata_dependency_lookup,
-            mode=PythonValueMode.LIVE_RUNTIME,
-        )
-
-    def _unexpected_metadata_dependency_lookup(
-        self, dep_key: BaseDependencyKeyUnion
-    ) -> str:
-        raise ValueError(
-            "Metadata-backed listener delta hydration does not support dependency "
-            f"lookups for {dep_key!r}"
-        )
-
     def _render_direct_node_expression(
         self,
         node: Node,
@@ -2261,9 +2246,21 @@ class SettaListener:
         node = self._build_metadata_direct_node(entry, value)
         if node is None:
             return _UNAVAILABLE
+        def unexpected_metadata_dependency_lookup(
+            dep_key: BaseDependencyKeyUnion,
+        ) -> str:
+            raise ValueError(
+                "Metadata-backed listener delta hydration does not support dependency "
+                f"lookups for {dep_key!r}"
+            )
+
         expression = self._render_direct_node_expression(
             node,
-            value_codec=self._new_metadata_value_codec(),
+            value_codec=PythonValueCodec(
+                SimpleNamespace(graph={}),
+                unexpected_metadata_dependency_lookup,
+                mode=PythonValueMode.LIVE_RUNTIME,
+            ),
         )
         return self._evaluate_expression(
             dependency=dependency,
