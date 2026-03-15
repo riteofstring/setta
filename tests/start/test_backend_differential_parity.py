@@ -606,6 +606,174 @@ class Route:
             },
         )
 
+    def test_remove_settings_section_from_store_payload_supports_go_store_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "topLevelSectionIds": ["section-a", "section-b"],
+                    "topLevelSections": {"section-a": {}, "section-b": {}},
+                    "sectionVariantMap": {
+                        "section-a": "variant-a",
+                        "section-b": "variant-b",
+                    },
+                    "sections": {
+                        "section-a": {"name": "backend"},
+                        "section-b": {"name": "spreadsheetSectionDefault"},
+                    },
+                    "sectionVariants": {
+                        "variant-a": {"impl": "impl-a"},
+                        "variant-b": {"impl": "impl-b"},
+                    },
+                    "sectionImpls": {
+                        "impl-a": {},
+                        "impl-b": {},
+                    },
+                    "viewModes": {
+                        "settings-all": {
+                            "visibilityBySectionId": {
+                                "section-a": True,
+                                "section-b": True,
+                            },
+                            "topLevelSections": {
+                                "section-a": {},
+                                "section-b": {},
+                            },
+                        }
+                    },
+                }
+            }
+        }
+
+        removed = harness.remove_settings_section_from_store_payload(
+            payload,
+            section_name="spreadsheetSectionDefault",
+        )
+        settings_project = removed["projects"]["settings"]
+
+        self.assertEqual(settings_project["topLevelSectionIds"], ["section-a"])
+        self.assertEqual(set(settings_project["sections"].keys()), {"section-a"})
+        self.assertEqual(set(settings_project["sectionVariantMap"].keys()), {"section-a"})
+        self.assertEqual(set(settings_project["sectionVariants"].keys()), {"variant-a"})
+        self.assertEqual(set(settings_project["sectionImpls"].keys()), {"impl-a"})
+        self.assertNotIn(
+            "section-b",
+            settings_project["viewModes"]["settings-all"]["visibilityBySectionId"],
+        )
+
+    def test_remove_settings_section_from_store_payload_supports_single_config_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectConfig": {
+                "topLevelSections": {"section-a": {}, "section-b": {}},
+                "sectionVariantMap": {
+                    "section-a": "variant-a",
+                    "section-b": "variant-b",
+                },
+                "viewModes": {
+                    "settings-all": {
+                        "visibilityBySectionId": {
+                            "section-a": True,
+                            "section-b": True,
+                        },
+                        "topLevelSections": {
+                            "section-a": {},
+                            "section-b": {},
+                        },
+                    }
+                },
+            },
+            "sections": {
+                "section-a": {"name": "backend"},
+                "section-b": {"name": "spreadsheetSectionDefault"},
+            },
+            "sectionVariants": {
+                "variant-a": {"impl": "impl-a"},
+                "variant-b": {"impl": "impl-b"},
+            },
+            "sectionImpls": {
+                "impl-a": {},
+                "impl-b": {},
+            },
+        }
+
+        removed = harness.remove_settings_section_from_store_payload(
+            payload,
+            section_name="spreadsheetSectionDefault",
+        )
+
+        self.assertNotIn("topLevelSectionIds", removed["projectConfig"])
+        self.assertEqual(set(removed["sections"].keys()), {"section-a"})
+        self.assertEqual(
+            set(removed["projectConfig"]["sectionVariantMap"].keys()),
+            {"section-a"},
+        )
+        self.assertEqual(
+            set(removed["projectConfig"]["topLevelSections"].keys()),
+            {"section-a"},
+        )
+        self.assertEqual(set(removed["sectionVariants"].keys()), {"variant-a"})
+        self.assertEqual(set(removed["sectionImpls"].keys()), {"impl-a"})
+        self.assertNotIn(
+            "section-b",
+            removed["projectConfig"]["viewModes"]["settings-all"][
+                "visibilityBySectionId"
+            ],
+        )
+
+    def test_summarize_settings_project_missing_required_section_fails_closed_detects_error(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        summary = harness.summarize_settings_project_missing_required_section_fails_closed(
+            initial_load_http_status=200,
+            restart_startup_error=None,
+            restart_load_http_status=500,
+            restart_load_payload={"detail": "Internal Server Error"},
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartStartupStatus": "ready",
+                "restartLoadHttpStatus": 500,
+                "restartLoadErrorSummary": "Internal Server Error",
+            },
+        )
+
+    def test_summarize_settings_project_missing_required_section_fails_closed_detects_startup_failure(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        summary = harness.summarize_settings_project_missing_required_section_fails_closed(
+            initial_load_http_status=200,
+            restart_startup_error=(
+                "Backend exited before startup completed.\n\n"
+                "setta.project_state.settings_project.MissingSettingsSectionError: "
+                "'Missing settings section spreadsheetSectionDefault.'"
+            ),
+            restart_load_http_status=None,
+            restart_load_payload=None,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartStartupStatus": "failed",
+                "restartStartupErrorSummary": "Missing settings section spreadsheetSectionDefault.",
+            },
+        )
+
     def test_summarize_persisted_project_windowing_after_create_detects_defaults(
         self,
     ) -> None:

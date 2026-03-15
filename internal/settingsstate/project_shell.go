@@ -21,6 +21,18 @@ const (
 
 var hexColorPattern = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
+type MissingSettingsSectionError struct {
+	SectionName string
+}
+
+func (e MissingSettingsSectionError) Error() string {
+	sectionName := strings.TrimSpace(e.SectionName)
+	if sectionName == "" {
+		return "Missing settings section."
+	}
+	return fmt.Sprintf("Missing settings section %s.", sectionName)
+}
+
 type settingsViewModeSpec struct {
 	ID           string
 	Name         string
@@ -210,13 +222,17 @@ func EnsureProjectRuntimeBootstrapped(
 		return fmt.Errorf("settings project runtime is required")
 	}
 
+	settingsDocument := settingsRuntime.Snapshot().Document
 	currentDocument := projectRuntime.Snapshot().Document
 	project, err := currentDocument.ProjectByID(SettingsProjectID)
 	if err == nil && project.Name == SettingsProjectName {
+		if err := validateSettingsProjectShellSections(settingsDocument, project); err != nil {
+			return err
+		}
 		return nil
 	}
 
-	builtDocument, err := BuildProjectDocument(settingsRuntime.Snapshot().Document)
+	builtDocument, err := BuildProjectDocument(settingsDocument)
 	if err != nil {
 		return err
 	}
@@ -239,13 +255,17 @@ func RefreshProjectRuntimeFromSettings(
 		return fmt.Errorf("settings project runtime is required")
 	}
 
-	builtDocument, err := BuildProjectDocument(settingsRuntime.Snapshot().Document)
+	settingsDocument := settingsRuntime.Snapshot().Document
+	builtDocument, err := BuildProjectDocument(settingsDocument)
 	if err != nil {
 		return err
 	}
 
 	currentProject, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
 	if err == nil && currentProject.Name == SettingsProjectName {
+		if err := validateSettingsProjectShellSections(settingsDocument, currentProject); err != nil {
+			return err
+		}
 		builtProject, buildErr := builtDocument.ProjectByID(SettingsProjectID)
 		if buildErr != nil {
 			return buildErr
@@ -271,6 +291,21 @@ func RefreshProjectRuntimeFromSettings(
 		},
 	)
 	return err
+}
+
+func validateSettingsProjectShellSections(
+	settingsDocument Document,
+	project projectstate.Project,
+) error {
+	requiredSectionNames := orderedSettingsSectionNames(settingsDocument)
+	sectionIDByName := settingsSectionIDsByName(project)
+	for _, sectionName := range requiredSectionNames {
+		if _, ok := sectionIDByName[sectionName]; ok {
+			continue
+		}
+		return MissingSettingsSectionError{SectionName: sectionName}
+	}
+	return nil
 }
 
 func overlayProjectShellState(

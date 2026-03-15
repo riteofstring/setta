@@ -31,3 +31,7 @@ scenarios:
     kind: settings_project_required_view_mode_repair
     seed: none
     description: Reloading /settings after a required built-in tab is deleted should repair the dedicated settings shell and persist the repaired view-mode set.
+  - name: settings_project_missing_required_section_fails_closed
+    kind: settings_project_missing_required_section_fails_closed
+    seed: none
+    description: Reloading /settings after a required built-in section is removed from the persisted settings shell should fail closed instead of silently rebuilding it.

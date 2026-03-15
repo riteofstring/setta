@@ -418,6 +418,83 @@ func TestAppSettingsProjectLoadRoutesRepairAndPersistMissingRequiredViewMode(t *
 	}
 }
 
+func TestAppStartupFailsClosedOnMissingRequiredSettingsSection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	if err := app.Shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown app: %v", err)
+	}
+
+	settingsStore, err := projectstate.NewStore(filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.SettingsFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted settings project store: %v", err)
+	}
+	settingsDocument, err := settingsStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted settings project document: %v", err)
+	}
+	settingsProject := settingsDocument.Projects[settingsstate.SettingsProjectID]
+	removeSettingsProjectSectionByName(&settingsProject, "spreadsheetSectionDefault")
+	settingsDocument.Projects[settingsstate.SettingsProjectID] = settingsProject
+	if err := settingsStore.Save(context.Background(), settingsDocument); err != nil {
+		t.Fatalf("save corrupted settings project document: %v", err)
+	}
+
+	_, err = New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err == nil {
+		t.Fatal("expected app startup to fail when a required settings section is missing")
+	}
+	if !strings.Contains(err.Error(), "Missing settings section spreadsheetSectionDefault.") {
+		t.Fatalf("expected missing settings section error, got %v", err)
+	}
+}
+
+func removeSettingsProjectSectionByName(project *projectstate.Project, sectionName string) {
+	sectionID := ""
+	for candidateID, section := range project.Sections {
+		if section.Name == sectionName {
+			sectionID = candidateID
+			break
+		}
+	}
+	if sectionID == "" {
+		return
+	}
+
+	variantID := project.SectionVariantMap[sectionID]
+	delete(project.SectionVariantMap, sectionID)
+	delete(project.Sections, sectionID)
+	delete(project.TopLevelSections, sectionID)
+	filteredSectionIDs := make([]string, 0, len(project.TopLevelSectionIDs))
+	for _, topLevelSectionID := range project.TopLevelSectionIDs {
+		if topLevelSectionID == sectionID {
+			continue
+		}
+		filteredSectionIDs = append(filteredSectionIDs, topLevelSectionID)
+	}
+	project.TopLevelSectionIDs = filteredSectionIDs
+
+	if variantID != "" {
+		sectionVariant := project.SectionVariants[variantID]
+		delete(project.SectionVariants, variantID)
+		if sectionVariant.ImplID != "" {
+			delete(project.SectionImpls, sectionVariant.ImplID)
+		}
+	}
+
+	for viewModeID, viewMode := range project.ViewModes {
+		delete(viewMode.VisibilityBySectionID, sectionID)
+		delete(viewMode.TopLevelSections, sectionID)
+		project.ViewModes[viewModeID] = viewMode
+	}
+}
+
 func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleConfig, implID string) string {
 	t.Helper()
 

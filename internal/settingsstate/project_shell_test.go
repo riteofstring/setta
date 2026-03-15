@@ -2,6 +2,7 @@ package settingsstate
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -261,6 +262,136 @@ func TestRefreshProjectRuntimeFromSettingsRepairsMissingRequiredViewMode(t *test
 	activeViewMode := project.ViewModes[project.ActiveViewModeID]
 	if !reflect.DeepEqual(project.TopLevelSections, activeViewMode.TopLevelSections) {
 		t.Fatalf("expected active view mode layout to be reprojected onto project layout")
+	}
+}
+
+func TestEnsureProjectRuntimeBootstrappedFailsClosedOnMissingRequiredSection(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		removeSettingsProjectSection(&project, "spreadsheetSectionDefault")
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("remove required settings section: %v", err)
+	}
+
+	err = EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime)
+	var missingSectionErr MissingSettingsSectionError
+	if !errors.As(err, &missingSectionErr) {
+		t.Fatalf("expected MissingSettingsSectionError, got %v", err)
+	}
+	if missingSectionErr.SectionName != "spreadsheetSectionDefault" {
+		t.Fatalf("expected missing section spreadsheetSectionDefault, got %q", missingSectionErr.SectionName)
+	}
+}
+
+func TestRefreshProjectRuntimeFromSettingsFailsClosedOnMissingRequiredSection(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		removeSettingsProjectSection(&project, "spreadsheetSectionDefault")
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("remove required settings section: %v", err)
+	}
+
+	err = RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime)
+	var missingSectionErr MissingSettingsSectionError
+	if !errors.As(err, &missingSectionErr) {
+		t.Fatalf("expected MissingSettingsSectionError, got %v", err)
+	}
+	if missingSectionErr.SectionName != "spreadsheetSectionDefault" {
+		t.Fatalf("expected missing section spreadsheetSectionDefault, got %q", missingSectionErr.SectionName)
+	}
+}
+
+func removeSettingsProjectSection(project *projectstate.Project, sectionName string) {
+	sectionID := settingsSectionID(sectionName)
+	variantID := project.SectionVariantMap[sectionID]
+	delete(project.SectionVariantMap, sectionID)
+	delete(project.Sections, sectionID)
+	delete(project.TopLevelSections, sectionID)
+	filteredSectionIDs := make([]string, 0, len(project.TopLevelSectionIDs))
+	for _, topLevelSectionID := range project.TopLevelSectionIDs {
+		if topLevelSectionID == sectionID {
+			continue
+		}
+		filteredSectionIDs = append(filteredSectionIDs, topLevelSectionID)
+	}
+	project.TopLevelSectionIDs = filteredSectionIDs
+
+	if variantID != "" {
+		sectionVariant := project.SectionVariants[variantID]
+		delete(project.SectionVariants, variantID)
+		if sectionVariant.ImplID != "" {
+			delete(project.SectionImpls, sectionVariant.ImplID)
+		}
+	}
+
+	for viewModeID, viewMode := range project.ViewModes {
+		delete(viewMode.VisibilityBySectionID, sectionID)
+		delete(viewMode.TopLevelSections, sectionID)
+		project.ViewModes[viewModeID] = viewMode
 	}
 }
 

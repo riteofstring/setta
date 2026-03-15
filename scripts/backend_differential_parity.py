@@ -445,6 +445,30 @@ def restart_backend(backend: BackendSession) -> None:
     backend.frontend_origin = restarted.frontend_origin
 
 
+def restart_backend_allow_startup_failure(backend: BackendSession) -> str | None:
+    backend.session.close()
+    terminate_process(backend.process)
+
+    try:
+        restarted = open_backend_session(
+            target=backend.target,
+            temp_root=backend.temp_root,
+            workspace_root=backend.workspace_root,
+            setta_home=backend.setta_home,
+            setta_files_root=backend.setta_files_root,
+            log_path=backend.log_path,
+        )
+    except ParityHarnessError as exc:
+        return str(exc)
+
+    backend.process = restarted.process
+    backend.session = restarted.session
+    backend.base_url = restarted.base_url
+    backend.websocket_url = restarted.websocket_url
+    backend.frontend_origin = restarted.frontend_origin
+    return None
+
+
 def seed_setta_files(setta_files_root: Path, scenario: ScenarioConfig) -> None:
     setta_files_root.mkdir(parents=True, exist_ok=True)
     if scenario.seed == "none":
@@ -729,6 +753,8 @@ def execute_scenario(
         return execute_settings_project_live_hydration(backend)
     if scenario.kind == "settings_project_required_view_mode_repair":
         return execute_settings_project_required_view_mode_repair(backend)
+    if scenario.kind == "settings_project_missing_required_section_fails_closed":
+        return execute_settings_project_missing_required_section_fails_closed(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -1133,6 +1159,53 @@ def execute_settings_project_required_view_mode_repair(
         else restart_latest_response.status_code,
         "restartLatestProjectState": restart_latest_payload,
         "persistedSettingsProjectDocument": persisted_payload,
+    }
+
+
+def execute_settings_project_missing_required_section_fails_closed(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    corrupted_payload = remove_settings_section_from_store_payload(
+        persisted_payload,
+        section_name="spreadsheetSectionDefault",
+    )
+    write_json(backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_startup_error = restart_backend_allow_startup_failure(backend)
+    restart_load_http_status: int | None = None
+    restart_load_payload: Any = None
+    if restart_startup_error is None:
+        restart_load_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_LOAD_PROJECT_CONFIG,
+            payload={"projectConfigName": "settings"},
+        )
+        restart_load_http_status = restart_load_response.status_code
+        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    summary = summarize_settings_project_missing_required_section_fails_closed(
+        initial_load_http_status=initial_load_response.status_code,
+        restart_startup_error=restart_startup_error,
+        restart_load_http_status=restart_load_http_status,
+        restart_load_payload=restart_load_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "corruptedSettingsProjectDocument": corrupted_payload,
+        "restartStartupError": restart_startup_error,
+        "restartLoadProjectConfigStatus": restart_load_http_status,
+        "restartLoadProjectConfig": restart_load_payload,
     }
 
 
@@ -1595,6 +1668,34 @@ def summarize_settings_project_required_view_mode_repair(
     return summary
 
 
+def summarize_settings_project_missing_required_section_fails_closed(
+    initial_load_http_status: int,
+    restart_startup_error: str | None,
+    restart_load_http_status: int | None,
+    restart_load_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+    }
+    if restart_startup_error is not None:
+        summary["restartStartupStatus"] = "failed"
+        summary["restartStartupErrorSummary"] = normalize_backend_error_summary(
+            restart_startup_error
+        )
+        return summary
+
+    summary["restartStartupStatus"] = "ready"
+    summary["restartLoadHttpStatus"] = restart_load_http_status
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        sections = object_field(restart_load_payload, "sections", allow_missing=True)
+        summary["restartLoadSectionCount"] = len(sections)
+    else:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
+    return summary
+
+
 def extract_settings_project_param_value(
     payload: dict[str, Any],
     section_name: str,
@@ -1811,6 +1912,122 @@ def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
     return ordered_view_mode_names(view_modes)
 
 
+def remove_settings_section_from_store_payload(
+    payload: dict[str, Any],
+    section_name: str,
+) -> dict[str, Any]:
+    cloned = json.loads(json.dumps(payload))
+    if "projectConfig" in cloned:
+        remove_settings_section_from_single_config_payload(cloned, section_name)
+        return cloned
+
+    projects = object_field(cloned, "projects", allow_missing=True)
+    settings_project = expect_object(projects.get("settings"), "projects.settings")
+    remove_settings_section_from_project_payload(settings_project, section_name)
+    projects["settings"] = settings_project
+    return cloned
+
+
+def remove_settings_section_from_single_config_payload(
+    payload: dict[str, Any],
+    section_name: str,
+) -> None:
+    project_config = object_field(payload, "projectConfig")
+    sections = object_field(payload, "sections")
+    section_id = find_section_id_by_name(sections, section_name)
+    remove_settings_section_references(
+        project_config=project_config,
+        sections=sections,
+        section_variants=object_field(payload, "sectionVariants", allow_missing=True),
+        section_impls=object_field(payload, "sectionImpls", allow_missing=True),
+        section_id=section_id,
+        top_level_section_ids_owner=payload,
+    )
+
+
+def remove_settings_section_from_project_payload(
+    project_payload: dict[str, Any],
+    section_name: str,
+) -> None:
+    sections = object_field(project_payload, "sections")
+    section_id = find_section_id_by_name(sections, section_name)
+    remove_settings_section_references(
+        project_config=project_payload,
+        sections=sections,
+        section_variants=object_field(project_payload, "sectionVariants", allow_missing=True),
+        section_impls=object_field(project_payload, "sectionImpls", allow_missing=True),
+        section_id=section_id,
+        top_level_section_ids_owner=project_payload,
+    )
+
+
+def remove_settings_section_references(
+    project_config: dict[str, Any],
+    sections: dict[str, Any],
+    section_variants: dict[str, Any],
+    section_impls: dict[str, Any],
+    section_id: str,
+    top_level_section_ids_owner: dict[str, Any] | None,
+) -> None:
+    section_variant_map = object_field(
+        project_config,
+        "sectionVariantMap",
+        allow_missing=True,
+    )
+    variant_id = normalized_string(section_variant_map.pop(section_id, None))
+    if variant_id:
+        section_variant = expect_object(
+            section_variants.pop(variant_id, None),
+            f"sectionVariants.{variant_id}",
+            allow_missing=True,
+        )
+        impl_id = normalized_string(section_variant.get("impl"))
+        if impl_id:
+            section_impls.pop(impl_id, None)
+
+    sections.pop(section_id, None)
+
+    if (
+        top_level_section_ids_owner is not None
+        and "topLevelSectionIds" in top_level_section_ids_owner
+    ):
+        top_level_section_ids = expect_list(
+            top_level_section_ids_owner.get("topLevelSectionIds"),
+            "topLevelSectionIds",
+            allow_missing=True,
+        )
+        top_level_section_ids_owner["topLevelSectionIds"] = [
+            section for section in top_level_section_ids if section != section_id
+        ]
+
+    top_level_sections = object_field(
+        project_config,
+        "topLevelSections",
+        allow_missing=True,
+    )
+    top_level_sections.pop(section_id, None)
+
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    for view_mode_id, raw_view_mode in view_modes.items():
+        view_mode = expect_object(raw_view_mode, f"viewModes.{view_mode_id}")
+        object_field(view_mode, "visibilityBySectionId", allow_missing=True).pop(
+            section_id, None
+        )
+        object_field(view_mode, "topLevelSections", allow_missing=True).pop(
+            section_id, None
+        )
+
+
+def find_section_id_by_name(sections: dict[str, Any], section_name: str) -> str:
+    for section_id, raw_section in sections.items():
+        section = expect_object(raw_section, f"sections.{section_id}")
+        if normalized_string(section.get("name")) == section_name:
+            return section_id
+    raise ParityHarnessError(
+        f"Unable to find settings section named {section_name!r}"
+    )
+
+
 def ordered_view_mode_names(view_modes: dict[str, Any]) -> list[str]:
     ordered: list[dict[str, Any]] = []
     for view_mode_id, raw_view_mode in view_modes.items():
@@ -2003,6 +2220,41 @@ def normalized_string(value: Any) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()
+
+
+def normalize_error_summary(payload: Any) -> str:
+    if isinstance(payload, dict):
+        raw_text = normalized_string(payload.get("_rawText"))
+        if raw_text:
+            return raw_text
+        detail = payload.get("detail")
+        if isinstance(detail, str):
+            return detail.strip()
+        message = payload.get("message")
+        if isinstance(message, str):
+            return message.strip()
+        code = payload.get("code")
+        if isinstance(code, str):
+            return code.strip()
+    return normalized_string(str(payload))
+
+
+def normalize_backend_error_summary(error_text: str) -> str:
+    cleaned = error_text.replace("\x00", "")
+    missing_settings_match = re.search(
+        r"Missing settings section ([A-Za-z0-9_]+)\.",
+        cleaned,
+    )
+    if missing_settings_match is not None:
+        return f"Missing settings section {missing_settings_match.group(1)}."
+
+    for raw_line in reversed(cleaned.splitlines()):
+        line = raw_line.strip()
+        if not line or line == "Backend exited before startup completed.":
+            continue
+        if re.match(r"^[\w.]+(?:Error|Exception): .+$", line):
+            return line
+    return normalized_string(error_text)
 
 
 def find_free_port(exclude_ports: set[int] | None = None) -> int:
