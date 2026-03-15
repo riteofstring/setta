@@ -88,9 +88,9 @@ Last audited: `2026-03-17`
 
 - Rows audited in this pass: `316`
 - Status counts:
-  - `Proved`: `286`
+  - `Proved`: `287`
   - `Implemented, proof incomplete`: `0`
-  - `Missing`: `2`
+  - `Missing`: `1`
   - `Retained Python boundary`: `8`
   - `Intentional divergence`: `6`
   - `Dormant / unproven caller`: `14`
@@ -347,10 +347,6 @@ Last audited: `2026-03-17`
     external-agent-config mutation-detail AI surface rows
 ## Current Gaps
 
-- `detached_run.unknown_run_transport_contract` remains `Missing` in this
-  audited slice: Go returns a typed `404 detached_run_not_found`, while the
-  source baseline appears to fall through to the generic `500` error handler
-  for stale run ids on the same route family.
 - `settings.save.typed_validation.transport_422_validation_envelope` remains
   `Missing`: the Python route rejects typed-invalid nested settings at request
   parse time, while the Go save route still accepts a raw object, normalizes
@@ -391,9 +387,8 @@ Last audited: `2026-03-17`
   `run_code.invalid_request.transport_400_detail_bodies`,
   `run_detached.mode_guard_and_validation_detail_bodies`, and
   `agent_profiles.share_mode_mutation_detail_bodies` are now explicit proved
-  rows, while `detached_run.unknown_run_transport_contract` is now called out
-  as an explicit remaining parity gap instead of staying hidden in deferred
-  notes.
+  rows, and `detached_run.unknown_run_transport_contract` is now proved
+  explicitly instead of staying hidden in deferred notes.
 - `file_browser.create_file.workspace_relative_and_path_guard`,
   `file_browser.check_if_file_exists.workspace_relative_blank_false_and_path_guard`,
   `file_browser.check_workspace_initialized.local_dev_global_detection_and_outside_workspace_opt_in`,
@@ -547,7 +542,7 @@ Last audited: `2026-03-17`
 | `run_detached.never_snapshot_mode_rejected` | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_rejects_never`; `backend/setta/routers/runs.py::route_run_detached` | `internal/httpapi/detached_run_routes.go::runDetachedHandler`; `internal/runs/planner.go` | `TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode` | `RunDetachedRequest.runSnapshotMode` remains part of the generated frontend contract | `Proved` | Detached runs still reject `runSnapshotMode=never` because detached execution always snapshots. |
 | `run_detached.invalid_param_override_key_rejected` | `tests/project_state/test_run_overrides.py::test_route_run_detached_rejects_bad_param_key`; `backend/setta/routers/runs.py::route_run_detached` | `internal/httpapi/detached_run_routes.go`; `internal/runs/planner.go` | `TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey`; `TestPlannerPlanRejectsInvalidParamOverrideKey` | the detached-run route still accepts `paramOverrides` on the active transport surface | `Proved` | Bad detached-run param override keys are still rejected before a run is started. |
 | `run_detached.mode_guard_and_validation_detail_bodies` | `backend/setta/routers/runs.py::route_run_detached` returns plain `detail` bodies for deployment and invalid planner errors; launcher blocking comes from `SettaProjectContextNonLauncherAPIRouter` | `internal/httpapi/detached_run_routes.go::{runDetachedHandler,requireDetachedRunRouteAccess,writeDetachedRunPlanError}` | `TestRegisterDetachedRunRoutesRejectsDeploymentMode`; `TestRegisterDetachedRunRoutesRejectsLauncherMode`; `TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode`; `TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey` | generated frontend detached-run callers still post to `runDetached` on the same surviving route | `Proved` | The surviving `runDetached` route now preserves the source plain `detail` bodies for launcher/deployment/mode-validation failures instead of a typed Go error envelope. |
-| `detached_run.unknown_run_transport_contract` | `backend/setta/routers/runs.py::{route_get_run_status,route_cancel_run}` delegate directly to the run manager; `backend/setta/run_manager.py::get_status`; `cancel_run`; and the global exception handler in `backend/setta/server.py` surface uncaught manager errors through the generic `500` envelope | `internal/httpapi/detached_run_routes.go::{getRunStatusHandler,cancelRunHandler}` | `TestRegisterDetachedRunRoutesReturnsNotFoundForUnknownRun` | `frontend/src/utils/generatedEndpoints.ts` still exposes `getRunStatus` and `cancelRun`, so stale run ids can still hit this route family | `Missing` | Go returns a typed `404 detached_run_not_found` for unknown run ids, while the source baseline appears to fall through to the generic `500` error handler on the same stale-run branch. |
+| `detached_run.unknown_run_transport_contract` | `backend/setta/routers/runs.py::{route_get_run_status,route_cancel_run}` delegate directly to the run manager; `backend/setta/run_manager.py::get_status`; `cancel_run`; and the global exception handler in `backend/setta/server.py` surface uncaught manager errors through the generic `500` envelope | `internal/httpapi/detached_run_routes.go::{getRunStatusHandler,cancelRunHandler}` | `TestRegisterDetachedRunRoutesUnknownRunUsesGenericInternalError` | retained `backend/setta/api/runner.py::{get_run_status,cancel_run}` still calls these routes directly, and `frontend/src/utils/generatedEndpoints.ts` also exposes `getRunStatus` / `cancelRun` | `Proved` | Go now preserves the source generic `500 internal_error` envelope for unknown detached-run ids instead of inventing a typed `404` branch. |
 | `run_detached.ephemeral_snapshot_copies_manual_code_into_runtime_root` | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_snapshots_file_on_ephemeral` | `internal/runs/planner.go` | `TestPlannerPlanSnapshotsAllManualCodeSections`; `TestRegisterDetachedRunRoutesStartsAndTracksRun` | detached-run status payloads still expose the snapshot path that callers can inspect later | `Proved` | Detached-run planning still snapshots manual code into a runtime-owned directory and uses the snapshot path as the execution entrypoint. |
 | `detached_run.start_persists_status_logs_and_tags` | `tests/run_manager/test_detached_run_manager.py::test_start_run_persists_status_and_logs` | `internal/detachedruns/manager.go::StartRun` | `TestManagerStartRunPersistsStatusAndLogs`; `TestRegisterDetachedRunRoutesStartsAndTracksRun` | `frontend/src/utils/generatedEndpoints.ts` calls `runDetached` then polls `getRunStatus` against the same persisted run record | `Proved` | Starting a detached run still persists metadata, stdout logs, tags, and the initial running status. |
 | `detached_run.invalid_command_marks_failed` | `tests/run_manager/test_detached_run_manager.py::test_start_run_invalid_command_marks_failed` | `internal/detachedruns/manager.go::StartRun` | `TestManagerStartRunInvalidCommandMarksFailed` | detached-run status records still preserve failed-start metadata for later inspection | `Proved` | Invalid detached-run commands still create a failed run record with `exitCode=-1` instead of disappearing silently. |

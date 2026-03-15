@@ -144,10 +144,6 @@ func getRunStatusHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 
 		run, err := deps.Runs.GetStatus(runID)
 		if err != nil {
-			if errors.Is(err, detachedruns.ErrRunNotFound) {
-				writeError(w, r, http.StatusNotFound, "detached_run_not_found", "Detached run not found.")
-				return
-			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -178,10 +174,6 @@ func cancelRunHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 
 		run, err := deps.Runs.CancelRun(runID)
 		if err != nil {
-			if errors.Is(err, detachedruns.ErrRunNotFound) {
-				writeError(w, r, http.StatusNotFound, "detached_run_not_found", "Detached run not found.")
-				return
-			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}

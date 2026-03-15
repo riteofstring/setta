@@ -173,24 +173,26 @@ func TestRegisterDetachedRunRoutesRejectsLauncherMode(t *testing.T) {
 	}
 }
 
-func TestRegisterDetachedRunRoutesReturnsNotFoundForUnknownRun(t *testing.T) {
+func TestRegisterDetachedRunRoutesUnknownRunUsesGenericInternalError(t *testing.T) {
 	t.Parallel()
 
 	authService := newTestAuthService(t)
 	fixture := newHTTPTestDetachedRunFixture(t, "print('detached-route')\n", "run-missing")
 	handler := newHTTPTestDetachedRunHandler(t, authService, modes.NewPolicy(config.ModeIDE), fixture)
 
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetRunStatus, strings.NewReader(`{"runId":"missing"}`))
-	request.Header.Set("Content-Type", "application/json")
-	addHTTPTestAuthCookie(t, request, authService)
+	for _, routePath := range []string{RouteGetRunStatus, RouteCancelRun} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+routePath, strings.NewReader(`{"runId":"missing"}`))
+		request.Header.Set("Content-Type", "application/json")
+		addHTTPTestAuthCookie(t, request, authService)
 
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"detached_run_not_found"`) {
-		t.Fatalf("expected detached_run_not_found error, got %q", response.Body.String())
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 for %s, got %d with body %q", routePath, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+			t.Fatalf("expected internal_error for %s, got %q", routePath, response.Body.String())
+		}
 	}
 }
 
