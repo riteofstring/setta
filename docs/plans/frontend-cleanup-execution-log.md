@@ -3253,3 +3253,39 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/utils/chatAppGeneration.ts`, now the largest
     authored/shared hotspot at 319 lines, by separating generation payload or
     app-definition derivation from the remaining publish and prompt helpers.
+
+## 2026-03-15 07:27:21 PDT
+
+- Slice completed: split chat app-generation detail ownership from agent-run
+  hydration
+- Key files touched:
+  - `frontend/src/state/utils/chatAppGenerationDetails.ts`
+  - `frontend/src/state/utils/chatAppGenerationAgentRuns.ts`
+  - `frontend/src/state/utils/chatAppGeneration.ts`
+  - `frontend/src/state/utils/chatAppGeneration.test.ts`
+  - `frontend/src/state/actions/aiAgentRuns.ts`
+  - `frontend/src/state/actions/aiHydrationApply.ts`
+  - `frontend/src/state/actions/aiPendingChatAppGenerationState.ts`
+  - `frontend/src/state/actions/aiPendingChatMessageState.ts`
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts`
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/stores/aiStores.ts`
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/utils/chatAppGeneration.test.ts src/state/actions/aiPendingChatAppGenerationState.test.ts src/state/actions/aiPendingChatState.test.ts src/state/actions/aiChatSubmissionPayload.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiWaitingForResponse.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/utils/chatAppGeneration.ts src/state/utils/chatAppGenerationDetails.ts src/state/utils/chatAppGenerationAgentRuns.ts src/state/utils/chatAppGeneration.test.ts src/state/actions/aiAgentRuns.ts src/state/actions/aiHydrationApply.ts src/state/actions/aiPendingChatAppGenerationState.ts src/state/actions/aiPendingChatMessageState.ts src/state/actions/aiChatSubmissionPayload.ts src/state/actions/aiChatSubmission.ts src/state/stores/aiStores.ts src/components/Chat/ChatInput.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state utility ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `189e704fd`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiLLMConfiguration.ts`, now the largest
+    authored/shared hotspot at 306 lines, by separating LLM config load/save
+    orchestration from managed API-key snapshot and conflict handling helpers.
