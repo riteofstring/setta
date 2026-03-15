@@ -82,6 +82,10 @@ BaseCodeSectionImplUnion = (
 
 BaseDictSectionImplUnion = DictSectionImpl | GlobalVariablesSectionImpl
 
+BaseDictSectionImplUnionWithDiscriminator = Annotated[
+    BaseDictSectionImplUnion, Field(discriminator="type")
+]
+
 from typing import Annotated
 
 from pydantic import Field
