@@ -4271,3 +4271,35 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sectionLayoutQueries.ts` so
     layout-placement reads stop living beside viewport-fit, pane-layout, and
     section-container geometry helpers.
+
+## 2026-03-15 11:28:12 PDT
+
+- Slice completed: split section structure queries from terminal attachment helpers
+- Key files touched:
+  - `frontend/src/state/actions/sectionStructureQueries.ts`
+  - `frontend/src/state/actions/sectionTerminalAttachmentQueries.ts`
+  - `frontend/src/state/actions/sectionLayoutQueries.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/sectionStructureQueries.test.ts`
+  - `frontend/src/state/actions/sectionTerminalAttachmentQueries.test.ts`
+  - `frontend/src/state/hooks/sectionAspectRatioSizing.ts`
+  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+  - `frontend/src/state/actions/sections/sectionSizes.ts`
+  - `frontend/src/state/actions/sections/moveSectionQueries.ts`
+  - `frontend/src/state/actions/sections/moveSectionParentState.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionStructureQueries.test.ts src/state/actions/sectionTerminalAttachmentQueries.test.ts src/state/actions/sections/moveSectionQueries.test.ts src/state/actions/sections/sectionSizes.test.tsx src/components/Utils/Resizable/CustomResizable.test.ts src/state/actions/sectionInfos.listRootViewMode.perf.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionStructureQueries.ts src/state/actions/sectionTerminalAttachmentQueries.ts src/state/actions/sectionLayoutQueries.ts src/state/actions/sectionInfos.ts src/state/actions/sectionStructureQueries.test.ts src/state/actions/sectionTerminalAttachmentQueries.test.ts src/state/hooks/sectionAspectRatioSizing.ts src/components/Utils/Resizable/CustomResizable.tsx src/state/actions/sections/sectionSizes.ts src/state/actions/sections/moveSectionQueries.ts src/state/actions/sections/moveSectionParentState.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `2d57494b93642e770858728205d763b9cf44baae`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/params/paramTree.ts` so
+    param ancestry/path reads stop living beside sibling ordering, visible-tree
+    traversal, and selection-navigation helpers.
