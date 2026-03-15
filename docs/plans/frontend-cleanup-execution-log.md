@@ -3934,3 +3934,33 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/params/moveParams.ts` so param move
     planning and local param-tree updates stop living beside backend
     persistence orchestration.
+
+## 2026-03-15 10:29:27 PDT
+
+- Slice completed: split param move commands from keyboard move planning
+- Key files touched:
+  - `frontend/src/state/actions/params/moveParams.ts`
+  - `frontend/src/state/actions/params/paramSelectionCommands.ts`
+  - `frontend/src/state/actions/params/paramMoveCommands.ts`
+  - `frontend/src/state/actions/params/paramMoveKeyboardCommands.ts`
+  - `frontend/src/state/actions/params/moveParams.test.ts`
+  - `frontend/src/components/Params/ParamDndMonitor.tsx`
+  - `frontend/src/state/actions/keyActivationCommands.ts`
+  - `frontend/src/state/actions/keyActivationHandlers.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/params/moveParams.test.ts src/state/actions/keyActivationCommands.test.ts src/state/actions/keyActivationHandlers.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/params/moveParams.ts src/state/actions/params/paramSelectionCommands.ts src/state/actions/params/paramMoveCommands.ts src/state/actions/params/paramMoveKeyboardCommands.ts src/state/actions/params/moveParams.test.ts src/state/actions/keyActivationCommands.ts src/state/actions/keyActivationHandlers.ts src/components/Params/ParamDndMonitor.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `67590124716baf9252854c3b876689ede986be1c`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/chatBranches.ts` so branch
+    initialization or message-sync logic stops living beside edited-message
+    branch creation and branch-index derivation helpers.
