@@ -3480,3 +3480,35 @@ module map and placement guide while this cleanup progresses.
     the largest authored/shared hotspot at 294 lines, by separating focus or
     pane-navigation registrations from project or canvas interaction shortcut
     groups.
+
+## 2026-03-15 08:40:14 PDT
+
+- Slice completed: split key shortcut registration ownership by navigation,
+  tooltip, and workspace command domains
+- Key files touched:
+  - `frontend/src/state/actions/keyShortcutNavigationRegistrations.ts`
+  - `frontend/src/state/actions/keyShortcutTooltipRegistrations.ts`
+  - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts`
+  - `frontend/src/state/actions/keyShortcutRegistrationGroups.ts`
+  - `frontend/src/state/actions/keyShortcutRegistrations.ts`
+  - `frontend/src/state/actions/keyShortcutNavigationRegistrations.test.ts`
+  - `frontend/src/state/actions/keyShortcutTooltipRegistrations.test.ts`
+  - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/keyShortcutNavigationRegistrations.test.ts src/state/actions/keyShortcutTooltipRegistrations.test.ts src/state/actions/keyShortcutWorkspaceRegistrations.test.ts src/state/actions/keyShortcutRegistrations.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/keyShortcutNavigationRegistrations.ts src/state/actions/keyShortcutTooltipRegistrations.ts src/state/actions/keyShortcutWorkspaceRegistrations.ts src/state/actions/keyShortcutRegistrationGroups.ts src/state/actions/keyShortcutRegistrations.ts src/state/actions/keyShortcutNavigationRegistrations.test.ts src/state/actions/keyShortcutTooltipRegistrations.test.ts src/state/actions/keyShortcutWorkspaceRegistrations.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `254997d76f2a1ba61e5338ca8ab95a6d6837f394`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/gitGraphLoadState.ts`, now the largest
+    authored/shared hotspot at 294 lines, by separating initial-load request
+    state and stale-request guards from incremental pagination merge or
+    load-more error handling.
