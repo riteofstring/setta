@@ -2177,6 +2177,7 @@ def summarize_latest_state_after_create_project(
     view_modes = object_field(project_config, "viewModes", allow_missing=True)
     shown_param_ids = object_field(project_state, "shownParamIds", allow_missing=True)
     active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
+    raw_window_spaces = project_config.get("windowSpaces")
     return {
         "httpStatus": http_status,
         "projectIDPresent": bool(normalized_string(project_config.get("id"))),
@@ -2190,6 +2191,7 @@ def summarize_latest_state_after_create_project(
         "topLevelSectionCount": len(
             object_field(project_config, "topLevelSections", allow_missing=True)
         ),
+        "windowSpacesObjectPresent": isinstance(raw_window_spaces, dict),
         "shownParamEntryCount": len(shown_param_ids),
     }
 

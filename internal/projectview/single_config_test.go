@@ -85,6 +85,9 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	if view.ProjectConfig.ActiveIDs == nil {
 		t.Fatal("expected active ids slice to be non-nil")
 	}
+	if view.ProjectConfig.WindowSpaces == nil {
+		t.Fatal("expected window spaces map to be non-nil")
+	}
 	if view.ProjectConfig.WatchCodeFiles == nil {
 		t.Fatal("expected watch code files slice to be non-nil")
 	}

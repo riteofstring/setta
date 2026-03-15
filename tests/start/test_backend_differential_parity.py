@@ -250,13 +250,14 @@ class Route:
                 "projectConfig": {
                     "id": "project-1",
                     "name": "Example project",
-                    "viewModes": {"view-mode-1": {"id": "view-mode-1"}},
-                    "activeViewModeId": "view-mode-1",
-                    "isEditingViewMode": False,
-                    "topLevelSections": {},
-                },
-                "shownParamIds": {},
-            }
+                "viewModes": {"view-mode-1": {"id": "view-mode-1"}},
+                "activeViewModeId": "view-mode-1",
+                "isEditingViewMode": False,
+                "topLevelSections": {},
+                "windowSpaces": {},
+            },
+            "shownParamIds": {},
+        }
         }
 
         summary = harness.summarize_latest_state_after_create_project(
@@ -275,6 +276,7 @@ class Route:
                 "activeViewModePresentInMap": True,
                 "isEditingViewMode": False,
                 "topLevelSectionCount": 0,
+                "windowSpacesObjectPresent": True,
                 "shownParamEntryCount": 0,
             },
         )

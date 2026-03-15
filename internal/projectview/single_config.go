@@ -1027,7 +1027,7 @@ func cloneStringMap(source map[string]string) map[string]string {
 }
 
 func cloneStringSlice(source []string) []string {
-	if source == nil {
+	if len(source) == 0 {
 		return []string{}
 	}
 	return append([]string(nil), source...)
