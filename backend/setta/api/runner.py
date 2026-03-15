@@ -344,7 +344,9 @@ class SettaRunner:
         sessions = registry.find_sessions_by_workspace(self._workspace_root)
         if not sessions:
             return None
-        base_host, base_port = _parse_base_url(self._base_url)
+        parsed_base_url = urlparse(self._base_url)
+        base_host = _normalize_host(parsed_base_url.hostname)
+        base_port = parsed_base_url.port
         if base_host is not None or base_port is not None:
             matching = [
                 session
@@ -421,13 +423,6 @@ class SettaRunner:
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
         return self._project_configs
-
-
-def _parse_base_url(base_url: str) -> tuple[str | None, int | None]:
-    parsed = urlparse(base_url)
-    return _normalize_host(parsed.hostname), parsed.port
-
-
 def _normalize_host(host: str | None) -> str | None:
     if host is None:
         return None
