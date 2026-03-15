@@ -515,27 +515,6 @@ async def _reveal_settings(
         )
 
     location = resolved_runtime_entry.metadata.location
-    plugin_id = resolved_runtime_entry.metadata.pluginId
-    if plugin_id is not None:
-        plugin_error = _resolve_plugin_runtime_support_error(
-            ctx=ctx,
-            plugin_id=plugin_id,
-        )
-        if plugin_error is not None:
-            return RevealUISettingResult(
-                requestId=request_id,
-                projectConfigId=project_config_id,
-                durationMs=bounded_duration_ms,
-                emittedRevealCount=0,
-                statuses=[
-                    RevealUISettingStatus(
-                        settingId=setting_id,
-                        status="failed",
-                        error=plugin_error,
-                    )
-                ],
-            )
-
     requested_active_section_id: ID | None = None
     if location.side == "right" and location.requiresSectionSelection:
         active_section_id_for_reveal: ID | None = None

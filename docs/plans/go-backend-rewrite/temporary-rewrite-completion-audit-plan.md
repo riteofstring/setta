@@ -590,3 +590,9 @@ plugin availability/config traversal helpers that the core-only path cannot
 reach. The focused Python UI-setting and MCP verification still passes, which
 confirms that this block had become dead compatibility baggage rather than an
 active retained boundary.
+
+A twenty-first follow-up rewrite step removed the last stale plugin-runtime
+guard from `backend/setta/mcp/tools/ui_settings.py`. The legacy Python reveal
+path no longer tries to call an undefined plugin-runtime support helper before
+revealing a setting, which matches the core-only registry it now uses. The
+focused Python MCP/UI-setting verification still passes after that cleanup.
