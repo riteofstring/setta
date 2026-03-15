@@ -17,6 +17,7 @@ import {
   useDrawAreaArtifactLoader,
   useDrawAreaArtifactRevisionStamps,
 } from "state/hooks/artifacts";
+import { getDrawAreaCanvasSize } from "state/hooks/sectionSizes";
 import { removeRevisionEntries } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,
@@ -354,8 +355,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   }
 
   const isDragActive = false;
+  const canvasSize = getDrawAreaCanvasSize(sectionSize);
 
-  const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
+  const canvasClassName = `absolute inset-0 h-full w-full ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
 
   const cursorIcon = getCursorIcon(canvasMode);
 
@@ -373,8 +375,8 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
         canvasMode={canvasMode}
         clearStrokes={clearStrokes}
       />
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
-        <div className="single-cell-child single-cell-container">
+      <section className="nodrag section-row-main section-key-value relative flex max-h-full min-h-0 min-w-0 items-center justify-center">
+        <div className="relative flex max-w-full shrink-0" style={canvasSize}>
           <LayerCanvases
             numLayers={layers.length}
             activeLayerIdx={activeLayerIdx}
