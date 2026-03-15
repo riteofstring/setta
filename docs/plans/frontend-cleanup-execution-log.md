@@ -6952,3 +6952,45 @@ schedule settings` button still appears on the live task row.
     which is now the largest unresolved front-door hotspot in the current tree
     after `appRegistry.tsx` delegated its bound output ownership into a sharp
     local app-mode file.
+
+## 2026-03-16 08:24:36 PDT
+
+- Slice completed: extracted the project-chat history drag session out of `ProjectChatHistory.tsx`
+- Why this slice over the next hotspots:
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` and the
+    larger page-shell roots are still bigger first hops overall, but this turn
+    already had the live Project AI threads surface, nearby tests, and the
+    existing history DnD seams loaded. Extracting the remaining drag-session
+    owner removed one named mixed responsibility from a current front-door file
+    end-to-end without spending the turn rebuilding context in a different
+    domain.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-history-dnd-session-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDnd.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai threads render folder groups and keep pinned scopes separate"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.ts src/components/Panes/Overview/ProjectLevelAI/useProjectChatHistoryDndSession.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-history-dnd-session-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-history-dnd-session-2026-03-16.md`
+    with the before/after threads-panel measurements for the extracted drag
+    session owner.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`
+    with the Project AI threads view open. `ProjectChatHistory.tsx` dropped
+    from `914` to `598` lines, the measured threads panels stayed at
+    `262x667` and `458x479`, the subtree stayed at `34` nodes for each panel,
+    and there was no horizontal overflow at `1440x900` or `960x900`.
+- Commit hash:
+  - `01e1b6e68fb688177074b324a5d23c1e30cebca9`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`,
+    which is now the largest unresolved front-door hotspot in the current tree
+    ahead of `LauncherHomePage.tsx`,
+    `StandaloneProjectSurfacePage.tsx`, and the now-smaller
+    `ProjectChatHistory.tsx`.
