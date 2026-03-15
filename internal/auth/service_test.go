@@ -174,6 +174,28 @@ func TestServiceBootstrapTokenRejectsExpiry(t *testing.T) {
 	}
 }
 
+func TestServiceBootstrapTokenRejectsTamperedSignature(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := service.MintBootstrapToken(issuedAt)
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	tampered := token + "x"
+
+	_, err = service.ConsumeBootstrapToken(tampered, issuedAt.Add(time.Minute))
+	if err == nil {
+		t.Fatal("expected tampered bootstrap token to fail")
+	}
+	if err != ErrInvalidBootstrapToken {
+		t.Fatalf("expected invalid bootstrap token, got %v", err)
+	}
+}
+
 func TestServiceAuthCookieRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -200,6 +222,28 @@ func TestServiceAuthCookieRoundTrip(t *testing.T) {
 	}
 }
 
+func TestServiceAuthCookieRejectsTamperedSignature(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, _, err := service.MintAuthCookie(issuedAt)
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+
+	tampered := token + "x"
+
+	_, err = service.ValidateAuthCookie(tampered, issuedAt.Add(time.Minute))
+	if err == nil {
+		t.Fatal("expected tampered auth cookie to fail")
+	}
+	if err != ErrInvalidAuthCookie {
+		t.Fatalf("expected invalid auth cookie, got %v", err)
+	}
+}
+
 func TestServiceCookieNameIsSessionScopedAndSanitized(t *testing.T) {
 	t.Parallel()
 
@@ -211,6 +255,17 @@ func TestServiceCookieNameIsSessionScopedAndSanitized(t *testing.T) {
 	}
 	if cookieName != "setta_auth_name_abc123" {
 		t.Fatalf("expected sanitized session-scoped cookie name, got %q", cookieName)
+	}
+}
+
+func TestServiceCookieNameRejectsBlankSessionID(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+
+	_, err := service.CookieName("  ")
+	if err == nil {
+		t.Fatal("expected blank session id to fail")
 	}
 }
 
