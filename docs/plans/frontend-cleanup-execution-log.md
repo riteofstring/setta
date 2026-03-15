@@ -6409,3 +6409,49 @@ schedule settings` button still appears on the live task row.
     which is now the highest unresolved front-door hotspot after
     `GitGraphOverlay.tsx` dropped to 1224 lines and delegated the
     selected-commit surface into a local git owner.
+
+## 2026-03-16 04:57:43 PDT
+
+- Slice completed: extracted Project AI settings section routing and manager owners out of `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` or
+  the remaining `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  path because `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  was still the top unresolved project-AI front door at the start of the turn
+  and still mixed accordion section routing, deployment-mode LLM gating,
+  guardrail persistence, and multiple settings-manager CRUD surfaces in the
+  first file a contributor opened for Project AI settings.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsSections.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsGuardrails.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAgentProfiles.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfiles.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsPromptTemplates.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsSections.test.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-ai-settings-managers-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectAISettingsSections.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState.perf.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts`
+  - `pnpm -C frontend exec prettier --check ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-ai-settings-managers-2026-03-16.md src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAgentProfiles.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsGuardrails.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsPromptTemplates.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsSections.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsSections.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfiles.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-ai-settings-managers-2026-03-16.md`
+    with the before/after Project AI settings measurements.
+  - CDP visual verification was run on `http://127.0.0.1:3002/wave_tiger`
+    in `Project AI Settings -> AI Settings`. `ProjectAISettings.tsx` dropped
+    from `1471` to `64` lines while the measured settings subtree stayed flat
+    at `162` nodes with the same `2` expanded sections, the same `246px`
+    width, the same `626px` height, and the same default `LLM API Keys`
+    leading section.
+- Commit hash:
+  - `52838402d9169c739b0d7d2f0e8012e0cf747179`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`,
+    which is now the highest unresolved front-door hotspot after
+    `ProjectAISettings.tsx` dropped under 100 lines and delegated its settings
+    routing plus CRUD surfaces into local Project AI owners.
