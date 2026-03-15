@@ -46,11 +46,17 @@ categorize them.
 ## Current Starting Backlog
 
 - Expand the differential manifest beyond the current bootstrap / websocket /
-  create-defaults / dedicated-`/settings` shell / settings-live-hydration
-  slice
-- Dedicated `/settings` load-repair parity:
-  `settings_project.load.repairs_write_back_updated_settings_project_document`
-  and related compatibility / integrity follow-ups
+  create-defaults / dedicated-`/settings` shell / settings-live-hydration /
+  required-view-mode-repair slice
+- Dedicated `/settings` compatibility / integrity parity after the new
+  required-tab repair closes the load/writeback gap:
+  `settings_project.compatibility.ensure_settings_code_objs_backfills_new_fields_within_existing_sections`
+  and
+  `settings_project.integrity.dedicated_load_path_missing_required_sections_fail_closed`
+- Broaden `/settings` repair proof beyond the required-tab restart slice:
+  `settings_project.view_modes.reset_preserves_active_tab_name_else_falls_back_and_reprojects_active_layout`,
+  `settings_project.view_modes.valid_settings_project_is_noop`, and
+  `settings_project.view_modes.reset_when_top_level_or_required_tab_state_is_invalid`
 - Workspace-launch outdated-settings preflight parity:
   `settings_project.launch.missing_required_section_surfaces_typed_outdated_settings_error`
 - More corpus-driven latest-state hydration / projection scenarios
