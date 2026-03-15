@@ -100,6 +100,40 @@ async function waitForMetaControlParamId(
   throw new Error("Timed out waiting for meta control param id.");
 }
 
+function requireBoundingBox(
+  box: { x: number; y: number; width: number; height: number } | null,
+  label: string,
+) {
+  if (!box) {
+    throw new Error(`Missing bounding box for ${label}.`);
+  }
+  return box;
+}
+
+function expectStableSectionSize(
+  before: { width: number; height: number },
+  after: { width: number; height: number },
+  tolerance = 2,
+) {
+  expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(tolerance);
+  expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(tolerance);
+}
+
+function expectBoxWithinSection(
+  sectionBox: { x: number; y: number; width: number; height: number },
+  controlBox: { x: number; y: number; width: number; height: number },
+  tolerance = 1,
+) {
+  expect(controlBox.x).toBeGreaterThanOrEqual(sectionBox.x - tolerance);
+  expect(controlBox.y).toBeGreaterThanOrEqual(sectionBox.y - tolerance);
+  expect(controlBox.x + controlBox.width).toBeLessThanOrEqual(
+    sectionBox.x + sectionBox.width + tolerance,
+  );
+  expect(controlBox.y + controlBox.height).toBeLessThanOrEqual(
+    sectionBox.y + sectionBox.height + tolerance,
+  );
+}
+
 test("meta control time defaults to display and can switch to input mode", async ({
   page,
 }) => {
@@ -148,6 +182,15 @@ test("meta control time defaults to display and can switch to input mode", async
     await expect(sectionNode).toBeVisible();
     await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
     await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
+    const displaySectionBoxBefore = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "display-only time section",
+    );
+    const displayTextBoxBefore = requireBoundingBox(
+      await sectionNode.getByText("1:45 PM").boundingBox(),
+      "display-only time text",
+    );
+    expectBoxWithinSection(displaySectionBoxBefore, displayTextBoxBefore);
 
     await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
@@ -162,6 +205,16 @@ test("meta control time defaults to display and can switch to input mode", async
     const timeInput = sectionNode.locator('input[type="time"]');
     await expect(timeInput).toBeVisible();
     await expect(timeInput).toHaveValue("13:45");
+    const inputSectionBox = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "time input section",
+    );
+    const timeInputBox = requireBoundingBox(
+      await timeInput.boundingBox(),
+      "time input",
+    );
+    expectStableSectionSize(displaySectionBoxBefore, inputSectionBox);
+    expectBoxWithinSection(inputSectionBox, timeInputBox);
 
     await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
@@ -174,6 +227,16 @@ test("meta control time defaults to display and can switch to input mode", async
     });
     await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
     await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
+    const displaySectionBoxAfter = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "restored display-only time section",
+    );
+    const displayTextBoxAfter = requireBoundingBox(
+      await sectionNode.getByText("1:45 PM").boundingBox(),
+      "restored display-only time text",
+    );
+    expectStableSectionSize(displaySectionBoxBefore, displaySectionBoxAfter);
+    expectBoxWithinSection(displaySectionBoxAfter, displayTextBoxAfter);
 
     await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
@@ -250,6 +313,10 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
     ).toBeVisible();
     await expect(sectionNode.getByText("2 selected")).toBeVisible();
     await expect(sectionNode.locator('input[type="date"]')).toHaveCount(0);
+    const calendarSectionBoxBefore = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "calendar meta control section",
+    );
 
     await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
@@ -265,6 +332,13 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
     await expect(
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
     ).toHaveCount(0);
+    const inputSectionBox = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "calendar input-mode section",
+    );
+    expect(
+      Math.abs(inputSectionBox.width - calendarSectionBoxBefore.width),
+    ).toBeLessThanOrEqual(2);
 
     await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
@@ -279,6 +353,13 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
     await expect(
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
     ).toBeVisible();
+    const calendarSectionBoxAfter = requireBoundingBox(
+      await sectionNode.boundingBox(),
+      "restored calendar section",
+    );
+    expect(
+      Math.abs(calendarSectionBoxAfter.width - calendarSectionBoxBefore.width),
+    ).toBeLessThanOrEqual(2);
   } finally {
     if (sectionIds.length > 0) {
       await postBackend(page, "/deleteSections", {
