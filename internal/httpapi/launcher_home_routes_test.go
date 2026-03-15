@@ -186,6 +186,84 @@ func TestRegisterLauncherHomeRoutesListsDirectoriesWithPagination(t *testing.T) 
 	}
 }
 
+func TestRegisterLauncherHomeRoutesListDirectoryRejectsInvalidCursor(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	listedDirectory := filepath.Join(allowedRoot, "listed")
+	if err := os.MkdirAll(listedDirectory, 0o755); err != nil {
+		t.Fatalf("mkdir listed directory: %v", err)
+	}
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, &httpAPICapturingLauncher{}))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteListLauncherDirectory,
+		stringsReader(`{"path":"`+listedDirectory+`","cursor":"not-a-number"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected invalid cursor directory listing 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherListDirectoryResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid cursor directory listing payload: %v", err)
+	}
+	if payload.Ok || payload.Error == nil || payload.Error.Code != "BadRequest" || payload.Error.Message != "cursor must be a non-negative integer." {
+		t.Fatalf("unexpected invalid cursor directory listing payload %#v", payload)
+	}
+}
+
+func TestRegisterLauncherHomeRoutesListDirectoryRejectsOutsideAllowedRoots(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	outsideRoot := filepath.Join(t.TempDir(), "outside")
+	if err := os.MkdirAll(outsideRoot, 0o755); err != nil {
+		t.Fatalf("mkdir outside root: %v", err)
+	}
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, &httpAPICapturingLauncher{}))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteListLauncherDirectory,
+		stringsReader(`{"path":"`+outsideRoot+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected outside-root directory listing 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherListDirectoryResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode outside-root directory listing payload: %v", err)
+	}
+	if payload.Ok || payload.Error == nil || payload.Error.Code != "PathOutsideAllowedRoots" || !strings.Contains(payload.Error.Message, "outside launcher allowed roots") {
+		t.Fatalf("unexpected outside-root directory listing payload %#v", payload)
+	}
+}
+
 func TestRegisterLauncherHomeRoutesListsFilesystemRoots(t *testing.T) {
 	t.Parallel()
 
@@ -453,6 +531,57 @@ func TestRegisterLauncherHomeRoutesOpenWorkspaceExplicitAutoOverridesProfile(t *
 
 	if sessionLauncher.input == nil || sessionLauncher.input.SettaFilesLocation == nil || *sessionLauncher.input.SettaFilesLocation != "auto" {
 		t.Fatalf("expected explicit auto to be preserved, got %#v", sessionLauncher.input)
+	}
+}
+
+func TestRegisterLauncherHomeRoutesOpenWorkspaceRejectsSymlinkEscape(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	outsideRoot := filepath.Join(t.TempDir(), "outside")
+	if err := os.MkdirAll(outsideRoot, 0o755); err != nil {
+		t.Fatalf("mkdir outside root: %v", err)
+	}
+	escapedWorkspace := filepath.Join(outsideRoot, "workspace")
+	if err := os.MkdirAll(escapedWorkspace, 0o755); err != nil {
+		t.Fatalf("mkdir escaped workspace: %v", err)
+	}
+	escapedLink := filepath.Join(allowedRoot, "workspace-link")
+	if err := os.Symlink(escapedWorkspace, escapedLink); err != nil {
+		t.Fatalf("create escaped workspace symlink: %v", err)
+	}
+
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	sessionLauncher := &httpAPICapturingLauncher{}
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, sessionLauncher))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteOpenLauncherWorkspace,
+		stringsReader(`{"workspaceRoot":"`+escapedLink+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected symlink-escape open workspace 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherOpenWorkspaceResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode symlink-escape open workspace payload: %v", err)
+	}
+	if payload.Ok || payload.Error == nil || payload.Error.Code != "PathOutsideAllowedRoots" || !strings.Contains(payload.Error.Message, "outside launcher allowed roots") {
+		t.Fatalf("unexpected symlink-escape open workspace payload %#v", payload)
+	}
+	if sessionLauncher.input != nil {
+		t.Fatalf("expected symlink escape to fail before launching a session, got %#v", sessionLauncher.input)
 	}
 }
 
