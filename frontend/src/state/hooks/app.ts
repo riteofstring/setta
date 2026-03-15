@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { loadAppDeploymentState } from "state/actions/appDeploymentState";
-import { ensureAppSessionFromCurrentDeployment } from "state/actions/appSessionBootstrap";
-import { useProjectLoading } from "state/stores/projectStatusStores";
+import {
+  ensureAppSessionFromCurrentDeployment,
+  loadAppDeploymentState,
+} from "state/actions/app";
+import { useProjectLoading } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 
 export function useLoadAppDeployment() {

@@ -1,4 +1,3 @@
-from setta.plugins.manager import PluginManager
 from setta.plugins.models import (
     PluginListResponse,
     PluginRestartCapability,
@@ -7,7 +6,6 @@ from setta.plugins.models import (
 )
 
 __all__ = [
-    "PluginManager",
     "PluginListResponse",
     "PluginRestartCapability",
     "PluginScope",

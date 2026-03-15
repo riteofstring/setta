@@ -11,15 +11,17 @@ import {
   RiPlayMiniFill,
 } from "react-icons/ri";
 import {
+  ensureDefaultCustomRuns,
   runContinuousTick,
   runCustomRun,
-} from "state/actions/customRunExecution";
-import { getCustomRunDropdownRuns } from "state/actions/customRunQueries";
-import { ensureDefaultCustomRuns } from "state/actions/customRunStorage";
+} from "state/actions/customRuns";
 import { runFromMainRunButton } from "state/actions/runOrImportCode";
-import { usePendingOperations, useProjectState } from "state/definitions";
-import { useRunControl } from "state/stores/projectStatusStores";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import {
+  useLocalStorage,
+  usePendingOperations,
+  useProjectState,
+  useRunControl,
+} from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { OverviewTabNameEnum } from "utils/constants";
 
@@ -40,7 +42,7 @@ export function RunButton() {
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
-  const dropdownRuns = getCustomRunDropdownRuns(customRuns);
+  const dropdownRuns = customRuns.filter((x) => x.includeInRunDropdown);
   const isContinuous = runMode === "continuous";
   const isContinuousActive = isContinuous && continuousRunStarted;
   const mainIcon =
