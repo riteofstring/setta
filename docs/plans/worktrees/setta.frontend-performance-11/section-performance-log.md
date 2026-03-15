@@ -3456,3 +3456,53 @@ Append-only log for the section performance refactor.
   - Keep using the deterministic dummy-node `mousedown` harness for relevant text-input checks.
   - Build the next checkpoint read around the shared row contract and the declared cross-section verification set instead of another lower activation code slice.
   - Only reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` if a fresh trace explicitly points back to the unchanged non-empty preview path.
+
+### 2026-03-17 95
+
+- Item: Inventory the reusable verification assets for the shared row-contract checkpoint.
+- Status: `needs_more_work`
+- Details:
+  - Re-read the shared section-type entry points through `SectionAreaSwitch`.
+  - Confirmed ownership map:
+    - `Callable`, `Dict`, and `GlobalVariables` all reach the same lower row chain:
+      - `KwargsControls`
+      - `ParamGroupContainer`
+      - `ParamDndList`
+      - `ParamSwitch`
+      - `ParamContainer`
+      - `ParamRowShell`
+    - the floated/window host still reaches that same lower row chain through `SectionWindowSurface` and `SectionAreaSwitch` unless a caller provides `bodyOverride`
+    - `MetaControl` does not consume the shared param-row contract and remains only a contrast surface through `MetaControlArea` / `MetaControlNode`
+  - Re-read the current automated assets around that verification set.
+  - Reusable coverage now identified:
+    - `Callable`:
+      - backend/e2e helper: `frontend/tests/e2e/helpers.ts:createCallableSection(...)`
+      - canvas representative specs:
+        - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+        - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+        - `frontend/tests/e2e/params/callable-params.spec.ts`
+      - standalone/window representative:
+        - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts:openStandaloneSectionSurface(...)`
+      - unit shell read:
+        - `frontend/src/components/Section/Layouts/CallableArea.test.tsx`
+    - `Dict`:
+      - canvas representatives:
+        - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+        - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+      - unit shell read:
+        - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+    - `GlobalVariables`:
+      - unit shell read:
+        - `frontend/src/components/Section/Layouts/GlobalVariablesArea.test.tsx`
+      - no direct Playwright row-contract representative identified in the current tree
+    - `MetaControl` contrast only:
+      - `frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts`
+      - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+  - Conclusion:
+    - the next checkpoint evidence pass can reuse strong callable/dict assets immediately
+    - the current missing piece is a direct `GlobalVariables` Playwright/CDP representative for the shared row contract
+    - the floated/window representative also currently exists only on the callable route, even though the default window host keeps the same lower row contract
+- Next action:
+  - Keep the checkpoint centered on the shared row contract rather than the lower activation internals.
+  - Add or adapt a direct `GlobalVariables` row-contract representative, then use it with the existing callable/dict assets to close the declared cross-section verification set.
+  - Treat `MetaControl` as a contrast surface only, and reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` only if a future trace explicitly isolates the unchanged non-empty preview path.
