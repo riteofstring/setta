@@ -606,6 +606,35 @@ class Route:
             },
         )
 
+    def test_settings_store_view_mode_names_supports_python_store_shape(self) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "viewModes": {
+                            "settings-all": {
+                                "id": "settings-all",
+                                "name": "All Settings",
+                                "sortIndex": 4,
+                            },
+                            "settings-core": {
+                                "id": "settings-core",
+                                "name": "Core",
+                                "sortIndex": 0,
+                            },
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertEqual(
+            harness.settings_store_view_mode_names(payload),
+            ["Core", "All Settings"],
+        )
+
     def test_remove_settings_section_from_store_payload_supports_go_store_shape(
         self,
     ) -> None:
@@ -727,6 +756,80 @@ class Route:
             ],
         )
 
+    def test_remove_settings_param_from_store_payload_supports_single_config_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectConfig": {
+                "sectionVariantMap": {
+                    "backend-section": "backend-section-variant",
+                }
+            },
+            "sections": {
+                "backend-section": {
+                    "name": "backend",
+                    "defaultVariant": "backend-section-variant",
+                }
+            },
+            "sectionVariants": {
+                "backend-section-variant": {
+                    "impl": "backend-section-impl",
+                }
+            },
+            "sectionImpls": {
+                "backend-section-impl": {
+                    "topLevelParamId": "backend-root",
+                    "codeObjVariantMap": {
+                        "backend-root": "backend-root-variant",
+                        "rename-setting": "rename-setting-variant",
+                    },
+                }
+            },
+            "codeObjs": {
+                "backend-root": {
+                    "name": "backend",
+                    "defaultVariant": "backend-root-variant",
+                },
+                "rename-setting": {
+                    "name": "renameRefactorMode",
+                    "defaultVariant": "rename-setting-variant",
+                },
+            },
+            "codeObjVariants": {
+                "backend-root-variant": {
+                    "impl": "backend-root-impl",
+                },
+                "rename-setting-variant": {
+                    "impl": "rename-setting-impl",
+                },
+            },
+            "codeObjImpls": {
+                "backend-root-impl": {
+                    "children": ["rename-setting"],
+                },
+                "rename-setting-impl": {
+                    "value": "ALWAYS_ASK",
+                },
+            },
+        }
+
+        removed = harness.remove_settings_param_from_store_payload(
+            payload,
+            section_name="backend",
+            param_path=["renameRefactorMode"],
+        )
+
+        self.assertEqual(
+            removed["sectionImpls"]["backend-section-impl"]["codeObjVariantMap"],
+            {"backend-root": "backend-root-variant"},
+        )
+        self.assertEqual(removed["codeObjImpls"]["backend-root-impl"]["children"], [])
+        self.assertNotIn("rename-setting", removed["codeObjs"])
+        self.assertNotIn("rename-setting-variant", removed["codeObjVariants"])
+        self.assertNotIn("rename-setting-impl", removed["codeObjImpls"])
+
     def test_summarize_settings_project_missing_required_section_fails_closed_detects_error(
         self,
     ) -> None:
@@ -771,6 +874,83 @@ class Route:
                 "initialLoadHttpStatus": 200,
                 "restartStartupStatus": "failed",
                 "restartStartupErrorSummary": "Missing settings section spreadsheetSectionDefault.",
+            },
+        )
+
+    def test_summarize_settings_project_existing_section_code_obj_backfill_detects_repair(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectConfig": {
+                "sectionVariantMap": {
+                    "backend-section": "backend-section-variant",
+                }
+            },
+            "sections": {
+                "backend-section": {
+                    "name": "backend",
+                    "defaultVariant": "backend-section-variant",
+                }
+            },
+            "sectionVariants": {
+                "backend-section-variant": {
+                    "impl": "backend-section-impl",
+                }
+            },
+            "sectionImpls": {
+                "backend-section-impl": {
+                    "topLevelParamId": "backend-root",
+                }
+            },
+            "codeObjs": {
+                "backend-root": {
+                    "name": "backend",
+                    "defaultVariant": "backend-root-variant",
+                },
+                "rename-setting": {
+                    "name": "renameRefactorMode",
+                    "defaultVariant": "rename-setting-variant",
+                },
+            },
+            "codeObjVariants": {
+                "backend-root-variant": {
+                    "impl": "backend-root-impl",
+                },
+                "rename-setting-variant": {
+                    "impl": "rename-setting-impl",
+                },
+            },
+            "codeObjImpls": {
+                "backend-root-impl": {
+                    "children": ["rename-setting"],
+                },
+                "rename-setting-impl": {
+                    "value": "ALWAYS_ASK",
+                },
+            },
+        }
+
+        summary = harness.summarize_settings_project_existing_section_code_obj_backfill(
+            initial_load_http_status=200,
+            restart_startup_error=None,
+            restart_startup_persisted_payload=payload,
+            restart_load_http_status=200,
+            restart_load_payload=payload,
+            post_load_persisted_payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartStartupStatus": "ready",
+                "restartStartupRenameRefactorModePresent": True,
+                "restartLoadHttpStatus": 200,
+                "restartLoadRenameRefactorModePresent": True,
+                "restartLoadRenameRefactorMode": "ALWAYS_ASK",
+                "postLoadPersistedRenameRefactorModePresent": True,
             },
         )
 

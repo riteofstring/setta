@@ -35,3 +35,7 @@ scenarios:
     kind: settings_project_missing_required_section_fails_closed
     seed: none
     description: Reloading /settings after a required built-in section is removed from the persisted settings shell should fail closed instead of silently rebuilding it.
+  - name: settings_project_existing_section_code_obj_backfill
+    kind: settings_project_existing_section_code_obj_backfill
+    seed: none
+    description: Restarting with a stale dedicated settings project missing a field inside an existing section should backfill that field without dropping the settings shell.

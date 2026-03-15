@@ -365,6 +365,66 @@ func TestRefreshProjectRuntimeFromSettingsFailsClosedOnMissingRequiredSection(t 
 	}
 }
 
+func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjWithinExistingSection(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		if err := removeSettingsProjectCodeObject(
+			&project,
+			"backend",
+			[]string{"backend", "renameRefactorMode"},
+		); err != nil {
+			return projectstate.Document{}, err
+		}
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("remove required settings code object: %v", err)
+	}
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("re-ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after ensure: %v", err)
+	}
+	codeObjID := settingsCodeObjID("backend", []string{"backend", "renameRefactorMode"})
+	if _, ok := project.CodeObjs[codeObjID]; !ok {
+		t.Fatalf("expected EnsureProjectRuntimeBootstrapped to restore %q", codeObjID)
+	}
+}
+
 func removeSettingsProjectSection(project *projectstate.Project, sectionName string) {
 	sectionID := settingsSectionID(sectionName)
 	variantID := project.SectionVariantMap[sectionID]
@@ -393,6 +453,67 @@ func removeSettingsProjectSection(project *projectstate.Project, sectionName str
 		delete(viewMode.TopLevelSections, sectionID)
 		project.ViewModes[viewModeID] = viewMode
 	}
+}
+
+func removeSettingsProjectCodeObject(
+	project *projectstate.Project,
+	sectionName string,
+	path []string,
+) error {
+	codeObjID := settingsCodeObjID(sectionName, path)
+	codeObjVariantID := settingsCodeObjVariantID(sectionName, path)
+	codeObjImplID := settingsCodeObjImplID(sectionName, path)
+	delete(project.CodeObjs, codeObjID)
+	delete(project.CodeObjVariants, codeObjVariantID)
+	delete(project.CodeObjImpls, codeObjImplID)
+
+	sectionImplID := settingsSectionImplID(sectionName)
+	sectionImpl := project.SectionImpls[sectionImplID]
+	var sectionPayload map[string]any
+	if err := json.Unmarshal(sectionImpl.Payload, &sectionPayload); err != nil {
+		return err
+	}
+	codeObjVariantMap, ok := sectionPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		return errors.New("settings section payload missing codeObjVariantMap")
+	}
+	delete(codeObjVariantMap, codeObjID)
+	encodedSectionPayload, err := json.Marshal(sectionPayload)
+	if err != nil {
+		return err
+	}
+	sectionImpl.Payload = encodedSectionPayload
+	project.SectionImpls[sectionImplID] = sectionImpl
+
+	parentImplID := settingsCodeObjImplID(sectionName, []string{sectionName})
+	parentImpl := project.CodeObjImpls[parentImplID]
+	var parentPayload map[string]any
+	if err := json.Unmarshal(parentImpl.Payload, &parentPayload); err != nil {
+		return err
+	}
+	rawChildren, ok := parentPayload["children"].([]any)
+	if !ok {
+		return errors.New("settings parent code object payload missing children")
+	}
+	filteredChildren := make([]string, 0, len(rawChildren))
+	for _, rawChild := range rawChildren {
+		childID, ok := rawChild.(string)
+		if !ok {
+			return errors.New("settings parent code object child must be a string")
+		}
+		if childID == codeObjID {
+			continue
+		}
+		filteredChildren = append(filteredChildren, childID)
+	}
+	parentPayload["children"] = filteredChildren
+	encodedParentPayload, err := json.Marshal(parentPayload)
+	if err != nil {
+		return err
+	}
+	parentImpl.Payload = encodedParentPayload
+	project.CodeObjImpls[parentImplID] = parentImpl
+	return nil
 }
 
 func settingsProjectCodeObjValue(t *testing.T, project projectstate.Project, implID string) string {

@@ -755,6 +755,8 @@ def execute_scenario(
         return execute_settings_project_required_view_mode_repair(backend)
     if scenario.kind == "settings_project_missing_required_section_fails_closed":
         return execute_settings_project_missing_required_section_fails_closed(backend)
+    if scenario.kind == "settings_project_existing_section_code_obj_backfill":
+        return execute_settings_project_existing_section_code_obj_backfill(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -1206,6 +1208,64 @@ def execute_settings_project_missing_required_section_fails_closed(
         "restartStartupError": restart_startup_error,
         "restartLoadProjectConfigStatus": restart_load_http_status,
         "restartLoadProjectConfig": restart_load_payload,
+    }
+
+
+def execute_settings_project_existing_section_code_obj_backfill(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    corrupted_payload = remove_settings_param_from_store_payload(
+        persisted_payload,
+        section_name="backend",
+        param_path=["renameRefactorMode"],
+    )
+    write_json(backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_startup_error = restart_backend_allow_startup_failure(backend)
+    restart_startup_persisted_payload: Any = None
+    restart_load_http_status: int | None = None
+    restart_load_payload: Any = None
+    post_load_persisted_payload: Any = None
+    if restart_startup_error is None:
+        restart_startup_persisted_payload = read_persisted_settings_project_document(
+            backend
+        )
+        restart_load_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_LOAD_PROJECT_CONFIG,
+            payload={"projectConfigName": "settings"},
+        )
+        restart_load_http_status = restart_load_response.status_code
+        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        post_load_persisted_payload = read_persisted_settings_project_document(backend)
+
+    summary = summarize_settings_project_existing_section_code_obj_backfill(
+        initial_load_http_status=initial_load_response.status_code,
+        restart_startup_error=restart_startup_error,
+        restart_startup_persisted_payload=restart_startup_persisted_payload,
+        restart_load_http_status=restart_load_http_status,
+        restart_load_payload=restart_load_payload,
+        post_load_persisted_payload=post_load_persisted_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "corruptedSettingsProjectDocument": corrupted_payload,
+        "restartStartupError": restart_startup_error,
+        "restartStartupPersistedSettingsProjectDocument": restart_startup_persisted_payload,
+        "restartLoadProjectConfigStatus": restart_load_http_status,
+        "restartLoadProjectConfig": restart_load_payload,
+        "postLoadPersistedSettingsProjectDocument": post_load_persisted_payload,
     }
 
 
@@ -1696,6 +1756,60 @@ def summarize_settings_project_missing_required_section_fails_closed(
     return summary
 
 
+def summarize_settings_project_existing_section_code_obj_backfill(
+    initial_load_http_status: int,
+    restart_startup_error: str | None,
+    restart_startup_persisted_payload: Any,
+    restart_load_http_status: int | None,
+    restart_load_payload: Any,
+    post_load_persisted_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+    }
+    if restart_startup_error is not None:
+        summary["restartStartupStatus"] = "failed"
+        summary["restartStartupErrorSummary"] = normalize_backend_error_summary(
+            restart_startup_error
+        )
+        return summary
+
+    summary["restartStartupStatus"] = "ready"
+    startup_present, _startup_value = try_extract_settings_project_param_value_from_store_payload(
+        restart_startup_persisted_payload,
+        section_name="backend",
+        param_path=["renameRefactorMode"],
+    )
+    summary["restartStartupRenameRefactorModePresent"] = startup_present
+
+    summary["restartLoadHttpStatus"] = restart_load_http_status
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        restart_load_present, restart_load_value = (
+            try_extract_settings_project_param_value(
+                restart_load_payload,
+                section_name="backend",
+                param_path=["renameRefactorMode"],
+            )
+        )
+        summary["restartLoadRenameRefactorModePresent"] = restart_load_present
+        if restart_load_present:
+            summary["restartLoadRenameRefactorMode"] = restart_load_value
+    else:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
+
+    post_load_present, _post_load_value = (
+        try_extract_settings_project_param_value_from_store_payload(
+            post_load_persisted_payload,
+            section_name="backend",
+            param_path=["renameRefactorMode"],
+        )
+    )
+    summary["postLoadPersistedRenameRefactorModePresent"] = post_load_present
+    return summary
+
+
 def extract_settings_project_param_value(
     payload: dict[str, Any],
     section_name: str,
@@ -1735,6 +1849,41 @@ def extract_settings_project_param_value(
     return code_object_value(payload, current_code_obj_id)
 
 
+def try_extract_settings_project_param_value(
+    payload: Any,
+    section_name: str,
+    param_path: list[str],
+) -> tuple[bool, Any]:
+    if not isinstance(payload, dict):
+        return False, None
+    try:
+        return True, extract_settings_project_param_value(
+            payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+    except ParityHarnessError:
+        return False, None
+
+
+def try_extract_settings_project_param_value_from_store_payload(
+    payload: Any,
+    section_name: str,
+    param_path: list[str],
+) -> tuple[bool, Any]:
+    if not isinstance(payload, dict):
+        return False, None
+    try:
+        settings_project = settings_project_payload_from_store_payload(payload)
+    except ParityHarnessError:
+        return False, None
+    return try_extract_settings_project_param_value(
+        settings_project,
+        section_name=section_name,
+        param_path=param_path,
+    )
+
+
 def section_child_code_object_ids(
     payload: dict[str, Any],
     section_id: str,
@@ -1749,7 +1898,7 @@ def section_child_code_object_ids(
         return shared_children
 
     section_variant_id = expect_non_empty_string(
-        section.get("defaultVariant"),
+        default_variant_id_for_model(section),
         f"sections.{section_id}.defaultVariant",
     )
     section_variants = object_field(payload, "sectionVariants")
@@ -1758,7 +1907,7 @@ def section_child_code_object_ids(
         f"sectionVariants.{section_variant_id}",
     )
     section_impl_id = expect_non_empty_string(
-        section_variant.get("impl"),
+        impl_id_for_variant(section_variant),
         f"sectionVariants.{section_variant_id}.impl",
     )
     section_impls = object_field(payload, "sectionImpls")
@@ -1766,8 +1915,12 @@ def section_child_code_object_ids(
         section_impls.get(section_impl_id),
         f"sectionImpls.{section_impl_id}",
     )
+    section_impl_payload = impl_payload_object(
+        section_impl,
+        f"sectionImpls.{section_impl_id}",
+    )
     top_level_param_id = expect_non_empty_string(
-        section_impl.get("topLevelParamId"),
+        section_impl_payload.get("topLevelParamId"),
         f"sectionImpls.{section_impl_id}.topLevelParamId",
     )
     return code_object_child_ids(payload, top_level_param_id)
@@ -1786,7 +1939,7 @@ def code_object_child_ids(payload: dict[str, Any], code_obj_id: str) -> list[str
 
     code_obj_variants = object_field(payload, "codeObjVariants")
     code_obj_variant_id = expect_non_empty_string(
-        code_obj.get("defaultVariant"),
+        default_variant_id_for_model(code_obj),
         f"codeObjs.{code_obj_id}.defaultVariant",
     )
     code_obj_variant = expect_object(
@@ -1794,7 +1947,7 @@ def code_object_child_ids(payload: dict[str, Any], code_obj_id: str) -> list[str
         f"codeObjVariants.{code_obj_variant_id}",
     )
     code_obj_impl_id = expect_non_empty_string(
-        code_obj_variant.get("impl"),
+        impl_id_for_variant(code_obj_variant),
         f"codeObjVariants.{code_obj_variant_id}.impl",
     )
     code_obj_impls = object_field(payload, "codeObjImpls")
@@ -1802,8 +1955,12 @@ def code_object_child_ids(payload: dict[str, Any], code_obj_id: str) -> list[str
         code_obj_impls.get(code_obj_impl_id),
         f"codeObjImpls.{code_obj_impl_id}",
     )
+    code_obj_impl_payload = impl_payload_object(
+        code_obj_impl,
+        f"codeObjImpls.{code_obj_impl_id}",
+    )
     return expect_string_list(
-        code_obj_impl.get("children"),
+        code_obj_impl_payload.get("children"),
         f"codeObjImpls.{code_obj_impl_id}.children",
     )
 
@@ -1834,7 +1991,7 @@ def code_object_value(payload: dict[str, Any], code_obj_id: str) -> Any:
         return normalize_scalar_payload_value(code_obj_shared_modifier.get("value"))
 
     code_obj_variant_id = expect_non_empty_string(
-        code_obj.get("defaultVariant"),
+        default_variant_id_for_model(code_obj),
         f"codeObjs.{code_obj_id}.defaultVariant",
     )
     code_obj_variants = object_field(payload, "codeObjVariants")
@@ -1848,14 +2005,18 @@ def code_object_value(payload: dict[str, Any], code_obj_id: str) -> Any:
 
     code_obj_impls = object_field(payload, "codeObjImpls")
     code_obj_impl_id = expect_non_empty_string(
-        code_obj_variant.get("impl"),
+        impl_id_for_variant(code_obj_variant),
         f"codeObjVariants.{code_obj_variant_id}.impl",
     )
     code_obj_impl = expect_object(
         code_obj_impls.get(code_obj_impl_id),
         f"codeObjImpls.{code_obj_impl_id}",
     )
-    return normalize_scalar_payload_value(code_obj_impl.get("value"))
+    code_obj_impl_payload = impl_payload_object(
+        code_obj_impl,
+        f"codeObjImpls.{code_obj_impl_id}",
+    )
+    return normalize_scalar_payload_value(code_obj_impl_payload.get("value"))
 
 
 def normalize_scalar_payload_value(value: Any) -> Any:
@@ -1870,6 +2031,27 @@ def normalize_scalar_payload_value(value: Any) -> Any:
         except json.JSONDecodeError:
             return value
     return value
+
+
+def default_variant_id_for_model(model: dict[str, Any]) -> Any:
+    if "defaultVariant" in model:
+        return model.get("defaultVariant")
+    return model.get("defaultVariantId")
+
+
+def impl_id_for_variant(variant: dict[str, Any]) -> Any:
+    if "impl" in variant:
+        return variant.get("impl")
+    return variant.get("implId")
+
+
+def impl_payload_object(impl: dict[str, Any], label: str) -> dict[str, Any]:
+    payload = impl.get("payload")
+    if isinstance(payload, dict):
+        return payload
+    if payload is not None:
+        raise ParityHarnessError(f"Expected object payload for {label}, got {type(payload).__name__}")
+    return impl
 
 
 def find_child_code_object_id(
@@ -1897,8 +2079,18 @@ def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
             f"got {type(payload).__name__}"
         )
 
+    settings_project = settings_project_payload_from_store_payload(payload)
+    view_modes = object_field(settings_project, "viewModes", allow_missing=True)
+    if not view_modes:
+        project_config = object_field(settings_project, "projectConfig", allow_missing=True)
+        if project_config:
+            view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    return ordered_view_mode_names(view_modes)
+
+
+def settings_project_payload_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if "projectConfig" in payload:
-        return settings_payload_view_mode_names(payload)
+        return payload
 
     projects = object_field(payload, "projects", allow_missing=True)
     settings_project = expect_object(
@@ -1907,9 +2099,10 @@ def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
         allow_missing=True,
     )
     if not settings_project:
-        raise ParityHarnessError("Persisted settings project document missing projects.settings")
-    view_modes = object_field(settings_project, "viewModes", allow_missing=True)
-    return ordered_view_mode_names(view_modes)
+        raise ParityHarnessError(
+            "Persisted settings project document missing projects.settings"
+        )
+    return settings_project
 
 
 def remove_settings_section_from_store_payload(
@@ -1917,13 +2110,33 @@ def remove_settings_section_from_store_payload(
     section_name: str,
 ) -> dict[str, Any]:
     cloned = json.loads(json.dumps(payload))
+    settings_project = settings_project_payload_from_store_payload(cloned)
     if "projectConfig" in cloned:
         remove_settings_section_from_single_config_payload(cloned, section_name)
         return cloned
 
     projects = object_field(cloned, "projects", allow_missing=True)
-    settings_project = expect_object(projects.get("settings"), "projects.settings")
     remove_settings_section_from_project_payload(settings_project, section_name)
+    projects["settings"] = settings_project
+    return cloned
+
+
+def remove_settings_param_from_store_payload(
+    payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> dict[str, Any]:
+    cloned = json.loads(json.dumps(payload))
+    settings_project = settings_project_payload_from_store_payload(cloned)
+    remove_settings_param_from_project_payload(
+        settings_project,
+        section_name=section_name,
+        param_path=param_path,
+    )
+    if "projectConfig" in cloned:
+        return cloned
+
+    projects = object_field(cloned, "projects", allow_missing=True)
     projects["settings"] = settings_project
     return cloned
 
@@ -1961,6 +2174,27 @@ def remove_settings_section_from_project_payload(
     )
 
 
+def remove_settings_param_from_project_payload(
+    project_payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> None:
+    section_id, parent_kind, parent_id, target_code_obj_id = (
+        find_settings_param_code_object_lineage(
+            project_payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+    )
+    remove_settings_param_references(
+        project_payload,
+        section_id=section_id,
+        parent_kind=parent_kind,
+        parent_id=parent_id,
+        target_code_obj_id=target_code_obj_id,
+    )
+
+
 def remove_settings_section_references(
     project_config: dict[str, Any],
     sections: dict[str, Any],
@@ -1981,7 +2215,7 @@ def remove_settings_section_references(
             f"sectionVariants.{variant_id}",
             allow_missing=True,
         )
-        impl_id = normalized_string(section_variant.get("impl"))
+        impl_id = normalized_string(impl_id_for_variant(section_variant))
         if impl_id:
             section_impls.pop(impl_id, None)
 
@@ -2018,6 +2252,57 @@ def remove_settings_section_references(
         )
 
 
+def remove_settings_param_references(
+    payload: dict[str, Any],
+    section_id: str,
+    parent_kind: str,
+    parent_id: str,
+    target_code_obj_id: str,
+) -> None:
+    section_impl = resolve_settings_section_impl(payload, section_id)
+    section_impl_payload = impl_payload_object(
+        section_impl,
+        f"sectionImpls.{section_id}",
+    )
+    code_obj_variant_map = object_field(
+        section_impl_payload,
+        "codeObjVariantMap",
+        allow_missing=True,
+    )
+
+    subtree_ids = collect_settings_code_obj_subtree_ids(payload, target_code_obj_id)
+    for code_obj_id in subtree_ids:
+        code_obj_variant_map.pop(code_obj_id, None)
+
+    remove_settings_child_reference(
+        payload,
+        parent_kind=parent_kind,
+        parent_id=parent_id,
+        child_id=target_code_obj_id,
+    )
+
+    code_objs = object_field(payload, "codeObjs")
+    code_obj_variants = object_field(payload, "codeObjVariants")
+    code_obj_impls = object_field(payload, "codeObjImpls")
+    for code_obj_id in subtree_ids:
+        code_obj = expect_object(
+            code_objs.pop(code_obj_id, None),
+            f"codeObjs.{code_obj_id}",
+            allow_missing=True,
+        )
+        variant_id = normalized_string(default_variant_id_for_model(code_obj))
+        if not variant_id:
+            continue
+        code_obj_variant = expect_object(
+            code_obj_variants.pop(variant_id, None),
+            f"codeObjVariants.{variant_id}",
+            allow_missing=True,
+        )
+        impl_id = normalized_string(impl_id_for_variant(code_obj_variant))
+        if impl_id:
+            code_obj_impls.pop(impl_id, None)
+
+
 def find_section_id_by_name(sections: dict[str, Any], section_name: str) -> str:
     for section_id, raw_section in sections.items():
         section = expect_object(raw_section, f"sections.{section_id}")
@@ -2026,6 +2311,231 @@ def find_section_id_by_name(sections: dict[str, Any], section_name: str) -> str:
     raise ParityHarnessError(
         f"Unable to find settings section named {section_name!r}"
     )
+
+
+def find_settings_param_code_object_lineage(
+    payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> tuple[str, str, str, str]:
+    sections = object_field(payload, "sections")
+    section_id = find_section_id_by_name(sections, section_name)
+    section = expect_object(sections.get(section_id), f"sections.{section_id}")
+    parent_kind, parent_id = resolve_settings_section_child_parent(
+        payload,
+        section_id=section_id,
+        section=section,
+    )
+    current_children = section_child_code_object_ids(
+        payload,
+        section_id=section_id,
+        section=section,
+    )
+    target_code_obj_id = ""
+    current_parent_kind = parent_kind
+    current_parent_id = parent_id
+    for index, path_part in enumerate(param_path):
+        target_code_obj_id = find_named_code_object_id(
+            payload,
+            candidate_ids=current_children,
+            child_name=path_part,
+        )
+        if index + 1 < len(param_path):
+            current_parent_kind = "code_obj"
+            current_parent_id = target_code_obj_id
+            current_children = code_object_child_ids(payload, target_code_obj_id)
+    if not target_code_obj_id:
+        raise ParityHarnessError(
+            f"Unable to find settings param path {param_path!r} in section {section_name!r}"
+        )
+    return section_id, current_parent_kind, current_parent_id, target_code_obj_id
+
+
+def resolve_settings_section_child_parent(
+    payload: dict[str, Any],
+    section_id: str,
+    section: dict[str, Any],
+) -> tuple[str, str]:
+    section_shared_modifier = object_field(section, "sharedModifier", allow_missing=True)
+    shared_children = expect_string_list(
+        section_shared_modifier.get("children"),
+        f"sections.{section_id}.sharedModifier.children",
+    )
+    if shared_children:
+        return "section", section_id
+    return "code_obj", resolve_settings_section_top_level_param_id(payload, section_id)
+
+
+def resolve_settings_section_impl(
+    payload: dict[str, Any],
+    section_id: str,
+) -> dict[str, Any]:
+    sections = object_field(payload, "sections")
+    section = expect_object(sections.get(section_id), f"sections.{section_id}")
+    section_variant_id = normalized_string(default_variant_id_for_model(section))
+    if not section_variant_id:
+        section_variant_map = object_field(
+            payload,
+            "sectionVariantMap",
+            allow_missing=True,
+        )
+        section_variant_id = normalized_string(section_variant_map.get(section_id))
+    if not section_variant_id and "projectConfig" in payload:
+        project_config = object_field(payload, "projectConfig")
+        section_variant_map = object_field(
+            project_config,
+            "sectionVariantMap",
+            allow_missing=True,
+        )
+        section_variant_id = normalized_string(section_variant_map.get(section_id))
+    if not section_variant_id:
+        raise ParityHarnessError(
+            f"Unable to resolve section variant for settings section {section_id!r}"
+        )
+
+    section_variants = object_field(payload, "sectionVariants")
+    section_variant = expect_object(
+        section_variants.get(section_variant_id),
+        f"sectionVariants.{section_variant_id}",
+    )
+    section_impl_id = expect_non_empty_string(
+        impl_id_for_variant(section_variant),
+        f"sectionVariants.{section_variant_id}.impl",
+    )
+    section_impls = object_field(payload, "sectionImpls")
+    return expect_object(
+        section_impls.get(section_impl_id),
+        f"sectionImpls.{section_impl_id}",
+    )
+
+
+def resolve_settings_section_top_level_param_id(
+    payload: dict[str, Any],
+    section_id: str,
+) -> str:
+    section_impl = resolve_settings_section_impl(payload, section_id)
+    section_impl_payload = impl_payload_object(
+        section_impl,
+        f"sectionImpls.{section_id}",
+    )
+    return expect_non_empty_string(
+        section_impl_payload.get("topLevelParamId"),
+        f"sectionImpls.{section_id}.topLevelParamId",
+    )
+
+
+def collect_settings_code_obj_subtree_ids(
+    payload: dict[str, Any],
+    root_code_obj_id: str,
+) -> list[str]:
+    collected: list[str] = []
+    queue = [root_code_obj_id]
+    seen: set[str] = set()
+    while queue:
+        current_code_obj_id = queue.pop()
+        if current_code_obj_id in seen:
+            continue
+        seen.add(current_code_obj_id)
+        collected.append(current_code_obj_id)
+        try:
+            child_ids = code_object_child_ids(payload, current_code_obj_id)
+        except ParityHarnessError:
+            child_ids = []
+        queue.extend(child_ids)
+    return collected
+
+
+def remove_settings_child_reference(
+    payload: dict[str, Any],
+    parent_kind: str,
+    parent_id: str,
+    child_id: str,
+) -> None:
+    if parent_kind == "section":
+        sections = object_field(payload, "sections")
+        section = expect_object(sections.get(parent_id), f"sections.{parent_id}")
+        shared_modifier = object_field(section, "sharedModifier", allow_missing=True)
+        children = expect_string_list(
+            shared_modifier.get("children"),
+            f"sections.{parent_id}.sharedModifier.children",
+        )
+        shared_modifier["children"] = [
+            candidate_id for candidate_id in children if candidate_id != child_id
+        ]
+        section["sharedModifier"] = shared_modifier
+        sections[parent_id] = section
+        return
+    if parent_kind != "code_obj":
+        raise ParityHarnessError(f"Unsupported settings child parent kind {parent_kind!r}")
+    remove_code_object_child_reference(payload, parent_id, child_id)
+
+
+def remove_code_object_child_reference(
+    payload: dict[str, Any],
+    parent_code_obj_id: str,
+    child_id: str,
+) -> None:
+    code_objs = object_field(payload, "codeObjs")
+    code_obj = expect_object(
+        code_objs.get(parent_code_obj_id),
+        f"codeObjs.{parent_code_obj_id}",
+    )
+    shared_modifier = object_field(code_obj, "sharedModifier", allow_missing=True)
+    shared_children = expect_string_list(
+        shared_modifier.get("children"),
+        f"codeObjs.{parent_code_obj_id}.sharedModifier.children",
+    )
+    if child_id in shared_children:
+        shared_modifier["children"] = [
+            candidate_id for candidate_id in shared_children if candidate_id != child_id
+        ]
+        code_obj["sharedModifier"] = shared_modifier
+        code_objs[parent_code_obj_id] = code_obj
+        return
+
+    code_obj_variants = object_field(payload, "codeObjVariants")
+    code_obj_variant_id = expect_non_empty_string(
+        default_variant_id_for_model(code_obj),
+        f"codeObjs.{parent_code_obj_id}.defaultVariant",
+    )
+    code_obj_variant = expect_object(
+        code_obj_variants.get(code_obj_variant_id),
+        f"codeObjVariants.{code_obj_variant_id}",
+    )
+    variant_modifier = object_field(code_obj_variant, "modifier", allow_missing=True)
+    variant_children = expect_string_list(
+        variant_modifier.get("children"),
+        f"codeObjVariants.{code_obj_variant_id}.modifier.children",
+    )
+    if child_id in variant_children:
+        variant_modifier["children"] = [
+            candidate_id for candidate_id in variant_children if candidate_id != child_id
+        ]
+        code_obj_variant["modifier"] = variant_modifier
+        code_obj_variants[code_obj_variant_id] = code_obj_variant
+        return
+
+    code_obj_impl_id = expect_non_empty_string(
+        impl_id_for_variant(code_obj_variant),
+        f"codeObjVariants.{code_obj_variant_id}.impl",
+    )
+    code_obj_impls = object_field(payload, "codeObjImpls")
+    code_obj_impl = expect_object(
+        code_obj_impls.get(code_obj_impl_id),
+        f"codeObjImpls.{code_obj_impl_id}",
+    )
+    code_obj_impl_payload = impl_payload_object(
+        code_obj_impl,
+        f"codeObjImpls.{code_obj_impl_id}",
+    )
+    children = expect_string_list(
+        code_obj_impl_payload.get("children"),
+        f"codeObjImpls.{code_obj_impl_id}.children",
+    )
+    code_obj_impl_payload["children"] = [
+        candidate_id for candidate_id in children if candidate_id != child_id
+    ]
+    code_obj_impls[code_obj_impl_id] = code_obj_impl
 
 
 def ordered_view_mode_names(view_modes: dict[str, Any]) -> list[str]:

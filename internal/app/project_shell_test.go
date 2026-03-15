@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -398,6 +399,34 @@ func TestAppSettingsProjectLoadRoutesRepairAndPersistMissingRequiredViewMode(t *
 		t.Fatal("expected restarted settings payload to restore settings-all view mode")
 	}
 
+	restartedLatestRequest, err := http.NewRequest(http.MethodPost, restartedServer.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
+	if err != nil {
+		t.Fatalf("new restarted latest-state request: %v", err)
+	}
+	restartedLatestRequest.Header.Set("Content-Type", "application/json")
+	restartedLatestRequest.AddCookie(restartedAuthCookie)
+
+	restartedLatestResponse, err := http.DefaultClient.Do(restartedLatestRequest)
+	if err != nil {
+		t.Fatalf("load restarted latest settings project state: %v", err)
+	}
+	defer restartedLatestResponse.Body.Close()
+	if restartedLatestResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartedLatestResponse.Body)
+		t.Fatalf("expected restarted latest settings project state 200, got %d with body %q", restartedLatestResponse.StatusCode, string(body))
+	}
+
+	var restartedLatestPayload httpapi.ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.NewDecoder(restartedLatestResponse.Body).Decode(&restartedLatestPayload); err != nil {
+		t.Fatalf("decode restarted latest settings project payload: %v", err)
+	}
+	if len(restartedLatestPayload.ProjectState.ProjectConfig.ViewModes) != 5 {
+		t.Fatalf("expected latest settings payload to expose 5 repaired view modes, got %d", len(restartedLatestPayload.ProjectState.ProjectConfig.ViewModes))
+	}
+	if _, ok := restartedLatestPayload.ProjectState.ProjectConfig.ViewModes["settings-all"]; !ok {
+		t.Fatal("expected restarted latest settings payload to restore settings-all view mode")
+	}
+
 	persistedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
 	if err != nil {
 		t.Fatalf("open persisted settings project store: %v", err)
@@ -455,6 +484,70 @@ func TestAppStartupFailsClosedOnMissingRequiredSettingsSection(t *testing.T) {
 	}
 }
 
+func TestAppStartupBackfillsMissingCodeObjWithinExistingSettingsSection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	if err := app.Shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown app: %v", err)
+	}
+
+	settingsStore, err := projectstate.NewStore(filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.SettingsFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted settings project store: %v", err)
+	}
+	settingsDocument, err := settingsStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted settings project document: %v", err)
+	}
+	settingsProject := settingsDocument.Projects[settingsstate.SettingsProjectID]
+	if err := removeSettingsProjectCodeObjectByID(
+		&settingsProject,
+		"settings-section-impl__backend",
+		"settings-codeobj__backend__backend__renameRefactorMode",
+		"settings-codeobj-variant__backend__backend__renameRefactorMode",
+		"settings-codeobj-impl__backend__backend__renameRefactorMode",
+		"settings-codeobj-impl__backend__backend",
+	); err != nil {
+		t.Fatalf("remove settings code object: %v", err)
+	}
+	settingsDocument.Projects[settingsstate.SettingsProjectID] = settingsProject
+	if err := settingsStore.Save(context.Background(), settingsDocument); err != nil {
+		t.Fatalf("save corrupted settings project document: %v", err)
+	}
+
+	restartedApp, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("restart app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := restartedApp.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown restarted app: %v", err)
+		}
+	})
+
+	repairedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open repaired settings project store: %v", err)
+	}
+	repairedDocument, err := repairedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load repaired settings project document: %v", err)
+	}
+	repairedProject, err := repairedDocument.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("repaired settings project by id: %v", err)
+	}
+	if _, ok := repairedProject.CodeObjs["settings-codeobj__backend__backend__renameRefactorMode"]; !ok {
+		t.Fatal("expected startup repair to restore backend.renameRefactorMode code object")
+	}
+}
+
 func removeSettingsProjectSectionByName(project *projectstate.Project, sectionName string) {
 	sectionID := ""
 	for candidateID, section := range project.Sections {
@@ -493,6 +586,65 @@ func removeSettingsProjectSectionByName(project *projectstate.Project, sectionNa
 		delete(viewMode.TopLevelSections, sectionID)
 		project.ViewModes[viewModeID] = viewMode
 	}
+}
+
+func removeSettingsProjectCodeObjectByID(
+	project *projectstate.Project,
+	sectionImplID string,
+	codeObjID string,
+	codeObjVariantID string,
+	codeObjImplID string,
+	parentCodeObjImplID string,
+) error {
+	delete(project.CodeObjs, codeObjID)
+	delete(project.CodeObjVariants, codeObjVariantID)
+	delete(project.CodeObjImpls, codeObjImplID)
+
+	sectionImpl := project.SectionImpls[sectionImplID]
+	var sectionPayload map[string]any
+	if err := json.Unmarshal(sectionImpl.Payload, &sectionPayload); err != nil {
+		return err
+	}
+	codeObjVariantMap, ok := sectionPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		return errors.New("settings section payload missing codeObjVariantMap")
+	}
+	delete(codeObjVariantMap, codeObjID)
+	encodedSectionPayload, err := json.Marshal(sectionPayload)
+	if err != nil {
+		return err
+	}
+	sectionImpl.Payload = encodedSectionPayload
+	project.SectionImpls[sectionImplID] = sectionImpl
+
+	parentImpl := project.CodeObjImpls[parentCodeObjImplID]
+	var parentPayload map[string]any
+	if err := json.Unmarshal(parentImpl.Payload, &parentPayload); err != nil {
+		return err
+	}
+	rawChildren, ok := parentPayload["children"].([]any)
+	if !ok {
+		return errors.New("settings parent code object payload missing children")
+	}
+	filteredChildren := make([]string, 0, len(rawChildren))
+	for _, rawChild := range rawChildren {
+		childID, ok := rawChild.(string)
+		if !ok {
+			return errors.New("settings parent code object child must be a string")
+		}
+		if childID == codeObjID {
+			continue
+		}
+		filteredChildren = append(filteredChildren, childID)
+	}
+	parentPayload["children"] = filteredChildren
+	encodedParentPayload, err := json.Marshal(parentPayload)
+	if err != nil {
+		return err
+	}
+	parentImpl.Payload = encodedParentPayload
+	project.CodeObjImpls[parentCodeObjImplID] = parentImpl
+	return nil
 }
 
 func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleConfig, implID string) string {

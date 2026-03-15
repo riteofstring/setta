@@ -226,10 +226,7 @@ func EnsureProjectRuntimeBootstrapped(
 	currentDocument := projectRuntime.Snapshot().Document
 	project, err := currentDocument.ProjectByID(SettingsProjectID)
 	if err == nil && project.Name == SettingsProjectName {
-		if err := validateSettingsProjectShellSections(settingsDocument, project); err != nil {
-			return err
-		}
-		return nil
+		return RefreshProjectRuntimeFromSettings(ctx, settingsRuntime, projectRuntime)
 	}
 
 	builtDocument, err := BuildProjectDocument(settingsDocument)
