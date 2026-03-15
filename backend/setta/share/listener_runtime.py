@@ -80,16 +80,6 @@ class ShareListenerRuntime:
             del self._session_handles[key]
         self._drop_module(handle.module)
 
-    def _handle_listener_task_done(
-        self, key: tuple[str, ID], task: asyncio.Task[object]
-    ) -> None:
-        handle = self._session_handles.get(key)
-        if handle is None:
-            return
-        if handle.task is not task:
-            return
-        self._drop_handle(key, handle)
-
     async def ensure_listener_for_session(
         self, session_id: str | None, project_config_id: ID
     ) -> None:
@@ -138,9 +128,16 @@ class ShareListenerRuntime:
             label="share-listener-per-viewer",
             extra_values={"share_session_id": session_id},
         )
-        task.add_done_callback(
-            lambda finished_task: self._handle_listener_task_done(key, finished_task)
-        )
+
+        def _drop_finished_handle(finished_task: asyncio.Task[object]) -> None:
+            handle = self._session_handles.get(key)
+            if handle is None:
+                return
+            if handle.task is not finished_task:
+                return
+            self._drop_handle(key, handle)
+
+        task.add_done_callback(_drop_finished_handle)
         self._session_handles[key] = _ListenerHandle(
             listener=listener,
             task=task,

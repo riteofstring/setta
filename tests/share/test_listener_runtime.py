@@ -1,4 +1,6 @@
 import asyncio
+import setta.share.listener_runtime as listener_runtime_mod
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import parse_qs, urlparse
@@ -218,3 +220,45 @@ class TestShareListenerRuntime:
                 handle_b.task,
                 return_exceptions=True,
             )
+
+    async def test_completed_listener_task_drops_handle_and_module(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_listener_entrypoint(root)
+            project_config_id = ID("proj-cleanup")
+            manifest = _build_manifest(
+                project_config_id,
+                entrypoint="listener.py",
+            )
+            runtime = ShareListenerRuntime(
+                deployment_root=root,
+                manifest=manifest,
+            )
+
+            async def _complete_immediately() -> None:
+                return None
+
+            def _spawn_completed_task(*_args, **_kwargs) -> asyncio.Task[None]:
+                return asyncio.create_task(_complete_immediately())
+
+            monkeypatch.setattr(
+                listener_runtime_mod,
+                "spawn_background_task",
+                _spawn_completed_task,
+            )
+
+            await runtime.ensure_listener_for_session("session-a", project_config_id)
+
+            key = ("session-a", project_config_id)
+            handle = runtime._session_handles.get(key)
+            if handle is None:
+                raise AssertionError("expected share listener handle")
+            module_name = handle.module.__name__
+
+            await asyncio.gather(handle.task, return_exceptions=True)
+            await asyncio.sleep(0)
+
+            assert key not in runtime._session_handles
+            assert module_name not in sys.modules
