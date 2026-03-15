@@ -3577,3 +3577,49 @@ Append-only log for the section performance refactor.
   - Capture one more explicit untouched-`main` vs worktree shared-row compare on the declared lower seam.
   - Use that compare plus the already-green cross-section evidence set to accept or reject checkpoint 1 before any upward move into `sectionChrome`.
   - Reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` only if that fresh compare explicitly points back to the unchanged non-empty preview path.
+
+### 2026-03-17 98
+
+- Item: Capture the explicit shared-row compare required by the checkpoint-1 acceptance gate.
+- Status: `needs_more_work`
+- Details:
+  - Reused the live disposable `GlobalVariables` sections already present on both headed pages:
+    - worktree `smooth_hawk`:
+      - section id: `0007e247-e833-417f-9b3d-5eab0513026e`
+    - untouched `main` `dry_slow`:
+      - section id: `dd8ba98a-cd6f-437c-9e14-3febaaafe266`
+  - Captured a direct row-level geometry read for the first rendered kwarg row (`Add Key`) on both branches.
+  - Horizontal geometry stayed close:
+    - section width: `242.98` on both branches
+    - row width: `212.29` worktree vs `211.71` untouched `main`
+    - key width: `98.64` on both branches
+    - handle width: `19.25` on both branches
+  - The explicit blocker is now concrete:
+    - section height: `123.90` worktree vs `117.88` untouched `main`
+    - row height: `30.07` worktree vs `24.06` untouched `main`
+    - worktree key/value typography reads:
+      - font size: `16px`
+      - line height: `24px`
+      - bottom border: `1px`
+    - untouched `main` key/value typography reads:
+      - font size: `12px`
+      - line height: `16px`
+      - top/bottom padding: `2px`
+  - Recorded the compare in:
+    - `perf/reports/frontend/2026-03-17_section-shell-s1-checkpoint1-shared-row-compare.md`
+  - Saved headed-browser screenshot artifacts in:
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-shared-row-compare/worktree-global-variables-shared-row.png`
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-shared-row-compare/main-global-variables-shared-row.png`
+  - Decision:
+    - the explicit compare rejects checkpoint-1 acceptance on the current evidence
+    - the lower seam stays open
+    - do not move upward into `sectionChrome` yet
+- Next action:
+  - Keep working in the shared lower row-contract owners:
+    - `frontend/index.css`
+    - `frontend/src/components/Params/paramRowClassNames.ts`
+    - `frontend/src/components/Params/ParamRowShell.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+  - Reconcile the row-height and key/value typography mismatch against untouched `main` before trying to accept checkpoint 1 again.
