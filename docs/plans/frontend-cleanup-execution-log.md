@@ -3574,3 +3574,32 @@ module map and placement guide while this cleanup progresses.
     authored/shared hotspot at 286 lines, by separating pressed-key
     bookkeeping or stale-key cleanup from listener attachment and shortcut-info
     normalization.
+
+## 2026-03-15 09:05:12 PDT
+
+- Slice completed: split key activation listener wiring from pressed-key and
+  shortcut-info owners
+- Key files touched:
+  - `frontend/src/state/actions/keyActivations.ts`
+  - `frontend/src/state/actions/keyActivationPressedKeys.ts`
+  - `frontend/src/state/actions/keyActivationShortcutInfo.ts`
+  - `frontend/src/state/actions/keyActivationPressedKeys.test.ts`
+  - `frontend/src/state/actions/keyActivationShortcutInfo.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/keyActivationPressedKeys.test.ts src/state/actions/keyActivationShortcutInfo.test.ts src/state/actions/keyActivations.test.ts src/state/actions/keyShortcutRegistrations.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/keyActivations.ts src/state/actions/keyActivationPressedKeys.ts src/state/actions/keyActivationShortcutInfo.ts src/state/actions/keyActivationPressedKeys.test.ts src/state/actions/keyActivationShortcutInfo.test.ts src/state/actions/keyActivations.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `a96c6b078a493dca0e3c95db78ddb4152ed95d30`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatStreamingRouting.ts`, now the
+    largest authored/shared hotspot at 278 lines, by separating chunk-context
+    or chat-id lookup resolution from per-chunk section persistence,
+    tool-preview cleanup, and scope-violation notification handling.
