@@ -4161,6 +4161,68 @@ func TestRegisterProjectRoutesLayoutChromeRejectsDeploymentPolicyWhenLayoutChang
 	}
 }
 
+func TestRegisterProjectRoutesMetaControlShowSectionTitleAndGroupOverflowRemainIDeOnlyInDeployment(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		project func(*testing.T) projectstate.Project
+		route   string
+		body    string
+	}{
+		{
+			name:    "meta control title",
+			project: sectionFilterMetaControlRouteTestProject,
+			route:   RouteSetMetaControlShowSectionTitle,
+			body:    `{"projectConfigId":"project-alpha","sectionId":"meta-section","showSectionTitle":true}`,
+		},
+		{
+			name:    "group overflow",
+			project: layoutPresentationRouteTestProject,
+			route:   RouteSetGroupOverflowMode,
+			body:    `{"projectConfigId":"project-alpha","sectionId":"group-section","overflowMode":true}`,
+		},
+	}
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			for _, tc := range testCases {
+				t.Run(tc.name, func(t *testing.T) {
+					deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+						Mode: mode,
+						Document: projectstate.Document{
+							SchemaVersion:    projectstate.CurrentSchemaVersion,
+							DefaultProjectID: "project-alpha",
+							Projects: map[string]projectstate.Project{
+								"project-alpha": tc.project(t),
+							},
+						},
+						Policy: map[string]any{
+							"allowLayoutChanges": true,
+						},
+					})
+					if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+						t.Fatalf("create deployment session: %v", err)
+					}
+
+					handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+					request := httptest.NewRequest(http.MethodPost, "/api"+tc.route, strings.NewReader(tc.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s in %s mode, got %d with body %q", tc.route, mode, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+						t.Fatalf("expected mode_forbidden for %s in %s mode, got %q", tc.route, mode, response.Body.String())
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
