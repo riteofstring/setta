@@ -10,18 +10,20 @@ import {
   useListRef,
   type RowComponentProps,
 } from "react-window";
+import { setGitGraphFilterText } from "state/actions/gitGraphFilterState";
+import {
+  refreshGitGraphOverlay,
+  toggleGitGraphAllRefs,
+} from "state/actions/gitGraphOverlayActions";
+import { loadMoreGitGraphCommits } from "state/actions/gitGraphPaginationRequests";
 import {
   clearGitGraphSelectedCommit,
-  closeGitOverlay,
-  loadMoreGitGraphCommits,
-  refreshGitGraphOverlay,
   selectGitCommit,
   selectGitCommitFile,
-  setGitGraphFilterText,
-  toggleGitGraphAllRefs,
-} from "state/actions/git";
-import { useLocalStorage } from "state/definitions";
+} from "state/actions/gitGraphSelection";
+import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
 import { useGitStore } from "state/git";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type {
   GetGitCommitDetailsResponse,
   GitCommit,
