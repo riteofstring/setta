@@ -6905,3 +6905,50 @@ schedule settings` button still appears on the live task row.
     highest-value unresolved cross-domain front door in the current tree after
     the standalone window-space surface delegated its local window ownership
     into sharp page-domain owners.
+
+## 2026-03-16 07:53 PDT
+
+- Slice completed: extracted the appRegistry output-block owner
+- This was higher value than jumping directly to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  or `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` because
+  `frontend/src/components/App/appRegistry.tsx` was still the shared first hop
+  for app-mode block ownership and still mixed config-bound `TextOutput` or
+  `ImageOutput` rendering, text-output resolution, markdown typography, and
+  cached image artifact loading into the same registry file contributors opened
+  to understand app-mode surfaces.
+- Key files touched:
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/App/appRegistryOutputBlocks.tsx`
+  - `frontend/src/components/App/appRegistryOutputBlocks.test.tsx`
+  - `frontend/src/components/App/AppRenderer.policy.test.tsx`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `perf/reports/frontend/app-registry-output-blocks-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/App/appRegistryOutputBlocks.test.tsx src/components/App/AppRenderer.policy.test.tsx src/components/App/AppRenderer.test.tsx src/components/Pages/App/AppPage.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-text-output.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/App/appRegistry.tsx src/components/App/appRegistryOutputBlocks.tsx src/components/App/appRegistryOutputBlocks.test.tsx src/components/App/AppRenderer.policy.test.tsx ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../perf/reports/frontend/app-registry-output-blocks-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/app-registry-output-blocks-2026-03-16.md`
+    with the before/after file-size shift and the injected `AppRenderer`
+    overlay measurements for the extracted output-block owner.
+  - CDP visual verification was run on `http://127.0.0.1:3002/home` with a
+    client-side `AppRenderer` overlay fixture. `appRegistry.tsx` dropped from
+    `888` to `654` lines, the measured output surface stayed at `420x161`, the
+    subtree stayed at `9` nodes, and there was no horizontal overflow at
+    `1440x900` or `960x900`.
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-load.spec.ts`
+    still fails on a `useAppConfigs` count assertion (`expected 1, received 2`)
+    on an `ActionButton`-only app page that never touches the extracted output
+    blocks, so the passing output-specific Playwright flow above was used as
+    the slice gate instead of treating that pre-existing app bootstrap failure
+    as a regression from this extraction.
+- Commit hash:
+  - `be63e1a9e86a5054c4df6d1b764309e32d45d53f`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`,
+    which is now the largest unresolved front-door hotspot in the current tree
+    after `appRegistry.tsx` delegated its bound output ownership into a sharp
+    local app-mode file.
