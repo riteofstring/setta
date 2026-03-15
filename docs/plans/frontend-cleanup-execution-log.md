@@ -5004,3 +5004,31 @@ in `frontend/src/README.md` and the cleanup plans.
   - `d82bfd943f1f67ff03949731d754842b8c4b73a1`
 - Next highest-value unblocked slice:
   - Simplify the floating drag/resize and snap-preview state inside `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is still the top unresolved hotspot at about `4227` lines now that dock shortcuts, layout math, and dock-resize state live in their own local owners.
+
+## 2026-03-15 15:24 PDT
+
+- Slice completed: extracted floating preview state, snap-preview state, viewport guardrails, and floating drag/resize or snap-resize pointer handling out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was still the top unresolved hotspot at the start of the slice, and the floating interaction path was the next cohesive branch after dock shortcuts, dock layout math, and dock-resize state had already moved into local owners.
+  - This was higher value than switching back to `ChatMessages.tsx` before finishing the dock because the floating interaction block still mixed batched preview state, snap-preview state, viewport guardrails, and multiple pointer-session paths directly inside the same render-heavy surface.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/projectChatFloatingInteractions.ts`
+  - `frontend/src/components/ChatWindowing/projectChatFloatingInteractions.test.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-floating-interactions-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatFloatingInteractions.test.ts src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat floating windows keep titlebar and minimum visibility guardrails across drag and viewport changes"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatFloatingInteractions.ts src/components/ChatWindowing/projectChatFloatingInteractions.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-floating-interactions-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-floating-interactions-2026-03-15.md` with same-origin harness before/after notes and screenshots.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that dragging a floating window toward the top-left edge still surfaced the `top_left` snap ghost zone, that a free-floating bottom-right resize still expanded a window from `420x320` to `592x452`, and that quarter-snapped windows still exposed one vertical plus one horizontal snap-resize handle with the same `660/540` split after a `60px` drag.
+- Commit hash:
+  - `d84c33f8a3d973e9c47c50e24a99b3d609a85494`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Chat/ChatMessages.tsx`, which is now back to the top unresolved hotspot at about `3920` lines now that `ProjectChatBottomDock.tsx` has dropped to about `3414` lines.
