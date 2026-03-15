@@ -356,3 +356,42 @@ Append-only log for the callable DOM-first performance refactor.
     - old resize-handle wrapper parents on the worktree: `0`
 - Next action:
   - Continue Phase 1 only if the next candidate is still clearly leaf-level; otherwise stop and prompt before crossing into the Phase 2 row/tree refactor boundary.
+
+### 2026-03-16 25
+
+- Item: Accept the earlier kwarg-name underline flattening against the stable callable control.
+- Status: `done`
+- Details:
+  - Re-used the already-landed kwarg-name underline move in `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`.
+  - Treated the earlier `math.sqrt` `main` mismatch as a control-scene instability, not as evidence of a visual regression in the refactor branch.
+  - Reconfirmed the current branch against the stable `open` callable control pair:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The kwarg rows remained visually aligned with untouched `main`, and the expanded callable minimum regression suite still passed with screenshot capture for the required resize, reorder, indent, theme, and standalone-route states.
+  - This resolves the old Phase 1 log blocker without reopening the already-landed DOM change.
+- Next action:
+  - Treat the kwarg-name underline flattening as an accepted Phase 1 change and continue from the current branch state.
+
+### 2026-03-16 26
+
+- Item: Phase 1 boundary assessment for the next callable refactor step.
+- Status: `done`
+- Details:
+  - Inspected the live `open` callable row DOM after checkpoint 24 and re-scanned the remaining callable leaf files.
+  - The remaining steady-state wrappers are no longer isolated callable leaves:
+    - `TextInputCodeMirror` / `DummyCodeMirror` own the surviving `section-value` input shells
+    - nested child-row wrappers and `grid/subgrid` ownership are concentrated in the row/tree cluster:
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamSwitch.tsx`
+      - `frontend/src/components/Params/GetParamSwitch.tsx`
+      - `frontend/src/components/Params/ParamDndList.tsx`
+  - Architectural read:
+    - strongest next cluster: the row/tree path above
+    - why it is coupled: row selection/search/error state, DnD placeholder behavior, nested-child ownership, and the callable grid contract all cross file boundaries there
+    - dependency category: tightly coupled same-domain UI ownership with shared layout/state contracts
+    - test impact: future work should continue to use the existing callable Playwright boundary tests instead of adding file-local tests around these shallow seams
+  - Conclusion:
+    - Phase 1 leaf-level callable DOM reductions are effectively exhausted
+    - the next meaningful performance work belongs to Phase 2 row/tree flattening
+- Next action:
+  - Use the current callable regression suite and stable `open` CDP control pair as the gate for the first Phase 2 row/tree checkpoint.

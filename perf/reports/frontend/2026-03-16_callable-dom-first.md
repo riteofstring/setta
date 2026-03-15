@@ -304,3 +304,26 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this removes the last dedicated wrapper node from every visible param-column resize handle in the callable control scene
   - the live subtree reduction matches the expected direction without introducing visible drift on the stable control capture
+
+### Phase 1 follow-up: kwarg-name checkpoint acceptance and row/tree boundary
+
+- Date/time: 2026-03-16
+- Scope:
+  - resolved the old kwarg-name underline checkpoint blocker using the stable `open` callable control pair instead of the unstable `math.sqrt` `main` setup
+  - reassessed the remaining callable DOM surface to decide whether another leaf-only checkpoint still exists
+- Verification read:
+  - the current branch, which already includes the kwarg-name underline move in `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`, remained visually aligned with untouched `main` on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - the expanded callable minimum regression harness still covered the required screenshot matrix, so the earlier `math.sqrt` control-scene mismatch is treated as a control issue rather than a refactor delta
+- Architectural read:
+  - the remaining steady-state wrappers now belong to shared row/input ownership rather than isolated callable leaves
+  - strongest next cluster:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamDndList.tsx`
+  - the surviving complexity is now mostly in nested-child ownership, DnD placeholder geometry, and the recursive `grid/subgrid` row contract
+- Interpretation:
+  - Phase 1 leaf reductions are effectively exhausted
+  - the next meaningful callable performance work should begin with Phase 2 row/tree flattening rather than additional shared-input leaf churn
