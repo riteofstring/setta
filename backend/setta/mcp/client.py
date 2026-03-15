@@ -63,18 +63,6 @@ class MissingMCPEnvVarError(ValueError):
         self.var_name = var_name
 
 
-def _resolve_env_placeholders(value: str) -> str:
-    def replace(match: re.Match[str]) -> str:
-        var_name = match.group(1)
-        if var_name not in os.environ:
-            raise MissingMCPEnvVarError(var_name)
-        return os.environ[var_name]
-
-    if "${" not in value:
-        return value
-    return _ENV_PLACEHOLDER.sub(replace, value)
-
-
 @dataclass
 class BridgeConfig:
     backend_url: str
@@ -561,6 +549,17 @@ class MultiMCPClient:
         server_id: str,
         config: MCPServerConfig,
     ):
+        def resolve_env_placeholders(value: str) -> str:
+            def replace(match: re.Match[str]) -> str:
+                var_name = match.group(1)
+                if var_name not in os.environ:
+                    raise MissingMCPEnvVarError(var_name)
+                return os.environ[var_name]
+
+            if "${" not in value:
+                return value
+            return _ENV_PLACEHOLDER.sub(replace, value)
+
         http_headers = self._build_http_headers(server_id, config)
         if config.transport == "sse":
             read_stream, write_stream = await exit_stack.enter_async_context(
@@ -581,10 +580,10 @@ class MultiMCPClient:
             return read_stream, write_stream
         params = StdioServerParameters(
             command=config.command or "",
-            args=[_resolve_env_placeholders(arg) for arg in list(config.args)],
+            args=[resolve_env_placeholders(arg) for arg in list(config.args)],
             env=(
                 {
-                    key: _resolve_env_placeholders(value)
+                    key: resolve_env_placeholders(value)
                     for key, value in config.env.items()
                 }
                 if config.env is not None
