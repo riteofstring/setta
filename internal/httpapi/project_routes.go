@@ -1326,6 +1326,28 @@ func ensureProjectVariantMutationsAllowed(
 	return false
 }
 
+func ensureProjectStructuralMutationsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"structural_changes_forbidden",
+		"Deployment mode disallows structural changes.",
+	)
+	return false
+}
+
 func resolveStructuralMutationSettingsFromRuntime(
 	runtime *settingsstate.Runtime,
 ) (projectstate.StructuralMutationSettings, error) {
@@ -1499,6 +1521,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Store:  deps.ShareSessions,
 		})
 		router.With(shareGuard).Post(RouteMoveSections, moveSectionsHandler(deps))
+		router.With(shareGuard).Post(RouteSetCodeSectionAttachedTerminal, setCodeSectionAttachedTerminalHandler(deps))
 		router.With(shareGuard).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
 		router.With(shareGuard).Post(RouteUndo, undoHandler(deps))
 		router.With(shareGuard).Post(RouteRedo, redoHandler(deps))
@@ -1912,6 +1935,9 @@ func setCodeSectionAttachedTerminalHandler(deps ProjectRouteDependencies) http.H
 		sectionID := strings.TrimSpace(payload.SectionID)
 		if sectionID == "" {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if !ensureProjectStructuralMutationsAllowed(w, r) {
 			return
 		}
 		if deps.ProjectState == nil || deps.SettingsState == nil {

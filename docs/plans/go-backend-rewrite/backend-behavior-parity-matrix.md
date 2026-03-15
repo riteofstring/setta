@@ -179,8 +179,8 @@ It covers:
 - The section-movement / grouping / param-reorder slice closes its
   caller-backed layout-policy gap and retains two more dormant
   structure/param route-boundary rows.
-- The code-section attached-terminal slice mostly closes with proofs, but it
-  adds one more caller-backed attached-terminal transport gap outside IDE.
+- The code-section attached-terminal slice now closes its caller-backed
+  transport gap outside IDE.
 - The section-creation / structural-deletion slice mostly closes with proofs,
   but it adds two more caller-backed non-IDE transport gaps plus two more
   dormant route-boundary rows.
@@ -191,7 +191,7 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Twenty-six concrete parity gaps are already visible:
+- Twenty-five concrete parity gaps are already visible:
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
@@ -1049,7 +1049,7 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `CT-01` | `setCodeSectionAttachedTerminal` round-trips attach/detach, removes and restores top-level layout state for the terminal, reparents a terminal out of its previous parent when necessary, normalizes attached code/terminal sizing, and rejects non-terminal or non-code targets. | Source helper: `backend/setta/types/helpers_lvl2.py::_set_code_section_attached_terminal`; source manager method: `backend/setta/project_state/base_project_manager.py::set_code_section_attached_terminal`; source tests: `tests/project_state/test_code_section_attached_terminal.py::{test_attach_and_detach_terminal,test_attach_bumps_code_section_height,test_attach_bumps_auto_code_section_height,test_attach_invalid_terminal_raises,test_attach_requires_code_section}`. | Impl: `internal/projectstate/attached_terminal_writes.go::SetCodeSectionAttachedTerminal`; proof: `internal/projectstate/attached_terminal_writes_test.go::{TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach,TestRuntimeSetCodeSectionAttachedTerminalMovesTerminalFromExistingParent,TestRuntimeSetCodeSectionAttachedTerminalRejectsNonTerminalTarget,TestRuntimeSetCodeSectionAttachedTerminalRejectsNonCodeParent}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesCodeSectionAttachedTerminalPersistsLatestState,TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsInvalidInputs}`. | `Proved` | Current Go route proof covers the surviving typed `invalid_terminal_section` / `invalid_code_section` transport mapping, while the runtime proof directly checks deterministic detach layout restoration and terminal sizing normalization. |
-| `CT-02` | In share/app sessions, `setCodeSectionAttachedTerminal` stays transport-visible and fails closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source docs: `docs/reference/dnd-kit.md`; source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source route: `backend/setta/routers/project_manager.py::route_set_code_section_attached_terminal`. | Current Go mounts `RouteSetCodeSectionAttachedTerminal` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still switches to that route from `frontend/src/state/actions/sections/moveSections.ts::moveSectionsWithBackend` when a single terminal is dropped into a code section, and section DnD remains enabled by `canEditLayout` in `frontend/src/forks/dnd-kit/useDNDSensors.ts` plus `frontend/src/forks/dnd-kit/useMoveSection.ts`. | `Missing` | This is an active transport gap: the source kept the special-case attached-terminal route mounted and failed closed with structural `403`, but current Go removes it outside IDE while current shared DnD still invokes it for terminal drops. |
+| `CT-02` | In share/app sessions, `setCodeSectionAttachedTerminal` stays transport-visible and fails closed with deployment-mode structural `403` instead of disappearing entirely outside IDE. | Source docs: `docs/reference/dnd-kit.md`; source structural guard: `backend/setta/routers/project_manager.py::_deny_deployment_mode_structural`; source route: `backend/setta/routers/project_manager.py::route_set_code_section_attached_terminal`. | Impl: `internal/httpapi/project_routes.go::{RegisterProjectRoutes,ensureProjectStructuralMutationsAllowed,setCodeSectionAttachedTerminalHandler}`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsDeploymentStructuralChanges`; current frontend still switches to that route from `frontend/src/state/actions/sections/moveSections.ts::moveSectionsWithBackend` when a single terminal is dropped into a code section. | `Proved` | Current Go now keeps the special-case attached-terminal route transport-visible in share/app sessions and fails closed with a structural `403` before touching IDE-only project runtime state. |
 
 ## Section Creation, Structural Deletion, And Delete-Selected-Params Routes
 
@@ -1170,13 +1170,13 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains twenty-six concrete source-parity gaps:
+1. The matrix now contains twenty-five concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `WS-01`,
    `DP-08`,
    `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, `SV-05`, `CT-02`, `SC-05`, `SC-06`, and `DL-02`.
+   `PV-05`, `SV-05`, `SC-05`, `SC-06`, and `DL-02`.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
@@ -1290,8 +1290,8 @@ It covers:
 40. The section-movement / grouping / param-reorder slice now closes its real
     layout-policy gap and retains two dormant route-boundary rows (`SG-02`,
     `PM-02`).
-41. The code-section attached-terminal slice mostly closes with proofs, but it
-    adds one real non-IDE transport gap (`CT-02`).
+41. The code-section attached-terminal slice now closes its real non-IDE
+    transport gap.
 42. The section-creation / structural-deletion slice mostly closes with
     proofs, but it adds two real non-IDE transport gaps (`SC-05`, `SC-06`)
     plus two dormant route-boundary rows (`SC-07`, `SC-08`).
@@ -1325,7 +1325,7 @@ It covers:
       `DP-08`,
       `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
-      `SP-03`, `PA-02`, `PV-05`, `SV-05`, `CT-02`,
+      `SP-03`, `PA-02`, `PV-05`, `SV-05`,
       `SC-05`, `SC-06`, and `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as

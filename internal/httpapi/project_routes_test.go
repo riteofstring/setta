@@ -1624,6 +1624,68 @@ func TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsInvalidInputs(t 
 	}
 }
 
+func TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsDeploymentStructuralChanges(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": sectionSizeRouteTestProject(t),
+					},
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetCodeSectionAttachedTerminal,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":null}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"structural_changes_forbidden"`) {
+				t.Fatalf("expected structural_changes_forbidden body, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment mode disallows structural changes.") {
+				t.Fatalf("expected deployment structural denial, got %q", response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			overlayCodeVariantID := overlayProject.SectionVariantMap["code-section"]
+			overlayCodeImplID := overlayProject.SectionVariants[overlayCodeVariantID].ImplID
+			overlayCodeImpl := overlayProject.SectionImpls[overlayCodeImplID].Code
+			if overlayCodeImpl == nil || overlayCodeImpl.AttachedTerminalSectionID != "terminal-section" {
+				t.Fatalf("expected rejected mutation to keep overlay attachment, got %#v", overlayCodeImpl)
+			}
+
+			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+			baseCodeVariantID := baseProject.SectionVariantMap["code-section"]
+			baseCodeImplID := baseProject.SectionVariants[baseCodeVariantID].ImplID
+			baseCodeImpl := baseProject.SectionImpls[baseCodeImplID].Code
+			if baseCodeImpl == nil || baseCodeImpl.AttachedTerminalSectionID != "terminal-section" {
+				t.Fatalf("expected base attachment to stay unchanged, got %#v", baseCodeImpl)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSetSectionNameReturns422ForInvalidName(t *testing.T) {
 	t.Parallel()
 
