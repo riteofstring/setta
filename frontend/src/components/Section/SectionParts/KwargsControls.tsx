@@ -1,10 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImpl,
-  getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
   updateShownParamIdsForPinnedParams,
@@ -15,7 +13,6 @@ import {
   useProjectState,
   useSettings,
   useTemporaryMiscState,
-  type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -30,30 +27,14 @@ import {
   route_set_section_param_filter,
   route_set_section_pinned_params,
 } from "utils/generatedEndpoints";
-import {
-  isBaseParamCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
-import { shallow } from "zustand/shallow";
+import { getKwargsControlsRenderModel } from "./getKwargsControlsRenderModel";
 import { getKwargsControlsContainerClassName } from "./kwargsControlsStyles";
 
 type KwargsControlsProps = {
   sectionId: string;
 };
-
-function getDeletableSelectedParamIds(
-  state: ZustandProjectState,
-  sectionId: string,
-  selectedParams: Array<string>,
-) {
-  return selectedParams.filter((paramId) => {
-    const paramImpl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
-    return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
-  });
-}
 
 export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
@@ -97,21 +78,18 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
-  const { callableMissing, isCallableSection, styleColor } = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        x,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      const isCallableSection = impl.type === SectionTypeEnum.Callable;
-      return {
-        callableMissing: isCallableSection && impl.callable == null,
-        isCallableSection,
-        styleColor: impl.styleColor ?? null,
-      };
-    },
-    shallow,
+  const {
+    callableMissing,
+    isCallableSection,
+    styleColor,
+    selectedParams,
+    edgeInputParams,
+    pinnedParams,
+    paramFilterValue,
+    deletableSelectedParamIds,
+  } = useProjectState(
+    (state) => getKwargsControlsRenderModel({ state, sectionId }),
+    _.isEqual,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
@@ -139,42 +117,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
-
-  const paramsImpl = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ),
-  );
-  const { codeObjs, codeObjVariants, codeObjImpls, sectionVariants } =
-    useProjectState(
-      (state) => ({
-        codeObjs: state.codeObjs,
-        codeObjVariants: state.codeObjVariants,
-        codeObjImpls: state.codeObjImpls,
-        sectionVariants: state.sectionVariants,
-      }),
-      shallow,
-    );
-  const selectedParams = paramsImpl.selectedParams;
-  const edgeInputParams = paramsImpl.edgeInputParams;
-  const pinnedParams = paramsImpl.pinnedParams;
-  const deletableSelectedParamIds = useMemo(() => {
-    return getDeletableSelectedParamIds(
-      useProjectState.getState(),
-      sectionId,
-      selectedParams,
-    );
-  }, [
-    codeObjImpls,
-    codeObjVariants,
-    codeObjs,
-    paramsImpl,
-    sectionId,
-    sectionVariants,
-    selectedParams,
-  ]);
 
   const selectedAreAllEdgeInputs =
     selectedParams.length > 0 &&
@@ -478,6 +420,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
 
         <ParamFilter
           sectionId={sectionId}
+          paramFilterValue={paramFilterValue}
           includeCallablePadding={isCallableSection}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
@@ -488,21 +431,15 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
 
 function ParamFilter({
   sectionId,
+  paramFilterValue,
   includeCallablePadding,
   hasSectionStyleTheme,
 }: {
   sectionId: string;
+  paramFilterValue: string;
   includeCallablePadding: boolean;
   hasSectionStyleTheme: boolean;
 }) {
-  const paramsImpl = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ),
-  );
-  const paramFilterValue = paramsImpl.paramFilter;
   const sectionIsActive = useIsSolelySectionUIActive(sectionId);
 
   const searchShortcut = useSettings((x) =>
