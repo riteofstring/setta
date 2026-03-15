@@ -75,6 +75,54 @@ func TestRunConnectAliasPrintOnlyForwardsProfileWithoutLocalValidation(t *testin
 	}
 }
 
+func TestRunConnectAcceptsWorkspaceShortAlias(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61235,
+		time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+
+	stdout, stderr, err := runCLIWithOSEnv(t.TempDir(),
+		"connect", "user@host",
+		"-w", "/remote/workspace",
+		"--print-only",
+	)
+	if err == nil {
+		t.Fatal("expected multi-session selection error")
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if err.Error() != "Use --session or --latest for remote connect." {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+	commandLog := readSettacliCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "--workspace /remote/workspace") {
+		t.Fatalf("expected workspace forwarding in command log, got %q", commandLog)
+	}
+	if !strings.Contains(commandLog, "status --list-sessions --json --workspace /remote/workspace --server-mode ide") {
+		t.Fatalf("expected list command with forwarded workspace, got %q", commandLog)
+	}
+}
+
 func TestRunConnectRejectsMultipleSessionsWithoutSelector(t *testing.T) {
 	repoRoot := testRepoRootForSettacli(t)
 	sessionsRoot := filepath.Join(t.TempDir(), "sessions")

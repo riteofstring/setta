@@ -333,6 +333,7 @@ func (l *LocalIDESessionLauncher) launchEnv() []string {
 		switch key {
 		case "SETTA_WORKSPACE_ROOT",
 			"SETTA_HOME",
+			"SETTA_AUTH_COOKIE_NAME",
 			"SETTA_PROFILE_LOOKUP_HOME",
 			"SETTA_RUNTIME_ROOT",
 			"SETTA_FILES_ROOT",

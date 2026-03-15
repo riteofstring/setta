@@ -32,6 +32,7 @@ func runStop(args []string, global globalFlags, stdout io.Writer, stderr io.Writ
 	flags := flag.NewFlagSet("stop", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Remote workspace root.")
+	flags.StringVar(&parsed.workspaceRoot, "w", "", "Remote workspace root.")
 	flags.StringVar(&parsed.sessionID, "session", "", "Session ID.")
 	flags.BoolVar(&parsed.latest, "latest", false, "Select the latest session.")
 	flags.BoolVar(&parsed.stopAll, "all", false, "Stop all matching sessions.")

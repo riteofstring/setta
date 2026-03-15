@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"strings"
 	"testing"
 
 	"setta/internal/config"
@@ -63,5 +64,31 @@ func TestLocalIDESessionLauncherBuildLaunchArgsUseLauncherModeWhenRequested(t *t
 	}
 	if !foundMode {
 		t.Fatalf("expected launch args to include launcher mode, got %#v", args)
+	}
+}
+
+func TestLocalIDESessionLauncherLaunchEnvClearsInheritedAuthCookieName(t *testing.T) {
+	t.Parallel()
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		Env: []string{
+			"PATH=/usr/bin",
+			"SETTA_AUTH_COOKIE_NAME=stale-cookie",
+			"SETTA_RUNTIME_ROOT=/tmp/runtime",
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	env := launcher.launchEnv()
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "SETTA_AUTH_COOKIE_NAME=") {
+			t.Fatalf("expected auth cookie name to be cleared from launch env, got %#v", env)
+		}
+	}
+	if len(env) != 1 || env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected only unrelated env entries to remain, got %#v", env)
 	}
 }

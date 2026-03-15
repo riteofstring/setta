@@ -66,6 +66,40 @@ func TestRunStopRemoteLatestForwardsProfileWithoutLocalValidation(t *testing.T) 
 	}
 }
 
+func TestRunStopRemoteAcceptsWorkspaceShortAlias(t *testing.T) {
+	repoRoot := testRepoRootForSettacli(t)
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createRemoteSSHStubSession(
+		t,
+		sessionsRoot,
+		"/remote/workspace",
+		61234,
+		time.Date(2026, time.March, 8, 12, 5, 0, 0, time.UTC),
+		string(sshx.RemoteServerModeIDE),
+	)
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+	configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+
+	stdout, stderr, err := runCLIWithOSEnv(t.TempDir(),
+		"stop", "user@host",
+		"-w", "/remote/workspace",
+		"--session", session.ID,
+	)
+	if err != nil {
+		t.Fatalf("run remote stop with -w: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if stdout != "Stopped session "+session.ID+".\n" {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+	commandLog := readSettacliCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "--workspace /remote/workspace") {
+		t.Fatalf("expected workspace forwarding in command log, got %q", commandLog)
+	}
+}
+
 func TestRunStopRemoteForwardsLauncherServerMode(t *testing.T) {
 	repoRoot := testRepoRootForSettacli(t)
 	sessionsRoot := filepath.Join(t.TempDir(), "sessions")

@@ -73,6 +73,24 @@ func TestRunStatusConnectInfoJSONEmitsPayload(t *testing.T) {
 	}
 }
 
+func TestRunStatusConnectInfoJSONAcceptsWorkspaceShortAlias(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, _, err := fixture.run("--setta-home", fixture.settaHome, "status", "--connect-info", "--json", "-w", fixture.workspaceRoot)
+	if err != nil {
+		t.Fatalf("run status connect-info with -w: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+	sessionPayload := payload["session"].(map[string]any)
+	if sessionPayload["id"] != session.ID {
+		t.Fatalf("expected session id %q, got %#v", session.ID, sessionPayload["id"])
+	}
+}
+
 func TestRunStatusIgnoresStaleSessionsAndDefaultsToIDE(t *testing.T) {
 	t.Parallel()
 
@@ -176,6 +194,27 @@ func TestRunAuthJSONEmitsPayload(t *testing.T) {
 	}
 	if payload["source"] != "bootstrap" {
 		t.Fatalf("expected source bootstrap, got %#v", payload["source"])
+	}
+}
+
+func TestRunAuthJSONAcceptsWorkspaceShortAlias(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, _, err := fixture.run("--setta-home", fixture.settaHome, "auth", "--json", "-w", fixture.workspaceRoot, "--session", session.ID)
+	if err != nil {
+		t.Fatalf("run auth --json with -w: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &payload); err != nil {
+		t.Fatalf("decode auth payload: %v", err)
+	}
+	sessionPayload := payload["session"].(map[string]any)
+	if sessionPayload["id"] != session.ID {
+		t.Fatalf("expected session id %q, got %#v", session.ID, sessionPayload["id"])
 	}
 }
 

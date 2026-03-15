@@ -43,6 +43,7 @@ func runConnect(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	flags := flag.NewFlagSet("connect", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Remote workspace root.")
+	flags.StringVar(&parsed.workspaceRoot, "w", "", "Remote workspace root.")
 	flags.StringVar(&parsed.sessionID, "session", "", "Session ID.")
 	flags.BoolVar(&parsed.latest, "latest", false, "Select the latest session.")
 	flags.StringVar(&parsed.sshArgs, "ssh-args", "", "Extra SSH arguments.")
