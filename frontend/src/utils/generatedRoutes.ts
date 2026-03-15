@@ -307,7 +307,6 @@ export const GoHTTPRoutes = {
   pluginsLockWrite: "/plugins/lock/write",
   pluginsLockApply: "/plugins/lock/apply",
   pluginsRestart: "/plugins/restart",
-  pluginsBackendRoute: "/plugins/{pluginId}{routePath}",
 } as const;
 export const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
@@ -1249,12 +1248,6 @@ export const GoHTTPRouteHelpers = {
   pluginsRestart(): string {
     return GoHTTPRoutes.pluginsRestart;
   },
-  pluginsBackendRoute(pluginId: string, routePath: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.pluginsBackendRoute, {
-      pluginId,
-      routePath,
-    });
-  },
 } as const;
 export const GoWebsocketRouteHelpers = {
   frontend(): string {
@@ -1574,7 +1567,6 @@ export const RouteEnum = {
   PLUGINS_LOCK_WRITE: "/plugins/lock/write",
   PLUGINS_LOCK_APPLY: "/plugins/lock/apply",
   PLUGINS_RESTART: "/plugins/restart",
-  PLUGINS_BACKEND_ROUTE: "/plugins/{pluginId}{routePath}",
   WEBSOCKET_FRONTEND: "/ws/frontend",
   WEBSOCKET_LISTENER_BY_ID: "/ws/listeners/{listenerID}",
   WEBSOCKET_TERMINAL_BY_SECTION: "/ws/terminals/{projectID}/{sectionID}",

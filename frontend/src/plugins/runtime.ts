@@ -31,7 +31,7 @@ import {
 	PluginPaneIconNameEnum,
 	type PluginPaneIconName,
 } from "./paneIcons";
-import { buildPluginAssetUrl, buildPluginBackendFetchUrl } from "./transport";
+import { buildPluginAssetUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -234,7 +234,6 @@ type SettaPluginHost = {
   createArtifact: (
     payload: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>;
-  apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 type PluginFrontendModule = {
@@ -1582,26 +1581,6 @@ function registerPluginModule({
         "createArtifact is not implemented in this host yet.",
       );
     },
-    apiFetch: async (path, init) => {
-      const normalizedPath = normalizePluginPath(path);
-      const shareSession = useShareSession.getState();
-      const shareHeaders: Record<string, string> = {};
-      if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
-        shareHeaders["X-Share-Session-Id"] = shareSession.shareSessionId;
-      }
-      const requestHeaders = new Headers(init?.headers ?? undefined);
-      for (const [key, value] of Object.entries(shareHeaders)) {
-        requestHeaders.set(key, value);
-      }
-      return fetch(
-        buildPluginBackendFetchUrl(plugin.pluginId, normalizedPath),
-        {
-          ...init,
-          credentials: "include",
-          headers: requestHeaders,
-        },
-      );
-    },
   };
 
   const registerResult = (registerFn as (host: SettaPluginHost) => unknown)(
@@ -1636,43 +1615,6 @@ function registerPluginModule({
   }
 
   return registryDelta;
-}
-
-function normalizePluginPath(path: string): string {
-  const trimmed = path.trim();
-  if (trimmed === "") {
-    return "";
-  }
-  const normalizedInput = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  const queryStart = normalizedInput.search(/[?#]/);
-  const pathPart =
-    queryStart >= 0 ? normalizedInput.slice(0, queryStart) : normalizedInput;
-  const suffix = queryStart >= 0 ? normalizedInput.slice(queryStart) : "";
-  const segments = pathPart.split("/").filter((segment) => segment.length > 0);
-  let decodedPathPart = pathPart;
-  try {
-    decodedPathPart = decodeURIComponent(pathPart);
-  } catch {
-    decodedPathPart = pathPart;
-  }
-  const decodedSegments = decodedPathPart
-    .split("/")
-    .filter((segment) => segment.length > 0);
-  if (decodedSegments.some((segment) => segment === "." || segment === "..")) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `apiFetch path cannot include relative traversal segments: ${path}`,
-    );
-  }
-  const hasTrailingSlash = pathPart.endsWith("/") && pathPart !== "/";
-  let canonicalPath = "/";
-  if (segments.length > 0) {
-    canonicalPath = `/${segments.join("/")}`;
-    if (hasTrailingSlash) {
-      canonicalPath = `${canonicalPath}/`;
-    }
-  }
-  return `${canonicalPath}${suffix}`;
 }
 
 function ensureCapability(
@@ -2710,7 +2652,6 @@ export const pluginRuntimeTestApi = {
   indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
   registerPluginSettingRevealHandler,
-  normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
   toProjectStateSectionSnapshot,

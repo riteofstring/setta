@@ -44,7 +44,6 @@ var (
 		"registerLanguageServer":       {},
 		"registerExternalAgentAdapter": {},
 		"registerCodegenTarget":        {},
-		"registerRouter":               {},
 		"registerListenerEndpoint":     {},
 		"registerStaticDir":            {},
 		"writeWorkspacePlugins":        {},

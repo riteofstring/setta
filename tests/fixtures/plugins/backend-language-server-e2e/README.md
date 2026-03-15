@@ -2,7 +2,7 @@
 
 Backend success fixture plugin for language-server Playwright flows.
 
-- Capability: `registerLanguageServer`.
+- Capabilities: `registerLanguageServer`, `registerMcpTools`.
 
 Manual smoke:
 

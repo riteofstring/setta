@@ -9,7 +9,6 @@ import {
   API_ROUTE_PREFIX,
   buildBinaryDownloadRoute,
   buildListenerWebsocketRoute,
-  buildPluginBackendRoute,
   buildTerminalWebsocketRoute,
   ROOT_TRANSPORT_ROUTES,
   SERVER_MODE_BOUNDARY_ROUTES,
@@ -64,9 +63,6 @@ describe("transportRouteConstants", () => {
   it("keeps parameterized route builders aligned with canonical generated routes", () => {
     expect(buildBinaryDownloadRoute("content-a")).toBe(
       GoHTTPRouteHelpers.binaryDownload("content-a"),
-    );
-    expect(buildPluginBackendRoute("acme.plugin", "/health")).toBe(
-      GoHTTPRouteHelpers.pluginsBackendRoute("acme.plugin", "/health"),
     );
     expect(buildListenerWebsocketRoute("listener-a")).toBe(
       GoWebsocketRouteHelpers.listenerById("listener-a"),

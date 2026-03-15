@@ -1,10 +1,8 @@
-import { C_ADDRESSES } from "utils/c_addresses";
 import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import { describe, expect, it } from "vitest";
 import {
   buildBackendURL,
   buildBinaryDownloadUrl,
-  buildPluginBackendFetchUrl,
   SERVER_MODE_BOUNDARY_ROUTES,
   SETTA_API_PRESET_ROUTES,
 } from "./backendTransport";
@@ -35,15 +33,6 @@ describe("backendTransport", () => {
 
     expect(url.pathname).toBe(expectedPath);
     expect(url.searchParams.get("shareSessionId")).toBe("share-a");
-  });
-
-  it("builds canonical plugin backend fetch URLs", () => {
-    const expectedPath =
-      new URL(C_ADDRESSES.BACKEND).pathname +
-      GoHTTPRouteHelpers.pluginsBackendRoute("acme.plugin", "/health");
-    const url = new URL(buildPluginBackendFetchUrl("acme.plugin", "/health"));
-
-    expect(url.pathname).toBe(expectedPath);
   });
 
   it("exposes server-mode boundary routes from canonical HTTP route helpers", () => {

@@ -590,11 +590,10 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
         }
         return {
           ...plugin,
-          requestedCapabilities: ["registerRouter", "registerMcpTools"],
+          requestedCapabilities: ["registerMcpTools"],
           effectiveCapabilities: [],
           blockedCapabilities: [
             { capability: "registerMcpTools", reason: "mode_policy" },
-            { capability: "registerRouter", reason: "mode_policy" },
           ],
         };
       },
@@ -618,9 +617,6 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
   await expect(backendPluginCard.getByText("Capabilities")).toBeVisible();
   await expect(
     backendPluginCard.getByText("registerMcpTools (mode_policy)"),
-  ).toBeVisible();
-  await expect(
-    backendPluginCard.getByText("registerRouter (mode_policy)"),
   ).toBeVisible();
   await expect(
     page.getByText(

@@ -2,7 +2,6 @@ import {
   buildBackendOriginURL,
   buildListenerWebsocketUrl,
 } from "utils/backendOriginTransport";
-export { buildPluginBackendFetchUrl } from "utils/backendTransport";
 
 export type BuildPluginListenerWebsocketUrlOptions = {
   listenerId: string;

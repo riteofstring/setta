@@ -350,9 +350,9 @@ func TestBuildBindingsRendersTailPathRouteHelpers(t *testing.T) {
 			HelperOnlyPathParams: true,
 			Routes: []NamedRoute{
 				{
-					Name:     "pluginsBackendRoute",
-					Path:     "/plugins/{pluginId}{routePath}",
-					EnumName: "PLUGINS_BACKEND_ROUTE",
+					Name:     "tailPathRoute",
+					Path:     "/fixtures/{fixtureId}{tailPath}",
+					EnumName: "TAIL_PATH_ROUTE",
 				},
 			},
 		},
@@ -363,12 +363,12 @@ func TestBuildBindingsRendersTailPathRouteHelpers(t *testing.T) {
 
 	if !strings.Contains(
 		bindings.RoutesTS,
-		"pluginsBackendRoute(pluginId: string, routePath: string): string {",
+		"tailPathRoute(fixtureId: string, tailPath: string): string {",
 	) {
 		t.Fatalf("generated routes output missing tail-path helper:\n%s", bindings.RoutesTS)
 	}
-	if !strings.Contains(bindings.RoutesTS, "GoHTTPRoutes.pluginsBackendRoute") {
-		t.Fatalf("generated routes output missing pluginsBackendRoute constant usage:\n%s", bindings.RoutesTS)
+	if !strings.Contains(bindings.RoutesTS, "GoHTTPRoutes.tailPathRoute") {
+		t.Fatalf("generated routes output missing tailPathRoute constant usage:\n%s", bindings.RoutesTS)
 	}
 }
 

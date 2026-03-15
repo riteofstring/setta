@@ -134,7 +134,6 @@ GoHTTPRoutes.openLauncherWorkspace path=/openLauncherWorkspace enum=OPEN_LAUNCHE
 GoHTTPRoutes.outputAccessorCompletion path=/outputAccessorCompletion enum=OUTPUT_ACCESSOR_COMPLETION
 GoHTTPRoutes.pasteSections path=/pasteSections enum=PASTE_SECTIONS
 GoHTTPRoutes.pinLauncherRecentWorkspace path=/pinLauncherRecentWorkspace enum=PIN_LAUNCHER_RECENT_WORKSPACE
-GoHTTPRoutes.pluginsBackendRoute path=/plugins/{pluginId}{routePath} enum=PLUGINS_BACKEND_ROUTE
 GoHTTPRoutes.pluginsConfig path=/plugins/config enum=PLUGINS_CONFIG
 GoHTTPRoutes.pluginsDisable path=/plugins/disable enum=PLUGINS_DISABLE
 GoHTTPRoutes.pluginsEnable path=/plugins/enable enum=PLUGINS_ENABLE

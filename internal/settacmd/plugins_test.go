@@ -919,7 +919,7 @@ func writeBackendPluginFixture(t *testing.T, root string, pluginID string, name 
 			"entrypoint": "backend/entrypoint.py",
 		},
 		"capabilities": []string{
-			"registerRouter",
+			"registerMcpTools",
 			"readProjectState",
 		},
 	}

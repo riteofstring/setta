@@ -21,7 +21,6 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "registerLanguageServer",
     "registerExternalAgentAdapter",
     "registerCodegenTarget",
-    "registerRouter",
     "registerListenerEndpoint",
     "registerStaticDir",
     "writeWorkspacePlugins",

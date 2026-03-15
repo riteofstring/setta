@@ -1542,11 +1542,6 @@ func CurrentRouteGroups() []RouteGroup {
 					Path:     httpapi.RoutePluginsRestart,
 					EnumName: "PLUGINS_RESTART",
 				},
-				{
-					Name:     "pluginsBackendRoute",
-					Path:     httpapi.RoutePluginsBackendDispatch,
-					EnumName: "PLUGINS_BACKEND_ROUTE",
-				},
 			},
 		},
 		{

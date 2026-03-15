@@ -1425,12 +1425,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
-			if err := httpapi.RegisterPluginBackendRoutes(r, httpapi.PluginBackendRouteDependencies{
-				ModePolicy: modePolicy,
-				Runtime:    pluginBackendRoutes,
-			}); err != nil {
-				panic(err)
-			}
 			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
 				ModePolicy:          modePolicy,
 				ShareSessions:       shareSessions,

@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"context"
-	"net/http"
 	"sync"
 )
 
@@ -49,31 +48,10 @@ func (h *BackendRuntimeHolder) Close() error {
 	return runtime.Close()
 }
 
-func (h *BackendRuntimeHolder) MatchRoute(method string, path string) (BackendRoute, map[string]string, bool) {
-	runtime := h.Current()
-	if runtime == nil {
-		return BackendRoute{}, nil, false
-	}
-	return runtime.MatchRoute(method, path)
-}
-
-func (h *BackendRuntimeHolder) AllowedMethods(path string) []string {
-	runtime := h.Current()
-	if runtime == nil {
-		return nil
-	}
-	return runtime.AllowedMethods(path)
-}
-
-func (h *BackendRuntimeHolder) ProxyRoute(
-	ctx context.Context,
-	route BackendRoute,
-	request *http.Request,
-	pathParams map[string]string,
-) (BackendRouteResponse, error) {
-	return h.Current().ProxyRoute(ctx, route, request, pathParams)
-}
-
 func (h *BackendRuntimeHolder) InvokeMCPTool(ctx context.Context, toolName string, arguments map[string]any) (any, error) {
-	return h.Current().InvokeMCPTool(ctx, toolName, arguments)
+	runtime := h.Current()
+	if runtime == nil {
+		return nil, backendMCPToolUnavailableError("", toolName)
+	}
+	return runtime.InvokeMCPTool(ctx, toolName, arguments)
 }

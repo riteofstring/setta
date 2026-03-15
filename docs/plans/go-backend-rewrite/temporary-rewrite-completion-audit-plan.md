@@ -686,3 +686,13 @@ convenience field. `backend/setta/plugins/worker.py` no longer accepts
 The Go worker host still keeps the plugin root in its own worker context for
 relative path resolution, but the Python subprocess/test wiring no longer feeds
 that dead authoring-only field into the worker process.
+
+A thirtieth follow-up rewrite step removed the Python-backed plugin route
+surface outright. `backend/setta/plugins/worker.py` no longer supports
+`register_router(...)` or `plugin.invoke_route`, the Go plugin runtime no
+longer starts or proxies plugin backend routes, the `/api/plugins/{pluginId}`
+transport was deleted, and the frontend `host.apiFetch(...)` helper plus its
+fixture and Playwright coverage were removed. The remaining Python plugin
+worker blocker is now narrower: real backend ownership is limited to the
+retained worker capability clusters that still exist in `worker.py`, not any
+route transport surface.

@@ -20,7 +20,6 @@ var (
 		"plugin.register":                      {},
 		"plugin.shutdown":                      {},
 		"plugin.invoke_codegen_target":         {},
-		"host.register_router":                 {},
 		"host.register_mcp_tool":               {},
 		"host.register_language_server":        {},
 		"host.register_external_agent_adapter": {},

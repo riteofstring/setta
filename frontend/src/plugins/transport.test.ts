@@ -1,12 +1,8 @@
 import { C_ADDRESSES } from "utils/c_addresses";
-import {
-  GoHTTPRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
+import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 import { describe, expect, it } from "vitest";
 import {
   buildPluginAssetUrl,
-  buildPluginBackendFetchUrl,
   buildPluginListenerWebsocketUrl,
 } from "./transport";
 
@@ -20,15 +16,6 @@ describe("plugin transport helpers", () => {
     expect(buildPluginAssetUrl("/plugins/acme.plugin/frontend.js")).toBe(
       `${C_ADDRESSES.BACKEND_ORIGIN}/plugins/acme.plugin/frontend.js`,
     );
-  });
-
-  it("builds plugin backend fetch URLs from the canonical Go route helper", () => {
-    const expectedPath =
-      new URL(C_ADDRESSES.BACKEND).pathname +
-      GoHTTPRouteHelpers.pluginsBackendRoute("acme.plugin", "/health");
-    const url = new URL(buildPluginBackendFetchUrl("acme.plugin", "/health"));
-
-    expect(url.pathname).toBe(expectedPath);
   });
 
   it("builds plugin listener websocket URLs from the canonical Go route helper", () => {

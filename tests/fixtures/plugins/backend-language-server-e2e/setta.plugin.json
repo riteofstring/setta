@@ -8,5 +8,5 @@
   "backend": {
     "entrypoint": "backend/entrypoint.py"
   },
-  "capabilities": ["registerLanguageServer", "registerRouter", "registerMcpTools"]
+  "capabilities": ["registerLanguageServer", "registerMcpTools"]
 }

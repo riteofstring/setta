@@ -27,7 +27,6 @@ import * as realtimeDependencySend from "state/actions/realtimeDependencySend";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import * as generatedEndpoints from "utils/generatedEndpoints";
 import {
   createCore,
@@ -1615,82 +1614,6 @@ describe("plugin runtime helpers", () => {
     await Promise.all([first, second, third]);
     expect(runtimeCalls).toBe(2);
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
-  });
-
-  it("apiFetch normalizes plugin paths and attaches deployment share headers", async () => {
-    useShareSession.setState({
-      isDeploymentMode: true,
-      shareSessionId: "share-session-123",
-    });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  void host.apiFetch('health');\n" +
-          "  void host.apiFetch('/status', { headers: { 'X-Custom': 'yes' } });\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-    });
-
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "share",
-    );
-
-    expect(result?.error).toBeNull();
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}/plugins/acme.plugin/health`,
-    );
-    expect(fetchSpy.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}/plugins/acme.plugin/status`,
-    );
-    const firstHeaders = new Headers(
-      (fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined)?.headers,
-    );
-    const secondHeaders = new Headers(
-      (fetchSpy.mock.calls[1]?.[1] as RequestInit | undefined)?.headers,
-    );
-    expect(firstHeaders.get("X-Share-Session-Id")).toBe("share-session-123");
-    expect(secondHeaders.get("X-Share-Session-Id")).toBe("share-session-123");
-    expect(secondHeaders.get("X-Custom")).toBe("yes");
-  });
-
-  it("normalizePluginPath rejects traversal segments for apiFetch", () => {
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/../../api/projects"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(() => pluginRuntimeTestApi.normalizePluginPath("/a/../b")).toThrow(
-      "apiFetch path cannot include relative traversal segments",
-    );
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/%2e%2e/api/projects"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/%2e%2e%2fapi/projects"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/safe/%2E%2E%2Ffoo"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(pluginRuntimeTestApi.normalizePluginPath("health")).toBe("/health");
-    expect(pluginRuntimeTestApi.normalizePluginPath("//status")).toBe(
-      "/status",
-    );
-    expect(pluginRuntimeTestApi.normalizePluginPath("/status?ok=1")).toBe(
-      "/status?ok=1",
-    );
   });
 
   it("manages plugin style links across repeated and null-style loads", async () => {

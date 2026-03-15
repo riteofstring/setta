@@ -990,9 +990,7 @@ func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 		"GoPluginRootRoutes": {
 			"pluginAssetWildcard": {},
 		},
-		"GoHTTPRoutes": {
-			"pluginsBackendRoute": {},
-		},
+		"GoHTTPRoutes": {},
 		"GoWebsocketRoutes": {
 			"frontend":          {},
 			"listenerById":      {},
@@ -1733,7 +1731,6 @@ func TestFrontendTransportRouteConstantsImportsStayWithinExplicitBoundaries(t *t
 	allowedImports := map[string]map[string]struct{}{
 		"frontend/src/utils/backendTransport.ts": {
 			"buildBinaryDownloadRoute":    {},
-			"buildPluginBackendRoute":     {},
 			"SERVER_MODE_BOUNDARY_ROUTES": {},
 			"SETTA_API_PRESET_ROUTES":     {},
 		},
@@ -1819,9 +1816,6 @@ func TestFrontendBackendTransportImportsStayWithinExplicitBoundaries(t *testing.
 	allowedImports := map[string]map[string]struct{}{
 		"frontend/src/components/App/appTransport.ts": {
 			"buildBinaryDownloadUrl": {},
-		},
-		"frontend/src/plugins/transport.ts": {
-			"buildPluginBackendFetchUrl": {},
 		},
 		"frontend/src/utils/settaApiPresets.ts": {
 			"SETTA_API_PRESET_ROUTES": {},
@@ -2044,8 +2038,7 @@ func TestFrontendPluginTransportImportsStayWithinExplicitBoundaries(t *testing.T
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedImports := map[string]map[string]struct{}{
 		"frontend/src/plugins/runtime.ts": {
-			"buildPluginAssetUrl":        {},
-			"buildPluginBackendFetchUrl": {},
+			"buildPluginAssetUrl": {},
 		},
 	}
 	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./transport|utils/plugins/transport)["']`)
@@ -2831,7 +2824,7 @@ func TestFrontendGeneratedRouteInterpolationUsesHelpers(t *testing.T) {
 	}
 }
 
-func TestFrontendPluginBackendDispatchUsesGeneratedHelper(t *testing.T) {
+func TestFrontendRejectsRawPluginBackendDispatchPaths(t *testing.T) {
 	t.Helper()
 
 	repoRoot := testRepoRoot(t)
@@ -2869,7 +2862,7 @@ func TestFrontendPluginBackendDispatchUsesGeneratedHelper(t *testing.T) {
 			return nil
 		}
 		return fmt.Errorf(
-			"%s manually concatenates plugin backend dispatch paths via %q; use the generated plugin backend route helper instead",
+			"%s still references removed plugin backend dispatch paths via %q",
 			relativePath,
 			match,
 		)
@@ -8605,9 +8598,8 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 			"getFrontendWebsocketRoute":        {},
 		},
 		"backendTransport": {
-			"SETTA_API_PRESET_ROUTES":    {},
-			"buildBinaryDownloadUrl":     {},
-			"buildPluginBackendFetchUrl": {},
+			"SETTA_API_PRESET_ROUTES": {},
+			"buildBinaryDownloadUrl":  {},
 		},
 		"c_addresses": {
 			"C_ADDRESSES": {},
@@ -8624,7 +8616,6 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 		"plugins/transport": {
 			"BuildPluginListenerWebsocketUrlOptions": {},
 			"buildPluginAssetUrl":                    {},
-			"buildPluginBackendFetchUrl":             {},
 			"buildPluginListenerWebsocketUrl":        {},
 		},
 		"generatedRoutes": {
@@ -8659,7 +8650,6 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 			"WEBSOCKET_TRANSPORT_ROUTES":  {},
 			"buildBinaryDownloadRoute":    {},
 			"buildListenerWebsocketRoute": {},
-			"buildPluginBackendRoute":     {},
 			"buildTerminalWebsocketRoute": {},
 		},
 		"transportUrlCore": {

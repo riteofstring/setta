@@ -323,9 +323,7 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 	languageServers := NewLanguageServerRegistry()
 	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
-	routers := NewBackendRouterRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		RouterRegistrar:               routers,
 		MCPToolRegistrar:              noopBackendMCPToolRegistrar{},
 		LanguageServerRegistrar:       languageServers,
 		ExternalAgentAdapterRegistrar: externalAgentAdapters,

@@ -40,13 +40,6 @@ export function buildBinaryDownloadRoute(contentId: string): string {
   return GoHTTPRouteHelpers.binaryDownload(contentId);
 }
 
-export function buildPluginBackendRoute(
-  pluginId: string,
-  routePath: string,
-): string {
-  return GoHTTPRouteHelpers.pluginsBackendRoute(pluginId, routePath);
-}
-
 export function buildListenerWebsocketRoute(listenerId: string): string {
   return GoWebsocketRouteHelpers.listenerById(listenerId);
 }

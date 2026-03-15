@@ -1,6 +1,5 @@
 import {
   buildBinaryDownloadRoute,
-  buildPluginBackendRoute,
 } from "./transportRouteConstants";
 import { buildBackendURL as buildBackendURLInternal } from "./transportUrlCore";
 
@@ -23,11 +22,4 @@ export function buildBinaryDownloadUrl(
   return buildBackendURL(buildBinaryDownloadRoute(contentId), {
     shareSessionId: shareSessionId ?? undefined,
   });
-}
-
-export function buildPluginBackendFetchUrl(
-  pluginId: string,
-  routePath: string,
-): string {
-  return buildBackendURL(buildPluginBackendRoute(pluginId, routePath));
 }
