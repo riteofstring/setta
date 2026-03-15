@@ -4811,3 +4811,30 @@ in `frontend/src/README.md` and the cleanup plans.
   - `1ded321e71983f49ffdb0eafc7bbf751a9cce298`
 - Next highest-value unblocked slice:
   - Split structured output and tool-call rendering out of `frontend/src/components/Chat/ChatMessages.tsx` so the top-level chat surface keeps moving toward list assembly and row composition only.
+
+## 2026-03-15 13:36:09 PDT
+
+- Slice completed: extracted structured output payload inference and resizable rendering out of `ChatMessages.tsx`
+- Why this slice now:
+  - `frontend/src/components/Chat/ChatMessages.tsx` was still the biggest unresolved UI hotspot after the assistant-activity split, and structured output/tool-call rendering was the next cohesive local seam. That made it higher value than jumping to `ProjectChatBottomDock.tsx` before removing another large mixed-responsibility branch from the top chat surface.
+- Key files touched:
+  - `frontend/src/components/Chat/chatStructuredOutput.tsx`
+  - `frontend/src/components/Chat/chatStructuredOutput.test.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Chat/ChatMessages.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-structured-output-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatStructuredOutput.test.tsx src/components/Chat/chatAssistantActivity.test.ts src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/ChatMessages.test.tsx src/components/Chat/chatStructuredOutput.tsx src/components/Chat/chatStructuredOutput.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-structured-output-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-structured-output-2026-03-15.md` with the harness context and resize observations.
+  - CDP visual verification was done through a same-origin harness that imported `ChatMessageList` directly, because the normal app shell was already blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error.
+  - Verified the expanded structured-output pane at the minimum `90px` drag clamp and a near-max `617px` drag clamp on a `772px` viewport with screenshots saved under `perf/reports/frontend/`.
+- Commit hash:
+  - `5d56225c790e1bc27886a1836ef8d37d8e5f0dc9`
+- Next highest-value unblocked slice:
+  - Split attachment/media preview handling out of `frontend/src/components/Chat/ChatMessages.tsx` so attachment URL loading, text preview fetch state, and media carousel branching stop sharing the main chat render surface.
