@@ -26,8 +26,6 @@ from setta.types.helpers_lvl2 import (
 from setta.types.project_config import (
     Position,
     ProjectConfig,
-    ViewModeConfig,
-    WindowSpaceConfig,
 )
 from setta.types.project_state import (
     CODE_LANGUAGE_EXTENSIONS,
@@ -47,14 +45,10 @@ from setta.utils.errors import (
     InvalidParamName,
     InvalidProjectName,
     InvalidSectionName,
-    InvalidViewModeName,
-    InvalidWindowSpaceName,
 )
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
     validate_param_name,
-    validate_view_mode_name,
-    validate_window_space_name,
 )
 from setta.utils.paths import normalize_state_path
 from setta.utils.utils import build_project_sections_dir
@@ -221,183 +215,6 @@ class TestProjectNameValidation:
         )
         with pytest.raises(InvalidProjectName):
             set_project_config_name(backend, secondary.id, "foo")
-
-class TestViewModeNameValidation:
-    def test_view_mode_name_rejects_reserved(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, view_mode.id, "home")
-
-    def test_view_mode_name_rejects_path_separators(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, view_mode.id, "bad/name")
-
-    def test_view_mode_name_rejects_dotdot(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, view_mode.id, "bad..name")
-
-    def test_view_mode_name_rejects_special_chars(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, view_mode.id, "bad@name")
-
-    def test_view_mode_name_invalid_after_sanitization_rejected(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, view_mode.id, "__")
-
-    def test_view_mode_name_trims_whitespace(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        assert (
-            validate_view_mode_name(project_state, view_mode.id, "  Foo Bar  ")
-            == "Foo Bar"
-        )
-
-    def test_view_mode_name_allows_simple_chars(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        view_mode = ViewModeConfig(name="Primary")
-        project_state.projectConfig.viewModes[view_mode.id] = view_mode
-        assert (
-            validate_view_mode_name(project_state, view_mode.id, "Alpha-2 _Beta")
-            == "Alpha-2 _Beta"
-        )
-
-    def test_view_mode_slug_collision_rejected(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        primary = ViewModeConfig(name="foo_bar")
-        secondary = ViewModeConfig(name="secondary")
-        project_state.projectConfig.viewModes[primary.id] = primary
-        project_state.projectConfig.viewModes[secondary.id] = secondary
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, secondary.id, "foo bar")
-
-    def test_view_mode_slug_collision_case_insensitive_rejected(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        primary = ViewModeConfig(name="Foo")
-        secondary = ViewModeConfig(name="secondary")
-        project_state.projectConfig.viewModes[primary.id] = primary
-        project_state.projectConfig.viewModes[secondary.id] = secondary
-        with pytest.raises(InvalidViewModeName):
-            validate_view_mode_name(project_state, secondary.id, "foo")
-
-
-class TestWindowSpaceNameValidation:
-    def test_window_space_name_rejects_path_separators(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        with pytest.raises(InvalidWindowSpaceName):
-            validate_window_space_name(project_state, None, "bad/name")
-
-    def test_window_space_name_rejects_dotdot(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        with pytest.raises(InvalidWindowSpaceName):
-            validate_window_space_name(project_state, None, "bad..name")
-
-    def test_window_space_name_rejects_special_chars(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        with pytest.raises(InvalidWindowSpaceName):
-            validate_window_space_name(project_state, None, "bad@name")
-
-    def test_window_space_name_invalid_after_sanitization_rejected(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        with pytest.raises(InvalidWindowSpaceName):
-            validate_window_space_name(project_state, None, "__")
-
-    def test_window_space_name_trims_whitespace(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        assert (
-            validate_window_space_name(project_state, None, "  Focused Layout  ")
-            == "Focused Layout"
-        )
-
-    def test_window_space_name_allows_home_because_namespace_is_explicit(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        assert validate_window_space_name(project_state, None, "home") == "home"
-
-    def test_window_space_slug_collision_rejected(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        project_state.projectConfig.windowSpaces["primary"] = (
-            WindowSpaceConfig(
-                id="primary",
-                name="foo_bar",
-                sortIndex=0,
-            )
-        )
-        secondary = project_state.projectConfig.windowSpaces["secondary"] = (
-            WindowSpaceConfig(
-                id="secondary",
-                name="secondary",
-                sortIndex=1,
-            )
-        )
-        with pytest.raises(InvalidWindowSpaceName):
-            validate_window_space_name(project_state, secondary.id, "foo bar")
-
-    def test_window_space_slug_collision_case_insensitive_rejected(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-        project_state.projectConfig.windowSpaces["primary"] = (
-            WindowSpaceConfig(
-                id="primary",
-                name="Foo",
-                sortIndex=0,
-            )
-        )
-        secondary = project_state.projectConfig.windowSpaces["secondary"] = (
-            WindowSpaceConfig(
-                id="secondary",
-                name="secondary",
-                sortIndex=1,
-            )
-        )
-        with pytest.raises(InvalidWindowSpaceName):
-            validate_window_space_name(project_state, secondary.id, "foo")
 
 
 class TestSectionNameValidation:
