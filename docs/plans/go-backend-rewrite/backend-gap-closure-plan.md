@@ -57,4 +57,7 @@ categorize them.
 - The next queue should come from the remaining matrix `Missing` and
   `Implemented, proof incomplete` rows outside this now-proved `/settings`
   slice
+- The latest-state stale-`activeIds` load-normalization row is now proved via
+  the default harness; the next likely latest-state queue is the remaining
+  project/window-space load-normalization rows
 - More corpus-driven latest-state hydration / projection scenarios
