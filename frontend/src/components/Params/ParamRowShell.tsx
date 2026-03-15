@@ -52,7 +52,7 @@ export function ParamRowShell({
     justifyBetween,
     gapY,
     extraClassName,
-  })} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`;
+  })} ${isTopLevelWithPad ? "pt-2" : ""}`;
 
   return (
     <article
@@ -60,6 +60,7 @@ export function ParamRowShell({
       className={className}
       style={style}
       data-param-row="true"
+      data-param-nested-child={isNestedChildInTree ? "true" : "false"}
       onMouseDownCapture={onMouseDownCapture}
       onClick={onClick}
       onMouseEnter={onMouseEnter}

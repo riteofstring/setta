@@ -318,7 +318,7 @@ export function ParamNameInput({
   // const isDisabled = isSelectingParams || variantIsFrozen;
   const isDisabled = !canEditStructure;
   const borderClassName = `${hasChildren ? "mx-[2px]" : ""} border-box border-b border-setta-200/50 dark:border-setta-600/30 ${hasError ? "border-red-400" : "focus-within:!border-blue-400"}`;
-  const wrapperClassName = `${hasChildren ? "section-key-value px-[2px]" : "section-key"} param-row-label min-w-0 self-end ${borderClassName}`;
+  const wrapperClassName = `${hasChildren ? "section-key-value px-[2px] self-center" : "section-key self-end"} param-row-label min-w-0 ${borderClassName}`;
 
   return (
     <>

@@ -65,7 +65,7 @@ export function TextInputCodeMirror({
   completionsFn,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
-  const theme = useCodeMirrorStyle(color);
+  const theme = useCodeMirrorStyle(color, { fontFamily: "inherit" });
 
   function localOnBlur() {
     onBlur?.();

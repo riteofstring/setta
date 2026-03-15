@@ -37,6 +37,8 @@ type CallablePhase0Metrics = {
   resizeHandle: RectSnapshot;
   agenticSourceHandle: RectSnapshot;
   agenticTargetHandle: RectSnapshot;
+  generatedCodeFontFamily: string;
+  generatedCodeBodyFontFamily: string;
   texts: {
     pinnedSection: string;
     firstPinnedRow: string;
@@ -178,6 +180,9 @@ async function getCallablePhase0Metrics(
       const errorsRow = getElement(
         `#ParamContainer-${currentSectionId}-${currentIdsByName.errors}`,
       );
+      const generatedCodeEditor = getElement(
+        `[data-section-main-editor] .cm-content`,
+      );
       const unpinnedListContainer = getElement(
         `.react-flow__node[data-id="${currentSectionId}"] div.section-args-nested.overflow-y-scroll`,
       );
@@ -209,6 +214,8 @@ async function getCallablePhase0Metrics(
         agenticTargetHandle: roundRect(
           agenticTargetHandle.getBoundingClientRect(),
         ),
+        generatedCodeFontFamily: getComputedStyle(generatedCodeEditor).fontFamily,
+        generatedCodeBodyFontFamily: getComputedStyle(document.body).fontFamily,
         texts: {
           pinnedSection: pinnedSection.textContent?.trim() ?? "",
           firstPinnedRow: firstPinnedRow.textContent?.trim() ?? "",
@@ -285,6 +292,12 @@ test.describe.serial("callable phase 0 baseline", () => {
       expect(metrics.texts.encodingRow).toMatch(/^encoding/i);
       expect(metrics.texts.errorsRow).toMatch(/^errors/i);
       expect(metrics.bufferingVisible).toBe(false);
+      expect(metrics.generatedCodeFontFamily).not.toBe(
+        metrics.generatedCodeBodyFontFamily,
+      );
+      expect(metrics.generatedCodeFontFamily).toMatch(
+        /SFMono|Menlo|Monaco|Consolas|Liberation Mono|Courier New|monospace/i,
+      );
 
       expect(metrics.section.width).toBeGreaterThan(190);
       expect(metrics.section.height).toBeGreaterThan(330);
@@ -328,6 +341,113 @@ test.describe.serial("callable phase 0 baseline", () => {
         metrics.agenticTargetHandle.height / 2;
       expect(Math.abs(sourceCenterY - searchCenterY)).toBeLessThanOrEqual(3);
       expect(Math.abs(targetCenterY - searchCenterY)).toBeLessThanOrEqual(3);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("keeps nested kwarg parents centered and child rails continuous", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1200 });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const projectConfigId = projectContext.projectConfigId;
+      const sectionId = await createCallableSection(page, projectConfigId);
+      const idsByName = await setCallableAndGetParamIds(
+        page,
+        projectConfigId,
+        sectionId,
+        CALLABLE_NAME,
+      );
+
+      await postBackend(page, "/indentParams", {
+        projectConfigId,
+        sectionId,
+        paramIds: [idsByName.errors, idsByName.newline],
+      });
+
+      const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+      await expect(sectionNode).toBeVisible();
+      await expect(
+        sectionNode.locator(`#ParamContainer-${sectionId}-${idsByName.newline}`),
+      ).toBeVisible();
+
+      const nestedStyles = await page.evaluate(
+        ({ currentSectionId, currentIdsByName }) => {
+          const getRow = (paramId: string): HTMLElement => {
+            const row = document.getElementById(
+              `ParamContainer-${currentSectionId}-${paramId}`,
+            );
+            if (!(row instanceof HTMLElement)) {
+              throw new Error(`Missing row for ${paramId}.`);
+            }
+            return row;
+          };
+
+          const encodingRow = getRow(currentIdsByName.encoding);
+          const errorsRow = getRow(currentIdsByName.errors);
+          const newlineRow = getRow(currentIdsByName.newline);
+          const encodingLabel = encodingRow.querySelector(
+            '[data-param-label-shape$="Parent"]',
+          );
+          if (!(encodingLabel instanceof HTMLElement)) {
+            throw new Error("Missing nested parent label.");
+          }
+
+          const getPseudoMetrics = (row: HTMLElement) => {
+            const style = window.getComputedStyle(row, "::before");
+            return {
+              top: Number.parseFloat(style.top || "0"),
+              bottom: Number.parseFloat(style.bottom || "0"),
+              left: Number.parseFloat(style.left || "0"),
+              width: Number.parseFloat(style.width || "0"),
+              content: style.content,
+            };
+          };
+
+          return {
+            rowAlignItems: window.getComputedStyle(encodingRow).alignItems,
+            encodingLabelPaddingTop: Number(
+              Number.parseFloat(
+                window.getComputedStyle(encodingLabel).paddingTop || "0",
+              ).toFixed(2),
+            ),
+            encodingLabelPaddingBottom: Number(
+              Number.parseFloat(
+                window.getComputedStyle(encodingLabel).paddingBottom || "0",
+              ).toFixed(2),
+            ),
+            errorsBefore: getPseudoMetrics(errorsRow),
+            newlineBefore: getPseudoMetrics(newlineRow),
+            errorsLeft: Number(
+              errorsRow.getBoundingClientRect().left.toFixed(2),
+            ),
+            newlineLeft: Number(
+              newlineRow.getBoundingClientRect().left.toFixed(2),
+            ),
+          };
+        },
+        { currentSectionId: sectionId, currentIdsByName: idsByName },
+      );
+
+      expect(nestedStyles.rowAlignItems).toBe("center");
+      expect(nestedStyles.encodingLabelPaddingTop).toBeLessThanOrEqual(2.1);
+      expect(nestedStyles.encodingLabelPaddingBottom).toBeLessThanOrEqual(2.1);
+      expect(nestedStyles.errorsBefore.content).toBe('""');
+      expect(nestedStyles.errorsBefore.top).toBeLessThan(0);
+      expect(nestedStyles.errorsBefore.bottom).toBeLessThan(0);
+      expect(nestedStyles.newlineBefore.content).toBe('""');
+      expect(nestedStyles.newlineBefore.top).toBeLessThan(0);
+      expect(Math.abs(nestedStyles.newlineBefore.bottom)).toBeLessThanOrEqual(
+        0.1,
+      );
+      expect(
+        Math.abs(nestedStyles.errorsLeft - nestedStyles.newlineLeft),
+      ).toBeLessThanOrEqual(0.1);
+      expect(nestedStyles.errorsBefore.width).toBeGreaterThan(4);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

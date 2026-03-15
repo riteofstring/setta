@@ -26,6 +26,9 @@ const { lastCodeMirrorPropsMock } = vi.hoisted(() => ({
 const { useCodeMirrorTooltipParentMock } = vi.hoisted(() => ({
   useCodeMirrorTooltipParentMock: vi.fn(() => null),
 }));
+const { useCodeMirrorStyleMock } = vi.hoisted(() => ({
+  useCodeMirrorStyleMock: vi.fn(() => "theme"),
+}));
 
 vi.mock("state/actions/activeSectionController", () => ({
   applyActiveSectionChange: applyActiveSectionChangeMock,
@@ -49,7 +52,7 @@ vi.mock("utils/generatedEndpoints", () => ({
 }));
 
 vi.mock("components/Utils/CodeMirror/useCodeMirrorStyle", () => ({
-  useCodeMirrorStyle: () => "theme",
+  useCodeMirrorStyle: useCodeMirrorStyleMock,
 }));
 
 vi.mock("components/Utils/CodeMirror/useCodeMirrorTooltipParent", () => ({
@@ -153,6 +156,7 @@ describe("TextInputCodeMirror activation", () => {
     getExtensionsMock.mockClear();
     lastCodeMirrorPropsMock.mockClear();
     useCodeMirrorTooltipParentMock.mockClear();
+    useCodeMirrorStyleMock.mockClear();
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
@@ -228,6 +232,9 @@ describe("TextInputCodeMirror activation", () => {
     const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
     expect(lastCall?.completionsFn).toBeUndefined();
     expect(useCodeMirrorTooltipParentMock).not.toHaveBeenCalled();
+    expect(useCodeMirrorStyleMock).toHaveBeenCalledWith("green", {
+      fontFamily: "inherit",
+    });
     const lastCodeMirrorProps = lastCodeMirrorPropsMock.mock.calls.at(-1)?.[0];
     expect(lastCodeMirrorProps?.basicSetup).toMatchObject({
       history: false,

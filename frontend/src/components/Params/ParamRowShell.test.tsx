@@ -17,13 +17,14 @@ describe("ParamRowShell", () => {
 
     expect(markup).toContain('id="row-1"');
     expect(markup).toContain('data-param-row="true"');
+    expect(markup).toContain('data-param-nested-child="true"');
     expect(markup).toContain("section-param-row");
     expect(markup).toContain("section-min-rows");
     expect(markup).toContain("relative");
     expect(markup).toContain("min-w-0");
     expect(markup).not.toContain("section-param-row section-min-rows relative grid");
     expect(markup).toContain("ml-[1.44rem]");
-    expect(markup).toContain("[&amp;&gt;p]:!pb-0");
+    expect(markup).toContain("pt-2");
     expect(markup).toContain("bg-red-500");
   });
 
@@ -39,6 +40,7 @@ describe("ParamRowShell", () => {
     expect(markup).toContain("section-param-row");
     expect(markup).toContain("section-min-rows");
     expect(markup).toContain("relative");
+    expect(markup).toContain('data-param-nested-child="false"');
     expect(markup).toContain("min-w-0");
     expect(markup).not.toContain("section-param-row section-min-rows relative grid");
     expect(markup).toContain("ml-[0.72rem]");
