@@ -5545,3 +5545,56 @@ in `frontend/src/README.md` and the cleanup plans.
     which is now the next unresolved default-priority front-door hotspot in the
     README and chat/windowing companion plan after `ProjectChatBottomDock.tsx`
     delegated the placement shells to local owners.
+
+## 2026-03-15 19:50:44 PDT
+
+- Slice completed: extracted the project-chat history render owners out of
+  `ProjectChatHistory.tsx`
+- Why this slice now:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+    was still the top unresolved same-domain front-door hotspot in the README
+    and chat/windowing companion plan after the dock-window surface slice.
+  - The existing history view-model and DnD seams already handled derivation
+    and interaction math, so the highest-value remaining responsibility was the
+    render tree itself: toolbar/header shell, empty state, grouped/ungrouped
+    folder shells, and thread-row chrome still lived inline in the coordinator.
+  - This was higher value than jumping straight to
+    `frontend/src/components/Section/Layouts/BrowserArea.tsx` because it
+    removed one whole mixed responsibility from the active project-AI entry
+    surface in a single slice and cut `ProjectChatHistory.tsx` from about
+    `2297` lines to about `914`.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-history-render-owners-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDnd.test.ts`
+  - `pnpm -C frontend exec vite build`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai shows styled empty state when no threads exist|project ai threads render folder groups and keep pinned scopes separate|project ai conversation search dedupes duplicate terms and ignores code-only matches"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-history-render-owners-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-history-render-owners-2026-03-15.md`
+    with the before/after CDP trace for the same history-toolbar interaction.
+  - DevTools inline trace summary for `Hide thread engine badges` reported
+    `45ms` observed INP before the extraction and `32ms` after, with `0.00`
+    CLS in both runs.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that the extracted history toolbar still renders in the thread
+    header, `New Group` still creates an editable group row, and the
+    ungrouped thread list still renders beneath the new group shell.
+- Commit hash:
+  - `97d908b2e2d3f378531f6d286105b5c331d22380`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Section/Layouts/BrowserArea.tsx`, which
+    is now the top unresolved default-priority front-door hotspot in the README
+    and cleanup plan after `ProjectChatHistory.tsx` delegated the history panel
+    and row render shells to local owners.
