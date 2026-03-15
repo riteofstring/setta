@@ -1980,3 +1980,28 @@ module map and placement guide while this cleanup progresses.
     now the largest authored/shared state hotspot, by separating floating-window
     reuse and owner-key resolution from the remaining instance-remapping
     helpers.
+
+## 2026-03-15 01:40:44 PDT
+
+- Slice completed: split saved-layout restore reuse and owner-key matching out
+  of `windowSpaceWorkspaceRestoreRemap.ts`
+- Key files touched:
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.test.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/windowSpaceWorkspaceRestoreReuse.test.ts src/state/actions/windowSpaceWorkspaceRestoreRemap.test.ts src/state/actions/windowSpaceWorkspaceRestorePlan.test.ts src/state/actions/windowSpaces.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/windowSpaceWorkspaceRestoreReuse.ts src/state/actions/windowSpaceWorkspaceRestoreReuse.test.ts src/state/actions/windowSpaceWorkspaceRestoreRemap.ts src/state/actions/windowSpaceWorkspaceRestoreRemap.test.ts src/state/actions/windowSpaceWorkspaceRestoreLayout.ts src/state/actions/windowSpaceWorkspaceRestorePlan.ts src/state/actions/windowSpaceWorkspaceRestorePlan.test.ts src/state/actions/windowSpaces.ts src/state/actions/windowSpaces.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `13255d162`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowingWritePipeline.ts`,
+    now the largest authored/shared state hotspot, by separating pending-mutation
+    queueing from authoritative publish/replay and explicit sync/flush helpers.
