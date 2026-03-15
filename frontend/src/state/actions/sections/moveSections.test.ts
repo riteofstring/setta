@@ -1,4 +1,4 @@
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImplSelectors";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";

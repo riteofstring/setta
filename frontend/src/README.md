@@ -240,6 +240,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     compatibility facade over those file-open owners.
   - `state/actions/sections/createSectionImplDefaults.ts` owns per-impl create
     defaults such as text-block display-mode normalization.
+  - `state/actions/sections/moveSectionQueries.ts` owns attached-terminal route
+    selection, section-type move checks, and parent-resolution reads for
+    section-moving flows.
+  - `state/actions/sections/moveSectionState.ts` owns in-state section move
+    reducers, parent cleanup, and pane layout/node updates.
+  - `state/actions/sections/moveSections.ts` is now the thin optimistic backend
+    command facade for section moves.
 
 - Browser and file management
 
