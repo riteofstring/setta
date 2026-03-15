@@ -116,7 +116,9 @@ def _bootstrap_codex_mcp_servers_if_needed(
 ) -> AllLLMConfigs:
     if config.codexMcpImportedAt:
         return config
-    has_non_setta_servers = _has_non_setta_mcp_servers(config)
+    has_non_setta_servers = any(
+        server_id != SETTA_MCP_SERVER_ID for server_id in config.mcpServers.keys()
+    )
     merged_servers = dict(config.mcpServers)
     if not has_non_setta_servers:
         imported_servers = load_codex_mcp_servers_from_user_config()
@@ -138,10 +140,3 @@ def _bootstrap_codex_mcp_servers_if_needed(
     if allow_write:
         save_llm_config(updated, dbe)
     return updated
-
-
-def _has_non_setta_mcp_servers(config: AllLLMConfigs) -> bool:
-    for server_id in config.mcpServers.keys():
-        if server_id != SETTA_MCP_SERVER_ID:
-            return True
-    return False

@@ -25,37 +25,15 @@ _SUPPORTED_FIELDS = {
 _SUPPORTED_ENCODING_ERROR_HANDLERS = {"strict", "ignore", "replace"}
 
 
-def _resolve_codex_home_config_path() -> Path | None:
-    codex_home = os.environ.get("CODEX_HOME")
-    if not isinstance(codex_home, str):
-        return None
-    normalized_home = codex_home.strip()
-    if not normalized_home:
-        return None
-    return (Path(normalized_home).expanduser() / "config.toml").resolve(strict=False)
-
-
-def _resolve_default_codex_config_path() -> Path:
-    return (Path.home() / ".codex" / "config.toml").resolve(strict=False)
-
-
-def _resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
-    if "mcpServers" in payload:
-        raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
-    if "mcp_servers" not in payload:
-        return {}
-    raw_servers = payload["mcp_servers"]
-    if not isinstance(raw_servers, dict):
-        raise ValueError("'mcp_servers' must be an object")
-    return deepcopy(raw_servers)
-
-
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
     codex_home_env = os.environ.get("CODEX_HOME")
     if isinstance(codex_home_env, str):
-        codex_home_config_path = _resolve_codex_home_config_path()
-        if codex_home_config_path is None:
+        normalized_home = codex_home_env.strip()
+        if not normalized_home:
             return {}
+        codex_home_config_path = (
+            Path(normalized_home).expanduser() / "config.toml"
+        ).resolve(strict=False)
         loaded_from_codex_home = _load_codex_mcp_servers_from_path(
             codex_home_config_path,
             fail_closed=True,
@@ -64,7 +42,7 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
             return {}
         return loaded_from_codex_home
     parsed = _load_codex_mcp_servers_from_path(
-        _resolve_default_codex_config_path(),
+        (Path.home() / ".codex" / "config.toml").resolve(strict=False),
         fail_closed=False,
     )
     if parsed:
@@ -106,7 +84,14 @@ def _load_codex_mcp_servers_from_path(
         )
         return {} if fail_closed else None
     try:
-        raw_servers = _resolve_raw_codex_mcp_servers(payload)
+        if "mcpServers" in payload:
+            raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
+        if "mcp_servers" not in payload:
+            return {} if fail_closed else None
+        raw_servers = payload["mcp_servers"]
+        if not isinstance(raw_servers, dict):
+            raise ValueError("'mcp_servers' must be an object")
+        raw_servers = deepcopy(raw_servers)
     except ValueError as exc:
         logger.warning(
             "Skipping Codex config at '%s': %s",
@@ -128,7 +113,10 @@ def _parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServer
     raw_server_labels_by_canonical_id: dict[str, list[str]] = {}
 
     for raw_server_id, raw_entry in raw_servers.items():
-        server_label = _format_server_label(raw_server_id)
+        if isinstance(raw_server_id, str):
+            server_label = raw_server_id
+        else:
+            server_label = repr(raw_server_id)
         try:
             server_id = _validate_codex_server_id(raw_server_id)
         except ValueError as exc:
@@ -411,9 +399,3 @@ def _validate_codex_server_id(raw_server_id: Any) -> str:
     if "__" in server_id:
         raise ValueError("server id cannot contain '__'")
     return server_id
-
-
-def _format_server_label(raw_server_id: Any) -> str:
-    if isinstance(raw_server_id, str):
-        return raw_server_id
-    return repr(raw_server_id)
