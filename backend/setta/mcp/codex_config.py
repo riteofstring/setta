@@ -31,6 +31,169 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
         *,
         fail_closed: bool,
     ) -> dict[str, MCPServerConfig] | None:
+        def parse_codex_mcp_server_entry(
+            raw_entry: Any,
+            *,
+            server_id: str,
+        ) -> MCPServerConfig:
+            def parse_optional_nonempty_string_field(field_name: str) -> str | None:
+                if field_name not in raw_entry:
+                    return None
+                value = raw_entry[field_name]
+                if not isinstance(value, str):
+                    raise ValueError(f"server '{server_id}' {field_name} must be a string")
+                normalized = value.strip()
+                if not normalized:
+                    return None
+                return normalized
+
+            if not isinstance(raw_entry, dict):
+                raise ValueError(f"server '{server_id}' entry must be an object")
+            unknown_fields = sorted(set(raw_entry.keys()) - _SUPPORTED_FIELDS)
+            if unknown_fields:
+                raise ValueError(
+                    f"server '{server_id}' has unsupported fields: "
+                    + ", ".join(str(field) for field in unknown_fields)
+                )
+
+            transport = parse_optional_nonempty_string_field("transport")
+            if transport is not None:
+                transport = transport.lower()
+            if transport is not None and transport not in _SUPPORTED_TRANSPORTS:
+                raise ValueError(
+                    f"server '{server_id}' has unsupported transport '{transport}'"
+                )
+
+            command = parse_optional_nonempty_string_field("command")
+            url = parse_optional_nonempty_string_field("url")
+            if command and url:
+                raise ValueError(f"server '{server_id}' cannot declare both command and url")
+
+            raw_http_headers = raw_entry.get("http_headers")
+            if raw_http_headers is None:
+                http_headers = None
+            else:
+                if not isinstance(raw_http_headers, dict):
+                    raise ValueError(f"server '{server_id}' http_headers must be an object")
+                normalized_headers: dict[str, str] = {}
+                for header_name, header_value in raw_http_headers.items():
+                    if not isinstance(header_name, str) or not isinstance(header_value, str):
+                        raise ValueError(
+                            f"server '{server_id}' http_headers values must be string key/value pairs"
+                        )
+                    normalized_name = header_name.strip()
+                    if not normalized_name:
+                        continue
+                    normalized_headers[normalized_name] = header_value
+                http_headers = normalized_headers or None
+
+            resolved_transport = transport
+            if not resolved_transport:
+                if command:
+                    resolved_transport = "stdio"
+                elif url:
+                    resolved_transport = "streamable_http"
+                else:
+                    raise ValueError(
+                        f"server '{server_id}' must declare either command or url"
+                    )
+
+            if resolved_transport == "stdio":
+                if url is not None:
+                    raise ValueError(
+                        f"server '{server_id}' stdio transport cannot declare url"
+                    )
+                if command is None:
+                    raise ValueError(
+                        f"server '{server_id}' stdio transport requires command"
+                    )
+                if http_headers is not None:
+                    raise ValueError(
+                        f"server '{server_id}' stdio transport cannot define http_headers"
+                    )
+                args: list[str] = []
+                raw_args = raw_entry.get("args")
+                if raw_args is not None:
+                    if not isinstance(raw_args, list):
+                        raise ValueError(
+                            f"server '{server_id}' args must be an array of strings"
+                        )
+                    for index, item in enumerate(raw_args):
+                        if not isinstance(item, str):
+                            raise ValueError(
+                                f"server '{server_id}' has invalid args[{index}] value (expected string)"
+                            )
+                        normalized_item = item.strip()
+                        if normalized_item:
+                            args.append(normalized_item)
+                raw_env = raw_entry.get("env")
+                if raw_env is None:
+                    env = None
+                else:
+                    if not isinstance(raw_env, dict):
+                        raise ValueError(
+                            f"server '{server_id}' env must be an object of string key/value pairs"
+                        )
+                    normalized_env: dict[str, str] = {}
+                    for raw_env_key, raw_env_value in raw_env.items():
+                        if not isinstance(raw_env_key, str):
+                            raise ValueError(
+                                f"server '{server_id}' has invalid env key {raw_env_key!r} "
+                                "(expected string)"
+                            )
+                        if not isinstance(raw_env_value, str):
+                            raise ValueError(
+                                f"server '{server_id}' has invalid env.{raw_env_key} value "
+                                "(expected string)"
+                            )
+                        normalized_key = raw_env_key.strip()
+                        if not normalized_key:
+                            raise ValueError(f"server '{server_id}' has an empty env key")
+                        normalized_env[normalized_key] = raw_env_value
+                    env = normalized_env or None
+                raw_error_handler = raw_entry.get("encoding_error_handler")
+                if raw_error_handler is None:
+                    encoding_error_handler = "strict"
+                else:
+                    if not isinstance(raw_error_handler, str):
+                        raise ValueError(
+                            f"server '{server_id}' encoding_error_handler must be a string"
+                        )
+                    normalized_error_handler = raw_error_handler.strip().lower()
+                    if not normalized_error_handler:
+                        raise ValueError(
+                            f"server '{server_id}' encoding_error_handler cannot be empty"
+                        )
+                    if normalized_error_handler not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
+                        raise ValueError(
+                            f"server '{server_id}' has unsupported encoding_error_handler "
+                            f"'{normalized_error_handler}'"
+                        )
+                    encoding_error_handler = normalized_error_handler
+                return MCPServerConfig(
+                    transport="stdio",
+                    command=command,
+                    args=args,
+                    env=env,
+                    cwd=parse_optional_nonempty_string_field("cwd"),
+                    encoding=parse_optional_nonempty_string_field("encoding") or "utf-8",
+                    encoding_error_handler=encoding_error_handler,
+                )
+
+            if command is not None:
+                raise ValueError(
+                    f"server '{server_id}' {resolved_transport} transport cannot declare command"
+                )
+            if url is None:
+                raise ValueError(
+                    f"server '{server_id}' {resolved_transport} transport requires url"
+                )
+            return MCPServerConfig(
+                transport=resolved_transport,
+                url=url,
+                http_headers=http_headers,
+            )
+
         if not config_path.is_file():
             return None
         try:
@@ -129,7 +292,7 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
             if server_id in collided_canonical_ids:
                 continue
             try:
-                server_config = _parse_codex_mcp_server_entry(
+                server_config = parse_codex_mcp_server_entry(
                     raw_entry, server_id=server_id
                 )
             except ValueError as exc:
@@ -167,161 +330,3 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
     if parsed:
         return parsed
     return {}
-
-
-def _parse_codex_mcp_server_entry(
-    raw_entry: Any,
-    *,
-    server_id: str,
-) -> MCPServerConfig:
-    def parse_optional_nonempty_string_field(field_name: str) -> str | None:
-        if field_name not in raw_entry:
-            return None
-        value = raw_entry[field_name]
-        if not isinstance(value, str):
-            raise ValueError(f"server '{server_id}' {field_name} must be a string")
-        normalized = value.strip()
-        if not normalized:
-            return None
-        return normalized
-
-    if not isinstance(raw_entry, dict):
-        raise ValueError(f"server '{server_id}' entry must be an object")
-    unknown_fields = sorted(set(raw_entry.keys()) - _SUPPORTED_FIELDS)
-    if unknown_fields:
-        raise ValueError(
-            f"server '{server_id}' has unsupported fields: "
-            + ", ".join(str(field) for field in unknown_fields)
-        )
-
-    transport = parse_optional_nonempty_string_field("transport")
-    if transport is not None:
-        transport = transport.lower()
-    if transport is not None and transport not in _SUPPORTED_TRANSPORTS:
-        raise ValueError(
-            f"server '{server_id}' has unsupported transport '{transport}'"
-        )
-
-    command = parse_optional_nonempty_string_field("command")
-    url = parse_optional_nonempty_string_field("url")
-    if command and url:
-        raise ValueError(f"server '{server_id}' cannot declare both command and url")
-
-    raw_http_headers = raw_entry.get("http_headers")
-    if raw_http_headers is None:
-        http_headers = None
-    else:
-        if not isinstance(raw_http_headers, dict):
-            raise ValueError(f"server '{server_id}' http_headers must be an object")
-        normalized_headers: dict[str, str] = {}
-        for header_name, header_value in raw_http_headers.items():
-            if not isinstance(header_name, str) or not isinstance(header_value, str):
-                raise ValueError(
-                    f"server '{server_id}' http_headers values must be string key/value pairs"
-                )
-            normalized_name = header_name.strip()
-            if not normalized_name:
-                continue
-            normalized_headers[normalized_name] = header_value
-        http_headers = normalized_headers or None
-
-    resolved_transport = transport
-    if not resolved_transport:
-        if command:
-            resolved_transport = "stdio"
-        elif url:
-            resolved_transport = "streamable_http"
-        else:
-            raise ValueError(f"server '{server_id}' must declare either command or url")
-
-    if resolved_transport == "stdio":
-        if url is not None:
-            raise ValueError(f"server '{server_id}' stdio transport cannot declare url")
-        if command is None:
-            raise ValueError(f"server '{server_id}' stdio transport requires command")
-        if http_headers is not None:
-            raise ValueError(
-                f"server '{server_id}' stdio transport cannot define http_headers"
-            )
-        args: list[str] = []
-        raw_args = raw_entry.get("args")
-        if raw_args is not None:
-            if not isinstance(raw_args, list):
-                raise ValueError(
-                    f"server '{server_id}' args must be an array of strings"
-                )
-            for index, item in enumerate(raw_args):
-                if not isinstance(item, str):
-                    raise ValueError(
-                        f"server '{server_id}' has invalid args[{index}] value (expected string)"
-                    )
-                normalized_item = item.strip()
-                if normalized_item:
-                    args.append(normalized_item)
-        raw_env = raw_entry.get("env")
-        if raw_env is None:
-            env = None
-        else:
-            if not isinstance(raw_env, dict):
-                raise ValueError(
-                    f"server '{server_id}' env must be an object of string key/value pairs"
-                )
-            normalized_env: dict[str, str] = {}
-            for raw_env_key, raw_env_value in raw_env.items():
-                if not isinstance(raw_env_key, str):
-                    raise ValueError(
-                        f"server '{server_id}' has invalid env key {raw_env_key!r} "
-                        "(expected string)"
-                    )
-                if not isinstance(raw_env_value, str):
-                    raise ValueError(
-                        f"server '{server_id}' has invalid env.{raw_env_key} value "
-                        "(expected string)"
-                    )
-                normalized_key = raw_env_key.strip()
-                if not normalized_key:
-                    raise ValueError(f"server '{server_id}' has an empty env key")
-                normalized_env[normalized_key] = raw_env_value
-            env = normalized_env or None
-        raw_error_handler = raw_entry.get("encoding_error_handler")
-        if raw_error_handler is None:
-            encoding_error_handler = "strict"
-        else:
-            if not isinstance(raw_error_handler, str):
-                raise ValueError(
-                    f"server '{server_id}' encoding_error_handler must be a string"
-                )
-            normalized_error_handler = raw_error_handler.strip().lower()
-            if not normalized_error_handler:
-                raise ValueError(
-                    f"server '{server_id}' encoding_error_handler cannot be empty"
-                )
-            if normalized_error_handler not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
-                raise ValueError(
-                    f"server '{server_id}' has unsupported encoding_error_handler "
-                    f"'{normalized_error_handler}'"
-                )
-            encoding_error_handler = normalized_error_handler
-        return MCPServerConfig(
-            transport="stdio",
-            command=command,
-            args=args,
-            env=env,
-            cwd=parse_optional_nonempty_string_field("cwd"),
-            encoding=parse_optional_nonempty_string_field("encoding") or "utf-8",
-            encoding_error_handler=encoding_error_handler,
-        )
-
-    if command is not None:
-        raise ValueError(
-            f"server '{server_id}' {resolved_transport} transport cannot declare command"
-        )
-    if url is None:
-        raise ValueError(
-            f"server '{server_id}' {resolved_transport} transport requires url"
-        )
-    return MCPServerConfig(
-        transport=resolved_transport,
-        url=url,
-        http_headers=http_headers,
-    )
