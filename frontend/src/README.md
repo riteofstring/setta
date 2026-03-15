@@ -308,9 +308,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     delete/create mutations plus optimistic persistence flow.
   - `state/actions/windowSpaceSnapshots.ts` owns floating window-space snapshot
     building and conversion back into project-chat windowing state.
-  - `state/actions/windowSpaceWorkspaceRestorePlan.ts` owns workspace-restore
-    planning, restored-instance remapping, merge policy, and restored git-pane
-    visibility planning for saved window spaces.
+  - `state/actions/windowSpaceWorkspaceRestoreLayout.ts` owns workspace-restore
+    planning, restored-instance remapping, deduped merge policy, and the
+    combined next-windowing result for saved window spaces.
+  - `state/actions/windowSpaceWorkspaceRestoreVisibility.ts` owns restored
+    git-pane visibility reconciliation for saved window-space restores.
+  - `state/actions/windowSpaceWorkspaceRestorePlan.ts` is now a thin facade
+    that composes the restore-layout and visibility owners.
   - `state/actions/windowSpaceProjectChatThreadRestore.ts` owns deployment-
     policy restore gating plus saved project-chat thread rebound after layout
     restore.
@@ -397,10 +401,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/windowSpaceWorkspaceRestorePlan.ts` is now the largest
-  authored/shared state hotspot, so follow-up cleanup should keep restore
-  planning, restored-instance remapping, and git-pane visibility coordination
-  in narrower helpers instead of regrowing `state/actions/windowSpaces.ts`
+- `state/actions/sectionInfos.ts` is now the largest authored/shared state
+  hotspot, so follow-up cleanup should keep shrinking the remaining streaming
+  merge, shown-param, ancestry, and tool-preview helpers instead of regrowing
+  `state/actions/sectionDisplayQueries.ts` or the newer project-state modules
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership
@@ -412,10 +416,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   shown-param, ancestry, and tool-preview cleanup surface, so any follow-up
   cleanup there should stay local to those helpers instead of regrowing
   `state/actions/sectionDisplayQueries.ts`
-- `state/actions/windowSpaceWorkspaceRestorePlan.ts` now owns the remaining
+- `state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns the remaining
   restore planning and remapping policy for saved window spaces, so any
-  follow-up cleanup there should stay local to restore planning instead of
-  regrowing `state/actions/windowSpaces.ts`
+  follow-up cleanup there should stay local to restore-layout helpers instead
+  of regrowing `state/actions/windowSpaces.ts`
 - `state/actions/websocketLifecycle.ts`, `websocketBootstrap.ts`,
   `websocketAuthRecovery.ts`, and `websocketShareSessionRecovery.ts` now split
   transport, bootstrap, auth recovery, and share-session restoration, so any

@@ -96,10 +96,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
   snapshot building plus conversion back into project-chat windowing state that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
-- `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` now owns
-  workspace-restore planning, restored-instance remapping, merge policy, and
-  restored git-pane visibility planning that previously lived in
-  `frontend/src/state/actions/windowSpaces.ts`.
+- `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns
+  workspace-restore planning, restored-instance remapping, and deduped merge
+  policy that previously lived in `frontend/src/state/actions/windowSpaces.ts`,
+  while `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts`
+  now owns restored git-pane visibility planning and
+  `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` is the thin
+  composition entrypoint for those restore helpers.
 - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` now owns
   deployment-policy restore gating plus saved project-chat thread rebound that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
@@ -178,9 +181,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` at 460 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 459 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` at 405 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
@@ -188,9 +191,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` at 460 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 459 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` at 405 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
@@ -351,9 +354,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `windowSpaceSnapshots.ts` now owns:
   - floating window-space snapshot building
   - conversion from saved window-space state back into project-chat windowing state
-- `windowSpaceWorkspaceRestorePlan.ts` now owns:
+- `windowSpaceWorkspaceRestoreLayout.ts` now owns:
   - workspace-restore planning, restored-instance remapping, and merge policy
+- `windowSpaceWorkspaceRestoreVisibility.ts` now owns:
   - restored git-pane visibility planning for saved window-space restores
+- `windowSpaceWorkspaceRestorePlan.ts` now owns:
+  - composition of the restore-layout and restore-visibility owners
 - `windowSpaceProjectChatThreadRestore.ts` now owns:
   - deployment-policy restore gating for saved chat-thread restores
   - saved project-chat thread rebound after restored layouts are applied
