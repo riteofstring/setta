@@ -26,6 +26,22 @@ type recordingRevealService struct {
 	err    error
 }
 
+type stubUISettingRevealTransport struct {
+	registry *realtime.Registry
+	sendJSON func(context.Context, any, string) (bool, error)
+}
+
+func (s *stubUISettingRevealTransport) Registry() *realtime.Registry {
+	return s.registry
+}
+
+func (s *stubUISettingRevealTransport) SendJSON(ctx context.Context, message any, connectionID string) (bool, error) {
+	if s.sendJSON != nil {
+		return s.sendJSON(ctx, message, connectionID)
+	}
+	return true, nil
+}
+
 func setUISettingAgenticContext(
 	t *testing.T,
 	clientSession *sdkmcp.ClientSession,
@@ -800,6 +816,81 @@ func TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenRevealFails(t *t
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected write to persist even when nested reveal fails")
+	}
+}
+
+func TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenFrontendDispatchFails(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+	transport := &stubUISettingRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, _ any, connectionID string) (bool, error) {
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		return false, nil
+	}
+	revealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
+		Transport: transport,
+		Results:   realtime.NewUISettingRevealResultHub(),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "", "", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Meta: sdkmcp.Meta{
+			"sectionId": "allowed-callable-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           true,
+			"revealAfterSet":  true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value with undeliverable revealAfterSet: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_ui_setting_value with undeliverable revealAfterSet to keep write result, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", payload["changed"])
+	}
+	revealPayload := mustStructuredMap(t, payload["reveal"])
+	statuses := mustStructuredList(t, revealPayload["statuses"])
+	status := mustStructuredMap(t, statuses[0])
+	if status["status"] != "failed" {
+		t.Fatalf("expected nested reveal failure, got %#v", status["status"])
+	}
+	revealError := mustStructuredMap(t, status["error"])
+	if revealError["message"] != "Selected frontend websocket became unavailable before reveal dispatch: frontend-1" {
+		t.Fatalf("expected undeliverable dispatch message, got %#v", revealError["message"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after undeliverable reveal failure: %v", err)
+	}
+	if !project.ShowParamDisplayNames {
+		t.Fatal("expected write to persist even when reveal dispatch fails before delivery")
 	}
 }
 

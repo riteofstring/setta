@@ -432,6 +432,231 @@ func TestRevealServiceRejectsAffinityTokenFromDifferentShareSession(t *testing.T
 	}
 }
 
+func TestRevealServiceRejectsUnavailableAffinityTokenAfterFrontendDisconnect(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token"),
+	})
+	connection, err := registry.Register(realtime.RegisterParams{
+		ID:   "frontend-1",
+		Type: realtime.ConnectionTypeFrontend,
+	})
+	if err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+	token, ok := registry.FrontendAffinityToken(connection.ID)
+	if !ok {
+		t.Fatal("expected frontend affinity token")
+	}
+	if removed := registry.Unregister(connection.ID); !removed {
+		t.Fatalf("expected unregister for %q", connection.ID)
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:              revealTestRegistry(t),
+		SettingID:             "core.project.show_param_display_names",
+		FrontendAffinityToken: token,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Frontend affinity token is invalid or no longer available for reveal routing: frontend-token" {
+		t.Fatalf("unexpected disconnected-affinity error message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceFailsWhenSelectedFrontendBecomesUndeliverableBeforeDispatch(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, _ any, connectionID string) (bool, error) {
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		return false, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID: "project-alpha",
+		ProjectView:     revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:        revealTestRegistry(t),
+		SettingID:       "core.project.show_param_display_names",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Selected frontend websocket became unavailable before reveal dispatch: frontend-1" {
+		t.Fatalf("unexpected undeliverable-dispatch message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceFailsClosedOnFrontendAckProjectMismatch(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{})
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-beta",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected mismatch result to be consumed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID: "project-alpha",
+		ProjectView:     revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:        revealTestRegistry(t),
+		SettingID:       "core.project.show_param_display_names",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-1: frontend reveal response project mismatch: expected project-alpha but received project-beta"
+	if result.Statuses[0].Error.Message != expectedMessage {
+		t.Fatalf("unexpected project-mismatch message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceFailsClosedOnFrontendAckWebsocketMismatch(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token-1", "frontend-token-2"),
+	})
+	connection, err := registry.Register(realtime.RegisterParams{ID: "frontend-1", Type: realtime.ConnectionTypeFrontend})
+	if err != nil {
+		t.Fatalf("register expected frontend: %v", err)
+	}
+	token, ok := registry.FrontendAffinityToken(connection.ID)
+	if !ok {
+		t.Fatal("expected frontend affinity token")
+	}
+	if _, err := registry.Register(realtime.RegisterParams{ID: "frontend-2", Type: realtime.ConnectionTypeFrontend}); err != nil {
+		t.Fatalf("register mismatched frontend: %v", err)
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if connectionID != "frontend-1" {
+			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		}, "frontend-2") {
+			t.Fatal("expected mismatch result to be consumed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:              revealTestRegistry(t),
+		SettingID:             "core.project.show_param_display_names",
+		FrontendAffinityToken: token,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-2: frontend reveal response websocket mismatch: expected frontend-1 but received frontend-2"
+	if result.Statuses[0].Error.Message != expectedMessage {
+		t.Fatalf("unexpected websocket-mismatch message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
 func revealTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 
