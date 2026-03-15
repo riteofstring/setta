@@ -4161,3 +4161,33 @@ Append-only log for the section performance refactor.
   - Recreate or recover the untouched-`main` control scene for the exact shared-row compare.
   - Measure this value-wrapper candidate against untouched `main` before deciding whether it becomes the new kept geometry baseline.
   - If the main compare still shows a meaningful residual gap, keep this candidate only as partial recovery and continue with the next lower-seam read.
+
+### 2026-03-18 112
+
+- Item: Accept the value-wrapper geometry baseline after the exact untouched-`main` `GlobalVariables` compare.
+- Status: `done`
+- Details:
+  - Recovered matched disposable control scenes through generated endpoints and SPA navigation:
+    - untouched `main`: `marsh_zooming`
+    - worktree: `loose_playing`
+  - On both scenes:
+    - created a disposable `GlobalVariables` section
+    - added the first kwarg row so the exact control remained the `Add Key` row
+  - Raw DevTools reads initially diverged because React Flow was at different viewport scales:
+    - untouched `main`: `1.68298`
+    - worktree: `0.552096`
+  - After normalizing by each scene's viewport scale, the exact compare resolved to the same visible shared-row geometry:
+    - row height: `20px` on both
+    - key width: `~82px` on both
+    - value width: `~78px` on both
+    - key/value typography: `12px / 16px` on both
+  - A fixed-position overlay clone of the exact `Add Key` row also read visually aligned in Chrome DevTools on both pages.
+  - Interpretation:
+    - the value-side underline candidate now clears the untouched-`main` parity gate
+    - the callable reorder/indent canary was already green on this same baseline
+    - checkpoint 1 is accepted and the lower shared-row geometry seam is no longer the active blocker
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-exact-global-variables-compare.md`
+- Next action:
+  - Move upward into the higher shared `sectionChrome` section-surface grid seam.
+  - Keep the callable reorder/indent and shared row-contract guardrails active while widening the seam again.
