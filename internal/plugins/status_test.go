@@ -70,6 +70,9 @@ func TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability(t *testin
 	if pending.SourceScopeLabel != "setta_files" {
 		t.Fatalf("expected setta_files scope label, got %q", pending.SourceScopeLabel)
 	}
+	if len(pending.Components) != 1 || pending.Components[0] != "backend" {
+		t.Fatalf("expected backend component entry, got %#v", pending.Components)
+	}
 	if !pending.RestartRequired {
 		t.Fatalf("expected backend entry to require restart")
 	}

@@ -118,7 +118,7 @@ func TestRunPluginsListTextIncludesRestartShadowedAndErrors(t *testing.T) {
 	if stderr != "" {
 		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
-	if !strings.Contains(stdout, "setta-fixture-backend 0.1.0 [pending_restart] scope=setta_files (restart required)") {
+	if !strings.Contains(stdout, "setta-fixture-backend 0.1.0 [pending_restart] scope=setta_files components=backend (restart required)") {
 		t.Fatalf("expected pending restart line, got %q", stdout)
 	}
 	if !strings.Contains(stdout, "shadowed_by="+workspaceFrontendRoot) {

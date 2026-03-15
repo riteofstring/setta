@@ -104,6 +104,9 @@ func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *
 	if _, ok := listEntry["effectiveCapabilities"].([]any); !ok {
 		t.Fatalf("expected list effectiveCapabilities array, got %#v", listEntry["effectiveCapabilities"])
 	}
+	if _, ok := listEntry["components"].([]any); !ok {
+		t.Fatalf("expected list components array, got %#v", listEntry["components"])
+	}
 	configPayload := listEntry["config"].(map[string]any)
 	if _, ok := configPayload["schemaJson"].(map[string]any); !ok {
 		t.Fatalf("expected schemaJson object, got %#v", configPayload["schemaJson"])
@@ -122,6 +125,7 @@ func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *
 		"requestedCapabilities",
 		"effectiveCapabilities",
 		"blockedCapabilities",
+		"components",
 		"registeredCodegenTargets",
 		"errors",
 	} {

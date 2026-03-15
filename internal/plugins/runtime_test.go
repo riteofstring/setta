@@ -54,6 +54,9 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	if listEntry.PluginID != "setta-fixture-full" {
 		t.Fatalf("expected full fixture plugin id, got %#v", listEntry.PluginID)
 	}
+	if len(listEntry.Components) != 3 || listEntry.Components[0] != "backend" || listEntry.Components[1] != "frontend" || listEntry.Components[2] != "content" {
+		t.Fatalf("expected backend/frontend/content components, got %#v", listEntry.Components)
+	}
 	if listEntry.Frontend.EntrypointURL == nil || !strings.Contains(*listEntry.Frontend.EntrypointURL, "/plugins/setta-fixture-full/frontend/src/index.js?v=") {
 		t.Fatalf("expected versioned frontend entrypoint url, got %#v", listEntry.Frontend.EntrypointURL)
 	}
@@ -76,6 +79,9 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	statusEntry := runtimeResponse.Status.Plugins[0]
 	if statusEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active status entry, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.Components) != 3 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" || statusEntry.Components[2] != "content" {
+		t.Fatalf("expected backend/frontend/content status components, got %#v", statusEntry.Components)
 	}
 	if statusEntry.SourceScopeLabel != "workspace" {
 		t.Fatalf("expected workspace source scope label, got %#v", statusEntry.SourceScopeLabel)

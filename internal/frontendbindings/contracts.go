@@ -773,6 +773,7 @@ type PluginListEntry struct {
 	Frontend              PluginFrontendDescriptor `json:"frontend"`
 	Content               PluginContentDescriptor  `json:"content"`
 	Config                PluginConfigDescriptor   `json:"config"`
+	Components            []string                 `json:"components"`
 	EffectiveCapabilities []string                 `json:"effectiveCapabilities"`
 	EnablementSource      *PluginEnablementSource  `json:"enablementSource"`
 	RestartRequired       bool                     `json:"restartRequired"`
@@ -801,6 +802,7 @@ type PluginStatusEntry struct {
 	RequestedCapabilities      []string                        `json:"requestedCapabilities"`
 	EffectiveCapabilities      []string                        `json:"effectiveCapabilities"`
 	BlockedCapabilities        []PluginBlockedCapability       `json:"blockedCapabilities"`
+	Components                 []string                        `json:"components"`
 	RegisteredCodegenTargets   []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
 	EnablementSource           *PluginEnablementSource         `json:"enablementSource"`
 	RestartRequired            bool                            `json:"restartRequired"`

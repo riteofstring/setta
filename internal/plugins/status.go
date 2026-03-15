@@ -41,6 +41,7 @@ type StatusEntry struct {
 	RequestedCapabilities      []string                        `json:"requestedCapabilities"`
 	EffectiveCapabilities      []string                        `json:"effectiveCapabilities"`
 	BlockedCapabilities        []PluginBlockedCapability       `json:"blockedCapabilities"`
+	Components                 []string                        `json:"components"`
 	RegisteredCodegenTargets   []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
 	EnablementSource           *PluginEnablementSource         `json:"enablementSource"`
 	RestartRequired            bool                            `json:"restartRequired"`
@@ -73,6 +74,7 @@ type statusEntryRuntimeDigestPayload struct {
 	RequestedCapabilities    []string                        `json:"requestedCapabilities"`
 	EffectiveCapabilities    []string                        `json:"effectiveCapabilities"`
 	BlockedCapabilities      []PluginBlockedCapability       `json:"blockedCapabilities"`
+	Components               []string                        `json:"components"`
 	RegisteredCodegenTargets []PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
 	Errors                   []PluginErrorInfo               `json:"errors"`
 }
@@ -210,6 +212,7 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
 		RequestedCapabilities:      cloneStringSliceOrEmpty(entry.RequestedCapabilities),
 		EffectiveCapabilities:      cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 		BlockedCapabilities:        cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		Components:                 statusEntryComponents(entry),
 		RegisteredCodegenTargets:   []PluginRegisteredCodegenTarget{},
 		EnablementSource:           cloneOptionalEnablementSource(entry.EnablementSource),
 		RestartRequired:            entry.RestartRequired,
@@ -223,6 +226,7 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 		RequestedCapabilities:    cloneStringSliceOrEmpty(entry.RequestedCapabilities),
 		EffectiveCapabilities:    cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 		BlockedCapabilities:      cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		Components:               statusEntryComponents(entry),
 		RegisteredCodegenTargets: []PluginRegisteredCodegenTarget{},
 		Errors:                   clonePluginErrorsOrEmpty(entry.Errors),
 	}
@@ -253,6 +257,13 @@ func cloneRegisteredCodegenTargetsOrEmpty(values []PluginRegisteredCodegenTarget
 		return []PluginRegisteredCodegenTarget{}
 	}
 	return append([]PluginRegisteredCodegenTarget{}, values...)
+}
+
+func statusEntryComponents(entry DiscoveredPlugin) []string {
+	if entry.Manifest == nil {
+		return []string{}
+	}
+	return manifestComponents(*entry.Manifest)
 }
 
 func clonePluginErrorsOrEmpty(values []PluginErrorInfo) []PluginErrorInfo {

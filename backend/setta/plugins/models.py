@@ -204,6 +204,7 @@ class PluginListEntry(BaseModel):
     frontend: PluginFrontendDescriptor
     content: PluginContentDescriptor
     config: PluginConfigDescriptor
+    components: list[str] = Field(default_factory=list)
     effectiveCapabilities: list[str]
     enablementSource: PluginEnablementSource | None = None
     restartRequired: bool
@@ -236,6 +237,7 @@ class PluginStatusEntry(BaseModel):
     requestedCapabilities: list[str]
     effectiveCapabilities: list[str]
     blockedCapabilities: list[PluginBlockedCapability]
+    components: list[str] = Field(default_factory=list)
     registeredCodegenTargets: list[PluginRegisteredCodegenTarget] = Field(
         default_factory=list
     )

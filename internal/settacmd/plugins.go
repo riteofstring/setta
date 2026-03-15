@@ -380,11 +380,15 @@ func runPluginsList(args []string, global globalFlags, stdout io.Writer, stderr 
 		if plugin.RestartRequired {
 			restartSuffix = " (restart required)"
 		}
+		componentsSuffix := ""
+		if len(plugin.Components) > 0 {
+			componentsSuffix = " components=" + strings.Join(plugin.Components, ",")
+		}
 		shadowedSuffix := ""
 		if plugin.ShadowedBySourcePath != nil && strings.TrimSpace(*plugin.ShadowedBySourcePath) != "" {
 			shadowedSuffix = " shadowed_by=" + *plugin.ShadowedBySourcePath
 		}
-		if _, err := fmt.Fprintf(stdout, "%s %s [%s] scope=%s%s%s\n", plugin.PluginID, plugin.Version, plugin.State, plugin.SourceScopeLabel, restartSuffix, shadowedSuffix); err != nil {
+		if _, err := fmt.Fprintf(stdout, "%s %s [%s] scope=%s%s%s%s\n", plugin.PluginID, plugin.Version, plugin.State, plugin.SourceScopeLabel, componentsSuffix, restartSuffix, shadowedSuffix); err != nil {
 			return err
 		}
 		for _, pluginErr := range plugin.Errors {

@@ -59,6 +59,7 @@ type ListEntry struct {
 	Frontend              FrontendDescriptor      `json:"frontend"`
 	Content               ContentDescriptor       `json:"content"`
 	Config                ConfigDescriptor        `json:"config"`
+	Components            []string                `json:"components"`
 	EffectiveCapabilities []string                `json:"effectiveCapabilities"`
 	EnablementSource      *PluginEnablementSource `json:"enablementSource"`
 	RestartRequired       bool                    `json:"restartRequired"`
@@ -220,6 +221,7 @@ func (s *Service) buildRuntimeListEntries(
 				pluginsState,
 				redactConfigDetails,
 			),
+			Components:            manifestComponents(*entry.Manifest),
 			EffectiveCapabilities: cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 			EnablementSource:      cloneOptionalEnablementSource(entry.EnablementSource),
 			RestartRequired:       entry.RestartRequired,
