@@ -1,5 +1,4 @@
 import type { Connection } from "forks/xyflow/core/types";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImpls";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -15,12 +14,7 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "./stateMachineEdgeCanonicalization";
-import {
-  applyWorkflowMachineGroupMerge,
-  captureWorkflowMachineGroupMergeSnapshot,
-  resolveMachineGroupTransitionForConnection,
-  restoreWorkflowMachineGroupMergeSnapshot,
-} from "./stateMachineEdgeGraph";
+import { resolveMachineGroupTransitionForConnection } from "./stateMachineEdgeGraph";
 
 const machineGroupId = "workflow-main";
 const otherMachineGroupId = "workflow-other";
@@ -240,60 +234,6 @@ describe("stateMachineEdgeGraph", () => {
     ).toEqual({
       machineGroupId,
       mergedMachineGroupIds: [],
-    });
-  });
-
-  it("captures, applies, and restores merged workflow machine groups", () => {
-    useProjectState.setState((state) => {
-      state.projectConfig.stateMachineEdges = [
-        {
-          id: "edge-other",
-          machineGroupId: otherMachineGroupId,
-          sourceSectionId: chatSectionB,
-          sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
-          targetSectionId: endSectionId,
-          targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
-          sourceFilter: null,
-          sourceActivationCountCondition: null,
-          targetAction: null,
-          style: null,
-          hidden: false,
-          zIndex: 0,
-          selected: false,
-        },
-      ];
-    });
-
-    let snapshot!: ReturnType<typeof captureWorkflowMachineGroupMergeSnapshot>;
-    useProjectState.setState((state) => {
-      snapshot = captureWorkflowMachineGroupMergeSnapshot(state, [
-        otherMachineGroupId,
-      ]);
-      applyWorkflowMachineGroupMerge(state, machineGroupId, [
-        otherMachineGroupId,
-      ]);
-    });
-
-    let state = useProjectState.getState();
-    expect(state.projectConfig.stateMachineEdges[0]?.machineGroupId).toBe(
-      machineGroupId,
-    );
-    expect(getCurrEffectiveSectionImpl(state, endSectionId)).toMatchObject({
-      type: SectionTypeEnum.StateMachineEnd,
-      machineGroupId,
-    });
-
-    useProjectState.setState((draft) => {
-      restoreWorkflowMachineGroupMergeSnapshot(draft, snapshot);
-    });
-
-    state = useProjectState.getState();
-    expect(state.projectConfig.stateMachineEdges[0]?.machineGroupId).toBe(
-      otherMachineGroupId,
-    );
-    expect(getCurrEffectiveSectionImpl(state, endSectionId)).toMatchObject({
-      type: SectionTypeEnum.StateMachineEnd,
-      machineGroupId: otherMachineGroupId,
     });
   });
 });

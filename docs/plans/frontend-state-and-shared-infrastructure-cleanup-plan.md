@@ -207,22 +207,22 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
   - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
   - `frontend/src/state/actions/aiExternalAgentStop.ts` at 168 lines
+  - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 160 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
   - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
   - `frontend/src/state/actions/aiExternalAgentStop.ts` at 168 lines
+  - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 160 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -250,7 +250,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - workflow handle normalization and shared-chat workflow port canonicalization
 - `stateMachineEdgeGraph.ts` now owns:
   - section-type and machine-group reads used to validate candidate connections
-  - machine-group resolution plus merge snapshot or apply or restore helpers
+  - machine-group resolution for candidate workflow connections
+- `stateMachineEdgeMachineGroupMerge.ts` now owns:
+  - machine-group merge snapshot capture for optimistic workflow edge creation
+  - merge apply/restore helpers for workflow machine-group reconciliation
 - `stateMachineEdgeConnections.ts` now owns:
   - workflow connection validation
   - workflow edge construction from a validated connection
@@ -534,12 +537,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `stateMachineEdgeGraph.ts` into narrower workflow graph helpers
+2. Split `sectionEffectiveImplSelectors.ts` into narrower selector helpers
 
-- Separate workflow graph reads and machine-group resolution from the remaining
-  merge snapshot/apply/restore helpers.
-- Keep naming explicit so agents can tell whether they are calling a workflow
-  graph query, a merge helper, or an edge mutation command.
+- Separate typed current-section/current-code-object selectors from the
+  remaining managed-chat and param display-name helpers.
+- Keep naming explicit so agents can tell whether they are calling an
+  effective-impl core helper, a typed selector, or a local impl mutation
+  helper.
 
 3. Normalize optimistic mutation infrastructure
 

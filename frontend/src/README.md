@@ -164,8 +164,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/stateMachineEdgeCanonicalization.ts` owns workflow handle
     normalization and shared-chat workflow port canonicalization.
   - `state/actions/stateMachineEdgeGraph.ts` owns section-type reads,
-    machine-group resolution, and machine-group merge snapshot/apply/restore
-    helpers.
+    machine-group reads, and connection-time machine-group resolution.
+  - `state/actions/stateMachineEdgeMachineGroupMerge.ts` owns machine-group
+    merge snapshot capture plus apply/restore helpers for workflow edge
+    mutations.
   - `state/actions/stateMachineEdgeConnections.ts` now owns workflow
     connection validation and edge construction.
   - `state/actions/stateMachineEdgeMutations.ts` owns optimistic workflow edge
@@ -434,10 +436,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
-- `state/actions/stateMachineEdgeGraph.ts` now owns the remaining workflow
-  graph read and machine-group merge helper cluster, so follow-up cleanup there
-  should stay local to workflow graph reads instead of regrowing edge
-  canonicalization or mutation modules.
+- `state/actions/sectionEffectiveImplSelectors.ts` now owns the largest
+  remaining typed effective-impl selector cluster, so follow-up cleanup there
+  should stay local to selector helpers instead of regrowing the effective-impl
+  core or compatibility facade.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.

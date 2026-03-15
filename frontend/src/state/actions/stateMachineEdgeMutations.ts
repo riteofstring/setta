@@ -16,12 +16,12 @@ import {
 } from "./stateMachineDebug";
 import { normalizeWorkflowConnectionHandles } from "./stateMachineEdgeCanonicalization";
 import { buildStateMachineEdgeForConnection } from "./stateMachineEdgeConnections";
+import { resolveMachineGroupTransitionForConnection } from "./stateMachineEdgeGraph";
 import {
   applyWorkflowMachineGroupMerge,
   captureWorkflowMachineGroupMergeSnapshot,
-  resolveMachineGroupTransitionForConnection,
   restoreWorkflowMachineGroupMergeSnapshot,
-} from "./stateMachineEdgeGraph";
+} from "./stateMachineEdgeMachineGroupMerge";
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState

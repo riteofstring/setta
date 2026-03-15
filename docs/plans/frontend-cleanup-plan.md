@@ -116,7 +116,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/stateMachineEdgeCanonicalization.ts` now owns
   workflow handle normalization and shared-chat workflow port canonicalization,
   `frontend/src/state/actions/stateMachineEdgeGraph.ts` now owns section-type
-  reads plus machine-group resolution and merge helpers, and
+  reads plus machine-group resolution, and
+  `frontend/src/state/actions/stateMachineEdgeMachineGroupMerge.ts` now owns
+  merge snapshot/apply/restore helpers, while
   `frontend/src/state/actions/stateMachineEdgeConnections.ts` now owns
   workflow connection validation and edge construction, reducing
   `frontend/src/state/actions/stateMachineEdgeConnections.ts` to 165 lines.
@@ -277,10 +279,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   parsing to `customResizableChrome.ts`.
 - `frontend/src/state/actions/stateMachineEdges.ts` is down to a 12-line
   compatibility entrypoint and now delegates workflow handle normalization to
-  `stateMachineEdgeCanonicalization.ts`, machine-group resolution and merge
-  helpers to `stateMachineEdgeGraph.ts`, connection validation and edge
-  construction to `stateMachineEdgeConnections.ts`, and optimistic create or
-  select or delete or replace commands to `stateMachineEdgeMutations.ts`.
+  `stateMachineEdgeCanonicalization.ts`, workflow graph reads and machine-group
+  resolution to `stateMachineEdgeGraph.ts`, merge snapshot/apply/restore
+  helpers to `stateMachineEdgeMachineGroupMerge.ts`, connection validation and
+  edge construction to `stateMachineEdgeConnections.ts`, and optimistic create
+  or select or delete or replace commands to `stateMachineEdgeMutations.ts`.
 - `frontend/src/state/actions/websocketReceive.ts` is down to a 7-line
   compatibility entrypoint and now delegates socket lifecycle, reconnect, auth,
   outbound realtime dependency or binary send behavior to
