@@ -29,7 +29,11 @@ from setta.types.artifact import (
     ImageArtifact,
     ImageMapping,
 )
+from setta.types.dependency_key import SectionDependencyKey
+from setta.types.dependency_value import BinaryDependencyValue
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
+from setta.types.id import ID
+from setta.types.listener import ListenerRealtimeDelta
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import (
     ChartSectionImpl,
@@ -43,9 +47,10 @@ if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.generated.unions import BaseArtifactUnion
-    from setta.types.project_state import ProjectStateCore
+    from setta.types.project_state import ProjectStateBackend, ProjectStateCore
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+    from setta.websockets.realtime_event_hub import RealtimeEventHub
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +91,16 @@ class Artifacts:
         dbe: "DBE",
         artifact_id_resolver: Callable[[Path | str], Path | str] | None = None,
         path_resolver: Callable[[Path | str], Path] | None = None,
+        realtime_event_hub: "RealtimeEventHub | None" = None,
+        share_session_id: str | None = None,
     ):
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
         self._path_resolver = path_resolver or normalize_state_path
         self._artifact_id_resolver = artifact_id_resolver or self._path_resolver
+        self._realtime_event_hub = realtime_event_hub
+        self._share_session_id = share_session_id
         self._binary_store = BinaryStore.from_dbe(dbe)
         self.images: ImageMapping = {}
         self.chart_data: ChartDataMapping = {}
@@ -104,6 +113,7 @@ class Artifacts:
         self.brush_stroke_metadata: dict[Path, ArtifactMetadata] = {}
         self.transform_metadata: dict[Path, ArtifactMetadata] = {}
         self.file_metadata: dict[Path, ArtifactMetadata] = {}
+        self._image_section_refs_by_path: dict[Path, list[tuple[ID, ID]]] = {}
 
     def normalize_artifact_id(self, path: Path | str) -> str:
         return str(self._artifact_id_resolver(path))
@@ -114,9 +124,12 @@ class Artifacts:
     def watch_artifact_files(
         self,
         callbackCategory: str,
-        project_state_backend: "ProjectStateCore",
+        project_state_backend: "ProjectStateBackend",
     ):
         path_and_types, path_to_types = self.get_artifact_files_to_watch(
+            project_state_backend
+        )
+        self._image_section_refs_by_path = self._collect_image_section_refs_by_path(
             project_state_backend
         )
         callbacks = {
@@ -183,6 +196,7 @@ class Artifacts:
                 await self.websocket_msg_handler.broadcast_artifacts_update(
                     artifacts=artifacts, updateType="update"
                 )
+                await self.emit_realtime_image_updates(artifacts)
             logger.debug(
                 "Artifact update: %s %s",
                 normalized_path,
@@ -234,6 +248,26 @@ class Artifacts:
             path_to_types[path].add(artifact_type)
 
         return path_and_types, path_to_types
+
+    def _collect_image_section_refs_by_path(
+        self,
+        p: "ProjectStateBackend",
+    ) -> dict[Path, list[tuple[ID, ID]]]:
+        mapping: dict[Path, list[tuple[ID, ID]]] = {}
+        for project_config_id, project_config in p.projectConfigs.items():
+            for section_id, variant_id in project_config.sectionVariantMap.items():
+                if section_id not in p.sections:
+                    raise KeyError(f"Unknown section id {section_id}")
+                if variant_id not in p.sectionVariants:
+                    raise KeyError(f"Unknown section variant id {variant_id}")
+                impl = get_variant_effective_section_impl(p, section_id, variant_id)
+                if not isinstance(impl, ImageSectionImpl):
+                    continue
+                if not impl.imagePath:
+                    continue
+                path = self._resolve_path(impl.imagePath)
+                mapping.setdefault(path, []).append((project_config_id, section_id))
+        return mapping
 
     def _compute_file_hash(self, path: Path):
         content = self.dbe.read(path, "rb")
@@ -363,6 +397,49 @@ class Artifacts:
 
     def get_cached_file(self, path: Path | str):
         return self.files.get(self._resolve_path(path))
+
+    async def emit_realtime_image_updates(
+        self, artifacts: list["BaseArtifactUnion"]
+    ) -> None:
+        if self._realtime_event_hub is None:
+            return
+        if not artifacts:
+            return
+        if not self._image_section_refs_by_path:
+            return
+
+        deltas_by_project: dict[tuple[ID, str], list[ListenerRealtimeDelta]] = (
+            defaultdict(list)
+        )
+        payloads_by_content_id: dict[str, bytes] = {}
+        for artifact in artifacts:
+            if not isinstance(artifact, ImageArtifact):
+                continue
+            path = self._resolve_path(artifact.id)
+            refs = self._image_section_refs_by_path.get(path)
+            if not refs:
+                continue
+            content_id = artifact.value.contentId
+            binary_payload = payloads_by_content_id.get(content_id)
+            if binary_payload is None:
+                binary_payload = self._binary_store.read_bytes(content_id)
+                payloads_by_content_id[content_id] = binary_payload
+            for project_config_id, section_id in refs:
+                delta = ListenerRealtimeDelta(
+                    dependency=SectionDependencyKey(sectionId=section_id),
+                    value=BinaryDependencyValue(payload=artifact.value),
+                )
+                delta.binaryPayload = binary_payload
+                deltas_by_project[(project_config_id, content_id)].append(delta)
+
+        for (project_config_id, content_id), deltas in deltas_by_project.items():
+            binary_payload = payloads_by_content_id.get(content_id, b"")
+            await self._realtime_event_hub.emit_realtime_deltas_binary(
+                project_config_id=project_config_id,
+                deltas=deltas,
+                binary_payload=binary_payload,
+                share_session_id=self._share_session_id,
+            )
 
     def get_cached_artifact_type(self, path: Path | str) -> ArtifactType | None:
         """Return the cached artifact type for a normalized path, if any.

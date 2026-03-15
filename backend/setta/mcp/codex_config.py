@@ -64,6 +64,12 @@ def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
     return snake_case_servers
 
 
+def validate_codex_mcp_servers_payload(payload: dict[str, Any]) -> None:
+    if "mcp_servers" not in payload and "mcpServers" not in payload:
+        return
+    resolve_raw_codex_mcp_servers(payload)
+
+
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
     codex_home_env = os.environ.get("CODEX_HOME")
     if isinstance(codex_home_env, str):
@@ -134,6 +140,16 @@ def _load_codex_mcp_servers_from_path(
     if parsed:
         return parsed
     return {} if fail_closed else None
+
+
+def load_codex_mcp_server_payloads_from_config() -> dict[str, dict[str, Any]]:
+    parsed = load_codex_mcp_servers_from_config()
+    return {
+        server_id: _serialize_mcp_server_config_for_codex(server_config)
+        for server_id, server_config in parsed.items()
+    }
+
+
 def parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerConfig]:
     parsed: dict[str, MCPServerConfig] = {}
     validated_entries: list[tuple[str, str, Any]] = []
@@ -429,3 +445,9 @@ def _format_server_label(raw_server_id: Any) -> str:
     if isinstance(raw_server_id, str):
         return raw_server_id
     return repr(raw_server_id)
+
+
+def _serialize_mcp_server_config_for_codex(
+    server_config: MCPServerConfig,
+) -> dict[str, Any]:
+    return server_config.model_dump(exclude_none=True, exclude_defaults=True)
