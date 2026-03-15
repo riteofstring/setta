@@ -12,10 +12,12 @@ import {
 } from "react-window";
 import {
   loadMoreGitGraphCommits,
-  refreshGitGraphOverlay,
   setGitGraphFilterText,
+} from "state/actions/gitGraphLoadState";
+import {
+  refreshGitGraphOverlay,
   toggleGitGraphAllRefs,
-} from "state/actions/gitGraphLog";
+} from "state/actions/gitGraphOverlayActions";
 import {
   clearGitGraphSelectedCommit,
   selectGitCommit,

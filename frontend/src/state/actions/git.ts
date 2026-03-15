@@ -1,11 +1,13 @@
 export {
-  ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
+  setGitGraphFilterText,
+} from "./gitGraphLoadState";
+export {
+  ensureGitGraphStateLoaded,
   openGitGraphOverlay,
   refreshGitGraphOverlay,
-  setGitGraphFilterText,
   toggleGitGraphAllRefs,
-} from "./gitGraphLog";
+} from "./gitGraphOverlayActions";
 export {
   clearGitGraphSelectedCommit,
   selectGitCommit,

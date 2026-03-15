@@ -276,14 +276,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
     diff overlay, graph overlay, and embedded graph window UI.
   - `state/actions/gitStatusAndDiff.ts` owns git status refresh, diff
     availability, diff overlay opening, and diff-mode switching.
-  - `state/actions/gitGraphLog.ts` owns git graph overlay boot, graph/log
-    loading, pagination, and graph filter/all-refs refresh behavior.
+  - `state/actions/gitGraphLoadState.ts` owns git graph/log loading,
+    pagination, and graph filter writes.
+  - `state/actions/gitGraphOverlayActions.ts` owns git graph overlay boot,
+    graph-state seeding, manual refresh, and all-refs toggling.
+  - `state/actions/gitGraphLog.ts` is now the thin compatibility facade.
   - `state/actions/gitGraphSelection.ts` owns selected-commit clearing plus
     commit details/file-diff selection behavior.
   - `state/actions/gitGraphState.ts` owns current project-config lookup plus
     reusable graph/selection state builders.
   - `state/actions/gitGraph.ts` is now a thin compatibility surface that
-    re-exports the log and selection owners.
+    re-exports the graph load, overlay, and selection owners.
   - `state/actions/git.ts` is now a thin compatibility surface that re-exports
     the git status/diff and graph owners.
 

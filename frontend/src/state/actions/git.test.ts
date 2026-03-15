@@ -18,12 +18,12 @@ import {
 } from "utils/generatedTypes";
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadMoreGitGraphCommits } from "./gitGraphLoadState";
 import {
   ensureGitGraphStateLoaded,
-  loadMoreGitGraphCommits,
   openGitGraphOverlay,
   refreshGitGraphOverlay,
-} from "./gitGraphLog";
+} from "./gitGraphOverlayActions";
 import {
   clearGitGraphSelectedCommit,
   selectGitCommit,

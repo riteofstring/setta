@@ -176,10 +176,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/projectChatThreadStorageUndo.ts` still owns the
   local delete undo stack and restoration logic that previously lived in
   `frontend/src/state/actions/projectChatThreads.ts`.
-- `frontend/src/state/actions/gitGraphLog.ts` now owns git graph overlay boot,
-  git graph/log loading, pagination, and graph filter/all-refs refresh
-  behavior, `frontend/src/state/actions/gitGraphSelection.ts` now owns
-  selected commit clearing plus commit details/file-diff selection, and
+- `frontend/src/state/actions/gitGraphLoadState.ts` now owns git graph/log
+  loading, pagination, and graph filter writes,
+  `frontend/src/state/actions/gitGraphOverlayActions.ts` now owns git graph
+  overlay boot, graph-state seeding, manual refresh, and all-refs toggling,
+  and `frontend/src/state/actions/gitGraphLog.ts` is now the thin
+  compatibility facade. `frontend/src/state/actions/gitGraphSelection.ts` now
+  owns selected commit clearing plus commit details/file-diff selection, and
   `frontend/src/state/actions/gitGraphState.ts` now owns reusable graph state
   builders and current project-config lookup, while
   `frontend/src/state/actions/gitStatusAndDiff.ts` continues to own git status
@@ -277,17 +280,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/gitGraphLog.ts` at 351 lines
   - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
+  - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/gitGraphLog.ts` at 351 lines
   - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
+  - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
+  - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
@@ -430,9 +434,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - parent-child mutation helpers and reset-to-default-version commands
 - `sectionToolArgumentPreview.ts` now owns:
   - tool-preview cleanup against the current project-state snapshot
-- `gitGraphLog.ts` now owns:
+- `gitGraphLoadState.ts` now owns:
+  - git graph/log loading and pagination state writes
+  - git graph filter-text writes
+- `gitGraphOverlayActions.ts` now owns:
   - git graph overlay boot and initial graph-state seeding
-  - git graph/log refresh, pagination, and all-refs/filter refresh behavior
+  - manual graph refresh and all-refs toggling
+- `gitGraphLog.ts` is now:
+  - the thin compatibility facade
 - `gitGraphSelection.ts` now owns:
   - selected-commit clearing
   - commit details and commit-file-diff request lifecycle

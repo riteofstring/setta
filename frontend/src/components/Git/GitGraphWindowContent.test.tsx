@@ -7,7 +7,7 @@ import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitGraphWindowContent } from "./GitGraphWindowContent";
 
-vi.mock("state/actions/gitGraphLog", () => ({
+vi.mock("state/actions/gitGraphOverlayActions", () => ({
   ensureGitGraphStateLoaded: vi.fn(),
 }));
 
