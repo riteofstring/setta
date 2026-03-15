@@ -49,14 +49,12 @@ type MultiExecutorOptions struct {
 	Claude   *ClaudeExecutor
 	Codex    *CodexExecutor
 	OpenCode *OpenCodeExecutor
-	Plugin   *PluginExecutor
 }
 
 type MultiExecutor struct {
 	claude   *ClaudeExecutor
 	codex    *CodexExecutor
 	openCode *OpenCodeExecutor
-	plugin   *PluginExecutor
 }
 
 func NewMultiExecutor(options MultiExecutorOptions) *MultiExecutor {
@@ -64,7 +62,6 @@ func NewMultiExecutor(options MultiExecutorOptions) *MultiExecutor {
 		claude:   options.Claude,
 		codex:    options.Codex,
 		openCode: options.OpenCode,
-		plugin:   options.Plugin,
 	}
 }
 
@@ -88,11 +85,6 @@ func (e *MultiExecutor) Start(ctx context.Context, request StartRequest) (StartR
 			return StartResponse{}, ErrExecutorUnavailable
 		}
 		return e.openCode.Start(ctx, request)
-	case externalagentconfigs.ToolTypePlugin:
-		if e.plugin == nil {
-			return StartResponse{}, ErrExecutorUnavailable
-		}
-		return e.plugin.Start(ctx, request)
 	default:
 		return StartResponse{}, ErrExecutorUnavailable
 	}

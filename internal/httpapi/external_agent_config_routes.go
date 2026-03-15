@@ -30,7 +30,6 @@ type createExternalAgentConfigRequest struct {
 	Name                    *string                                    `json:"name"`
 	Description             *string                                    `json:"description"`
 	ToolType                *externalagentconfigs.ToolType             `json:"toolType"`
-	PluginAdapterID         *string                                    `json:"pluginAdapterId"`
 	RunMode                 *externalagentconfigs.RunMode              `json:"runMode"`
 	CommandPath             *string                                    `json:"commandPath"`
 	BaseURL                 *string                                    `json:"baseUrl"`
@@ -293,7 +292,6 @@ func buildCreatedExternalAgentConfig(payload createExternalAgentConfigRequest) e
 	if payload.ToolType != nil {
 		config.ToolType = *payload.ToolType
 	}
-	config.PluginAdapterID = cloneOptionalString(payload.PluginAdapterID)
 	if payload.RunMode != nil {
 		config.RunMode = *payload.RunMode
 	}

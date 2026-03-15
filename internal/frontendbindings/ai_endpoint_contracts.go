@@ -95,7 +95,6 @@ type CreateExternalAgentConfigRequestInput struct {
 	Name                    *string                            `json:"name,omitempty"`
 	Description             *string                            `json:"description,omitempty"`
 	ToolType                *ExternalAgentToolType             `json:"toolType,omitempty"`
-	PluginAdapterID         *string                            `json:"pluginAdapterId,omitempty"`
 	RunMode                 *ExternalAgentRunMode              `json:"runMode,omitempty"`
 	CommandPath             *string                            `json:"commandPath,omitempty"`
 	BaseURL                 *string                            `json:"baseUrl,omitempty"`

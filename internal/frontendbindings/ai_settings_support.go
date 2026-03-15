@@ -69,7 +69,6 @@ const (
 	ExternalAgentToolTypeClaudeCode ExternalAgentToolType = ExternalAgentToolType(externalagentconfigs.ToolTypeClaudeCode)
 	ExternalAgentToolTypeCodex      ExternalAgentToolType = ExternalAgentToolType(externalagentconfigs.ToolTypeCodex)
 	ExternalAgentToolTypeOpenCode   ExternalAgentToolType = ExternalAgentToolType(externalagentconfigs.ToolTypeOpenCode)
-	ExternalAgentToolTypePlugin     ExternalAgentToolType = ExternalAgentToolType(externalagentconfigs.ToolTypePlugin)
 )
 
 type ExternalAgentRunMode string
@@ -144,7 +143,6 @@ type ExternalAgentConfig struct {
 	Name                    string                             `json:"name"`
 	Description             string                             `json:"description"`
 	ToolType                ExternalAgentToolType              `json:"toolType"`
-	PluginAdapterID         *string                            `json:"pluginAdapterId,omitempty"`
 	RunMode                 ExternalAgentRunMode               `json:"runMode"`
 	CommandPath             *string                            `json:"commandPath,omitempty"`
 	BaseURL                 *string                            `json:"baseUrl,omitempty"`

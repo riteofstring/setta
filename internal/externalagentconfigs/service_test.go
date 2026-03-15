@@ -209,34 +209,6 @@ func TestServiceDeleteRemovesCanonicalArtifacts(t *testing.T) {
 	}
 }
 
-func TestServiceRejectsInvalidPluginAdapterCombinations(t *testing.T) {
-	t.Parallel()
-
-	_, service, _, _ := newExternalAgentConfigServiceTestFixture(t)
-
-	pluginAdapterID := "acme-plugin:openhands"
-	if _, err := service.Create(Config{
-		ID:                 "codex-config",
-		Name:               "Codex",
-		ToolType:           ToolTypeCodex,
-		PluginAdapterID:    &pluginAdapterID,
-		RunMode:            RunModeAppServer,
-		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-	}); !errors.Is(err, ErrInvalidConfig) {
-		t.Fatalf("expected invalid config for non-plugin adapter id, got %v", err)
-	}
-
-	if _, err := service.Create(Config{
-		ID:                 "plugin-config",
-		Name:               "Plugin",
-		ToolType:           ToolTypePlugin,
-		RunMode:            RunModeSDK,
-		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-	}); !errors.Is(err, ErrInvalidConfig) {
-		t.Fatalf("expected invalid config for missing plugin adapter id, got %v", err)
-	}
-}
-
 func TestServiceUpdateReturnsNotFound(t *testing.T) {
 	t.Parallel()
 

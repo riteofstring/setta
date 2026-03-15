@@ -411,13 +411,13 @@ func TestRegisterExternalAgentConfigRoutesRequireConfigIDOnGet(t *testing.T) {
 	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "config_id_required")
 }
 
-func TestRegisterExternalAgentConfigRoutesRejectInvalidPluginAdapterShape(t *testing.T) {
+func TestRegisterExternalAgentConfigRoutesRejectUnknownPluginAdapterField(t *testing.T) {
 	t.Parallel()
 
 	_, service := newExternalAgentConfigRouteTestService(t)
 	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, &externalAgentConfigRouteStubChecker{})
 
-	// Plugin adapter id validation is bounded to deterministic config shape rules in Go.
+	// The pluginAdapterId field is no longer part of the Go-owned route contract.
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateExternalAgentConfig, bytes.NewBufferString(`{
 	  "name": "Codex",
 	  "toolType": "codex",
@@ -430,7 +430,7 @@ func TestRegisterExternalAgentConfigRoutesRejectInvalidPluginAdapterShape(t *tes
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
-	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "invalid_external_agent_config")
+	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "invalid_json")
 }
 
 func TestRegisterExternalAgentConfigRoutesReturnNotFoundForMissingConfig(t *testing.T) {

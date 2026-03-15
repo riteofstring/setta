@@ -729,3 +729,14 @@ captures plugin external-agent adapter registrations, and the direct plugin
 runtime/app/plugin worker coverage for that backend plugin surface was deleted.
 The remaining Python plugin worker blocker is now limited to codegen targets
 and language servers.
+
+A later follow-up rewrite step then removed the dead plugin external-agent
+config and executor mode around that deleted worker surface. Go no longer
+accepts `toolType=plugin` or `pluginAdapterId` in the active external-agent
+config contract, the preflight/runtime path no longer resolves plugin adapter
+metadata, the plugin executor branch was deleted, and the generated frontend
+bindings no longer advertise plugin external-agent settings. That cleanup did
+not remove a live worker capability cluster by itself; it removed the dead Go
+product/config surface that still exposed the already-deleted plugin
+external-agent path. The remaining Python plugin worker blocker is still
+limited to codegen targets and language servers.

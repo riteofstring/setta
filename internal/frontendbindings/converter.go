@@ -1583,7 +1583,6 @@ func newTypeConverter() *typeConverter {
 				{Name: "claude_code", Value: "claude_code"},
 				{Name: "codex", Value: "codex"},
 				{Name: "opencode", Value: "opencode"},
-				{Name: "plugin", Value: "plugin"},
 			},
 			reflect.TypeOf(ExternalAgentRunMode("")): {
 				{Name: "mcp", Value: "mcp"},

@@ -60,15 +60,6 @@ func TestBuildRuntimeEnvUsesManagedAPIKeysForWhitelistedVars(t *testing.T) {
 				processEnv:    processEnv,
 			}).buildRuntimeEnv(config),
 		},
-		{
-			name: "plugin",
-			env: (&PluginExecutor{
-				workspaceRoot: workspaceRoot,
-				processEnv:    processEnv,
-			}).buildRuntimeEnv(config, externalagentconfigs.PluginExternalAgentAdapter{
-				EnvVarWhitelist: []string{"MANAGED_KEY"},
-			}),
-		},
 	}
 
 	for _, test := range tests {

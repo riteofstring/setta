@@ -444,7 +444,7 @@ func (s *RunService) seedChatContinuity(inputs map[string]any, chatID string, pr
 		if resolveRunOutputString(latestRun, "threadId") != "" && strings.TrimSpace(stringValue(inputs["threadId"])) == "" {
 			inputs["threadId"] = resolveRunOutputString(latestRun, "threadId")
 		}
-	case externalagentconfigs.ToolTypeClaudeCode, externalagentconfigs.ToolTypeOpenCode, externalagentconfigs.ToolTypePlugin:
+	case externalagentconfigs.ToolTypeClaudeCode, externalagentconfigs.ToolTypeOpenCode:
 		if resolveRunOutputString(latestRun, "sessionId") != "" && strings.TrimSpace(stringValue(inputs["sessionId"])) == "" {
 			inputs["sessionId"] = resolveRunOutputString(latestRun, "sessionId")
 		}

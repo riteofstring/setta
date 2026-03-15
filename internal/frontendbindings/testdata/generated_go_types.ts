@@ -277,7 +277,6 @@ export const ExternalAgentToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
   opencode: "opencode",
-  plugin: "plugin",
 } as const;
 export type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
 
@@ -372,7 +371,6 @@ export type ExternalAgentConfig = {
   name: string;
   description: string;
   toolType: ExternalAgentToolType;
-  pluginAdapterId?: string | null;
   runMode: ExternalAgentRunMode;
   commandPath?: string | null;
   baseUrl?: string | null;
@@ -8982,7 +8980,6 @@ export type CreateExternalAgentConfigRequestInput = {
   name?: string | null;
   description?: string | null;
   toolType?: ExternalAgentToolType | null;
-  pluginAdapterId?: string | null;
   runMode?: ExternalAgentRunMode | null;
   commandPath?: string | null;
   baseUrl?: string | null;

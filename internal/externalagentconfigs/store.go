@@ -30,7 +30,6 @@ const (
 	ToolTypeClaudeCode ToolType = "claude_code"
 	ToolTypeCodex      ToolType = "codex"
 	ToolTypeOpenCode   ToolType = "opencode"
-	ToolTypePlugin     ToolType = "plugin"
 )
 
 type RunMode string
@@ -76,7 +75,6 @@ type Config struct {
 	Name                    string                `json:"name"`
 	Description             string                `json:"description,omitempty"`
 	ToolType                ToolType              `json:"toolType"`
-	PluginAdapterID         *string               `json:"pluginAdapterId,omitempty"`
 	RunMode                 RunMode               `json:"runMode"`
 	CommandPath             *string               `json:"commandPath,omitempty"`
 	BaseURL                 *string               `json:"baseUrl,omitempty"`
@@ -233,7 +231,7 @@ func normalizeConfig(config Config, index int) (Config, error) {
 		return Config{}, fmt.Errorf("external agent config %d name is required", index)
 	}
 	switch normalized.ToolType {
-	case ToolTypeClaudeCode, ToolTypeCodex, ToolTypeOpenCode, ToolTypePlugin:
+	case ToolTypeClaudeCode, ToolTypeCodex, ToolTypeOpenCode:
 	default:
 		return Config{}, fmt.Errorf("external agent config %q toolType is invalid", normalized.ID)
 	}
@@ -264,7 +262,6 @@ func normalizeConfig(config Config, index int) (Config, error) {
 
 func cloneConfig(config Config) Config {
 	cloned := config
-	cloned.PluginAdapterID = cloneStringPtr(config.PluginAdapterID)
 	cloned.CommandPath = cloneStringPtr(config.CommandPath)
 	cloned.BaseURL = cloneStringPtr(config.BaseURL)
 	cloned.DefaultModel = cloneStringPtr(config.DefaultModel)

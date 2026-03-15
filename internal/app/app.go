@@ -759,9 +759,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
-			WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
-			ProcessEnv:            llmconfig.CurrentProcessEnv(),
-			PluginAdapterProvider: externalAgentPluginAdapterProvider{plugins: pluginMutationService},
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			ProcessEnv:    llmconfig.CurrentProcessEnv(),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1039,22 +1038,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		pluginExecutor, err := externalagents.NewPluginExecutor(externalagents.PluginExecutorOptions{
-			Runs:                  agentRunStore,
-			Runtime:               externalAgentRuntime,
-			WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
-			ProcessEnv:            llmconfig.CurrentProcessEnv(),
-			PluginAdapterProvider: externalAgentPluginAdapterProvider{plugins: pluginMutationService},
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
 		externalAgentExecutor = externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
 			Claude:   claudeExecutor,
 			Codex:    codexExecutor,
 			OpenCode: openCodeExecutor,
-			Plugin:   pluginExecutor,
 		})
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState: projectRuntime,

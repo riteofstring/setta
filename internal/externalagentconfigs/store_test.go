@@ -95,30 +95,6 @@ func TestStoreRejectsInvalidPayload(t *testing.T) {
 	}
 }
 
-func TestSystemCheckerReportsUnsupportedPluginConfig(t *testing.T) {
-	t.Parallel()
-
-	checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: t.TempDir()})
-	if err != nil {
-		t.Fatalf("new checker: %v", err)
-	}
-	status, err := checker.Check(Config{
-		ID:       "plugin",
-		Name:     "Plugin",
-		ToolType: ToolTypePlugin,
-		RunMode:  RunModeSDK,
-	})
-	if err != nil {
-		t.Fatalf("check plugin config: %v", err)
-	}
-	if status.Supported {
-		t.Fatalf("expected plugin config to be unsupported, got %#v", status)
-	}
-	if status.Available {
-		t.Fatalf("expected plugin config to be unavailable, got %#v", status)
-	}
-}
-
 func TestSystemCheckerRequiresOpenCodeCLIForSDKModeWithoutBaseURL(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	binDir := t.TempDir()

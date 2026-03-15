@@ -198,7 +198,6 @@ func (s *Service) prepareForMutation(config Config) (Config, error) {
 
 func normalizeMutationConfig(config Config) (Config, error) {
 	normalized := cloneConfig(config)
-	trimOptionalStringPointer(&normalized.PluginAdapterID)
 	trimOptionalStringPointer(&normalized.CommandPath)
 	trimOptionalStringPointer(&normalized.BaseURL)
 	trimOptionalStringPointer(&normalized.DefaultModel)
@@ -212,13 +211,6 @@ func normalizeMutationConfig(config Config) (Config, error) {
 	normalizedConfig, err := normalizeConfig(normalized, 0)
 	if err != nil {
 		return Config{}, fmt.Errorf("%w: %s", ErrInvalidConfig, err.Error())
-	}
-	if normalizedConfig.ToolType == ToolTypePlugin {
-		if derefOptionalString(normalizedConfig.PluginAdapterID) == "" {
-			return Config{}, newServiceError(ErrInvalidConfig, "pluginAdapterId is required when toolType is plugin.")
-		}
-	} else if derefOptionalString(normalizedConfig.PluginAdapterID) != "" {
-		return Config{}, newServiceError(ErrInvalidConfig, "pluginAdapterId is only supported for plugin toolType.")
 	}
 	return normalizedConfig, nil
 }
