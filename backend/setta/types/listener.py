@@ -118,11 +118,6 @@ class ListenerErrorContent(BaseModel):
     details: Any | None = None
 
 
-class ListenerFrontendEmitKeyAndValue(BaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
-
-
 class ListenerFrontendEmitRawContent(BaseModel):
     projectConfigId: ID
     dependencyValues: dict[str, Any] = Field(default_factory=dict)
@@ -145,10 +140,6 @@ class ListenerRouterEndpointResultContent(BaseModel):
     result: Any | None = None
     error: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
-
-
-class ListenerCoverageRequest(BaseModel):
-    projectConfigId: ID
 
 
 class ListenerCoverageSnapshot(BaseModel):

@@ -2,17 +2,13 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from fastapi import WebSocket
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.chat import APIKeys
-from setta.types.chat_stream_events import LLMStreamingResponse
-from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID, create_new_id
 from setta.types.listener import (
-    ListenerCoverageSnapshot,
     ListenerDependencyEventContent,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -26,9 +22,7 @@ from setta.types.listener import (
     RealtimeDependencyEventContent,
     RealtimeUIChangeContent,
 )
-from setta.types.llm_config import AllLLMConfigs
-from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
-from setta.types.prompt import PromptTemplateList
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
@@ -398,11 +392,6 @@ class WebsocketConnectionInfo(BaseModel):
     shareSessionId: str | None = None
 
 
-class WebsocketConnectionInfoWithSocket(WebsocketConnectionInfo):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    websocket: WebSocket
-
-
 class WebsocketMsg(BaseModel):
     id: str | None = None
     content: Any
@@ -419,13 +408,6 @@ class BackendWebsocketMsg(WebsocketMsg):
 
 class PythonScriptWebsocketMsg(WebsocketMsg):
     pass
-
-
-class WebsocketMsgAllConnections(FrontendWebsocketMsg):
-    content: list[WebsocketConnectionInfo]
-    messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
-        WebsocketMsgTypeForFrontend.AllConnections
-    )
 
 
 class FrontendIdentityContent(BaseModel):
@@ -445,138 +427,11 @@ class ProjectStateSingleConfigWithCompletedOpIds(BaseModel):
     pendingOpIds: list[str]
 
 
-class WebsocketMsgFrontendIdentity(FrontendWebsocketMsg):
-    content: FrontendIdentityContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.FrontendIdentity] = (
-        WebsocketMsgTypeForFrontend.FrontendIdentity
-    )
-
-
 # class WebsocketMsgArtifact(FrontendWebsocketMsg):
 #     content: Artifact
 #     messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
 #         WebsocketMsgTypeForFrontend.Artifact
 #     )
-
-
-class WebsocketMsgNotification(FrontendWebsocketMsg):
-    content: SettaNotification
-    messageType: Literal[WebsocketMsgTypeForFrontend.Notification] = (
-        WebsocketMsgTypeForFrontend.Notification
-    )
-
-
-class WebsocketMsgBackendLogEvent(FrontendWebsocketMsg):
-    content: SettaBackendLogEvent
-    messageType: Literal[WebsocketMsgTypeForFrontend.BackendLogEvent] = (
-        WebsocketMsgTypeForFrontend.BackendLogEvent
-    )
-
-
-class WebsocketMsgLLMStreamingResponse(FrontendWebsocketMsg):
-    content: LLMStreamingResponse
-    messageType: Literal[WebsocketMsgTypeForFrontend.LLMStreamingResponse] = (
-        WebsocketMsgTypeForFrontend.LLMStreamingResponse
-    )
-
-
-class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
-    content: SettaLspDiagnosticsPayload
-    messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
-        WebsocketMsgTypeForFrontend.LSPDiagnostics
-    )
-
-
-class WebsocketMsgNameValidationErrors(FrontendWebsocketMsg):
-    content: SettaProjectNameValidationErrors
-    messageType: Literal[WebsocketMsgTypeForFrontend.NameValidationErrors] = (
-        WebsocketMsgTypeForFrontend.NameValidationErrors
-    )
-
-
-class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
-    content: RenameRefactorBroadcastContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults] = (
-        WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults
-    )
-
-
-class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
-    content: ProjectStateSingleConfigWithCompletedOpIds
-    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
-        WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
-    )
-
-
-class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):
-    content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.TerminalMetadata] = (
-        WebsocketMsgTypeForFrontend.TerminalMetadata
-    )
-
-
-class WebsocketMsgUpdateSettings(FrontendWebsocketMsg):
-    content: SettingsState
-    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateSettings] = (
-        WebsocketMsgTypeForFrontend.UpdateSettings
-    )
-
-
-class WebsocketMsgAllProjectMetadata(FrontendWebsocketMsg):
-    content: AllProjectMetadata
-    messageType: Literal[WebsocketMsgTypeForFrontend.AllProjectMetadata] = (
-        WebsocketMsgTypeForFrontend.AllProjectMetadata
-    )
-
-
-class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
-    content: UpdateArtifactMsgContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateArtifacts] = (
-        WebsocketMsgTypeForFrontend.UpdateArtifacts
-    )
-
-
-class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
-    content: ListenerCoverageSnapshot
-    messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
-        WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
-    )
-
-
-class WebsocketMsgLLMConfigUpdated(FrontendWebsocketMsg):
-    content: AllLLMConfigs
-    messageType: Literal[WebsocketMsgTypeForFrontend.LLMConfigUpdated] = (
-        WebsocketMsgTypeForFrontend.LLMConfigUpdated
-    )
-
-
-class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
-    content: ManagedAPIKeysSnapshot
-    messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
-        WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
-    )
-
-
-class WebsocketMsgAgentProfilesUpdated(FrontendWebsocketMsg):
-    content: AgentProfileList
-    messageType: Literal[WebsocketMsgTypeForFrontend.AgentProfilesUpdated] = (
-        WebsocketMsgTypeForFrontend.AgentProfilesUpdated
-    )
-
-
-class WebsocketMsgPromptTemplatesUpdated(FrontendWebsocketMsg):
-    content: PromptTemplateList
-    messageType: Literal[WebsocketMsgTypeForFrontend.PromptTemplatesUpdated] = (
-        WebsocketMsgTypeForFrontend.PromptTemplatesUpdated
-    )
-
-
-class WebsocketMsgExternalAgentConfigsUpdated(FrontendWebsocketMsg):
-    content: ExternalAgentConfigList
-    messageType: Literal[WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated] = (
-        WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated
-    )
-
 
 class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
     content: EngineConfigList
