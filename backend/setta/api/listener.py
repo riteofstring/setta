@@ -117,43 +117,37 @@ def _sanitize_cookie_token(value: str) -> str:
     return sanitized
 
 
-def _listener_endpoint_requires_force_refresh(endpoint_name: str) -> bool:
-    return endpoint_name == "route_set_chat_section_state"
-
-
-# Worktree/dev helpers ---------------------------------------------------------
-
-
 def _hosts_equivalent(left: str, right: str) -> bool:
     if left == right:
         return True
     return {left, right} <= {"127.0.0.1", "localhost", "::1"}
 
 
-def _find_workspace_sessions_root(start_dir: Path) -> tuple[Path, Path] | None:
-    """Return (workspace_root, sessions_root) when runtime sessions exist."""
-    sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    if sessions_root.is_absolute():
-        paths = get_setta_paths()
-        workspace_root = paths.workspace_root.resolve(strict=False)
-        return workspace_root, sessions_root.resolve(strict=False)
-
-    start = start_dir.resolve()
-    for parent in (start, *start.parents):
-        candidate = parent / sessions_root
-        if candidate.is_dir():
-            return parent, candidate
-    return None
+# Worktree/dev helpers ---------------------------------------------------------
 
 
 def _load_latest_local_session(
     start_dir: Path,
 ) -> tuple[SessionMetadata, bytes] | None:
     """Resolve the latest running Setta session for this workspace (if any)."""
-    roots = _find_workspace_sessions_root(start_dir)
-    if roots is None:
-        return None
-    workspace_root, sessions_root = roots
+    sessions_root = C.RUNTIME_SESSIONS_FOLDER
+    if sessions_root.is_absolute():
+        paths = get_setta_paths()
+        workspace_root = paths.workspace_root.resolve(strict=False)
+        resolved_sessions_root = sessions_root.resolve(strict=False)
+    else:
+        start = start_dir.resolve()
+        resolved_sessions_root = None
+        workspace_root = None
+        for parent in (start, *start.parents):
+            candidate = parent / sessions_root
+            if candidate.is_dir():
+                workspace_root = parent
+                resolved_sessions_root = candidate
+                break
+        if resolved_sessions_root is None or workspace_root is None:
+            return None
+    sessions_root = resolved_sessions_root
     if not sessions_root.exists():
         return None
 
@@ -2124,7 +2118,7 @@ class SettaListener:
         future: asyncio.Future[Any] = loop.create_future()
         self._pending_router_endpoint_calls[call_id] = future
         refresh_future: asyncio.Future[None] | None = None
-        if _listener_endpoint_requires_force_refresh(endpoint_name):
+        if endpoint_name == "route_set_chat_section_state":
             refresh_future = loop.create_future()
             self._pending_router_endpoint_force_refreshes[call_id] = refresh_future
         project_config_id = self._require_project_id()
