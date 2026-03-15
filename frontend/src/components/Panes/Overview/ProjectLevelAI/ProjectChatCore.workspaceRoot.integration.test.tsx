@@ -4,7 +4,6 @@ import "testUtils/reactRefreshPreamble";
 
 import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("components/Chat/ChatInput", () => ({
@@ -17,9 +16,10 @@ vi.mock("components/Chat/ChatMessages", () => ({
 }));
 
 vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+  const actual =
+    await vi.importActual<typeof import("utils/generatedEndpoints")>(
+      "utils/generatedEndpoints",
+    );
   return {
     ...actual,
     route_get_file_browser_root: vi.fn(),
@@ -27,12 +27,16 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-import { useAIStore, useProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 
@@ -131,13 +135,11 @@ describe("ProjectChatCore workspace root scans", () => {
   });
 
   it("does not start a second workspace root scan while the first scan is still in flight", async () => {
-    let resolveFolderScan:
-      | ((value: {
-          data: Array<{ name: string; type: string; fullPath: string }>;
-          status: number;
-          hasResponse: boolean;
-        }) => void)
-      | null = null;
+    let resolveFolderScan: ((value: {
+      data: Array<{ name: string; type: string; fullPath: string }>;
+      status: number;
+      hasResponse: boolean;
+    }) => void) | null = null;
 
     vi.mocked(route_get_folder_contents).mockImplementation(
       () =>
@@ -159,9 +161,7 @@ describe("ProjectChatCore workspace root scans", () => {
     expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
 
     if (!resolveFolderScan) {
-      throw new Error(
-        "Expected the initial workspace root scan to be pending.",
-      );
+      throw new Error("Expected the initial workspace root scan to be pending.");
     }
     resolveFolderScan({
       data: [],
@@ -186,8 +186,8 @@ describe("ProjectChatCore workspace root scans", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(16200);
     });
-    const postBackoffTransitionCalls = vi.mocked(route_get_file_browser_root)
-      .mock.calls.length;
+    const postBackoffTransitionCalls =
+      vi.mocked(route_get_file_browser_root).mock.calls.length;
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6200);
