@@ -1761,6 +1761,7 @@ def execute_settings_project_missing_visible_layout_repair(
         if restart_latest_response is None
         else restart_latest_response.status_code,
         restart_latest_payload=restart_latest_payload,
+        persisted_after_payload=persisted_after_payload,
     )
     return summary, {
         "initialLoadProjectConfigStatus": initial_load_response.status_code,
@@ -2656,11 +2657,17 @@ def summarize_settings_project_missing_visible_layout_repair(
     restart_load_payload: Any,
     restart_latest_http_status: int | None,
     restart_latest_payload: Any,
+    persisted_after_payload: Any,
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "initialLoadHttpStatus": initial_load_http_status,
         "restartLoadHttpStatus": restart_load_http_status,
         "restartLatestHttpStatus": restart_latest_http_status,
+        "persistedParamLayoutPresent": settings_store_view_mode_layout_contains_section(
+            persisted_after_payload,
+            view_mode_name="Param Defaults",
+            section_name="buttonParamCodeObjDefault",
+        ),
     }
 
     if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
@@ -3359,6 +3366,29 @@ def settings_payload_view_mode_layout_contains_section(
     visibility = object_field(view_mode, "visibilityBySectionId", allow_missing=True)
     top_level_sections = object_field(view_mode, "topLevelSections", allow_missing=True)
     return visibility.get(section_id) is True and section_id in top_level_sections
+
+
+def settings_store_view_mode_layout_contains_section(
+    payload: Any,
+    view_mode_name: str,
+    section_name: str,
+) -> bool | None:
+    if not isinstance(payload, dict):
+        return None
+    try:
+        settings_project = settings_project_payload_from_store_payload(payload)
+    except ParityHarnessError:
+        return None
+    if "projectConfig" not in settings_project:
+        settings_project = {
+            "projectConfig": settings_project,
+            "sections": object_field(settings_project, "sections", allow_missing=True),
+        }
+    return settings_payload_view_mode_layout_contains_section(
+        settings_project,
+        view_mode_name=view_mode_name,
+        section_name=section_name,
+    )
 
 
 def settings_payload_fixed_width_section_count(

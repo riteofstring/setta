@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -461,6 +462,136 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 			"renameRefactorMode": "Rename Refactor Mode",
 		},
 	)
+}
+
+func TestAppSettingsProjectLoadRoutesRepairMissingVisibleSectionLayoutWithoutPersistingDocument(
+	t *testing.T,
+) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	if err := app.Shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown app: %v", err)
+	}
+
+	settingsStore, err := projectstate.NewStore(filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.SettingsFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted settings project store: %v", err)
+	}
+	settingsDocument, err := settingsStore.LoadRaw(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted settings project document: %v", err)
+	}
+	settingsProject := settingsDocument.Projects[settingsstate.SettingsProjectID]
+	paramDefaultsViewMode := settingsProject.ViewModes["settings-param-defaults"]
+	delete(paramDefaultsViewMode.TopLevelSections, "settings-section__buttonParamCodeObjDefault")
+	settingsProject.ViewModes["settings-param-defaults"] = paramDefaultsViewMode
+	settingsDocument.Projects[settingsstate.SettingsProjectID] = settingsProject
+	writeRawProjectStateDocument(t, settingsStore.Path(), settingsDocument)
+
+	restartedApp, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("restart app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := restartedApp.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown restarted app: %v", err)
+		}
+	})
+
+	storeBeforeLoad, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open repaired settings project store before load: %v", err)
+	}
+	documentBeforeLoad, err := storeBeforeLoad.LoadRaw(context.Background())
+	if err != nil {
+		t.Fatalf("load repaired settings project document before load: %v", err)
+	}
+	projectBeforeLoad, err := documentBeforeLoad.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id before load: %v", err)
+	}
+	if settingsProjectPersistedViewModeLayoutContainsSection(projectBeforeLoad, "settings-param-defaults", "settings-section__buttonParamCodeObjDefault") {
+		t.Fatal("expected persisted settings project to remain missing the Param Defaults layout before load")
+	}
+
+	server := httptest.NewServer(restartedApp.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, restartedApp)
+
+	loadSettingsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
+	if err != nil {
+		t.Fatalf("new settings load request: %v", err)
+	}
+	loadSettingsRequest.Header.Set("Content-Type", "application/json")
+	loadSettingsRequest.AddCookie(authCookie)
+
+	loadSettingsResponse, err := http.DefaultClient.Do(loadSettingsRequest)
+	if err != nil {
+		t.Fatalf("load settings project config after restart: %v", err)
+	}
+	defer loadSettingsResponse.Body.Close()
+	if loadSettingsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(loadSettingsResponse.Body)
+		t.Fatalf("expected settings project config 200, got %d with body %q", loadSettingsResponse.StatusCode, string(body))
+	}
+
+	var loadSettingsPayload projectview.SingleConfig
+	if err := json.NewDecoder(loadSettingsResponse.Body).Decode(&loadSettingsPayload); err != nil {
+		t.Fatalf("decode settings load payload: %v", err)
+	}
+	paramDefaultsViewModePayload := settingsPayloadViewModeByName(t, loadSettingsPayload.ProjectConfig.ViewModes, "Param Defaults")
+	if _, ok := paramDefaultsViewModePayload.TopLevelSections["settings-section__buttonParamCodeObjDefault"]; !ok {
+		t.Fatal("expected loadProjectConfig to repair the missing Param Defaults layout in memory")
+	}
+
+	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
+	if err != nil {
+		t.Fatalf("new latest-state request: %v", err)
+	}
+	latestStateRequest.Header.Set("Content-Type", "application/json")
+	latestStateRequest.AddCookie(authCookie)
+
+	latestStateResponse, err := http.DefaultClient.Do(latestStateRequest)
+	if err != nil {
+		t.Fatalf("get latest project state after restart: %v", err)
+	}
+	defer latestStateResponse.Body.Close()
+	if latestStateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(latestStateResponse.Body)
+		t.Fatalf("expected latest project state 200, got %d with body %q", latestStateResponse.StatusCode, string(body))
+	}
+
+	var latestStatePayload httpapi.ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.NewDecoder(latestStateResponse.Body).Decode(&latestStatePayload); err != nil {
+		t.Fatalf("decode latest-state payload: %v", err)
+	}
+	latestParamDefaultsViewMode := settingsPayloadViewModeByName(t, latestStatePayload.ProjectState.ProjectConfig.ViewModes, "Param Defaults")
+	if _, ok := latestParamDefaultsViewMode.TopLevelSections["settings-section__buttonParamCodeObjDefault"]; !ok {
+		t.Fatal("expected getLatestProjectState to repair the missing Param Defaults layout in memory")
+	}
+
+	storeAfterLoad, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open repaired settings project store after load: %v", err)
+	}
+	documentAfterLoad, err := storeAfterLoad.LoadRaw(context.Background())
+	if err != nil {
+		t.Fatalf("load repaired settings project document after load: %v", err)
+	}
+	projectAfterLoad, err := documentAfterLoad.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id after load: %v", err)
+	}
+	if settingsProjectPersistedViewModeLayoutContainsSection(projectAfterLoad, "settings-param-defaults", "settings-section__buttonParamCodeObjDefault") {
+		t.Fatal("expected persisted settings project to keep the missing Param Defaults layout after load repair")
+	}
 }
 
 func TestAppSettingsProjectSaveProjectRoutePreservesReservedSettingsName(t *testing.T) {
@@ -1496,6 +1627,19 @@ func assertSettingsProjectPersistedCodeObjDisplayNames(
 	}
 }
 
+func settingsProjectPersistedViewModeLayoutContainsSection(
+	project projectstate.Project,
+	viewModeID string,
+	sectionID string,
+) bool {
+	viewMode, ok := project.ViewModes[viewModeID]
+	if !ok {
+		return false
+	}
+	_, ok = viewMode.TopLevelSections[sectionID]
+	return ok
+}
+
 func settingsPayloadSectionImplByID(
 	t *testing.T,
 	payload projectview.SingleConfig,
@@ -2453,4 +2597,17 @@ func appProjectShellTestProjectWithWindowing() projectstate.Project {
 
 func appProjectShellTestStringPointer(value string) *string {
 	return &value
+}
+
+func writeRawProjectStateDocument(t *testing.T, path string, document projectstate.Document) {
+	t.Helper()
+
+	content, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal raw project state document: %v", err)
+	}
+	content = append(content, '\n')
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write raw project state document: %v", err)
+	}
 }

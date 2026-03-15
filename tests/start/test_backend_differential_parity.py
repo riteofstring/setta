@@ -1366,12 +1366,34 @@ class Route:
             restart_load_payload=restart_load_payload,
             restart_latest_http_status=200,
             restart_latest_payload=restart_latest_payload,
+            persisted_after_payload={
+                "projectConfig": {
+                    "viewModes": {
+                        "settings-param-defaults": {
+                            "id": "settings-param-defaults",
+                            "name": "Param Defaults",
+                            "visibilityBySectionId": {
+                                "section-a": True,
+                                "section-b": True,
+                            },
+                            "topLevelSections": {
+                                "section-b": {"x": 600, "y": 0},
+                            },
+                        }
+                    },
+                },
+                "sections": {
+                    "section-a": {"name": "buttonParamCodeObjDefault"},
+                    "section-b": {"name": "codeCallableCodeObjDefault"},
+                },
+            },
         )
 
         self.assertEqual(
             summary,
             {
                 "initialLoadHttpStatus": 200,
+                "persistedParamLayoutPresent": False,
                 "restartLoadHttpStatus": 200,
                 "restartLatestHttpStatus": 200,
                 "restartLoadParamLayoutPresent": True,

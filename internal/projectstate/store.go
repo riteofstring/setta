@@ -45,6 +45,14 @@ func (s *Store) Path() string {
 }
 
 func (s *Store) Load(ctx context.Context) (Document, error) {
+	return s.loadDocument(ctx, true)
+}
+
+func (s *Store) LoadRaw(ctx context.Context) (Document, error) {
+	return s.loadDocument(ctx, false)
+}
+
+func (s *Store) loadDocument(ctx context.Context, normalize bool) (Document, error) {
 	if s == nil {
 		return Document{}, fmt.Errorf("project store is required")
 	}
@@ -74,6 +82,9 @@ func (s *Store) Load(ctx context.Context) (Document, error) {
 	var document Document
 	if err := json.Unmarshal(content, &document); err != nil {
 		return Document{}, fmt.Errorf("decode project document: %w", err)
+	}
+	if !normalize {
+		return document, nil
 	}
 	return document.Normalized()
 }

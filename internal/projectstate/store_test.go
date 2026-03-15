@@ -68,6 +68,57 @@ func TestStoreLoadRejectsUnsupportedSchemaVersion(t *testing.T) {
 	}
 }
 
+func TestStoreLoadRawReturnsUnnormalizedDocument(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion": 99,
+		"projects": map[string]any{
+			"settings": map[string]any{
+				"id":                "settings",
+				"name":              "settings",
+				"activeViewModeId":  "settings-param-defaults",
+				"sectionVariantMap": map[string]any{},
+				"sections":          map[string]any{},
+				"sectionVariants":   map[string]any{},
+				"sectionImpls":      map[string]any{},
+				"codeObjs":          map[string]any{},
+				"codeObjVariants":   map[string]any{},
+				"codeObjImpls":      map[string]any{},
+				"viewModes": map[string]any{
+					"settings-param-defaults": map[string]any{
+						"id":                    "settings-param-defaults",
+						"name":                  "Param Defaults",
+						"visibilityBySectionId": map[string]any{"settings-section__buttonParamCodeObjDefault": true},
+						"topLevelSections":      map[string]any{},
+					},
+				},
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	document, err := store.LoadRaw(context.Background())
+	if err != nil {
+		t.Fatalf("load raw project document: %v", err)
+	}
+	if document.SchemaVersion != 99 {
+		t.Fatalf("expected raw schema version 99, got %d", document.SchemaVersion)
+	}
+	project, ok := document.Projects["settings"]
+	if !ok {
+		t.Fatal("expected raw settings project to be present")
+	}
+	viewMode, ok := project.ViewModes["settings-param-defaults"]
+	if !ok {
+		t.Fatal("expected raw param defaults view mode to be present")
+	}
+	if len(viewMode.TopLevelSections) != 0 {
+		t.Fatalf("expected raw view mode layout to remain empty, got %#v", viewMode.TopLevelSections)
+	}
+}
+
 func TestStoreSaveRoundTripsDocument(t *testing.T) {
 	t.Parallel()
 

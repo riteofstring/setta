@@ -280,6 +280,7 @@ func RefreshProjectRuntimeFromSettings(
 		return err
 	}
 
+	persistRefresh := true
 	currentProject, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
 	if err == nil && currentProject.Name == SettingsProjectName {
 		if err := validateSettingsProjectShellSections(settingsDocument, currentProject); err != nil {
@@ -290,26 +291,45 @@ func RefreshProjectRuntimeFromSettings(
 			return buildErr
 		}
 		preserveSettingsCodeObjectDisplayNames(&builtProject, currentProject)
+		shellStateSourceProject := currentProject
+		repairSourceProject := currentProject
+		persistedDocument, persistedErr := projectRuntime.LoadPersistedDocument(ctx)
+		if persistedErr == nil {
+			persistedProject, persistedProjectErr := persistedDocument.ProjectByID(SettingsProjectID)
+			if persistedProjectErr == nil && persistedProject.Name == SettingsProjectName {
+				shellStateSourceProject = persistedProject
+				repairSourceProject = persistedProject
+			}
+		}
 		mergedProject := overlayProjectShellState(
 			builtProject,
-			currentProject,
+			shellStateSourceProject,
 		)
-		repairedProject, repairErr := repairSettingsProjectShellViewModes(
+		repairedProject, persistRepair, repairErr := repairSettingsProjectShellViewModes(
 			mergedProject,
 			builtProject,
+			repairSourceProject,
 		)
 		if repairErr != nil {
 			return repairErr
 		}
+		persistRefresh = persistRepair
 		builtDocument.Projects[SettingsProjectID] = repairedProject
 	}
 
-	_, err = projectRuntime.MutateAndSave(
-		ctx,
-		func(projectDocument projectstate.Document) (projectstate.Document, error) {
-			return builtDocument, nil
-		},
-	)
+	if persistRefresh {
+		_, err = projectRuntime.MutateAndSave(
+			ctx,
+			func(projectDocument projectstate.Document) (projectstate.Document, error) {
+				return builtDocument, nil
+			},
+		)
+		return err
+	}
+
+	_, err = projectRuntime.Mutate(func(projectDocument projectstate.Document) (projectstate.Document, error) {
+		return builtDocument, nil
+	})
 	return err
 }
 
@@ -408,12 +428,13 @@ func preserveSettingsCodeObjectDisplayNames(
 func repairSettingsProjectShellViewModes(
 	current projectstate.Project,
 	canonical projectstate.Project,
-) (projectstate.Project, error) {
+	repairSource projectstate.Project,
+) (projectstate.Project, bool, error) {
 	sectionIDByName := settingsSectionIDsByName(current)
 	sectionNames := orderedSettingsSectionNamesForProject(sectionIDByName)
 	allSectionIDs := resolveOrderedSettingsSectionIDs(sectionNames, sectionIDByName)
 	if len(allSectionIDs) == 0 {
-		return current, nil
+		return current, true, nil
 	}
 
 	requiredViewModeNames := map[string]struct{}{}
@@ -421,54 +442,52 @@ func repairSettingsProjectShellViewModes(
 		requiredViewModeNames[spec.Name] = struct{}{}
 	}
 
-	viewModesByName := make(map[string]projectstate.ViewMode, len(current.ViewModes))
-	for _, viewMode := range current.ViewModes {
+	viewModesByName := make(map[string]projectstate.ViewMode, len(repairSource.ViewModes))
+	for _, viewMode := range repairSource.ViewModes {
 		viewModesByName[viewMode.Name] = viewMode
 	}
 
-	needsReset := len(current.TopLevelSections) == 0
-	if !needsReset {
+	requiresPersistentRepair := len(repairSource.TopLevelSections) == 0
+	if !requiresPersistentRepair {
 		for _, sectionID := range allSectionIDs {
-			if _, ok := current.TopLevelSections[sectionID]; !ok {
-				needsReset = true
-				break
+			if _, ok := repairSource.TopLevelSections[sectionID]; ok {
+				continue
 			}
+			requiresPersistentRepair = true
+			break
 		}
 	}
-	if !needsReset {
-		for requiredName := range requiredViewModeNames {
-			viewMode, ok := viewModesByName[requiredName]
-			if !ok {
-				needsReset = true
-				break
-			}
-			if len(viewMode.VisibilityBySectionID) == 0 {
-				needsReset = true
-				break
-			}
-			visibleIDs := map[string]struct{}{}
-			for sectionID, visible := range viewMode.VisibilityBySectionID {
-				if visible {
-					visibleIDs[sectionID] = struct{}{}
-				}
-			}
-			if len(visibleIDs) == 0 || len(viewMode.TopLevelSections) == 0 {
-				needsReset = true
-				break
-			}
-			for sectionID := range visibleIDs {
-				if _, ok := viewMode.TopLevelSections[sectionID]; !ok {
-					needsReset = true
-					break
-				}
-			}
-			if needsReset {
-				break
+	missingVisibleLayoutRepair := false
+	for requiredName := range requiredViewModeNames {
+		viewMode, ok := viewModesByName[requiredName]
+		if !ok {
+			requiresPersistentRepair = true
+			continue
+		}
+		if len(viewMode.VisibilityBySectionID) == 0 {
+			requiresPersistentRepair = true
+			continue
+		}
+		visibleIDs := map[string]struct{}{}
+		for sectionID, visible := range viewMode.VisibilityBySectionID {
+			if visible {
+				visibleIDs[sectionID] = struct{}{}
 			}
 		}
+		if len(visibleIDs) == 0 || len(viewMode.TopLevelSections) == 0 {
+			requiresPersistentRepair = true
+			continue
+		}
+		for sectionID := range visibleIDs {
+			if _, ok := viewMode.TopLevelSections[sectionID]; ok {
+				continue
+			}
+			missingVisibleLayoutRepair = true
+		}
 	}
+	needsReset := requiresPersistentRepair || missingVisibleLayoutRepair
 	if !needsReset {
-		return current, nil
+		return current, true, nil
 	}
 
 	activeName := ""
@@ -502,7 +521,7 @@ func repairSettingsProjectShellViewModes(
 	repaired.TopLevelSections = cloneTopLevelLayouts(activeViewMode.TopLevelSections)
 	repaired.Viewport = cloneSettingsViewport(activeViewMode.Viewport)
 	repaired.ViewportInitialized = activeViewMode.ViewportInitialized
-	return repaired, nil
+	return repaired, requiresPersistentRepair || !missingVisibleLayoutRepair, nil
 }
 
 func addSettingsSection(

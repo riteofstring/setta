@@ -124,6 +124,16 @@ func (r *Runtime) Snapshot() Snapshot {
 	}
 }
 
+func (r *Runtime) LoadPersistedDocument(ctx context.Context) (Document, error) {
+	if r == nil {
+		return Document{}, ErrRuntimeClosed
+	}
+	if r.store == nil {
+		return r.Snapshot().Document, nil
+	}
+	return r.store.LoadRaw(ctx)
+}
+
 func (r *Runtime) FrontendOpStatus() FrontendOpStatus {
 	if r == nil {
 		return FrontendOpStatus{}
