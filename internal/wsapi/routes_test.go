@@ -170,6 +170,39 @@ func TestDecodeFrontendBinaryMessageRejectsNonBinaryRealtimeUIChangeValue(t *tes
 	}
 }
 
+func TestDecodeFrontendBinaryMessageRejectsNonBinaryDependencyEventPayload(t *testing.T) {
+	t.Parallel()
+
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeDependencyEvent",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyEvent": map[string]any{
+				"dependencyKey": map[string]any{
+					"type":      "Section",
+					"sectionId": "section-action",
+				},
+				"payload": map[string]any{
+					"type":    "Literal",
+					"payload": "value-1",
+				},
+				"timestampMs": 123,
+			},
+		},
+	}, []byte("binary-action"))
+	if err != nil {
+		t.Fatalf("encode invalid binary dependency event: %v", err)
+	}
+
+	_, err = decodeFrontendBinaryMessage(frame)
+	if err == nil {
+		t.Fatal("expected non-binary dependency event payload to fail")
+	}
+	if !strings.Contains(err.Error(), "Binary payload") {
+		t.Fatalf("expected binary payload validation error, got %v", err)
+	}
+}
+
 func TestRegisterRoutesFrontendConnectSendsIdentityAndRebroadcastsCurrentAddress(t *testing.T) {
 	t.Parallel()
 
@@ -499,6 +532,116 @@ func TestRegisterRoutesFrontendRealtimeUIChangeClosesOnUnknownProject(t *testing
 	_, _, err := frontend.Read(context.Background())
 	if status := websocket.CloseStatus(err); status != CloseCodeNotFound {
 		t.Fatalf("expected not found close code %d, got %d", CloseCodeNotFound, status)
+	}
+}
+
+func TestRegisterRoutesFrontendClosesOnInvalidBinaryRealtimeUIChangeValue(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeUIChange",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyKey": map[string]any{
+				"type":      "SectionParam",
+				"sectionId": "section-a",
+				"codeObjId": "param-a",
+			},
+			"value": map[string]any{
+				"type":    "Literal",
+				"payload": "value-1",
+			},
+		},
+	}, []byte("binary-action"))
+	if err != nil {
+		t.Fatalf("encode invalid binary realtime ui change: %v", err)
+	}
+
+	if err := frontend.Write(context.Background(), websocket.MessageBinary, frame); err != nil {
+		t.Fatalf("write invalid binary realtime ui change: %v", err)
+	}
+
+	_, _, err = frontend.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeBadRequest {
+		t.Fatalf("expected bad-request close code %d, got %d", CloseCodeBadRequest, status)
+	}
+}
+
+func TestRegisterRoutesFrontendClosesOnInvalidBinaryDependencyEventPayload(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeDependencyEvent",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyEvent": map[string]any{
+				"dependencyKey": map[string]any{
+					"type":      "Section",
+					"sectionId": "section-action",
+				},
+				"payload": map[string]any{
+					"type":    "Literal",
+					"payload": "value-1",
+				},
+				"timestampMs": 123,
+			},
+		},
+	}, []byte("binary-action"))
+	if err != nil {
+		t.Fatalf("encode invalid binary dependency event: %v", err)
+	}
+
+	if err := frontend.Write(context.Background(), websocket.MessageBinary, frame); err != nil {
+		t.Fatalf("write invalid binary dependency event: %v", err)
+	}
+
+	_, _, err = frontend.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeBadRequest {
+		t.Fatalf("expected bad-request close code %d, got %d", CloseCodeBadRequest, status)
 	}
 }
 
