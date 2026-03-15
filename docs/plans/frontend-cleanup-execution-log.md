@@ -4558,3 +4558,34 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/gitStatusAndDiff.ts` so git status load,
     diff hydration, and graph/sidebar state updates stop sharing one action
     surface.
+
+## 2026-03-15 12:24:50 PDT
+
+- Slice completed: split git status refresh and diff overlay actions
+- Key files touched:
+  - `frontend/src/state/actions/gitStatusState.ts`
+  - `frontend/src/state/actions/gitDiffOverlayActions.ts`
+  - `frontend/src/state/actions/gitStatusAndDiff.ts`
+  - `frontend/src/state/actions/gitStatusState.test.ts`
+  - `frontend/src/state/actions/gitDiffOverlayActions.test.ts`
+  - `frontend/src/state/actions/git.ts`
+  - `frontend/src/components/Panes/Overview/Git/GitPane.tsx`
+  - `frontend/src/components/Git/GitDiffOverlay.tsx`
+  - `frontend/src/components/Git/GitOverlayLayer.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/gitStatusState.test.ts src/state/actions/gitDiffOverlayActions.test.ts src/state/actions/git.test.ts src/components/Panes/Overview/Git/GitPane.test.tsx src/components/Git/GitOverlayLayer.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/gitStatusAndDiff.ts src/state/actions/gitStatusState.ts src/state/actions/gitDiffOverlayActions.ts src/state/actions/gitStatusState.test.ts src/state/actions/gitDiffOverlayActions.test.ts src/state/actions/git.ts src/components/Panes/Overview/Git/GitPane.tsx src/components/Git/GitDiffOverlay.tsx src/components/Git/GitOverlayLayer.tsx src/components/Git/GitGraphOverlay.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual git state/action ownership
+    split and did not change frontend rendering behavior.
+- Commit hash:
+  - `206c84daac9fb2f7987dd5d3baecf6bccb4d98d5`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/shareSessionState.ts` so share-session
+    bootstrap and deployment-mode initialization stop living beside cached
+    session reuse and cookie/session-storage reads.
