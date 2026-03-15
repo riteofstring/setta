@@ -33,8 +33,9 @@ type Mutation func(Document) (Document, error)
 type AfterSaveHook func(context.Context, Snapshot) error
 
 type RuntimeOptions struct {
-	AfterSave       AfterSaveHook
-	PasswordSecrets PasswordSecretStore
+	AfterSave             AfterSaveHook
+	PasswordSecrets       PasswordSecretStore
+	WatchCodeIgnoredRoots []string
 }
 
 type Runtime struct {
@@ -89,6 +90,11 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 		return nil, err
 	}
 	document = document.withPasswordSecrets(options.PasswordSecrets)
+	watchCodeIgnoredRoots, err := normalizeWatchCodeIgnoredRoots(options.WatchCodeIgnoredRoots)
+	if err != nil {
+		return nil, fmt.Errorf("normalize watch code ignored roots: %w", err)
+	}
+	document = document.withWatchCodeIgnoredRoots(watchCodeIgnoredRoots)
 
 	return openRuntime(document, saveController{
 		store:      store,
@@ -104,6 +110,11 @@ func OpenOverlayRuntime(document Document) (*Runtime, error) {
 
 func OpenOverlayRuntimeWithOptions(document Document, options RuntimeOptions) (*Runtime, error) {
 	document = document.withPasswordSecrets(options.PasswordSecrets)
+	watchCodeIgnoredRoots, err := normalizeWatchCodeIgnoredRoots(options.WatchCodeIgnoredRoots)
+	if err != nil {
+		return nil, fmt.Errorf("normalize watch code ignored roots: %w", err)
+	}
+	document = document.withWatchCodeIgnoredRoots(watchCodeIgnoredRoots)
 	return openRuntime(document, saveController{
 		savePolicy: SavePolicyInMemory,
 		afterSave:  options.AfterSave,

@@ -209,6 +209,95 @@ func TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled(t *testing.T
 	}
 }
 
+func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicitIgnoredFiles(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectDir := filepath.Join(workspaceRoot, "project")
+	stateRoot := filepath.Join(projectDir, "custom_state")
+	configuredRuntimeRoot := filepath.Join(projectDir, "scratch_runtime")
+	userRuntimeDir := filepath.Join(projectDir, "runtime")
+	nodeModulesDir := filepath.Join(projectDir, "node_modules")
+	if err := os.MkdirAll(stateRoot, 0o755); err != nil {
+		t.Fatalf("mkdir state root: %v", err)
+	}
+	if err := os.MkdirAll(configuredRuntimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.MkdirAll(userRuntimeDir, 0o755); err != nil {
+		t.Fatalf("mkdir user runtime dir: %v", err)
+	}
+	if err := os.MkdirAll(nodeModulesDir, 0o755); err != nil {
+		t.Fatalf("mkdir node_modules dir: %v", err)
+	}
+
+	trackedFile := filepath.Join(projectDir, "tracked.py")
+	userRuntimeFile := filepath.Join(userRuntimeDir, "keep.py")
+	stateRootFile := filepath.Join(stateRoot, "ignored.py")
+	configuredRuntimeFile := filepath.Join(configuredRuntimeRoot, "ignored.py")
+	nodeModulesFile := filepath.Join(nodeModulesDir, "ignored.py")
+	for path, content := range map[string]string{
+		trackedFile:           "def tracked(value):\n    return value\n",
+		userRuntimeFile:       "def keep(value):\n    return value\n",
+		stateRootFile:         "def state_ignored(value):\n    return value\n",
+		configuredRuntimeFile: "def runtime_ignored(value):\n    return value\n",
+		nodeModulesFile:       "def node_ignored(value):\n    return value\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	runtime, err := OpenOverlayRuntimeWithOptions(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				WatchCodeFiles: []string{
+					"project/tracked.py",
+					"project/custom_state/ignored.py",
+					"project/scratch_runtime/ignored.py",
+					"project/node_modules/ignored.py",
+					"project/runtime/keep.py",
+				},
+				WatchCodeFolders: []WatchCodeFolder{
+					{Path: "project", Recursive: true},
+				},
+			},
+		},
+	}, RuntimeOptions{
+		WatchCodeIgnoredRoots: []string{stateRoot, configuredRuntimeRoot},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetWatchCodeEnabled(context.Background(), "project-alpha", true, workspaceRoot); err != nil {
+		t.Fatalf("enable watch code: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	expected := map[string][]string{
+		filepath.Clean(trackedFile):     []string{"project.tracked.tracked:function"},
+		filepath.Clean(userRuntimeFile): []string{"project.runtime.keep.keep:function"},
+	}
+	if !reflect.DeepEqual(project.WatchCodeBaselineByPath, expected) {
+		t.Fatalf("expected only tracked and user runtime baselines %#v, got %#v", expected, project.WatchCodeBaselineByPath)
+	}
+	for _, ignoredPath := range []string{stateRootFile, configuredRuntimeFile, nodeModulesFile} {
+		if _, ok := project.WatchCodeBaselineByPath[filepath.Clean(ignoredPath)]; ok {
+			t.Fatalf("expected ignored path %q to stay out of baseline %#v", ignoredPath, project.WatchCodeBaselineByPath)
+		}
+	}
+}
+
 func TestRuntimeSetWatchCodeInputsRejectsOutsideWorkspace(t *testing.T) {
 	t.Parallel()
 

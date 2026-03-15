@@ -106,6 +106,61 @@ func TestBuildTrackedFileSnapshotIgnoresEachDocumentedDefaultDirAndKeepsUserRunt
 	}
 }
 
+func TestBuildTrackedFileSnapshotIgnoresConfiguredRootsByResolvedPath(t *testing.T) {
+	t.Parallel()
+
+	// Snapshot builds should ignore configured state/runtime roots without suppressing unrelated runtime-named folders.
+	workspaceRoot := t.TempDir()
+	projectDir := filepath.Join(workspaceRoot, "project")
+	stateRoot := filepath.Join(projectDir, "custom_state")
+	configuredRuntimeRoot := filepath.Join(projectDir, "scratch_runtime")
+	userRuntimeDir := filepath.Join(projectDir, "runtime")
+	if err := os.MkdirAll(stateRoot, 0o755); err != nil {
+		t.Fatalf("mkdir state root: %v", err)
+	}
+	if err := os.MkdirAll(configuredRuntimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir configured runtime root: %v", err)
+	}
+	if err := os.MkdirAll(userRuntimeDir, 0o755); err != nil {
+		t.Fatalf("mkdir user runtime dir: %v", err)
+	}
+
+	trackedFile := filepath.Join(projectDir, "tracked.py")
+	userRuntimeFile := filepath.Join(userRuntimeDir, "keep.py")
+	stateRootFile := filepath.Join(stateRoot, "ignored.py")
+	configuredRuntimeFile := filepath.Join(configuredRuntimeRoot, "ignored.py")
+	for _, path := range []string{trackedFile, userRuntimeFile, stateRootFile, configuredRuntimeFile} {
+		if err := os.WriteFile(path, []byte("print('x')\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
+		"project-alpha": {
+			Enabled:      true,
+			Folders:      []FolderInput{{Path: projectDir, Recursive: true}},
+			IgnoredRoots: []string{stateRoot, configuredRuntimeRoot},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tracked file snapshot: %v", err)
+	}
+
+	if len(snapshot.Files) != 2 {
+		t.Fatalf("expected only tracked and user-runtime files, got %#v", snapshot.Files)
+	}
+	for _, expectedPath := range []string{trackedFile, userRuntimeFile} {
+		if _, ok := snapshot.Files[expectedPath]; !ok {
+			t.Fatalf("expected snapshot to include %q, got %#v", expectedPath, snapshot.Files)
+		}
+	}
+	for _, ignoredPath := range []string{stateRootFile, configuredRuntimeFile} {
+		if _, ok := snapshot.Files[ignoredPath]; ok {
+			t.Fatalf("expected snapshot to omit %q, got %#v", ignoredPath, snapshot.Files)
+		}
+	}
+}
+
 func TestDiffTrackedFileSnapshotsDetectsRenameWithoutHeuristics(t *testing.T) {
 	t.Parallel()
 

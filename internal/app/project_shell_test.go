@@ -2496,11 +2496,19 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 			Files: []string{
 				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "alpha.py"),
 			},
+			IgnoredRoots: []string{
+				cfg.Paths.SettaFilesRoot,
+				cfg.Paths.RuntimeRoot,
+			},
 		},
 		"project-beta": {
 			Enabled: true,
 			Folders: []watchcode.FolderInput{
 				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "beta"), Recursive: true},
+			},
+			IgnoredRoots: []string{
+				cfg.Paths.SettaFilesRoot,
+				cfg.Paths.RuntimeRoot,
 			},
 		},
 	}
@@ -2534,6 +2542,10 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 			Enabled: true,
 			Files: []string{
 				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "alpha.py"),
+			},
+			IgnoredRoots: []string{
+				cfg.Paths.SettaFilesRoot,
+				cfg.Paths.RuntimeRoot,
 			},
 		},
 	}

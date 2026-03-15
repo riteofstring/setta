@@ -142,13 +142,13 @@ func trackedPythonFiles(configs map[string]ConfigSnapshot) ([]string, error) {
 			continue
 		}
 		for _, filePath := range snapshot.Files {
-			if !isPythonSourcePath(filePath) || shouldIgnorePath(filePath) {
+			if !isPythonSourcePath(filePath) || shouldIgnorePath(filePath, snapshot.IgnoredRoots) {
 				continue
 			}
 			trackedPaths[filePath] = struct{}{}
 		}
 		for _, folder := range snapshot.Folders {
-			paths, err := pythonFilesInFolder(folder.Path, folder.Recursive)
+			paths, err := pythonFilesInFolder(folder.Path, folder.Recursive, snapshot.IgnoredRoots)
 			if err != nil {
 				return nil, err
 			}
@@ -166,7 +166,7 @@ func trackedPythonFiles(configs map[string]ConfigSnapshot) ([]string, error) {
 	return output, nil
 }
 
-func pythonFilesInFolder(root string, recursive bool) ([]string, error) {
+func pythonFilesInFolder(root string, recursive bool, ignoredRoots []string) ([]string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -175,6 +175,9 @@ func pythonFilesInFolder(root string, recursive bool) ([]string, error) {
 		return nil, err
 	}
 	if !info.IsDir() {
+		return nil, nil
+	}
+	if shouldIgnorePath(root, ignoredRoots) {
 		return nil, nil
 	}
 
@@ -189,7 +192,7 @@ func pythonFilesInFolder(root string, recursive bool) ([]string, error) {
 				continue
 			}
 			path := filepath.Join(root, entry.Name())
-			if !isPythonSourcePath(path) || shouldIgnorePath(path) {
+			if !isPythonSourcePath(path) || shouldIgnorePath(path, ignoredRoots) {
 				continue
 			}
 			output = append(output, path)
@@ -207,12 +210,12 @@ func pythonFilesInFolder(root string, recursive bool) ([]string, error) {
 			return walkErr
 		}
 		if entry.IsDir() {
-			if path != root && shouldIgnorePath(path) {
+			if path != root && shouldIgnorePath(path, ignoredRoots) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !isPythonSourcePath(path) || shouldIgnorePath(path) {
+		if !isPythonSourcePath(path) || shouldIgnorePath(path, ignoredRoots) {
 			return nil
 		}
 		output = append(output, path)

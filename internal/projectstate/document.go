@@ -27,7 +27,8 @@ type Document struct {
 	AppDefinition    *AppDefinition     `json:"appDefinition,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
-	passwordSecrets PasswordSecretStore
+	passwordSecrets       PasswordSecretStore
+	watchCodeIgnoredRoots []string
 }
 
 type Project struct {
@@ -78,6 +79,7 @@ func NewDocument() Document {
 
 func (d Document) Clone() Document {
 	cloned := d
+	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
 	if d.AppDefinition != nil {
 		appDefinition := d.AppDefinition.Clone()
 		cloned.AppDefinition = &appDefinition
@@ -103,6 +105,12 @@ func (d Document) withPasswordSecrets(store PasswordSecretStore) Document {
 		project.passwordSecrets = store
 		cloned.Projects[projectID] = project
 	}
+	return cloned
+}
+
+func (d Document) withWatchCodeIgnoredRoots(roots []string) Document {
+	cloned := d.Clone()
+	cloned.watchCodeIgnoredRoots = append([]string(nil), roots...)
 	return cloned
 }
 

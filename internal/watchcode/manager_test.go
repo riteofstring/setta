@@ -497,6 +497,75 @@ func TestManagerHandleFileEventIgnoresEachDocumentedDefaultDirAndKeepsUserRuntim
 	}
 }
 
+func TestManagerHandleFileEventIgnoresConfiguredRootsByResolvedPath(t *testing.T) {
+	t.Parallel()
+
+	// Runtime events should ignore configured state/runtime roots without suppressing unrelated runtime-named folders.
+	workspaceRoot := t.TempDir()
+	stateRoot := filepath.Join(workspaceRoot, "custom_state")
+	configuredRuntimeRoot := filepath.Join(workspaceRoot, "scratch_runtime")
+	userRuntimeDir := filepath.Join(workspaceRoot, "runtime")
+	if err := os.MkdirAll(stateRoot, 0o755); err != nil {
+		t.Fatalf("mkdir state root: %v", err)
+	}
+	if err := os.MkdirAll(configuredRuntimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir configured runtime root: %v", err)
+	}
+	if err := os.MkdirAll(userRuntimeDir, 0o755); err != nil {
+		t.Fatalf("mkdir user runtime dir: %v", err)
+	}
+
+	stateRootFile := filepath.Join(stateRoot, "ignored.py")
+	configuredRuntimeFile := filepath.Join(configuredRuntimeRoot, "ignored.py")
+	userRuntimeFile := filepath.Join(userRuntimeDir, "keep.py")
+	for _, path := range []string{stateRootFile, configuredRuntimeFile, userRuntimeFile} {
+		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled:      true,
+			Folders:      []FolderInput{{Path: ".", Recursive: true}},
+			IgnoredRoots: []string{stateRoot, configuredRuntimeRoot},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	for _, ignoredFile := range []string{stateRootFile, configuredRuntimeFile} {
+		if manager.PathMatchesWatchInputs("project-alpha", ignoredFile) {
+			t.Fatalf("expected ignored root file %q not to match watch inputs", ignoredFile)
+		}
+		if err := manager.HandleFileEvent(ignoredFile, EventTypeModified, ""); err != nil {
+			t.Fatalf("handle ignored file event for %q: %v", ignoredFile, err)
+		}
+	}
+	if !manager.PathMatchesWatchInputs("project-alpha", userRuntimeFile) {
+		t.Fatalf("expected unrelated runtime file %q to match watch inputs", userRuntimeFile)
+	}
+	if err := manager.HandleFileEvent(userRuntimeFile, EventTypeModified, ""); err != nil {
+		t.Fatalf("handle user runtime file event: %v", err)
+	}
+
+	expectedScans := []ScanRequest{{
+		ConfigID:     "project-alpha",
+		Path:         userRuntimeFile,
+		BaselineOnly: false,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
+		t.Fatalf("expected only user runtime file to schedule a scan, got %#v", manager.ScheduledScans())
+	}
+	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+		t.Fatalf("expected no deletes for ignored-root inputs, got %#v", deletes)
+	}
+}
+
 func TestManagerHandleFileEventSchedulesDeleteForTrackedDeletes(t *testing.T) {
 	t.Parallel()
 

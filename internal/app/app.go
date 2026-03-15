@@ -403,6 +403,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
 			MainRuntime: projectstate.RuntimeOptions{
 				PasswordSecrets: passwordSecrets,
+				WatchCodeIgnoredRoots: []string{
+					cfg.Paths.SettaFilesRoot,
+					cfg.Paths.RuntimeRoot,
+				},
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 					if watchCodeService != nil {
 						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {

@@ -16,15 +16,17 @@ type FolderInput struct {
 }
 
 type ConfigInputs struct {
-	Enabled bool
-	Files   []string
-	Folders []FolderInput
+	Enabled      bool
+	Files        []string
+	Folders      []FolderInput
+	IgnoredRoots []string
 }
 
 type ConfigSnapshot struct {
-	Enabled bool
-	Files   []string
-	Folders []FolderInput
+	Enabled      bool
+	Files        []string
+	Folders      []FolderInput
+	IgnoredRoots []string
 }
 
 type EventType string
@@ -278,6 +280,9 @@ func (m *Manager) PathMatchesWatchInputs(configID string, path string) bool {
 	if err != nil {
 		return false
 	}
+	if shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) {
+		return false
+	}
 	return pathMatchesSnapshot(normalizedPath, snapshot)
 }
 
@@ -344,12 +349,12 @@ func (m *Manager) HandleFileEvent(path string, eventType EventType, destinationP
 		if err != nil {
 			return err
 		}
-		srcIsPython := isPythonSourcePath(sourcePath) && !shouldIgnorePath(sourcePath)
-		destIsPython := isPythonSourcePath(destPath) && !shouldIgnorePath(destPath)
 		for configID, snapshot := range m.configSnapshots {
 			if !snapshot.Enabled {
 				continue
 			}
+			srcIsPython := isPythonSourcePath(sourcePath) && !shouldIgnorePath(sourcePath, snapshot.IgnoredRoots)
+			destIsPython := isPythonSourcePath(destPath) && !shouldIgnorePath(destPath, snapshot.IgnoredRoots)
 			srcMatches := srcIsPython && pathMatchesSnapshot(sourcePath, snapshot)
 			destMatches := destIsPython && pathMatchesSnapshot(destPath, snapshot)
 			if destMatches {
@@ -368,11 +373,11 @@ func (m *Manager) HandleFileEvent(path string, eventType EventType, destinationP
 		if err != nil {
 			return err
 		}
-		if !isPythonSourcePath(normalizedPath) || shouldIgnorePath(normalizedPath) {
+		if !isPythonSourcePath(normalizedPath) {
 			return nil
 		}
 		for configID, snapshot := range m.configSnapshots {
-			if !snapshot.Enabled || !pathMatchesSnapshot(normalizedPath, snapshot) {
+			if !snapshot.Enabled || shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) || !pathMatchesSnapshot(normalizedPath, snapshot) {
 				continue
 			}
 			key := taskKey{ConfigID: configID, Path: normalizedPath}
@@ -419,6 +424,9 @@ func (m *Manager) matchingTaskKey(configID string, path string) (taskKey, bool, 
 	if err != nil {
 		return taskKey{}, false, err
 	}
+	if shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) {
+		return taskKey{}, false, nil
+	}
 	if !pathMatchesSnapshot(normalizedPath, snapshot) {
 		return taskKey{}, false, nil
 	}
@@ -437,10 +445,15 @@ func buildConfigSnapshot(workspaceRoot string, config ConfigInputs) (ConfigSnaps
 	if err != nil {
 		return ConfigSnapshot{}, err
 	}
+	ignoredRoots, err := resolveIgnoredRoots(config.IgnoredRoots)
+	if err != nil {
+		return ConfigSnapshot{}, err
+	}
 	return ConfigSnapshot{
-		Enabled: config.Enabled,
-		Files:   files,
-		Folders: folders,
+		Enabled:      config.Enabled,
+		Files:        files,
+		Folders:      folders,
+		IgnoredRoots: ignoredRoots,
 	}, nil
 }
 
@@ -497,6 +510,28 @@ func resolveSnapshotFolders(workspaceRoot string, folders []FolderInput) ([]Fold
 	return output, nil
 }
 
+func resolveIgnoredRoots(roots []string) ([]string, error) {
+	output := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, raw := range roots {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		resolved, err := statefs.NormalizePath(trimmed, "")
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := seen[resolved]; exists {
+			continue
+		}
+		seen[resolved] = struct{}{}
+		output = append(output, resolved)
+	}
+	sort.Strings(output)
+	return output, nil
+}
+
 func desiredWatchDirsFromSnapshots(snapshots map[string]ConfigSnapshot) map[string]bool {
 	output := make(map[string]bool)
 	for _, snapshot := range snapshots {
@@ -504,10 +539,16 @@ func desiredWatchDirsFromSnapshots(snapshots map[string]ConfigSnapshot) map[stri
 			continue
 		}
 		for _, filePath := range snapshot.Files {
+			if shouldIgnorePath(filePath, snapshot.IgnoredRoots) {
+				continue
+			}
 			parent := filepath.Dir(filePath)
 			mergeDesiredWatchDir(output, parent, false)
 		}
 		for _, folder := range snapshot.Folders {
+			if shouldIgnorePath(folder.Path, snapshot.IgnoredRoots) {
+				continue
+			}
 			mergeDesiredWatchDir(output, folder.Path, folder.Recursive)
 		}
 	}
@@ -637,9 +678,10 @@ func cloneBoolMap(source map[string]bool) map[string]bool {
 
 func cloneConfigSnapshot(source ConfigSnapshot) ConfigSnapshot {
 	return ConfigSnapshot{
-		Enabled: source.Enabled,
-		Files:   append([]string(nil), source.Files...),
-		Folders: append([]FolderInput(nil), source.Folders...),
+		Enabled:      source.Enabled,
+		Files:        append([]string(nil), source.Files...),
+		Folders:      append([]FolderInput(nil), source.Folders...),
+		IgnoredRoots: append([]string(nil), source.IgnoredRoots...),
 	}
 }
 
@@ -654,10 +696,15 @@ func isPythonSourcePath(path string) bool {
 	return filepath.Ext(path) == ".py"
 }
 
-func shouldIgnorePath(path string) bool {
+func shouldIgnorePath(path string, ignoredRoots []string) bool {
 	cleaned := filepath.Clean(path)
 	for _, part := range strings.Split(filepath.ToSlash(cleaned), "/") {
 		if _, ok := defaultIgnoredDirNames[part]; ok {
+			return true
+		}
+	}
+	for _, ignoredRoot := range ignoredRoots {
+		if isDescendantOrSelf(cleaned, ignoredRoot) {
 			return true
 		}
 	}

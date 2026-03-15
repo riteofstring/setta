@@ -8107,6 +8107,10 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 			Folders: []watchcode.FolderInput{
 				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg"), Recursive: true},
 			},
+			IgnoredRoots: []string{
+				cfg.Paths.SettaFilesRoot,
+				cfg.Paths.RuntimeRoot,
+			},
 		},
 	}
 	if !reflect.DeepEqual(app.watchCode.ConfigSnapshots(), expected) {
@@ -8165,6 +8169,10 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 			},
 			Folders: []watchcode.FolderInput{
 				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "nested"), Recursive: false},
+			},
+			IgnoredRoots: []string{
+				cfg.Paths.SettaFilesRoot,
+				cfg.Paths.RuntimeRoot,
 			},
 		},
 	}

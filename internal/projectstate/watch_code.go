@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"setta/internal/statefs"
@@ -69,7 +70,7 @@ func (d *Document) SetWatchCodeEnabled(projectID string, enabled bool, workspace
 	if err != nil {
 		return err
 	}
-	if err := project.SetWatchCodeEnabled(enabled, workspaceRoot); err != nil {
+	if err := project.setWatchCodeEnabledWithIgnoredRoots(enabled, workspaceRoot, d.watchCodeIgnoredRoots); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -95,6 +96,10 @@ func (r *Runtime) SetWatchCodeEnabled(
 }
 
 func (p *Project) SetWatchCodeEnabled(enabled bool, workspaceRoot string) error {
+	return p.setWatchCodeEnabledWithIgnoredRoots(enabled, workspaceRoot, nil)
+}
+
+func (p *Project) setWatchCodeEnabledWithIgnoredRoots(enabled bool, workspaceRoot string, ignoredRoots []string) error {
 	if p == nil {
 		return ErrProjectNotFound
 	}
@@ -105,7 +110,7 @@ func (p *Project) SetWatchCodeEnabled(enabled bool, workspaceRoot string) error 
 	previousEnabled := p.WatchCodeEnabled
 	p.WatchCodeEnabled = enabled
 	if enabled && !previousEnabled {
-		return p.baselineWatchCodeOnEnable(workspaceRoot)
+		return p.baselineWatchCodeOnEnable(workspaceRoot, ignoredRoots)
 	}
 	return nil
 }
@@ -124,7 +129,7 @@ func (d *Document) SetWatchCodeInputs(
 	if err != nil {
 		return err
 	}
-	if err := project.SetWatchCodeInputs(folders, files, workspaceRoot); err != nil {
+	if err := project.setWatchCodeInputsWithIgnoredRoots(folders, files, workspaceRoot, d.watchCodeIgnoredRoots); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -151,6 +156,15 @@ func (r *Runtime) SetWatchCodeInputs(
 }
 
 func (p *Project) SetWatchCodeInputs(folders []WatchCodeFolder, files []string, workspaceRoot string) error {
+	return p.setWatchCodeInputsWithIgnoredRoots(folders, files, workspaceRoot, nil)
+}
+
+func (p *Project) setWatchCodeInputsWithIgnoredRoots(
+	folders []WatchCodeFolder,
+	files []string,
+	workspaceRoot string,
+	ignoredRoots []string,
+) error {
 	if p == nil {
 		return ErrProjectNotFound
 	}
@@ -171,7 +185,7 @@ func (p *Project) SetWatchCodeInputs(folders []WatchCodeFolder, files []string, 
 	p.WatchCodeFolders = normalizedFolders
 	p.WatchCodeFiles = normalizedFiles
 	if p.WatchCodeEnabled {
-		return p.baselineWatchCodeForNewInputs(workspaceRoot, previousSnapshot)
+		return p.baselineWatchCodeForNewInputs(workspaceRoot, previousSnapshot, ignoredRoots)
 	}
 	return nil
 }
@@ -279,22 +293,27 @@ func WatchCodeConfigInputs(document Document) map[string]watchcode.ConfigInputs 
 			})
 		}
 		configs[projectID] = watchcode.ConfigInputs{
-			Enabled: project.WatchCodeEnabled,
-			Files:   append([]string(nil), project.WatchCodeFiles...),
-			Folders: folders,
+			Enabled:      project.WatchCodeEnabled,
+			Files:        append([]string(nil), project.WatchCodeFiles...),
+			Folders:      folders,
+			IgnoredRoots: append([]string(nil), document.watchCodeIgnoredRoots...),
 		}
 	}
 	return configs
 }
 
-func (p *Project) baselineWatchCodeOnEnable(workspaceRoot string) error {
-	if err := p.baselineWatchCodeInputs(workspaceRoot); err != nil {
+func (p *Project) baselineWatchCodeOnEnable(workspaceRoot string, ignoredRoots []string) error {
+	if err := p.baselineWatchCodeInputs(workspaceRoot, ignoredRoots); err != nil {
 		return err
 	}
 	return p.baselineWatchCodeCodeSections(workspaceRoot)
 }
 
-func (p *Project) baselineWatchCodeForNewInputs(workspaceRoot string, previous watchCodeConfigSnapshot) error {
+func (p *Project) baselineWatchCodeForNewInputs(
+	workspaceRoot string,
+	previous watchCodeConfigSnapshot,
+	ignoredRoots []string,
+) error {
 	next := buildWatchCodeConfigSnapshot(*p)
 	if !next.Enabled {
 		return nil
@@ -308,7 +327,7 @@ func (p *Project) baselineWatchCodeForNewInputs(workspaceRoot string, previous w
 		if _, exists := previousFiles[filePath]; exists {
 			continue
 		}
-		if err := p.baselineWatchCodeFile(workspaceRoot, filePath); err != nil {
+		if err := p.baselineWatchCodeFile(workspaceRoot, filePath, ignoredRoots); err != nil {
 			return err
 		}
 	}
@@ -328,7 +347,7 @@ func (p *Project) baselineWatchCodeForNewInputs(workspaceRoot string, previous w
 		if _, exists := previousFolders[key]; exists {
 			continue
 		}
-		if err := p.baselineWatchCodeFolder(workspaceRoot, folder.Path, folder.Recursive); err != nil {
+		if err := p.baselineWatchCodeFolder(workspaceRoot, folder.Path, folder.Recursive, ignoredRoots); err != nil {
 			return err
 		}
 	}
@@ -336,9 +355,9 @@ func (p *Project) baselineWatchCodeForNewInputs(workspaceRoot string, previous w
 	return nil
 }
 
-func (p *Project) baselineWatchCodeInputs(workspaceRoot string) error {
+func (p *Project) baselineWatchCodeInputs(workspaceRoot string, ignoredRoots []string) error {
 	for _, filePath := range p.WatchCodeFiles {
-		if err := p.baselineWatchCodeFile(workspaceRoot, filePath); err != nil {
+		if err := p.baselineWatchCodeFile(workspaceRoot, filePath, ignoredRoots); err != nil {
 			return err
 		}
 	}
@@ -346,7 +365,7 @@ func (p *Project) baselineWatchCodeInputs(workspaceRoot string) error {
 		if strings.TrimSpace(folder.Path) == "" {
 			continue
 		}
-		if err := p.baselineWatchCodeFolder(workspaceRoot, folder.Path, folder.Recursive); err != nil {
+		if err := p.baselineWatchCodeFolder(workspaceRoot, folder.Path, folder.Recursive, ignoredRoots); err != nil {
 			return err
 		}
 	}
@@ -419,13 +438,18 @@ func watchCodeBoundSectionSource(project Project, sectionID string, workspaceRoo
 	return raw, true, nil
 }
 
-func (p *Project) baselineWatchCodeFolder(workspaceRoot string, relativeFolderPath string, recursive bool) error {
+func (p *Project) baselineWatchCodeFolder(
+	workspaceRoot string,
+	relativeFolderPath string,
+	recursive bool,
+	ignoredRoots []string,
+) error {
 	absoluteFolderPath, err := resolveWatchCodeAbsolutePath(workspaceRoot, relativeFolderPath, "watch code folder path")
 	if err != nil {
 		return err
 	}
 
-	filePaths, err := iterWatchCodePythonFiles(absoluteFolderPath, recursive)
+	filePaths, err := iterWatchCodePythonFiles(absoluteFolderPath, recursive, ignoredRoots)
 	if err != nil {
 		return err
 	}
@@ -441,10 +465,13 @@ func (p *Project) baselineWatchCodeFolder(workspaceRoot string, relativeFolderPa
 	return nil
 }
 
-func (p *Project) baselineWatchCodeFile(workspaceRoot string, relativeFilePath string) error {
+func (p *Project) baselineWatchCodeFile(workspaceRoot string, relativeFilePath string, ignoredRoots []string) error {
 	absoluteFilePath, err := resolveWatchCodeAbsolutePath(workspaceRoot, relativeFilePath, "watch code file path")
 	if err != nil {
 		return err
+	}
+	if shouldIgnoreWatchCodePath(absoluteFilePath, ignoredRoots) {
+		return nil
 	}
 	return p.baselineWatchCodeAbsoluteFile(workspaceRoot, absoluteFilePath, relativeFilePath)
 }
@@ -496,7 +523,7 @@ func (p *Project) recordWatchCodeBaseline(absolutePath string, identities []stri
 	p.WatchCodeBaselineByPath[absolutePath] = cloned
 }
 
-func iterWatchCodePythonFiles(root string, recursive bool) ([]string, error) {
+func iterWatchCodePythonFiles(root string, recursive bool, ignoredRoots []string) ([]string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -505,6 +532,9 @@ func iterWatchCodePythonFiles(root string, recursive bool) ([]string, error) {
 		return nil, err
 	}
 	if !info.IsDir() {
+		return nil, nil
+	}
+	if shouldIgnoreWatchCodePath(root, ignoredRoots) {
 		return nil, nil
 	}
 
@@ -519,7 +549,7 @@ func iterWatchCodePythonFiles(root string, recursive bool) ([]string, error) {
 				continue
 			}
 			absolutePath := filepath.Join(root, entry.Name())
-			if filepath.Ext(entry.Name()) != ".py" || shouldIgnoreWatchCodePath(absolutePath) {
+			if filepath.Ext(entry.Name()) != ".py" || shouldIgnoreWatchCodePath(absolutePath, ignoredRoots) {
 				continue
 			}
 			output = append(output, absolutePath)
@@ -536,12 +566,12 @@ func iterWatchCodePythonFiles(root string, recursive bool) ([]string, error) {
 			return walkErr
 		}
 		if entry.IsDir() {
-			if currentPath != root && shouldIgnoreWatchCodePath(currentPath) {
+			if currentPath != root && shouldIgnoreWatchCodePath(currentPath, ignoredRoots) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if filepath.Ext(entry.Name()) != ".py" || shouldIgnoreWatchCodePath(currentPath) {
+		if filepath.Ext(entry.Name()) != ".py" || shouldIgnoreWatchCodePath(currentPath, ignoredRoots) {
 			return nil
 		}
 		output = append(output, currentPath)
@@ -553,14 +583,52 @@ func iterWatchCodePythonFiles(root string, recursive bool) ([]string, error) {
 	return output, nil
 }
 
-func shouldIgnoreWatchCodePath(absolutePath string) bool {
+func shouldIgnoreWatchCodePath(absolutePath string, ignoredRoots []string) bool {
 	cleaned := filepath.Clean(absolutePath)
 	for _, part := range strings.Split(filepath.ToSlash(cleaned), "/") {
 		if _, ignored := defaultWatchCodeIgnoreDirNames[part]; ignored {
 			return true
 		}
 	}
+	for _, ignoredRoot := range ignoredRoots {
+		if isWatchCodeDescendantOrSelf(cleaned, ignoredRoot) {
+			return true
+		}
+	}
 	return false
+}
+
+func normalizeWatchCodeIgnoredRoots(roots []string) ([]string, error) {
+	output := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, raw := range roots {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		resolved, err := statefs.NormalizePath(trimmed, "")
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := seen[resolved]; exists {
+			continue
+		}
+		seen[resolved] = struct{}{}
+		output = append(output, resolved)
+	}
+	sort.Strings(output)
+	return output, nil
+}
+
+func isWatchCodeDescendantOrSelf(path string, root string) bool {
+	if strings.TrimSpace(root) == "" {
+		return false
+	}
+	relative, err := filepath.Rel(filepath.Clean(root), filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
 }
 
 func watchCodeRelativePath(workspaceRoot string, absolutePath string) (string, error) {
