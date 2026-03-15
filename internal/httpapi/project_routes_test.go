@@ -7250,6 +7250,62 @@ func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesSectionDataIDEMutationsAreBlockedInDeploymentModes(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": sectionDataRouteTestProject(t),
+					},
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteToggleGroupOrientation,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"group-section"}`,
+				},
+				{
+					route: RouteSetImageAreaImagePath,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"/tmp/example.png"}`,
+				},
+				{
+					route: RouteSetSocialURL,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"social-section","url":"https://example.com"}`,
+				},
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("%s %s: expected 403, got %d with body %q", mode, requestSpec.route, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+					t.Fatalf("%s %s: expected mode_forbidden response, got %q", mode, requestSpec.route, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+					t.Fatalf("%s %s: expected deployment-mode denial detail, got %q", mode, requestSpec.route, response.Body.String())
+				}
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSectionDataUsesDeploymentOverlayWhenLayoutChangesAllowed(t *testing.T) {
 	t.Parallel()
 
