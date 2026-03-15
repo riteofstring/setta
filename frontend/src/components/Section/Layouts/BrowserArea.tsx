@@ -1,8 +1,8 @@
 import {
   FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
   FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-  FileBrowserFilter,
-} from "components/Panes/Overview/FileBrowser/FileBrowserPane";
+} from "components/Panes/Overview/FileBrowser/fileBrowserPaneListSurface";
+import { FileBrowserFilter } from "components/Panes/Overview/FileBrowser/fileBrowserPaneSearchFilter";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import {

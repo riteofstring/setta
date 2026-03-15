@@ -41,12 +41,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
@@ -61,8 +61,9 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 
 - Chat, project-AI, and project chat windowing hotspots now have a dedicated companion plan in [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
 - Overview and authoring hotspots, including `GitGraphOverlay.tsx`,
-  `PluginsPane.tsx`, `RunInstructions.tsx`, and `FileBrowserPane.tsx`, are
-  covered in [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
+  `PluginsPane.tsx`, `RunInstructions.tsx`, and the follow-through
+  `FileBrowserPane.tsx` path, are covered in
+  [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
 - Browser/layout surfaces such as `BrowserArea.tsx`, the now-localized
   `TaskBoardArea.tsx` owner path, and the now-localized `ChatArea.tsx` owner
   path remain covered in
@@ -87,6 +88,13 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   template CRUD to `projectAISettingsPromptTemplates.tsx`; chat/project-AI
   follow-through should now return to the larger remaining front doors in
   [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- `FileBrowserPane.tsx` is no longer a top hotspot after delegating the
+  filter/save-search/search-scope UI to `fileBrowserPaneSearchFilter.tsx` and
+  the file-browser list header, virtualized rows, and row-level drag shell to
+  `fileBrowserPaneListSurface.tsx`; pane follow-through should now start from
+  the larger remaining front doors in
+  [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) and
+  [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
 - `GitGraphOverlay.tsx` now delegates the selected-commit summary, expanded
   commit metadata or file list, and diff viewer to
   `gitGraphOverlaySelectedCommitPane.tsx`; pane follow-through should now start

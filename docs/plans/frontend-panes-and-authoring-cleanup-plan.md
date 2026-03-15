@@ -18,7 +18,7 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 - Out of scope:
   - chat/project-AI pane internals already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
 
-## Status Refresh (2026-03-15)
+## Status Refresh (2026-03-16)
 
 - `AppConfigPane.tsx` is no longer the original 1700+ line monolith. It already delegates preview/draft shaping work to `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`.
 - `PluginsPane.tsx` is no longer a 2000-line first-hop pane surface. It now
@@ -42,19 +42,22 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   default first target in this companion plan.
 - `FileBrowserPane.tsx` now delegates tree-data transport and tree view-model
   ownership to `useFileBrowserPaneTreeData.ts` and
-  `fileBrowserPaneTreeModel.ts`, so future work in this domain should extend
-  those seams instead of reintroducing transport logic into the pane shell.
+  `fileBrowserPaneTreeModel.ts`, the filter/save-search/search-scope UI to
+  `fileBrowserPaneSearchFilter.tsx`, and the header plus virtualized row
+  surface to `fileBrowserPaneListSurface.tsx`, so future work in this domain
+  should extend those seams instead of reintroducing render or transport logic
+  into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
   to the largest pane and git entry surfaces contributors still open first:
-  `FileBrowserPane.tsx`, then `GitGraphOverlay.tsx`,
-  `AppConfigPane.tsx`, and authoring follow-up work.
+  `GitGraphOverlay.tsx`, then `AppConfigPane.tsx`,
+  `ViewingEditingMode.tsx`, and authoring follow-up work.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1224 lines after the local resize-model, resize-hook, and selected-commit-pane extraction
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1399 lines after the local tree-data extraction
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 646 lines after the local tree-data, list-surface, and search-filter extraction and is no longer the default pane-side hotspot
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
   - `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx` at 793 lines
@@ -118,9 +121,8 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 - The existing `appDraftPreview.ts` split is a good start, but transport, generation, persistence, and validation are still coupled in the main surface.
 - `FileBrowserPane.tsx` now focuses on:
   - selection, clipboard, and DnD behavior
-  - row/header/virtualized list shells
   - file-open and workspace-action commands
-  - keyboard interaction wiring
+  - path chrome plus the remaining keyboard interaction wiring
 - `FileBrowserPane.tsx` is still a real hotspot, but it is now a follow-through
   coordinator in this domain rather than the default first target.
 - `useFileBrowserPaneTreeData.ts` now owns:
@@ -132,6 +134,14 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - tree flatten/filter/sort helpers
   - request-owner tokens and Setta-badge metadata helpers
   - file/path/date formatting helpers used by the pane rows
+- `fileBrowserPaneListSurface.tsx` now owns:
+  - file-browser header chrome
+  - virtualized row rendering and image-preview preload requests
+  - row-level drag/drop shell, tooltip wiring, and local column-width sizing
+- `fileBrowserPaneSearchFilter.tsx` now owns:
+  - filter input draft/debounce sync
+  - saved-search action affordance
+  - recursive/local search-scope popover behavior
 - `ViewingEditingMode.tsx` mixes:
   - view-mode mutation commands
   - resize behavior
@@ -162,8 +172,7 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 1. Split the remaining giant pane roots first
 
-- Keep `FileBrowserPane.tsx` as the default pane-side entry surface and
-  `GitGraphOverlay.tsx` as the obvious git follow-through root inside
+- Keep `GitGraphOverlay.tsx` as the default pane-side entry surface inside
   `frontend/src/components/Git/`.
 - `gitGraphOverlayResizeModel.ts` and `useGitGraphOverlayResize.ts` now own:
   - pane split and column-resize persistence
@@ -180,7 +189,7 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - top-level config-schema field helpers to `pluginsPaneConfigSchema.ts`
   - shared action/capability/install-summary shells to `pluginsPaneShared.tsx`
 - In the same phase, keep the remaining `GitGraphOverlay.tsx` follow-through
-  work ahead of smaller authoring surfaces once `FileBrowserPane.tsx` is no
+  work ahead of smaller authoring surfaces now that `FileBrowserPane.tsx` is no
   longer the clearer pane-side front door.
 
 2. Continue `FileBrowserPane.tsx` only when it shortens the main path
@@ -190,9 +199,13 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - folder/root transport and stale-request handling
   - tree flattening/filter/sort view models
   - preview/download URL refresh policy
+- `fileBrowserPaneListSurface.tsx` and `fileBrowserPaneSearchFilter.tsx` now
+  cover:
+  - row/header shells, local column sizing, and virtualized row rendering
+  - filter draft/debounce, saved-search action chrome, and search-scope UI
 - Remaining file-browser work should extract:
   - DnD, clipboard, and open/rename command adapters
-  - row/header shells and virtualization-specific render helpers
+  - the remaining keyboard interaction wiring or command adapters
 - If the slice crosses into `BrowserArea.tsx`, use the sections companion plan as
   a second plan only after the file-browser pane boundary is clear.
 
