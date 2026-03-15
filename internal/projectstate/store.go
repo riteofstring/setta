@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -86,6 +87,10 @@ func (s *Store) loadDocument(ctx context.Context, normalize bool) (Document, err
 			return Document{}, err
 		}
 	}
+	windowSpaceOrderByProjectID, err := extractPersistedWindowSpaceOrder(content)
+	if err != nil {
+		return Document{}, fmt.Errorf("decode persisted window-space order: %w", err)
+	}
 
 	var document Document
 	if err := json.Unmarshal(content, &document); err != nil {
@@ -94,7 +99,14 @@ func (s *Store) loadDocument(ctx context.Context, normalize bool) (Document, err
 	if !normalize {
 		return document, nil
 	}
-	return document.Normalized()
+	normalized, err := document.Normalized()
+	if err != nil {
+		return Document{}, err
+	}
+	return repairLoadedWindowSpaceSortIndices(
+		normalized,
+		windowSpaceOrderByProjectID,
+	), nil
 }
 
 func (s *Store) Save(ctx context.Context, document Document) error {
@@ -155,4 +167,249 @@ func validatePersistedProjectChatWindowingPresence(rawPayload map[string]any) er
 		ErrProjectChatWindowingRequired,
 		strings.Join(missingProjectIDs, ", "),
 	)
+}
+
+func extractPersistedWindowSpaceOrder(content []byte) (map[string][]string, error) {
+	decoder := json.NewDecoder(bytes.NewReader(content))
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok || delimiter != '{' {
+		return nil, fmt.Errorf("expected top-level JSON object")
+	}
+
+	orders := map[string][]string{}
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected object key, got %T", keyToken)
+		}
+		if key != "projects" {
+			if err := skipJSONValue(decoder); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		projectOrders, err := decodeProjectWindowSpaceOrders(decoder)
+		if err != nil {
+			return nil, err
+		}
+		for projectID, order := range projectOrders {
+			orders[projectID] = order
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	return orders, nil
+}
+
+func decodeProjectWindowSpaceOrders(decoder *json.Decoder) (map[string][]string, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token == nil {
+		return nil, nil
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok || delimiter != '{' {
+		return nil, fmt.Errorf("expected projects object")
+	}
+
+	orders := map[string][]string{}
+	for decoder.More() {
+		projectKeyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		projectID, ok := projectKeyToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected project id key, got %T", projectKeyToken)
+		}
+		windowSpaceOrder, err := decodeSingleProjectWindowSpaceOrder(decoder)
+		if err != nil {
+			return nil, err
+		}
+		if len(windowSpaceOrder) != 0 {
+			orders[projectID] = windowSpaceOrder
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	return orders, nil
+}
+
+func decodeSingleProjectWindowSpaceOrder(decoder *json.Decoder) ([]string, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token == nil {
+		return nil, nil
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok || delimiter != '{' {
+		return nil, fmt.Errorf("expected project object")
+	}
+
+	var windowSpaceOrder []string
+	for decoder.More() {
+		fieldToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		fieldName, ok := fieldToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected project field key, got %T", fieldToken)
+		}
+		if fieldName != "windowSpaces" {
+			if err := skipJSONValue(decoder); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		windowSpaceOrder, err = decodeOrderedObjectKeys(decoder)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	return windowSpaceOrder, nil
+}
+
+func decodeOrderedObjectKeys(decoder *json.Decoder) ([]string, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token == nil {
+		return nil, nil
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok || delimiter != '{' {
+		return nil, fmt.Errorf("expected object value")
+	}
+
+	keys := make([]string, 0)
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected object key, got %T", keyToken)
+		}
+		keys = append(keys, key)
+		if err := skipJSONValue(decoder); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	return keys, nil
+}
+
+func skipJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		for decoder.More() {
+			if _, err := decoder.Token(); err != nil {
+				return err
+			}
+			if err := skipJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		_, err := decoder.Token()
+		return err
+	case '[':
+		for decoder.More() {
+			if err := skipJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		_, err := decoder.Token()
+		return err
+	default:
+		return nil
+	}
+}
+
+func repairLoadedWindowSpaceSortIndices(
+	document Document,
+	windowSpaceOrderByProjectID map[string][]string,
+) Document {
+	if len(windowSpaceOrderByProjectID) == 0 {
+		return document
+	}
+
+	repaired := document
+	for projectID, persistedOrder := range windowSpaceOrderByProjectID {
+		project, ok := repaired.Projects[projectID]
+		if !ok || !hasDuplicateWindowSpaceSortIndices(project.WindowSpaces) {
+			continue
+		}
+
+		orderedWindowSpaceIDs := make([]string, 0, len(project.WindowSpaces))
+		seen := map[string]struct{}{}
+		for _, windowSpaceID := range persistedOrder {
+			if _, ok := project.WindowSpaces[windowSpaceID]; !ok {
+				continue
+			}
+			if _, alreadySeen := seen[windowSpaceID]; alreadySeen {
+				continue
+			}
+			seen[windowSpaceID] = struct{}{}
+			orderedWindowSpaceIDs = append(orderedWindowSpaceIDs, windowSpaceID)
+		}
+		for _, windowSpaceID := range sortedWindowSpaceIDs(project.WindowSpaces) {
+			if _, alreadySeen := seen[windowSpaceID]; alreadySeen {
+				continue
+			}
+			seen[windowSpaceID] = struct{}{}
+			orderedWindowSpaceIDs = append(orderedWindowSpaceIDs, windowSpaceID)
+		}
+		for index, windowSpaceID := range orderedWindowSpaceIDs {
+			windowSpace := project.WindowSpaces[windowSpaceID]
+			windowSpace.SortIndex = index
+			project.WindowSpaces[windowSpaceID] = windowSpace
+		}
+		repaired.Projects[projectID] = project
+	}
+	return repaired
+}
+
+func hasDuplicateWindowSpaceSortIndices(windowSpaces map[string]WindowSpaceConfig) bool {
+	if len(windowSpaces) < 2 {
+		return false
+	}
+
+	seen := make(map[int]struct{}, len(windowSpaces))
+	for _, windowSpace := range windowSpaces {
+		if _, ok := seen[windowSpace.SortIndex]; ok {
+			return true
+		}
+		seen[windowSpace.SortIndex] = struct{}{}
+	}
+	return false
 }

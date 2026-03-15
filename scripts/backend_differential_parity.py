@@ -820,6 +820,8 @@ def execute_scenario(
         )
     if scenario.kind == "window_space_create_invalid_owner_mode_write_contract":
         return execute_window_space_create_invalid_owner_mode_write_contract(backend)
+    if scenario.kind == "window_spaces_duplicate_sort_indices_on_load":
+        return execute_window_spaces_duplicate_sort_indices_on_load(backend)
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1763,6 +1765,134 @@ def execute_window_space_create_invalid_owner_mode_write_contract(
         "projectChatSectionModePayload": project_chat_section_mode_payload,
         "nonProjectAIChatIDStatus": non_project_ai_chat_id_status,
         "nonProjectAIChatIDPayload": non_project_ai_chat_id_payload,
+    }
+
+
+def execute_window_spaces_duplicate_sort_indices_on_load(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+
+    created_window_spaces: list[tuple[str, str]] = []
+    for window_space_name in ["Zulu Layout", "Alpha Layout", "Beta Layout"]:
+        create_response = post_json(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_CREATE_WINDOW_SPACE,
+            payload={
+                "projectConfigId": project_id,
+                "name": window_space_name,
+                "state": {
+                    "windowsById": {
+                        "window-primary": {
+                            "surfaceKind": "project_chat",
+                            "mode": "project_ai_mode",
+                        }
+                    },
+                    "order": ["window-primary"],
+                },
+            },
+        )
+        create_payload = normalize_response_json(create_response)
+        if not isinstance(create_payload, dict):
+            raise ParityHarnessError(
+                f"createWindowSpace returned unexpected payload: {create_payload!r}"
+            )
+        window_space_id = normalized_string(create_payload.get("id"))
+        if not window_space_id:
+            raise ParityHarnessError(
+                f"createWindowSpace response missing id: {create_payload!r}"
+        )
+        created_window_spaces.append((window_space_id, window_space_name))
+
+    post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SAVE_PROJECT,
+        payload={"projectConfigId": project_id},
+    )
+
+    project_path = backend.setta_files_root / PROJECT_FILE_NAME
+    persisted_payload = json.loads(project_path.read_text(encoding="utf-8"))
+    projects = object_field(persisted_payload, "projects", allow_missing=True)
+    source_projects = object_field(
+        persisted_payload,
+        "projectConfigs",
+        allow_missing=True,
+    )
+    project = expect_object(
+        projects.get(project_id) or source_projects.get(project_id),
+        f"projects.{project_id}",
+    )
+    window_spaces = object_field(project, "windowSpaces", allow_missing=True)
+
+    reordered_window_spaces: dict[str, Any] = {}
+    for index, (window_space_id, _) in enumerate(created_window_spaces):
+        window_space = expect_object(
+            window_spaces.get(window_space_id),
+            f"windowSpaces.{window_space_id}",
+        )
+        if index < 2:
+            window_space["sortIndex"] = 0
+        else:
+            window_space["sortIndex"] = 2
+        reordered_window_spaces[window_space_id] = window_space
+    for window_space_id, window_space in window_spaces.items():
+        if window_space_id in reordered_window_spaces:
+            continue
+        reordered_window_spaces[window_space_id] = window_space
+
+    project["windowSpaces"] = reordered_window_spaces
+    if project_id in projects:
+        projects[project_id] = project
+        persisted_payload["projects"] = projects
+    else:
+        source_projects[project_id] = project
+        persisted_payload["projectConfigs"] = source_projects
+    write_json_preserving_order(project_path, persisted_payload)
+    restart_backend(backend)
+
+    load_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": created_name},
+    )
+    load_payload = normalize_response_json(load_response)
+    if not isinstance(load_payload, dict):
+        raise ParityHarnessError(
+            f"loadProjectConfig returned unexpected payload: {load_payload!r}"
+        )
+
+    latest_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    latest_payload = normalize_response_json(latest_response)
+    if not isinstance(latest_payload, dict):
+        raise ParityHarnessError(
+            f"getLatestProjectState returned unexpected payload: {latest_payload!r}"
+        )
+
+    summary = summarize_window_space_duplicate_sort_indices_on_load(
+        load_http_status=load_response.status_code,
+        load_payload=load_payload,
+        latest_http_status=latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfigBeforeCorruption": loaded,
+        "createdWindowSpaces": created_window_spaces,
+        "persistedProjectDocumentAfterSortIndexCorruption": persisted_payload,
+        "loadProjectConfigStatus": load_response.status_code,
+        "loadProjectConfig": load_payload,
+        "latestProjectStateStatus": latest_response.status_code,
+        "latestProjectState": latest_payload,
     }
 
 
@@ -3234,6 +3364,30 @@ def summarize_window_space_create_invalid_owner_mode_write_contract(
         ),
         "nonProjectAIChatIDErrorSummary": normalize_error_summary(
             non_project_ai_chat_id_payload
+        ),
+    }
+
+
+def summarize_window_space_duplicate_sort_indices_on_load(
+    load_http_status: int,
+    load_payload: dict[str, Any],
+    latest_http_status: int,
+    latest_payload: dict[str, Any],
+) -> dict[str, Any]:
+    load_window_spaces = extract_load_window_spaces(load_payload)
+    latest_window_spaces = extract_latest_window_spaces(latest_payload)
+    return {
+        "loadHttpStatus": load_http_status,
+        "loadSortIndexByWindowSpaceName": sort_index_summary_by_name(load_window_spaces),
+        "loadSortedWindowSpaceNames": sort_window_space_names(load_window_spaces),
+        "loadHasDuplicateSortIndices": has_duplicate_sort_indices(load_window_spaces),
+        "latestHttpStatus": latest_http_status,
+        "latestSortIndexByWindowSpaceName": sort_index_summary_by_name(
+            latest_window_spaces
+        ),
+        "latestSortedWindowSpaceNames": sort_window_space_names(latest_window_spaces),
+        "latestHasDuplicateSortIndices": has_duplicate_sort_indices(
+            latest_window_spaces
         ),
     }
 
@@ -5920,6 +6074,72 @@ def normalized_string(value: Any) -> str:
     return value.strip()
 
 
+def extract_load_window_spaces(payload: dict[str, Any]) -> dict[str, Any]:
+    project_config = object_field(payload, "projectConfig")
+    return object_field(project_config, "windowSpaces", allow_missing=True)
+
+
+def extract_latest_window_spaces(payload: dict[str, Any]) -> dict[str, Any]:
+    project_state = object_field(payload, "projectState")
+    project_config = object_field(project_state, "projectConfig")
+    return object_field(project_config, "windowSpaces", allow_missing=True)
+
+
+def sort_index_summary_by_name(window_spaces: dict[str, Any]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for window_space_id, window_space in window_spaces.items():
+        if not isinstance(window_space, dict):
+            raise ParityHarnessError(
+                f"windowSpaces entry must be an object, got {type(window_space).__name__}"
+            )
+        sort_index = window_space.get("sortIndex")
+        if sort_index is None:
+            sort_index = 0
+        if not isinstance(sort_index, int):
+            raise ParityHarnessError(
+                f"windowSpaces[{window_space_id!r}].sortIndex must be an int, got {sort_index!r}"
+            )
+        window_space_name = normalized_string(window_space.get("name"))
+        if not window_space_name:
+            raise ParityHarnessError(
+                f"windowSpaces[{window_space_id!r}].name must be a non-empty string."
+            )
+        summary[window_space_name] = sort_index
+    return summary
+
+
+def sort_window_space_names(window_spaces: dict[str, Any]) -> list[str]:
+    def sort_key(item: tuple[str, Any]) -> tuple[int, str, str]:
+        window_space_id, window_space = item
+        if not isinstance(window_space, dict):
+            raise ParityHarnessError(
+                f"windowSpaces entry must be an object, got {type(window_space).__name__}"
+            )
+        sort_index = window_space.get("sortIndex")
+        if sort_index is None:
+            sort_index = 0
+        if not isinstance(sort_index, int):
+            raise ParityHarnessError(
+                f"windowSpaces[{window_space_id!r}].sortIndex must be an int, got {sort_index!r}"
+            )
+        name = normalized_string(window_space.get("name"))
+        return sort_index, name.lower(), window_space_id
+
+    return [
+        normalized_string(window_space.get("name"))
+        for _, window_space in sorted(window_spaces.items(), key=sort_key)
+    ]
+
+
+def has_duplicate_sort_indices(window_spaces: dict[str, Any]) -> bool:
+    seen: set[int] = set()
+    for sort_index in sort_index_summary_by_name(window_spaces).values():
+        if sort_index in seen:
+            return True
+        seen.add(sort_index)
+    return False
+
+
 def normalize_error_summary(payload: Any) -> str:
     if isinstance(payload, dict):
         raw_text = normalized_string(payload.get("_rawText"))
@@ -6059,6 +6279,14 @@ def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def write_json_preserving_order(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
         encoding="utf-8",
     )
 

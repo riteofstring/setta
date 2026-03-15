@@ -2505,6 +2505,65 @@ class Route:
             "Section window-space windows require sectionIdOrNull.",
         )
 
+    def test_summarize_window_space_duplicate_sort_indices_on_load(self) -> None:
+        harness = load_harness_module()
+
+        load_payload = {
+            "projectConfig": {
+                "windowSpaces": {
+                    "space-zeta": {"name": "Zulu Layout", "sortIndex": 0},
+                    "space-alpha": {"name": "Alpha Layout", "sortIndex": 1},
+                    "space-beta": {"name": "Beta Layout", "sortIndex": 2},
+                }
+            }
+        }
+        latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "windowSpaces": {
+                        "space-zeta": {"name": "Zulu Layout", "sortIndex": 0},
+                        "space-alpha": {"name": "Alpha Layout", "sortIndex": 1},
+                        "space-beta": {"name": "Beta Layout", "sortIndex": 2},
+                    }
+                }
+            }
+        }
+
+        self.assertEqual(
+            harness.summarize_window_space_duplicate_sort_indices_on_load(
+                load_http_status=200,
+                load_payload=load_payload,
+                latest_http_status=200,
+                latest_payload=latest_payload,
+            ),
+            {
+                "loadHttpStatus": 200,
+                "loadSortIndexByWindowSpaceName": {
+                    "Zulu Layout": 0,
+                    "Alpha Layout": 1,
+                    "Beta Layout": 2,
+                },
+                "loadSortedWindowSpaceNames": [
+                    "Zulu Layout",
+                    "Alpha Layout",
+                    "Beta Layout",
+                ],
+                "loadHasDuplicateSortIndices": False,
+                "latestHttpStatus": 200,
+                "latestSortIndexByWindowSpaceName": {
+                    "Zulu Layout": 0,
+                    "Alpha Layout": 1,
+                    "Beta Layout": 2,
+                },
+                "latestSortedWindowSpaceNames": [
+                    "Zulu Layout",
+                    "Alpha Layout",
+                    "Beta Layout",
+                ],
+                "latestHasDuplicateSortIndices": False,
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

@@ -94,6 +94,100 @@ func TestStoreLoadRejectsMissingAuthoritativeProjectChatWindowingState(t *testin
 	}
 }
 
+func TestStoreLoadRepairsDuplicateWindowSpaceSortIndicesUsingPersistedOrder(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestFile(t, projectPath, []byte(`{
+  "schemaVersion": 1,
+  "defaultProjectId": "project-alpha",
+  "projects": {
+    "project-alpha": {
+      "id": "project-alpha",
+      "name": "Alpha",
+      "activeViewModeId": "view-main",
+      "topLevelSections": {},
+      "viewModes": {
+        "view-main": {
+          "id": "view-main",
+          "name": "Main",
+          "sortIndex": 0,
+          "visibilityBySectionId": {},
+          "topLevelSections": {}
+        }
+      },
+      "sectionVariantMap": {},
+      "projectChatWindowing": {
+        "instancesById": {},
+        "order": [],
+        "nextInstanceNumber": 1
+      },
+      "sections": {},
+      "sectionVariants": {},
+      "sectionImpls": {},
+      "codeObjs": {},
+      "codeObjVariants": {},
+      "codeObjImpls": {},
+      "windowSpaces": {
+        "space-zeta": {
+          "id": "space-zeta",
+          "name": "Zulu Layout",
+          "sortIndex": 0,
+          "windowsById": {
+            "window-zeta": {
+              "surfaceKind": "project_chat",
+              "mode": "project_ai_mode"
+            }
+          },
+          "order": ["window-zeta"]
+        },
+        "space-alpha": {
+          "id": "space-alpha",
+          "name": "Alpha Layout",
+          "sortIndex": 0,
+          "windowsById": {
+            "window-alpha": {
+              "surfaceKind": "project_chat",
+              "mode": "project_ai_mode"
+            }
+          },
+          "order": ["window-alpha"]
+        },
+        "space-beta": {
+          "id": "space-beta",
+          "name": "Beta Layout",
+          "sortIndex": 2,
+          "windowsById": {
+            "window-beta": {
+              "surfaceKind": "project_chat",
+              "mode": "project_ai_mode"
+            }
+          },
+          "order": ["window-beta"]
+        }
+      }
+    }
+  }
+}`))
+	store := newTestStore(t, projectPath)
+
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load project document: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	if got := project.WindowSpaces["space-zeta"].SortIndex; got != 0 {
+		t.Fatalf("expected space-zeta sort index 0, got %d", got)
+	}
+	if got := project.WindowSpaces["space-alpha"].SortIndex; got != 1 {
+		t.Fatalf("expected space-alpha sort index 1, got %d", got)
+	}
+	if got := project.WindowSpaces["space-beta"].SortIndex; got != 2 {
+		t.Fatalf("expected space-beta sort index 2, got %d", got)
+	}
+}
+
 func TestStoreLoadRawReturnsUnnormalizedDocument(t *testing.T) {
 	t.Parallel()
 

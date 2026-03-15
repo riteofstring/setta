@@ -55,6 +55,10 @@ scenarios:
     kind: window_space_create_invalid_owner_mode_write_contract
     seed: none
     description: Saved window-space writes should reject the documented invalid owner/mode combinations instead of normalizing impossible windows.
+  - name: window_spaces_duplicate_sort_indices_on_load
+    kind: window_spaces_duplicate_sort_indices_on_load
+    seed: none
+    description: Persisted duplicate saved-window-space sort indices should compact in persisted map order before callers hydrate load/latest-state payloads.
   - name: settings_project_shell
     kind: settings_project_shell
     seed: none
