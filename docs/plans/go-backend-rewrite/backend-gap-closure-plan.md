@@ -137,3 +137,7 @@ categorize them.
   omission, and multi-match selector rows are now proved too; keep mining this
   CLI/session area when the remaining row is still one focused payload or
   selector branch instead of a broader remote-command forwarding surface
+- The remaining `status --connect-info` missing-session, server-mode-filtered
+  latest-selection, and outside-cwd workspace-selection rows are now proved
+  too; that makes the local status/connect-info cluster largely exhausted, so
+  the next cheap wins are probably outside this owner
