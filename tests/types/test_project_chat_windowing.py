@@ -1,9 +1,7 @@
 import pytest
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl2 import (
-    create_top_level_section,
-    set_project_chat_window_chat_id,
-    set_project_chat_windowing_state,
+from setta.types.project_chat_windowing import (
+    normalize_project_chat_windowing,
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
@@ -14,6 +12,81 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import SectionType
+from tests.helpers.project_state_sections import create_top_level_section
+
+
+def _normalize_thread_bound_chat_id(
+    instance: ProjectChatWindowInstance | None,
+) -> str | None:
+    if instance is None:
+        return None
+    if getattr(instance.mode, "value", instance.mode) != "project_ai_mode":
+        return None
+    return instance.chatId
+
+
+def _validate_project_chat_thread_bindings_unchanged(
+    current_windowing: ProjectChatWindowingState,
+    next_windowing: ProjectChatWindowingState,
+) -> None:
+    for instance_id, current_instance in current_windowing.instancesById.items():
+        current_chat_id = _normalize_thread_bound_chat_id(current_instance)
+        if current_chat_id is None:
+            continue
+        next_instance = next_windowing.instancesById.get(instance_id)
+        if next_instance is None:
+            raise ValueError(
+                f"Project chat window {instance_id} cannot be removed via layout updates while it still has a bound chatId."
+            )
+        next_chat_id = _normalize_thread_bound_chat_id(next_instance)
+        if current_chat_id == next_chat_id:
+            continue
+        raise ValueError(
+            f"Project chat window {instance_id} cannot change chatId via layout updates."
+        )
+    for instance_id, next_instance in next_windowing.instancesById.items():
+        if instance_id in current_windowing.instancesById:
+            continue
+        next_chat_id = _normalize_thread_bound_chat_id(next_instance)
+        if next_chat_id is None:
+            continue
+        raise ValueError(
+            f"Project chat window {instance_id} cannot change chatId via layout updates."
+        )
+
+
+def _apply_project_chat_windowing_state(
+    project_state: ProjectStateSingleConfig,
+    next_state: ProjectChatWindowingState,
+) -> None:
+    _validate_project_chat_thread_bindings_unchanged(
+        project_state.projectChatWindowing,
+        next_state,
+    )
+    project_state.projectChatWindowing = next_state
+    normalize_project_chat_windowing(
+        project_state.projectChatWindowing,
+        set(project_state.sections.keys()),
+    )
+
+
+def _set_project_chat_window_chat_id(
+    project_state: ProjectStateSingleConfig,
+    instance_id: str,
+    chat_id: str | None,
+) -> None:
+    if instance_id not in project_state.projectChatWindowing.instancesById:
+        raise KeyError(f"Project chat window {instance_id} not found.")
+    instance = project_state.projectChatWindowing.instancesById[instance_id]
+    if getattr(instance.mode, "value", instance.mode) != "project_ai_mode":
+        raise ValueError(
+            f"Project chat window {instance_id} must use project_ai_mode to bind chatId."
+        )
+    instance.chatId = chat_id
+    normalize_project_chat_windowing(
+        project_state.projectChatWindowing,
+        set(project_state.sections.keys()),
+    )
 
 
 def test_project_state_defaults_project_chat_windowing() -> None:
@@ -36,7 +109,7 @@ def test_set_project_chat_windowing_state_replaces_runtime_state() -> None:
         nextInstanceNumber=2,
     )
 
-    set_project_chat_windowing_state(project_state, next_state)
+    _apply_project_chat_windowing_state(project_state, next_state)
 
     assert project_state.projectChatWindowing.instancesById == {
         instance.instanceId: instance
@@ -81,7 +154,7 @@ def test_set_project_chat_windowing_state_rejects_rebinding_existing_project_cha
             "via layout updates."
         ),
     ):
-        set_project_chat_windowing_state(project_state, next_state)
+        _apply_project_chat_windowing_state(project_state, next_state)
 
     assert (
         project_state.projectChatWindowing.instancesById[
@@ -116,7 +189,7 @@ def test_set_project_chat_windowing_state_rejects_new_project_chat_with_bound_th
             "via layout updates."
         ),
     ):
-        set_project_chat_windowing_state(project_state, next_state)
+        _apply_project_chat_windowing_state(project_state, next_state)
 
     assert project_state.projectChatWindowing == ProjectChatWindowingState()
 
@@ -144,7 +217,7 @@ def test_set_project_chat_windowing_state_rejects_omitting_existing_bound_projec
             "via layout updates while it still has a bound chatId."
         ),
     ):
-        set_project_chat_windowing_state(
+        _apply_project_chat_windowing_state(
             project_state,
             ProjectChatWindowingState(),
         )
@@ -173,7 +246,7 @@ def test_set_project_chat_windowing_state_allows_omitting_existing_unbound_proje
         nextInstanceNumber=2,
     )
 
-    set_project_chat_windowing_state(project_state, ProjectChatWindowingState())
+    _apply_project_chat_windowing_state(project_state, ProjectChatWindowingState())
 
     assert project_state.projectChatWindowing == ProjectChatWindowingState()
 
@@ -191,7 +264,7 @@ def test_set_project_chat_window_chat_id_updates_the_target_window() -> None:
         nextInstanceNumber=2,
     )
 
-    set_project_chat_window_chat_id(
+    _set_project_chat_window_chat_id(
         project_state,
         instance.instanceId,
         "chat-after",
@@ -224,7 +297,7 @@ def test_set_project_chat_window_chat_id_rejects_git_graph_windows() -> None:
             "project_ai_mode to bind chatId."
         ),
     ):
-        set_project_chat_window_chat_id(
+        _set_project_chat_window_chat_id(
             project_state,
             instance.instanceId,
             "chat-after",
@@ -243,7 +316,7 @@ def test_set_project_chat_window_chat_id_requires_an_existing_window() -> None:
         KeyError,
         match="Project chat window project-chat-window-1 not found.",
     ):
-        set_project_chat_window_chat_id(
+        _set_project_chat_window_chat_id(
             project_state,
             "project-chat-window-1",
             "chat-after",

@@ -5,8 +5,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from setta.database.utils import create_new_id
-
 # Section type imports
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 
@@ -28,7 +26,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.edges import EdgePort
 from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,

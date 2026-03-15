@@ -3,11 +3,7 @@ from setta.types.code_obj_impls import CodeObjType
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl2 import (
-    create_top_level_section,
-    get_meta_control_param_id,
-    set_param_entered_value,
-)
+from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.project_config import (
     CodeObjValueOverride,
     CodeObjValueRepresentationMode,
@@ -18,6 +14,8 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
+from tests.helpers.project_state_mutations import set_param_entered_value
+from tests.helpers.project_state_sections import create_top_level_section
 
 
 class TestMetaControlDependencyGraph:

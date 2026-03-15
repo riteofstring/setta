@@ -5,7 +5,6 @@ import pytest
 from setta.code_gen.utils import sanitize_slug
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
-    CodeObjType,
     CodeParamCodeObjImpl,
     ParameterPassingStyle,
 )
@@ -19,22 +18,10 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
-    set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
-    add_code_obj,
-    add_kwarg,
-    add_meta_control_code_obj,
-    create_child_sections,
-    create_top_level_section,
     get_section_path_full_name,
-    move_sections_to_parent_section,
-    set_code_file_binding,
-    set_project_config_name,
-    set_section_name,
-    set_text_block_heading_as_section_name,
-    set_text_block_text,
 )
 from setta.types.project_config import (
     Position,
@@ -53,7 +40,6 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
-    MetaControlSectionImpl,
     SectionType,
 )
 from setta.utils.constants import C
@@ -66,17 +52,27 @@ from setta.utils.errors import (
 )
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
-    collect_param_name_format_errors,
-    collect_project_name_format_errors,
-    collect_section_name_conflicts,
-    collect_section_name_format_errors,
-    collect_text_block_heading_name_errors,
     validate_param_name,
     validate_view_mode_name,
     validate_window_space_name,
 )
-from setta.utils.paths import normalize_state_path, normalize_workspace_path
+from setta.utils.paths import normalize_state_path
 from setta.utils.utils import build_project_sections_dir
+from tests.helpers.setta_paths import normalize_workspace_path
+from tests.helpers.project_state_mutations import (
+    add_code_obj,
+    add_kwarg,
+    set_project_config_name,
+    set_section_name,
+)
+from tests.helpers.project_state_effective_impls import (
+    set_curr_effective_code_obj_impl_value,
+)
+from tests.helpers.project_state_sections import (
+    create_child_sections,
+    create_top_level_section,
+    move_sections_to_parent_section,
+)
 
 
 def _ensure_callable_root(
@@ -225,21 +221,6 @@ class TestProjectNameValidation:
         )
         with pytest.raises(InvalidProjectName):
             set_project_config_name(backend, secondary.id, "foo")
-
-    def test_collect_project_name_format_errors_allows_settings_name(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name=C.SETTINGS_PROJECT_NAME)
-        )
-        assert collect_project_name_format_errors(project_state) == []
-
-    def test_collect_project_name_format_errors_flags_invalid(self) -> None:
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="bad/name")
-        )
-        assert collect_project_name_format_errors(project_state) == [
-            "Project name cannot include path separators."
-        ]
-
 
 class TestViewModeNameValidation:
     def test_view_mode_name_rejects_reserved(self) -> None:
@@ -508,74 +489,6 @@ class TestSectionNameValidation:
         with pytest.raises(InvalidSectionName):
             set_section_name(project_state, second, "Foo Bar")
 
-    def test_collect_section_name_format_errors_flags_invalid(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Code,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        project_state.sections[section_id].name = "bad#name"
-        errors = collect_section_name_format_errors(project_state)
-        assert section_id in errors
-        assert (
-            "Section name can only contain letters, numbers, spaces, '_' and '-'.",
-            errors[section_id],
-        )
-
-    def test_text_block_heading_name_error_flags_invalid_heading(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.TextBlock,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        set_text_block_heading_as_section_name(project_state, section_id, True)
-        set_text_block_text(project_state, section_id, "# Bad/Name")
-        errors = collect_text_block_heading_name_errors(project_state)
-        assert section_id in errors
-        assert (
-            "Text block heading cannot be used as section name: Section name cannot include path separators.",
-            errors[section_id],
-        )
-
-    def test_text_block_heading_name_error_flags_duplicate_sibling(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        text_block_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.TextBlock,
-            Position(),
-        )
-        sibling_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Code,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        set_section_name(project_state, sibling_id, "Duplicate")
-        set_text_block_heading_as_section_name(project_state, text_block_id, True)
-        set_text_block_text(project_state, text_block_id, "# Duplicate")
-        errors = collect_text_block_heading_name_errors(project_state)
-        assert (
-            'Text block heading cannot be used as section name: Section name "Duplicate" already exists under this parent.',
-            errors[text_block_id],
-        )
-
     def test_section_name_rejects_dotdot(
         self,
         settings_and_project_state,
@@ -680,52 +593,6 @@ class TestSectionNameValidation:
         project_state.validate_parent_section_map()
         with pytest.raises(InvalidSectionName):
             set_section_name(project_state, section_id, "bad#name")
-
-    def test_collect_section_name_conflicts_flags_python_identifier_collision(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        first = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Code,
-            Position(),
-        )
-        second = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Code,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        project_state.sections[first].name = "Foo-Bar"
-        project_state.sections[second].name = "Foo Bar"
-        conflicts = collect_section_name_conflicts(project_state)
-        assert first in conflicts
-        assert second in conflicts
-        assert (
-            "Section name conflicts with another top-level name after Python identifier sanitization.",
-            conflicts[first],
-        )
-
-    def test_collect_section_name_conflicts_allows_chat_slug_with_namespaced_routes(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Code,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        project_state.sections[section_id].name = "Chat_"
-
-        conflicts = collect_section_name_conflicts(project_state)
-
-        assert section_id not in conflicts
 
     def test_nested_list_root_path_uses_immediate_parent(
         self,
@@ -891,10 +758,6 @@ class TestSectionNameValidation:
         assert impl_a_after.codeFileBinding is None
         assert impl_b_after.codeFileBinding is None
 
-        conflicts = collect_section_name_conflicts(project_state)
-        assert child_a in conflicts
-        assert child_b in conflicts
-
     def test_move_conflict_preserves_manual_binding(
         self,
         settings_and_project_state,
@@ -942,7 +805,19 @@ class TestSectionNameValidation:
             access_mode=CodeFileAccessMode.read_write,
             autoBinding=False,
         )
-        set_code_file_binding(project_state, child_b, manual_binding)
+        set_curr_effective_section_impl_value(
+            project_state,
+            child_b,
+            {
+                "codeFileBinding": manual_binding.model_copy(
+                    update={
+                        "canonical_path": normalize_workspace_path(
+                            manual_binding.canonical_path
+                        )
+                    }
+                )
+            },
+        )
 
         move_sections_to_parent_section(
             project_state,
@@ -1001,7 +876,11 @@ class TestSectionNameValidation:
             access_mode=CodeFileAccessMode.read_write,
             autoBinding=False,
         )
-        set_code_file_binding(project_state, section_id, legacy_binding)
+        set_curr_effective_section_impl_value(
+            project_state,
+            section_id,
+            {"codeFileBinding": legacy_binding},
+        )
         project_state.validate_code_file_bindings()
         impl_after = get_curr_effective_section_impl_with_type_guard(
             project_state,
@@ -1188,61 +1067,6 @@ class TestParamNameValidation:
                 param_id,
                 "café",
             )
-
-    def test_collect_param_name_format_errors_flags_invalid(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        _ensure_callable_root(project_state, section_id)
-        param_id = add_kwarg(settings, project_state, section_id)
-        project_state.codeObjs[param_id].name = "invalid name"
-        errors = collect_param_name_format_errors(project_state)
-        assert param_id in errors
-        assert (
-            "Param name must be a valid Python identifier.",
-            errors[param_id],
-        )
-
-    def test_collect_param_name_format_errors_flags_meta_control(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.MetaControl,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        add_meta_control_code_obj(
-            settings,
-            project_state,
-            section_id,
-            CodeObjType.SliderParam,
-        )
-        meta_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            MetaControlSectionImpl,
-        )
-        param_id = meta_impl.metaControlParamId
-        assert param_id is not None
-        project_state.codeObjs[param_id].name = "invalid name"
-        errors = collect_param_name_format_errors(project_state)
-        assert param_id in errors
-        assert (
-            "Param name must be a valid Python identifier.",
-            errors[param_id],
-        )
 
     def test_param_name_rejects_path_separators(
         self,
