@@ -4937,3 +4937,66 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted Chart shell closed.
   - Re-read `frontend/src/components/Section/Layouts/BrowserArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam.
+
+### 2026-03-18 127
+
+- Item: Accept the Browser icon thumbnail shell flattening and close the Browser-local `single-cell` icon-card seam.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - The accepted lower-shell move is narrow:
+    - the Browser icon-view preview shell no longer uses `single-cell-container`
+    - the Browser-owned image/icon/badge/checkbox path no longer uses `single-cell-child`
+    - the Browser root now carries `min-h-0`, and the icon-view scroll owner now carries `h-0 min-h-0 flex-1`, which restores a true overflow owner for large icon directories
+    - the representative image/text icon cards keep the same `96 x 132` shell around the same `96 x 96` preview box
+    - the text tile keeps the same `TXT` badge and the checkbox stays anchored inside the preview shell
+  - Added focused direct coverage in:
+    - `frontend/tests/e2e/file-browser/browser-thumbnail-shell.spec.ts`
+      - the Browser icon-view thumbnail card no longer exposes `single-cell-container`
+      - the Browser-owned thumbnail content path no longer exposes `single-cell-child`
+      - the image/text preview shells keep positive geometry with the checkbox anchored inside the preview box
+    - existing Browser regressions stayed green:
+      - `frontend/tests/e2e/file-browser/browser-icon-scroll.spec.ts`
+      - `frontend/tests/e2e/file-browser/browser-filters.spec.ts`
+      - `frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts`
+      - `frontend/src/components/Section/Layouts/BrowserArea.test.tsx`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result: `1` file passed, `4` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-thumbnail-shell.spec.ts`
+      - result: `1` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-icon-scroll.spec.ts`
+      - result: `1` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-filters.spec.ts`
+      - result: `4` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts`
+      - result: `3` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `walking_crystal` on `http://127.0.0.1:3087/walking_crystal`
+      - the representative image/text icon cards still read `single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800`
+      - the touched thumbnail markup still exposes `single-cell-container` / `single-cell-child`
+      - geometry:
+        - image card `96 x 132`
+        - text card `96 x 132`
+        - image preview `96 x 96`
+        - text preview `96 x 96`
+      - text tile badge: `TXT`
+    - worktree: disposable compare project `broad_winter` on `http://127.0.0.1:3011/broad_winter`
+      - the representative image/text icon cards now read `relative overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800`
+      - the Browser-owned image/icon/badge/checkbox path no longer exposes `single-cell-container` / `single-cell-child`
+      - geometry:
+        - image card `96 x 132`
+        - text card `96 x 132`
+        - image preview `96 x 96`
+        - text preview `96 x 96`
+      - text tile badge: `TXT`
+  - Interpretation:
+    - the Browser-local icon thumbnail shell is now accepted
+    - the Browser shared `MediaCarousel` seam remains explicitly deferred until the section-owned lower shells are exhausted
+    - the next pass should return to the remaining section-owned lower shell in `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_browser-icon-thumbnail-shell.md`
+- Next action:
+  - Keep the accepted Browser icon thumbnail shell closed.
+  - Re-read `frontend/src/components/Section/Layouts/ChatArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam or widening Browser into `MediaCarousel`.
