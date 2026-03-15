@@ -43,31 +43,32 @@ import { RiChatNewFill } from "react-icons/ri";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbFolder, TbFolderOpen } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
-import { loadAgentRuns } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import type { ChatRunType } from "state/actions/chatHistoryTypes";
 import {
-  buildChatHistoryEntries,
-  type ChatRunType,
-} from "state/actions/chatHistory";
-import {
-  canUndoLastProjectChatThreadStorageMutation,
-  createProjectChatThreadGroup,
-  deleteProjectChatThread,
   deleteProjectChatThreadGroup,
-  markProjectChatThreadViewed,
-  renameProjectChatThreadGroup,
-  reorderProjectChatThreadGroups,
-  reorderProjectChatThreads,
   setProjectChatThreadGroupAssignment,
+} from "state/actions/projectChatThreadGroupAssignments";
+import {
+  createProjectChatThreadGroup,
+  renameProjectChatThreadGroup,
+} from "state/actions/projectChatThreadGroupCrud";
+import {
+  reorderProjectChatThreadGroups,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-  toggleProjectChatThreadPinned,
-  undoLastProjectChatThreadStorageMutation,
-} from "state/actions/projectChatThreads";
+} from "state/actions/projectChatThreadGroupOrdering";
 import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+  deleteProjectChatThread,
+  markProjectChatThreadViewed,
+  reorderProjectChatThreads,
+  toggleProjectChatThreadPinned,
+} from "state/actions/projectChatThreadMutations";
+import { undoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoApply";
+import { canUndoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoStack";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   buildSearchableTextForMessages,
   countConversationSearchTextMatches,

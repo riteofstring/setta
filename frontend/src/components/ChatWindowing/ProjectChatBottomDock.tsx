@@ -4,15 +4,33 @@ import {
   windowSurfaceRequiresManagedChat,
 } from "components/Chat/sharePolicyChatAccess";
 import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
-import { resolveDockStripReservedWidthPx } from "components/ChatWindowing/projectChatBottomDockLayout";
+import {
+  DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+  DOCK_SURFACE_MAX_WIDTH_PX,
+  DOCK_WINDOW_DEFAULT_HEIGHT_PX,
+  DOCK_WINDOW_DEFAULT_WIDTH_PX,
+  MIN_DOCK_CHAT_HEIGHT_PX,
+  MIN_DOCK_CHAT_WIDTH_PX,
+  resolveCycleVisibleCount,
+  resolveDockedWindowLayout,
+  resolvePillDisplayMode,
+  type PillDisplayMode,
+} from "components/ChatWindowing/projectChatBottomDockLayout";
+import { useProjectChatDockResize } from "components/ChatWindowing/projectChatDockResize";
+import {
+  FLOATING_WINDOW_MIN_HEIGHT_PX,
+  FLOATING_WINDOW_MIN_WIDTH_PX,
+  FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX,
+  areFloatingBoundsEqual,
+  clampFloatingBoundsToViewport,
+  useProjectChatFloatingInteractions,
+  type FloatingWindowResizeDirection,
+} from "components/ChatWindowing/projectChatFloatingInteractions";
 import {
   buildFloatingSnapBounds,
-  buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
   resolveFloatingSnapPresetFromBounds,
   type FloatingSnapPreset,
-  type FloatingSnapResizeHandle,
-  type FloatingWindowBoundaryInsets,
 } from "components/ChatWindowing/projectChatSnapLayout";
 import { buildWorkspaceProjectChatWindowSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import {
@@ -45,7 +63,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent,
 } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
@@ -57,46 +74,50 @@ import {
   MdVerticalAlignBottom,
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
+import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
+import { resolveDefaultFloatingChatBounds } from "state/actions/projectChatWindowingDefaultBounds";
+import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import {
-  bootProjectChatWindowToCanvasSection,
   clearTrackedGitPaneGraphWindowIfMatches,
+  getTrackedGitPaneGraphWindowInstanceIdForProject,
+} from "state/actions/projectChatWindowingTrackedGitPaneState";
+import {
+  setProjectChatWindowBounds,
+  setProjectChatWindowBoundsById,
+  setProjectChatWindowDockFractions,
+  setProjectChatWindowPlacement,
+} from "state/actions/projectChatWindowLayoutCommands";
+import {
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
-  setProjectChatWindowBounds,
-  setProjectChatWindowBoundsById,
-  setProjectChatWindowChatId,
-  setProjectChatWindowDockFractions,
-  setProjectChatWindowPlacement,
-  setProjectChatWindowTitle,
-  showSectionInProjectChatWindow,
   unmaximizeProjectChatWindow,
-} from "state/actions/projectChatWindowing";
-import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
+} from "state/actions/projectChatWindowLifecycleCommands";
+import {
+  setProjectChatWindowChatId,
+  setProjectChatWindowTitle,
+} from "state/actions/projectChatWindowMetadataCommands";
+import { showSectionInProjectChatWindow } from "state/actions/projectChatWindowSectionCommands";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,
-  useLocalStorage,
-  useMisc,
   useProjectState,
-  useSettings,
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
+import { useMisc } from "state/stores/layoutInteractionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   type ChatWindowBounds,
 } from "utils/generatedTypes";
-import { isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
+import { useProjectChatWindowShortcuts } from "./projectChatWindowShortcuts";
 
 type ResolvedWindowPill = {
   instanceId: string;
@@ -113,18 +134,6 @@ type ResolvedWindowPill = {
   chatId: string | null;
 };
 
-type PillDisplayMode = "full" | "compact" | "cycle" | "menu";
-
-type WindowResizeDirection =
-  | "left"
-  | "right"
-  | "top"
-  | "bottom"
-  | "top_left"
-  | "top_right"
-  | "bottom_left"
-  | "bottom_right";
-
 type PaneTrackedRect = {
   left: number;
   top: number;
@@ -138,66 +147,9 @@ function canMoveProjectChatWindowToCanvas(
   return mode !== ChatWindowModeEnum.git_graph_mode;
 }
 
-type ActiveSingleDockResize = {
-  pointerId: number;
-  instanceId: string;
-  direction: WindowResizeDirection;
-  startX: number;
-  startY: number;
-  startWidthPx: number;
-  startHeightPx: number;
-  lastWidthPx: number;
-  lastHeightPx: number;
-  minWidthPx: number;
-  maxWidthPx: number;
-  minHeightPx: number;
-  maxHeightPx: number;
-};
-
-type ActiveFloatingDrag = {
-  pointerId: number;
-  instanceId: string;
-  startX: number;
-  startY: number;
-  startBounds: ChatWindowBounds;
-  dragBoundsStart: ChatWindowBounds;
-  lastBounds: ChatWindowBounds;
-  restoreBoundsOnUnsnap: ChatWindowBounds | null;
-  hasActivatedUnsnap: boolean;
-};
-
-type ActiveFloatingResize = {
-  pointerId: number;
-  instanceId: string;
-  direction: WindowResizeDirection;
-  startX: number;
-  startY: number;
-  startBounds: ChatWindowBounds;
-  lastBounds: ChatWindowBounds;
-};
-
 type ChatWindowExitAnimationKind = "minimize" | "close";
 type ChatWindowEnterAnimationKind = "restore_from_minimize";
 type ChatWindowPillExitAnimationKind = "restore_from_minimize";
-
-type ActiveFloatingSnapPreview = {
-  instanceId: string;
-  preset: FloatingSnapPreset;
-  bounds: ChatWindowBounds;
-};
-
-type ActiveFloatingSnapResize = {
-  pointerId: number;
-  axis: FloatingSnapResizeHandle["axis"];
-  startPointerPosition: number;
-  startCoordinate: number;
-  minCoordinate: number;
-  maxCoordinate: number;
-  leadingInstanceIds: string[];
-  trailingInstanceIds: string[];
-  startBoundsByInstanceId: Record<string, ChatWindowBounds>;
-  lastBoundsByInstanceId: Record<string, ChatWindowBounds>;
-};
 
 const DOCK_BAR_HEIGHT_PX = 40;
 const DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX = 0;
@@ -205,21 +157,7 @@ const VIEW_MODE_TABS_HEIGHT_PX = PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX;
 const SIDE_RAIL_WIDTH_PX = PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
 const FALLBACK_WORKSPACE_TOP_INSET_PX =
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
-const DOCK_SURFACE_MAX_WIDTH_PX = 1160;
 const DOCK_SURFACE_MIN_WIDTH_PX = 420;
-const DOCK_SURFACE_HORIZONTAL_MARGIN_PX = 20;
-const DOCK_WINDOW_DEFAULT_WIDTH_PX = 460;
-const DOCK_WINDOW_DEFAULT_HEIGHT_PX = 520;
-const DOCK_WINDOW_GAP_PX = 12;
-const DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX = 4;
-const MIN_DOCK_CHAT_WIDTH_PX = 280;
-const MIN_DOCK_CHAT_HEIGHT_PX = 220;
-const COMPACT_PILL_WIDTH_PX = 28;
-const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
-const PILL_GAP_PX = 4;
-const MENU_MODE_TRIGGER_WIDTH_PX = 28;
-const PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX =
-  MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
 const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
@@ -231,20 +169,6 @@ const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
 const CHAT_WINDOW_PILL_EXIT_DURATION_MS = 72;
 const FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
-const MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX = 16;
-const DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX =
-  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
-  CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
-  COMPACT_PILL_WIDTH_PX * 2 +
-  PILL_GAP_PX * 3 +
-  DOCK_WINDOW_GAP_PX;
-const NARROW_CHAT_MENU_BREAKPOINT_PX = 520;
-const FLOATING_WINDOW_MIN_WIDTH_PX = 380;
-const FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
-const FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
-const FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
-const FLOATING_SNAP_EDGE_THRESHOLD_PX = 84;
-const FLOATING_UNSNAP_DRAG_THRESHOLD_PX = 6;
 const CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS = 115;
 const CHAT_WINDOW_CLOSE_EXIT_DURATION_MS = 125;
 const SNAP_TOP_LEFT_SHORTCUT = "Mod + Alt + Shift + Q";
@@ -252,16 +176,8 @@ const SNAP_TOP_RIGHT_SHORTCUT = "Mod + Alt + Shift + W";
 const SNAP_BOTTOM_LEFT_SHORTCUT = "Mod + Alt + Shift + A";
 const SNAP_BOTTOM_RIGHT_SHORTCUT = "Mod + Alt + Shift + S";
 
-type ParsedShortcut = {
-  mod: boolean;
-  ctrl: boolean;
-  shift: boolean;
-  alt: boolean;
-  keys: Set<string>;
-};
-
 type ResizeHandleConfig = {
-  direction: WindowResizeDirection;
+  direction: FloatingWindowResizeDirection;
   className: string;
   cursorClassName: string;
   indicatorClassName?: string;
@@ -335,143 +251,6 @@ const FLOATING_WINDOW_RESIZE_HANDLES: Array<ResizeHandleConfig> = [
   },
 ];
 
-const SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE: Record<string, string> = {
-  ".": "Period",
-  ",": "Comma",
-  "/": "Slash",
-  "\\": "Backslash",
-  "'": "Quote",
-  ";": "Semicolon",
-  "[": "BracketLeft",
-  "]": "BracketRight",
-  "-": "Minus",
-  "=": "Equal",
-  "`": "Backquote",
-  arrowright: "ArrowRight",
-  arrowleft: "ArrowLeft",
-  arrowup: "ArrowUp",
-  arrowdown: "ArrowDown",
-  esc: "Escape",
-};
-
-function parseShortcut(shortcut: string): ParsedShortcut {
-  const parts = shortcut
-    .split("+")
-    .map((x) => x.trim().toLowerCase())
-    .filter((x) => x.length > 0);
-  const keys = new Set(
-    parts
-      .filter((x) => !["ctrl", "shift", "alt", "mod"].includes(x))
-      .map((part) => {
-        if (/^[a-z]$/.test(part)) {
-          return `Key${part.toUpperCase()}`;
-        }
-        if (/^[0-9]$/.test(part)) {
-          return `Digit${part}`;
-        }
-        const special = SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE[part];
-        if (special) {
-          return special;
-        }
-        return part[0].toUpperCase() + part.slice(1);
-      }),
-  );
-  return {
-    mod: parts.includes("mod"),
-    ctrl: parts.includes("ctrl"),
-    shift: parts.includes("shift"),
-    alt: parts.includes("alt"),
-    keys,
-  };
-}
-
-function getNormalizedEventCode(event: KeyboardEvent): string | null {
-  if (event.code && event.code !== "Unidentified") {
-    return event.code;
-  }
-  if (!event.key) {
-    return null;
-  }
-  if (event.key === " ") {
-    return "Space";
-  }
-  if (event.key === "Shift") {
-    return "ShiftLeft";
-  }
-  if (event.key === "Control") {
-    return "ControlLeft";
-  }
-  if (event.key === "Alt") {
-    return "AltLeft";
-  }
-  if (event.key === "Meta") {
-    return "MetaLeft";
-  }
-  const lower = event.key.toLowerCase();
-  const special = SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE[lower];
-  if (special) {
-    return special;
-  }
-  if (/^[a-z]$/i.test(event.key)) {
-    return `Key${event.key.toUpperCase()}`;
-  }
-  if (/^[0-9]$/.test(event.key)) {
-    return `Digit${event.key}`;
-  }
-  if (event.key.length > 1) {
-    return event.key[0].toUpperCase() + event.key.slice(1);
-  }
-  return event.key;
-}
-
-function isShortcutPressed(
-  event: KeyboardEvent,
-  eventCode: string | null,
-  parsedShortcut: ParsedShortcut,
-  macOs: boolean,
-): boolean {
-  if (macOs) {
-    if (
-      event.metaKey !== parsedShortcut.mod ||
-      event.ctrlKey !== parsedShortcut.ctrl ||
-      event.shiftKey !== parsedShortcut.shift ||
-      event.altKey !== parsedShortcut.alt
-    ) {
-      return false;
-    }
-  } else if (
-    event.ctrlKey !== (parsedShortcut.ctrl || parsedShortcut.mod) ||
-    event.shiftKey !== parsedShortcut.shift ||
-    event.altKey !== parsedShortcut.alt
-  ) {
-    return false;
-  }
-  if (parsedShortcut.keys.size === 0) {
-    return true;
-  }
-  if (!eventCode || parsedShortcut.keys.size !== 1) {
-    return false;
-  }
-  return parsedShortcut.keys.has(eventCode);
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  if (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  ) {
-    return true;
-  }
-  if (target.isContentEditable) {
-    return true;
-  }
-  return Boolean(target.closest("[contenteditable='true']"));
-}
-
 function isInteractiveWindowHeaderTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -497,132 +276,6 @@ function clampNumber(
   return value;
 }
 
-function resolveMaxVisibleDockWindowCount(
-  totalWindowCount: number,
-  availableWidthPx: number,
-): number {
-  for (let count = totalWindowCount; count >= 1; count -= 1) {
-    const minimumWidthPx =
-      count * MIN_DOCK_CHAT_WIDTH_PX +
-      Math.max(0, count - 1) * DOCK_WINDOW_GAP_PX +
-      DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
-    if (minimumWidthPx <= availableWidthPx + 0.5) {
-      return count;
-    }
-  }
-  return 0;
-}
-
-function resolveDockWindowWidthsToFit(
-  dockedPills: ResolvedWindowPill[],
-  desiredWidthsById: Record<string, number>,
-  availableWidthPx: number,
-): Record<string, number> {
-  if (dockedPills.length === 0) {
-    return {};
-  }
-  const gapWidthPx = Math.max(0, dockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
-  const availablePanelWidthPx =
-    availableWidthPx - DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2 - gapWidthPx;
-  if (availablePanelWidthPx <= 0) {
-    return {};
-  }
-  const nextWidthsById: Record<string, number> = {};
-  const resolvedWidths = dockedPills.map((pill) =>
-    clampNumber(
-      desiredWidthsById[pill.instanceId] ?? DOCK_WINDOW_DEFAULT_WIDTH_PX,
-      MIN_DOCK_CHAT_WIDTH_PX,
-      DOCK_SURFACE_MAX_WIDTH_PX,
-    ),
-  );
-  const totalDesiredWidthPx = resolvedWidths.reduce(
-    (sum, widthPx) => sum + widthPx,
-    0,
-  );
-  if (totalDesiredWidthPx <= availablePanelWidthPx + 0.5) {
-    dockedPills.forEach((pill, index) => {
-      nextWidthsById[pill.instanceId] =
-        resolvedWidths[index] ?? MIN_DOCK_CHAT_WIDTH_PX;
-    });
-    return nextWidthsById;
-  }
-  const minTotalWidthPx = dockedPills.length * MIN_DOCK_CHAT_WIDTH_PX;
-  if (minTotalWidthPx >= availablePanelWidthPx - 0.5) {
-    dockedPills.forEach((pill) => {
-      nextWidthsById[pill.instanceId] = MIN_DOCK_CHAT_WIDTH_PX;
-    });
-    return nextWidthsById;
-  }
-  const shrinkableEntries = resolvedWidths.map((widthPx, index) => ({
-    index,
-    widthPx,
-  }));
-  let remainingReductionPx = totalDesiredWidthPx - availablePanelWidthPx;
-  while (remainingReductionPx > 0.5) {
-    const shrinkableIndices = shrinkableEntries
-      .map((entry) => entry.index)
-      .filter(
-        (index) =>
-          (shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) >
-          MIN_DOCK_CHAT_WIDTH_PX + 0.5,
-      );
-    if (shrinkableIndices.length === 0) {
-      break;
-    }
-    const totalShrinkCapacityPx = shrinkableIndices.reduce((sum, index) => {
-      return (
-        sum +
-        ((shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) -
-          MIN_DOCK_CHAT_WIDTH_PX)
-      );
-    }, 0);
-    if (totalShrinkCapacityPx <= 0.5) {
-      break;
-    }
-    let appliedReductionPx = 0;
-    for (const index of shrinkableIndices) {
-      const entry = shrinkableEntries[index];
-      if (!entry) {
-        continue;
-      }
-      const capacityPx = entry.widthPx - MIN_DOCK_CHAT_WIDTH_PX;
-      const proportionalReductionPx =
-        remainingReductionPx * (capacityPx / totalShrinkCapacityPx);
-      const nextWidthPx = Math.max(
-        MIN_DOCK_CHAT_WIDTH_PX,
-        entry.widthPx - proportionalReductionPx,
-      );
-      appliedReductionPx += entry.widthPx - nextWidthPx;
-      entry.widthPx = nextWidthPx;
-    }
-    if (appliedReductionPx <= 0.5) {
-      break;
-    }
-    remainingReductionPx = Math.max(
-      0,
-      remainingReductionPx - appliedReductionPx,
-    );
-  }
-  dockedPills.forEach((pill, index) => {
-    nextWidthsById[pill.instanceId] =
-      shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX;
-  });
-  return nextWidthsById;
-}
-
-function resizeDirectionIncludesAxis(
-  direction: WindowResizeDirection,
-  axis: "left" | "right" | "top" | "bottom",
-): boolean {
-  return direction === axis || direction.includes(axis);
-}
-
-function areBoundsEqual(a: ChatWindowBounds, b: ChatWindowBounds): boolean {
-  return (
-    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
-  );
-}
-
 function getViewportDimensions(): { width: number; height: number } | null {
   if (typeof window === "undefined") {
     return null;
@@ -633,110 +286,6 @@ function getViewportDimensions(): { width: number; height: number } | null {
     return null;
   }
   return { width, height };
-}
-
-function clampFloatingBoundsToViewport(
-  bounds: ChatWindowBounds,
-  viewportWidthPx: number,
-  viewportHeightPx: number,
-  insets: FloatingWindowBoundaryInsets,
-): ChatWindowBounds {
-  const minXBoundary = Math.max(0, insets.left);
-  const maxXBoundary = Math.max(
-    minXBoundary + 1,
-    viewportWidthPx - Math.max(0, insets.right),
-  );
-  const minYBoundary = Math.max(0, insets.top);
-  const maxYBoundary = Math.max(
-    minYBoundary + FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX,
-    viewportHeightPx - Math.max(0, insets.bottom),
-  );
-  const availableWidthPx = Math.max(1, maxXBoundary - minXBoundary);
-  const availableHeightPx = Math.max(1, maxYBoundary - minYBoundary);
-
-  const nextWidth = clampNumber(
-    Math.max(FLOATING_WINDOW_MIN_WIDTH_PX, bounds.width),
-    FLOATING_WINDOW_MIN_WIDTH_PX,
-    Math.max(FLOATING_WINDOW_MIN_WIDTH_PX, availableWidthPx),
-  );
-  const nextHeight = clampNumber(
-    Math.max(FLOATING_WINDOW_MIN_HEIGHT_PX, bounds.height),
-    FLOATING_WINDOW_MIN_HEIGHT_PX,
-    Math.max(FLOATING_WINDOW_MIN_HEIGHT_PX, availableHeightPx),
-  );
-  const minimumVisibleWidth = Math.max(
-    1,
-    Math.min(FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX, availableWidthPx),
-  );
-
-  const minX = minXBoundary + minimumVisibleWidth - nextWidth;
-  const maxX = maxXBoundary - minimumVisibleWidth;
-  const clampedX = clampNumber(
-    bounds.x,
-    Math.min(minX, maxX),
-    Math.max(minX, maxX),
-  );
-  const clampedY = clampNumber(
-    bounds.y,
-    minYBoundary,
-    Math.max(minYBoundary, maxYBoundary - FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX),
-  );
-
-  return {
-    x: clampedX,
-    y: clampedY,
-    width: nextWidth,
-    height: nextHeight,
-  };
-}
-
-function resolveFloatingSnapPresetFromPointer(
-  pointerX: number,
-  pointerY: number,
-  viewportWidthPx: number,
-  viewportHeightPx: number,
-  insets: FloatingWindowBoundaryInsets,
-): FloatingSnapPreset | null {
-  const minXBoundary = Math.max(0, insets.left);
-  const maxXBoundary = Math.max(
-    minXBoundary + 1,
-    viewportWidthPx - Math.max(0, insets.right),
-  );
-  const minYBoundary = Math.max(0, insets.top);
-  const maxYBoundary = Math.max(
-    minYBoundary + 1,
-    viewportHeightPx - Math.max(0, insets.bottom),
-  );
-  const nearLeft = pointerX <= minXBoundary + FLOATING_SNAP_EDGE_THRESHOLD_PX;
-  const nearRight = pointerX >= maxXBoundary - FLOATING_SNAP_EDGE_THRESHOLD_PX;
-  const nearTop = pointerY <= minYBoundary + FLOATING_SNAP_EDGE_THRESHOLD_PX;
-  const nearBottom = pointerY >= maxYBoundary - FLOATING_SNAP_EDGE_THRESHOLD_PX;
-
-  if (nearTop && nearLeft) {
-    return "top_left";
-  }
-  if (nearTop && nearRight) {
-    return "top_right";
-  }
-  if (nearBottom && nearLeft) {
-    return "bottom_left";
-  }
-  if (nearBottom && nearRight) {
-    return "bottom_right";
-  }
-  if (nearLeft) {
-    return "left";
-  }
-  if (nearRight) {
-    return "right";
-  }
-  if (nearTop) {
-    return "top";
-  }
-  if (nearBottom) {
-    return "bottom";
-  }
-  return null;
 }
 
 function buildPillBaseClass(isActive: boolean): string {
@@ -1331,17 +880,6 @@ export function ProjectChatBottomDock() {
   );
   const [isCanvasVisibilitySuppressed, setIsCanvasVisibilitySuppressed] =
     useState(false);
-  const [floatingPreviewBoundsById, setFloatingPreviewBoundsById] = useState<
-    Record<string, ChatWindowBounds>
-  >({});
-  const [activeFloatingSnapPreview, setActiveFloatingSnapPreview] =
-    useState<ActiveFloatingSnapPreview | null>(null);
-  const [dockPreviewWidthsById, setDockPreviewWidthsById] = useState<
-    Record<string, number>
-  >({});
-  const [dockPreviewHeightsById, setDockPreviewHeightsById] = useState<
-    Record<string, number>
-  >({});
   const [windowExitAnimationsById, setWindowExitAnimationsById] = useState<
     Record<string, ChatWindowExitAnimationKind>
   >({});
@@ -1360,26 +898,11 @@ export function ProjectChatBottomDock() {
   const pillViewportRef = useRef<HTMLDivElement | null>(null);
   const fullMeasureRowRef = useRef<HTMLDivElement | null>(null);
   const compactMeasureRowRef = useRef<HTMLDivElement | null>(null);
-  const activeSingleDockResizeRef = useRef<ActiveSingleDockResize | null>(null);
-  const activeFloatingDragRef = useRef<ActiveFloatingDrag | null>(null);
-  const activeFloatingResizeRef = useRef<ActiveFloatingResize | null>(null);
-  const activeFloatingSnapResizeRef = useRef<ActiveFloatingSnapResize | null>(
-    null,
-  );
   const autoCreateProjectConfigIdRef = useRef<string | null>(null);
-  const activeFloatingSnapPreviewRef = useRef<ActiveFloatingSnapPreview | null>(
-    null,
-  );
   const windowExitTimeoutsRef = useRef<Record<string, number>>({});
   const pillExitTimeoutsRef = useRef<Record<string, number>>({});
   const windowEnterPrimeTimeoutsRef = useRef<Record<string, number>>({});
   const windowEnterAnimationTimeoutsRef = useRef<Record<string, number>>({});
-  const floatingPreviewBoundsRef = useRef<Record<string, ChatWindowBounds>>({});
-  const queuedFloatingPreviewBoundsRef = useRef<Record<
-    string,
-    ChatWindowBounds
-  > | null>(null);
-  const floatingPreviewAnimationFrameRef = useRef<number | null>(null);
   const floatingRestoreBoundsByIdRef = useRef<Record<string, ChatWindowBounds>>(
     {},
   );
@@ -1516,11 +1039,6 @@ export function ProjectChatBottomDock() {
 
   useEffect(() => {
     return () => {
-      if (floatingPreviewAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(floatingPreviewAnimationFrameRef.current);
-      }
-      floatingPreviewAnimationFrameRef.current = null;
-      queuedFloatingPreviewBoundsRef.current = null;
       for (const timeoutId of Object.values(windowExitTimeoutsRef.current)) {
         window.clearTimeout(timeoutId);
       }
@@ -1543,10 +1061,6 @@ export function ProjectChatBottomDock() {
       windowEnterAnimationTimeoutsRef.current = {};
     };
   }, []);
-
-  useEffect(() => {
-    floatingPreviewBoundsRef.current = floatingPreviewBoundsById;
-  }, [floatingPreviewBoundsById]);
 
   const orderedPills = useMemo<ResolvedWindowPill[]>(() => {
     const output: ResolvedWindowPill[] = [];
@@ -1717,222 +1231,91 @@ export function ProjectChatBottomDock() {
       ),
     [floatingBottomInsetPx, workspaceTopInsetPx],
   );
-  const floatingBoundsById = useMemo(() => {
-    const nextBoundsById: Record<string, ChatWindowBounds> = {};
-    for (const pill of openFloatingPills) {
-      nextBoundsById[pill.instanceId] =
-        floatingPreviewBoundsById[pill.instanceId] ?? pill.bounds;
-    }
-    return nextBoundsById;
-  }, [floatingPreviewBoundsById, openFloatingPills]);
-  const snappedFloatingWindows = useMemo(() => {
-    if (viewportWidthPx <= 0 || viewportHeightPx <= 0) {
-      return [];
-    }
-    return openFloatingPills.flatMap((pill) => {
-      const bounds = floatingBoundsById[pill.instanceId];
-      if (!bounds) {
-        return [];
-      }
-      const snapPreset = resolveFloatingSnapPresetFromBounds(
-        bounds,
-        viewportWidthPx,
-        viewportHeightPx,
-        floatingWindowBoundaryInsets,
-      );
-      if (!snapPreset) {
-        return [];
-      }
-      return [
-        {
-          instanceId: pill.instanceId,
-          bounds,
-          snapPreset,
-        },
-      ];
-    });
-  }, [
-    floatingBoundsById,
-    floatingWindowBoundaryInsets,
-    openFloatingPills,
-    viewportHeightPx,
-    viewportWidthPx,
-  ]);
-  const floatingSnapPresetById = useMemo(() => {
-    const nextPresetById: Record<string, FloatingSnapPreset> = {};
-    for (const snappedWindow of snappedFloatingWindows) {
-      nextPresetById[snappedWindow.instanceId] = snappedWindow.snapPreset;
-    }
-    return nextPresetById;
-  }, [snappedFloatingWindows]);
-  const floatingSnapResizeHandles = useMemo(
-    () => buildFloatingSnapResizeHandles(snappedFloatingWindows),
-    [snappedFloatingWindows],
-  );
-
-  const dockAvailableHeightPx = useMemo(() => {
-    const fallbackViewportHeight = 900;
-    const resolvedViewportHeight =
-      viewportHeightPx > 0 ? viewportHeightPx : fallbackViewportHeight;
-    return Math.max(
-      MIN_DOCK_CHAT_HEIGHT_PX,
-      resolvedViewportHeight - workspaceTopInsetPx - dockBottomOffsetPx,
-    );
-  }, [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx]);
-  const defaultDockWindowHeightPx = useMemo(
-    () =>
-      resolveDefaultDockedChatHeightPx({
-        viewportHeightPx,
-        workspaceTopInsetPx,
-        bottomInsetPx: dockBottomOffsetPx,
-        minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
-      }),
-    [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx],
-  );
-  const dockSurfaceRightPx =
-    SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
-  const showDockManagerMenu =
-    canCreateManagedChatWindow || orderedPills.length > 0;
-  const dockStripReservedWidthPx = resolveDockStripReservedWidthPx({
-    nonClosedChatCount: nonClosedPills.length,
-    showManagerMenu: showDockManagerMenu,
-  });
-  const dockSurfaceAvailableWidthPx = useMemo(() => {
-    const fallbackViewportWidth =
-      DOCK_SURFACE_MAX_WIDTH_PX +
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 +
-      dockStripReservedWidthPx;
-    const resolvedViewportWidth =
-      viewportWidthPx > 0 ? viewportWidthPx : fallbackViewportWidth;
-    const usableViewportWidthPx =
-      resolvedViewportWidth -
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 -
-      dockStripReservedWidthPx;
-    return clampNumber(usableViewportWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
-  }, [dockStripReservedWidthPx, viewportWidthPx]);
-
-  const baseDockWindowWidthsById = useMemo(() => {
-    const nextWidthsById: Record<string, number> = {};
-    for (const pill of openDockedPills) {
-      const candidateWidthPx =
-        typeof pill.dockPreferredWidthPx === "number" &&
-        Number.isFinite(pill.dockPreferredWidthPx) &&
-        pill.dockPreferredWidthPx > 0
-          ? pill.dockPreferredWidthPx
-          : DOCK_WINDOW_DEFAULT_WIDTH_PX;
-      nextWidthsById[pill.instanceId] = clampNumber(
-        candidateWidthPx,
-        MIN_DOCK_CHAT_WIDTH_PX,
-        DOCK_SURFACE_MAX_WIDTH_PX,
-      );
-    }
-    return nextWidthsById;
-  }, [openDockedPills]);
-
-  const baseDockWindowHeightsById = useMemo(() => {
-    const nextHeightsById: Record<string, number> = {};
-    for (const pill of openDockedPills) {
-      const candidateHeightPx =
-        typeof pill.bounds.height === "number" &&
-        Number.isFinite(pill.bounds.height) &&
-        pill.bounds.height > 0
-          ? pill.bounds.height
-          : DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-      const shouldUseAutoFillHeight =
-        Math.abs(candidateHeightPx - DOCK_WINDOW_DEFAULT_HEIGHT_PX) <= 0.5;
-      const resolvedHeightPx = shouldUseAutoFillHeight
-        ? defaultDockWindowHeightPx
-        : candidateHeightPx;
-      nextHeightsById[pill.instanceId] = clampNumber(
-        resolvedHeightPx,
-        MIN_DOCK_CHAT_HEIGHT_PX,
-        dockAvailableHeightPx,
-      );
-    }
-    return nextHeightsById;
-  }, [defaultDockWindowHeightPx, dockAvailableHeightPx, openDockedPills]);
-
-  const resolvedDockWindowWidthsById = useMemo(() => {
-    const nextWidthsById: Record<string, number> = {
-      ...baseDockWindowWidthsById,
-    };
-    for (const [instanceId, previewWidthPx] of Object.entries(
-      dockPreviewWidthsById,
-    )) {
-      if (!nextWidthsById[instanceId]) {
-        continue;
-      }
-      nextWidthsById[instanceId] = clampNumber(
-        previewWidthPx,
-        MIN_DOCK_CHAT_WIDTH_PX,
-        DOCK_SURFACE_MAX_WIDTH_PX,
-      );
-    }
-    return nextWidthsById;
-  }, [baseDockWindowWidthsById, dockPreviewWidthsById]);
-
-  const resolvedDockWindowHeightsById = useMemo(() => {
-    const nextHeightsById: Record<string, number> = {
-      ...baseDockWindowHeightsById,
-    };
-    for (const [instanceId, previewHeightPx] of Object.entries(
-      dockPreviewHeightsById,
-    )) {
-      if (!nextHeightsById[instanceId]) {
-        continue;
-      }
-      nextHeightsById[instanceId] = clampNumber(
-        previewHeightPx,
-        MIN_DOCK_CHAT_HEIGHT_PX,
-        dockAvailableHeightPx,
-      );
-    }
-    return nextHeightsById;
-  }, [
-    baseDockWindowHeightsById,
-    dockAvailableHeightPx,
-    dockPreviewHeightsById,
-  ]);
-
   const dockedWindowIdsKey = useMemo(
     () => openDockedPills.map((pill) => pill.instanceId).join("|"),
     [openDockedPills],
   );
-  const maxVisibleDockedCount = useMemo(
+  const handleCommitSingleDockResize = useCallback(
+    ({
+      instanceId,
+      widthPx,
+      heightPx,
+    }: {
+      instanceId: string;
+      widthPx: number;
+      heightPx: number;
+    }) => {
+      setProjectChatWindowDockFractions({
+        widthFractionsByInstanceId: {
+          [instanceId]: 1,
+        },
+        dockContainerWidthPx: widthPx,
+      });
+      setProjectChatWindowBounds(instanceId, {
+        height: heightPx,
+      });
+    },
+    [],
+  );
+  const {
+    dockPreviewWidthsById,
+    dockPreviewHeightsById,
+    handleSingleDockResizePointerDown,
+    handleSingleDockResizePointerMove,
+    handleSingleDockResizePointerUp,
+  } = useProjectChatDockResize({
+    dockBottomOffsetPx,
+    dockedWindowIdsKey,
+    dockedPills: openDockedPills,
+    workspaceTopInsetPx,
+    onCommitResize: handleCommitSingleDockResize,
+  });
+
+  const dockSurfaceRightPx =
+    SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
+  const showDockManagerMenu =
+    canCreateManagedChatWindow || orderedPills.length > 0;
+  const {
+    dockAvailableHeightPx,
+    resolvedDockWindowWidthsById,
+    resolvedDockWindowHeightsById,
+    maxVisibleDockedCount,
+    maxDockCycleOffset,
+    dockVisibleStartIndex,
+    visibleDockedPills,
+    responsiveHiddenDockedIds,
+    resolvedVisibleDockWindowWidthsById,
+    dockSurfaceWidthCss,
+    dockSurfaceHeightCss,
+  } = useMemo(
     () =>
-      resolveMaxVisibleDockWindowCount(
-        openDockedPills.length,
-        dockSurfaceAvailableWidthPx,
-      ),
-    [dockSurfaceAvailableWidthPx, openDockedPills.length],
+      resolveDockedWindowLayout({
+        dockedPills: openDockedPills,
+        previewWidthsById: dockPreviewWidthsById,
+        previewHeightsById: dockPreviewHeightsById,
+        viewportWidthPx,
+        viewportHeightPx,
+        workspaceTopInsetPx,
+        dockBottomOffsetPx,
+        sideRailWidthPx: SIDE_RAIL_WIDTH_PX,
+        nonClosedChatCount: nonClosedPills.length,
+        showManagerMenu: showDockManagerMenu,
+        dockCycleOffsetFromEnd,
+      }),
+    [
+      dockBottomOffsetPx,
+      dockCycleOffsetFromEnd,
+      dockPreviewHeightsById,
+      dockPreviewWidthsById,
+      nonClosedPills.length,
+      openDockedPills,
+      showDockManagerMenu,
+      viewportHeightPx,
+      viewportWidthPx,
+      workspaceTopInsetPx,
+    ],
   );
-  const maxDockCycleOffset = Math.max(
-    0,
-    openDockedPills.length - maxVisibleDockedCount,
-  );
-  const dockVisibleStartIndex =
-    maxVisibleDockedCount === 0
-      ? openDockedPills.length
-      : Math.max(0, maxDockCycleOffset - dockCycleOffsetFromEnd);
-  const visibleDockedPills = useMemo(() => {
-    if (maxVisibleDockedCount === 0) {
-      return [] as ResolvedWindowPill[];
-    }
-    return openDockedPills.slice(
-      dockVisibleStartIndex,
-      dockVisibleStartIndex + maxVisibleDockedCount,
-    );
-  }, [dockVisibleStartIndex, maxVisibleDockedCount, openDockedPills]);
-  const responsiveHiddenDockedIds = useMemo(() => {
-    const visibleIds = new Set(
-      visibleDockedPills.map((pill) => pill.instanceId),
-    );
-    return new Set(
-      openDockedPills
-        .filter((pill) => !visibleIds.has(pill.instanceId))
-        .map((pill) => pill.instanceId),
-    );
-  }, [openDockedPills, visibleDockedPills]);
+
   const stripPills = useMemo(
     () =>
       orderedPills.filter(
@@ -1941,91 +1324,12 @@ export function ProjectChatBottomDock() {
       ),
     [orderedPills, responsiveHiddenDockedIds],
   );
-  const resolvedVisibleDockWindowWidthsById = useMemo(
-    () =>
-      resolveDockWindowWidthsToFit(
-        visibleDockedPills,
-        resolvedDockWindowWidthsById,
-        dockSurfaceAvailableWidthPx,
-      ),
-    [
-      dockSurfaceAvailableWidthPx,
-      resolvedDockWindowWidthsById,
-      visibleDockedPills,
-    ],
-  );
-
-  const floatingWindowIdsKey = useMemo(
-    () => openFloatingPills.map((pill) => pill.instanceId).join("|"),
-    [openFloatingPills],
-  );
-
-  useEffect(() => {
-    activeSingleDockResizeRef.current = null;
-    const allowedDockedWindowIds = new Set(
-      dockedWindowIdsKey
-        .split("|")
-        .map((windowId) => windowId.trim())
-        .filter((windowId) => windowId.length > 0),
-    );
-    setDockPreviewWidthsById((current) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      for (const [instanceId, previewWidthPx] of Object.entries(current)) {
-        if (!allowedDockedWindowIds.has(instanceId)) {
-          changed = true;
-          continue;
-        }
-        next[instanceId] = previewWidthPx;
-      }
-      return changed ? next : current;
-    });
-    setDockPreviewHeightsById((current) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      for (const [instanceId, previewHeightPx] of Object.entries(current)) {
-        if (!allowedDockedWindowIds.has(instanceId)) {
-          changed = true;
-          continue;
-        }
-        next[instanceId] = previewHeightPx;
-      }
-      return changed ? next : current;
-    });
-  }, [dockedWindowIdsKey]);
 
   useEffect(() => {
     setDockCycleOffsetFromEnd((current) =>
       clampNumber(current, 0, maxDockCycleOffset),
     );
   }, [maxDockCycleOffset]);
-
-  useEffect(() => {
-    activeFloatingDragRef.current = null;
-    activeFloatingResizeRef.current = null;
-    activeFloatingSnapResizeRef.current = null;
-    activeFloatingSnapPreviewRef.current = null;
-    setActiveFloatingSnapPreview(null);
-    if (!floatingWindowIdsKey) {
-      setFloatingPreviewBoundsById({});
-      return;
-    }
-    const allowedIds = new Set(
-      openFloatingPills.map((pill) => pill.instanceId),
-    );
-    setFloatingPreviewBoundsById((current) => {
-      let changed = false;
-      const next: Record<string, ChatWindowBounds> = {};
-      for (const [instanceId, bounds] of Object.entries(current)) {
-        if (!allowedIds.has(instanceId)) {
-          changed = true;
-          continue;
-        }
-        next[instanceId] = bounds;
-      }
-      return changed ? next : current;
-    });
-  }, [floatingWindowIdsKey]);
 
   useEffect(() => {
     if (hasOverlayWindows) {
@@ -2036,58 +1340,6 @@ export function ProjectChatBottomDock() {
 
   const showDockedChatSurface =
     visibleDockedPills.length > 0 && !isCanvasVisibilitySuppressed;
-  const dockSurfaceTargetWidthPx = useMemo(() => {
-    if (visibleDockedPills.length === 0) {
-      return 0;
-    }
-    let totalWindowWidthsPx = 0;
-    for (const pill of visibleDockedPills) {
-      totalWindowWidthsPx +=
-        resolvedVisibleDockWindowWidthsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_WIDTH_PX;
-    }
-    const totalGapWidthPx =
-      Math.max(0, visibleDockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
-    const rowPaddingWidthPx = DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
-    const targetWidthPx =
-      totalWindowWidthsPx + totalGapWidthPx + rowPaddingWidthPx;
-    return clampNumber(targetWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
-  }, [resolvedVisibleDockWindowWidthsById, visibleDockedPills]);
-  const dockSurfaceTargetHeightPx = useMemo(() => {
-    if (visibleDockedPills.length === 0) {
-      return MIN_DOCK_CHAT_HEIGHT_PX;
-    }
-    let maxHeightPx = MIN_DOCK_CHAT_HEIGHT_PX;
-    for (const pill of visibleDockedPills) {
-      const nextHeightPx =
-        resolvedDockWindowHeightsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-      if (nextHeightPx > maxHeightPx) {
-        maxHeightPx = nextHeightPx;
-      }
-    }
-    return clampNumber(
-      maxHeightPx,
-      MIN_DOCK_CHAT_HEIGHT_PX,
-      dockAvailableHeightPx,
-    );
-  }, [
-    dockAvailableHeightPx,
-    resolvedDockWindowHeightsById,
-    visibleDockedPills,
-  ]);
-  const dockSurfaceWidthCss = useMemo(() => {
-    if (dockSurfaceTargetWidthPx <= 0) {
-      return "0px";
-    }
-    const insetPx =
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2;
-    return `min(${dockSurfaceTargetWidthPx}px, ${DOCK_SURFACE_MAX_WIDTH_PX}px, calc(100vw - ${insetPx + dockStripReservedWidthPx}px))`;
-  }, [dockStripReservedWidthPx, dockSurfaceTargetWidthPx]);
-  const dockSurfaceHeightCss = useMemo(() => {
-    const topBottomReservedPx = workspaceTopInsetPx + dockBottomOffsetPx;
-    return `min(${dockSurfaceTargetHeightPx}px, calc(100vh - ${topBottomReservedPx}px))`;
-  }, [dockBottomOffsetPx, dockSurfaceTargetHeightPx, workspaceTopInsetPx]);
   const showCanvasVisibilityToggle =
     isCanvasVisibilitySuppressed || openMaximizedWindow !== null;
   const showStandaloneMinimizedPills = !showDockedChatSurface;
@@ -2596,6 +1848,100 @@ export function ProjectChatBottomDock() {
     [clampFloatingBoundsForCurrentViewport],
   );
 
+  const rememberFloatingRestoreBounds = useCallback(
+    (instanceId: string, bounds: ChatWindowBounds) => {
+      const existingBounds = floatingRestoreBoundsByIdRef.current[instanceId];
+      if (existingBounds && areFloatingBoundsEqual(existingBounds, bounds)) {
+        return;
+      }
+      floatingRestoreBoundsByIdRef.current = {
+        ...floatingRestoreBoundsByIdRef.current,
+        [instanceId]: { ...bounds },
+      };
+    },
+    [],
+  );
+
+  const {
+    floatingPreviewBoundsById,
+    activeFloatingSnapPreview,
+    handleFloatingDragPointerDown,
+    handleFloatingDragPointerMove,
+    handleFloatingDragPointerUp,
+    handleFloatingResizePointerDown,
+    handleFloatingResizePointerMove,
+    handleFloatingResizePointerUp,
+    handleFloatingSnapResizePointerDown,
+    handleFloatingSnapResizePointerMove,
+    handleFloatingSnapResizePointerUp,
+  } = useProjectChatFloatingInteractions({
+    floatingWindowBoundaryInsets,
+    floatingWindowIdsKey: openFloatingPills
+      .map((pill) => pill.instanceId)
+      .join("|"),
+    openFloatingPills,
+    onCommitBounds: setProjectChatWindowBounds,
+    onCommitBoundsById: setProjectChatWindowBoundsById,
+    onFocusWindow: handleFocusWindow,
+    onRememberFloatingRestoreBounds: rememberFloatingRestoreBounds,
+    clampFloatingBoundsForCurrentViewport,
+    resolveFloatingRestoreBounds,
+    positionFloatingBoundsForUnsnap,
+  });
+
+  const floatingBoundsById = useMemo(() => {
+    const nextBoundsById: Record<string, ChatWindowBounds> = {};
+    for (const pill of openFloatingPills) {
+      nextBoundsById[pill.instanceId] =
+        floatingPreviewBoundsById[pill.instanceId] ?? pill.bounds;
+    }
+    return nextBoundsById;
+  }, [floatingPreviewBoundsById, openFloatingPills]);
+  const snappedFloatingWindows = useMemo(() => {
+    if (viewportWidthPx <= 0 || viewportHeightPx <= 0) {
+      return [];
+    }
+    return openFloatingPills.flatMap((pill) => {
+      const bounds = floatingBoundsById[pill.instanceId];
+      if (!bounds) {
+        return [];
+      }
+      const snapPreset = resolveFloatingSnapPresetFromBounds(
+        bounds,
+        viewportWidthPx,
+        viewportHeightPx,
+        floatingWindowBoundaryInsets,
+      );
+      if (!snapPreset) {
+        return [];
+      }
+      return [
+        {
+          instanceId: pill.instanceId,
+          bounds,
+          snapPreset,
+        },
+      ];
+    });
+  }, [
+    floatingBoundsById,
+    floatingWindowBoundaryInsets,
+    openFloatingPills,
+    viewportHeightPx,
+    viewportWidthPx,
+  ]);
+  const floatingSnapPresetById = useMemo(() => {
+    const nextPresetById: Record<string, FloatingSnapPreset> = {};
+    for (const snappedWindow of snappedFloatingWindows) {
+      nextPresetById[snappedWindow.instanceId] = snappedWindow.snapPreset;
+    }
+    return nextPresetById;
+  }, [snappedFloatingWindows]);
+  const floatingSnapResizeHandles = useMemo(
+    () => buildFloatingSnapResizeHandles(snappedFloatingWindows),
+    [snappedFloatingWindows],
+  );
+
   useEffect(() => {
     const nextRestoreBoundsById = {
       ...floatingRestoreBoundsByIdRef.current,
@@ -2612,7 +1958,7 @@ export function ProjectChatBottomDock() {
       }
       const clampedBounds = clampFloatingBoundsForCurrentViewport(bounds);
       const existing = nextRestoreBoundsById[pill.instanceId];
-      if (existing && areBoundsEqual(existing, clampedBounds)) {
+      if (existing && areFloatingBoundsEqual(existing, clampedBounds)) {
         continue;
       }
       nextRestoreBoundsById[pill.instanceId] = clampedBounds;
@@ -2704,944 +2050,53 @@ export function ProjectChatBottomDock() {
     ],
   );
 
-  useEffect(() => {
-    const parsedCanvasToggle = parseShortcut(
-      chatWindowingShortcuts.canvasToggle,
-    );
-    const parsedMaximizeFocused = parseShortcut(
-      chatWindowingShortcuts.maximizeFocused,
-    );
-    const parsedMinimizeFocused = parseShortcut(
-      chatWindowingShortcuts.minimizeFocused,
-    );
-    const parsedSnapLeft = parseShortcut(chatWindowingShortcuts.snapLeft);
-    const parsedSnapRight = parseShortcut(chatWindowingShortcuts.snapRight);
-    const parsedSnapTop = parseShortcut(chatWindowingShortcuts.snapTop);
-    const parsedSnapBottom = parseShortcut(chatWindowingShortcuts.snapBottom);
-    const parsedSnapTopLeft = parseShortcut(SNAP_TOP_LEFT_SHORTCUT);
-    const parsedSnapTopRight = parseShortcut(SNAP_TOP_RIGHT_SHORTCUT);
-    const parsedSnapBottomLeft = parseShortcut(SNAP_BOTTOM_LEFT_SHORTCUT);
-    const parsedSnapBottomRight = parseShortcut(SNAP_BOTTOM_RIGHT_SHORTCUT);
-    const macOs = isMacOs();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.repeat ||
-        isEditableTarget(event.target)
-      ) {
-        return;
-      }
-      const eventCode = getNormalizedEventCode(event);
-
-      if (
-        hasOverlayWindows &&
-        isShortcutPressed(event, eventCode, parsedCanvasToggle, macOs)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        setIsCanvasVisibilitySuppressed((current) => !current);
-        return;
-      }
-
-      if (
-        activeVisibleWindowId &&
-        isShortcutPressed(event, eventCode, parsedMaximizeFocused, macOs)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        maximizeProjectChatWindow(activeVisibleWindowId);
-        focusProjectChatWindow(activeVisibleWindowId);
-        setIsCanvasVisibilitySuppressed(false);
-        return;
-      }
-
-      if (
-        activeVisibleWindowId &&
-        isShortcutPressed(event, eventCode, parsedMinimizeFocused, macOs)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        startWindowExitAnimation(activeVisibleWindowId, "minimize", {
-          focusAfterClose: true,
-        });
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapLeft, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("left");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapRight, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("right");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapTop, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("top");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapBottom, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("bottom");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapTopLeft, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("top_left");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapTopRight, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("top_right");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapBottomLeft, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("bottom_left");
-        return;
-      }
-
-      if (isShortcutPressed(event, eventCode, parsedSnapBottomRight, macOs)) {
-        event.preventDefault();
-        event.stopPropagation();
-        snapWindowTargetByPreset("bottom_right");
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown, true);
-    };
-  }, [
-    activeSectionId,
-    activeVisibleWindowId,
-    chatWindowingShortcuts.canvasToggle,
-    chatWindowingShortcuts.maximizeFocused,
-    chatWindowingShortcuts.minimizeFocused,
-    chatWindowingShortcuts.snapBottom,
-    chatWindowingShortcuts.snapLeft,
-    chatWindowingShortcuts.snapRight,
-    chatWindowingShortcuts.snapTop,
-    hasOverlayWindows,
-    instancesById,
-    snapWindowTargetByPreset,
-    startWindowExitAnimation,
-  ]);
-
-  const commitQueuedFloatingPreviewBounds = useCallback(() => {
-    floatingPreviewAnimationFrameRef.current = null;
-    const nextBoundsById = queuedFloatingPreviewBoundsRef.current;
-    queuedFloatingPreviewBoundsRef.current = null;
-    if (!nextBoundsById) {
-      return;
-    }
-    floatingPreviewBoundsRef.current = nextBoundsById;
-    setFloatingPreviewBoundsById((current) =>
-      current === nextBoundsById ? current : nextBoundsById,
-    );
+  const toggleCanvasVisibility = useCallback(() => {
+    setIsCanvasVisibilitySuppressed((current) => !current);
   }, []);
 
-  const scheduleFloatingPreviewBoundsCommit = useCallback(() => {
-    if (floatingPreviewAnimationFrameRef.current !== null) {
+  const maximizeFocusedVisibleWindow = useCallback(() => {
+    if (!activeVisibleWindowId) {
       return;
     }
-    floatingPreviewAnimationFrameRef.current = window.requestAnimationFrame(
-      commitQueuedFloatingPreviewBounds,
-    );
-  }, [commitQueuedFloatingPreviewBounds]);
+    maximizeProjectChatWindow(activeVisibleWindowId);
+    focusProjectChatWindow(activeVisibleWindowId);
+    setIsCanvasVisibilitySuppressed(false);
+  }, [activeVisibleWindowId]);
 
-  const setFloatingPreviewBoundsImmediately = useCallback(
-    (nextBoundsById: Record<string, ChatWindowBounds>) => {
-      if (floatingPreviewAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(floatingPreviewAnimationFrameRef.current);
-      }
-      floatingPreviewAnimationFrameRef.current = null;
-      queuedFloatingPreviewBoundsRef.current = null;
-      floatingPreviewBoundsRef.current = nextBoundsById;
-      setFloatingPreviewBoundsById((current) =>
-        current === nextBoundsById ? current : nextBoundsById,
-      );
-    },
-    [],
-  );
-
-  const handleFloatingBoundsPreview = useCallback(
-    (instanceId: string, bounds: ChatWindowBounds) => {
-      const current =
-        queuedFloatingPreviewBoundsRef.current ??
-        floatingPreviewBoundsRef.current;
-      const existing = current[instanceId];
-      if (existing && areBoundsEqual(existing, bounds)) {
-        return;
-      }
-      const next = {
-        ...current,
-        [instanceId]: bounds,
-      };
-      queuedFloatingPreviewBoundsRef.current = next;
-      floatingPreviewBoundsRef.current = next;
-      scheduleFloatingPreviewBoundsCommit();
-    },
-    [scheduleFloatingPreviewBoundsCommit],
-  );
-
-  const handleFloatingBoundsPreviewBatch = useCallback(
-    (boundsByInstanceId: Record<string, ChatWindowBounds>) => {
-      const current =
-        queuedFloatingPreviewBoundsRef.current ??
-        floatingPreviewBoundsRef.current;
-      let next = current;
-      for (const [instanceId, bounds] of Object.entries(boundsByInstanceId)) {
-        const existing = next[instanceId];
-        if (existing && areBoundsEqual(existing, bounds)) {
-          continue;
-        }
-        if (next === current) {
-          next = { ...current };
-        }
-        next[instanceId] = bounds;
-      }
-      if (next === current) {
-        return;
-      }
-      queuedFloatingPreviewBoundsRef.current = next;
-      floatingPreviewBoundsRef.current = next;
-      scheduleFloatingPreviewBoundsCommit();
-    },
-    [scheduleFloatingPreviewBoundsCommit],
-  );
-
-  const clearFloatingBoundsPreview = useCallback(
-    (instanceId: string) => {
-      const current =
-        queuedFloatingPreviewBoundsRef.current ??
-        floatingPreviewBoundsRef.current;
-      if (!current[instanceId]) {
-        return;
-      }
-      const next = { ...current };
-      delete next[instanceId];
-      setFloatingPreviewBoundsImmediately(next);
-    },
-    [setFloatingPreviewBoundsImmediately],
-  );
-
-  const clearFloatingBoundsPreviewBatch = useCallback(
-    (instanceIds: string[]) => {
-      const current =
-        queuedFloatingPreviewBoundsRef.current ??
-        floatingPreviewBoundsRef.current;
-      let next = current;
-      for (const instanceId of instanceIds) {
-        if (!next[instanceId]) {
-          continue;
-        }
-        if (next === current) {
-          next = { ...current };
-        }
-        delete next[instanceId];
-      }
-      if (next === current) {
-        return;
-      }
-      setFloatingPreviewBoundsImmediately(next);
-    },
-    [setFloatingPreviewBoundsImmediately],
-  );
-
-  const updateActiveFloatingSnapPreview = useCallback(
-    (nextSnapPreview: ActiveFloatingSnapPreview | null) => {
-      activeFloatingSnapPreviewRef.current = nextSnapPreview;
-      setActiveFloatingSnapPreview((current) => {
-        if (!current && !nextSnapPreview) {
-          return current;
-        }
-        if (current && nextSnapPreview) {
-          const sameBounds = areBoundsEqual(
-            current.bounds,
-            nextSnapPreview.bounds,
-          );
-          if (
-            current.instanceId === nextSnapPreview.instanceId &&
-            current.preset === nextSnapPreview.preset &&
-            sameBounds
-          ) {
-            return current;
-          }
-        }
-        return nextSnapPreview;
-      });
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (openFloatingPills.length === 0) {
+  const minimizeFocusedVisibleWindow = useCallback(() => {
+    if (!activeVisibleWindowId) {
       return;
     }
+    startWindowExitAnimation(activeVisibleWindowId, "minimize", {
+      focusAfterClose: true,
+    });
+  }, [activeVisibleWindowId, startWindowExitAnimation]);
 
-    const applyViewportGuardrails = () => {
-      if (
-        activeFloatingDragRef.current ||
-        activeFloatingResizeRef.current ||
-        activeFloatingSnapResizeRef.current
-      ) {
-        return;
-      }
-      const viewport = getViewportDimensions();
-      if (!viewport) {
-        return;
-      }
-
-      for (const pill of openFloatingPills) {
-        const clampedBounds = clampFloatingBoundsToViewport(
-          pill.bounds,
-          viewport.width,
-          viewport.height,
-          floatingWindowBoundaryInsets,
-        );
-        if (areBoundsEqual(pill.bounds, clampedBounds)) {
-          continue;
-        }
-        setProjectChatWindowBounds(pill.instanceId, clampedBounds);
-      }
-    };
-
-    applyViewportGuardrails();
-
-    let frameRequestId: number | null = null;
-    const onResize = () => {
-      if (frameRequestId !== null) {
-        window.cancelAnimationFrame(frameRequestId);
-      }
-      frameRequestId = window.requestAnimationFrame(() => {
-        frameRequestId = null;
-        applyViewportGuardrails();
-      });
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      if (frameRequestId !== null) {
-        window.cancelAnimationFrame(frameRequestId);
-      }
-      window.removeEventListener("resize", onResize);
-    };
-  }, [floatingWindowBoundaryInsets, openFloatingPills]);
-
-  const handleFloatingDragPointerDown = useCallback(
-    (event: PointerEvent<HTMLButtonElement>, pill: ResolvedWindowPill) => {
-      if (event.button !== 0) {
-        return;
-      }
-      if (
-        event.detail > 1 &&
-        event.target instanceof HTMLElement &&
-        event.target.closest("[data-project-chat-window-title='true']")
-      ) {
-        return;
-      }
-      const previewBounds = floatingPreviewBoundsById[pill.instanceId];
-      const currentBounds = clampFloatingBoundsForCurrentViewport(
-        previewBounds ?? pill.bounds,
-      );
-      const snapPreset = floatingSnapPresetById[pill.instanceId] ?? null;
-      const restoreBoundsOnUnsnap = snapPreset
-        ? resolveFloatingRestoreBounds(pill.instanceId)
-        : null;
-      if (
-        restoreBoundsOnUnsnap &&
-        !floatingRestoreBoundsByIdRef.current[pill.instanceId]
-      ) {
-        floatingRestoreBoundsByIdRef.current = {
-          ...floatingRestoreBoundsByIdRef.current,
-          [pill.instanceId]: { ...restoreBoundsOnUnsnap },
-        };
-      }
-      const dragBoundsStart = restoreBoundsOnUnsnap
-        ? positionFloatingBoundsForUnsnap({
-            currentBounds,
-            restoreBounds: restoreBoundsOnUnsnap,
-            pointerX: event.clientX,
-            pointerY: event.clientY,
-          })
-        : currentBounds;
-      const clonedCurrentBounds = { ...currentBounds };
-      const clonedDragBoundsStart = { ...dragBoundsStart };
-      activeFloatingDragRef.current = {
-        pointerId: event.pointerId,
-        instanceId: pill.instanceId,
-        startX: event.clientX,
-        startY: event.clientY,
-        startBounds: clonedCurrentBounds,
-        dragBoundsStart: clonedDragBoundsStart,
-        lastBounds: clonedCurrentBounds,
-        restoreBoundsOnUnsnap,
-        hasActivatedUnsnap: restoreBoundsOnUnsnap === null,
-      };
-      updateActiveFloatingSnapPreview(null);
-      handleFocusWindow(pill.instanceId);
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
+  useProjectChatWindowShortcuts({
+    shortcuts: {
+      canvasToggle: chatWindowingShortcuts.canvasToggle,
+      maximizeFocused: chatWindowingShortcuts.maximizeFocused,
+      minimizeFocused: chatWindowingShortcuts.minimizeFocused,
+      snapLeft: chatWindowingShortcuts.snapLeft,
+      snapRight: chatWindowingShortcuts.snapRight,
+      snapTop: chatWindowingShortcuts.snapTop,
+      snapBottom: chatWindowingShortcuts.snapBottom,
+      snapTopLeft: SNAP_TOP_LEFT_SHORTCUT,
+      snapTopRight: SNAP_TOP_RIGHT_SHORTCUT,
+      snapBottomLeft: SNAP_BOTTOM_LEFT_SHORTCUT,
+      snapBottomRight: SNAP_BOTTOM_RIGHT_SHORTCUT,
     },
-    [
-      clampFloatingBoundsForCurrentViewport,
-      floatingPreviewBoundsById,
-      floatingSnapPresetById,
-      handleFocusWindow,
-      positionFloatingBoundsForUnsnap,
-      resolveFloatingRestoreBounds,
-      updateActiveFloatingSnapPreview,
-    ],
-  );
-
-  const handleFloatingDragPointerMove = useCallback(
-    (event: PointerEvent<HTMLButtonElement>) => {
-      const activeDrag = activeFloatingDragRef.current;
-      if (!activeDrag || activeDrag.pointerId !== event.pointerId) {
-        return;
-      }
-      const deltaX = event.clientX - activeDrag.startX;
-      const deltaY = event.clientY - activeDrag.startY;
-      const dragDistance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
-      if (
-        activeDrag.restoreBoundsOnUnsnap &&
-        !activeDrag.hasActivatedUnsnap &&
-        dragDistance >= FLOATING_UNSNAP_DRAG_THRESHOLD_PX
-      ) {
-        activeDrag.hasActivatedUnsnap = true;
-      }
-      const dragBoundsStart = activeDrag.hasActivatedUnsnap
-        ? activeDrag.dragBoundsStart
-        : activeDrag.startBounds;
-      const nextBounds = clampFloatingBoundsForCurrentViewport({
-        ...dragBoundsStart,
-        x: dragBoundsStart.x + deltaX,
-        y: dragBoundsStart.y + deltaY,
-      });
-      const viewport = getViewportDimensions();
-      if (viewport) {
-        const snapPreset = resolveFloatingSnapPresetFromPointer(
-          event.clientX,
-          event.clientY,
-          viewport.width,
-          viewport.height,
-          floatingWindowBoundaryInsets,
-        );
-        if (snapPreset) {
-          updateActiveFloatingSnapPreview({
-            instanceId: activeDrag.instanceId,
-            preset: snapPreset,
-            bounds: buildFloatingSnapBounds(
-              snapPreset,
-              viewport.width,
-              viewport.height,
-              floatingWindowBoundaryInsets,
-            ),
-          });
-        } else {
-          updateActiveFloatingSnapPreview(null);
-        }
-      } else {
-        updateActiveFloatingSnapPreview(null);
-      }
-      activeDrag.lastBounds = nextBounds;
-      if (activeDrag.hasActivatedUnsnap) {
-        handleFloatingBoundsPreview(activeDrag.instanceId, nextBounds);
-      }
-    },
-    [
-      clampFloatingBoundsForCurrentViewport,
-      floatingWindowBoundaryInsets,
-      handleFloatingBoundsPreview,
-      updateActiveFloatingSnapPreview,
-    ],
-  );
-
-  const handleFloatingDragPointerUp = useCallback(
-    (event: PointerEvent<HTMLButtonElement>) => {
-      const activeDrag = activeFloatingDragRef.current;
-      if (!activeDrag || activeDrag.pointerId !== event.pointerId) {
-        return;
-      }
-      const activeSnap = activeFloatingSnapPreviewRef.current;
-      if (activeSnap && activeSnap.instanceId === activeDrag.instanceId) {
-        setProjectChatWindowBounds(activeDrag.instanceId, activeSnap.bounds);
-      } else if (!activeDrag.hasActivatedUnsnap) {
-        setProjectChatWindowBounds(
-          activeDrag.instanceId,
-          activeDrag.startBounds,
-        );
-      } else {
-        setProjectChatWindowBounds(
-          activeDrag.instanceId,
-          activeDrag.lastBounds,
-        );
-      }
-      clearFloatingBoundsPreview(activeDrag.instanceId);
-      updateActiveFloatingSnapPreview(null);
-      activeFloatingDragRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [clearFloatingBoundsPreview, updateActiveFloatingSnapPreview],
-  );
-
-  const handleFloatingResizePointerDown = useCallback(
-    (
-      event: PointerEvent<HTMLDivElement>,
-      pill: ResolvedWindowPill,
-      direction: WindowResizeDirection,
-    ) => {
-      if (event.button !== 0) {
-        return;
-      }
-      const previewBounds = floatingPreviewBoundsById[pill.instanceId];
-      const startBounds = clampFloatingBoundsForCurrentViewport(
-        previewBounds ?? pill.bounds,
-      );
-      const clonedBounds = { ...startBounds };
-      activeFloatingResizeRef.current = {
-        pointerId: event.pointerId,
-        instanceId: pill.instanceId,
-        direction,
-        startX: event.clientX,
-        startY: event.clientY,
-        startBounds: clonedBounds,
-        lastBounds: clonedBounds,
-      };
-      updateActiveFloatingSnapPreview(null);
-      handleFocusWindow(pill.instanceId);
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [
-      clampFloatingBoundsForCurrentViewport,
-      floatingPreviewBoundsById,
-      handleFocusWindow,
-      updateActiveFloatingSnapPreview,
-    ],
-  );
-
-  const handleFloatingResizePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeFloatingResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      const deltaX = event.clientX - activeResize.startX;
-      const deltaY = event.clientY - activeResize.startY;
-      const resizingLeft = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "left",
-      );
-      const resizingRight = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "right",
-      );
-      const resizingTop = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "top",
-      );
-      const resizingBottom = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "bottom",
-      );
-
-      let nextWidth = activeResize.startBounds.width;
-      let nextHeight = activeResize.startBounds.height;
-      let nextX = activeResize.startBounds.x;
-      let nextY = activeResize.startBounds.y;
-
-      if (resizingLeft) {
-        nextWidth = Math.max(
-          FLOATING_WINDOW_MIN_WIDTH_PX,
-          activeResize.startBounds.width - deltaX,
-        );
-        nextX =
-          activeResize.startBounds.x +
-          activeResize.startBounds.width -
-          nextWidth;
-      } else if (resizingRight) {
-        nextWidth = Math.max(
-          FLOATING_WINDOW_MIN_WIDTH_PX,
-          activeResize.startBounds.width + deltaX,
-        );
-      }
-
-      if (resizingTop) {
-        nextHeight = Math.max(
-          FLOATING_WINDOW_MIN_HEIGHT_PX,
-          activeResize.startBounds.height - deltaY,
-        );
-        nextY =
-          activeResize.startBounds.y +
-          activeResize.startBounds.height -
-          nextHeight;
-      } else if (resizingBottom) {
-        nextHeight = Math.max(
-          FLOATING_WINDOW_MIN_HEIGHT_PX,
-          activeResize.startBounds.height + deltaY,
-        );
-      }
-
-      const nextBounds = clampFloatingBoundsForCurrentViewport({
-        x: nextX,
-        y: nextY,
-        width: nextWidth,
-        height: nextHeight,
-      });
-      activeResize.lastBounds = nextBounds;
-      handleFloatingBoundsPreview(activeResize.instanceId, nextBounds);
-    },
-    [clampFloatingBoundsForCurrentViewport, handleFloatingBoundsPreview],
-  );
-
-  const handleFloatingResizePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeFloatingResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      setProjectChatWindowBounds(
-        activeResize.instanceId,
-        activeResize.lastBounds,
-      );
-      clearFloatingBoundsPreview(activeResize.instanceId);
-      updateActiveFloatingSnapPreview(null);
-      activeFloatingResizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [clearFloatingBoundsPreview, updateActiveFloatingSnapPreview],
-  );
-
-  const handleFloatingSnapResizePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>, handle: FloatingSnapResizeHandle) => {
-      if (event.button !== 0) {
-        return;
-      }
-      const startBoundsByInstanceId: Record<string, ChatWindowBounds> = {};
-      const involvedInstanceIds = [
-        ...handle.leadingInstanceIds,
-        ...handle.trailingInstanceIds,
-      ];
-
-      for (const instanceId of involvedInstanceIds) {
-        const bounds = floatingBoundsById[instanceId];
-        if (!bounds) {
-          return;
-        }
-        startBoundsByInstanceId[instanceId] = { ...bounds };
-      }
-
-      if (handle.axis === "vertical") {
-        let minCoordinate = -Infinity;
-        let maxCoordinate = Infinity;
-        for (const instanceId of handle.leadingInstanceIds) {
-          const bounds = startBoundsByInstanceId[instanceId];
-          minCoordinate = Math.max(
-            minCoordinate,
-            bounds.x + FLOATING_WINDOW_MIN_WIDTH_PX,
-          );
-        }
-        for (const instanceId of handle.trailingInstanceIds) {
-          const bounds = startBoundsByInstanceId[instanceId];
-          maxCoordinate = Math.min(
-            maxCoordinate,
-            bounds.x + bounds.width - FLOATING_WINDOW_MIN_WIDTH_PX,
-          );
-        }
-        activeFloatingSnapResizeRef.current = {
-          pointerId: event.pointerId,
-          axis: "vertical",
-          startPointerPosition: event.clientX,
-          startCoordinate: handle.coordinate,
-          minCoordinate,
-          maxCoordinate,
-          leadingInstanceIds: handle.leadingInstanceIds,
-          trailingInstanceIds: handle.trailingInstanceIds,
-          startBoundsByInstanceId,
-          lastBoundsByInstanceId: startBoundsByInstanceId,
-        };
-      } else {
-        let minCoordinate = -Infinity;
-        let maxCoordinate = Infinity;
-        for (const instanceId of handle.leadingInstanceIds) {
-          const bounds = startBoundsByInstanceId[instanceId];
-          minCoordinate = Math.max(
-            minCoordinate,
-            bounds.y + FLOATING_WINDOW_MIN_HEIGHT_PX,
-          );
-        }
-        for (const instanceId of handle.trailingInstanceIds) {
-          const bounds = startBoundsByInstanceId[instanceId];
-          maxCoordinate = Math.min(
-            maxCoordinate,
-            bounds.y + bounds.height - FLOATING_WINDOW_MIN_HEIGHT_PX,
-          );
-        }
-        activeFloatingSnapResizeRef.current = {
-          pointerId: event.pointerId,
-          axis: "horizontal",
-          startPointerPosition: event.clientY,
-          startCoordinate: handle.coordinate,
-          minCoordinate,
-          maxCoordinate,
-          leadingInstanceIds: handle.leadingInstanceIds,
-          trailingInstanceIds: handle.trailingInstanceIds,
-          startBoundsByInstanceId,
-          lastBoundsByInstanceId: startBoundsByInstanceId,
-        };
-      }
-
-      updateActiveFloatingSnapPreview(null);
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [floatingBoundsById, updateActiveFloatingSnapPreview],
-  );
-
-  const handleFloatingSnapResizePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeFloatingSnapResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      const pointerPosition =
-        activeResize.axis === "vertical" ? event.clientX : event.clientY;
-      const nextCoordinate = clampNumber(
-        activeResize.startCoordinate +
-          (pointerPosition - activeResize.startPointerPosition),
-        activeResize.minCoordinate,
-        activeResize.maxCoordinate,
-      );
-      const nextBoundsByInstanceId = buildFloatingSnapResizeBounds(
-        {
-          axis: activeResize.axis,
-          coordinate: activeResize.startCoordinate,
-          leadingInstanceIds: activeResize.leadingInstanceIds,
-          trailingInstanceIds: activeResize.trailingInstanceIds,
-          startBoundsByInstanceId: activeResize.startBoundsByInstanceId,
-        },
-        nextCoordinate,
-      );
-
-      activeResize.lastBoundsByInstanceId = nextBoundsByInstanceId;
-      handleFloatingBoundsPreviewBatch(nextBoundsByInstanceId);
-    },
-    [handleFloatingBoundsPreviewBatch],
-  );
-
-  const handleFloatingSnapResizePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeFloatingSnapResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      setProjectChatWindowBoundsById(activeResize.lastBoundsByInstanceId);
-      clearFloatingBoundsPreviewBatch([
-        ...activeResize.leadingInstanceIds,
-        ...activeResize.trailingInstanceIds,
-      ]);
-      updateActiveFloatingSnapPreview(null);
-      activeFloatingSnapResizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [clearFloatingBoundsPreviewBatch, updateActiveFloatingSnapPreview],
-  );
-
-  const handleSingleDockResizePointerDown = useCallback(
-    (
-      event: PointerEvent<HTMLDivElement>,
-      pill: ResolvedWindowPill,
-      direction: WindowResizeDirection,
-    ) => {
-      if (event.button !== 0) {
-        return;
-      }
-      const panelNode = event.currentTarget.closest(
-        `[data-chat-window-instance-id="${pill.instanceId}"]`,
-      );
-      const panelBounds = panelNode?.getBoundingClientRect();
-      const startWidthPx =
-        panelBounds?.width ??
-        resolvedDockWindowWidthsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_WIDTH_PX;
-      const startHeightPx =
-        panelBounds?.height ??
-        resolvedDockWindowHeightsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-      const viewport = getViewportDimensions();
-      const maxHeightFromViewport = viewport
-        ? viewport.height - workspaceTopInsetPx - dockBottomOffsetPx
-        : dockAvailableHeightPx;
-      activeSingleDockResizeRef.current = {
-        pointerId: event.pointerId,
-        instanceId: pill.instanceId,
-        direction,
-        startX: event.clientX,
-        startY: event.clientY,
-        startWidthPx,
-        startHeightPx,
-        lastWidthPx: startWidthPx,
-        lastHeightPx: startHeightPx,
-        minWidthPx: MIN_DOCK_CHAT_WIDTH_PX,
-        maxWidthPx: DOCK_SURFACE_MAX_WIDTH_PX,
-        minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
-        maxHeightPx: clampNumber(
-          maxHeightFromViewport,
-          MIN_DOCK_CHAT_HEIGHT_PX,
-          dockAvailableHeightPx,
-        ),
-      };
-      setDockPreviewWidthsById((current) => ({
-        ...current,
-        [pill.instanceId]: startWidthPx,
-      }));
-      setDockPreviewHeightsById((current) => ({
-        ...current,
-        [pill.instanceId]: startHeightPx,
-      }));
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [
-      dockAvailableHeightPx,
-      dockBottomOffsetPx,
-      resolvedDockWindowHeightsById,
-      resolvedDockWindowWidthsById,
-      workspaceTopInsetPx,
-    ],
-  );
-
-  const handleSingleDockResizePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeSingleDockResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      const deltaX = event.clientX - activeResize.startX;
-      const deltaY = event.clientY - activeResize.startY;
-      const resizingLeft = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "left",
-      );
-      const resizingRight = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "right",
-      );
-      const resizingTop = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "top",
-      );
-      const resizingBottom = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "bottom",
-      );
-      let nextWidthPx = activeResize.startWidthPx;
-      let nextHeightPx = activeResize.startHeightPx;
-      if (resizingLeft) {
-        nextWidthPx = activeResize.startWidthPx - deltaX;
-      } else if (resizingRight) {
-        nextWidthPx = activeResize.startWidthPx + deltaX;
-      }
-      if (resizingTop) {
-        nextHeightPx = activeResize.startHeightPx - deltaY;
-      } else if (resizingBottom) {
-        nextHeightPx = activeResize.startHeightPx + deltaY;
-      }
-      nextWidthPx = clampNumber(
-        nextWidthPx,
-        activeResize.minWidthPx,
-        activeResize.maxWidthPx,
-      );
-      nextHeightPx = clampNumber(
-        nextHeightPx,
-        activeResize.minHeightPx,
-        activeResize.maxHeightPx,
-      );
-      activeResize.lastWidthPx = nextWidthPx;
-      activeResize.lastHeightPx = nextHeightPx;
-      setDockPreviewWidthsById((current) => {
-        if (current[activeResize.instanceId] === nextWidthPx) {
-          return current;
-        }
-        return {
-          ...current,
-          [activeResize.instanceId]: nextWidthPx,
-        };
-      });
-      setDockPreviewHeightsById((current) => {
-        if (current[activeResize.instanceId] === nextHeightPx) {
-          return current;
-        }
-        return {
-          ...current,
-          [activeResize.instanceId]: nextHeightPx,
-        };
-      });
-    },
-    [],
-  );
-
-  const handleSingleDockResizePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeSingleDockResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      setProjectChatWindowDockFractions({
-        widthFractionsByInstanceId: {
-          [activeResize.instanceId]: 1,
-        },
-        dockContainerWidthPx: activeResize.lastWidthPx,
-      });
-      setProjectChatWindowBounds(activeResize.instanceId, {
-        height: activeResize.lastHeightPx,
-      });
-      setDockPreviewWidthsById((current) => {
-        if (!(activeResize.instanceId in current)) {
-          return current;
-        }
-        const next = { ...current };
-        delete next[activeResize.instanceId];
-        return next;
-      });
-      setDockPreviewHeightsById((current) => {
-        if (!(activeResize.instanceId in current)) {
-          return current;
-        }
-        const next = { ...current };
-        delete next[activeResize.instanceId];
-        return next;
-      });
-      activeSingleDockResizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [],
-  );
+    hasOverlayWindows,
+    hasActiveVisibleWindow: Boolean(activeVisibleWindowId),
+    onToggleCanvasVisibility: toggleCanvasVisibility,
+    onMaximizeFocusedWindow: activeVisibleWindowId
+      ? maximizeFocusedVisibleWindow
+      : null,
+    onMinimizeFocusedWindow: activeVisibleWindowId
+      ? minimizeFocusedVisibleWindow
+      : null,
+    onSnapPreset: snapWindowTargetByPreset,
+  });
 
   useLayoutEffect(() => {
     const viewportNode = pillViewportRef.current;
@@ -3654,57 +2109,27 @@ export function ProjectChatBottomDock() {
     if (availableWidthPx <= 0) {
       return;
     }
-    const fullWidthPx = fullMeasureNode.scrollWidth;
-    const compactWidthPx = compactMeasureNode.scrollWidth;
-    const minimumCycleWidthPx =
-      CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
-      COMPACT_PILL_WIDTH_PX * 2 +
-      PILL_GAP_PX * 3;
-    let nextMode: PillDisplayMode = "full";
-    if (
-      stripPills.length > 1 &&
-      viewportWidthPx > 0 &&
-      viewportWidthPx <= NARROW_CHAT_MENU_BREAKPOINT_PX
-    ) {
-      nextMode = "menu";
-    } else if (fullWidthPx > availableWidthPx + 1) {
-      if (compactWidthPx <= availableWidthPx + 1) {
-        nextMode = "compact";
-      } else if (availableWidthPx <= minimumCycleWidthPx + 1) {
-        nextMode = "menu";
-      } else {
-        nextMode = "cycle";
-      }
-    }
+    const nextMode = resolvePillDisplayMode({
+      stripPillCount: stripPills.length,
+      availableWidthPx,
+      fullWidthPx: fullMeasureNode.scrollWidth,
+      compactWidthPx: compactMeasureNode.scrollWidth,
+      viewportWidthPx,
+    });
     if (nextMode !== pillDisplayMode) {
       setPillDisplayMode(nextMode);
     }
   }, [pillDisplayMode, pillViewportWidthPx, stripPills, viewportWidthPx]);
 
-  const cycleVisibleCount = useMemo(() => {
-    if (stripPills.length === 0) {
-      return 0;
-    }
-    if (pillDisplayMode !== "cycle") {
-      return stripPills.length;
-    }
-    if (pillViewportWidthPx <= 0) {
-      return 1;
-    }
-    const availablePillsWidthPx = Math.max(
-      0,
-      pillViewportWidthPx -
-        CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 -
-        PILL_GAP_PX * 2 -
-        COMPACT_PILL_WIDTH_PX -
-        PILL_GAP_PX,
-    );
-    const compactSlotWidthPx = COMPACT_PILL_WIDTH_PX + PILL_GAP_PX;
-    const nextVisibleCount = Math.floor(
-      (availablePillsWidthPx + PILL_GAP_PX) / compactSlotWidthPx,
-    );
-    return clampNumber(nextVisibleCount, 1, stripPills.length);
-  }, [pillDisplayMode, pillViewportWidthPx, stripPills.length]);
+  const cycleVisibleCount = useMemo(
+    () =>
+      resolveCycleVisibleCount({
+        pillDisplayMode,
+        pillViewportWidthPx,
+        stripPillCount: stripPills.length,
+      }),
+    [pillDisplayMode, pillViewportWidthPx, stripPills.length],
+  );
 
   useEffect(() => {
     const maxStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
@@ -4165,7 +2590,7 @@ export function ProjectChatBottomDock() {
                                 onPointerDown={(event) => {
                                   handleSingleDockResizePointerDown(
                                     event,
-                                    pill,
+                                    pill.instanceId,
                                     handle.direction,
                                   );
                                 }}
