@@ -5,7 +5,7 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `fdad8d2edabf30a2f41419c6be8fd6421d275c3d`
+- Target head: `b5575389ac307c60cdda4499f18483bc7edc50c1`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -63,8 +63,8 @@ Last audited: `2026-03-16`
 
 - Rows audited in this pass: `283`
 - Status counts:
-  - `Proved`: `255`
-  - `Implemented, proof incomplete`: `3`
+  - `Proved`: `256`
+  - `Implemented, proof incomplete`: `2`
   - `Missing`: `3`
   - `Retained Python boundary`: `7`
   - `Intentional divergence`: `5`
@@ -91,6 +91,9 @@ Last audited: `2026-03-16`
     Python-style `revealAfterSet` write-plus-reveal contract with nested reveal
     results, and allow-unscoped agentic context keeps structural write access
     even when section context is present for the reveal path
+  - `internal/plugins/discovery.go`: persisted non-object plugin config roots
+    now invalidate the plugin before runtime/UI-setting exposure, so MCP
+    UI-setting reads and writes fail closed without rewriting the corrupt root
   - `internal/wsapi/routes.go`: listener init missing-project error payloads now
     omit the extra Go-only `"message"` field so the retained websocket transport
     matches the source contract
@@ -262,9 +265,8 @@ Last audited: `2026-03-16`
   and `codegen.refresh.plugin_output_cache_invalidation_rules` are now explicit
   `Missing` rows instead of being left as deferred notes.
 - `ui_settings.reveal.fail_closed_on_dispatch_or_ack_contract_breakage` and
-  `ui_settings.write.reveal_after_set_fail_closed_preserves_write_result`, plus
-  `ui_settings.plugin.corrupt_config_root_fail_fast_without_rewrite`, are now
-  explicit `Implemented, proof incomplete` rows pending stronger Go proof.
+  `ui_settings.write.reveal_after_set_fail_closed_preserves_write_result` are
+  now explicit `Implemented, proof incomplete` rows pending stronger Go proof.
 - Retained Python boundaries are now recorded explicitly for
   `setta.api.SettaListener`, `setta.api.chat_toolkit`,
   `setta.api.SettaRunner`, the share listener runtime, and the packaged
@@ -558,7 +560,7 @@ Last audited: `2026-03-16`
 | `ui_settings.write.reveal_after_set_affinity_precedence_share_scope` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_supplied_frontend_affinity_token` | `internal/mcpx/agentic_context.go::resolveFrontendAffinityToken`; `internal/mcpx/agentic_context.go::resolveAgenticScope`; `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; `internal/mcpx/ui_setting_tools.go::runUISettingReveal`; `internal/mcpx/server.go` | `TestResolveAgenticScopeKeepsUnscopedAccessWhenSectionContextIsPresent`; `TestServerSetUISettingValueRevealAfterSetReturnsNestedRevealAndUsesMetaSectionContext`; `TestServerSetUISettingValueRevealAfterSetShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta`; `TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult` | the standalone `set_ui_setting_value` MCP tool remains active, and the Go rewrite now exposes the same write-then-reveal option on that surface | `Proved` | The write-then-reveal flow now keeps retained agentic/share-session frontend affinity authoritative over caller metadata, and allow-unscoped writes still keep full structural access even when the reveal path injects section context. |
 | `ui_settings.reveal.fail_closed_on_dispatch_or_ack_contract_breakage` | `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_when_preferred_frontend_websocket_is_missing`; `::test_reveal_ui_setting_fails_immediately_when_selected_frontend_becomes_undeliverable`; `::test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatches`; `::test_reveal_ui_setting_fails_closed_when_frontend_ack_websocket_mismatches` | `internal/uisettings/reveal.go`; `internal/realtime/ui_setting_reveal_results.go` implement the coordinator and ack-contract checks | `internal/realtime/ui_setting_reveal_results_test.go` covers hub-level mismatch/disconnect handling, and `internal/uisettings/reveal_test.go` covers routing/success cases, but no full Go proof was found for the complete standalone reveal dispatch/ack failure matrix | the standalone `reveal_ui_setting` MCP tool remains active | `Implemented, proof incomplete` | The Go standalone reveal pipeline appears to contain the required missing-preferred-target, undeliverable-dispatch, and ack-mismatch fail-closed branches, but the cited Go proof still does not cover the full source failure matrix end to end. |
 | `ui_settings.write.reveal_after_set_fail_closed_preserves_write_result` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_reveal_after_set_rolls_back_section_on_undeliverable_dispatch` | `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; `internal/mcpx/ui_setting_tools.go::runUISettingReveal`; `internal/uisettings/reveal.go` | `TestServerSetUISettingValueRevealAfterSetPreservesWriteWhenRevealFails`; `TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult` | the standalone `set_ui_setting_value` MCP tool remains active, and the Go rewrite now returns nested reveal status without discarding the successful write result | `Implemented, proof incomplete` | Go now exposes the write-plus-reveal contract and preserves successful writes while returning nested reveal failure status, but the cited proof still stops short of the full undeliverable-dispatch and section-rollback matrix covered by the source tests. |
-| `ui_settings.plugin.corrupt_config_root_fail_fast_without_rewrite` | `tests/mcp/test_ui_setting_tools.py::test_plugin_ui_settings_fail_closed_when_config_root_is_not_an_object`; `::test_plugin_ui_settings_fail_closed_when_plugin_root_is_not_an_object` | `internal/uisettings/plugins.go::parsePluginUISettingDefinitions` and plugin config readers contain the matching non-object-root guards | no direct Go proof was found in `internal/mcpx/ui_setting_tools_test.go` or `internal/uisettings/*` for the corrupt-config root contract | plugin UI-setting read/write flows still expose plugin-config failures through the MCP tool boundary | `Implemented, proof incomplete` | The implementation appears to fail closed on corrupt non-object config roots, but the matrix still lacks direct Go proof that the runtime preserves the source fail-fast/no-rewrite behavior. |
+| `ui_settings.plugin.corrupt_config_root_fail_fast_without_rewrite` | `tests/mcp/test_ui_setting_tools.py::test_plugin_ui_settings_fail_closed_when_config_root_is_not_an_object`; `::test_plugin_ui_settings_fail_closed_when_plugin_root_is_not_an_object` | `internal/plugins/discovery.go::validatePersistedPluginConfigRoot`; `internal/uisettings/registry.go::MissingSettingError`; `internal/mcpx/ui_setting_tools.go` | `TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid`; `TestServerUISettingToolsRejectPersistedCorruptPluginConfigRootWithoutRewrite` | plugin UI-setting read/write flows still expose plugin-config failures through the MCP tool boundary | `Proved` | Persisted non-object plugin config roots now invalidate the plugin before runtime exposure, so both UI-setting reads and writes fail closed with the same `plugin_unavailable (state=invalid)` contract and leave the corrupt persisted root untouched. |
 | `settings.save.disabling_autosave_cancels_pending_project_autosaves` | `backend/setta/routers/settings.py::route_save_settings`; source-side autosave cancellation behavior in the live settings save path | no equivalent cancel-pending-autosave behavior was found in `internal/httpapi/settings_routes.go`, `internal/settingsstate`, or `internal/app` | no Go proof exists because no matching behavior was found | the direct `saveSettings` route remains an active frontend surface in `frontend/src/state/actions/settings.ts` | `Missing` | The source save-settings path cancels pending project autosaves when autosave is disabled, but the current Go settings-save flow only persists and broadcasts the snapshot. |
 | `codegen.refresh.plugin_output_path_canonicalization_and_absolute_path_rejection` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_rejects_absolute_output_paths`; `::test_refresh_plugin_codegen_canonicalizes_output_paths` | no equivalent parity proof was found beyond the existing target-validation path in `internal/projectstate/codegen_targets.go` | no matching Go tests were found for plugin-output path canonicalization or absolute-path rejection during refresh | plugin codegen refresh remains an in-scope backend behavior even though the current matrix only proved target selection/write rules | `Missing` | The matrix still lacks a proved Go equivalent for the source plugin-codegen refresh path-hygiene contract. |
 | `codegen.refresh.plugin_output_cache_invalidation_rules` | `tests/project_state/test_codegen_targets.py::test_refresh_plugin_codegen_skips_unchanged_outputs`; `::test_refresh_plugin_codegen_regenerates_missing_outputs`; `::test_refresh_plugin_codegen_regenerates_modified_outputs`; `::test_refresh_plugin_codegen_detects_extra_output_files` | no equivalent parity proof was found for plugin-output cache reuse/regeneration behavior in the current Go codegen refresh surface | no matching Go tests were found for plugin-output cache invalidation semantics | current rewrite docs still treat codegen refresh as part of backend behavior parity rather than an ignorable cleanup detail | `Missing` | The source refresh contract around unchanged/missing/modified/extra plugin outputs is still unmapped on the Go side. |
