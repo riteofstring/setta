@@ -45,6 +45,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   now handles React mount/focus orchestration while `terminalSessions.ts`
   owns websocket session reuse and `terminalFit.ts` owns xterm fit/fallback
   sizing behavior.
+- public stop orchestration now lives in `frontend/src/state/actions/aiChatControls.ts`,
+  while external-run lookup and external stop recovery now live in
+  `frontend/src/state/actions/aiExternalAgentStop.ts`
 
 ## Current State (Observed)
 
@@ -72,7 +75,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
 - `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration and backend request payload assembly.
-- `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiChatStopState.ts`, and `frontend/src/state/actions/aiExternalAgentResponses.ts` now own stop orchestration, local stop snapshot/reconciliation, and external approval/question responses.
+- `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiExternalAgentStop.ts`, `frontend/src/state/actions/aiChatStopState.ts`, and `frontend/src/state/actions/aiExternalAgentResponses.ts` now own public stop orchestration, external stop/recovery, local stop snapshot/reconciliation, and external approval/question responses.
 - `frontend/src/state/actions/aiChatState.ts` now owns chat-detail and pending-surface detail writes shared by submission, hydration, and controls.
 - `frontend/src/state/actions/aiPendingChatState.ts` now owns surface-scoped pending drafts, pending app-generation state, and promotion into materialized chats.
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.

@@ -81,8 +81,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     single-run/update reconciliation.
   - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration,
     backend request payload assembly, and the pending-surface promotion flow.
-  - `state/actions/aiChatControls.ts` owns stop orchestration for project and
-    managed section chats.
+  - `state/actions/aiChatControls.ts` owns public stop orchestration for
+    project and managed section chats plus shared LLM stop fallback handling.
+  - `state/actions/aiExternalAgentStop.ts` owns external-run lookup, external
+    stop transport, and external chat recovery after stop failures.
   - `state/actions/aiChatStopState.ts` owns local stop snapshots, optimistic
     waiting-state interruption updates, and follow-state restoration.
   - `state/actions/aiExternalAgentResponses.ts` owns external agent
@@ -264,9 +266,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
     helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
-    `aiChatSubmission.ts`, `aiChatControls.ts`, `aiChatStopState.ts`,
-    `aiExternalAgentResponses.ts`, `aiChatState.ts`, `aiChatSectionState.ts`,
-    and `aiPendingChatState.ts`.
+    `aiChatSubmission.ts`, `aiChatControls.ts`, `aiExternalAgentStop.ts`,
+    `aiChatStopState.ts`, `aiExternalAgentResponses.ts`, `aiChatState.ts`,
+    `aiChatSectionState.ts`, and `aiPendingChatState.ts`.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
     reconciliation, active-section sync, viewport updates, and project-chat
     windowing coordination for authoritative project snapshots.
@@ -432,10 +434,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
-- `state/actions/aiChatControls.ts` now owns the largest remaining state/action
-  hotspot, so follow-up chat cleanup should stay local to stop orchestration
-  and approval/question response flows instead of regrowing streaming or
-  hydration modules.
+- `state/actions/stateMachineEdgeGraph.ts` now owns the remaining workflow
+  graph read and machine-group merge helper cluster, so follow-up cleanup there
+  should stay local to workflow graph reads instead of regrowing edge
+  canonicalization or mutation modules.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.
