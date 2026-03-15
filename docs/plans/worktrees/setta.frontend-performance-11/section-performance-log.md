@@ -2785,3 +2785,24 @@ Append-only log for the section performance refactor.
     - do not continue implementation work under this plan unless a new untouched-`main` vs worktree trace identifies another section-shell-specific hotspot
 - Next action:
   - No further implementation step is justified under the current section-shell plan without new trace evidence.
+
+### 2026-03-17 78
+
+- Item: Close the section performance plan for the current section-shell scope.
+- Status: `done`
+- Details:
+  - The active section-shell plan is now complete for its intended scope:
+    - accepted `Phase S0` baseline
+    - accepted `Phase S1` wrapper flattening checkpoints
+    - accepted `Phase S2` row-tree checkpoints
+    - accepted `Phase S3` shared resizable/container and standalone-route checkpoints through the final exhaustion read
+  - Historical non-`done` entries earlier in this append-only log should now be read as superseded planning history, not as remaining open work:
+    - `2026-03-16 02` through `2026-03-16 09` were initial setup and phase placeholders that were later satisfied or superseded by the accepted implementation work
+    - `2026-03-16 21` was an unaccepted callable checkpoint that was later superseded by the broader section-shell track
+    - `2026-03-17 61` was a temporary DevTools transport blocker that was later resolved by the checkpoint-6 rerun and later accepted `Phase S2` state
+    - `2026-03-17 64` was a temporary `needs_more_work` rerun state that was later superseded by the accepted checkpoint-6 rerun and downstream accepted checkpoints
+  - The plan should reopen only if:
+    - a new untouched-`main` vs worktree trace identifies another section-shell-specific hotspot
+    - or the scope explicitly expands into a new app-shell / route-wrapper plan
+- Next action:
+  - None under the current section-shell plan.

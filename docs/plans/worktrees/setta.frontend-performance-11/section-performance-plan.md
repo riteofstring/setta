@@ -17,12 +17,13 @@ Current status:
 
 - Callable pilot work: complete as pilot/history
 - Callable-specific performance goal: not fully achieved
-- Active plan: sections-wide section-shell simplification
+- Active plan: sections-wide section-shell simplification is complete for the current section-shell scope
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
-- Active phase: `Phase S3` is structurally exhausted after nine accepted checkpoints
+- Active phase: none; `Phase S3` is structurally exhausted after nine accepted checkpoints
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
 - Current `Phase S3` state: the standalone route-shell boundary read above `StandaloneProjectSurfacePage.tsx` is complete; no stronger section-shell-specific seam remains above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space/route-history/chat-structure seams without expanding scope into general app shells
+- Plan closure: complete for the current section-shell scope; only reopen if a fresh untouched-`main` vs worktree trace identifies another section-shell-specific hotspot or the scope explicitly expands into app-shell invalidation
 
 Non-negotiable constraints:
 
@@ -238,6 +239,15 @@ Immediate next step:
      - the accepted checkpoint-9 representative trace already leaves the worktree marked route window close to idle
    - treat `Phase S3` as structurally exhausted for the current section-shell scope
    - do not continue implementation work under this plan unless a new untouched-`main` vs worktree trace identifies another meaningful section-shell-specific hotspot
+23. Plan closure:
+   - the accepted `Phase S0` through `Phase S3` checkpoints now cover the intended shared section-shell simplification scope of this document
+   - the remaining wrapper stack above the accepted standalone route seam belongs to:
+     - general app-shell routing
+     - share wrappers
+     - modal hosting
+     - bootstrap shells
+   - that work is outside the current section-shell plan and should only start as a separate follow-up if a fresh trace proves it matters
+   - treat this plan as complete for the current scope rather than leaving it indefinitely open after the final `Phase S3` exhaustion read
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
