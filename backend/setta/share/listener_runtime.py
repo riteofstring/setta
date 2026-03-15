@@ -55,23 +55,6 @@ class ShareListenerRuntime:
         if self._runtime_root is not None:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self._runtime_root))
 
-    def _sanitize_module_suffix(self, value: str) -> str:
-        sanitized = []
-        for char in value:
-            if char.isalnum() or char == "_":
-                sanitized.append(char)
-            else:
-                sanitized.append("_")
-        return "".join(sanitized)
-
-    def _module_name_for_session(
-        self, session_id: str | None, project_config_id: ID
-    ) -> str:
-        suffix = "shared" if session_id is None else session_id
-        safe_suffix = self._sanitize_module_suffix(f"{suffix}_{project_config_id}")
-        base = self._sanitize_module_suffix(self._deployment_root.name)
-        return f"setta_share_listener_{base}_{safe_suffix}"
-
     def _drop_handle(self, key: tuple[str, ID], handle: _ListenerHandle) -> None:
         if key in self._session_handles:
             del self._session_handles[key]
@@ -93,7 +76,20 @@ class ShareListenerRuntime:
                 return
         if self._entrypoint_path is None:
             raise KeyError("Share listener entrypoint is not configured")
-        module_name = self._module_name_for_session(session_id, project_config_id)
+
+        def sanitize_module_suffix(value: str) -> str:
+            sanitized = []
+            for char in value:
+                if char.isalnum() or char == "_":
+                    sanitized.append(char)
+                else:
+                    sanitized.append("_")
+            return "".join(sanitized)
+
+        suffix = "shared" if session_id is None else session_id
+        safe_suffix = sanitize_module_suffix(f"{suffix}_{project_config_id}")
+        base = sanitize_module_suffix(self._deployment_root.name)
+        module_name = f"setta_share_listener_{base}_{safe_suffix}"
         spec = util.spec_from_file_location(module_name, self._entrypoint_path)
         if spec is None or spec.loader is None:
             raise KeyError(
