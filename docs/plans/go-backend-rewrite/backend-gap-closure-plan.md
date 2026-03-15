@@ -149,3 +149,9 @@ categorize them.
   remaining explicit-cookie precedence and explicit-auth unknown-tool branches
   before it is likely time to move back to the broader deployment, websocket,
   watch-code, or external-agent backlog
+- Those explicit-cookie precedence and explicit-auth unknown-tool `setta api`
+  rows are now proved too; that makes the remaining packaged-CLI work less of
+  a narrow `internal/settacli` cleanup slice and more of a reason to pivot
+  back toward the broader deployment, websocket, watch-code, external-agent,
+  or platform-default config backlog unless another single-branch CLI proof is
+  obviously cheaper
