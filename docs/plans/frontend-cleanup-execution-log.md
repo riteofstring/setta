@@ -2036,3 +2036,29 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiChatControls.ts`, now the largest
     authored/shared state hotspot, by separating stop orchestration from local
     stop-state reconciliation and external approval/question response flows.
+
+## 2026-03-15 01:59:57 PDT
+
+- Slice completed: split external AI chat stop lookup and recovery away from
+  the public project/section stop commands
+- Key files touched:
+  - `frontend/src/state/actions/aiChatControls.ts`
+  - `frontend/src/state/actions/aiExternalAgentStop.ts`
+  - `frontend/src/state/actions/aiExternalAgentStop.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiExternalAgentStop.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiWaitingForResponse.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatControls.ts src/state/actions/aiExternalAgentStop.ts src/state/actions/aiExternalAgentStop.test.ts src/state/actions/aiStopProjectChat.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `7aba6008e`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/stateMachineEdgeGraph.ts`, now the
+    largest authored/shared state hotspot, by separating workflow graph reads
+    and machine-group resolution from the remaining merge
+    snapshot/apply/restore helpers.
