@@ -34,6 +34,7 @@ It currently covers:
 - terminal delete and interrupt route behavior
 - IDE `runCode` terminal-selection and draw-snapshot behavior
 - deployment/share `runCode` policy and session-overlay behavior
+- detached-run runtime and transport behavior
 
 Rows outside these slices are still pending.
 
@@ -84,6 +85,8 @@ Rows outside these slices are still pending.
   - two source behaviors that are now dormant or still unproven as active
     caller requirements (terminal kill-route backend-log broadcasts and
     `cliId`-backed `runCode`)
+- The detached-run slice mostly closes with proofs and adds one more edge-case
+  proof gap around `cancelRun` after exit or tracker loss.
 
 ## Project Names
 
@@ -250,6 +253,18 @@ Rows outside these slices are still pending.
 | `TR-10` | Deployment/share `runCode` enforces policy on variant overrides, param overrides, and code-param overrides. | `backend/setta/routers/terminals.py::_validate_run_overrides`; `backend/setta/project_state/share_runtime_state.py`; `tests/routers/test_share_policy_routes.py::test_run_routes_blocked`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentParamOverridesWhenPolicyDisallows`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentCodeParamOverrides`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsDeploymentVariantOverridesWhenPolicyDisallows`. | `Proved` | |
 | `TR-11` | Deployment/share `runCode` executes against the session overlay, uses a read-only session-scoped terminal, increments session run counts, and rolls back a reserved single-run count if startup fails. | `backend/setta/routers/terminals.py::route_run_code`; `backend/setta/project_state/share_runtime_state.py`; `backend/setta/share/policy.py`. | Impl/proof: `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRejectsSecondDeploymentRunWhenMultipleRunsDisabled`; `internal/httpapi/terminal_routes_test.go::TestRegisterTerminalRoutesRollsBackReservedDeploymentRunOnStartupFailure`. | `Proved` | |
 
+## Detached Runs
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `DR-01` | Starting a detached run persists runtime metadata/log files, returns a running status immediately, and later transitions to exited/failed while preserving `projectConfigId`, `entrySectionId`, `snapshotPath`, and tags. | `tests/run_manager/test_detached_run_manager.py::test_start_run_persists_status_and_logs`; `tests/run_manager/test_detached_run_manager.py::test_snapshot_path_points_to_file`; `backend/setta/run_manager.py::start_run`. | Impl: `internal/detachedruns/manager.go::StartRun`; proof: `internal/detachedruns/manager_test.go::TestManagerStartRunPersistsStatusAndLogs`; route proof: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesStartsAndTracksRun`. | `Proved` | |
+| `DR-02` | Invalid detached-run commands still create failed metadata with `exitCode=-1`, no pid, and no `startedAtMs`. | `tests/run_manager/test_detached_run_manager.py::test_start_run_invalid_command_marks_failed`; `backend/setta/run_manager.py::start_run`. | Impl/proof: `internal/detachedruns/manager_test.go::TestManagerStartRunInvalidCommandMarksFailed`. | `Proved` | |
+| `DR-03` | `getRunStatus` marks an untracked running detached run as `lost`. | `tests/run_manager/test_detached_run_manager.py::test_get_status_untracked_run_marks_lost`; `backend/setta/run_manager.py::get_status`. | Impl/proof: `internal/detachedruns/manager_test.go::TestManagerGetStatusUntrackedRunMarksLost`; route proof for unknown ids: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesReturnsNotFoundForUnknownRun`. | `Proved` | |
+| `DR-04` | `cancelRun` marks an active detached run as `canceled` and eventually records an exit code. | `tests/run_manager/test_detached_run_manager.py::test_cancel_run_marks_canceled`; `tests/run_manager/test_detached_run_manager.py::test_canceled_run_records_exit_code`; `backend/setta/run_manager.py::cancel_run`. | Impl/proof: `internal/detachedruns/manager_test.go::TestManagerCancelRunMarksCanceled`; route proof: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesCancelsRun`. | `Proved` | |
+| `DR-05` | Canceling an already-exited detached run keeps the exited status, and canceling an untracked run reports `lost` instead of inventing a new terminal state. | `tests/run_manager/test_detached_run_manager.py::test_cancel_after_exit_keeps_exited_status`; `tests/run_manager/test_detached_run_manager.py::test_cancel_untracked_run_marks_lost`; `backend/setta/run_manager.py::cancel_run`. | Impl: `internal/detachedruns/manager.go::CancelRun`. | `Implemented, proof incomplete` | Current Go code has the corresponding branches, but this slice has no direct Go tests yet for the already-exited and untracked-cancel variants from `main`. |
+| `DR-06` | `runDetached` always uses a snapshot, rejects `runSnapshotMode=never`, and maps invalid override requests to `invalid_run_detached_request`. | `backend/setta/routers/runs.py::route_run_detached`; source planner/override behavior: `tests/project_state/test_run_overrides.py`; source manager bridge: `backend/setta/project_state/session_project_manager.py::create_run_command_with_overrides`. | Impl/proof: `internal/httpapi/detached_run_routes.go::runDetachedHandler`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsNeverSnapshotMode`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsInvalidParamOverrideKey`. | `Proved` | |
+| `DR-07` | The public `runDetached` transport is unavailable in deployment mode, and the detached-run router remains forbidden in launcher mode. | `backend/setta/routers/runs.py::route_run_detached`; `backend/setta/routers/setta_api_router.py` non-launcher project router boundary. | Impl/proof: `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsDeploymentMode`; `internal/httpapi/detached_run_routes_test.go::TestRegisterDetachedRunRoutesRejectsLauncherMode`. | `Proved` | This row is intentionally scoped to the public `runDetached` entrypoint, not to hypothetical deployment-only status lookups. |
+
 ## Current Findings
 
 1. The matrix now contains four concrete source-parity gaps:
@@ -267,9 +282,11 @@ Rows outside these slices are still pending.
 6. The terminal slice surfaced two source behaviors that are now dormant or
    still unproven as active Go-era caller requirements:
    `TT-04` and `TR-08`.
-7. The remaining issues in the naming slice are still mostly proof gaps rather
+7. The detached-run slice added one more under-proved row:
+   `DR-05`.
+8. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
-8. The next high-value steps are:
+9. The next high-value steps are:
    - decide whether `CN-07` and `PS-08` should be restored or documented as
      intentional divergences
    - decide whether `LS-11` and `LS-17` should be restored or documented as
@@ -277,6 +294,6 @@ Rows outside these slices are still pending.
    - close proof gaps for project/view-mode/window-space/section format-rule
      variants
    - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
-     `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`)
+     `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`)
    - continue the matrix into the remaining realtime/runtime slices that are
      still outside this partial matrix
