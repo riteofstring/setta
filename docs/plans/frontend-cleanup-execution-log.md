@@ -4028,3 +4028,31 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sections/createSectionCatalogStatic.ts`
     so static section-family definitions stop living beside metacontrol/embed
     config defaults and top-level group assembly.
+
+## 2026-03-15 10:45:17 PDT
+
+- Slice completed: split section catalog defaults from group assembly
+- Key files touched:
+  - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalogSectionGroups.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalogControlGroups.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalogGroupAssembly.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalog.ts`
+  - `frontend/src/state/actions/sections/createSectionCatalogStatic.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/createSectionCatalogStatic.test.tsx src/state/actions/sections/createSectionCatalog.test.tsx src/state/actions/sections/createSectionsHelper.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sections/createSectionCatalogStatic.ts src/state/actions/sections/createSectionCatalog.ts src/state/actions/sections/createSectionCatalogSectionGroups.ts src/state/actions/sections/createSectionCatalogControlGroups.ts src/state/actions/sections/createSectionCatalogGroupAssembly.ts src/state/actions/sections/createSectionCatalogStatic.test.tsx src/state/actions/sections/createSectionCatalog.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `5c00b3c3e61e5e4ff45e78a5e755d378b4d99b5d`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowingState.ts` so
+    section binding/title-chatId reducers stop living beside section/canvas
+    transition helpers.
