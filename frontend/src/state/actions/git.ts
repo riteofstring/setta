@@ -1,7 +1,11 @@
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_get_git_commit_details,
   route_get_git_commit_file_diff,
@@ -9,7 +13,15 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import { type GitDiffMode, type GitStatusEntry } from "utils/generatedTypes";
+import {
+  type GetGitCommitDetailsResponse,
+  type GetGitCommitFileDiffResponse,
+  type GetGitDiffResponse,
+  type GetGitLogResponse,
+  type GetGitStatusResponse,
+  type GitDiffMode,
+  type GitStatusEntry,
+} from "utils/generatedTypes";
 import {
   appendGitGraphRows,
   computeGitGraphRowsWithState,
@@ -23,6 +35,14 @@ let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
+
+type GitStatusRouteResponse = ResponseDataAndStatus<GetGitStatusResponse>;
+type GitDiffRouteResponse = ResponseDataAndStatus<GetGitDiffResponse>;
+type GitLogRouteResponse = ResponseDataAndStatus<GetGitLogResponse>;
+type GitCommitDetailsRouteResponse =
+  ResponseDataAndStatus<GetGitCommitDetailsResponse>;
+type GitCommitFileDiffRouteResponse =
+  ResponseDataAndStatus<GetGitCommitFileDiffResponse>;
 
 function getCurrentGitGraphProjectConfigId(): string | null {
   const projectConfigId = useProjectState.getState().projectConfig.id;
@@ -116,7 +136,7 @@ export async function refreshGitStatus(): Promise<void> {
     ...state,
     status: { ...state.status, isLoading: true, error: null },
   }));
-  const res = await route_get_git_status();
+  const res: GitStatusRouteResponse = await route_get_git_status();
   if (requestId !== statusRequestId) {
     return;
   }
@@ -192,7 +212,11 @@ async function refreshGitDiff({
     });
   }
 
-  const res = await route_get_git_diff({ path, oldPath, mode });
+  const res: GitDiffRouteResponse = await route_get_git_diff({
+    path,
+    oldPath,
+    mode,
+  });
   if (requestId !== diffRequestId) {
     return;
   }
@@ -337,7 +361,7 @@ async function refreshGitGraph({
     });
   }
 
-  const res = await route_get_git_log({
+  const res: GitLogRouteResponse = await route_get_git_log({
     rev: "HEAD",
     allRefs,
     offset: 0,
@@ -458,7 +482,7 @@ export async function loadMoreGitGraphCommits({
     };
   });
 
-  const res = await route_get_git_log({
+  const res: GitLogRouteResponse = await route_get_git_log({
     rev: "HEAD",
     allRefs,
     offset: nextOffset,
@@ -652,7 +676,8 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
     };
   });
 
-  const res = await route_get_git_commit_details({ commitHash });
+  const res: GitCommitDetailsRouteResponse =
+    await route_get_git_commit_details({ commitHash });
   if (requestId !== commitDetailsRequestId) {
     return;
   }
@@ -741,11 +766,12 @@ export async function selectGitCommitFile({
     };
   });
 
-  const res = await route_get_git_commit_file_diff({
-    commitHash,
-    path,
-    oldPath,
-  });
+  const res: GitCommitFileDiffRouteResponse =
+    await route_get_git_commit_file_diff({
+      commitHash,
+      path,
+      oldPath,
+    });
   if (requestId !== commitFileDiffRequestId) {
     return;
   }
