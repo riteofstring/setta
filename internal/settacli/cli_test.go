@@ -277,6 +277,46 @@ func TestRunStatusListSessionsJSONIncludesLauncherWithoutDefaultFilter(t *testin
 	}
 }
 
+func TestRunStatusListSessionsJSONFiltersByServerMode(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	firstProc := fixture.startProcess(t, "setta.server:app")
+	fixture.createSession(t, firstProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	secondProc := fixture.startProcess(t, "setta.server:app")
+	fixture.createSession(t, secondProc, 61235, time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC), "launcher")
+
+	stdout, _, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"status",
+		"--list-sessions",
+		"--json",
+		"--server-mode",
+		"launcher",
+	)
+	if err != nil {
+		t.Fatalf("run filtered list-sessions: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+	sessions, ok := payload["sessions"].([]any)
+	if !ok {
+		t.Fatalf("expected sessions payload, got %#v", payload["sessions"])
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected one filtered session, got %#v", sessions)
+	}
+	session := sessions[0].(map[string]any)
+	if session["port"] != float64(61235) {
+		t.Fatalf("expected launcher session port 61235, got %#v", session["port"])
+	}
+	if session["serverMode"] != "launcher" {
+		t.Fatalf("expected launcher server mode, got %#v", session["serverMode"])
+	}
+}
+
 func TestRunAuthJSONEmitsPayload(t *testing.T) {
 	t.Parallel()
 

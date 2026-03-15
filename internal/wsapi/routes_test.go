@@ -1503,6 +1503,53 @@ func TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit(t *te
 	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-target", "")
 }
 
+func TestRegisterRoutesListenerRegisterAckIncludesEveryCallbackStatus(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-default",
+		Projects: map[string]projectstate.Project{
+			"project-default": {
+				ID:   "project-default",
+				Name: "Default Project",
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Default Project"}}`)); err != nil {
+		t.Fatalf("write listener init before register: %v", err)
+	}
+	assertRouteListenerForceRefresh(t, readNextMessage(t, conn), "project-default", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-default"))
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a"],"dependencyMode":"realtime_only"},"cb-b":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write listener register with multiple callbacks: %v", err)
+	}
+
+	assertListenerRegisterAckCallbacks(t, readNextMessage(t, conn), "project-default", "", map[string]string{
+		"cb-a": "accepted",
+		"cb-b": "accepted",
+	})
+}
+
 func TestRegisterRoutesListenerRegisterAndLiveMessagesUseTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -4159,6 +4206,14 @@ func skipIfPTYUnsupported(t *testing.T) {
 func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string) {
 	t.Helper()
 
+	assertListenerRegisterAckCallbacks(t, message, projectID, shareSessionID, map[string]string{
+		"cb-a": "accepted",
+	})
+}
+
+func assertListenerRegisterAckCallbacks(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string, expectedStatuses map[string]string) {
+	t.Helper()
+
 	if message.MessageType != realtime.MessageTypeListenerRegisterAck {
 		t.Fatalf("expected listener register ack, got %q", message.MessageType)
 	}
@@ -4173,11 +4228,17 @@ func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, proje
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
 	}
-	if len(content.Callbacks) != 1 {
-		t.Fatalf("expected 1 callback ack, got %d", len(content.Callbacks))
+	if len(content.Callbacks) != len(expectedStatuses) {
+		t.Fatalf("expected %d callback acks, got %d", len(expectedStatuses), len(content.Callbacks))
 	}
-	if status := content.Callbacks["cb-a"].Status; status != "accepted" {
-		t.Fatalf("expected callback status accepted, got %q", status)
+	for callbackID, expectedStatus := range expectedStatuses {
+		callback, ok := content.Callbacks[callbackID]
+		if !ok {
+			t.Fatalf("expected callback ack %q, got %#v", callbackID, content.Callbacks)
+		}
+		if callback.Status != expectedStatus {
+			t.Fatalf("expected callback %q status %q, got %q", callbackID, expectedStatus, callback.Status)
+		}
 	}
 }
 

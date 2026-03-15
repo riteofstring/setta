@@ -86,6 +86,9 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 				"transport": "stdio",
 				"command":   "npx @modelcontextprotocol/server-filesystem .",
 			},
+			"setta": map[string]any{
+				"url": "http://127.0.0.1:8000/mcp",
+			},
 		},
 	})
 	if err != nil {
@@ -150,6 +153,10 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	}
 	if _, ok := mapValue(mcpServers["filesystem"]); !ok {
 		t.Fatalf("expected inherited filesystem mcp server, got %#v", mcpServers)
+	}
+	settaServer, ok := mapValue(mcpServers["setta"])
+	if !ok || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected runtime setta mcp url, got %#v", mcpServers["setta"])
 	}
 	if !containsText(stringValue(runtimeConfig["developer_instructions"]), "## Runtime execution settings") {
 		t.Fatalf("expected runtime developer instructions to include execution settings, got %#v", runtimeConfig["developer_instructions"])
