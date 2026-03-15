@@ -1619,6 +1619,13 @@ func TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFront
 	if payload["text"] != "updated from listener" {
 		t.Fatalf("expected updated text block payload, got %#v", payload)
 	}
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err = listener.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected listener frontend emit success to stay silent, got %v", err)
+	}
 }
 
 func TestRegisterRoutesListenerFrontendEmitAcceptsTemporaryProjectID(t *testing.T) {
@@ -2038,6 +2045,13 @@ func TestRegisterRoutesListenerFrontendEmitBroadcastsArtifactUpdates(t *testing.
 	}
 	if len(loaded) != 1 || loaded[0] == nil || !strings.Contains(string(loaded[0].Value), "#000000") {
 		t.Fatalf("expected listener artifact update to persist brush stroke, got %#v", loaded)
+	}
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err = listener.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected artifact-only listener emit success to stay silent, got %v", err)
 	}
 }
 
