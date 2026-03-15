@@ -3,7 +3,7 @@ import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useState } from "react";
 import { HiChevronDown } from "react-icons/hi2";
 import { MdAdd } from "react-icons/md";
-import { mutateAndSaveLLMApiKeys } from "state/actions/ai";
+import { mutateAndSaveLLMApiKeys } from "state/actions/aiManagedApiKeyPersistence";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { APIKeys, AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
