@@ -193,3 +193,8 @@ categorize them.
   deployment blocking is now proved too; the remaining section-data backlog is
   no longer about basic share/app route exposure and should stay focused on
   broader surfaces that are still missing or unproved
+- The deployment latest-route mixed-type filter row and the state-machine
+  missing-`promptTemplateId` create-edge row are now proved too; the next
+  cheap wins should stay on similarly narrow live route branches in
+  deployment/runtime surfaces rather than reopening these already-covered
+  catalog and workflow validation paths
