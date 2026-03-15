@@ -174,6 +174,17 @@ def _parse_codex_mcp_server_entry(
     *,
     server_id: str,
 ) -> MCPServerConfig:
+    def parse_optional_nonempty_string_field(field_name: str) -> str | None:
+        if field_name not in raw_entry:
+            return None
+        value = raw_entry[field_name]
+        if not isinstance(value, str):
+            raise ValueError(f"server '{server_id}' {field_name} must be a string")
+        normalized = value.strip()
+        if not normalized:
+            return None
+        return normalized
+
     if not isinstance(raw_entry, dict):
         raise ValueError(f"server '{server_id}' entry must be an object")
     unknown_fields = sorted(set(raw_entry.keys()) - _SUPPORTED_FIELDS)
@@ -183,11 +194,7 @@ def _parse_codex_mcp_server_entry(
             + ", ".join(str(field) for field in unknown_fields)
         )
 
-    transport = _parse_optional_nonempty_string_field(
-        raw_entry,
-        server_id=server_id,
-        field_name="transport",
-    )
+    transport = parse_optional_nonempty_string_field("transport")
     if transport is not None:
         transport = transport.lower()
     if transport is not None and transport not in _SUPPORTED_TRANSPORTS:
@@ -195,16 +202,8 @@ def _parse_codex_mcp_server_entry(
             f"server '{server_id}' has unsupported transport '{transport}'"
         )
 
-    command = _parse_optional_nonempty_string_field(
-        raw_entry,
-        server_id=server_id,
-        field_name="command",
-    )
-    url = _parse_optional_nonempty_string_field(
-        raw_entry,
-        server_id=server_id,
-        field_name="url",
-    )
+    command = parse_optional_nonempty_string_field("command")
+    url = parse_optional_nonempty_string_field("url")
     if command and url:
         raise ValueError(f"server '{server_id}' cannot declare both command and url")
 
@@ -308,19 +307,8 @@ def _parse_codex_mcp_server_entry(
             command=command,
             args=args,
             env=env,
-            cwd=_parse_optional_nonempty_string_field(
-                raw_entry,
-                server_id=server_id,
-                field_name="cwd",
-            ),
-            encoding=(
-                _parse_optional_nonempty_string_field(
-                    raw_entry,
-                    server_id=server_id,
-                    field_name="encoding",
-                )
-                or "utf-8"
-            ),
+            cwd=parse_optional_nonempty_string_field("cwd"),
+            encoding=parse_optional_nonempty_string_field("encoding") or "utf-8",
             encoding_error_handler=encoding_error_handler,
         )
 
@@ -337,20 +325,3 @@ def _parse_codex_mcp_server_entry(
         url=url,
         http_headers=http_headers,
     )
-
-
-def _parse_optional_nonempty_string_field(
-    raw_entry: dict[str, Any],
-    *,
-    server_id: str,
-    field_name: str,
-) -> str | None:
-    if field_name not in raw_entry:
-        return None
-    value = raw_entry[field_name]
-    if not isinstance(value, str):
-        raise ValueError(f"server '{server_id}' {field_name} must be a string")
-    normalized = value.strip()
-    if not normalized:
-        return None
-    return normalized
