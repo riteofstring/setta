@@ -6,12 +6,12 @@ import {
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
 import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
-import { getProjectChatWindowInstanceForSectionInState } from "./projectChatWindowingSelectors";
 import {
   setProjectChatWindowModeForSectionInState,
   showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
-} from "./projectChatWindowingState";
+} from "./projectChatWindowingSectionState";
+import { getProjectChatWindowInstanceForSectionInState } from "./projectChatWindowingSelectors";
 import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {
   canMutateProjectChatWindowingLayout,

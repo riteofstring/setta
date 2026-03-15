@@ -4,12 +4,12 @@ import {
   ChatWindowPlacementEnum,
 } from "utils/generatedTypes";
 import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
+import { setProjectChatWindowTitleInState } from "./projectChatWindowingMetadataState";
 import {
   focusProjectChatWindowInState,
   maximizeProjectChatWindowInState,
   reopenProjectChatWindowInState,
 } from "./projectChatWindowingPlacementState";
-import { setProjectChatWindowTitleInState } from "./projectChatWindowingState";
 import {
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,

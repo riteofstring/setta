@@ -59,6 +59,7 @@ import {
 } from "./projectChatWindowingBoundsState";
 import { bootProjectChatWindowToCanvasSection } from "./projectChatWindowingCanvasBoot";
 import { addProjectChatWindowInstanceInState } from "./projectChatWindowingInstanceState";
+import { setProjectChatWindowTitleInState } from "./projectChatWindowingMetadataState";
 import {
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
@@ -73,19 +74,18 @@ import {
   unmaximizeProjectChatWindowInState,
 } from "./projectChatWindowingPlacementState";
 import {
+  moveProjectChatWindowToCanvasSectionInState,
+  setProjectChatWindowModeForSectionInState,
+  showSectionInProjectChatWindowInState,
+  undockProjectChatWindowFromCanvasSectionInState,
+} from "./projectChatWindowingSectionState";
+import {
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
 } from "./projectChatWindowingSelectors";
-import {
-  moveProjectChatWindowToCanvasSectionInState,
-  setProjectChatWindowModeForSectionInState,
-  setProjectChatWindowTitleInState,
-  showSectionInProjectChatWindowInState,
-  undockProjectChatWindowFromCanvasSectionInState,
-} from "./projectChatWindowingState";
 import { ensureTrackedGitPaneGraphWindow } from "./projectChatWindowingTrackedGitPane";
 import {
   flushPendingProjectChatWindowingWrites,

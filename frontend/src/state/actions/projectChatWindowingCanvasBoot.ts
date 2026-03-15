@@ -12,7 +12,7 @@ import {
 import {
   moveProjectChatWindowToCanvasSectionInState,
   type MoveProjectChatWindowToCanvasSectionOptions,
-} from "./projectChatWindowingState";
+} from "./projectChatWindowingSectionState";
 import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {
   canMutateProjectChatWindowingLayout,

@@ -210,8 +210,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectChatWindowingLayoutState.ts` is now a thin
     compatibility surface that re-exports the instance, placement, and bounds
     owners.
-  - `state/actions/projectChatWindowingState.ts` owns section-binding, title,
-    chat-id, and section/canvas transition reducers.
+  - `state/actions/projectChatWindowingSectionState.ts` owns section exposure,
+    section binding, and section/window mode transition reducers.
+  - `state/actions/projectChatWindowingMetadataState.ts` owns title and
+    chat-id reducers.
+  - `state/actions/projectChatWindowingState.ts` is now a thin compatibility
+    surface that re-exports the section and metadata owners.
   - `state/actions/projectChatWindowingCanvasBoot.ts` owns DOM surface lookup,
     canvas boot positioning/sizing, and the section boot flow from windowed
     chat surfaces back into the canvas.

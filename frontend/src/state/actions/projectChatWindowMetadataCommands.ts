@@ -1,10 +1,10 @@
 import { useProjectState } from "state/definitions";
 import { route_set_project_chat_window_chat_id } from "utils/generatedEndpoints";
-import { shouldSyncActiveProjectChatId } from "./projectChatWindowingSelectors";
 import {
   setProjectChatWindowChatIdInState,
   setProjectChatWindowTitleInState,
-} from "./projectChatWindowingState";
+} from "./projectChatWindowingMetadataState";
+import { shouldSyncActiveProjectChatId } from "./projectChatWindowingSelectors";
 import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {
   canMutateProjectChatWindowingLayout,
