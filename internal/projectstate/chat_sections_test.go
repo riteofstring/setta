@@ -272,6 +272,47 @@ func TestRuntimeSetChatSectionSettingsPreservesLinkedChatEdgesWhenTargetBecomesN
 	}
 }
 
+func TestRuntimeChatSectionPayloadOmitsLegacySkillsEnabledField(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": chatSectionMutationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	payload, err := effectiveSectionPayload(runtime.Snapshot().Document.Projects["project-alpha"], "chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload chat-section: %v", err)
+	}
+	if _, ok := payload["skillsEnabled"]; ok {
+		t.Fatalf("expected chat payload to omit legacy skillsEnabled field, got %#v", payload)
+	}
+
+	chatID := "chat-1"
+	if _, err := runtime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", &chatID); err != nil {
+		t.Fatalf("SetChatSectionChatID returned error: %v", err)
+	}
+
+	payload, err = effectiveSectionPayload(runtime.Snapshot().Document.Projects["project-alpha"], "chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload chat-section after mutation: %v", err)
+	}
+	if _, ok := payload["skillsEnabled"]; ok {
+		t.Fatalf("expected mutated chat payload to omit legacy skillsEnabled field, got %#v", payload)
+	}
+}
+
 func chatSectionMutationTestProject(t *testing.T) Project {
 	t.Helper()
 

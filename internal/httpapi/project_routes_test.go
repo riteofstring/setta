@@ -6084,6 +6084,17 @@ func TestRegisterProjectRoutesAddKwargPersistsLatestState(t *testing.T) {
 	if _, ok := codeObjVariantMap[sharedChildren[2]]; !ok {
 		t.Fatalf("expected created shared child %q to be present in codeObjVariantMap, got %#v", sharedChildren[2], codeObjVariantMap)
 	}
+
+	shown := payload.ProjectState.ShownParamIDs[dictVariantID]
+	if got := shown.Pinned.TopLevelParamIDs; len(got) != 0 {
+		t.Fatalf("expected no pinned shown params after add kwarg, got %#v", got)
+	}
+	if got := shown.Unpinned.TopLevelParamIDs; !reflect.DeepEqual(got, []string{"shared-child", "shared-secret", sharedChildren[2]}) {
+		t.Fatalf("expected unpinned shown params to include created kwarg, got %#v", got)
+	}
+	if got := shown.Unpinned.RequiredParamIDsToPaths[sharedChildren[2]]; !reflect.DeepEqual(got, []string{sharedChildren[2]}) {
+		t.Fatalf("expected created kwarg path [%s], got %#v", sharedChildren[2], got)
+	}
 }
 
 func TestRegisterProjectRoutesDeleteKwargPersistsLatestState(t *testing.T) {

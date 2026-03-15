@@ -335,6 +335,26 @@ func TestServiceAuthCookieRejectsTamperedSignature(t *testing.T) {
 	}
 }
 
+func TestServiceAuthCookieRejectsExpiry(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	issuedAt := time.Unix(1_700_000_000, 0).UTC()
+
+	token, _, err := service.MintAuthCookie(issuedAt)
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+
+	_, err = service.ValidateAuthCookie(token, issuedAt.Add((12*time.Hour)+(time.Minute)))
+	if err == nil {
+		t.Fatal("expected expired auth cookie to fail")
+	}
+	if err != ErrInvalidAuthCookie {
+		t.Fatalf("expected invalid auth cookie, got %v", err)
+	}
+}
+
 func TestServiceCookieNameIsSessionScopedAndSanitized(t *testing.T) {
 	t.Parallel()
 

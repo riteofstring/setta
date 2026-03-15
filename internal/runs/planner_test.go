@@ -256,6 +256,26 @@ func TestPlannerPlanRejectsUnknownVariantOverride(t *testing.T) {
 	}
 }
 
+func TestPlannerPlanRejectsMismatchedVariantOverride(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	_, err := planner.Plan(PlanRequest{
+		ProjectID: "project-alpha",
+		SectionVariantOverrides: map[string]string{
+			"code-section": "helper-variant",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected mismatched variant override error")
+	}
+	if !errors.Is(err, projectstate.ErrSectionVariantMembership) {
+		t.Fatalf("expected ErrSectionVariantMembership, got %v", err)
+	}
+}
+
 func TestPlannerPlanRejectsInvalidParamOverrideKey(t *testing.T) {
 	t.Parallel()
 

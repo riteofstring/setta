@@ -108,6 +108,121 @@ func TestRuntimeMoveSectionsReordersSiblingsWithinTheSameParent(t *testing.T) {
 	}
 }
 
+func TestRuntimeMoveSectionsWithinParentKeepsSelectedBlockContiguous(t *testing.T) {
+	t.Parallel()
+
+	project, err := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"parent":  "parent-variant",
+			"child-a": "child-a-variant",
+			"child-b": "child-b-variant",
+			"child-c": "child-c-variant",
+			"child-d": "child-d-variant",
+		},
+		Sections: map[string]Section{
+			"parent": {
+				ID:               "parent",
+				Name:             "Parent",
+				VariantIDs:       []string{"parent-variant"},
+				DefaultVariantID: "parent-variant",
+			},
+			"child-a": {
+				ID:               "child-a",
+				Name:             "Child A",
+				ParentSectionID:  "parent",
+				VariantIDs:       []string{"child-a-variant"},
+				DefaultVariantID: "child-a-variant",
+			},
+			"child-b": {
+				ID:               "child-b",
+				Name:             "Child B",
+				ParentSectionID:  "parent",
+				VariantIDs:       []string{"child-b-variant"},
+				DefaultVariantID: "child-b-variant",
+			},
+			"child-c": {
+				ID:               "child-c",
+				Name:             "Child C",
+				ParentSectionID:  "parent",
+				VariantIDs:       []string{"child-c-variant"},
+				DefaultVariantID: "child-c-variant",
+			},
+			"child-d": {
+				ID:               "child-d",
+				Name:             "Child D",
+				ParentSectionID:  "parent",
+				VariantIDs:       []string{"child-d-variant"},
+				DefaultVariantID: "child-d-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"parent-variant":  {ID: "parent-variant", ImplID: "parent-impl"},
+			"child-a-variant": {ID: "child-a-variant", ImplID: "child-a-impl"},
+			"child-b-variant": {ID: "child-b-variant", ImplID: "child-b-impl"},
+			"child-c-variant": {ID: "child-c-variant", ImplID: "child-c-impl"},
+			"child-d-variant": {ID: "child-d-variant", ImplID: "child-d-impl"},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"parent-impl": {
+				ID:   "parent-impl",
+				Kind: SectionKind("group"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":       "parent-impl",
+					"type":     "Group",
+					"children": []string{"child-a", "child-b", "child-c", "child-d"},
+				}),
+			},
+			"child-a-impl": {
+				ID:      "child-a-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-a-impl", "type": "TextBlock"}),
+			},
+			"child-b-impl": {
+				ID:      "child-b-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-b-impl", "type": "TextBlock"}),
+			},
+			"child-c-impl": {
+				ID:      "child-c-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-c-impl", "type": "TextBlock"}),
+			},
+			"child-d-impl": {
+				ID:      "child-d-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "child-d-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize contiguous-move project: %v", err)
+	}
+
+	newParentID := "parent"
+	newIndex := 1
+	if err := project.MoveSections(
+		MoveSectionsInput{
+			SectionIDs:  []string{"child-a", "child-c"},
+			NewParentID: &newParentID,
+			NewIndex:    &newIndex,
+		},
+		DefaultStructuralMutationSettings().SectionSizingPolicy,
+		DefaultStructuralMutationSettings().TerminalDefaultHeight,
+	); err != nil {
+		t.Fatalf("MoveSections returned error: %v", err)
+	}
+
+	payload, err := effectiveSectionPayload(project, "parent", "parent-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload parent: %v", err)
+	}
+	if got := payloadStringArrayField(payload, "children"); !reflect.DeepEqual(got, []string{"child-b", "child-a", "child-c", "child-d"}) {
+		t.Fatalf("expected parent children [child-b child-a child-c child-d], got %#v", got)
+	}
+}
+
 func TestRuntimeMoveSectionsAttachesAndDetachesTerminalThroughTheMoveRoute(t *testing.T) {
 	t.Parallel()
 
@@ -190,6 +305,72 @@ func TestRuntimeMoveSectionsAttachesAndDetachesTerminalThroughTheMoveRoute(t *te
 	}
 }
 
+func TestRuntimeMoveSectionsMoveToPaneAssignsFreshMonotonicZIndices(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": sectionStructureSelectionTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.MoveSections(
+		context.Background(),
+		"project-alpha",
+		MoveSectionsInput{
+			SectionIDs: []string{"top-child-a"},
+			PositionsByID: map[string]Position{
+				"top-child-a": {X: 5, Y: 5},
+			},
+		},
+		DefaultStructuralMutationSettings(),
+	); err != nil {
+		t.Fatalf("move top-child-a to pane: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	firstLayout, ok := project.TopLevelSections["top-child-a"]
+	if !ok {
+		t.Fatalf("expected top-child-a layout after pane move, got %#v", project.TopLevelSections)
+	}
+	if firstLayout.ZIndex != 5 {
+		t.Fatalf("expected top-child-a zIndex 5, got %#v", firstLayout)
+	}
+
+	if _, err := runtime.MoveSections(
+		context.Background(),
+		"project-alpha",
+		MoveSectionsInput{
+			SectionIDs: []string{"top-child-b"},
+			PositionsByID: map[string]Position{
+				"top-child-b": {X: 15, Y: 15},
+			},
+		},
+		DefaultStructuralMutationSettings(),
+	); err != nil {
+		t.Fatalf("move top-child-b to pane: %v", err)
+	}
+
+	project = runtime.Snapshot().Document.Projects["project-alpha"]
+	secondLayout, ok := project.TopLevelSections["top-child-b"]
+	if !ok {
+		t.Fatalf("expected top-child-b layout after pane move, got %#v", project.TopLevelSections)
+	}
+	if secondLayout.ZIndex != 6 {
+		t.Fatalf("expected top-child-b zIndex 6, got %#v", secondLayout)
+	}
+}
+
 func TestRuntimeMoveSectionsRejectsDescendantParent(t *testing.T) {
 	t.Parallel()
 
@@ -223,5 +404,77 @@ func TestRuntimeMoveSectionsRejectsDescendantParent(t *testing.T) {
 	)
 	if !errors.Is(err, ErrMoveSectionsNewParentDescendant) {
 		t.Fatalf("expected ErrMoveSectionsNewParentDescendant, got %v", err)
+	}
+}
+
+func TestRuntimeMoveSectionsRejectsSelectedParent(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": sectionStructureSelectionTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	newParentID := "top-group"
+	newIndex := 0
+	_, err = runtime.MoveSections(
+		context.Background(),
+		"project-alpha",
+		MoveSectionsInput{
+			SectionIDs:  []string{"top-group"},
+			NewParentID: &newParentID,
+			NewIndex:    &newIndex,
+		},
+		DefaultStructuralMutationSettings(),
+	)
+	if !errors.Is(err, ErrMoveSectionsNewParentSelected) {
+		t.Fatalf("expected ErrMoveSectionsNewParentSelected, got %v", err)
+	}
+}
+
+func TestRuntimeMoveSectionsRejectsNewIndexOutOfRange(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": sectionStructureSelectionTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	newParentID := "top-group"
+	newIndex := 3
+	_, err = runtime.MoveSections(
+		context.Background(),
+		"project-alpha",
+		MoveSectionsInput{
+			SectionIDs:  []string{"top-child-a"},
+			NewParentID: &newParentID,
+			NewIndex:    &newIndex,
+		},
+		DefaultStructuralMutationSettings(),
+	)
+	if !errors.Is(err, ErrMoveSectionsNewIndexOutOfRange) {
+		t.Fatalf("expected ErrMoveSectionsNewIndexOutOfRange, got %v", err)
 	}
 }
