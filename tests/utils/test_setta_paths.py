@@ -7,11 +7,10 @@ import pytest
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.paths import (
     build_files_root_from_base,
-    clear_setta_paths_cache,
     resolve_setta_paths,
-    validate_workspace_root,
 )
 from setta.utils.setta_home import resolve_setta_home
+from tests.helpers.setta_paths import clear_setta_paths_cache, validate_workspace_root
 
 
 @pytest.fixture(autouse=True)

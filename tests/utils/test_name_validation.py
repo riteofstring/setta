@@ -63,8 +63,9 @@ from setta.utils.name_validation import (
     validate_view_mode_name,
     validate_window_space_name,
 )
-from setta.utils.paths import normalize_state_path, normalize_workspace_path
+from setta.utils.paths import normalize_state_path
 from setta.utils.utils import build_project_sections_dir
+from tests.helpers.setta_paths import normalize_workspace_path
 from tests.helpers.project_state_mutations import (
     add_code_obj,
     add_kwarg,

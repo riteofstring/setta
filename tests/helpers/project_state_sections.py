@@ -37,7 +37,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TextBlockSectionImpl,
 )
-from setta.utils.utils import insert_into_array
 from tests.helpers.project_state_core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
@@ -49,6 +48,10 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger("setta.types.helpers_lvl2")
+
+
+def _insert_into_array(arr: list[ID], index: int, new_items: list[ID]) -> list[ID]:
+    return [*arr[:index], *new_items, *arr[index:]]
 
 
 def _compute_initial_default_variant(variant: Variant) -> CoreArgs:
@@ -437,7 +440,7 @@ def create_child_sections(
         p,
         parent_id,
         BaseParentSectionImplArgsWithCallable(
-            children=lambda curr_children: insert_into_array(
+            children=lambda curr_children: _insert_into_array(
                 curr_children, start_idx, new_ids
             )
         ),
@@ -545,7 +548,7 @@ def move_sections_to_parent_section(
         remaining_children = [
             child for child in curr_children if child not in selected_set
         ]
-        return insert_into_array(remaining_children, new_index, section_ids)
+        return _insert_into_array(remaining_children, new_index, section_ids)
 
     set_curr_effective_section_impl_value(
         p,

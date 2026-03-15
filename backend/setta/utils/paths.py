@@ -18,7 +18,6 @@ from setta.utils.profile_config import (
     SettaProfileConfig,
     SettaProfileConfigError,
     SettaProfileNotFoundError,
-    clear_setta_profile_config_cache,
     load_setta_profile,
 )
 from setta.utils.setta_home import resolve_setta_home
@@ -221,34 +220,6 @@ def resolve_setta_paths(
 @lru_cache(maxsize=1)
 def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
-
-
-@lru_cache(maxsize=1)
-def get_setta_paths_without_profile_env() -> SettaPaths:
-    return resolve_setta_paths(allow_profile_env_overrides=False)
-
-
-def clear_setta_paths_cache() -> None:
-    get_setta_paths.cache_clear()
-    get_setta_paths_without_profile_env.cache_clear()
-    # clear_setta_paths_cache is the "big hammer" tests use when they change env vars.
-    # Keep dependent caches in sync so overrides behave as expected.
-    from setta.utils.user_config import clear_setta_user_config_cache
-
-    clear_setta_user_config_cache()
-    clear_setta_profile_config_cache()
-
-
-def normalize_workspace_path(
-    path: Path | str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate.expanduser().resolve(strict=False)
-    return (root / candidate).resolve(strict=False)
-
-
 def normalize_state_path(
     path: Path | str, setta_files_root: Path | None = None
 ) -> Path:
@@ -257,15 +228,6 @@ def normalize_state_path(
     if candidate.is_absolute():
         return candidate.expanduser().resolve(strict=False)
     return (root / candidate).resolve(strict=False)
-
-
-def validate_workspace_root(path: Path) -> None:
-    if not path.exists():
-        raise ValueError(f"Workspace root does not exist: {path}")
-    if not path.is_dir():
-        raise ValueError(f"Workspace root is not a directory: {path}")
-
-
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     sanitized_leaf = _sanitize_leaf(workspace_root.name)
     # Keep the computed directory name comfortably under common filesystem name
