@@ -447,6 +447,23 @@ Current tree note:
   `internal/projectstate`, `internal/httpapi`, `internal/mcpx`,
   `internal/appspec`, and `internal/frontendbindings`, with no surviving
   retained Python caller importing those Python DTO leaves.
+- The remaining tracked `backend/setta/types/*` tree is still caller-backed
+  retained support, not generic rewrite residue. Current import-closure audit
+  shows every tracked file under that tree remains reachable from one of the
+  explicit retained Python roots:
+  `backend/setta/api/listener.py`, `backend/setta/api/runner.py`,
+  `backend/setta/api/chat_toolkit.py`, or
+  `backend/setta/share/listener_runtime.py`. In practice that tree still owns:
+  listener/runner/share/chat DTOs (`chat*`, `listener.py`, `websocket.py`,
+  `routes.py`, `share_deployment.py`, `llm_config.py`), the retained
+  listener-side project/config/codegen model (`project_config.py`,
+  `project_state.py`, `section_impls.py`, `code_obj_impls.py`,
+  `dependency_key.py`, `dependency_value.py`, `helpers_lvl1.py`,
+  `helpers_lvl2.py`, `core.py`, `edges.py`, and their narrow helper leaves),
+  and the generated union/typed-dict adapters those retained modules still
+  import from `backend/setta/types/generated/*`. Treat new deletions in this
+  tree as a separate support-module reduction pass only after current retained
+  callers stop importing the specific file.
 - The old Python route-inventory bucket is also reduced to the retained caller
   surface only. `backend/setta/types/routes.py` now keeps just the `/api`
   prefix plus the listener websocket, bootstrap-consume, project-metadata,
