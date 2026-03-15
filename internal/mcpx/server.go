@@ -7453,13 +7453,7 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldUnknown),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldInvalid),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetLanguageMismatch),
-		errors.Is(err, plugins.ErrProjectCodegenTargetResolverRequired),
-		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverTargetIDRequired),
-		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverTargetIDInvalid),
-		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverPluginNotFound),
-		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverPluginDisabled),
-		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverCodegenCapability):
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetLanguageMismatch):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrSectionVariantNotFound),

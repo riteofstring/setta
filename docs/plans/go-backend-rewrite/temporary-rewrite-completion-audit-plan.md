@@ -771,3 +771,14 @@ hardcode empty backend-registration arrays instead of loading worker-backed
 language-server data. After that slice, the remaining Python plugin-worker
 cleanup is no longer language-server related; it is limited to the separate
 codegen-target worker machinery that still exists in-tree.
+
+A later follow-up rewrite step then removed that remaining plugin-worker
+codegen-target machinery too. The transitional Python worker module
+`backend/setta/plugins/worker.py` was deleted, along with the Go worker
+session/launcher/RPC/runtime/codegen-resolver stack and the dedicated Python
+worker tests. The only shared pieces carried forward from that deletion are the
+small capability-normalization helpers still used by plugin discovery and
+authoring. After that slice, the rewrite no longer has any live Python plugin
+worker/runtime owner. The remaining cleanup in this area is narrower: stale
+plugin-codegen manifest/schema/model/fixture metadata still advertises
+`registerCodegenTarget` even though the runtime behind that capability is gone.
