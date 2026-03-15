@@ -15,7 +15,7 @@ import {
   refreshGitGraphOverlay,
   toggleGitGraphAllRefs,
 } from "state/actions/gitGraphOverlayActions";
-import { loadMoreGitGraphCommits } from "state/actions/gitGraphPaginationState";
+import { loadMoreGitGraphCommits } from "state/actions/gitGraphPaginationRequests";
 import {
   clearGitGraphSelectedCommit,
   selectGitCommit,

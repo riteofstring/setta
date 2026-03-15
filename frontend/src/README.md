@@ -318,11 +318,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/gitStatusAndDiff.ts` owns git status refresh, diff
     availability, diff overlay opening, and diff-mode switching.
   - `state/actions/gitGraphRefreshState.ts` owns git graph/log refresh and
-    initial page loading, `state/actions/gitGraphPaginationState.ts` owns
-    load-more gating plus pagination merge/error writes,
-    `state/actions/gitGraphFilterState.ts` owns graph filter writes, and
-    `state/actions/gitGraphRequestTracker.ts` owns shared git-graph request-id
-    sequencing plus stale-request suppression.
+    initial page loading, `state/actions/gitGraphPaginationRequests.ts` owns
+    load-more request gating plus transport orchestration,
+    `state/actions/gitGraphPaginationResults.ts` owns appended-page merge and
+    load-more error writes, `state/actions/gitGraphPaginationState.ts` is now
+    the thin compatibility facade, `state/actions/gitGraphFilterState.ts` owns
+    graph filter writes, and `state/actions/gitGraphRequestTracker.ts` owns
+    shared git-graph request-id sequencing plus stale-request suppression.
   - `state/actions/gitGraphOverlayActions.ts` owns git graph overlay boot,
     graph-state seeding, manual refresh, and all-refs toggling.
   - `state/actions/gitGraphLoadState.ts` and `state/actions/gitGraphLog.ts`

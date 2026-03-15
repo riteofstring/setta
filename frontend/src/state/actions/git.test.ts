@@ -23,7 +23,7 @@ import {
   openGitGraphOverlay,
   refreshGitGraphOverlay,
 } from "./gitGraphOverlayActions";
-import { loadMoreGitGraphCommits } from "./gitGraphPaginationState";
+import { loadMoreGitGraphCommits } from "./gitGraphPaginationRequests";
 import {
   clearGitGraphSelectedCommit,
   selectGitCommit,

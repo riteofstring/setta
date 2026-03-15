@@ -187,8 +187,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/projectChatThreads.ts`.
 - `frontend/src/state/actions/gitGraphRefreshState.ts` now owns git graph/log
   refresh plus initial page loading,
-  `frontend/src/state/actions/gitGraphPaginationState.ts` now owns load-more
-  gating plus pagination merge/error writes,
+  `frontend/src/state/actions/gitGraphPaginationRequests.ts` now owns
+  load-more request gating plus transport orchestration,
+  `frontend/src/state/actions/gitGraphPaginationResults.ts` now owns
+  appended-page merge plus load-more error writes,
+  `frontend/src/state/actions/gitGraphPaginationState.ts` is now the thin
+  compatibility facade,
   `frontend/src/state/actions/gitGraphFilterState.ts` now owns graph
   filter-text writes,
   `frontend/src/state/actions/gitGraphRequestTracker.ts` now owns shared
@@ -332,12 +336,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/gitGraphPaginationState.ts` at 204 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 187 lines
   - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts` at 186 lines
   - `frontend/src/state/actions/aiChatSubmissionEdits.ts` at 171 lines
   - `frontend/src/state/actions/keyActivationShortcutInfo.ts` at 159 lines
   - `frontend/src/state/actions/aiChatStreamingSectionRouting.ts` at 158 lines
+  - `frontend/src/state/actions/gitGraphPaginationResults.ts` at 150 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -537,8 +541,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - tool-preview cleanup against the current project-state snapshot
 - `gitGraphRefreshState.ts` now owns:
   - git graph/log refresh and initial page loading
-- `gitGraphPaginationState.ts` now owns:
-  - load-more gating and pagination merge/error writes
+- `gitGraphPaginationRequests.ts` now owns:
+  - load-more request gating and transport orchestration
+- `gitGraphPaginationResults.ts` now owns:
+  - appended-page merge and load-more error writes
+- `gitGraphPaginationState.ts` is now:
+  - the thin compatibility facade
 - `gitGraphFilterState.ts` now owns:
   - git graph filter-text writes
 - `gitGraphRequestTracker.ts` now owns:
