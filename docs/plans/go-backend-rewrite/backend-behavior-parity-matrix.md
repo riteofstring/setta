@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`c48af2c6d6c1564fc53b9ee041d741c5690da6f5`
+`af5149a875e18f625d4cd104f1930cf52b8b95de`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -56,6 +56,8 @@ It currently covers:
 - deployment publish/catalog and deployment session bootstrap/state/project-config
   behavior
 - code editing, formatter, LSP diagnostics/admin, and watch-code behavior
+- docstring markdown, LSP completion helper, and callable signature-help /
+  `setCallable` behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -303,6 +305,10 @@ Rows outside these slices are still pending.
   - four more proof-gap rows around formatter edge handling, plugin-language
     diagnostics/type-check coverage, and bound-code baseline-on-enable
     behavior (`CE-02`, `LD-04`, `TC-02`, `WC-02`)
+- The docstring/completion/signature-help slice adds no new concrete parity
+  gap, but it does add one proof-gap row around completion edge-case fallbacks
+  (`CP-02`) plus one dormant transport delta around
+  `clearTextFieldCompletion` validation (`CP-04`).
 
 ## Project Names
 
@@ -793,6 +799,18 @@ Rows outside these slices are still pending.
 | `WC-03` | The live Watch Code service syncs saved config into the watcher runtime, respects recursive versus non-recursive folder matching, ignores default excluded dirs, and watches the nearest existing ancestor until a missing watched directory appears. | Source docs: `docs/reference/watch-code.md` watcher architecture and path-matching rules. | Impl: `internal/watchcode/manager.go`; app wiring: `internal/app/app.go`; proof: `internal/watchcode/manager_test.go::{TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs,TestManagerSyncConfigsUpgradesRecursiveFolders,TestManagerSyncConfigsUsesExistingAncestorForMissingDirs,TestManagerHandleFileEventIgnoresNonPythonAndIgnoredPaths}`; snapshot proof: `internal/watchcode/snapshot_test.go::TestBuildTrackedFileSnapshotIgnoresDefaultIgnoredDirs`; app proof: `internal/app/app_test.go::{TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState,TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs}`. | `Proved` | |
 | `WC-04` | Watch Code file/bound-section updates handle moves, renames, signature changes, new callables, deletions, and syntax-error no-op cases while keeping registry/baseline state and generated import prefixes in sync. | Source docs: `docs/reference/watch-code.md` update flow, section creation/imports, deletions, and inline edits sections; source tests: `tests/project_state/test_watch_code.py` rename/move/delete/signature/syntax-error cases. | Impl: `internal/projectstate/watch_code_apply.go`; `internal/projectstate/watch_code_bound_sections_test.go`; app runtime wiring: `internal/app/app.go`; proof: `internal/projectstate/watch_code_apply_test.go::{TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig,TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSection,TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline,TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState}` plus the signature/rename/delete follow-up cases in the same file; bound-section proof: `internal/projectstate/watch_code_bound_sections_test.go::TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInputs`; app proof: `internal/app/app_test.go::{TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks,TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads,TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate}`. | `Proved` | |
 
+## Docstring Markdown, Completion, And Callable Signature Help
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `DM-01` | `docstringToMarkdown` remains IDE-only, converts supported docstrings into markdown for the text-block editor, and rejects unknown formats with `400`. | Source route: `backend/setta/routers/code_info.py::route_docstring_to_markdown`; source frontend caller: `frontend/src/components/Panes/UiEditor/SectionConfig/TextBlockSettings.tsx`; source mode guard: router-level `Depends(require_ide_mode)` in `backend/setta/routers/code_info.py`. | Impl: `internal/httpapi/docstring_routes.go::docstringToMarkdownHandler`; converter: `internal/docstringmarkdown/convert.go`; proof: `internal/httpapi/docstring_routes_test.go::{TestRegisterDocstringRoutesConvertsDocstringsInIDEMode,TestRegisterDocstringRoutesRejectsUnknownFormats,TestRegisterDocstringRoutesRejectsShareMode}`; converter proof: `internal/docstringmarkdown/convert_test.go`. | `Proved` | Current frontend still calls the helper from `frontend/src/components/Panes/UiEditor/SectionConfig/TextBlockSettings.tsx`. |
+| `CP-01` | The CodeMirror completion helper routes preserve the active frontend transport for code-area, text-field, output-accessor, generated-prefix, and generated-suffix completions, and `clearTextFieldCompletion` stays a null-response helper route. The completion transport remains blocked outside IDE mode. | Source routes: `backend/setta/routers/project_manager.py::{route_clear_text_field_completion,route_text_field_completion,route_output_accessor_completion,route_code_area_completion,route_gen_code_prefix_completion,route_gen_code_suffix_completion}`; source frontend callers: `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`; `frontend/src/components/Section/Layouts/CodeArea.tsx`; `frontend/src/components/Section/SectionParts/Search.tsx`; `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx`. | Impl: `internal/httpapi/lsp_routes.go::{clearTextFieldCompletionHandler,textFieldCompletionHandler,outputAccessorCompletionHandler,codeAreaCompletionHandler,genCodePrefixCompletionHandler,genCodeSuffixCompletionHandler}`; proof: `internal/httpapi/lsp_completion_routes_test.go::{TestRegisterLSPRoutesServesSnapshotCompletionEndpoints,TestRegisterLSPRoutesRejectsShareModeCompletionRequests}`; current caller proof: `frontend/src/utils/generatedEndpoints.test.ts` completion-route contract tests. | `Proved` | Route proof also verifies temp snapshots are cleaned up after each request. |
+| `CP-02` | Completion snapshot builders preserve the source code-temp-file contract for canonical code-section bindings, plugin-language extension normalization, generated-code param/prefix/suffix cursor mapping, and output-accessor snapshot rendering. | Source docs: `docs/reference/code-temp-file-workflow.md`; source completion helpers: `backend/setta/project_state/project_code.py::{_build_param_completion_context,output_accessor_completion,gen_code_prefix_completion,gen_code_suffix_completion}`. | Impl: `internal/lspcompletion/python_snapshot_builders.go`; proof: `internal/lspcompletion/python_snapshot_builders_test.go::{TestBuildCodeAreaSnapshotRequestUsesCanonicalBinding,TestBuildCodeAreaSnapshotRequestUsesPluginLanguageBinding,TestBuildPythonTextFieldSnapshotRequestRendersEditedParamValue,TestBuildPythonOutputAccessorSnapshotRequestUsesGeneratedStatePath,TestBuildPythonGenCodePrefixSnapshotRequestUsesEditedPrefix,TestBuildPythonGenCodeSuffixSnapshotRequestUsesEditedSuffix}`. | `Implemented, proof incomplete` | Current Go snapshot builders match the main source shapes, but this slice does not yet cite direct Go proof for the source output-accessor base-label normalization branch or the empty-list fallback variants when LSP/generated context is unavailable. |
+| `CP-03` | Read-only completion requests bypass write serialization, operate on throwaway snapshot documents, and leave later runtime mutations free to proceed while snapshot temp files are cleaned up. | Source docs: `docs/reference/code-temp-file-workflow.md` completion/concurrency sections; source tests: `tests/project_state/test_completion_queue_concurrency.py`. | Impl: `internal/lspcompletion/service.go`; proof: `internal/lspcompletion/service_test.go::{TestServiceCodeAreaCompletionReturnsFixtureCompletion,TestServiceTextFieldCompletionDoesNotBlockRuntimeMutation}`; route-level cleanup proof: `internal/httpapi/lsp_completion_routes_test.go::TestRegisterLSPRoutesServesSnapshotCompletionEndpoints`. | `Proved` | This row is about snapshot/concurrency behavior, not the separate LSP diagnostics admin routes already covered above. |
+| `CP-04` | Source `clearTextFieldCompletion` is effectively a no-op once Python codegen exists, so stale section/param identifiers do not trigger extra validation failures. | Source manager queue path: `backend/setta/project_state/base_project_manager.py::clear_text_field_completion`; source implementation: `backend/setta/project_state/project_code.py::clear_text_field_completion`. | Current Go validates the target section before returning success: `internal/lspcompletion/service.go::ClearTextFieldCompletion`; route error mapping: `internal/httpapi/lsp_routes.go::writeLSPCompletionError`. | `Dormant / unproven caller` | Current active callers use live section ids from `frontend/src/components/Section/SectionParts/Search.tsx`, so this slice records the stricter Go behavior without yet classifying it as an active product gap. |
+| `CS-01` | Callable signature-help resolution builds a generated Python snapshot, issues a real LSP `signatureHelp` request, parses ordered parameter proposals plus documentation/type/default metadata, and returns typed `matched` versus `no_match` status instead of guessing params. | Source signature parser: `backend/setta/project_state/lsp_response_handlers/signatureHelp.py`; source set-callable path: `backend/setta/project_state/project_code.py::set_callable`; source tests: `tests/project_state/test_signature_help_type_annotations.py`; `tests/project_state/test_lsp_diagnostics_processing.py::{test_hook_not_called_when_set_callable_skips,test_hook_called_on_clear_callable}`. | Impl: `internal/lspsignature/service.go`; proof: `internal/lspsignature/service_test.go::{TestServiceResolveCallableSignatureFromSnapshot,TestServiceResolveCallableSignatureReturnsNoMatch,TestParseParamLabelSupportsRangeOffsets}`. | `Proved` | Current Go temp-snapshot proof also verifies signature snapshot files are removed after the request. |
+| `CS-02` | `setCallable` reuses prior selections when refetch is skipped, clears the callable binding when the name becomes blank, applies matched signature metadata while preserving existing child param values by name, skips mutation when signature context is unavailable, and returns `lspStatus` plus ordered `childCodeObjs` over HTTP. | Source route: `backend/setta/routers/project_manager.py::route_set_callable`; source runtime: `backend/setta/project_state/project_code.py::set_callable`; source frontend caller: `frontend/src/components/Section/Layouts/CodeArea.tsx`; source docs: `docs/reference/watch-code.md` callable-signature warning note. | Impl: `internal/projectstate/callable.go`; route transport: `internal/httpapi/project_routes.go::setCallableHandler`; proof: `internal/projectstate/callable_test.go::{TestProjectSetCallableClearsCurrentCallable,TestProjectSetCallableReusesPreviousSelectionWithoutRefetch,TestProjectSetCallableAppliesMatchedSignatureAndPreservesExistingValues,TestProjectSetCallableSkipsWhenSignatureContextUnavailable}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSetCallableUpdatesCallableChildrenAndLatestState`. | `Proved` | Current Go `SetCallableResponse` still carries the source-facing `lspStatus` and ordered child metadata consumed by the UI. |
+
 ## Current Findings
 
 1. The matrix now contains twenty-five concrete source-parity gaps:
@@ -879,12 +897,15 @@ Rows outside these slices are still pending.
 25. The code-edit/LSP/watch-code slice mostly closes with proofs, but it adds
     one real behavior gap (`LD-03`) plus four broader proof-gap rows
     (`CE-02`, `LD-04`, `TC-02`, `WC-02`).
-26. Git route behavior is now largely proved, including literal pathspec
+26. The docstring/completion/signature-help slice adds no new real behavior
+    gap, but it does add one broader completion proof gap (`CP-02`) plus one
+    dormant transport row (`CP-04`).
+27. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-27. The remaining issues in the naming slice are still mostly proof gaps rather
+28. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-28. The next high-value steps are:
+29. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
@@ -894,25 +915,26 @@ Rows outside these slices are still pending.
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `DP-02`, `DP-07`, `AP-04`, `LM-03`, `LH-04`, `WL-05`,
-      `AS-02`, and `SM-04` can be treated as fully dead legacy or share-only
-      transports, or still need explicit retained-boundary decisions
+    - decide whether `CP-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`, `LH-04`,
+      `WL-05`, `AS-02`, and `SM-04` can be treated as fully dead legacy or
+      share-only transports, or still need explicit retained-boundary
+      decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
       `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
       code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
-      `WC-02`), the new binary/artifact/attachment/file-browser proof gaps
-      (`BP-02`, `AR-04`, `AT-05`, `FB-04`), the new Project-AI tooling proof
-      gaps (`SK-01`, `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new
-      status/launcher proof gaps (`ST-03`, `LM-01`), the new
-      workspace-launch proof gaps (`WL-01`, `WL-03`, `WL-04`), the new
-      deployment proof gap (`DP-05`), the new plugin proof gap (`PL-08`), the
-      new auth/bootstrap proof gap (`AU-04`), and the new transcription proof
-      gaps (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new
-      chat/managed-stop proof gaps (`AH-02`, `MS-02`), plus the new
-      managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
-      proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
-      (`WS-02`, `WS-05`)
+      `WC-02`), the new docstring/completion proof gap (`CP-02`), the new
+      binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
+      `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
+      `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
+      proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
+      (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),
+      the new plugin proof gap (`PL-08`), the new auth/bootstrap proof gap
+      (`AU-04`), and the new transcription proof gaps (`TS-02`, `TS-04`,
+      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gaps (`AH-02`,
+      `MS-02`), plus the new managed-agent-run proof gap (`MA-05`), plus the
+      new state-machine-run proof gap (`SM-05`), plus the new
+      workflow-signal/websocket proof gaps (`WS-02`, `WS-05`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
