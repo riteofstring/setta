@@ -322,6 +322,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     branch, while `state/definitions.ts` is down to a `93`-line shared index
     and compatibility barrel over those local stores and the extracted
     domain-owned store modules.
+  - `state/activeSectionSelection.ts` owns active-section selection reads,
+    writes, snapshot sanitization, and UI-facing selection hooks.
+  - `state/activeSectionBackendSync.ts` owns active-section backend hydration
+    ownership, pending sync bookkeeping, and backend reconciliation helpers.
+  - `state/activeSectionUI.ts` is now the thin compatibility facade over those
+    narrower active-section owners plus `state/storeDefinitions.ts`.
   - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
     store types such as `ChatDetails`, `ChatBranchInfo`, and
     `ProjectChatCustomSlashCommand`.

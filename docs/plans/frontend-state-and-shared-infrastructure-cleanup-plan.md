@@ -302,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/activeSectionUI.ts` at 364 lines
   - `frontend/src/state/storeDefinitions.ts` at 338 lines
   - `frontend/src/state/utils/chatAppGeneration.ts` at 319 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
+  - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -448,6 +448,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   those local stores and the extracted AI/chat, app runtime, session/share,
   browser, search, feedback, project-status, layout-interaction,
   UI-preference, and editor-diagnostics stores.
+- `activeSectionSelection.ts` now owns:
+  - active-section selection reads and writes
+  - project-snapshot active-id sanitization
+  - UI-facing active-section selector hooks
+- `activeSectionBackendSync.ts` now owns:
+  - backend hydration ownership
+  - pending backend sync bookkeeping
+  - backend reconciliation and authoritative restore helpers
+- `activeSectionUI.ts` is now the thin compatibility facade over
+  `activeSectionSelection.ts`, `activeSectionBackendSync.ts`, and
+  `storeDefinitions.ts`.
 - `sectionEffectiveImplCore.ts` now owns:
   - effective-impl derivation and caching
   - low-level section/code-object entity lookups

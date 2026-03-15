@@ -3,14 +3,16 @@ import {
   clearScheduledActiveSectionBackendSync,
   disableActiveSectionUIBackendHydration,
   failPendingActiveSectionBackendSyncOp,
-  getActiveSectionUIIds,
-  getActiveSectionUISelectionGeneration,
   getScheduledActiveSectionBackendSync,
   markPendingActiveSectionBackendSyncOp,
   restoreBackendAuthoritativeActiveSectionUIIds,
   schedulePendingActiveSectionBackendSync,
+} from "state/activeSectionBackendSync";
+import {
+  getActiveSectionUIIds,
+  getActiveSectionUISelectionGeneration,
   setActiveSectionUIIds,
-} from "state/activeSectionUI";
+} from "state/activeSectionSelection";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,

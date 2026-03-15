@@ -2,11 +2,8 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { unstable_batchedUpdates } from "react-dom";
-import {
-  getReconciledActiveSectionUIStateFromBackend,
-  sanitizeProjectStateActiveIds,
-  useActiveSectionUI,
-} from "state/activeSectionUI";
+import { getReconciledActiveSectionUIStateFromBackend } from "state/activeSectionBackendSync";
+import { sanitizeProjectStateActiveIds } from "state/activeSectionSelection";
 import {
   PendingOperation,
   runWithAtomicallyPublishedProjectStores,
@@ -15,6 +12,7 @@ import {
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
+import { useActiveSectionUI } from "state/storeDefinitions";
 import { useMisc } from "state/stores/layoutInteractionStores";
 import {
   ProjectStateSingleConfig,
