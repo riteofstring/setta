@@ -4,22 +4,18 @@ from tempfile import TemporaryDirectory
 import pytest
 
 from setta.agentic.store import (
-    create_agent_run,
     delete_prompt_template,
-    list_agent_runs,
     list_prompt_templates,
     load_agent_profiles,
     load_external_agent_configs,
     load_agent_run,
     load_prompt_template,
     require_external_agent_config,
-    save_agent_profiles,
-    save_external_agent_configs,
     save_agent_run,
     save_prompt_template,
 )
 from setta.database.db_objs import DBE
-from setta.types.agentic import AgentProfile, AgentRunStatus
+from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
@@ -28,6 +24,7 @@ from setta.types.external_agents import (
 )
 from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
+from setta.utils.timestamps import get_now_timestamp
 
 
 class TestAgenticStore:
@@ -55,17 +52,24 @@ class TestAgenticStore:
                     systemPrompt="You are beta.",
                 ),
             ]
-            save_agent_profiles(dbe, profiles)
+            dbe.write_agent_profiles(
+                [profile.model_dump(mode="json") for profile in profiles]
+            )
 
             loaded = load_agent_profiles(dbe)
             assert [p.id for p in profiles] == [p.id for p in loaded]
             assert loaded[0].toolAllowlist == ["tool.a", "tool.b"]
             assert loaded[1].name == "Beta"
 
-    def test_runs_roundtrip(self) -> None:
+    def test_agent_runs_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = self._build_dbe(tmpdir)
-            run = create_agent_run(profile_id=None, inputs={"prompt": "hello"})
+            run = AgentRun(
+                profileId=None,
+                status=AgentRunStatus.running,
+                startedAt=get_now_timestamp(),
+                inputs={"prompt": "hello"},
+            )
             save_agent_run(dbe, run)
 
             loaded = load_agent_run(dbe, run.id)
@@ -76,10 +80,6 @@ class TestAgenticStore:
             assert loaded.status == AgentRunStatus.running
             assert loaded.inputs == {"prompt": "hello"}
             assert loaded.startedAt is not None
-
-            runs = list_agent_runs(dbe)
-            assert len(runs) == 1
-            assert runs[0].id == run.id
 
     def test_external_agent_configs_roundtrip(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -109,7 +109,9 @@ class TestAgenticStore:
                     workingDir="/tmp",
                 ),
             ]
-            save_external_agent_configs(dbe, configs)
+            dbe.write_external_agents(
+                [config.model_dump(mode="json") for config in configs]
+            )
 
             loaded = load_external_agent_configs(dbe)
             assert [c.id for c in configs] == [c.id for c in loaded]

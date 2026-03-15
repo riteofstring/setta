@@ -4,13 +4,11 @@ from setta.database.db_objs import DBE
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
-    AgentRunStatus,
     EngineConfig,
 )
 from setta.types.external_agents import ExternalAgentConfig
 from setta.types.id import ID
 from setta.types.prompt import PromptTemplate
-from setta.utils.timestamps import get_now_timestamp
 
 
 def load_agent_profiles(dbe: DBE) -> list[AgentProfile]:
@@ -18,29 +16,14 @@ def load_agent_profiles(dbe: DBE) -> list[AgentProfile]:
     return [AgentProfile.model_validate(entry) for entry in payload]
 
 
-def save_agent_profiles(dbe: DBE, profiles: list[AgentProfile]) -> None:
-    payload = [profile.model_dump(mode="json") for profile in profiles]
-    dbe.write_agent_profiles(payload)
-
-
 def load_external_agent_configs(dbe: DBE) -> list[ExternalAgentConfig]:
     payload = dbe.read_external_agents()
     return [ExternalAgentConfig.model_validate(entry) for entry in payload]
 
 
-def save_external_agent_configs(dbe: DBE, configs: list[ExternalAgentConfig]) -> None:
-    payload = [config.model_dump(mode="json") for config in configs]
-    dbe.write_external_agents(payload)
-
-
 def load_engine_configs(dbe: DBE) -> list[EngineConfig]:
     payload = dbe.read_engine_configs()
     return [EngineConfig.model_validate(entry) for entry in payload]
-
-
-def save_engine_configs(dbe: DBE, configs: list[EngineConfig]) -> None:
-    payload = [config.model_dump(mode="json") for config in configs]
-    dbe.write_engine_configs(payload)
 
 
 def get_external_agent_config_index(
@@ -85,23 +68,6 @@ def require_agent_profile(dbe: DBE, profile_id: ID) -> AgentProfile:
     return profiles[profile_idx]
 
 
-def create_agent_run(
-    *,
-    profile_id: ID | None,
-    inputs: dict[str, Any] | None,
-    run_id: ID | None = None,
-) -> AgentRun:
-    payload = {
-        "profileId": profile_id,
-        "status": AgentRunStatus.running,
-        "startedAt": get_now_timestamp(),
-        "inputs": inputs,
-    }
-    if run_id is not None:
-        return AgentRun(id=run_id, **payload)
-    return AgentRun(**payload)
-
-
 def load_agent_run(dbe: DBE, run_id: ID) -> AgentRun | None:
     payload = dbe.read_agent_run(run_id)
     if payload is None:
@@ -117,16 +83,6 @@ def save_agent_run(dbe: DBE, run: AgentRun) -> None:
 def delete_agent_run(dbe: DBE, run_id: ID) -> None:
     dbe.delete_agent_run_file(run_id)
     _remove_agent_run_index_entry(dbe, run_id)
-
-
-def list_agent_runs(dbe: DBE) -> list[AgentRun]:
-    runs: list[AgentRun] = []
-    for path in dbe.list_agent_run_paths():
-        payload = dbe.read_json(path)
-        if not payload:
-            continue
-        runs.append(AgentRun.model_validate(payload))
-    return runs
 
 
 def list_agent_runs_by_metadata(
