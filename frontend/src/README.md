@@ -321,6 +321,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `ProjectChatCustomSlashCommand`.
   - `state/stores/appStores.ts` owns app definition/config/preview state used by
     app-mode rendering, app preview, and app deployment surfaces.
+  - `state/actions/appSessionState.ts` owns app-session cookie or session-storage
+    bootstrap, recovery, and run-count persistence.
+  - `state/actions/appDeploymentState.ts` owns app deployment load or reset flow
+    plus app-config cache hydration.
+  - `state/actions/app.ts` is now the thin compatibility facade over those
+    narrower app owners.
   - `state/stores/editorDiagnosticsStores.ts` owns LSP waiting flags, type
     errors, LSP diagnostics, and name-validation errors shared across section
     authoring, formatting, and validation surfaces.

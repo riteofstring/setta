@@ -286,17 +286,22 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
   - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
   - `frontend/src/state/actions/uiSettingRevealActivation.ts` at 307 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
+  - `frontend/src/state/actions/aiFollow.ts` at 304 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
   - `frontend/src/utils/conversationSearch.ts` at 402 lines
   - `frontend/src/components/Utils/CodeMirror/getExtensions.ts` at 336 lines
   - `frontend/src/utils/claudeTools.ts` at 330 lines
+- `frontend/src/state/actions/appSessionState.ts` now owns app-session cookie
+  or session-storage bootstrap, recovery, and run-count persistence,
+  `frontend/src/state/actions/appDeploymentState.ts` now owns app deployment
+  load/reset plus app-config cache hydration, and
+  `frontend/src/state/actions/app.ts` is now a thin compatibility facade.
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic

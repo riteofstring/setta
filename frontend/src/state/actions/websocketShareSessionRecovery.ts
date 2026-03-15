@@ -3,7 +3,7 @@ import { useServerMode, useShareSession } from "state/stores/sessionStores";
 import {
   initializeAppSessionFromCurrentDeployment,
   resetAppSessionState,
-} from "./app";
+} from "./appSessionState";
 import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,

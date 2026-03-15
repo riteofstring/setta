@@ -1,7 +1,7 @@
 import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("state/actions/app", () => ({
+vi.mock("state/actions/appSessionState", () => ({
   initializeAppSessionFromCurrentDeployment: vi.fn(),
   resetAppSessionState: vi.fn(),
 }));

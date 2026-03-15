@@ -9,9 +9,9 @@ import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
   ensureAppProjectConfigLoaded,
-  incrementAppSessionRunCount,
   resetAppDeployment,
-} from "state/actions/app";
+} from "state/actions/appDeploymentState";
+import { incrementAppSessionRunCount } from "state/actions/appSessionState";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs } from "state/stores/appStores";
 import { useShareSession } from "state/stores/sessionStores";
