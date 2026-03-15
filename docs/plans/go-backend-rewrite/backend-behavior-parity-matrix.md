@@ -5,7 +5,7 @@ Last audited: `2026-03-18`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `030c66c2cbd9ba5045edeb9071db5bcdd8825def`
+- Target head: `a0c5be82714fb8e558c4d48a586a7b785270a018`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
