@@ -92,6 +92,62 @@ func TestRunStatusConnectInfoJSONAcceptsWorkspaceShortAlias(t *testing.T) {
 	}
 }
 
+func TestRunStatusConnectInfoJSONIncludesOptionalSessionMetadataFields(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	session.Profile = "dev"
+	if err := rewriteSessionMetadata(session); err != nil {
+		t.Fatalf("rewrite session metadata: %v", err)
+	}
+
+	stdout, _, err := fixture.run("--workspace", fixture.workspaceRoot, "--setta-home", fixture.settaHome, "status", "--connect-info", "--json")
+	if err != nil {
+		t.Fatalf("run status connect-info: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+
+	if payload["settaFilesRoot"] != fixture.settaFilesRoot {
+		t.Fatalf("expected settaFilesRoot %q, got %#v", fixture.settaFilesRoot, payload["settaFilesRoot"])
+	}
+	if payload["settaHome"] != fixture.settaHome {
+		t.Fatalf("expected settaHome %q, got %#v", fixture.settaHome, payload["settaHome"])
+	}
+	if payload["profile"] != "dev" {
+		t.Fatalf("expected profile dev, got %#v", payload["profile"])
+	}
+}
+
+func TestRunStatusConnectInfoJSONOmitsAbsentOptionalMetadataFields(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	session.SettaFilesLocation = ""
+	session.SettaFilesRoot = ""
+	session.RuntimeRoot = ""
+	session.SettaHome = ""
+	session.Profile = ""
+	if err := rewriteSessionMetadata(session); err != nil {
+		t.Fatalf("rewrite session metadata: %v", err)
+	}
+
+	stdout, _, err := fixture.run("--workspace", fixture.workspaceRoot, "--setta-home", fixture.settaHome, "status", "--connect-info", "--json")
+	if err != nil {
+		t.Fatalf("run status connect-info: %v", err)
+	}
+	payload := decodeConnectInfoJSON(t, stdout)
+
+	for _, key := range []string{"settaFilesLocation", "settaFilesRoot", "runtimeRoot", "settaHome", "profile"} {
+		if _, ok := payload[key]; ok {
+			t.Fatalf("expected %q to be omitted from connect-info JSON, got %#v", key, payload[key])
+		}
+	}
+}
+
 func TestRunStatusValidationRejectsInvalidCommandShapes(t *testing.T) {
 	t.Parallel()
 
@@ -238,6 +294,30 @@ func TestRunStatusIgnoresStaleSessionsAndDefaultsToIDE(t *testing.T) {
 	}
 	if sessionPayload["serverMode"] != "ide" {
 		t.Fatalf("expected ide session mode, got %#v", sessionPayload["serverMode"])
+	}
+}
+
+func TestRunStatusConnectInfoRequiresSelectorWhenMultipleIDESessionsMatch(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	firstProc := fixture.startProcess(t, "setta.server:app")
+	secondProc := fixture.startProcess(t, "setta.server:app")
+	fixture.createSession(t, firstProc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	fixture.createSession(t, secondProc, 61235, time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run("--workspace", fixture.workspaceRoot, "--setta-home", fixture.settaHome, "status", "--connect-info", "--json")
+	if err == nil {
+		t.Fatal("expected multi-match selector error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != "multiple sessions found; use --session <id> or --latest" {
+		t.Fatalf("unexpected error %q", err.Error())
 	}
 }
 
