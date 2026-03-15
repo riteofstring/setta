@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`d688a6d560528f9985b489ace51faabdee247457`
+`70a5b03a1fe3bcdd78c6cb1b334d7485d7e2712e`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -70,6 +70,7 @@ It currently covers:
 - view-mode layout, viewport/layout-presentation, and layout share-policy behavior
 - section chrome/filter/meta-control, child-defaults, and param-selection
   behavior
+- param value/config mutation and section edge-port route behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -135,7 +136,10 @@ Rows outside these slices are still pending.
 - The section-chrome / child-defaults / param-selection slice mostly closes
   with proofs, but it adds two more caller-backed deployment-policy gaps plus
   two more dormant child-default route-boundary rows.
-- Forty concrete parity gaps are already visible:
+- The param-value / param-impl / edge-port slice mostly closes with proofs,
+  but it adds one more caller-backed param-write deployment-policy gap, one
+  new direct-write proof gap, and two more dormant route-boundary rows.
+- Forty-one concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -1002,15 +1006,28 @@ Rows outside these slices are still pending.
 | `PA-01` | `toggleParamSelected` toggles selection membership on the target param, and `unselectAllParams` clears `selectedParams` across every param-capable section instead of only the active one. | Source helpers: `backend/setta/types/helpers_lvl2.py::{toggle_param_selected,unselect_all_params}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{toggle_param_selected,unselect_all_params}`. | Impl: `internal/projectstate/section_structure_selection.go::{ToggleParamSelected,UnselectAllParams}`; proof: `internal/projectstate/section_structure_selection_test.go::TestRuntimeToggleParamSelectedAndUnselectAllParamsPersistSelectionState`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState`. | `Proved` | Current Go route proof also covers the related `deleteSelectedParams` cleanup path, which is tracked elsewhere as a structural mutation family. |
 | `PA-02` | In share/app sessions, `toggleParamSelected` and `unselectAllParams` stay mounted behind `allowParamChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_toggle_param_selected,route_unselect_all_params}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_param_selection_routes_blocked`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues these selection writes from `frontend/src/state/actions/sectionInfos.ts`, `frontend/src/components/Params/{GroupContainer.tsx,ParamSwitch.tsx}`, `frontend/src/state/actions/keyActivations.ts`, and `frontend/src/state/actions/params/moveParams.ts`. | `Missing` | This is an active parity gap: the source/current docs keep param selection on the `allowParamChanges` boundary, but current Go removes the direct route family outside IDE while the shared param-selection flow still uses it. |
 
+## Param Value, Param-Impl, And Section Edge-Port Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `PV-01` | `setParamEnteredValue` persists ordinary param/control values through latest-state hydration, while password-param writes remain secret-store-backed and redacted in hydrated project-state payloads instead of leaking the raw secret. | Source docs: `docs/reference/meta-controls.md`; `docs/reference/listener-flows.md`; `docs/reference/setta-realtime-behavior.md`; source manager method: `backend/setta/project_state/base_project_manager.py::set_param_entered_value`; source helper: `backend/setta/types/helpers_lvl2.py::set_param_entered_value`. | Impl: `internal/projectstate/{section_code_objects.go::SetSectionCodeObjectValue,password_param_reads.go::GetPasswordParamValue}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState`. | `Proved` | The broader password-reveal route contract remains tracked in the dedicated password slice; this row is scoped to the persisted write plus hydrated latest-state behavior. |
+| `PV-02` | Direct `setParamEnteredValue` writes normalize dropzone payload storage: stateful writes truncate attachments to `maxAttachments`, while stateless writes clear persisted `value` instead of storing the uploaded JSON payload. | Source helper: `backend/setta/types/helpers_lvl2.py::set_param_entered_value`; source tests: `tests/types/test_helpers_lvl2.py::{test_set_param_entered_value_truncates_dropzone_attachments,test_set_param_entered_value_clears_stateless_dropzone}`. | Current Go implements the same branches in `internal/projectstate/section_code_objects.go::SetSectionCodeObjectValue`; only generic direct-value proof is currently cited via `internal/projectstate/code_object_writes_test.go::TestDocumentSetSectionCodeObjectValuePersists`. | `Implemented, proof incomplete` | This slice does not yet cite a dedicated Go regression test for the stateful-dropzone truncation or stateless-dropzone clear branches on direct value writes. |
+| `PV-03` | `updateParamImplConfig` persists base descriptions, clamps slider values through the new range, clears or truncates dropzone persisted values when the config demands it, forces single date selection when `dateIncludesTime=true`, and rejects unsupported fields or invalid ranges before partial writes. | Source helper: `backend/setta/types/helpers_lvl2.py::update_param_impl_config`; source tests: `tests/types/test_helpers_lvl2.py::{test_update_param_impl_config_clears_stateless_dropzone_value,test_update_param_impl_config_truncates_dropzone_attachments}`. | Impl: `internal/projectstate/update_param_impl_config.go::UpdateParamImplConfig`; proof: `internal/projectstate/update_param_impl_config_test.go::{TestProjectUpdateParamImplConfigUpdatesDescription,TestProjectUpdateParamImplConfigClampsSliderValue,TestProjectUpdateParamImplConfigClearsStatelessDropzoneValue,TestProjectUpdateParamImplConfigForcesSingleDateSelectionWhenIncludingTime,TestProjectUpdateParamImplConfigRejectsUnsupportedField,TestProjectUpdateParamImplConfigRejectsInvalidSliderRange}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState,TestRegisterProjectRoutesParamValueAndConfigMutationsRejectInvalidInputs}`. | `Proved` | Current Go route proof covers persisted description updates plus typed invalid-input transport mapping, while the runtime tests cover the broader normalization contract. |
+| `PV-04` | `changeParamImpl` preserves editable param metadata across param-to-param changes, converts existing values when switching into numeric controls, allows control-only impls on MetaControl params, and rejects those impls on ordinary section params. | Source docs: `docs/reference/meta-controls.md`; source helper: `backend/setta/types/helpers_lvl2.py::change_param_impl`; source test: `tests/types/test_helpers_lvl2.py::test_change_param_impl_preserves_kwarg_editability`. | Impl: `internal/projectstate/change_param_impl.go::ChangeParamImpl`; proof: `internal/projectstate/change_param_impl_test.go::{TestProjectChangeParamImplPreservesParamMetadata,TestProjectChangeParamImplConvertsValueForNumericControls,TestProjectChangeParamImplAllowsMetaControlButtonParam,TestProjectChangeParamImplRejectsControlOnlyImplForSectionParam}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesChangeParamImplPersistsAndHydrates,TestRegisterProjectRoutesChangeParamImplRejectsInvalidSelection}`. | `Proved` | Password-secret migration during impl switches is already tracked separately by `PW-03`. |
+| `PV-05` | In share/app sessions, `setParamEnteredValue` stays mounted behind `allowParamChanges`, while deployment-mode `CodeParam` edits still fail closed with `403` rather than removing the direct route entirely outside IDE. | Source docs: `docs/reference/share-policy-flags.md`; `docs/reference/meta-controls.md`; `docs/reference/listener-flows.md`; source route: `backend/setta/routers/project_manager.py::route_set_param_entered_value`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_code_param_edits_blocked`. | Current Go mounts `RouteSetParamEnteredValue` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues these writes from share-aware param surfaces via `frontend/src/components/Params/ParamItems/ParamInput.tsx`, `frontend/src/components/Params/ParamUIs/DropzoneInput.tsx`, `frontend/src/components/Section/Layouts/MetaControlArea.tsx`, and `frontend/src/components/App/appRegistry.tsx`. | `Missing` | This is an active parity gap: the source/current docs keep direct param-value writes on the `allowParamChanges` boundary with per-param enforcement, but current Go removes the route family outside IDE while deployment/share parameter UIs still call it. |
+| `PV-06` | Direct HTTP `changeParamImpl` and `updateParamImplConfig` remain transport-visible outside IDE and fail closed with deployment-mode param-impl `403` instead of disappearing entirely. | Source routes: `backend/setta/routers/project_manager.py::{route_change_param_impl,route_update_param_impl_config}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::{test_code_param_edits_blocked,test_param_impl_and_kwargs_blocked_when_param_changes_allowed}`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current callers are structure-gated config surfaces via `frontend/src/components/Panes/UiEditor/UIConfig/applyUiTypeComboboxSelection.ts`, `frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx`, `frontend/src/components/Params/ParamUIs/{TextParamInput.tsx,DropzoneInput.tsx,SliderInput.tsx,DropdownInput.tsx,ColorPickerInput.tsx,ButtonInput.tsx}`, and `frontend/src/state/actions/sections/createSectionsHelper.ts`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active Go-era non-IDE caller still depends on the source direct-route contract. |
+| `EP-01` | `setSectionEdgeInputs` and `setSectionEdgeOutputs` normalize port definitions through latest-state hydration: added edge-input params convert to `CodeParam`, duplicate ids and padded strings are normalized, removed ports prune matching edges and clear removed target/source values, and `GlobalVariables` shares the same edge-input support. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_section_edge_inputs,set_section_edge_outputs}`; source tests: `tests/types/test_edge_ports_variants.py::{test_edge_ports_are_variant_scoped,test_create_new_variant_copies_edges}`; source project-state test: `tests/project_state/test_edge_output_reapply.py::test_set_section_edge_outputs_reapplies_edge_values`. | Impl: `internal/projectstate/edge_io.go::{SetSectionEdgeInputs,SetSectionEdgeOutputs,normalizeSectionEdgeInputs,normalizeSectionEdgeOutputs}`; proof: `internal/projectstate/edge_io_test.go::{TestRuntimeSetSectionEdgeInputsConvertsAddedParamAndRemovesDeletedEdges,TestRuntimeSetSectionEdgeInputsSupportsGlobalVariables,TestRuntimeSetSectionEdgeOutputsTrimsPortsAndRemovesDeletedEdges}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionEdgeMutationsPersistLatestState,TestRegisterProjectRoutesSectionEdgeMutationsRejectInvalidInputs}`. | `Proved` | Current Go route proof also covers the typed `404 param_info_not_found` and `422 section_edge_io_unsupported` transport branches for invalid edge-port writes. |
+| `EP-02` | Direct HTTP `setSectionEdgeInputs` and `setSectionEdgeOutputs` remain mounted outside IDE and fail closed with deployment-mode param-metadata `403` instead of disappearing entirely. | Source routes: `backend/setta/routers/project_manager.py::{route_set_section_edge_inputs,route_set_section_edge_outputs}`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current callers in `frontend/src/components/Section/SectionParts/KwargsControls.tsx` and `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx` already guard the controls with `canEditStructure`, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source/current transport delta is real, but this slice does not yet prove a surviving deployment/share caller still needs the direct route-presence contract. |
+
 ## Current Findings
 
-1. The matrix now contains forty concrete source-parity gaps:
+1. The matrix now contains forty-one concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, and
-   `PA-02`.
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
+   and `PV-05`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1123,28 +1140,32 @@ Rows outside these slices are still pending.
     with proofs, but it adds two real deployment-policy gaps (`SP-03`,
     `PA-02`) plus two dormant child-default route-boundary rows (`CD-02`,
     `CD-03`).
-37. Git route behavior is now largely proved, including literal pathspec
+37. The param-value / param-impl / edge-port slice mostly closes with proofs,
+    but it adds one real param-write deployment-policy gap (`PV-05`), one
+    broader direct-write proof gap (`PV-02`), and two dormant route-boundary
+    rows (`PV-06`, `EP-02`).
+38. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-38. The remaining issues in the naming slice are still mostly proof gaps rather
+39. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-39. The next high-value steps are:
+40. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
-      `VL-07`, `SP-03`, and `PA-02` should be restored or documented as
-      intentional divergences
+      `VL-07`, `SP-03`, `PA-02`, and `PV-05` should be restored or
+      documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
       `LH-04`, `WL-05`, `AS-02`, `SM-04`, `CH-04`, `SD-07`, `SD-08`,
-      `SD-09`, `CS-05`, `CB-05`, `CD-02`, and `CD-03` can be treated as fully
-      dead legacy or share-only transports, or still need explicit
-      retained-boundary decisions
+      `SD-09`, `CS-05`, `CB-05`, `CD-02`, `CD-03`, `PV-06`, and `EP-02` can
+      be treated as fully dead legacy or share-only transports, or still need
+      explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
@@ -1163,6 +1184,6 @@ Rows outside these slices are still pending.
       project-chat-windowing proof gaps (`CW-02`, `CW-06`), plus the new
       managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
-      (`WS-02`, `WS-05`)
+      (`WS-02`, `WS-05`), plus the new param-value proof gap (`PV-02`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
