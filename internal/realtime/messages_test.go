@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/externalagentconfigs"
 )
 
 func TestNewUpdateArtifactsMessage(t *testing.T) {
@@ -173,6 +174,43 @@ func TestNewEngineConfigsUpdatedMessageJSONIncludesEmptyConfigArray(t *testing.T
 	payload, err := json.Marshal(message)
 	if err != nil {
 		t.Fatalf("marshal engine configs updated message: %v", err)
+	}
+	if !strings.Contains(string(payload), `"configs":[]`) {
+		t.Fatalf("expected configs array in marshaled payload, got %s", string(payload))
+	}
+}
+
+func TestNewExternalAgentConfigsUpdatedMessageClonesSlice(t *testing.T) {
+	t.Parallel()
+
+	configs := []externalagentconfigs.Config{
+		{
+			ID:                 "config-1",
+			Name:               "Codex",
+			ToolType:           externalagentconfigs.ToolTypeCodex,
+			RunMode:            externalagentconfigs.RunModeAppServer,
+			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		},
+	}
+	message := NewExternalAgentConfigsUpdatedMessage(configs)
+	configs[0].Name = "mutated"
+
+	if message.MessageType != MessageTypeExternalAgentConfigsUpdated {
+		t.Fatalf("expected external agent configs updated message type, got %q", message.MessageType)
+	}
+	if got := message.Content.Configs[0].Name; got != "Codex" {
+		t.Fatalf("expected cloned external agent config name Codex, got %q", got)
+	}
+}
+
+func TestNewExternalAgentConfigsUpdatedMessageJSONIncludesEmptyConfigArray(t *testing.T) {
+	t.Parallel()
+
+	message := NewExternalAgentConfigsUpdatedMessage(nil)
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal external agent configs updated message: %v", err)
 	}
 	if !strings.Contains(string(payload), `"configs":[]`) {
 		t.Fatalf("expected configs array in marshaled payload, got %s", string(payload))

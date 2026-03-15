@@ -91,6 +91,9 @@ Last audited: `2026-03-17`
   engine-config read/update route parity, thinking runtime-support
   annotations for current managed-chat callers, and
   `EngineConfigsUpdated` websocket snapshot fan-out
+- plus the targeted external-agent-config follow-up slice:
+  deployment/share read-policy parity for config and health reads, plus
+  `ExternalAgentConfigsUpdated` websocket snapshot fan-out
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
     `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`,
@@ -107,9 +110,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `343`
+- Rows audited in this pass: `346`
 - Status counts:
-  - `Proved`: `315`
+  - `Proved`: `318`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `0`
   - `Retained Python boundary`: `8`
@@ -166,6 +169,12 @@ Last audited: `2026-03-17`
     engine-config create/update/delete now broadcast source-style
     `EngineConfigsUpdated` full snapshots, including enriched
     `runtimeSupport`, to frontend websocket consumers after each mutation
+  - `internal/httpapi/external_agent_config_routes.go`,
+    `internal/realtime/messages.go`, and `internal/app/app.go`:
+    external-agent-config reads now follow the source deployment LLM policy,
+    while create/update/delete once again broadcast
+    `ExternalAgentConfigsUpdated` full snapshots to frontend websocket
+    consumers after each mutation
   - `internal/app/app.go`, `internal/httpapi/ai_routes.go`, and
     `internal/httpapi/ai_transcription_routes.go`: transcription-session
     routes are no longer incorrectly IDE- or launcher-gated, now follow
@@ -357,6 +366,9 @@ Last audited: `2026-03-17`
   follow-up slice: engine-config read/update route parity, thinking
   runtime-support annotations for current managed-chat callers, and
   `EngineConfigsUpdated` websocket snapshot fan-out.
+- This pass also extends the matrix into the targeted external-agent-config
+  follow-up slice: deployment/share read-policy parity for config and health
+  reads, plus `ExternalAgentConfigsUpdated` websocket snapshot fan-out.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -418,8 +430,8 @@ Last audited: `2026-03-17`
     file-flow subset
   - broader managed-chat image-mode / execution-policy detail,
     external-agent continuation / approval / question / tool-preview detail,
-    agent-run, prompt-template, and remaining app-gen-skill /
-    external-agent-config mutation-detail AI surface rows
+    agent-run, prompt-template, and remaining app-gen-skill mutation-detail
+    AI surface rows
 ## Current Gaps
 
 - No explicit `Missing` rows remain in the currently audited set.
@@ -845,6 +857,9 @@ Last audited: `2026-03-17`
 | `plugins.root_routes.frontend_assets_and_backend_dispatch` | `tests/routers/test_plugin_routes.py::test_plugin_routes_link_and_asset_roundtrip`; `::test_plugin_routes_backend_static_router_fixture_roundtrip`; `::test_plugin_routes_backend_query_param_coercion_matches_fastapi` | `internal/httpapi/plugin_routes.go` | `TestRegisterPluginRootRoutesServesFrontendAssetsAndImmutableCache`; `TestRegisterPluginRootRoutesServesRegisteredBackendStaticDirs`; `TestRegisterPluginRootRoutesDispatchesRegisteredBackendRoutes`; `TestAppServesPluginRuntimeAndFrontendAssets`; `TestAppServesPluginBackendRoutesAndStaticDirs` | plugin frontend assets and backend routes remain current caller-backed surfaces | `Proved` | Plugin root routes still serve frontend assets, backend static files, and backend route dispatch with the expected auth/query handling. |
 | `external_agent_configs.create.defaults_and_canonical_artifacts` | `backend/setta/routers/agentic.py::route_create_external_agent_config`; `tests/routers/test_agentic_routes.py::test_external_agent_config_initializes_claude_settings_file`; `::test_external_agent_config_initializes_codex_settings_file`; `::test_external_agent_config_initializes_opencode_settings_file` | `internal/externalagentconfigs/service.go` | `TestServiceCreateAppliesCodexDefaultsAndWritesCanonicalConfig`; `TestServiceCreateWritesOpenCodeCanonicalConfig`; `TestServiceCreateLeavesClaudeSharedSettingsRuntimeOwned`; `TestServiceUpdateCleansPreviousCanonicalArtifactsWhenToolTypeChanges`; `TestServiceDeleteRemovesCanonicalArtifacts`; `TestRegisterExternalAgentConfigRoutesCreatesConfig` | external-agent-config create/update/delete routes remain part of the Project AI settings surface | `Proved` | Creating or changing external-agent configs still seeds the canonical tool-specific artifacts and cleans up prior canonical outputs when the tool type changes. |
 | `external_agent_configs.health.order_and_envvar_mapping` | `backend/setta/routers/agentic.py::route_get_external_agent_health`; `tests/routers/test_agentic_routes.py` external-agent health coverage | `internal/externalagentconfigs/service.go` | `TestRegisterExternalAgentConfigRoutesReturnsHealth`; `TestServiceCreateAppliesCodexDefaultsAndWritesCanonicalConfig` | the external-agent health route remains the active frontend-visible read surface | `Proved` | External-agent health responses still preserve tool ordering and env-var mapping details needed by the Project AI settings caller. |
+| `external_agent_configs.reads_allowed_in_deployment_when_llm_enabled` | `backend/setta/routers/agentic.py::route_get_external_agent_configs`; `backend/setta/routers/agentic.py::route_get_external_agent_config`; `backend/setta/routers/agentic.py::route_get_external_agent_health` gate reads with `ctx.enforce_llm_allowed()` instead of IDE-only policy | `internal/httpapi/external_agent_config_routes.go::{ensureExternalAgentConfigReadsAllowed,getExternalAgentConfigsHandler,getExternalAgentConfigHandler,getExternalAgentHealthHandler}` | `TestRegisterExternalAgentConfigRoutesAllowDeploymentReadsWhenLLMAccessEnabled` | `frontend/src/state/actions/ai.ts::{loadExternalAgentConfigs,loadExternalAgentHealth}` still hydrate both read surfaces; `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts` still loads them on startup; `frontend/src/components/Section/Layouts/ChatArea.tsx` still resolves the selected external agent config and health from that hydrated state | `Proved` | External-agent config and health reads now remain available in share/app deployment modes when deployment policy allows LLM access, matching the source read policy. |
+| `external_agent_configs.reads_blocked_when_deployment_llm_disabled` | `backend/setta/runtime/context.py::enforce_llm_allowed`; `backend/setta/share/policy.py::ensure_share_llm_allowed`; `backend/setta/routers/agentic.py::{route_get_external_agent_configs,route_get_external_agent_config,route_get_external_agent_health}` all fail closed when deployment LLM access is disabled | `internal/httpapi/external_agent_config_routes.go::ensureExternalAgentConfigReadsAllowed` | `TestRegisterExternalAgentConfigRoutesBlockDeploymentReadsWhenLLMAccessDisabled` | the same `loadExternalAgentConfigs` / `loadExternalAgentHealth` caller surface remains active in share/app modes through `useHydrateAgenticState.ts` | `Proved` | Deployment/share external-agent config and health reads still fail closed with `llm_access_forbidden` when deployment policy disables LLM access instead of being widened by the Go rewrite. |
+| `external_agent_configs.websocket.broadcasts_snapshot_after_mutations` | `backend/setta/types/websocket.py::WebsocketMsgTypeForFrontend.ExternalAgentConfigsUpdated` keeps the websocket message type live; `backend/setta/routers/agentic.py::{route_create_external_agent_config,route_update_external_agent_config,route_delete_external_agent_config}` broadcast `ExternalAgentConfigsUpdated` after mutation | `internal/httpapi/external_agent_config_routes.go::{createExternalAgentConfigHandler,updateExternalAgentConfigHandler,deleteExternalAgentConfigHandler,broadcastExternalAgentConfigsUpdated}`; `internal/realtime/messages.go::NewExternalAgentConfigsUpdatedMessage`; `internal/app/app.go` wires the frontend broadcaster into the route family | `TestNewExternalAgentConfigsUpdatedMessageJSONIncludesEmptyConfigArray`; `TestAppExternalAgentConfigMutationsBroadcastSnapshotUpdates` | `frontend/src/state/actions/websocketReceive.ts` still handles `WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated` by calling `receiveExternalAgentConfigsUpdate`, and `frontend/src/state/actions/ai.ts::receiveExternalAgentConfigsUpdate` still updates config state before reloading health | `Proved` | External-agent-config mutations now broadcast the source websocket snapshot fan-out after create/update/delete so the frontend config store refreshes without waiting for a manual reload. |
 | `external_agent_configs.plugin_adapter_selection_route_contract` | `backend/setta/routers/agentic.py::_validate_plugin_external_agent_selection`; `tests/routers/test_agentic_routes.py::test_external_agent_config_supports_plugin_adapter_defaults`; `::test_external_agent_config_uses_runner_lookup_for_plugin_adapter`; `::test_external_agent_config_rejects_unknown_plugin_adapter` | the current Go route family omits plugin-adapter selection from `internal/httpapi/external_agent_config_routes.go` | `TestRegisterExternalAgentConfigRoutesRejectUnknownPluginAdapterField` proves the rewrite now rejects the field instead of supporting it | `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md` already classifies plugin-backed external-agent config support as not presently proven live | `Dormant / unproven caller` | The source plugin-adapter selection contract existed, but the rewrite currently treats that field as a dormant or host-blocked legacy surface rather than a proved active caller path. |
 | `ui_settings.reveal.affinity_precedence_share_scope` | `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_affinity_token`; `::test_reveal_ui_setting_share_scope_ignores_malformed_meta_frontend_affinity_token_when_agentic_affinity_is_present` | `internal/mcpx/agentic_context.go::resolveFrontendAffinityToken`; `internal/mcpx/ui_setting_tools.go::newRevealUISettingHandler` | `TestResolveAgenticContextUsesRequestFrontendAffinityTokenWhenSessionAffinityMissing`; `TestResolveAgenticContextPrefersSessionFrontendAffinityTokenOverRequestMeta`; `TestResolveAgenticContextIgnoresMalformedMetaFrontendAffinityTokenWhenSessionAffinityExists`; `TestResolveAgenticContextIgnoresBlankMetaFrontendAffinityTokenWithoutSessionAffinity`; `TestServerRevealUISettingShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta`; `TestServerRevealUISettingShareScopeIgnoresMalformedMetaFrontendAffinityWhenAgenticAffinityExists` | the standalone `reveal_ui_setting` MCP surface remains active | `Proved` | The standalone reveal flow now preserves the source precedence contract: retained agentic/share-session affinity wins over caller-supplied metadata, while malformed or blank caller affinity is treated as absent instead of failing the request. |
 | `ui_settings.write.reveal_after_set_affinity_precedence_share_scope` | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_supplied_frontend_affinity_token` | `internal/mcpx/agentic_context.go::resolveFrontendAffinityToken`; `internal/mcpx/agentic_context.go::resolveAgenticScope`; `internal/mcpx/ui_setting_tools.go::newSetUISettingValueHandler`; `internal/mcpx/ui_setting_tools.go::runUISettingReveal`; `internal/mcpx/server.go` | `TestResolveAgenticScopeKeepsUnscopedAccessWhenSectionContextIsPresent`; `TestServerSetUISettingValueRevealAfterSetReturnsNestedRevealAndUsesMetaSectionContext`; `TestServerSetUISettingValueRevealAfterSetShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta`; `TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult` | the standalone `set_ui_setting_value` MCP tool remains active, and the Go rewrite now exposes the same write-then-reveal option on that surface | `Proved` | The write-then-reveal flow now keeps retained agentic/share-session frontend affinity authoritative over caller metadata, and allow-unscoped writes still keep full structural access even when the reveal path injects section context. |

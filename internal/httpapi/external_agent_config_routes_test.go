@@ -13,8 +13,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 )
 
 type externalAgentConfigRouteStubChecker struct {
@@ -203,6 +205,128 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	}
 	if len(checker.seenConfigIDs) != 2 || checker.seenConfigIDs[0] != "config-1" || checker.seenConfigIDs[1] != "config-2" {
 		t.Fatalf("expected checker calls in config order, got %#v", checker.seenConfigIDs)
+	}
+}
+
+func TestRegisterExternalAgentConfigRoutesAllowDeploymentReadsWhenLLMAccessEnabled(t *testing.T) {
+	t.Parallel()
+
+	store, service := newExternalAgentConfigRouteTestService(t)
+	baseURL := "http://localhost:18181"
+	if err := store.Write([]externalagentconfigs.Config{
+		{
+			ID:                 "config-1",
+			Name:               "OpenCode Server",
+			ToolType:           externalagentconfigs.ToolTypeOpenCode,
+			RunMode:            externalagentconfigs.RunModeServer,
+			BaseURL:            &baseURL,
+			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		},
+	}); err != nil {
+		t.Fatalf("write configs: %v", err)
+	}
+
+	checker := &externalAgentConfigRouteStubChecker{
+		statusByConfigID: map[string]externalagentconfigs.Status{
+			"config-1": {
+				ConfigID:  "config-1",
+				Name:      "OpenCode Server",
+				ToolType:  externalagentconfigs.ToolTypeOpenCode,
+				RunMode:   externalagentconfigs.RunModeServer,
+				Supported: true,
+				Available: true,
+				Issues:    []string{},
+			},
+		},
+	}
+	testCases := []struct {
+		name string
+		mode config.Mode
+		path string
+		body string
+	}{
+		{name: "share list", mode: config.ModeShare, path: RouteGetExternalAgentConfigs},
+		{name: "share get", mode: config.ModeShare, path: RouteGetExternalAgentConfig, body: `{"configId":"config-1"}`},
+		{name: "share health", mode: config.ModeShare, path: RouteGetExternalAgentHealth},
+		{name: "app list", mode: config.ModeApp, path: RouteGetExternalAgentConfigs},
+		{name: "app get", mode: config.ModeApp, path: RouteGetExternalAgentConfig, body: `{"configId":"config-1"}`},
+		{name: "app health", mode: config.ModeApp, path: RouteGetExternalAgentHealth},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:   testCase.mode,
+				Policy: map[string]any{"allowLLM": true},
+			})
+			handler := newExternalAgentConfigRouteTestHandler(t, testCase.mode, service, checker, deploymentRuntime)
+
+			method := http.MethodGet
+			var body io.Reader
+			if testCase.body != "" {
+				method = http.MethodPost
+				body = bytes.NewBufferString(testCase.body)
+			}
+			request := httptest.NewRequest(method, "/api"+testCase.path, body)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestRegisterExternalAgentConfigRoutesBlockDeploymentReadsWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	_, service := newExternalAgentConfigRouteTestService(t)
+	checker := &externalAgentConfigRouteStubChecker{}
+	testCases := []struct {
+		name string
+		mode config.Mode
+		path string
+		body string
+	}{
+		{name: "share list", mode: config.ModeShare, path: RouteGetExternalAgentConfigs},
+		{name: "share get", mode: config.ModeShare, path: RouteGetExternalAgentConfig, body: `{"configId":"config-1"}`},
+		{name: "share health", mode: config.ModeShare, path: RouteGetExternalAgentHealth},
+		{name: "app list", mode: config.ModeApp, path: RouteGetExternalAgentConfigs},
+		{name: "app get", mode: config.ModeApp, path: RouteGetExternalAgentConfig, body: `{"configId":"config-1"}`},
+		{name: "app health", mode: config.ModeApp, path: RouteGetExternalAgentHealth},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: testCase.mode,
+			})
+			handler := newExternalAgentConfigRouteTestHandler(t, testCase.mode, service, checker, deploymentRuntime)
+
+			method := http.MethodGet
+			var body io.Reader
+			if testCase.body != "" {
+				method = http.MethodPost
+				body = bytes.NewBufferString(testCase.body)
+			}
+			request := httptest.NewRequest(method, "/api"+testCase.path, body)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+			assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "llm_access_forbidden")
+		})
 	}
 }
 
@@ -514,21 +638,22 @@ func TestRegisterExternalAgentConfigRoutesReturnsInternalErrorForCheckerFailure(
 	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "internal_error")
 }
 
-func TestRegisterExternalAgentConfigRoutesBlockShareMode(t *testing.T) {
+func TestRegisterExternalAgentConfigRoutesBlockShareModeMutations(t *testing.T) {
 	t.Parallel()
 
 	_, service := newExternalAgentConfigRouteTestService(t)
-	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeShare, service, &externalAgentConfigRouteStubChecker{})
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:   config.ModeShare,
+		Policy: map[string]any{"allowLLM": true},
+	})
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeShare, service, &externalAgentConfigRouteStubChecker{}, deploymentRuntime)
 
-	// All external-agent-config routes remain IDE-only in share mode.
+	// External-agent-config mutations remain IDE-only in share mode.
 	for _, route := range []struct {
 		method string
 		path   string
 		body   string
 	}{
-		{method: http.MethodGet, path: RouteGetExternalAgentConfigs},
-		{method: http.MethodPost, path: RouteGetExternalAgentConfig, body: `{"configId":"config-1"}`},
-		{method: http.MethodGet, path: RouteGetExternalAgentHealth},
 		{method: http.MethodPost, path: RouteCreateExternalAgentConfig, body: `{}`},
 		{method: http.MethodPost, path: RouteUpdateExternalAgentConfig, body: `{}`},
 		{method: http.MethodPost, path: RouteDeleteExternalAgentConfig, body: `{}`},
@@ -561,8 +686,19 @@ func newExternalAgentConfigRouteTestHandler(
 	mode config.Mode,
 	service *externalagentconfigs.Service,
 	checker externalagentconfigs.Checker,
+	deploymentRuntimes ...*deployments.Runtime,
 ) http.Handler {
 	t.Helper()
+
+	var deploymentRuntime *deployments.Runtime
+	if len(deploymentRuntimes) != 0 {
+		deploymentRuntime = deploymentRuntimes[0]
+	}
+	if deploymentRuntime == nil && (mode == config.ModeShare || mode == config.ModeApp) {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Mode: mode,
+		})
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -570,9 +706,11 @@ func newExternalAgentConfigRouteTestHandler(
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterExternalAgentConfigRoutes(r, ExternalAgentConfigRouteDependencies{
-				ModePolicy: modes.NewPolicy(mode),
-				Configs:    service,
-				Preflight:  checker,
+				ModePolicy:   modes.NewPolicy(mode),
+				Configs:      service,
+				Preflight:    checker,
+				Deployment:   deploymentRuntime,
+				WebsocketHub: realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
 			}); err != nil {
 				t.Fatalf("register external agent config routes: %v", err)
 			}

@@ -1548,9 +1548,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterExternalAgentConfigRoutes(r, httpapi.ExternalAgentConfigRouteDependencies{
-				ModePolicy: modePolicy,
-				Configs:    externalConfigService,
-				Preflight:  externalPreflight,
+				ModePolicy:   modePolicy,
+				Configs:      externalConfigService,
+				Preflight:    externalPreflight,
+				Deployment:   deploymentRuntime,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}

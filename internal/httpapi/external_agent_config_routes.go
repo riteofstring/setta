@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -9,8 +10,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/modes"
+	"setta/internal/realtime"
 )
 
 const RouteGetExternalAgentConfigs = "/getExternalAgentConfigs"
@@ -21,9 +24,11 @@ const RouteUpdateExternalAgentConfig = "/updateExternalAgentConfig"
 const RouteDeleteExternalAgentConfig = "/deleteExternalAgentConfig"
 
 type ExternalAgentConfigRouteDependencies struct {
-	ModePolicy modes.Policy
-	Configs    *externalagentconfigs.Service
-	Preflight  externalagentconfigs.Checker
+	ModePolicy   modes.Policy
+	Configs      *externalagentconfigs.Service
+	Preflight    externalagentconfigs.Checker
+	Deployment   *deployments.Runtime
+	WebsocketHub *realtime.WebsocketHub
 }
 
 type createExternalAgentConfigRequest struct {
@@ -91,18 +96,65 @@ func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConf
 	if deps.ModePolicy.IsIDE() && deps.Preflight == nil {
 		return fmt.Errorf("external agent preflight checker is required in ide mode")
 	}
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+		return fmt.Errorf("deployment runtime is required in deployment mode")
+	}
+	if deps.ModePolicy.IsIDE() && deps.WebsocketHub == nil {
+		return fmt.Errorf("websocket hub is required in ide mode")
+	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetExternalAgentConfigs, getExternalAgentConfigsHandler(deps.Configs))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentConfig, getExternalAgentConfigHandler(deps.Configs))
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetExternalAgentHealth, getExternalAgentHealthHandler(deps.Configs, deps.Preflight))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateExternalAgentConfig, createExternalAgentConfigHandler(deps.Configs))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateExternalAgentConfig, updateExternalAgentConfigHandler(deps.Configs))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteExternalAgentConfig, deleteExternalAgentConfigHandler(deps.Configs))
+	router.Get(RouteGetExternalAgentConfigs, getExternalAgentConfigsHandler(deps))
+	router.Post(RouteGetExternalAgentConfig, getExternalAgentConfigHandler(deps))
+	router.Get(RouteGetExternalAgentHealth, getExternalAgentHealthHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateExternalAgentConfig, createExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateExternalAgentConfig, updateExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteExternalAgentConfig, deleteExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub))
 	return nil
 }
 
-func getExternalAgentConfigsHandler(service *externalagentconfigs.Service) http.HandlerFunc {
+func ensureExternalAgentConfigReadsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ExternalAgentConfigRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if err := requestInfo.Policy.RequireNotLauncher(); err != nil {
+		if writeModesError(w, r, err) {
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
+func getExternalAgentConfigsHandler(deps ExternalAgentConfigRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureExternalAgentConfigReadsAllowed(w, r, deps) {
+			return
+		}
+		service := deps.Configs
 		if service == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -116,8 +168,12 @@ func getExternalAgentConfigsHandler(service *externalagentconfigs.Service) http.
 	}
 }
 
-func getExternalAgentConfigHandler(service *externalagentconfigs.Service) http.HandlerFunc {
+func getExternalAgentConfigHandler(deps ExternalAgentConfigRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureExternalAgentConfigReadsAllowed(w, r, deps) {
+			return
+		}
+		service := deps.Configs
 		if service == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -146,8 +202,13 @@ func getExternalAgentConfigHandler(service *externalagentconfigs.Service) http.H
 	}
 }
 
-func getExternalAgentHealthHandler(service *externalagentconfigs.Service, checker externalagentconfigs.Checker) http.HandlerFunc {
+func getExternalAgentHealthHandler(deps ExternalAgentConfigRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureExternalAgentConfigReadsAllowed(w, r, deps) {
+			return
+		}
+		service := deps.Configs
+		checker := deps.Preflight
 		if service == nil || checker == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -170,9 +231,9 @@ func getExternalAgentHealthHandler(service *externalagentconfigs.Service, checke
 	}
 }
 
-func createExternalAgentConfigHandler(service *externalagentconfigs.Service) http.HandlerFunc {
+func createExternalAgentConfigHandler(service *externalagentconfigs.Service, websocketHub *realtime.WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if service == nil {
+		if service == nil || websocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -192,13 +253,17 @@ func createExternalAgentConfigHandler(service *externalagentconfigs.Service) htt
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastExternalAgentConfigsUpdated(r.Context(), service, websocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, created)
 	}
 }
 
-func updateExternalAgentConfigHandler(service *externalagentconfigs.Service) http.HandlerFunc {
+func updateExternalAgentConfigHandler(service *externalagentconfigs.Service, websocketHub *realtime.WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if service == nil {
+		if service == nil || websocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -225,13 +290,17 @@ func updateExternalAgentConfigHandler(service *externalagentconfigs.Service) htt
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastExternalAgentConfigsUpdated(r.Context(), service, websocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, updated)
 	}
 }
 
-func deleteExternalAgentConfigHandler(service *externalagentconfigs.Service) http.HandlerFunc {
+func deleteExternalAgentConfigHandler(service *externalagentconfigs.Service, websocketHub *realtime.WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if service == nil {
+		if service == nil || websocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -253,8 +322,29 @@ func deleteExternalAgentConfigHandler(service *externalagentconfigs.Service) htt
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastExternalAgentConfigsUpdated(r.Context(), service, websocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func broadcastExternalAgentConfigsUpdated(
+	ctx context.Context,
+	service *externalagentconfigs.Service,
+	websocketHub *realtime.WebsocketHub,
+) error {
+	configs, err := service.List()
+	if err != nil {
+		return err
+	}
+	_, err = websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewExternalAgentConfigsUpdatedMessage(configs),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
 }
 
 func buildExternalAgentHealthResponse(status externalagentconfigs.Status) externalAgentHealthResponse {

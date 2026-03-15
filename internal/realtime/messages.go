@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"setta/internal/agentruns"
+	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -26,6 +27,7 @@ const (
 	MessageTypeNameValidationErrors        = "NameValidationErrors"
 	MessageTypeLLMConfigUpdated            = "LLMConfigUpdated"
 	MessageTypeLLMAPIKeysUpdated           = "LLMApiKeysUpdated"
+	MessageTypeExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
 	MessageTypeEngineConfigsUpdated        = "EngineConfigsUpdated"
 	MessageTypeAgentRunUpdated             = "AgentRunUpdated"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
@@ -271,6 +273,15 @@ type LLMAPIKeysUpdatedMessage struct {
 	Content     llmconfig.ManagedAPIKeysSnapshot `json:"content"`
 }
 
+type ExternalAgentConfigsUpdatedContent struct {
+	Configs []externalagentconfigs.Config `json:"configs"`
+}
+
+type ExternalAgentConfigsUpdatedMessage struct {
+	MessageType string                             `json:"messageType"`
+	Content     ExternalAgentConfigsUpdatedContent `json:"content"`
+}
+
 type EngineConfigsUpdatedContent struct {
 	Configs []agentruns.EngineConfig `json:"configs"`
 }
@@ -446,6 +457,19 @@ func NewLLMAPIKeysUpdatedMessage(content llmconfig.ManagedAPIKeysSnapshot) LLMAP
 	return LLMAPIKeysUpdatedMessage{
 		MessageType: MessageTypeLLMAPIKeysUpdated,
 		Content:     content,
+	}
+}
+
+func NewExternalAgentConfigsUpdatedMessage(content []externalagentconfigs.Config) ExternalAgentConfigsUpdatedMessage {
+	configs := append([]externalagentconfigs.Config(nil), content...)
+	if configs == nil {
+		configs = []externalagentconfigs.Config{}
+	}
+	return ExternalAgentConfigsUpdatedMessage{
+		MessageType: MessageTypeExternalAgentConfigsUpdated,
+		Content: ExternalAgentConfigsUpdatedContent{
+			Configs: configs,
+		},
 	}
 }
 
