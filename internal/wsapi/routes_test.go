@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -266,6 +267,139 @@ func TestRegisterRoutesFrontendConnectSendsIdentityAndRebroadcastsCurrentAddress
 
 	if resolvedID, ok := hub.Registry().ResolveFrontendConnectionID(firstToken, ""); !ok || resolvedID == "" {
 		t.Fatalf("expected first frontend identity token to resolve, got %q ok=%t", resolvedID, ok)
+	}
+}
+
+func TestRegisterRoutesFrontendRejectsLauncherModeBeforeAllocatingFrontendIdentity(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeLauncher)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	var frontendIDCalls atomic.Int32
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeLauncher),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+		}),
+		FrontendIDSource: func() (string, error) {
+			frontendIDCalls.Add(1)
+			return "frontend-launcher", nil
+		},
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer conn.CloseNow()
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _, err := conn.Read(readCtx)
+	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
+		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	}
+	if frontendIDCalls.Load() != 0 {
+		t.Fatalf("expected launcher-mode frontend route to reject before frontend id allocation, got %d calls", frontendIDCalls.Load())
+	}
+	if connections := hub.Connections(realtime.Selection{}); len(connections) != 0 {
+		t.Fatalf("expected launcher-mode frontend route to avoid hub registration, got %#v", connections)
+	}
+}
+
+func TestRegisterRoutesListenerRejectsLauncherModeBeforeBootstrapRegistration(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeLauncher)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeLauncher),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+		}),
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(
+		t,
+		server.URL,
+		RouteListenerByID+"?projectId=project-a",
+		authHeaderForCookie(t, authService),
+		withPathParam("listener-a"),
+	)
+	defer conn.CloseNow()
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _, err := conn.Read(readCtx)
+	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
+		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	}
+	if _, ok := broadcaster.Registry().Bootstrap("listener-a"); ok {
+		t.Fatal("expected launcher-mode listener route to reject before bootstrap registration")
+	}
+	if _, ok := broadcaster.Registry().Registration("listener-a"); ok {
+		t.Fatal("expected launcher-mode listener route to reject before listener registration")
+	}
+	if connections := hub.Connections(realtime.Selection{}); len(connections) != 0 {
+		t.Fatalf("expected launcher-mode listener route to avoid hub registration, got %#v", connections)
+	}
+}
+
+func TestRegisterRoutesTerminalRejectsLauncherModeBeforeOpeningSession(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeLauncher)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	terminalService := newRouteTerminalService(t)
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeLauncher),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+		}),
+		Terminals: terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(
+		t,
+		server.URL,
+		RouteTerminalBySection,
+		authHeaderForCookie(t, authService),
+		withTerminalPath("project-a", "section-a"),
+	)
+	defer conn.CloseNow()
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _, err := conn.Read(readCtx)
+	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
+		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	}
+	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-a", "")); ok {
+		t.Fatal("expected launcher-mode terminal route to reject before terminal session open")
 	}
 }
 
