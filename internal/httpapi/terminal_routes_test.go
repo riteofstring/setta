@@ -1165,6 +1165,58 @@ func TestRegisterTerminalRoutesAcceptsParamOverridesInIDE(t *testing.T) {
 	}
 }
 
+func TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies(t *testing.T) {
+	t.Parallel()
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-known"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	for _, testCase := range []struct {
+		name           string
+		headerValue    string
+		expectedStatus int
+		expectedDetail string
+	}{
+		{name: "missing", expectedStatus: http.StatusBadRequest, expectedDetail: `"detail":"Missing share session id."`},
+		{name: "unknown", headerValue: "share-unknown", expectedStatus: http.StatusNotFound, expectedDetail: `"detail":"Unknown share session id: share-unknown"`},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section"}`))
+			request.Header.Set("Content-Type", "application/json")
+			if testCase.headerValue != "" {
+				request.Header.Set(modes.ShareSessionHeaderName, testCase.headerValue)
+			}
+
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != testCase.expectedStatus {
+				t.Fatalf("expected %d, got %d with body %q", testCase.expectedStatus, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), testCase.expectedDetail) {
+				t.Fatalf("expected detail fragment %s, got %q", testCase.expectedDetail, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows(t *testing.T) {
 	t.Parallel()
 

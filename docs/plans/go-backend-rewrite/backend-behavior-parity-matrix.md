@@ -86,9 +86,9 @@ Last audited: `2026-03-17`
 
 ## Status Summary
 
-- Rows audited in this pass: `314`
+- Rows audited in this pass: `315`
 - Status counts:
-  - `Proved`: `283`
+  - `Proved`: `284`
   - `Implemented, proof incomplete`: `0`
   - `Missing`: `3`
   - `Retained Python boundary`: `8`
@@ -116,6 +116,11 @@ Last audited: `2026-03-17`
     source-typed settings save and direct app-definition HTTP routes now
     return the Python-style `422 {"status_code":10422,"message":...,"data":null}`
     validation envelope instead of the Go-only `400 invalid_json` error
+  - `internal/httpapi/terminal_routes.go`: deployment `runCode`
+    share-session failures now return the source `400/404 {"detail": ...}`
+    bodies instead of inheriting the generic `missing_share_session` /
+    `unknown_share_session` error envelope from the shared deployment
+    middleware
   - `internal/mcpx/server.go`, `internal/mcpx/ui_setting_tools.go`, and
     `internal/mcpx/agentic_context.go`: `set_ui_setting_value` now exposes the
     Python-style `revealAfterSet` write-plus-reveal contract with nested reveal
@@ -399,6 +404,9 @@ Last audited: `2026-03-17`
   `terminal.ws.deployment_policy_denial_close_contract` are now explicit
   proved rows instead of hiding the websocket close-reason drift inside
   broader terminal websocket coverage.
+- `run_code.share_session_transport_detail_bodies` is now an explicit proved
+  row instead of hiding the route-specific share-session transport behind the
+  generic deployment middleware coverage.
 - Retained Python boundaries are now recorded explicitly for
   `setta.api.SettaListener`, `setta.api.chat_toolkit`,
   `setta.api.SettaRunner`, the share listener runtime, and the packaged
@@ -510,6 +518,7 @@ Last audited: `2026-03-17`
 | `run_code.param_overrides_do_not_mutate_base_state` | `tests/project_state/test_run_overrides.py::test_create_run_command_applies_overrides_without_mutating_state` | `internal/runs/planner.go` | `TestPlannerPlanAcceptsParamOverridesWithoutMutatingBaseState`; `TestRegisterTerminalRoutesAcceptsParamOverridesInIDE` | `frontend/src/utils/generatedTypes.ts` still exposes `paramOverrides` on `RunCodeRequest` | `Proved` | Param overrides still apply to the run snapshot without mutating the persisted runtime values. |
 | `run_code.invalid_param_override_key_rejected` | `tests/project_state/test_run_overrides.py::test_create_run_command_with_overrides_rejects_bad_param_key`; `backend/setta/routers/terminals.py::_validate_run_overrides` | `internal/runs/planner.go` | `TestPlannerPlanRejectsInvalidParamOverrideKey` | `internal/httpapi/terminal_routes.go` maps the planner error back onto the `runCode` transport | `Proved` | Bad param override keys are still rejected before dispatch. |
 | `run_code.invalid_request.transport_400_detail_bodies` | `backend/setta/routers/terminals.py::route_run_code` catches `(KeyError, ValueError)` and returns `HTTPException(status_code=400, detail=...)` for invalid run-target and override requests | `internal/httpapi/terminal_routes.go::{runCodeHandler,normalizeRunRequestDetail}` | `TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads` | current `runCode` callers still receive invalid-request failures on the same surviving HTTP route | `Proved` | Invalid `runCode` requests now preserve the source `400 {"detail": ...}` body shape for planner and validation failures instead of a typed Go error envelope. |
+| `run_code.share_session_transport_detail_bodies` | `backend/setta/routers/dependencies.py::require_share_session_id`; `backend/setta/routers/terminals.py::route_run_code` | `internal/httpapi/terminal_routes.go::{RegisterTerminalRoutes,runCodeHandler,writeRunCodeShareSessionError}` | `TestRegisterTerminalRoutesRunCodeShareSessionErrorsReturnDetailBodies` | `frontend/src/state/actions/runOrImportCode.ts`; `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` still prove `runCode` as an active caller-backed surface in deployment/share mode | `Proved` | Deployment `runCode` now once again maps missing and unknown share-session failures to source-style `400/404 {"detail": ...}` bodies instead of the generic Go `missing_share_session` / `unknown_share_session` error envelopes. |
 | `run_code.generated_entry_allocates_temporary_terminal` | `backend/setta/terminals/run_code.py::run_command` allocates a temporary terminal and calls `create_temporary_terminal` when no reusable terminal exists | `internal/runs/service.go::resolveTerminalSection` | `TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal` | generated-entry callers still use the same `runCode` route without a section id | `Proved` | Entry-code runs without an attached section terminal still allocate a top-level temporary terminal and route output there. |
 | `run_code.generated_entry_reuses_idle_top_level_terminal` | `backend/setta/terminals/run_code.py::run_command`; `backend/setta/terminals/terminals.py::get_free_terminal` | `internal/runs/service.go::resolveReusableGeneratedEntryTerminalSection`; `internal/terminals/service.go::ReusableSession` | `TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry`; `TestServiceReusableSessionReturnsTrueForIdleInteractiveShell`; `TestServiceReusableSessionReturnsFalseForForegroundJob` | IDE callers still expect repeated generated-entry runs to reuse an idle terminal when one is available | `Proved` | Generated-entry runs still reuse an idle top-level terminal instead of always creating a fresh temporary terminal. |
 | `run_code.deployment_run_policy_denied` | `tests/routers/test_share_policy_routes.py::test_run_routes_blocked`; `backend/setta/routers/terminals.py::route_run_code`; `backend/setta/share/policy.py::enforce_share_policy` | `internal/runs/service.go::resolveExecution`; `internal/httpapi/terminal_routes.go` | `TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows` | share-mode callers still reach `runCode` through the same route name, now on Go-owned transport | `Proved` | Deployment run requests still fail closed and do not create terminal sessions when the share policy disallows runs. |

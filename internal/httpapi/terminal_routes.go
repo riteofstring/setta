@@ -68,19 +68,20 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 		if deps.Deployment == nil {
 			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
-		shareGuard := RequireShareSession(modes.Resolver{
+		shareResolver := modes.Resolver{
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
-		})
+		}
+		shareGuard := RequireShareSession(shareResolver)
 		router.With(shareGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, deps.Deployment))
 		router.With(shareGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, deps.Deployment))
-		router.With(shareGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+		router.Post(RouteRunCode, runCodeHandler(deps.RunCode, &shareResolver))
 		return nil
 	}
 	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
 	router.With(ideGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, nil))
 	router.With(ideGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, nil))
-	router.With(ideGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+	router.With(ideGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode, nil))
 	return nil
 }
 
@@ -186,7 +187,7 @@ func interruptTerminalProcessesHandler(terminalService *terminals.Service, deplo
 	}
 }
 
-func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
+func runCodeHandler(runCodeService *runs.Service, shareResolver *modes.Resolver) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[RunCodeRequest](r)
 		if err != nil {
@@ -194,11 +195,15 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			return
 		}
 
-		requestInfo, ok := modes.RequestInfoFromRequest(r)
-		if !ok {
+		requestInfo, err := resolveRunCodeRequestInfo(r, shareResolver)
+		if err != nil {
+			if writeRunCodeShareSessionError(w, err) {
+				return
+			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		r = withModesRequestInfo(r, requestInfo)
 
 		if strings.TrimSpace(payload.CLIID) != "" {
 			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_cli", "Run code CLI output is not supported in Go yet.")
@@ -255,6 +260,29 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func resolveRunCodeRequestInfo(r *http.Request, shareResolver *modes.Resolver) (modes.RequestInfo, error) {
+	if shareResolver != nil {
+		return shareResolver.ResolveRequest(r)
+	}
+	return modes.RequireRequestInfo(r)
+}
+
+func writeRunCodeShareSessionError(w http.ResponseWriter, err error) bool {
+	var missingShareSession *modes.MissingShareSessionError
+	if errors.As(err, &missingShareSession) {
+		writeDetail(w, http.StatusBadRequest, missingShareSession.Error())
+		return true
+	}
+
+	var unknownShareSession *modes.UnknownShareSessionError
+	if errors.As(err, &unknownShareSession) {
+		writeDetail(w, http.StatusNotFound, unknownShareSession.Error())
+		return true
+	}
+
+	return false
 }
 
 func runCodePolicyDetail(err error) string {
