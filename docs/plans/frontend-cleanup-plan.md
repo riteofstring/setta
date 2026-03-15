@@ -85,6 +85,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.
 - `frontend/src/state/actions/aiLLMConfiguration.ts` now owns LLM config/API-key handling plus managed API-key conflict resolution and snapshot updates.
 - `frontend/src/state/actions/aiConfigurationCatalogLoads.ts` now owns AI settings/resource catalog fetches and hydration, `frontend/src/state/actions/aiConfigurationCatalogState.ts` now owns shared AI catalog store writes, `frontend/src/state/actions/aiConfigurationCatalogMutations.ts` now owns catalog mutation transport, and `frontend/src/state/actions/aiConfigurationCatalogs.ts` is now a thin compatibility surface.
+- `frontend/src/state/actions/artifactStoreUpdates.ts` now owns incoming
+  websocket/store artifact reconciliation plus decoded-image cleanup,
+  `frontend/src/state/actions/artifactSyncQueue.ts` now owns draw artifact save
+  queueing plus debounced/forced sync transport, and
+  `frontend/src/state/actions/artifacts.ts` is now a 7-line compatibility
+  facade.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation decode, resample, chunk, and upload orchestration.
 - `frontend/src/state/actions/aiTranscriptionSessions.ts` now owns provider session transport, request-error handling, and chunk-size policy.
 - `frontend/src/state/actions/aiTranscriptionProfiles.ts` now owns transcription-profile loading, websocket/store snapshot updates, and CRUD.
@@ -500,7 +506,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/artifacts.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/sections/moveSections.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

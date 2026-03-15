@@ -333,6 +333,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectStateOptimisticUpdates.ts` owns the pending-operation
     queue and optimistic project-state mutation scaffolding used by shared state
     action modules.
+  - `state/actions/artifactStoreUpdates.ts` owns incoming artifact snapshot
+    reconciliation plus decoded-image cache cleanup for websocket/store-driven
+    artifact updates.
+  - `state/actions/artifactSyncQueue.ts` owns draw artifact save queueing,
+    debounced flush transport, and conflict/skipped save notifications.
+  - `state/actions/artifacts.ts` is now a thin compatibility facade over the
+    narrower artifact update and sync owners.
   - `state/actions/websocketIncomingMessages.ts` owns frontend websocket
     payload dispatch, project/app snapshot routing, and `UISettingReveal` ACK
     handling.

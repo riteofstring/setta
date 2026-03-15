@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   queueBrushStrokeForSave,
   queueTransformsForSave,
-} from "state/actions/artifacts";
+} from "state/actions/artifactSyncQueue";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,

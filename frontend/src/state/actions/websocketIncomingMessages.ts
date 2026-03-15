@@ -34,7 +34,7 @@ import {
   receiveLLMConfigUpdate,
 } from "./aiLLMConfiguration";
 import { receiveTranscriptionProfilesUpdate } from "./aiTranscriptionProfiles";
-import { updateArtifacts } from "./artifacts";
+import { updateArtifacts } from "./artifactStoreUpdates";
 import { applyListenerCoverageSnapshot } from "./listenerCoverage";
 import { updateAllProjectMetadata } from "./projectStateCommands";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";

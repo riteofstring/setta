@@ -202,6 +202,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   filtering, chatId-to-section routing, stream-active tracking, section
   persistence, and scope-violation side effects that previously lived in
   `frontend/src/state/actions/aiChatStreaming.ts`.
+- `frontend/src/state/actions/artifactStoreUpdates.ts` now owns incoming
+  websocket/store artifact reconciliation plus decoded-image cleanup that
+  previously lived in `frontend/src/state/actions/artifacts.ts`, while
+  `frontend/src/state/actions/artifactSyncQueue.ts` now owns draw artifact save
+  queueing, debounced/forced sync transport, and save-conflict notifications;
+  `frontend/src/state/actions/artifacts.ts` is now the thin compatibility
+  facade over those owners.
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external
   hydration route probes plus failure/outcome classification that previously
   lived in `frontend/src/state/actions/aiHydration.ts`.
@@ -243,7 +250,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/sections/moveSections.ts` at 365 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
@@ -251,13 +257,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/sections/moveSections.ts` at 365 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
