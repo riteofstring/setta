@@ -79,3 +79,8 @@ categorize them.
   `Section <id> failed type guard` detail string; the next queue remains the
   broader remaining `Missing` and `Implemented, proof incomplete` rows
   outside the now-proved windowing, `/settings`, and prompt-link slices
+- The local-dev auth middleware negative branch for an inactive
+  dev-frontend-port contract is now proved by direct Go handler coverage too;
+  keep using small targeted tests like this when a caller-visible row is
+  already implemented and a full differential harness slice would add little
+  beyond the isolated proof
