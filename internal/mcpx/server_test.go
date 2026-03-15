@@ -1378,6 +1378,56 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 }
 
+func TestServerScopedReadToolsRejectEmptyReadableScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.AgenticEdges = nil
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("remove scoped read edges: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+	})
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	for _, toolName := range []string{
+		"get_latest_project_state_summary",
+		"get_latest_lsp_diagnostics",
+	} {
+		result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+			Name:      toolName,
+			Arguments: map[string]any{"projectConfigId": "project-alpha"},
+		})
+		if err != nil {
+			t.Fatalf("call %s: %v", toolName, err)
+		}
+		if !result.IsError {
+			t.Fatalf("expected %s empty-scope failure, got %#v", toolName, result.StructuredContent)
+		}
+		payload := mustStructuredMap(t, result.StructuredContent)
+		if payload["code"] != scopeViolationErrorCode {
+			t.Fatalf("expected scope_violation code for %s, got %#v", toolName, payload["code"])
+		}
+		if payload["reason"] != "empty_scope" {
+			t.Fatalf("expected empty_scope reason for %s, got %#v", toolName, payload["reason"])
+		}
+		message, ok := payload["message"].(string)
+		if !ok || !strings.Contains(message, "no readable sections") {
+			t.Fatalf("expected no-readable-sections message for %s, got %#v", toolName, payload["message"])
+		}
+	}
+}
+
 func TestServerSetCodeSectionDiagnosticsMuteRespectsScopedWriteTargets(t *testing.T) {
 	t.Parallel()
 
