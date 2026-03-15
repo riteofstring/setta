@@ -85,28 +85,24 @@ Use these as the audit source of truth:
 
 `Incomplete`
 
-The remaining proof against completeness includes both active Python runtime
-ownership and missing Go-native plugin parity. The targeted Go-owned parity
-blockers found earlier in this audit have been fixed, but the rewrite still is
-not complete.
+The old Python listener router/runtime stack and the targeted Go-native plugin
+parity blockers found earlier in this audit are no longer the reason the
+rewrite is incomplete. The remaining blocker is narrower: the retained Python
+listener SDK still carries listener-state/cache ownership that the rewrite docs
+explicitly do not treat as a retained boundary.
 
 ### Current blocker set
 
-- Active Python backend/runtime ownership still remains in the listener/share
-  support tail, centered on:
-  - `backend/setta/routers/project_manager.py`
-  - `backend/setta/routers/listener.py`
-  - `backend/setta/server_state.py`
-  - `backend/setta/share/listener_runtime.py`
-- Full backend plugin parity is still missing. The previous plugin backend
-  feature set now needs Go-native replacements rather than product-level
-  deletion, including backend routes/static assets, listener/runtime hooks,
-  codegen targets, language-server integration, external-agent integration,
-  richer backend runtime/status visibility, and the rest of the Go-native
-  backend plugin runtime model.
-- The rewrite is not complete until those paths are either removed, moved to
-  Go, or narrowed to the documented retained Python SDK surface only, and until
-  the missing backend plugin feature set is restored in Go.
+- The retained Python listener client still owns metadata-backed listener cache
+  and dependent-value recomputation in:
+  - `backend/setta/api/listener.py`
+- That duplicate ownership is explicitly outside the accepted retained
+  boundary in `CURRENT.md` and
+  `setta-listener-protocol-redesign-plan.md`: Go must become authoritative for
+  listener-visible state instead of leaving cache rebuild/replay and dependent
+  recomputation logic in Python.
+- The rewrite is not complete until the active `SettaListener` path no longer
+  needs that Python-side listener-state layer for current supported workflows.
 
 ### Current proven Go-owned surface
 
@@ -124,8 +120,9 @@ not complete.
   cut back substantially.
 - The old Python listener generated-runtime fallback is gone. Retained Python
   listener code is expected to stay on the authoring/client side only.
-- Go now owns plugin-defined backend MCP tool registration, invocation, and
-  mutation-time refresh for Go-backed backend plugins.
+- Go now owns the active caller-backed backend plugin surface for backend HTTP
+  routes, static dirs, listener endpoints, MCP tools, codegen targets, and
+  language-server registrations on the Go-native backend plugin runtime model.
 
 ### Behavioral test-parity rule
 
