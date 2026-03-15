@@ -1577,6 +1577,10 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 		router.With(shareGuard).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 		router.With(shareGuard).Post(RouteSetViewport, setViewportHandler(deps))
+		router.With(shareGuard).Post(RouteSetTextBlockText, setTextBlockTextHandler(deps))
+		router.With(shareGuard).Post(RouteSetTextBlockDisplayMode, setTextBlockDisplayModeHandler(deps))
+		router.With(shareGuard).Post(RouteSetTextBlockFormat, setTextBlockFormatHandler(deps))
+		router.With(shareGuard).Post(RouteSetTextBlockMasterFontSize, setTextBlockMasterFontSizeHandler(deps))
 		router.With(shareGuard).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
@@ -5376,12 +5380,17 @@ func setTextBlockTextHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTextBlockText(
+		if _, err := runtime.SetTextBlockText(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -5412,12 +5421,17 @@ func setTextBlockDisplayModeHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTextBlockDisplayMode(
+		if _, err := runtime.SetTextBlockDisplayMode(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -5448,12 +5462,17 @@ func setTextBlockFormatHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTextBlockFormat(
+		if _, err := runtime.SetTextBlockFormat(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -5556,12 +5575,17 @@ func setTextBlockMasterFontSizeHandler(deps ProjectRouteDependencies) http.Handl
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTextBlockMasterFontSize(
+		if _, err := runtime.SetTextBlockMasterFontSize(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,

@@ -6172,6 +6172,254 @@ func TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs(t *testing.T
 	}
 }
 
+func TestRegisterProjectRoutesTextBlockMutationsUseDeploymentOverlayWhenPolicyAllows(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("text_uses_param_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": textBlockRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowParamChanges":  true,
+						"allowLayoutChanges": false,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RouteSetTextBlockText,
+					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Overlay Heading\n\nBody"}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayText := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
+				if got := overlayText["text"]; got != "# Overlay Heading\n\nBody" {
+					t.Fatalf("expected overlay text update, got %#v", got)
+				}
+
+				baseText := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
+				if got := baseText["text"]; got != nil {
+					t.Fatalf("expected base text block modifier unchanged, got %#v", got)
+				}
+			})
+
+			t.Run("layout_uses_layout_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": textBlockRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowParamChanges":  false,
+						"allowLayoutChanges": true,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				for _, requestSpec := range []struct {
+					route string
+					body  string
+				}{
+					{
+						route: RouteSetTextBlockDisplayMode,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Edit"}`,
+					},
+					{
+						route: RouteSetTextBlockFormat,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"Markdown"}`,
+					},
+					{
+						route: RouteSetTextBlockMasterFontSize,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`,
+					},
+				} {
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusOK {
+						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayText := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
+				if got := overlayText["textDisplayMode"]; got != "Edit" {
+					t.Fatalf("expected overlay textDisplayMode Edit, got %#v", got)
+				}
+				if got := overlayText["format"]; got != "Markdown" {
+					t.Fatalf("expected overlay format Markdown, got %#v", got)
+				}
+				if got := overlayText["masterFontSizePx"]; got != float64(48) {
+					t.Fatalf("expected overlay masterFontSizePx 48, got %#v", got)
+				}
+
+				baseText := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
+				if len(baseText) != 0 {
+					t.Fatalf("expected base text block modifier unchanged, got %#v", baseText)
+				}
+			})
+		})
+	}
+}
+
+func TestRegisterProjectRoutesTextBlockMutationsRejectDeploymentPolicyWhenDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("text_rejects_param_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": textBlockRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowParamChanges":  false,
+						"allowLayoutChanges": true,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay before rejected text mutation: %v", err)
+				}
+				before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RouteSetTextBlockText,
+					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Forbidden Heading\n\nBody"}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("expected 403 for %s, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
+					t.Fatalf("expected param_changes_forbidden body, got %q", response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
+					t.Fatalf("expected deployment param policy denial, got %q", response.Body.String())
+				}
+
+				after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("expected rejected text mutation to leave overlay unchanged, got %#v", after)
+				}
+			})
+
+			t.Run("layout_rejects_layout_policy", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": textBlockRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowParamChanges":  true,
+						"allowLayoutChanges": false,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay before rejected layout mutations: %v", err)
+				}
+				before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				for _, requestSpec := range []struct {
+					route string
+					body  string
+				}{
+					{
+						route: RouteSetTextBlockDisplayMode,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Edit"}`,
+					},
+					{
+						route: RouteSetTextBlockFormat,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"Markdown"}`,
+					},
+					{
+						route: RouteSetTextBlockMasterFontSize,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`,
+					},
+				} {
+					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+						t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+						t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+					}
+				}
+
+				after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("expected rejected layout mutations to leave overlay unchanged, got %#v", after)
+				}
+			})
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *testing.T) {
 	t.Parallel()
 
