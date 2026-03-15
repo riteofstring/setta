@@ -235,6 +235,10 @@ func (s *ProjectSynchronizer) codeSectionDiagnosticsCallback(
 	}
 
 	return func(params PublishDiagnosticsParams) {
+		// Source parity: code-section diagnostics ignore versionless publishes.
+		if params.Version == nil {
+			return
+		}
 		s.diagnostics.UpdateCodeSectionWithIgnoreState(projectID, sectionID, toProjectDiagnostics(params), ignoreState)
 	}
 }

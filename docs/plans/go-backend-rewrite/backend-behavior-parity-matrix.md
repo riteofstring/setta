@@ -290,9 +290,6 @@ It covers:
   - current Go publishes listener metadata and still documents that behavior,
     but it never launches a retained loader or equivalent per deployment
     session
-  - source code-section diagnostics ignore versionless LSP publishes
-  - current Go applies versionless code-section diagnostics directly into the
-    live snapshot instead of dropping them
   - source invalid text-block display-mode / format request bodies fail typed
     FastAPI enum validation with `422`
   - current Go trims those enum strings and returns `400` from the mutation
@@ -422,12 +419,10 @@ It covers:
   - one broader proof-gap row around typed publish validation/error mapping
     (`DP-05`)
   - two dormant transport/mode-boundary rows (`DP-02`, `DP-07`)
-- The code-edit/LSP/watch-code slice mostly closes with proofs, but it adds:
-  - one real behavior gap around versionless code-section diagnostics
-    publishes (`LD-03`)
-  - four more proof-gap rows around formatter edge handling, plugin-language
-    diagnostics/type-check coverage, and bound-code baseline-on-enable
-    behavior (`CE-02`, `LD-04`, `TC-02`, `WC-02`)
+- The code-edit/LSP/watch-code slice mostly closes with proofs and now
+  retains four broader proof-gap rows around formatter edge handling,
+  plugin-language diagnostics/type-check coverage, and bound-code
+  baseline-on-enable behavior (`CE-02`, `LD-04`, `TC-02`, `WC-02`).
 - The docstring/completion/signature-help slice adds no new concrete parity
   gap, but it does add one proof-gap row around completion edge-case fallbacks
   (`CP-02`) plus one dormant transport delta around
@@ -918,7 +913,7 @@ It covers:
 | `CE-02` | `formatCode` formats Python code sections plus generated Python prefix/suffix, leaves unused args and unresolved symbols alone, rejects non-Python/non-code/read-only/invalid targets with sanitized typed errors, and refreshes Watch Code state for bound Python files. | Source route: `backend/setta/routers/project_manager.py::route_format_code`; source tests: `tests/project_state/test_format_code.py::{test_format_code_updates_python_code,test_format_code_updates_gen_python_prefix_suffix,test_format_code_rejects_non_python_code_section,test_format_code_rejects_non_code_section,test_format_code_allows_unused_args,test_format_code_rejects_invalid_python_code,test_format_code_rejects_invalid_gen_prefix,test_format_code_rejects_invalid_gen_suffix,test_format_code_allows_undefined_symbols_in_gen_prefix}`; `tests/project_state/test_set_code_access_mode.py::test_format_code_rejects_read_only_binding`; `tests/project_state/test_codegen_targets.py::test_format_code_updates_watch_code_registry`; source frontend/caller behavior: `frontend/src/state/actions/formatCode.ts`; `frontend/src/state/actions/lspDiagnostics.ts`. | Impl: `internal/projectstate/format_code.go`; `internal/codeformat/python.go`; `internal/app/code_updates.go::FormatCode`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK,TestRegisterProjectRoutesFormatCodeReturnsForbiddenForReadOnlyBinding,TestRegisterProjectRoutesFormatCodeReturns422ForInvalidTarget}`; `internal/app/code_updates_test.go::{TestCodeUpdateServiceFormatCodeFormatsPythonSection,TestCodeUpdateServiceFormatCodeRejectsReadOnlyBinding,TestCodeUpdateServiceFormatCodeFormatsGeneratedPythonTarget,TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry}`; current caller proof: `frontend/src/state/actions/lspDiagnostics.test.ts` formatter-diagnostic merge/clear cases. | `Implemented, proof incomplete` | This slice does not yet cite direct Go proof for the invalid-syntax / invalid-gen-prefix / invalid-gen-suffix detail variants or for the unused-args / unresolved-symbol tolerance branches from `main`. |
 | `LD-01` | `get_latest_lsp_diagnostics` and `LSPDiagnostics` websocket payloads share the same project-scoped snapshot contract, and the frontend rehydrates from the route on project load or websocket reconnect. Share/deployment mode keeps the diagnostics/admin transport blocked. | Source docs: `docs/reference/lsp-diagnostics.md` payload/routing and share-mode sections; source route: `backend/setta/routers/project_manager.py::route_get_latest_lsp_diagnostics`; source tests: `tests/routers/test_full_runtime_mode_guards.py::{test_restart_language_server_is_blocked_in_launcher_mode,test_type_check_is_blocked_in_launcher_mode}`; source frontend callers: `frontend/src/state/actions/project/loadProject.ts`; `frontend/src/state/actions/websocketReceive.ts`. | Impl: `internal/httpapi/lsp_routes.go::getLatestLSPDiagnosticsHandler`; `internal/app/app.go` frontend websocket diagnostics broadcast wiring; proof: `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesReturnsLatestDiagnosticsSnapshot,TestRegisterLSPRoutesRejectsShareModeRequests}`; websocket proof: `internal/app/websocket_test.go::TestAppBroadcastsAndHydratesLSPDiagnostics`; current caller proof: `frontend/src/state/actions/project/loadProject.test.ts`; `frontend/src/state/actions/websocketReceive.test.ts`. | `Proved` | |
 | `LD-02` | Code-section diagnostics store raw LSP payloads separately from filtered payloads so mute/suppression updates can reapply instantly without waiting for a new publish, and the effective ignore state persists on the correct shared/variant payload. | Source docs: `docs/reference/lsp-diagnostics.md` diagnostics-ignore section; source routes: `backend/setta/routers/project_manager.py::{route_set_code_section_diagnostics_mute,route_set_code_section_diagnostic_code_suppression}`; source tests: `tests/project_state/test_code_section_diagnostics.py::{test_code_section_diagnostics_update_state,test_code_section_diagnostics_respect_suppression,test_code_section_diagnostics_restore_after_ignore_change}`; `tests/project_state/test_code_section_diagnostics_ignore.py`. | Impl: `internal/projectstate/lsp_diagnostics.go`; `internal/projectstate/code_section_diagnostics_ignore.go`; `internal/httpapi/lsp_routes.go::{setCodeSectionDiagnosticsMuteHandler,setCodeSectionDiagnosticCodeSuppressionHandler}`; proof: `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesMutatesCodeSectionDiagnosticsIgnoreState,TestRegisterLSPRoutesMutesCodeSectionDiagnostics}`; state proof: `internal/projectstate/code_section_diagnostics_ignore_test.go`; `internal/projectstate/lsp_diagnostics_test.go::{TestLSPDiagnosticsRegistryAppliesCodeSectionIgnoreState,TestLSPDiagnosticsRegistryReappliesCodeSectionIgnoreState}`. | `Proved` | |
-| `LD-03` | Code-section diagnostics ignore versionless LSP publishes instead of treating them as the latest live snapshot. | Source test: `tests/project_state/test_code_section_diagnostics.py::test_code_section_diagnostics_ignores_versionless_publish`. | Current Go code-section callback unconditionally forwards every diagnostics publish into the registry: `internal/lsp/project_synchronizer.go::codeSectionDiagnosticsCallback`; transport params still expose optional `Version`: `internal/lsp/session.go::PublishDiagnosticsParams`; current proof only covers versioned callbacks: `internal/lsp/project_synchronizer_test.go::TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutContentChanges`. | `Missing` | Current Go has no version-presence guard before updating section diagnostics. |
+| `LD-03` | Code-section diagnostics ignore versionless LSP publishes instead of treating them as the latest live snapshot. | Source test: `tests/project_state/test_code_section_diagnostics.py::test_code_section_diagnostics_ignores_versionless_publish`. | Impl: `internal/lsp/project_synchronizer.go::codeSectionDiagnosticsCallback`; transport params: `internal/lsp/session.go::PublishDiagnosticsParams`; proof: `internal/lsp/project_synchronizer_test.go::{TestProjectSynchronizerCodeSectionDiagnosticsCallbackUpdatesVersionedPublishes,TestProjectSynchronizerIgnoresVersionlessCodeSectionDiagnosticsPublishes}`. | `Proved` | Go now drops code-section diagnostics publishes when the LSP server omits `version`, while still applying versioned updates normally. |
 | `LD-04` | Non-Python/plugin-language code sections feed diagnostics through the same project snapshot path as Python code sections. | Source test: `tests/project_state/test_code_section_diagnostics.py::test_non_python_lsp_code_section_diagnostics_update_state`; related type-check source test: `tests/project_state/test_type_check.py::test_type_check_runs_typescript_sections_with_plugin_lsp`. | Impl: `internal/projectstate/code_section_bindings.go::ActiveCodeSectionFiles`; `internal/lsp/project_synchronizer.go::buildProjectDocuments`; current route transport is language-agnostic in `internal/httpapi/lsp_routes.go::getLatestLSPDiagnosticsHandler`. | `Implemented, proof incomplete` | Current Go code is language-agnostic here, but this slice does not yet cite a direct Go proof for non-Python diagnostics delivery. |
 | `TC-01` | `restartLanguageServer` remains an IDE-only admin surface and restarts by closing the active LSP session set before rematerializing the current tracked documents. | Source route: `backend/setta/routers/lsp.py::route_restart_language_server`; source mode-guard test: `tests/routers/test_full_runtime_mode_guards.py::test_restart_language_server_is_blocked_in_launcher_mode`; source caller: `frontend/src/state/actions/lsp.ts`. | Impl: `internal/httpapi/lsp_routes.go::restartLanguageServerHandler`; `internal/lsp/project_synchronizer.go::Restart`; proof: `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesRestartsLanguageServer,TestRegisterLSPRoutesRejectsShareModeRequests}`; synchronizer proof: `internal/lsp/project_synchronizer_test.go::TestProjectSynchronizerRestartClosesBeforeRematerializing`; current caller proof: `frontend/src/state/actions/lsp.test.ts`. | `Proved` | |
 | `TC-02` | Manual `typeCheck` refreshes the target project's tracked documents, including generated Python plus plugin-language code sections, without rebuilding unrelated tracked projects. | Source route: `backend/setta/routers/lsp.py::route_type_check`; source tests: `tests/project_state/test_type_check.py::{test_type_check_runs_python_sections_without_codegen,test_type_check_runs_typescript_sections_with_plugin_lsp,test_type_check_runs_gen_code_and_python_sections}`; source caller: `frontend/src/state/actions/typeCheck.ts`. | Impl: `internal/httpapi/lsp_routes.go::typeCheckHandler`; `internal/lsp/project_synchronizer.go::TypeCheckProject`; proof: `internal/httpapi/lsp_routes_test.go::TestRegisterLSPRoutesTypeChecksProject`; synchronizer proof: `internal/lsp/project_synchronizer_test.go::TestProjectSynchronizerTypeCheckProjectRefreshesProjectDocuments`; current caller proof: `frontend/src/state/actions/typeCheck.test.ts`. | `Implemented, proof incomplete` | Current Go directly proves the project-scoped refresh path for Python plus generated docs, but this slice does not yet cite direct Go proof for the plugin-language case from `main`. |
@@ -1218,8 +1213,8 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty concrete source-parity gaps:
-   `LS-11`, `LS-17`, `LD-03`,
+1. The matrix now contains thirty-nine concrete source-parity gaps:
+   `LS-11`, `LS-17`,
    `US-05`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
@@ -1295,9 +1290,8 @@ It covers:
     adds two real behavior gaps (`DP-06`, `DP-08`), one broader publish-error
     proof gap (`DP-05`), and two dormant transport/mode-boundary rows
     (`DP-02`, `DP-07`).
-25. The code-edit/LSP/watch-code slice mostly closes with proofs, but it adds
-    one real behavior gap (`LD-03`) plus four broader proof-gap rows
-    (`CE-02`, `LD-04`, `TC-02`, `WC-02`).
+25. The code-edit/LSP/watch-code slice mostly closes with proofs and now
+    retains four broader proof-gap rows (`CE-02`, `LD-04`, `TC-02`, `WC-02`).
 26. The docstring/completion/signature-help slice adds no new real behavior
     gap, but it does add one broader completion proof gap (`CP-02`) plus one
     dormant transport row (`CP-04`).
@@ -1374,7 +1368,7 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `LD-03`, `US-05`,
+    - decide whether `US-05`,
       `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,

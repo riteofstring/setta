@@ -178,6 +178,8 @@ func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutConten
 		"Bad code",
 		"reportFoo",
 	)
+	version := 1
+	params.Version = &version
 
 	firstCallback := service.tracked[sectionPath].Callback
 	if firstCallback == nil {
@@ -207,6 +209,73 @@ func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutConten
 	filtered := diagnostics.Snapshot("project-alpha")
 	if len(filtered.CodeSections) != 0 {
 		t.Fatalf("expected refreshed callback to apply section ignore policy, got %#v", filtered.CodeSections)
+	}
+}
+
+// Code-section diagnostics callbacks should still forward versioned publishes
+// into the registry when no ignore policy removes them.
+func TestProjectSynchronizerCodeSectionDiagnosticsCallbackUpdatesVersionedPublishes(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	synchronizer := &ProjectSynchronizer{diagnostics: diagnostics}
+	callback := synchronizer.codeSectionDiagnosticsCallback(
+		"project-alpha",
+		"runner",
+		projectstate.CodeSectionDiagnosticsIgnoreState{},
+	)
+	if callback == nil {
+		t.Fatal("expected code section diagnostics callback")
+	}
+
+	version := 1
+	params := PublishDiagnosticsParams{
+		URI:     "file:///tmp/runner.py",
+		Version: &version,
+		Diagnostics: []Diagnostic{{
+			Message:  "Bad code",
+			Severity: 1,
+			Source:   "pyright",
+			Code:     "reportFoo",
+		}},
+	}
+	callback(params)
+
+	snapshot := diagnostics.Snapshot("project-alpha")
+	if len(snapshot.CodeSections["runner"]) != 1 {
+		t.Fatalf("expected versioned publish to update diagnostics, got %#v", snapshot.CodeSections)
+	}
+}
+
+// Code-section diagnostics should ignore versionless publishes instead of
+// treating them as the latest live snapshot.
+func TestProjectSynchronizerIgnoresVersionlessCodeSectionDiagnosticsPublishes(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	synchronizer := &ProjectSynchronizer{diagnostics: diagnostics}
+	callback := synchronizer.codeSectionDiagnosticsCallback(
+		"project-alpha",
+		"runner",
+		projectstate.CodeSectionDiagnosticsIgnoreState{},
+	)
+	if callback == nil {
+		t.Fatal("expected code section diagnostics callback")
+	}
+
+	callback(PublishDiagnosticsParams{
+		URI: "file:///tmp/runner.py",
+		Diagnostics: []Diagnostic{{
+			Message:  "Bad code",
+			Severity: 1,
+			Source:   "pyright",
+			Code:     "reportFoo",
+		}},
+	})
+
+	snapshot := diagnostics.Snapshot("project-alpha")
+	if len(snapshot.CodeSections) != 0 {
+		t.Fatalf("expected versionless publish to be ignored, got %#v", snapshot.CodeSections)
 	}
 }
 
