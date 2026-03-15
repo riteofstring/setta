@@ -11,7 +11,7 @@ import {
   ensureAppProjectConfigLoaded,
   resetAppDeployment,
 } from "state/actions/appDeploymentState";
-import { incrementAppSessionRunCount } from "state/actions/appSessionState";
+import { incrementAppSessionRunCount } from "state/actions/appSessionRunCount";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs } from "state/stores/appStores";
 import { useShareSession } from "state/stores/sessionStores";

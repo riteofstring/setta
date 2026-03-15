@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { useAppConfigs } from "state/stores/appStores";
+import { useAppConfigs, useAppDefinition } from "state/stores/appStores";
 import {
   useAllProjectMetadata,
   useServerMode,
@@ -9,21 +9,17 @@ import {
 import { resetProjectStores } from "state/utils";
 import type { AppDeploymentSessionResponse } from "utils/generatedTypes";
 import {
+  createAppDefinition,
   createProjectConfig,
   createProjectStateSingleConfig,
   createSharePolicy,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  ensureAppSessionFromCurrentDeployment,
-  incrementAppSessionRunCount,
-  initializeAppSessionFromCurrentDeployment,
-} from "./appSessionState";
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_create_app_session_current: vi.fn(),
-}));
+  hydrateAppSessionFromStorage,
+  resetAppSessionState,
+} from "./appSessionStoredState";
 
 function buildAppSessionResponse(): AppDeploymentSessionResponse {
   return {
@@ -32,16 +28,15 @@ function buildAppSessionResponse(): AppDeploymentSessionResponse {
     shareSessionId: "app-session-1",
     sessionRunCount: 2,
     defaultProjectConfigId: "config-1",
-    projectMetadata: [],
+    projectMetadata: [createProjectConfig({ id: "config-1", name: "Project" })],
     appPolicy: createSharePolicy({ allowRun: true }),
     manifest: null,
   };
 }
 
-describe("appSessionState", () => {
+describe("appSessionStoredState", () => {
   beforeEach(() => {
     resetProjectStores();
-    vi.clearAllMocks();
     window.sessionStorage.clear();
     document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
     useServerMode.setState({
@@ -62,60 +57,33 @@ describe("appSessionState", () => {
     });
   });
 
-  it("reuses the cached app session from session storage", async () => {
-    const { route_create_app_session_current } = await import(
-      "utils/generatedEndpoints"
-    );
+  it("hydrates app session stores from the stored deployment session", () => {
+    // App-mode refreshes should restore the deployment session before any network round trip.
     const session = buildAppSessionResponse();
     window.sessionStorage.setItem("settaAppSession", JSON.stringify(session));
-    useServerMode.setState({
+
+    expect(hydrateAppSessionFromStorage()).toEqual(session);
+    expect(useShareSession.getState()).toMatchObject({
+      isDeploymentMode: true,
+      deploymentMode: "app",
+      shareSessionId: "app-session-1",
+      sessionRunCount: 2,
+      shareDeploymentName: "demo-app",
+      shareDeploymentVersion: "v1",
+    });
+    expect(useServerMode.getState()).toMatchObject({
       mode: "app",
       modeResolved: true,
       modeError: null,
     });
-
-    const loaded = await ensureAppSessionFromCurrentDeployment();
-
-    expect(loaded).toEqual(session);
-    expect(route_create_app_session_current).not.toHaveBeenCalled();
-    expect(useShareSession.getState().shareSessionId).toBe("app-session-1");
-    expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBe(
-      "config-1",
-    );
-  });
-
-  it("persists the incremented run count back to session storage", async () => {
-    const session = buildAppSessionResponse();
-    window.sessionStorage.setItem("settaAppSession", JSON.stringify(session));
-    useShareSession.setState({
-      isDeploymentMode: true,
-      deploymentMode: "app",
-      shareSessionId: session.shareSessionId,
-      sessionRunCount: session.sessionRunCount,
-      sharePolicy: session.appPolicy,
-      shareDeploymentName: session.deploymentName,
-      shareDeploymentVersion: session.deploymentVersion,
-    });
-
-    incrementAppSessionRunCount();
-
-    expect(useShareSession.getState().sessionRunCount).toBe(3);
-    expect(
-      JSON.parse(
-        window.sessionStorage.getItem("settaAppSession") ?? "null",
-      ) as AppDeploymentSessionResponse | null,
-    ).toMatchObject({
-      shareSessionId: "app-session-1",
-      sessionRunCount: 3,
+    expect(useAllProjectMetadata.getState()).toMatchObject({
+      defaultProjectConfigId: "config-1",
+      projectMetadata: session.projectMetadata,
     });
   });
 
-  it("clears app session state when the server is already resolved to non-app mode", async () => {
-    useServerMode.setState({
-      mode: "ide",
-      modeResolved: true,
-      modeError: null,
-    });
+  it("clears stored deployment state and app caches when reset", () => {
+    // Forced app-session replacement should wipe both session storage and the deployment-only caches.
     useShareSession.setState({
       isDeploymentMode: true,
       deploymentMode: "app",
@@ -127,7 +95,11 @@ describe("appSessionState", () => {
     });
     useAllProjectMetadata.setState({
       defaultProjectConfigId: "config-1",
-      projectMetadata: [],
+      projectMetadata: [createProjectConfig({ id: "config-1" })],
+    });
+    useAppDefinition.setState({
+      appDefinition: createAppDefinition({ catalogId: "demo.catalog" }),
+      appSpec: { root: "root-1" },
     });
     useAppConfigs.setState({
       configs: {
@@ -144,11 +116,14 @@ describe("appSessionState", () => {
       JSON.stringify(buildAppSessionResponse()),
     );
 
-    const recovered = await initializeAppSessionFromCurrentDeployment();
+    resetAppSessionState();
 
-    expect(recovered).toBe(false);
     expect(useShareSession.getState().shareSessionId).toBeNull();
     expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBeNull();
+    expect(useAppDefinition.getState()).toMatchObject({
+      appDefinition: null,
+      appSpec: null,
+    });
     expect(useAppConfigs.getState().configs).toEqual({});
     expect(window.sessionStorage.getItem("settaAppSession")).toBeNull();
   });

@@ -438,8 +438,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `ProjectChatCustomSlashCommand`.
   - `state/stores/appStores.ts` owns app definition/config/preview state used by
     app-mode rendering, app preview, and app deployment surfaces.
-  - `state/actions/appSessionState.ts` owns app-session cookie or session-storage
-    bootstrap, recovery, and run-count persistence.
+  - `state/actions/appSessionStoredState.ts` owns app-session cookie or
+    session-storage reads, writes, store hydration, and reset behavior.
+  - `state/actions/appSessionBootstrap.ts` owns app-session ensure or
+    initialize flows for app-mode bootstrap and recovery.
+  - `state/actions/appSessionRunCount.ts` owns app-session run-count
+    increments plus persisted session snapshot updates.
+  - `state/actions/appSessionState.ts` is now the thin compatibility facade
+    over those app-session owners.
   - `state/actions/shareSessionState.ts` owns share-session cookie or
     session-storage bootstrap, cached-session reuse, and deployment-mode
     initialization.
@@ -807,6 +813,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/params/paramTree.ts` now split param ancestry/tree derivation
   from selection and insertion helpers, so follow-up param DnD cleanup should
   stay local to those owners instead of regrowing the old shared tree module.
+- `state/actions/appSessionStoredState.ts`,
+  `state/actions/appSessionBootstrap.ts`,
+  `state/actions/appSessionRunCount.ts`, and
+  `state/actions/appSessionState.ts` now split app-session stored-state
+  hydration or reset, bootstrap or recovery entrypoints, run-count persistence,
+  and compatibility re-exports, so follow-up app-mode cleanup should stay local
+  to those owners instead of regrowing the old shared session module.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

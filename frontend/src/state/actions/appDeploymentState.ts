@@ -1,4 +1,4 @@
-import { ensureAppSessionFromCurrentDeployment } from "state/actions/appSessionState";
+import { ensureAppSessionFromCurrentDeployment } from "state/actions/appSessionBootstrap";
 import { useAppConfigs, useAppDefinition } from "state/stores/appStores";
 import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useShareSession } from "state/stores/sessionStores";

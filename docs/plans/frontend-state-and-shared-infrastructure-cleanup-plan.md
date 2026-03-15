@@ -171,6 +171,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/shareProjectConfig.ts` now owns share
   project-config load/retry transport plus post-load hydration side effects;
   `frontend/src/state/actions/share.ts` is now the thin compatibility facade.
+- `frontend/src/state/actions/appSessionStoredState.ts` now owns app-session
+  cookie or session-storage reads, writes, store hydration, and reset behavior
+  that previously lived in `frontend/src/state/actions/appSessionState.ts`,
+  while `frontend/src/state/actions/appSessionBootstrap.ts` now owns app-mode
+  ensure/initialize recovery entrypoints,
+  `frontend/src/state/actions/appSessionRunCount.ts` now owns run-count
+  increments plus persisted session snapshot updates, and
+  `frontend/src/state/actions/appSessionState.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/actions/activeSectionSync.ts` now owns durable
   active-section selection scheduling, flush, backend send, and authoritative
   restore behavior that previously lived in
@@ -408,7 +417,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/customRuns.ts` at 227 lines
   - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
@@ -428,8 +436,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/utils/conversationSearch.ts` at 402 lines
   - `frontend/src/components/Utils/CodeMirror/getExtensions.ts` at 336 lines
   - `frontend/src/utils/claudeTools.ts` at 330 lines
-- `frontend/src/state/actions/appSessionState.ts` now owns app-session cookie
-  or session-storage bootstrap, recovery, and run-count persistence,
+- `frontend/src/state/actions/appSessionStoredState.ts` now owns app-session
+  cookie or session-storage reads, writes, store hydration, and reset behavior,
+  `frontend/src/state/actions/appSessionBootstrap.ts` now owns app-mode ensure
+  plus initialize recovery entrypoints,
+  `frontend/src/state/actions/appSessionRunCount.ts` now owns run-count
+  increments plus persisted session snapshot updates,
+  `frontend/src/state/actions/appSessionState.ts` is now the thin
+  compatibility facade,
   `frontend/src/state/actions/appDeploymentState.ts` now owns app deployment
   load/reset plus app-config cache hydration, and
   `frontend/src/state/actions/app.ts` is now a thin compatibility facade.

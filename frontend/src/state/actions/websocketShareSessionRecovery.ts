@@ -1,9 +1,7 @@
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useServerMode, useShareSession } from "state/stores/sessionStores";
-import {
-  initializeAppSessionFromCurrentDeployment,
-  resetAppSessionState,
-} from "./appSessionState";
+import { initializeAppSessionFromCurrentDeployment } from "./appSessionBootstrap";
+import { resetAppSessionState } from "./appSessionStoredState";
 import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
