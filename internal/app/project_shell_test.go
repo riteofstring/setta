@@ -121,6 +121,67 @@ func TestAppServesProjectShellReadRoutes(t *testing.T) {
 	}
 }
 
+func TestAppLoadProjectConfigDoesNotExposeDedicatedSettingsProjectRuntime(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Settings().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		return appSettingsProjectMaterializerTestDocument(t), nil
+	}); err != nil {
+		t.Fatalf("seed settings project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	assertSettingsProjectLoadNotFound := func(projectConfigName string) {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"`+projectConfigName+`"}`))
+		if err != nil {
+			t.Fatalf("new project request %q: %v", projectConfigName, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("load project config %q: %v", projectConfigName, err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected project config %q to return 404, got %d with body %q", projectConfigName, response.StatusCode, string(body))
+		}
+
+		var payload struct {
+			Detail string `json:"detail"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode project-not-found payload for %q: %v", projectConfigName, err)
+		}
+		if payload.Detail != "Project config not found." {
+			t.Fatalf("expected project-not-found detail for %q, got %#v", projectConfigName, payload)
+		}
+	}
+
+	assertSettingsProjectLoadNotFound("settings")
+	assertSettingsProjectLoadNotFound("Settings Home")
+}
+
 func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
