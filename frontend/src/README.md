@@ -13,13 +13,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Authored TS/TSX files under `frontend/src`: `1412`
 - Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2860`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
   - `components/Chat/ChatInput.tsx` (`2597`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2400`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2381`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
@@ -269,6 +269,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     minimized-pill strip responsiveness, cycle state, manager-menu shell, and
     strip layout animation bookkeeping used by
     `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+  - `components/ChatWindowing/projectChatWindowShell.tsx` owns shared
+    section/project window shell rendering, `UnifiedChatSurface` vs
+    `GitGraphWindowContent` body selection, and header-action adaptation used
+    by `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` now focuses on
+    tracked git-pane behavior, focus/placement commands, dock/floating shell
+    orchestration, and the remaining window render branches over those local
+    windowing owners.
   - `state/actions/projectChatWindowingDefaultBounds.ts` owns pure floating and
     docked default-bounds math.
   - `state/actions/projectChatWindowingStateNormalization.ts` owns order and

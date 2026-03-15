@@ -57,12 +57,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - There are 1412 authored TS/TSX files under `frontend/src`.
 - There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 2860 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2721 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 2597 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2444 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 2400 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2381 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 2297 lines
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
@@ -82,18 +82,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Future cleanup should default to the remaining giant render-heavy hotspots,
   not to more taxonomic splitting of already smaller `state/actions` modules.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/plugins/runtime.ts`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
-  - `frontend/src/components/App/appRegistry.tsx`
 - Do not pick a smaller `state/actions` or `state/hooks` split while a
   same-domain 2000+ line UI file remains, unless the lower-level extraction is
   a direct prerequisite for simplifying that larger file.
@@ -123,6 +123,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatFloatingInteractions.ts` now owns floating preview bounds state, snap-preview state, viewport guardrails, and floating drag/resize or snap-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatBottomDockPillStrip.tsx` now owns minimized-pill strip responsiveness, cycle state, manager-menu shell, and strip layout animation bookkeeping used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
+- `frontend/src/components/ChatWindowing/projectChatWindowShell.tsx` now owns shared section/project window shell rendering, `UnifiedChatSurface` vs `GitGraphWindowContent` body selection, and header-action adaptation used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/state/actions/chatBranchState.ts` now owns branch bootstrap, active-branch fallback, and incoming-message sync, `frontend/src/state/actions/chatBranchEditing.ts` now owns edited-message history truncation plus child-branch creation, `frontend/src/state/actions/chatBranchIndexState.ts` now owns branch-index derivation from section branch records, and `frontend/src/state/actions/chatBranches.ts` is now the thin compatibility facade.
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external hydration route probes plus outcome classification, `frontend/src/state/actions/aiHydrationChatState.ts` now owns managed/external chat-detail reconciliation plus app-generation hydration, `frontend/src/state/actions/aiHydrationSectionState.ts` now owns managed/external chat-section reconciliation plus persistence sync, `frontend/src/state/actions/aiHydrationApply.ts` is now the thin apply-orchestration facade, and `frontend/src/state/actions/aiHydration.ts` is now the thin public hydration facade.
 - `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry derivation and chat label normalization, `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical plus scoped chat provenance resolution, `frontend/src/state/actions/chatHistoryShared.ts` now owns shared run filtering/grouping helpers, `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history filter/provenance types, and `frontend/src/state/actions/chatHistory.ts` is now a thin compatibility facade.
@@ -753,7 +754,7 @@ Notes:
 
 ## Phase 3: Simplify Project Chat Windowing
 
-- Refactor `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` and `frontend/src/state/actions/projectChatWindowing.ts`.
+- Refactor `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` around its remaining tracked-git-pane commands and dock/floating window shells before considering more state-only windowing work.
 - Continue from the existing default-bounds/state-normalization/normalization/selector/instance-creation/instance-updates/instance-state/placement-state/bounds-state/layout-state/section-state/metadata-state/state/write-state/write-queue/write-publish/write-sync/write-pipeline/authoritative/ephemeral helper seams in `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
 - Separate:
   - layout math

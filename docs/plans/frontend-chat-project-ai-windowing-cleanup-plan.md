@@ -20,12 +20,12 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-15)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at about 2860 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at about 2721 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at about 2597 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at about 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at about 2444 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at about 2403 lines
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at about 2400 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at about 2381 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at about 2297 lines
   - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot
@@ -44,6 +44,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/ChatWindowing/projectChatFloatingInteractions.ts` now owns floating preview bounds state, snap-preview state, viewport guardrails, and floating drag/resize or snap-resize pointer-session handling for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/ChatWindowing/projectChatBottomDockPillStrip.tsx` now owns minimized-pill strip responsiveness, cycle state, manager-menu shell, and strip layout animation bookkeeping for `ProjectChatBottomDock.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatWindowShell.tsx` now owns shared section/project window shell rendering, `UnifiedChatSurface` vs `GitGraphWindowContent` body selection, and header-action adaptation for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts` now owns grouped history derivation, master-search filtering/counts, thread ordering, agent badge labels, and placeholder text for `ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDnd.ts` now owns project-chat history DnD ids, pointer geometry, drop-target resolution, and thread/group reorder math for `ProjectChatHistory.tsx`
   - feature-local `ProjectLevelAI` helpers such as `projectChatHydrationAuthority.ts`, `projectChatFocusUtils.ts`, and starter/slash-command helpers
@@ -56,7 +57,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - `ChatMessages.tsx` is much smaller now, but it still mixes assistant/user/system bubble shells, grouped activity-only row iteration, and message-level action wiring even after assistant activity/timeline derivation moved into `chatAssistantActivity.ts`, the activity card moved into `chatAssistantActivityCard.tsx`, structured-output/tool-call rendering moved into `chatStructuredOutput.tsx`, attachment/media preview handling moved into `chatAttachmentPreviewUrls.ts` plus `chatAttachmentPreviews.tsx`, markdown/search-highlight rendering moved into `chatMessageContent.tsx`, and timers/streaming runtime wiring moved into `chatMessageRuntime.tsx`.
 - `ChatInput.tsx` still mixes composer state, attachment handling, draft restore or history selection, dictation/transcription, execution settings, and presentational controls even after slash-command parsing plus queued-draft replay moved into `chatInputSubmission.ts`.
 - `ProjectChat.tsx` and `ProjectChatCore.tsx` still mix surface orchestration, layout rules, hydration authority, and auxiliary-pane state, while `ProjectChatHistory.tsx` still mixes polling, toolbar state, commands, and large render branches even after chat-history derivation moved into `projectChatHistoryViewModel.ts` and DnD math moved into `projectChatHistoryDnd.ts`.
-- `ProjectChatBottomDock.tsx` still combines tracked git-pane behavior, focus/placement commands, and large dock/floating render shells even after dock keyboard shortcut parsing moved into `projectChatWindowShortcuts.ts`, dock layout math moved into `projectChatBottomDockLayout.ts`, dock-resize state moved into `projectChatDockResize.ts`, floating drag/resize or snap-preview state moved into `projectChatFloatingInteractions.ts`, and minimized-pill strip responsiveness plus menu/animation ownership moved into `projectChatBottomDockPillStrip.tsx`.
+- `ProjectChatBottomDock.tsx` is smaller now, but it still combines tracked git-pane behavior, focus/placement commands, and the remaining dock/floating render shells even after dock keyboard shortcut parsing moved into `projectChatWindowShortcuts.ts`, dock layout math moved into `projectChatBottomDockLayout.ts`, dock-resize state moved into `projectChatDockResize.ts`, floating drag/resize or snap-preview state moved into `projectChatFloatingInteractions.ts`, minimized-pill strip responsiveness plus menu/animation ownership moved into `projectChatBottomDockPillStrip.tsx`, and shared project-vs-section shell rendering plus body selection moved into `projectChatWindowShell.tsx`.
 - The state layer under these surfaces is already more decomposed than the UI layer, so additional state-only slices often add debug hops without materially improving agent legibility.
 
 ## Cleanup Principles
