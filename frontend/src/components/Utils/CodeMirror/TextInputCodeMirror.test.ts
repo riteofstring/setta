@@ -20,6 +20,9 @@ const { applyActiveSectionChangeMock } = vi.hoisted(() => ({
 const { getExtensionsMock } = vi.hoisted(() => ({
   getExtensionsMock: vi.fn(() => ["extension"]),
 }));
+const { lastCodeMirrorPropsMock } = vi.hoisted(() => ({
+  lastCodeMirrorPropsMock: vi.fn(),
+}));
 
 vi.mock("state/actions/activeSectionController", () => ({
   applyActiveSectionChange: applyActiveSectionChangeMock,
@@ -60,6 +63,7 @@ vi.mock("@uiw/react-codemirror", async () => {
   return {
     default: (props: {
       className?: string;
+      basicSetup?: Record<string, unknown>;
       onBlur?: () => void;
       onCreateEditor?: (view: {
         contentDOM: { focus: (options?: { preventScroll?: boolean }) => void };
@@ -74,6 +78,7 @@ vi.mock("@uiw/react-codemirror", async () => {
         }) => number | null;
       }) => void;
     }) => {
+      lastCodeMirrorPropsMock(props);
       React.useEffect(() => {
         props.onCreateEditor?.({
           contentDOM: { focus: () => undefined },
@@ -143,6 +148,7 @@ describe("TextInputCodeMirror activation", () => {
   beforeEach(() => {
     applyActiveSectionChangeMock.mockClear();
     getExtensionsMock.mockClear();
+    lastCodeMirrorPropsMock.mockClear();
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
@@ -217,6 +223,13 @@ describe("TextInputCodeMirror activation", () => {
     expect(getExtensionsMock).toHaveBeenCalled();
     const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
     expect(lastCall?.completionsFn).toBeUndefined();
+    const lastCodeMirrorProps = lastCodeMirrorPropsMock.mock.calls.at(-1)?.[0];
+    expect(lastCodeMirrorProps?.basicSetup).toMatchObject({
+      history: false,
+      autocompletion: false,
+      completionKeymap: false,
+      tabSize: 4,
+    });
 
     await act(async () => {
       realCodeMirror?.dispatchEvent(new FocusEvent("blur", { bubbles: true }));

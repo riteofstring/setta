@@ -17,6 +17,26 @@ import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
 const TEXT_INPUT_SECTION_GUARD_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
+const TEXT_INPUT_BASIC_SETUP = {
+  lineNumbers: false,
+  highlightActiveLineGutter: false,
+  highlightSpecialChars: false,
+  history: false,
+  foldGutter: false,
+  dropCursor: false,
+  allowMultipleSelections: false,
+  indentOnInput: false,
+  autocompletion: false,
+  rectangularSelection: false,
+  crosshairCursor: false,
+  highlightActiveLine: false,
+  highlightSelectionMatches: false,
+  historyKeymap: false,
+  foldKeymap: false,
+  completionKeymap: false,
+  lintKeymap: false,
+  tabSize: 4,
+} as const;
 
 export function TextInputCodeMirror({
   sectionId,
@@ -159,7 +179,7 @@ function CoreCodeMirror({
     : undefined;
 
   const extensions = getExtensions({
-    parent: tooltipParent,
+    parent: shouldAutocomplete ? tooltipParent : null,
     language,
     completionsFn: resolvedCompletionsFn,
     singleLine,
@@ -183,12 +203,7 @@ function CoreCodeMirror({
       className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${className}`}
       value={value}
       placeholder={defaultVal}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        highlightActiveLine: false,
-        tabSize: 4,
-      }}
+      basicSetup={TEXT_INPUT_BASIC_SETUP}
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}
