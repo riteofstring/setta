@@ -28,6 +28,22 @@ def _write_listener_entrypoint(root: Path) -> None:
     )
 
 
+def _write_callbacks_entrypoint(root: Path) -> None:
+    entrypoint = root / "listener.py"
+    entrypoint.write_text(
+        "\n".join(
+            [
+                "BUILT = []",
+                "",
+                "def build_callbacks(listener):",
+                "    BUILT.append(listener._share_session_id)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _build_manifest(
     project_config_id: ID, *, entrypoint: str
 ) -> DeploymentManifest:
@@ -103,6 +119,32 @@ class TestShareListenerRuntime:
 
             assert parsed.path == f"/ws/listeners/{handle.listener._socket_id}"
             assert params.get("shareSessionId") == ["session-a"]
+
+            runtime.stop_all()
+            await asyncio.gather(handle.task, return_exceptions=True)
+
+    async def test_uses_build_callbacks_fallback_when_build_listener_is_missing(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_callbacks_entrypoint(root)
+            project_config_id = ID("proj-build-callbacks")
+            manifest = _build_manifest(
+                project_config_id,
+                entrypoint="listener.py",
+            )
+            runtime = ShareListenerRuntime(
+                deployment_root=root,
+                manifest=manifest,
+            )
+
+            await runtime.ensure_listener_for_session("session-a", project_config_id)
+
+            handle = runtime._session_handles.get(("session-a", project_config_id))
+            if handle is None:
+                raise AssertionError("expected share listener handle")
+            assert handle.module.BUILT == ["session-a"]
 
             runtime.stop_all()
             await asyncio.gather(handle.task, return_exceptions=True)

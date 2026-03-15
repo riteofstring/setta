@@ -75,20 +75,6 @@ class ShareListenerRuntime:
         base = self._sanitize_module_suffix(self._deployment_root.name)
         return f"setta_share_listener_{base}_{safe_suffix}"
 
-    def _load_module(self, session_id: str | None, project_config_id: ID) -> ModuleType:
-        if self._entrypoint_path is None:
-            raise KeyError("Share listener entrypoint is not configured")
-        module_name = self._module_name_for_session(session_id, project_config_id)
-        spec = util.spec_from_file_location(module_name, self._entrypoint_path)
-        if spec is None or spec.loader is None:
-            raise KeyError(
-                f"Failed to load share listener entrypoint: {self._entrypoint_path}"
-            )
-        module = util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-        return module
-
     def _drop_module(self, module: ModuleType) -> None:
         sys.modules.pop(module.__name__, None)
 
@@ -107,18 +93,6 @@ class ShareListenerRuntime:
             return
         self._drop_handle(key, handle)
 
-    def _resolve_builder(self, module: ModuleType) -> _ListenerBuilder:
-        for name in _BUILDER_NAMES:
-            builder = getattr(module, name, None)
-            if builder is None:
-                continue
-            if not callable(builder):
-                raise TypeError(f"Share listener {name} must be callable")
-            return builder
-        raise KeyError(
-            "Share listener entrypoint must define build_listener or build_callbacks"
-        )
-
     async def ensure_listener_for_session(
         self, session_id: str | None, project_config_id: ID
     ) -> None:
@@ -133,8 +107,30 @@ class ShareListenerRuntime:
                 self._drop_handle(key, handle)
             else:
                 return
-        module = self._load_module(session_id, project_config_id)
-        builder = self._resolve_builder(module)
+        if self._entrypoint_path is None:
+            raise KeyError("Share listener entrypoint is not configured")
+        module_name = self._module_name_for_session(session_id, project_config_id)
+        spec = util.spec_from_file_location(module_name, self._entrypoint_path)
+        if spec is None or spec.loader is None:
+            raise KeyError(
+                f"Failed to load share listener entrypoint: {self._entrypoint_path}"
+            )
+        module = util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        builder: _ListenerBuilder | None = None
+        for name in _BUILDER_NAMES:
+            candidate = getattr(module, name, None)
+            if candidate is None:
+                continue
+            if not callable(candidate):
+                raise TypeError(f"Share listener {name} must be callable")
+            builder = candidate
+            break
+        if builder is None:
+            raise KeyError(
+                "Share listener entrypoint must define build_listener or build_callbacks"
+            )
         listener = SettaListener(
             project_config_id=project_config_id,
             share_session_id=session_id,
