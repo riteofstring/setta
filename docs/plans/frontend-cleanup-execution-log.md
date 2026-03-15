@@ -5287,3 +5287,51 @@ in `frontend/src/README.md` and the cleanup plans.
     which is now the next default-priority front-door surface in the same
     project-AI path after `ProjectChat.tsx` delegated settings and engine
     selection to local owners.
+
+## 2026-03-15 18:21:49 PDT
+
+- Slice completed: extracted the project-chat empty-state workspace-root
+  preflight and starter-prompt ownership out of `ProjectChatCore.tsx`
+- Why this slice now:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+    was the next default-priority front-door surface after the `ProjectChat.tsx`
+    settings and engine-selection extraction.
+  - The empty-chat branch was the clearest remaining feature-local seam in that
+    entry surface: it mixed workspace-root polling, python-signal probing,
+    create-project prompt adaptation, and render-heavy starter-button UI into a
+    file that also owns hydration, slash-command authority, and submit/edit
+    orchestration.
+  - This was higher value than jumping ahead to `ProjectAISettings.tsx` or
+    `FileBrowserPane.tsx` because it removed one named mixed responsibility from
+    the active project-AI front door and cut `ProjectChatCore.tsx` from about
+    `2381` lines to about `2089` while making the new owner obvious from the
+    caller.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.workspaceRoot.integration.test.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.workspaceRoot.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatStarterPrompts.test.ts src/components/Panes/Overview/ProjectLevelAI/workspacePythonSignals.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-root-scan.spec.ts --grep "project chat avoids overlapping root scans while a folder request is in flight|project chat keeps create-project starter visible when a new root scan cannot resolve python signals"`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.workspaceRoot.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this slice was a behavior-preserving
+    ownership extraction without meaningful render-path changes.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that both the overview-pane and docked-window empty states still
+    rendered the `CREATE PROJECT`, `SUMMARIZE CODEBASE`, and `PLAN NEXT STEPS`
+    buttons, and that clicking the overview-pane `CREATE PROJECT` button still
+    submitted the full starter prompt while the docked window remained on the
+    untouched empty-state surface.
+- Commit hash:
+  - `18ca451fb1805b30d450c5532d45a6764be8c8ff`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`,
+    which is now the next unresolved default-priority front-door hotspot in the
+    same project-AI path after `ProjectChatCore.tsx` delegated empty-state
+    workspace preflight to a local owner.
