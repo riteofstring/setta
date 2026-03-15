@@ -5,15 +5,17 @@ import { useToolArgumentPreview } from "state/stores/aiStores";
 import { useAppDefinition, useAppPreview } from "state/stores/appStores";
 import { resetProjectStores } from "state/utils";
 import {
+  ToolArgumentPreviewDeltaEvent,
   createProjectConfig,
   createToolChatMessage,
   type ToolCallDeltaEvent,
 } from "utils/generatedTypes";
+import { maybeApplyAppDefinitionToolResult } from "./aiChatStreamingAppDefinition";
+import { applyToolCallDeltaToChatMessages } from "./aiChatStreamingToolCalls";
 import {
-  applyToolCallDeltaToChatMessages,
+  applyToolArgumentPreviewDeltaToPreviewStore,
   clearToolArgumentPreviewByToolCallIds,
-  maybeApplyAppDefinitionToolResult,
-} from "./aiChatStreamingTools";
+} from "./aiChatStreamingToolPreviews";
 
 describe("ai chat streaming tools", () => {
   beforeEach(() => {
@@ -57,6 +59,32 @@ describe("ai chat streaming tools", () => {
           "section-2": { value: "callable-a", toolCallId: "tool-2" },
         },
       },
+    });
+  });
+
+  it("applies section-scoped preview deltas into the preview store", () => {
+    const chunk: ToolArgumentPreviewDeltaEvent = {
+      type: "tool_argument_preview_delta",
+      message_id: "assistant-1",
+      tool_call_id: "tool-preview-1",
+      tool_name: "setta__edit_code",
+      arguments_delta: "",
+      preview_kind: "code",
+      target_ids_by_type: {
+        section: ["section-1"],
+        codeObj: [],
+      },
+      preview_value_delta: "print('hi')",
+    };
+
+    applyToolArgumentPreviewDeltaToPreviewStore(chunk, "project-1");
+
+    expect(
+      useToolArgumentPreview.getState().byProjectConfigId["project-1"]
+        ?.previewCodeBySectionId["section-1"],
+    ).toEqual({
+      value: "print('hi')",
+      toolCallId: "tool-preview-1",
     });
   });
 

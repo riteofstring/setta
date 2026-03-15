@@ -62,9 +62,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     and tool-preview updates.
   - `state/actions/aiChatStreamingSectionState.ts` owns chat-section stream
     reconciliation and active-branch message sync for managed chat sections.
-  - `state/actions/aiChatStreamingTools.ts` owns tool-call placeholder
-    reconciliation, tool-preview stores, and app-spec/app-definition tool
-    application.
+  - `state/actions/aiChatStreamingToolCalls.ts` owns tool-call placeholder
+    reconciliation plus shared tool-call delta reducers.
+  - `state/actions/aiChatStreamingToolPreviews.ts` owns tool-preview store
+    updates, preview cleanup, and app-spec patch preview application.
+  - `state/actions/aiChatStreamingAppDefinition.ts` owns app-definition tool
+    result application and app preview reset behavior.
+  - `state/actions/aiChatStreamingTools.ts` is now a thin compatibility surface
+    that re-exports the narrower tool-call, preview, and app-definition owners.
   - `state/actions/chat*.ts` owns the remaining chat merge utilities.
   - `state/actions/projectChatThreadGroupMutations.ts` owns persisted project
     chat thread group creation, rename, collapse, pin, reorder, assignment, and
@@ -443,21 +448,23 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
+- `state/actions/aiHydration.ts` now owns the largest remaining chat hydration
+  fetch/reconciliation cluster, so any follow-up there should stay local to
+  managed/external hydration helpers instead of regrowing submission or
+  streaming modules.
+- `state/actions/chatHistory.ts` now owns the largest remaining chat history
+  paging/selection cluster, so follow-up cleanup there should stay local to
+  history fetch/selection helpers instead of regrowing thread mutation modules.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.
-- `state/actions/sectionEffectiveImplSelectors.ts` now owns the largest
-  remaining typed current-section/current-code-object selector cluster, so
-  follow-up cleanup there should stay local to typed selector helpers instead
-  of regrowing `state/actions/sectionEffectiveImplCore.ts` or the compatibility
-  facade.
+- `state/actions/agenticEdges.ts` now owns the largest remaining agentic edge
+  orchestration cluster, so any follow-up there should stay local to
+  agentic-edge reads/mutations instead of regrowing shared workflow edge
+  helpers.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.
-- `state/actions/projectChatWindowLifecycleCommands.ts` now owns the remaining
-  public window lifecycle/focus command cluster, so any follow-up there should
-  stay local to lifecycle orchestration instead of regrowing placement or
-  bounds writes.
 - `state/actions/sectionStreamingMerge.ts`,
   `state/actions/sectionShownParams.ts`, `state/actions/sectionHierarchy.ts`,
   and `state/actions/sectionToolArgumentPreview.ts` should stay feature-local

@@ -28,6 +28,7 @@ import {
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { persistChatSectionState } from "./aiChatSectionState";
 import { updateChatDetails } from "./aiChatState";
+import { maybeApplyAppDefinitionToolResult } from "./aiChatStreamingAppDefinition";
 import {
   applyFinalizedMessageToChatMessages,
   applyMessageDeltaToChatMessages,
@@ -36,14 +37,15 @@ import {
 } from "./aiChatStreamingMessages";
 import { applyChatSectionStreamDelta } from "./aiChatStreamingSectionState";
 import {
-  applyToolArgumentPreviewDeltaToPreviewStore,
   applyToolCallDelta,
+  handleToolCallDelta,
+} from "./aiChatStreamingToolCalls";
+import {
+  applyToolArgumentPreviewDeltaToPreviewStore,
   clearToolArgumentPreviewByToolCallId,
   clearToolArgumentPreviewByToolCallIds,
   handleToolArgumentPreviewDelta,
-  handleToolCallDelta,
-  maybeApplyAppDefinitionToolResult,
-} from "./aiChatStreamingTools";
+} from "./aiChatStreamingToolPreviews";
 import { clearInterruptedAssistantMessages } from "./aiInterruptedAssistantMessages";
 import {
   clearStopEligibleAssistantMessageId,

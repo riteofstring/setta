@@ -11,7 +11,7 @@ import {
   applyMessageDeltaToChatMessages,
   upsertMessage,
 } from "./aiChatStreamingMessages";
-import { applyToolCallDeltaToChatMessages } from "./aiChatStreamingTools";
+import { applyToolCallDeltaToChatMessages } from "./aiChatStreamingToolCalls";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
