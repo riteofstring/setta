@@ -36,6 +36,9 @@ Use that doc for "does the active caller reach Go?" audits; use this doc for
 
 - `Go-owned` means Go owns the active runtime/service implementation for the
   capability area, even if some legacy callers still reach Python transport.
+- `Partial` means Go owns a substantial slice of the capability area, but a
+  bounded rewrite gap remains and the notes must state that boundary
+  explicitly.
 - `Shared boundary` means Go owns the main implementation, but Python and/or an
   external runtime still participates by design in the supported runtime path.
 - `Python-owned` means the active implementation still lives under
@@ -104,6 +107,8 @@ Do not consider the audit complete until all of the following are true:
 - Every major top-level backend capability cluster has a home in the checklist.
 - Every status marked `Go-owned` is backed by actual Go runtime/service
   ownership, not just transport presence.
+- Every status marked `Partial` states the concrete boundary that keeps the
+  capability from being fully Go-owned.
 - Every status marked `Shared boundary` states what remains shared and why.
 - Every status marked `Python-owned` points to a real active Python boundary.
 - Every status marked `Deferred` is explicitly supported by current rewrite

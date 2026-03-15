@@ -121,7 +121,7 @@ Primary sources used for this checklist:
 | Complete | Section-variant mutations used by the current frontend                                              | Go owns `createNewSectionVariant`, `setSectionVariant`, `setDefaultSectionVariant`, `setSectionVariantSortOrder`, `setSectionVariantName`, `toggleVariantFrozen`, `toggleVariantJsonSource`, `setVariantJsonSourceKeys`, `deleteSectionVariantOrAsk`, and `deleteJsonSourceFileAndVariant`, and the current `VariantList`, `CreateNewVariantButton`, `SectionConfig`, and `EdgePortsSettings` caller paths now reach those routes through canonical generated frontend bindings. |
 | Complete | Watch-code runtime and transport                                                                    | `internal/watchcode` owns the current watch-code runtime plus `setWatchCodeEnabled` and `setWatchCodeInputs`, and the current `state/actions/project/watchCode` caller now reaches those routes through canonical generated frontend bindings.                                                                                                                                                                           |
 | Complete | LSP diagnostics and completion surface                                                              | Go owns text-field, output-accessor, code-area, prefix/suffix completion, diagnostics reads, and diagnostics mute/suppression routes, and the current `TextInputCodeMirror`, `Search`, `EdgePortsSettings`, `CodeArea`, and `state/actions/lspDiagnostics` callers now reach that surface through canonical generated frontend bindings.                                                                                  |
-| Missing  | Plugin-defined code-language routing for LSP                                                        | Full plugin parity still requires Go-native plugin-backed language-server/code-language routing for `Code` sections where that behavior existed before the rewrite. The earlier Python-backed surface was removed before a Go-native replacement landed.                                                                                                                                                                |
+| Complete | Plugin-defined code-language routing for LSP                                                        | Go now accepts plugin `registerLanguageServer` registrations, refreshes the app LSP router at startup plus plugin mutation time, and routes plugin-language `Code` sections through the same Go-owned completion/signature/type-check transport used by built-in languages.                                                                                                                                           |
 | Complete | LSP/admin helper routes used by the current frontend                                                | Edit-menu and shortcut flows now reach Go-owned `typeCheck` and `restartLanguageServer`, backed by the Go LSP project-synchronizer refresh/restart surface.                                                                                                                                                                                                                                                                |
 | Complete | Type-error ignore HTTP route used by the current frontend                                           | The type-error context menu now POSTs Go-owned `setTypeErrorIgnore`, and the existing project-state save hooks rematerialize Go-owned codegen/LSP state after the mutation.                                                                                                                                                                                                                                                |
 | Complete | Password/subprocess helper routes still used by the current frontend                                | Param inputs now reach Go-owned `getPasswordParamValue`, and stop-code flows now reach the Go-owned `interruptTerminalProcesses` route plus terminal interrupt service.                                                                                                                                                                                                                                                |
@@ -191,7 +191,6 @@ until a Go-native backend plugin equivalent lands.
 | Partial  | Plugin listener-endpoint and project-state runtime hooks | Go now invokes registered plugin listener endpoints over the same Go-owned backend executable runtime boundary used for plugin backend HTTP routes, including listener websocket auth/session/project context. Additional backend runtime/project-state hooks remain rewrite work only if a concrete current caller proves they are needed. |
 | Complete | Plugin backend runtime refresh after plugin mutations    | Route/static-dir/listener endpoint invocation now resolves against the active plugin discovery/build state on each Go-owned call path, so plugin install/link/update/uninstall/restart flows no longer need a separate long-lived runtime refresh for those backend capability slices. MCP-tool mutation refresh remains covered by its existing Go runtime path. |
 | Complete | Plugin-defined language-server and codegen integration   | Go now owns plugin codegen target registration visibility plus `setProjectConfigCodegenTargets` validation/persistence for registered plugin targets across the active HTTP and MCP caller paths, and plugin language-server registrations now feed the Go LSP router at startup plus plugin mutation time so plugin-language `Code` sections reach the active Go-owned completion/signature/type-check transport surface. |
-| Missing  | Plugin-defined external-agent execution                  | Full plugin parity still requires Go-native plugin-backed external-agent adapters/execution. The earlier Python-backed plugin external-agent path was removed prematurely.                                                |
 | Complete | Go-native backend plugin authoring path                  | `setta plugins init --template backend` now scaffolds `backend/go.mod` plus `backend/main.go`, and `--template full` again includes the backend scaffold. New backend plugin authoring no longer targets Python.      |
 
 ## 8. File browser, binary payloads, attachments, artifacts, and git
@@ -250,6 +249,14 @@ callers.
   - `loadArtifactFromDisk`
   - `sendArtifact`
   - `getArtifactIdsFromNamePathType`
+- Legacy plugin external-agent adapter surface:
+  - plugin adapter selection is no longer part of the Go-owned
+    external-agent config contract, and `pluginAdapterId` is explicitly
+    rejected on the active route surface
+  - the current generated frontend types plus non-test callers only expose the
+    built-in `codex`, `claude_code`, and `opencode` tool types
+  - any future reintroduction is an ownership/runtime question tracked in the
+    broad capability checklist rather than an active caller-backed gap today
 - Old route shapes that were replaced rather than preserved:
   - `runMcpTools` was replaced by the Go MCP server/tool-call boundary
   - version-specific deployment session routes
@@ -267,13 +274,16 @@ the product-facing surface that current callers use:
 - LSP/watch-code
 - MCP/tooling
 - deployments/launcher/workspace launch
-- plugin package management plus frontend/content runtime, but not yet full
-  backend plugin parity
+- plugin package management plus frontend/content runtime, including the
+  current Go-backed backend route/static-dir/listener/codegen/language-server
+  surface
 - git/file browser/artifacts
 - current agentic, app-gen skills, and transcription surfaces
 
-The remaining gaps are concentrated in older Python-only route tails, missing
-Go-native backend plugin parity, and dormant CLI-output transport.
+No active current-frontend caller is currently pinned to a Python-owned
+transport in this worktree. The remaining caller-backed follow-up is the
+bounded plugin listener/project-state runtime-hook row plus dormant or
+intentionally omitted legacy route families such as CLI-output transport.
 The old `loadAvailableArtifacts` helper no longer has a reachable frontend
 caller in this worktree and should be treated as dormant route-enum residue,
 not active rewrite surface.

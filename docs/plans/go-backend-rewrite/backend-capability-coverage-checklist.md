@@ -28,6 +28,8 @@ Status meanings:
 
 - `Go-owned`: Go owns the active runtime/service implementation for this
   capability area.
+- `Partial`: Go owns a substantial slice of the capability area, but a bounded
+  rewrite gap remains and must be called out explicitly in the notes.
 - `Shared boundary`: Go owns the main implementation, but Python and/or an
   external runtime still participates by design.
 - `Python-owned`: the active implementation still lives under `backend/setta`.
@@ -136,7 +138,7 @@ Primary sources used for this checklist:
 | Go-owned | Backend plugin MCP tool runtime and mutation refresh | Go now builds Go-backed plugin backend executables, launches them as stdio MCP servers, registers their tools into the authenticated Go MCP server, and refreshes those registrations on startup plus install/link/uninstall/update/rollback/enable/disable/apply-lockfile/restart flows. |
 | Go-owned | Go-native backend plugin runtime model | Backend plugin authors now target a Go-owned executable runtime model: the host validates backend registrations with the probe contract, builds Go-backed plugin backend executables, and invokes registered backend HTTP routes plus listener endpoints through a typed stdio JSON runtime contract instead of the old Python worker/runtime. |
 | Partial  | Backend plugin transport and runtime extensions | Go now owns backend route dispatch and listener endpoint execution for Go-backed backend plugins. Any additional backend runtime/project-state hooks remain rewrite work only if a concrete capability or caller proves they are still required. |
-| Partial  | Backend plugin code intelligence and agent extensions | Go now owns plugin codegen target registration discovery plus validation/persistence for registered plugin targets on the active project-state HTTP and MCP mutation paths, and plugin language-server registrations now refresh the Go LSP router at startup plus plugin mutation time for plugin-language code intelligence. Plugin-defined external-agent adapters/execution remain missing. |
+| Partial  | Backend plugin code intelligence and agent extensions | Go now owns plugin codegen target registration discovery plus validation/persistence for registered plugin targets on the active project-state HTTP and MCP mutation paths, and plugin language-server registrations now refresh the Go LSP router at startup plus plugin mutation time for plugin-language code intelligence. `registerExternalAgentAdapter` remains a host-blocked ownership gap if that capability is reintroduced, but the current Go-owned external-agent config contract no longer exposes plugin adapter selection so this is not an active caller-backed transport gap today. |
 
 ## 10. Explicit retained, transitional, and external boundaries
 
