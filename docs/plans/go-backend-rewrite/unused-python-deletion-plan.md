@@ -195,6 +195,18 @@ Expected candidate clusters include:
   - `backend/setta/binary/*`
   - `backend/setta/app/*`
 
+Current tree note:
+
+- `backend/setta/server_state.py`, `backend/setta/routers/*`,
+  `backend/setta/middleware/*`, and `backend/setta/mcp/server.py` are already
+  gone in the current worktree.
+- Recompute the remaining Step 3 batch from live imports before deleting more
+  websocket helpers. `backend/setta/websockets/binary_frames.py` remains tied
+  to the retained Python listener SDK, while `websocket_manager.py` and
+  `msg_handlers/frontend_sender.py` are intertwined with broader superseded
+  Python subsystem clusters and should be deleted with those dependents rather
+  than by themselves unless current code review proves a clean smaller batch.
+
 Actions:
 
 - use current imports, entrypoints, and caller scans to place every candidate
@@ -223,6 +235,13 @@ Expected first batch:
 - `backend/setta/runtime/*`
 - `backend/setta/middleware/*`
 - `backend/setta/mcp/server.py`
+
+Current tree note:
+
+- In the current worktree, that batch is already mostly complete. The
+  remaining low-risk residue in the legacy transport-shell slice is the unused
+  `backend/setta/runtime/*` package plus dead-path Python tests that only
+  validate the superseded Python websocket manager surface.
 
 Required proof:
 

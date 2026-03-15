@@ -13,8 +13,6 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.share_deployment import SharePolicy
 
 if TYPE_CHECKING:
-    from setta.runtime.context import RuntimeContext
-    from setta.server_state import SettaFastAPIState
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
