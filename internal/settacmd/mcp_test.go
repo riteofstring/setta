@@ -81,6 +81,68 @@ func TestRunMCPBridgeWithBootstrapToken(t *testing.T) {
 	}
 }
 
+func TestRunMCPBridgeWithBootstrapURL(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		bootstrapURL string
+		token        string
+	}{
+		{
+			name:         "fragment_token",
+			bootstrapURL: "http://127.0.0.1:61234/__setta__/bootstrap#token=fragment-token",
+			token:        "fragment-token",
+		},
+		{
+			name:         "query_token",
+			bootstrapURL: "http://127.0.0.1:61234/__setta__/bootstrap?token=query-token",
+			token:        "query-token",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := newAuthenticatedBridgeCommandTestServer(t, "setta_auth_bridge="+testCase.token, func(w http.ResponseWriter, r *http.Request) {
+				payload := struct {
+					Token string `json:"token"`
+				}{}
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Fatalf("decode bootstrap payload: %v", err)
+				}
+				if payload.Token != testCase.token {
+					t.Fatalf("expected bootstrap token %q, got %q", testCase.token, payload.Token)
+				}
+				http.SetCookie(w, &http.Cookie{
+					Name:  "setta_auth_bridge",
+					Value: testCase.token,
+					Path:  "/",
+				})
+				_, _ = io.WriteString(w, `{"status":"ok"}`)
+			})
+			defer server.Close()
+
+			// The packaged bridge accepts either query or fragment tokens instead
+			// of forcing callers to strip them out before invocation.
+			session, closeBridge, bridgeErrCh := startSettaMCPBridgeSession(t, RunOptions{
+				CWD:       t.TempDir(),
+				Now:       func() time.Time { return time.Date(2026, time.March, 15, 12, 0, 0, 0, time.UTC) },
+				EnvLookup: os.LookupEnv,
+			}, "mcp", "--backend", server.URL+"/mcp", "--bootstrap-url", testCase.bootstrapURL)
+			defer closeBridge()
+
+			assertBridgeToolCall(t, session)
+
+			closeBridge()
+			if err := <-bridgeErrCh; err != nil {
+				t.Fatalf("mcp bridge returned error: %v", err)
+			}
+		})
+	}
+}
+
 func TestRunMCPBridgeWithCurrentSessionAuth(t *testing.T) {
 	now := time.Date(2026, time.March, 15, 12, 0, 0, 0, time.UTC)
 	workspaceRoot, expectedCookie := prepareMCPBridgeCurrentSession(t, now)
@@ -100,6 +162,90 @@ func TestRunMCPBridgeWithCurrentSessionAuth(t *testing.T) {
 	closeBridge()
 	if err := <-bridgeErrCh; err != nil {
 		t.Fatalf("mcp bridge returned error: %v", err)
+	}
+}
+
+func TestRunMCPBridgeWithCurrentSessionAuthOutsideWorkspaceUsingSessionsRoot(t *testing.T) {
+	now := time.Date(2026, time.March, 15, 12, 0, 0, 0, time.UTC)
+	_, expectedCookie := prepareMCPBridgeCurrentSession(t, now)
+
+	server := newAuthenticatedBridgeCommandTestServer(t, expectedCookie, nil)
+	defer server.Close()
+
+	// Outside the original workspace, current-session auth should still work as
+	// long as SETTA_SESSIONS_ROOT points at the persisted session registry.
+	session, closeBridge, bridgeErrCh := startSettaMCPBridgeSession(t, RunOptions{
+		CWD:       t.TempDir(),
+		Now:       func() time.Time { return now },
+		EnvLookup: os.LookupEnv,
+	}, "mcp", "--backend", server.URL+"/mcp")
+	defer closeBridge()
+
+	assertBridgeToolCall(t, session)
+
+	closeBridge()
+	if err := <-bridgeErrCh; err != nil {
+		t.Fatalf("mcp bridge returned error: %v", err)
+	}
+}
+
+func TestRunMCPBridgeRejectsBootstrapURLWithoutToken(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err := Run([]string{"mcp", "--bootstrap-url", "http://127.0.0.1:61234/__setta__/bootstrap#state=missing-token"}, RunOptions{
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		CWD:       t.TempDir(),
+		EnvLookup: os.LookupEnv,
+	})
+	if err == nil {
+		t.Fatal("expected bootstrap-url validation failure")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(err.Error(), "bootstrap URL missing token parameter") {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
+func TestRunMCPBridgeRejectsMissingCurrentSessionAuth(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err := Run([]string{"mcp"}, RunOptions{
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+		CWD:       t.TempDir(),
+		EnvLookup: os.LookupEnv,
+	})
+	if err == nil {
+		t.Fatal("expected missing-auth failure")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(err.Error(), mcpBridgeMissingAuthMessage) {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
+func TestNewMCPBridgeLoggerRespectsVerboseFlag(t *testing.T) {
+	t.Parallel()
+
+	var quiet bytes.Buffer
+	newMCPBridgeLogger(&quiet, false).Debug("quiet-message")
+	if quiet.Len() != 0 {
+		t.Fatalf("expected quiet logger to discard output, got %q", quiet.String())
+	}
+
+	var verbose bytes.Buffer
+	newMCPBridgeLogger(&verbose, true).Debug("verbose-message")
+	if !strings.Contains(verbose.String(), "verbose-message") {
+		t.Fatalf("expected verbose logger output, got %q", verbose.String())
 	}
 }
 
