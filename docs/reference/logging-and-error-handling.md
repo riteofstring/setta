@@ -29,8 +29,10 @@ There are two parallel outputs:
 
 ### Entry Points
 
-- Shipped backend runtime: the packaged Go CLI/server owns the main backend
-  logging path.
+- Backend CLI: `backend/setta/start.py` calls `configure_logging()` before starting
+  uvicorn, and passes `log_config=None` so uvicorn does not install its own logging
+  config.
+- Packaged background runner: `backend/setta/backend_launcher.py` does the same.
 - Listener scripts: `backend/setta/api/listener.py` uses
   `configure_listener_logging()` (same format, no uvicorn access logger).
 
@@ -155,9 +157,9 @@ Rules of thumb for choosing between local logging/broadcasting helpers vs relyin
 global handling:
 
 - **HTTP routes (FastAPI)**: Prefer raising `HTTPException` (or letting exceptions
-  bubble) and rely on the active surface's centralized error handling when it exists.
-  Avoid adding per-route `try/except` blocks solely to log, because that typically
-  double-logs.
+  bubble) and rely on the global handlers in `backend/setta/server.py` to log and (when
+  initialized) broadcast. Avoid adding per-route `try/except` blocks solely to log,
+  because that typically double-logs.
 - **HTTP routes with custom behavior**: Catch exceptions only when you must translate
   them into a specific status/message (e.g. domain error → `HTTPException(4xx)`), or
   you need to do local cleanup/rollback before re-raising.
@@ -181,17 +183,25 @@ global handling:
 
 ## HTTP Error Handling
 
-The legacy top-level Python FastAPI app in `backend/setta/server.py` used shared
-exception handlers, but that module has been removed as part of the Go rewrite.
-Do not treat a Python-wide HTTP error handler as the active backend source of
-truth now.
+Global exception handling is centralized in `backend/setta/server.py`:
 
-For retained Python FastAPI or Starlette surfaces, either:
+- `RequestValidationError` (FastAPI/Pydantic input validation):
+  - Logged and broadcast with label `fastapi-validation-error`.
+  - Returns status `422` with a custom payload shape
+    (`{"status_code": 10422, "message": "...", "data": null}`).
+- `HTTPException`:
+  - Logged and broadcast with label `fastapi-http-exception`.
+  - “Handled” is treated as: `status < 500` and `status != 422`.
+    - Handled → WARNING severity
+    - Unhandled (5xx and 422) → ERROR severity
+  - Response is delegated to FastAPI’s `http_exception_handler`.
+- Any other exception:
+  - Logged and broadcast with label `fastapi-unhandled-exception`.
+  - Returns a generic `500 Internal Server Error` payload (no exception text).
 
-- rely on that surface's own explicitly registered handlers, or
-- translate/log errors locally where that surface expects it.
-
-The active main backend HTTP error handling now lives in the Go runtime.
+When the app is fully initialized, `_log_and_broadcast_http_error` uses
+`SettaFastAPIState.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(...)`
+so errors appear in the UI; during early boot it falls back to server-side logging.
 
 ## Websocket Error Handling
 

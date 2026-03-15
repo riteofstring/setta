@@ -21,12 +21,12 @@ from tests.utils.manager_fixture import real_project_manager, real_settings_mana
 
 @contextmanager
 def _override_deployments_root(root: Path):
-    original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
-    C.SHARE_DEPLOYMENTS_FOLDER = root
+    original_share_root = C.DEPLOYMENTS_FOLDER
+    C.DEPLOYMENTS_FOLDER = root
     try:
         yield
     finally:
-        C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
+        C.DEPLOYMENTS_FOLDER = original_share_root
 
 
 async def _set_app_definition(

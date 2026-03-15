@@ -25,7 +25,9 @@ link_fixture "content" "workspace"
 link_fixture "full" "workspace"
 link_fixture "backend" "workspace"
 link_fixture "backend-static-router" "workspace"
+link_fixture "backend-mcp-tools" "workspace"
 link_fixture "backend-language-server" "workspace"
+link_fixture "backend-external-agent" "workspace"
 link_fixture "backend-codegen" "workspace"
 
 # Scope/precedence fixtures.
@@ -54,9 +56,9 @@ Suggested manual checks:
 5. Validate backend static/router fixture after restart:
    - GET `/api/plugins/setta-fixture-backend-static-router/info`
    - GET `/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt`
-6. Validate retained backend worker fixtures after restart:
-   - plugin cards show language-server / codegen capabilities
-   - `setta plugins list` reports those fixtures as active
+6. Validate MCP fixture after restart:
+   - plugin card shows MCP capability; registered tools should include
+     `setta_fixture_mcp_read` and `setta_fixture_mcp_write`.
 7. Validate scope precedence:
    - `setta plugins list`
    - `setta-fixture-scope-shadowing` should resolve from workspace and shadow
