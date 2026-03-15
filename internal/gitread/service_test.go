@@ -411,6 +411,56 @@ func TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) 
 	}
 }
 
+func TestServiceDiffPreservesLeadingSpacesAndRejectsSymlinkEscapes(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	spacedName := " leading.txt"
+	writeFile(t, filepath.Join(repoRoot, spacedName), "one\n")
+	runGitReadCommand(t, repoRoot, "add", spacedName)
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add leading-space file")
+	writeFile(t, filepath.Join(repoRoot, spacedName), "two\n")
+
+	outsideRoot := t.TempDir()
+	outsidePath := filepath.Join(outsideRoot, "outside.txt")
+	writeFile(t, outsidePath, "outside\n")
+	symlinkName := "link-out.txt"
+	if err := os.Symlink(outsidePath, filepath.Join(repoRoot, symlinkName)); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	diffResponse, err := service.Diff(context.Background(), DiffRequest{
+		Path: spacedName,
+		Mode: DiffModeUnstaged,
+	})
+	if err != nil {
+		t.Fatalf("diff leading-space path: %v", err)
+	}
+	if diffResponse.Path != spacedName {
+		t.Fatalf("expected leading-space path to round-trip, got %#v", diffResponse)
+	}
+	if !strings.Contains(diffResponse.Diff, "diff --git a/ leading.txt b/ leading.txt") || !strings.Contains(diffResponse.Diff, "-one") || !strings.Contains(diffResponse.Diff, "+two") {
+		t.Fatalf("expected literal leading-space diff, got %q", diffResponse.Diff)
+	}
+
+	_, err = service.Diff(context.Background(), DiffRequest{
+		Path: symlinkName,
+		Mode: DiffModeUnstaged,
+	})
+	var serviceErr *Error
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected gitread error for symlink diff, got %v", err)
+	}
+	if serviceErr.Kind != ErrorPathForbidden || serviceErr.Message != "Symlink paths are not supported for synthesized diffs." {
+		t.Fatalf("unexpected symlink diff error %#v", serviceErr)
+	}
+}
+
 func TestServiceDiffRejectsAbsoluteParentAndNULPaths(t *testing.T) {
 	t.Parallel()
 
@@ -832,6 +882,52 @@ func TestServiceCommitDetailsAndFileDiffRejectInvalidCommitHashes(t *testing.T) 
 	}
 }
 
+func TestServiceCommitDetailsAndFileDiffAcceptSHA256LengthHashesWhenGitVerifies(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadSHA256Repo(t)
+	writeFile(t, filepath.Join(repoRoot, "tracked.txt"), "one\n")
+	runGitReadCommand(t, repoRoot, "add", "tracked.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add tracked")
+	writeFile(t, filepath.Join(repoRoot, "tracked.txt"), "two\n")
+	runGitReadCommand(t, repoRoot, "add", "tracked.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "update tracked")
+	commitHash := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+	if len(commitHash) != 64 {
+		t.Fatalf("expected sha256-length commit hash, got %q", commitHash)
+	}
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	details, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: commitHash})
+	if err != nil {
+		t.Fatalf("commit details: %v", err)
+	}
+	if details.CommitHash != commitHash {
+		t.Fatalf("expected verified sha256 hash %q, got %#v", commitHash, details)
+	}
+	if len(details.Files) != 1 || details.Files[0].Path != "tracked.txt" {
+		t.Fatalf("expected tracked file in sha256 commit details, got %#v", details.Files)
+	}
+
+	diffResponse, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: commitHash,
+		Path:       "tracked.txt",
+	})
+	if err != nil {
+		t.Fatalf("commit file diff: %v", err)
+	}
+	if diffResponse.CommitHash != commitHash {
+		t.Fatalf("expected verified sha256 hash on diff response, got %#v", diffResponse)
+	}
+	if !strings.Contains(diffResponse.Diff, "diff --git a/tracked.txt b/tracked.txt") || !strings.Contains(diffResponse.Diff, "-one") || !strings.Contains(diffResponse.Diff, "+two") {
+		t.Fatalf("expected sha256 commit diff patch output, got %q", diffResponse.Diff)
+	}
+}
+
 func TestServiceCommitDetailsSetsTruncationFlagForLargeOutput(t *testing.T) {
 	commitHash := strings.Repeat("a", 40)
 	showOutput := buildLargeCommitDetailsOutput(commitHash, 45000)
@@ -935,6 +1031,23 @@ func initGitReadTestRepo(t *testing.T) string {
 	writeFile(t, filepath.Join(repoRoot, "tracked.txt"), "one\n")
 	runGitReadCommand(t, repoRoot, "add", "tracked.txt")
 	runGitReadCommand(t, repoRoot, "commit", "-m", "add tracked")
+	return repoRoot
+}
+
+func initGitReadSHA256Repo(t *testing.T) string {
+	t.Helper()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("git not found: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	runGitReadCommand(t, repoRoot, "init", "--object-format=sha256")
+	if format := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "--show-object-format")); format != "sha256" {
+		t.Fatalf("expected sha256 object format, got %q", format)
+	}
+	runGitReadCommand(t, repoRoot, "config", "user.email", "a@example.com")
+	runGitReadCommand(t, repoRoot, "config", "user.name", "A")
 	return repoRoot
 }
 
