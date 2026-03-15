@@ -16,8 +16,12 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
-import { SectionAreaSwitch } from "./SectionAreaSwitch";
-import { getWindowSectionChrome } from "./sectionChrome";
+import { AreaSwitch } from "./SectionContainerCoreResizabe";
+import {
+  getSectionContainerShellClassName,
+  getSectionSurfaceClassName,
+} from "./sectionChrome";
+import { getBgColor } from "./utils";
 
 type SectionWindowSurfaceProps = {
   sectionId: string;
@@ -96,27 +100,39 @@ export function SectionWindowSurface({
         "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
       } as React.CSSProperties)
     : undefined;
+  const bgColor = useMetaControlStyle
+    ? "bg-transparent"
+    : getBgColor(sectionTypeName);
   const isRoot = getIsRoot(sectionTypeName);
-  const windowChrome = getWindowSectionChrome({
-    sectionTypeName,
+  const outerShellClassName = getSectionContainerShellClassName({
     isActiveSection,
+    isGlobalVariables: sectionTypeName === SectionTypeEnum.GlobalVariables,
     isInOtherProjectConfigs,
-    textBlockMetaControlStyle,
+    useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,
-    isStandalonePage,
-    roundedClassName,
+    forceHideOutline: true,
+    hideBorder: isStandalonePage,
+    sizeClassName: "h-full w-full",
+    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
+  });
+  const innerShellClassName = getSectionSurfaceClassName({
+    bgColor,
+    hasSectionStyleTheme,
+    positionAndSizeLocked,
+    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
+    hideFrameBorder: isStandalonePage,
   });
 
   return (
     <section
-      className={windowChrome.outerShellClassName}
+      className={outerShellClassName}
       style={sectionStyleVars}
       data-testid="section-window-surface"
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
     >
-      <div className={windowChrome.innerShellClassName}>
+      <div className={innerShellClassName}>
         <SectionHeader
           sectionId={sectionId}
           isActiveSection={isActiveSection}
@@ -131,13 +147,13 @@ export function SectionWindowSurface({
           headerProps={headerProps}
         />
         <div
-          className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${windowChrome.bgColor}`}
+          className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
         >
           {bodyOverride ?? (
-            <SectionAreaSwitch
+            <AreaSwitch
               sectionId={sectionId}
               sectionTypeName={sectionTypeName}
-              bgColor={windowChrome.bgColor}
+              bgColor={bgColor}
               isMinimized={isMinimized}
               isUserView={false}
               chatHost={chatHost}
