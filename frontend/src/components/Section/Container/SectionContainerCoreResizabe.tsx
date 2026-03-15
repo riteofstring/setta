@@ -48,9 +48,9 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { getCanvasSectionChrome } from "./sectionChrome";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
+import { getBgColor } from "./utils";
 
 type SectionContainerCoreResizableProps = {
   sectionId: string;
@@ -92,101 +92,68 @@ function _SectionContainerCoreResizable({
     };
   }, _.isEqual);
 
+  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
-  const sectionChrome = getCanvasSectionChrome({
-    sectionTypeName,
-    textBlockMetaControlStyle,
-    isUserView,
-    hasSectionStyleTheme,
-    positionAndSizeLocked,
-    hideHeader,
-  });
+  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const bgColor = useMetaControlStyle
+    ? "bg-transparent"
+    : getBgColor(sectionTypeName);
+  const shouldRenderMetaMenu = isMetaControl && !isUserView;
+  const shouldRenderTextBlockMetaMenu =
+    textBlockMetaControlStyle && !isUserView;
+  const showMetaControlDragHandle =
+    useMetaControlStyle && !isUserView && !positionAndSizeLocked;
+  const metaControlFrameClassName = useMetaControlStyle
+    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
+    : undefined;
+  const metaControlLayoutClassName = isMetaControl
+    ? "grid-cols-1 grid-rows-1"
+    : undefined;
 
   return (
     <CustomResizable
       sectionId={sectionId}
       as="section"
+      bgColor={bgColor}
       isYouTube={isYouTube}
-      useMetaControlStyle={sectionChrome.useMetaControlStyle}
+      isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      surfaceClassName={sectionChrome.surfaceClassName}
+      frameClassName={metaControlFrameClassName}
+      layoutClassName={metaControlLayoutClassName}
     >
-      {sectionChrome.showMetaControlDragHandle && (
+      {showMetaControlDragHandle && (
         <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
         </div>
       )}
-      <CanvasSectionChromeControl
-        headerVariant={sectionChrome.headerVariant}
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        isUserView={isUserView}
-        isRoot={isRoot}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
-      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <CanvasSectionBody
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={sectionChrome.bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
-    </CustomResizable>
-  );
-}
-
-export const SectionContainerCoreResizable = React.memo(
-  _SectionContainerCoreResizable,
-);
-
-function CanvasSectionChromeControl({
-  headerVariant,
-  sectionId,
-  sectionTypeName,
-  isInOtherProjectConfigs,
-  isUserView,
-  isRoot,
-  hasSectionStyleTheme,
-}: {
-  headerVariant:
-    | "metaControlMenu"
-    | "textBlockMetaControlMenu"
-    | "sectionHeader"
-    | "none";
-  sectionId: string;
-  sectionTypeName: SectionType;
-  isInOtherProjectConfigs: boolean;
-  isUserView: boolean;
-  isRoot: boolean;
-  hasSectionStyleTheme: boolean;
-}) {
-  switch (headerVariant) {
-    case "metaControlMenu":
-      return (
-        <CanvasSectionOutboardMenu>
-          <MetaControlMenuButton
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            isInOtherProjectConfigs={isInOtherProjectConfigs}
-          />
-        </CanvasSectionOutboardMenu>
-      );
-    case "textBlockMetaControlMenu":
-      return (
-        <CanvasSectionOutboardMenu>
-          <TextBlockMetaControlMenuButton
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            isInOtherProjectConfigs={isInOtherProjectConfigs}
-            isRoot={isRoot}
-          />
-        </CanvasSectionOutboardMenu>
-      );
-    case "sectionHeader":
-      return (
+      {isMetaControl ? (
+        shouldRenderMetaMenu && (
+          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+            <div className="flex h-12 w-10 items-center justify-end">
+              <MetaControlMenuButton
+                sectionId={sectionId}
+                sectionTypeName={sectionTypeName}
+                isInOtherProjectConfigs={isInOtherProjectConfigs}
+              />
+            </div>
+          </div>
+        )
+      ) : textBlockMetaControlStyle ? (
+        shouldRenderTextBlockMetaMenu && (
+          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+            <div className="flex h-12 w-10 items-center justify-end">
+              <TextBlockMetaControlMenuButton
+                sectionId={sectionId}
+                sectionTypeName={sectionTypeName}
+                isInOtherProjectConfigs={isInOtherProjectConfigs}
+                isRoot={isRoot}
+              />
+            </div>
+          </div>
+        )
+      ) : !hideHeader ? (
         <SectionHeader
           sectionId={sectionId}
           sectionTypeName={sectionTypeName}
@@ -205,23 +172,22 @@ function CanvasSectionChromeControl({
             ) : null
           }
         />
-      );
-    case "none":
-      return null;
-  }
-}
-
-function CanvasSectionOutboardMenu({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
-      <div className="flex h-12 w-10 items-center justify-end">{children}</div>
-    </div>
+      ) : null}
+      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
+      <CanvasSectionBody
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
+    </CustomResizable>
   );
 }
+
+export const SectionContainerCoreResizable = React.memo(
+  _SectionContainerCoreResizable,
+);
 
 export function AreaSwitch({
   sectionId,
