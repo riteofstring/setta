@@ -477,3 +477,30 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this checkpoint removes another shallow React boundary rather than a DOM node
   - the DnD-aware row selection path is slightly deeper because `GetParamSwitch` now owns the provider-bound root-child expansion directly
+
+### Phase 2 checkpoint 6: shared sortable-row wiring for temp and real param rows
+
+- Date/time: 2026-03-16
+- Scope:
+  - added a shared sortable-row helper in `frontend/src/components/Params/ParamSwitch.tsx`
+  - moved the duplicated `useSortable`, transform, listener, and ref wiring for temp placeholder rows and steady-state real rows into that shared helper
+  - kept the temp placeholder row shell and the real row shell behavior unchanged
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable surface remained visually aligned after the sortable-row consolidation
+- Live control-scene read:
+  - callable subtree nodes:
+    - `main`: `125`
+    - worktree: `100`
+  - visible param rows: `7` on both `main` and the worktree
+- Interpretation:
+  - this checkpoint deepens the row-tree implementation without changing the callable DOM shape
+  - the temp and real row paths now share one sortable contract instead of maintaining duplicated DnD wiring in parallel

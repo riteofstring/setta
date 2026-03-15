@@ -544,3 +544,32 @@ Append-only log for the callable DOM-first performance refactor.
     - visible param rows: `7` on both `main` and the worktree
 - Next action:
   - Continue Phase 2 only if the next step removes another duplicated row-tree contract, with the strongest remaining candidate now being the separate temp-placeholder row shell in `ParamSwitch`.
+
+### 2026-03-16 32
+
+- Item: Phase 2 checkpoint 6 shared sortable-row wiring for temp and real param rows.
+- Status: `done`
+- Details:
+  - Added a shared sortable-row helper in `frontend/src/components/Params/ParamSwitch.tsx`.
+  - Moved the duplicated `useSortable` / transform / listener / ref wiring for:
+    - temp placeholder rows
+    - steady-state real param rows
+    into the shared helper instead of maintaining two open-coded sortable paths.
+  - Kept the existing temp placeholder shell and real row shell behavior unchanged; this checkpoint only deepens the sortable contract ownership inside `ParamSwitch`.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the shared sortable-row consolidation.
+  - Live control-scene read:
+    - callable subtree nodes:
+      - `main`: `125`
+      - worktree: `100`
+    - visible param rows: `7` on both `main` and the worktree
+- Next action:
+  - Continue Phase 2 only if the next step removes another real row-tree shell distinction instead of just moving code around. The remaining candidate is the dedicated temp placeholder article shell in `ParamSwitch`.
