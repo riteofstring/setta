@@ -9,24 +9,26 @@ import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
   ensureAppProjectConfigLoaded,
-  incrementAppSessionRunCount,
   resetAppDeployment,
-} from "state/actions/app";
+} from "state/actions/appDeploymentState";
+import { incrementAppSessionRunCount } from "state/actions/appSessionRunCount";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAppConfigs, useShareSession } from "state/definitions";
+import { useAppConfigs } from "state/stores/appStores";
+import { useShareSession } from "state/stores/sessionStores";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_get_attachment_download_url,
   route_run_code,
 } from "utils/generatedEndpoints";
 import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
+import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
 import { appRegistry } from "./appRegistry";
 import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
-import { buildAppBinaryDownloadUrl } from "./appTransport";
 
 type RawUIElement = {
   key: string;
@@ -398,7 +400,14 @@ export function AppRenderer({
         addTemporaryNotification("Missing file content id for download.");
         return;
       }
-      const url = new URL(buildAppBinaryDownloadUrl(contentId, shareSessionId));
+      const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+        "{contentId}",
+        encodeURIComponent(contentId),
+      );
+      const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
+      if (shareSessionId) {
+        url.searchParams.set("shareSessionId", shareSessionId);
+      }
       triggerDownload(url.toString(), filename ?? undefined);
     },
     [allowFileDownloads, shareSessionId],
