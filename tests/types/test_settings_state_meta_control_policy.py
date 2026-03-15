@@ -1,5 +1,5 @@
 from tests.helpers.settings_state import SettingsState
-from setta.types.settings_state import (
+from tests.helpers.settings_models import (
     MetaControlSizeMode,
     MetaControlSizingPolicyByType,
     MetaControlSizingPolicyTypeEntry,

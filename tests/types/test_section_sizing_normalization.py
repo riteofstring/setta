@@ -7,7 +7,7 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionSize, SectionSizeMode, SectionType
-from setta.types.settings_state import (
+from tests.helpers.settings_models import (
     SectionSizingPolicy,
     SectionSizingPolicyByType,
     SectionSizingPolicyTypeEntry,

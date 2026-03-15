@@ -17,7 +17,7 @@ from setta.types.section_impls import (
     StateMachineStartSectionImpl,
     TaskBoardSectionImpl,
 )
-from setta.types.settings_state import SectionSizingPolicy
+from tests.helpers.settings_models import SectionSizingPolicy
 from tests.helpers.project_state_sections import (
     create_child_sections,
     create_top_level_section,

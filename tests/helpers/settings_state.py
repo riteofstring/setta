@@ -44,7 +44,7 @@ from tests.helpers.user_defaults import (
     UserDefaultTextParamCodeObjImpl,
     UserDefaultTimeParamCodeObjImpl,
 )
-from setta.types.settings_state import (
+from tests.helpers.settings_models import (
     ChatWindowingSettings,
     SectionSizingPolicy,
     SettingsBackend,
