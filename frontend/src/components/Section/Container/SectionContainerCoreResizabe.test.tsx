@@ -272,7 +272,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-project-chat-controlled="false"');
   });
 
-  it("routes meta-control canvas chrome through the shared descriptor", () => {
+  it("routes meta-control canvas chrome through the windowFlow descriptor", () => {
     mockSectionImpl = {
       type: SectionTypeEnum.MetaControl,
       isMinimized: false,
@@ -295,6 +295,9 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-meta-control-style="true"');
     expect(markup).toContain('data-surface-class="bg-transparent');
     expect(markup).toContain("group-hover/card-section:z-[170]");
+    expect(markup).toContain("flex-col");
+    expect(markup).not.toContain("section-grid-cols");
+    expect(markup).not.toContain("grid-cols-1");
   });
 
   it("routes standard canvas chrome through the windowFlow-style surface shell", () => {

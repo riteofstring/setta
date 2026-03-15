@@ -4303,3 +4303,55 @@ Append-only log for the section performance refactor.
   - Keep the accepted non-meta canvas `windowFlow` split.
   - Treat true canvas `MetaControl` as the only remaining `sectionChrome` shared-grid consumer.
   - Use the next pass to decide whether the live target stays in `sectionChrome` or drops into the lower meta-control shell.
+
+### 2026-03-18 115
+
+- Item: Accept the final `sectionChrome` `windowFlow` split by moving true canvas `MetaControl` onto the flex surface shell.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+  - The canvas-side helper no longer keeps a special grid override for true `MetaControl`:
+    - true `MetaControl` now uses the same `surfaceLayout: "windowFlow"` path as the already-accepted non-meta canvas surfaces
+    - the explicit `grid-cols-1 grid-rows-1` override is removed from the live implementation path
+  - Focused direct coverage now asserts the true-meta path matches the accepted surface split:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - true MetaControl shell: `flex-col`, no `section-grid-cols`, no `grid-cols-1`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: `2` files passed, `14` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts --grep "meta control time defaults to display and can switch to input mode|meta control calendar renders calendar UI|meta control slider only shows width resize handle"`
+      - result: `3` passed
+  - CDP compare:
+    - untouched `main` disposable MetaControl slider on `deep_flowing` (`3087/8087`) still reads:
+      - `display: grid`
+      - class contains `grid-cols-1 grid-rows-1`
+      - node bounds `202 x 34`
+      - surface bounds `200 x 32`
+      - menu trigger bounds `22 x 22`
+      - right resize handle present, bottom resize handle absent
+      - React Flow viewport scale `1`
+    - worktree disposable MetaControl slider on `young_huge` (`3011/8011`) now reads:
+      - `display: flex`
+      - `flexDirection: column`
+      - no `section-grid-*`
+      - no `grid-cols-1`
+      - raw node bounds `156.10 x 26.27`
+      - raw surface bounds `154.55 x 24.73`
+      - raw menu trigger bounds `17.00 x 17.00`
+      - right resize handle present, bottom resize handle absent
+      - React Flow viewport scale `0.772755`
+    - after normalizing the worktree read by viewport scale, the MetaControl shell contract resolves to the same geometry as untouched `main`:
+      - node `202 x 34`
+      - surface `200 x 32`
+      - menu trigger `22 x 22`
+    - the worktree screenshot kept the expected outboard menu + slider presentation, and the untouched-`main` compare used DOM/class/computed-style inspection because the two disposable projects were running at different viewport scales
+  - Interpretation:
+    - the higher shared `sectionChrome` seam is now exhausted for the active branch
+    - the next pass should drop into the lower MetaControl `single-cell-container` / `single-cell-child` contract instead of reopening any accepted `sectionChrome` surface split
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-meta-control-windowflow-split.md`
+- Next action:
+  - Keep the full `sectionChrome` `windowFlow` baseline in place.
+  - Re-read the lower MetaControl shell and choose the deepest removable `single-cell-container` / `single-cell-child` ownership seam next.
