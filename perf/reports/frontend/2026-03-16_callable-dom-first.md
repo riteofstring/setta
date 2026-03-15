@@ -275,3 +275,32 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Notes:
   - this checkpoint expands the verification surface and fixes a user-facing standalone interaction gap
   - it does not change the Phase 1 DOM-count measurements yet
+
+### Phase 1 checkpoint 4: param resize-handle wrapper flattening
+
+- Date/time: 2026-03-16
+- Scope:
+  - removed the remaining outer wrapper div from `frontend/src/components/Params/ResizeHandle.tsx`
+  - moved the center-gutter stripe and visible handle-bar styling onto `after:` and `before:` pseudo-elements on the draggable resize target
+  - preserved the existing `data-param-resize-handle="true"` selector and live drag behavior
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable section remained visually identical after the wrapper flattening
+- Live DOM delta on the callable subtree:
+  - `main`: `124` nodes
+  - worktree after checkpoint 4: `100` nodes
+  - cumulative reduction versus untouched `main`: `-24` live DOM nodes on the callable control subtree
+  - `data-param-resize-handle` nodes remain present: `6`
+  - old resize-handle wrapper parents on untouched `main`: `6`
+  - old resize-handle wrapper parents on the worktree: `0`
+- Interpretation:
+  - this removes the last dedicated wrapper node from every visible param-column resize handle in the callable control scene
+  - the live subtree reduction matches the expected direction without introducing visible drift on the stable control capture

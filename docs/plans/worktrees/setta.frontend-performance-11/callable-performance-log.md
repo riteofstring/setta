@@ -328,3 +328,31 @@ Append-only log for the callable DOM-first performance refactor.
   - The standalone callable surface rendered without workspace panes and preserved the expected edge / pinned / unpinned layout.
 - Next action:
   - Continue Phase 1 only with leaf-level callable DOM reductions, using the expanded standalone-aware callable regression suite as the checkpoint gate.
+
+### 2026-03-16 24
+
+- Item: Phase 1 checkpoint 4 param resize-handle wrapper flattening.
+- Status: `done`
+- Details:
+  - Removed the remaining outer wrapper div from `frontend/src/components/Params/ResizeHandle.tsx`.
+  - Moved the center-gutter stripe and visible handle-bar styling onto `after:` and `before:` pseudo-elements on the draggable resize target so the handle now renders as a single DOM node.
+  - Kept the existing `data-param-resize-handle="true"` contract and cursor/drag behavior intact.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually identical after the wrapper flattening.
+  - Live callable subtree metrics on the matched control scene:
+    - `main`: `124` nodes
+    - worktree after checkpoint 4: `100` nodes
+    - cumulative reduction versus untouched `main`: `-24` live DOM nodes on the callable control subtree
+    - `data-param-resize-handle` nodes remained present: `6`
+    - old resize-handle wrapper parents on untouched `main`: `6`
+    - old resize-handle wrapper parents on the worktree: `0`
+- Next action:
+  - Continue Phase 1 only if the next candidate is still clearly leaf-level; otherwise stop and prompt before crossing into the Phase 2 row/tree refactor boundary.
