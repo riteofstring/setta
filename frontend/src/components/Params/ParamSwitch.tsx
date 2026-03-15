@@ -29,20 +29,10 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import {
-  type NestedParentParamIdLookup,
-  type RenderableParamIdLookup,
-  getNestedParamSwitchRenderState,
-  getVisibleRenderableParamIds,
-} from "./getFilteredRenderableParamIds";
 import { ParamContainer } from "./ParamContainer";
-import {
-  useParamDndChildrenForParent,
-  useParamDndContext,
-} from "./ParamDndContext";
+import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
-import { ParamRowShell } from "./ParamRowShell";
 
 type ParamSwitchProps = {
   sectionId: string;
@@ -50,14 +40,9 @@ type ParamSwitchProps = {
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
-  isNestedChildInTree?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
-  nestedParentParamIdLookup: NestedParentParamIdLookup | null;
-  visibleParamIdLookup: RenderableParamIdLookup | null;
 };
-
-const EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP: NestedParentParamIdLookup = {};
 
 function _ParamSwitch(props: ParamSwitchProps) {
   if (isTempParam(props.paramInfoId)) {
@@ -66,78 +51,13 @@ function _ParamSwitch(props: ParamSwitchProps) {
   return <RealParamSwitch {...props} />;
 }
 
-function useSortableParamRow({
-  sectionId,
-  paramInfoId,
-  listKey,
-  paramId,
-  hasNested,
-  onlyChildId,
-  width,
-  height,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  listKey: ParamListKey;
-  paramId: string | null;
-  hasNested: boolean;
-  onlyChildId: string | null;
-  width?: number | null;
-  height?: number | null;
-}) {
-  const dndContext = useParamDndContext();
-  const dndEnabled = Boolean(dndContext?.enabled);
-  const dndId = isTempParam(paramInfoId)
-    ? paramInfoId
-    : getParamDndItemId(paramInfoId, listKey);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: dndId,
-    disabled: !dndEnabled,
-    data: {
-      type: "param",
-      paramId,
-      sectionId,
-      listKey,
-      isTopLevel: false,
-      hasNested,
-      onlyChildId,
-    },
-  });
-  const { role: _role, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-
-  return {
-    dndAttributes: restAttributes,
-    dndListeners: listeners,
-    dndRef: setNodeRef,
-    dndStyle: {
-      transform: transformToString(scaledTransform),
-      transition,
-      zIndex: isDragging ? 1000 : undefined,
-      height: height ?? undefined,
-      width: width ?? undefined,
-    },
-    isDragging,
-  };
-}
-
 function TempParamSwitch({
   sectionId,
-  isNestedChildInTree = false,
   paramInfoId,
   listKey,
-}: Pick<
-  ParamSwitchProps,
-  "sectionId" | "paramInfoId" | "listKey" | "isNestedChildInTree"
->) {
+}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId" | "listKey">) {
   const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
   const activeListKey = listKey ?? dndContext?.listKey ?? null;
   const { placeholderWidth, placeholderHeight } = useParamDndState(
     (state) => ({
@@ -156,41 +76,58 @@ function TempParamSwitch({
   if (!activeListKey) {
     return null;
   }
-  const { dndAttributes, dndListeners, dndRef, dndStyle } = useSortableParamRow(
-    {
-      sectionId,
-      paramInfoId,
-      listKey: activeListKey,
+  const dndId = isTempParam(paramInfoId)
+    ? paramInfoId
+    : getParamDndItemId(paramInfoId, activeListKey);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: dndId,
+    disabled: !dndEnabled,
+    data: {
+      type: "param",
       paramId: null,
+      sectionId,
+      listKey: activeListKey,
+      isTopLevel: false,
       hasNested: false,
       onlyChildId: null,
-      width: normalizedWidth,
-      height: normalizedHeight,
     },
-  );
+  });
+  const { role: _role, ...restAttributes } = attributes;
+  const scaledTransform = applyZoomToTransform(transform);
+  const dndStyle = {
+    transform: transformToString(scaledTransform),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+    height: normalizedHeight ?? undefined,
+    width: normalizedWidth ?? undefined,
+  };
+  const columnWidth = "var(--param-column-width, 200px)";
+
   return (
-    <ParamRowShell
-      isNestedChildInTree={isNestedChildInTree}
-      justifyBetween={true}
-      extraClassName="bg-blue-500/40 dark:bg-blue-600/40"
-      style={dndStyle}
-      dndRef={dndRef}
-      dndAttributes={dndAttributes}
-      dndListeners={dndListeners}
+    <article
+      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
+      style={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...(dndStyle ?? {}),
+      }}
+      data-param-row="true"
+      ref={setNodeRef}
+      {...(restAttributes ?? {})}
+      {...(listeners ?? {})}
     />
   );
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const {
-    sectionId,
-    paramInfoId,
-    onResizeStart,
-    isTopLevelWithPad,
-    hasSectionStyleTheme,
-    isNestedChildInTree,
-    listKey,
-  } = props;
+  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
+
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
@@ -207,6 +144,14 @@ function RealParamSwitch(props: ParamSwitchProps) {
       ),
     };
   }, _.isEqual);
+
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    ),
+  );
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
@@ -215,24 +160,11 @@ function RealParamSwitch(props: ParamSwitchProps) {
       isBaseParamCodeObjImpl,
     ),
   );
-  const paramIsSelected = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ).selectedParams.includes(paramInfoId),
-  );
   const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
+  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
   const isKwarg = codeObjImpl.coreNameEditable;
   const paramChildren = isNestedParam ? codeObjImpl.children : [];
-  const renderChildren = useParamDndChildrenForParent(
-    paramInfoId,
-    paramChildren,
-  );
-  const visibleRenderChildren = getVisibleRenderableParamIds({
-    renderParamIds: renderChildren,
-    visibleParamIdLookup: props.visibleParamIdLookup,
-  });
+
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const handleParamMouseDown = useCallback(
@@ -290,103 +222,93 @@ function RealParamSwitch(props: ParamSwitchProps) {
       paramInfoId={paramInfoId}
       onMouseDown={onMouseDownConditional}
       bg={hasChildren ? bg : ""}
-      hasChildren={hasChildren}
     />
   );
-  let labelShapeKey:
-    | "nameInputLeaf"
-    | "nameInputParent"
-    | "textLabelLeaf"
-    | "textLabelParent";
-  if (isKwarg) {
-    labelShapeKey = hasChildren ? "nameInputParent" : "nameInputLeaf";
-  } else {
-    labelShapeKey = hasChildren ? "textLabelParent" : "textLabelLeaf";
-  }
 
+  const sharedProps = {
+    ...props,
+    bg,
+    border,
+    hasSectionStyleTheme,
+    isKwarg,
+    isNestedParam,
+    label,
+    maybeErrorMessage,
+    onClick: handleParamClick,
+    onMouseDown: onMouseDownAlways,
+    paramChildren,
+  };
+
+  return <SortableRealParamSwitchRow {...sharedProps} />;
+}
+
+export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
+
+function SortableRealParamSwitchRow({
+  sectionId,
+  paramInfoId,
+  listKey,
+  paramChildren,
+  label,
+  ...props
+}: ParamSwitchProps & {
+  bg: string;
+  border: string;
+  isKwarg: boolean;
+  isNestedParam: boolean;
+  label: React.ReactNode;
+  maybeErrorMessage: string;
+  onClick: React.MouseEventHandler;
+  onMouseDown: React.MouseEventHandler;
+  paramChildren: string[];
+}) {
+  const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
+  const dndId = getParamDndItemId(paramInfoId, listKey);
   const hasNested = paramChildren.length > 0;
   const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
-  const { dndAttributes, dndListeners, dndRef, dndStyle, isDragging } =
-    useSortableParamRow({
-      sectionId,
-      paramInfoId,
-      listKey,
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: dndId,
+    disabled: !dndEnabled,
+    data: {
+      type: "param",
       paramId: paramInfoId,
+      sectionId,
+      listKey,
+      isTopLevel: false,
       hasNested,
       onlyChildId,
-    });
+    },
+  });
+  const { role: _role, ...restAttributes } = attributes;
+  const scaledTransform = applyZoomToTransform(transform);
+  const dndStyle = {
+    transform: transformToString(scaledTransform),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+  };
 
   return (
-    <>
-      <ParamContainer
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        labelShapeKey={labelShapeKey}
-        onResizeStart={onResizeStart}
-        isTopLevelWithPad={isTopLevelWithPad}
-        isNestedChildInTree={isNestedChildInTree}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        bg={bg}
-        border={border}
-        isNestedParam={isNestedParam}
-        maybeErrorMessage={maybeErrorMessage}
-        onClick={handleParamClick}
-        onMouseDown={onMouseDownAlways}
-        dndAttributes={dndAttributes}
-        dndListeners={dndListeners}
-        dndRef={dndRef}
-        dndStyle={dndStyle}
-        dndClassName={isDragging ? "opacity-80" : ""}
-      >
-        {label}
-      </ParamContainer>
-      {visibleRenderChildren.map((childParamId) => {
-        const nestedRenderState = getNestedParamSwitchRenderState({
-          paramId: childParamId,
-          requiredParamIdsToPaths: props.requiredParamIdsToPaths,
-          nestedParentParamIdLookup:
-            props.nestedParentParamIdLookup ??
-            EMPTY_NESTED_PARENT_PARAM_ID_LOOKUP,
-          visibleParamIdLookup: props.visibleParamIdLookup,
-        });
-
-        return (
-          <ParamSwitch
-            key={childParamId}
-            sectionId={sectionId}
-            paramInfoId={childParamId}
-            requiredParamIdsToPaths={nestedRenderState.requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            isNestedChildInTree={true}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-            nestedParentParamIdLookup={
-              nestedRenderState.nestedParentParamIdLookup
-            }
-            visibleParamIdLookup={nestedRenderState.visibleParamIdLookup}
-          />
-        );
-      })}
-    </>
+    <ParamContainer
+      {...props}
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      listKey={listKey}
+      paramChildren={paramChildren}
+      dndAttributes={restAttributes}
+      dndListeners={listeners}
+      dndRef={setNodeRef}
+      dndStyle={dndStyle}
+      dndClassName={isDragging ? "opacity-80" : ""}
+    >
+      {label}
+    </ParamContainer>
   );
 }
-
-function areParamSwitchPropsEqual(
-  prevProps: ParamSwitchProps,
-  nextProps: ParamSwitchProps,
-) {
-  return (
-    prevProps.sectionId === nextProps.sectionId &&
-    prevProps.paramInfoId === nextProps.paramInfoId &&
-    prevProps.requiredParamIdsToPaths === nextProps.requiredParamIdsToPaths &&
-    prevProps.onResizeStart === nextProps.onResizeStart &&
-    prevProps.isTopLevelWithPad === nextProps.isTopLevelWithPad &&
-    prevProps.isNestedChildInTree === nextProps.isNestedChildInTree &&
-    prevProps.listKey === nextProps.listKey &&
-    prevProps.hasSectionStyleTheme === nextProps.hasSectionStyleTheme &&
-    prevProps.nestedParentParamIdLookup === nextProps.nestedParentParamIdLookup &&
-    prevProps.visibleParamIdLookup === nextProps.visibleParamIdLookup
-  );
-}
-
-export const ParamSwitch = React.memo(_ParamSwitch, areParamSwitchPropsEqual);
