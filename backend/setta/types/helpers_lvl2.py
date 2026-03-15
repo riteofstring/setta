@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import rpack
-
-from setta.database.utils import create_new_id
 from setta.llm.prompt_renderer import render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
@@ -109,7 +107,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 from setta.types.project_chat_windowing import (
     normalize_project_chat_windowing,
     validate_project_chat_thread_bindings_unchanged,
@@ -117,8 +115,6 @@ from setta.types.project_chat_windowing import (
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.prompt_section_resolution import (
     build_prompt_section_preview,
-    load_prompt_template,
-    resolve_prompt_section_source,
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -186,7 +182,6 @@ from setta.utils.utils import insert_into_array, move_item_in_array
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from setta.database.db_objs import DBE
     from setta.types.project_state import (
         ProjectChatWindowingState,
         ProjectStateBackend,
@@ -2739,8 +2734,6 @@ def _ensure_state_machine_edge_endpoints_valid(
     p: "ProjectStateSingleConfig",
     edge: StateMachineEdge,
     machine_group_overrides: dict[ID, str] | None = None,
-    *,
-    dbe: "DBE | None" = None,
 ):
     _ensure_state_machine_machine_group_id_valid(
         edge.machineGroupId, f"State machine edge {edge.id}"
@@ -2798,7 +2791,6 @@ def _ensure_state_machine_edge_endpoints_valid(
         p,
         edge,
         target_impl,
-        dbe=dbe,
     )
     source_machine_group_id = _resolve_state_machine_section_machine_group_id(
         edge.sourceSectionId,
@@ -2949,8 +2941,6 @@ def _ensure_state_machine_target_action_valid(
     p: "ProjectStateSingleConfig",
     edge: StateMachineEdge,
     target_impl: BaseSectionImpl,
-    *,
-    dbe: "DBE | None" = None,
 ):
     target_action = edge.targetAction
     if target_impl.type != SectionType.Chat:
@@ -2976,7 +2966,6 @@ def _ensure_state_machine_target_action_valid(
             p,
             edge.id,
             target_action,
-            dbe=dbe,
         )
         return
     _ensure_state_machine_reset_thread_action_valid(edge.id, target_action)
@@ -2986,8 +2975,6 @@ def _ensure_state_machine_send_prompt_action_valid(
     p: "ProjectStateSingleConfig",
     edge_id: ID,
     target_action: StateMachineTargetAction,
-    *,
-    dbe: "DBE | None" = None,
 ):
     has_prompt_template = target_action.promptTemplateId is not None
     has_prompt_section = target_action.promptSectionId is not None
@@ -3003,26 +2990,6 @@ def _ensure_state_machine_send_prompt_action_valid(
             f"State machine edge {edge_id} send_prompt actions require exactly one of promptTemplateId, promptSectionId, or inlinePrompt."
         )
     if has_prompt_template:
-        if dbe is None:
-            raise ValueError(
-                f"State machine edge {edge_id} promptTemplateId validation requires a database."
-            )
-        prompt_template = load_prompt_template(dbe, target_action.promptTemplateId)
-        if prompt_template is None:
-            raise KeyError(
-                f"Prompt template {target_action.promptTemplateId} not found for state machine edge {edge_id}."
-            )
-        render_result = render_prompt(
-            prompt_template.template, target_action.promptInputs
-        )
-        if render_result.render_error is not None:
-            raise ValueError(
-                f"State machine edge {edge_id} prompt template {prompt_template.id} failed to render: {render_result.render_error}"
-            )
-        if render_result.rendered_text.strip() == "":
-            raise ValueError(
-                f"State machine edge {edge_id} prompt template {prompt_template.id} rendered an empty prompt."
-            )
         return
     if not has_prompt_section:
         return
@@ -3031,10 +2998,7 @@ def _ensure_state_machine_send_prompt_action_valid(
         target_action.promptSectionId,
         PromptSectionImpl,
     )
-    prompt_template = prompt_impl.template
-    if prompt_impl.promptTemplateId is not None and dbe is not None:
-        prompt_template = resolve_prompt_section_source(dbe, prompt_impl).template
-    render_result = render_prompt(prompt_template, target_action.promptInputs)
+    render_result = render_prompt(prompt_impl.template, target_action.promptInputs)
     if render_result.render_error is not None:
         raise ValueError(
             f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"
@@ -3067,15 +3031,12 @@ def _ensure_state_machine_edges_valid(
     p: "ProjectStateSingleConfig",
     edges: list[StateMachineEdge],
     machine_group_overrides: dict[ID, str] | None = None,
-    *,
-    dbe: "DBE | None" = None,
 ):
     for edge in edges:
         _ensure_state_machine_edge_endpoints_valid(
             p,
             edge,
             machine_group_overrides,
-            dbe=dbe,
         )
 
 
@@ -3445,8 +3406,6 @@ def _apply_state_machine_group_merge(
 def create_state_machine_edge(
     p: "ProjectStateSingleConfig",
     edge: StateMachineEdge,
-    *,
-    dbe: "DBE | None" = None,
 ):
     if any(existing.id == edge.id for existing in p.projectConfig.stateMachineEdges):
         raise KeyError(f"State machine edge {edge.id} already exists.")
@@ -3464,7 +3423,6 @@ def create_state_machine_edge(
         p,
         next_edges,
         _build_state_machine_group_merge_overrides(p, merge_replacements),
-        dbe=dbe,
     )
     _apply_state_machine_group_merge(p, merge_replacements)
     p.projectConfig.stateMachineEdges.append(edge)
@@ -3473,15 +3431,13 @@ def create_state_machine_edge(
 def update_state_machine_edge(
     p: "ProjectStateSingleConfig",
     edge: StateMachineEdge,
-    *,
-    dbe: "DBE | None" = None,
 ):
     for idx, existing in enumerate(p.projectConfig.stateMachineEdges):
         if existing.id != edge.id:
             continue
         next_edges = list(p.projectConfig.stateMachineEdges)
         next_edges[idx] = edge
-        _ensure_state_machine_edges_valid(p, next_edges, dbe=dbe)
+        _ensure_state_machine_edges_valid(p, next_edges)
         p.projectConfig.stateMachineEdges[idx] = edge
         return
     raise KeyError(f"State machine edge {edge.id} not found.")
@@ -3505,15 +3461,13 @@ def delete_state_machine_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID])
 def set_state_machine_edges(
     p: "ProjectStateSingleConfig",
     edges: list[StateMachineEdge],
-    *,
-    dbe: "DBE | None" = None,
 ):
     edge_ids: set[ID] = set()
     for edge in edges:
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate state machine edge id {edge.id} in update.")
         edge_ids.add(edge.id)
-    _ensure_state_machine_edges_valid(p, edges, dbe=dbe)
+    _ensure_state_machine_edges_valid(p, edges)
     p.projectConfig.stateMachineEdges = edges
 
 

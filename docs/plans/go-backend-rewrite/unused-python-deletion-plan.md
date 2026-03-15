@@ -410,21 +410,17 @@ Current tree note:
   actual API or compatibility behavior, such as `backend/setta/api/__init__.py`,
   `backend/setta/auth/__init__.py`, and `backend/setta/sessions/__init__.py`,
   stay retained.
-- The live Python `backend/setta/database/db_objs.py` helper has also been
-  narrowed in the current worktree: the dead settings-project, notification,
-  temp-id-map, LLM-config, deployment-manifest, external-agent,
-  engine-config, transcription-profile, agent-profile, agent-run,
-  agent-run-index, agentic summary cache, and prompts-example handles are
-  gone because those storage owners now live in Go under `internal/settingsstate`,
-  `internal/projectstate`, `internal/notifications`, `internal/mcpx`,
-  `internal/llmconfig`, `internal/deployments`,
-  `internal/externalagentconfigs`, `internal/agentruns`,
-  `internal/agentprofiles`, `internal/transcriptionprofiles`, and
-  `internal/agenticsummarycache`, while the only still-proven Python `DBE`
-  callers in tests/helpers use the surviving generic IO plus
-  project/prompt/env paths. The dead-path Python coverage for optional
-  deployment-manifest validation is gone too because current deployment
-  manifest ownership and tests live on the Go side.
+- The old Python `backend/setta/database/*` helper cluster is gone in the
+  current worktree. The active identifier factory moved to
+  `backend/setta/types/id.py`, where the surviving Python DTO/model layer now
+  gets `create_new_id()` directly, and the remaining `DBE` file-wrapper tail
+  was deleted because no proven non-test retained caller constructed it.
+  Prompt-template persistence, workflow/state-machine authoring validation, and
+  project/settings storage ownership already live in Go under
+  `internal/prompttemplates`, `internal/projectstate`, `internal/settingsstate`,
+  `internal/statemachineruns`, and related HTTP/MCP/frontend-binding paths, so
+  the old file-backed Python prompt lookup and project/env helper tests were
+  dead-path coverage rather than retained-boundary proof.
 - The dead generated Python clipboard union shim is also gone in the current
   worktree: `backend/setta/types/generated/clipboard_data_unions.py` is no
   longer generated because clipboard copy/paste transport and contract

@@ -3,9 +3,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
-from setta.database.utils import create_new_id
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
