@@ -40,6 +40,7 @@ type ParamSwitchProps = {
   requiredParamIdsToPaths: Record<string, string[]>;
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
+  isNestedChildInTree?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 };
@@ -53,9 +54,13 @@ function _ParamSwitch(props: ParamSwitchProps) {
 
 function TempParamSwitch({
   sectionId,
+  isNestedChildInTree = false,
   paramInfoId,
   listKey,
-}: Pick<ParamSwitchProps, "sectionId" | "paramInfoId" | "listKey">) {
+}: Pick<
+  ParamSwitchProps,
+  "sectionId" | "paramInfoId" | "listKey" | "isNestedChildInTree"
+>) {
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
   const activeListKey = listKey ?? dndContext?.listKey ?? null;
@@ -108,15 +113,10 @@ function TempParamSwitch({
     height: normalizedHeight ?? undefined,
     width: normalizedWidth ?? undefined,
   };
-  const columnWidth = "var(--param-column-width, 200px)";
-
   return (
     <article
-      className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
+      className={`section-key-value section-param-row section-min-rows relative grid min-w-0 items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40 ${isNestedChildInTree ? "ml-[0.9rem] before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20" : ""}`}
+      style={dndStyle}
       data-param-row="true"
       ref={setNodeRef}
       {...(restAttributes ?? {})}
@@ -246,6 +246,7 @@ export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
 
 function SortableRealParamSwitchRow({
   sectionId,
+  isNestedChildInTree,
   paramInfoId,
   listKey,
   paramChildren,
@@ -300,6 +301,7 @@ function SortableRealParamSwitchRow({
       {...props}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
+      isNestedChildInTree={isNestedChildInTree}
       listKey={listKey}
       paramChildren={paramChildren}
       dndAttributes={restAttributes}
