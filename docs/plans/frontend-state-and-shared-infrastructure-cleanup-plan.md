@@ -286,19 +286,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
   - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
   - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
   - `frontend/src/state/actions/uiSettingRevealActivation.ts` at 307 lines
+  - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
-  - `frontend/src/state/actions/app.ts` at 319 lines
-  - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
-  - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
-  - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
-  - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
+  - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
+  - `frontend/src/utils/conversationSearch.ts` at 402 lines
+  - `frontend/src/components/Utils/CodeMirror/getExtensions.ts` at 336 lines
+  - `frontend/src/utils/claudeTools.ts` at 330 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -587,13 +585,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingWrites.ts` now owns:
   - the thin public mutation facade that composes write-state, write-pipeline, and write-sync helpers
 - `sections/createSections.ts`, `sections/createSectionPlacement.ts`,
-  `sections/createSectionCatalog.ts`, `sections/createSectionsHelper.ts`,
+  `sections/createSectionCatalog.ts`, `sections/createSectionCatalogStatic.ts`,
+  `sections/createSectionCatalogTypes.ts`, `sections/createSectionsHelper.ts`,
   `sections/createSectionFileOpenShared.ts`,
   `sections/createSectionFileOpenCommands.ts`,
   `sections/createSectionFileDropRouting.ts`, and
   `sections/createSectionImplDefaults.ts` now split into:
   - `createSections.ts` for top-level create orchestration and empty-space add commands
-  - `createSectionCatalog.ts` for section creation menu types, grouped factory defaults, and `useCreateSectionsList`
+  - `createSectionCatalogTypes.ts` for shared section creation menu types
+  - `createSectionCatalogStatic.ts` for static grouped section creation defaults
+  - `createSectionCatalog.ts` for hook-time singleton/codegen/plugin gating in `useCreateSectionsList`
   - `createSectionsHelper.ts` for the narrowed post-create command path for `createTopLevelSectionFromImplSpecs`
   - `createSectionPlacement.ts` for smart placement context and empty-space positioning
   - `createSectionFileOpenShared.ts` for opened-file naming, reuse lookup, and shared rename/focus helpers

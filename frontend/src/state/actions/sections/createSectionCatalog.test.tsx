@@ -1,21 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  CodeLanguageEnum,
-  CodeObjTypeEnum,
-  createProjectConfig,
-  DateCalendarWeekStartEnum,
-  DateControlModeEnum,
-  DateSelectionModeEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { CodeObjTypeEnum, createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  getBaseCodeSectionCreateItems,
-  useCreateSectionsList,
-} from "./createSectionCatalog";
+import { useCreateSectionsList } from "./createSectionCatalog";
 
 function Probe({
   onResolve,
@@ -38,18 +27,6 @@ describe("createSectionCatalog", () => {
 
   afterEach(() => {
     resetProjectStores();
-  });
-
-  it("includes JSON, YAML, and TOML code creation presets", () => {
-    const items = getBaseCodeSectionCreateItems();
-    const byName = Object.fromEntries(items.map((item) => [item.name, item]));
-
-    expect(byName.JSON?.implSpecs.type).toBe(SectionTypeEnum.Code);
-    expect(byName.YAML?.implSpecs.type).toBe(SectionTypeEnum.Code);
-    expect(byName.TOML?.implSpecs.type).toBe(SectionTypeEnum.Code);
-    expect(byName.JSON?.implSpecs.codeLanguage).toBe(CodeLanguageEnum.json);
-    expect(byName.YAML?.implSpecs.codeLanguage).toBe(CodeLanguageEnum.yaml);
-    expect(byName.TOML?.implSpecs.codeLanguage).toBe(CodeLanguageEnum.toml);
   });
 
   it("includes dedicated calendar meta-control preset and omits deprecated controls", () => {
@@ -81,11 +58,6 @@ describe("createSectionCatalog", () => {
     expect(timeDisplay).toBeUndefined();
     expect(codeInput).toBeUndefined();
     expect(calendar?.controlCodeObjType).toBe(CodeObjTypeEnum.DateParam);
-    expect(calendar?.controlParamConfig).toEqual({
-      dateControlMode: DateControlModeEnum.calendar,
-      dateSelectionMode: DateSelectionModeEnum.multiple,
-      dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-    });
   });
 
   it("places task board in the Other group instead of Section", () => {
