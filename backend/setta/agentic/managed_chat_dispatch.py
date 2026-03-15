@@ -876,11 +876,9 @@ class ManagedChatDispatcher:
                 raise HTTPException(
                     status_code=500, detail="External agent config not found"
                 )
-            plugin_external_agent_adapters = runner.get_plugin_external_agent_adapters()
             status = build_external_agent_preflight_status(
                 self.dbe,
                 external_config,
-                plugin_external_agent_adapters=plugin_external_agent_adapters,
             )
             if not status.available:
                 issues = (
