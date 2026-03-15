@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   failPendingActiveSectionBackendSyncOp,
-  getActiveSectionUISelectionGeneration,
   getReconciledActiveSectionUIStateFromBackend,
   markPendingActiveSectionBackendSyncOp,
+} from "./activeSectionBackendSync";
+import {
+  getActiveSectionUISelectionGeneration,
   setActiveSectionUIIds,
-  useActiveSectionUI,
-} from "./activeSectionUI";
+} from "./activeSectionSelection";
+import { useActiveSectionUI } from "./storeDefinitions";
 import { resetProjectStores } from "./utils";
 
 function applyActiveSectionPatch() {

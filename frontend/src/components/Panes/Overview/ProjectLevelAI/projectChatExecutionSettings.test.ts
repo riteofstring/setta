@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputSubmission";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
@@ -12,33 +12,39 @@ import {
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  buildProjectChatHydrationCacheKey,
   buildProjectChatSubmittedMessageHistory,
-  clearProjectChatHydrationCacheEntriesForChat,
+  resolveProjectChatContextTelemetry,
+  resolveProjectChatRuntimeActivityDetails,
+} from "./projectChatConversationModel";
+import { resolveWorkspaceRootPollDelayMs } from "./projectChatEmptyState";
+import {
   getDefaultProjectChatPermissionMode,
   getProjectChatBlockedReasonMessage,
-  PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
-  resolveProjectChatComposerExecutableNativeSlashCommandTokens,
-  resolveProjectChatComposerNativeSlashCommandTokens,
-  resolveProjectChatComposerSlashCommandSets,
-  resolveProjectChatContextTelemetry,
-  resolveProjectChatHydrationRetryDecision,
-  resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatProviderDictationTranscribeEnabled,
-  resolveProjectChatRuntimeActivityDetails,
-  resolveProjectChatRuntimeNativeSlashCommandTokens,
-  resolveWorkspaceRootPollDelayMs,
-  shouldSkipProjectChatHydration,
-  trimProjectChatHydrationCache,
-} from "./ProjectChatCore";
+} from "./projectChatExecutionSettings";
 import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,
 } from "./projectChatHydrationAuthority";
 import {
+  buildProjectChatHydrationCacheKey,
+  clearProjectChatHydrationCacheEntriesForChat,
+  PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
+  resolveProjectChatHydrationRetryDecision,
+  resolveProjectChatHydrationRetryDelayMs,
+  shouldSkipProjectChatHydration,
+  trimProjectChatHydrationCache,
+} from "./projectChatHydrationRuntime";
+import {
   collectAgentNativeSlashCommandTokensFromEntries,
   resolveAgentNativeSlashCommandsByEngineId,
 } from "./projectChatSkillsMcpViewerUtils";
+import {
+  resolveProjectChatComposerExecutableNativeSlashCommandTokens,
+  resolveProjectChatComposerNativeSlashCommandTokens,
+  resolveProjectChatComposerSlashCommandSets,
+  resolveProjectChatRuntimeNativeSlashCommandTokens,
+} from "./projectChatSlashCommandAuthority";
 
 describe("getDefaultProjectChatPermissionMode", () => {
   it("defaults external engines to config_toml_custom", () => {

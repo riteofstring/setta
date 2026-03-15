@@ -1,4 +1,4 @@
-import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
 import type { ZustandProjectState } from "state/definitions";
 import { route_set_view_mode_sort_order } from "utils/generatedEndpoints";
 

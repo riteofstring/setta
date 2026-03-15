@@ -1,0 +1,172 @@
+import { useProjectState, useShareSession } from "state/definitions";
+import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
+import {
+  type SettaLspDiagnostic,
+  type SettaLspDiagnosticsPayload,
+} from "utils/generatedTypes";
+import { processTypeErrors } from "./typeCheck";
+
+export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
+
+function getFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
+  if (diagnostics.length === 0) {
+    return [];
+  }
+  const formatter: Array<SettaLspDiagnostic> = [];
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.source === FORMATTER_DIAGNOSTIC_SOURCE) {
+      formatter.push(diagnostic);
+    }
+  }
+  return formatter;
+}
+
+function areDiagnosticRangesEqual(
+  left: SettaLspDiagnostic["range"],
+  right: SettaLspDiagnostic["range"],
+) {
+  return (
+    left.start.line === right.start.line &&
+    left.start.character === right.start.character &&
+    left.end.line === right.end.line &&
+    left.end.character === right.end.character
+  );
+}
+
+function areDiagnosticsEqual(
+  left: SettaLspDiagnostic,
+  right: SettaLspDiagnostic,
+) {
+  if (left === right) {
+    return true;
+  }
+  return (
+    left.message === right.message &&
+    left.severity === right.severity &&
+    left.code === right.code &&
+    left.source === right.source &&
+    left.uri === right.uri &&
+    areDiagnosticRangesEqual(left.range, right.range)
+  );
+}
+
+function areDiagnosticsListEqual(
+  left: Array<SettaLspDiagnostic>,
+  right: Array<SettaLspDiagnostic>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let idx = 0; idx < left.length; idx += 1) {
+    if (!areDiagnosticsEqual(left[idx], right[idx])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function mergeDiagnosticsBySection(
+  previous: Record<string, Array<SettaLspDiagnostic>>,
+  incoming: Record<string, Array<SettaLspDiagnostic>>,
+) {
+  let changed = false;
+  const merged: Record<string, Array<SettaLspDiagnostic>> = {};
+  const seen = new Set<string>();
+
+  for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
+    seen.add(sectionId);
+    const prevDiagnostics = previous[sectionId];
+    const prevFormatter = getFormatterDiagnostics(prevDiagnostics ?? []);
+    const incomingFormatter = getFormatterDiagnostics(nextDiagnostics);
+    let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+    if (nextDiagnostics.length > 0) {
+      if (incomingFormatter.length > 0) {
+        mergedDiagnostics = nextDiagnostics;
+      } else {
+        mergedDiagnostics = nextDiagnostics.concat(prevFormatter);
+      }
+    }
+    if (mergedDiagnostics.length === 0) {
+      if (prevDiagnostics?.length) {
+        changed = true;
+      }
+      continue;
+    }
+
+    if (
+      prevDiagnostics &&
+      areDiagnosticsListEqual(prevDiagnostics, mergedDiagnostics)
+    ) {
+      merged[sectionId] = prevDiagnostics;
+      continue;
+    }
+    merged[sectionId] = mergedDiagnostics;
+    if (!prevDiagnostics || prevDiagnostics !== mergedDiagnostics) {
+      changed = true;
+    }
+  }
+
+  for (const sectionId of Object.keys(previous)) {
+    if (seen.has(sectionId)) {
+      continue;
+    }
+    const prevDiagnostics = previous[sectionId] ?? [];
+    if (prevDiagnostics.length > 0) {
+      changed = true;
+    }
+  }
+
+  return { codeSections: merged, changed };
+}
+
+function mergeUnmappedGenCode(
+  previous: Array<SettaLspDiagnostic>,
+  incoming: Array<SettaLspDiagnostic>,
+) {
+  const prevFormatter = getFormatterDiagnostics(previous);
+  const incomingFormatter = getFormatterDiagnostics(incoming);
+  let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+  if (incoming.length > 0) {
+    if (incomingFormatter.length > 0) {
+      mergedDiagnostics = incoming;
+    } else {
+      mergedDiagnostics = incoming.concat(prevFormatter);
+    }
+  }
+  if (areDiagnosticsListEqual(previous, mergedDiagnostics)) {
+    return { unmappedGenCode: previous, changed: false };
+  }
+  return { unmappedGenCode: mergedDiagnostics, changed: true };
+}
+
+export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
+  if (useShareSession.getState().isDeploymentMode) {
+    return;
+  }
+
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  if (payload.projectConfigId !== projectConfigId) {
+    return;
+  }
+
+  processTypeErrors(payload.genCode);
+  const prevState = useLspDiagnostics.getState();
+  const merged = mergeDiagnosticsBySection(
+    prevState.codeSections,
+    payload.codeSections,
+  );
+  const mergedUnmapped = mergeUnmappedGenCode(
+    prevState.unmappedGenCode,
+    payload.unmappedGenCode,
+  );
+  if (!merged.changed && !mergedUnmapped.changed) {
+    return;
+  }
+  useLspDiagnostics.setState({
+    codeSections: merged.codeSections,
+    unmappedGenCode: mergedUnmapped.unmappedGenCode,
+  });
+}

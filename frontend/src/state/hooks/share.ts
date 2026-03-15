@@ -3,15 +3,16 @@ import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { fetchListenerCoverageSnapshot } from "state/actions/listenerCoverage";
 import { loadProjectState } from "state/actions/project/loadProject";
-import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
-import { useProjectLoading, useShareSession } from "state/definitions";
+import { ensureShareSessionFromCurrentDeployment } from "state/actions/shareSessionBootstrap";
+import { useShareSession } from "state/definitions";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
 import { route_load_share_project_config } from "utils/generatedEndpoints";
-import type { ProjectMetadataEntry } from "utils/generatedTypes";
+import type { ProjectConfig } from "utils/generatedTypes";
 
 function resolveProjectConfigId(
-  projectMetadata: ProjectMetadataEntry[],
+  projectMetadata: ProjectConfig[],
   requestedConfigName: string | undefined,
   defaultProjectConfigId: string | null,
 ): string | null {
