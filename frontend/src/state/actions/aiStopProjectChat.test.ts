@@ -60,12 +60,12 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useAIFollow: typeof import("state/definitions").useAIFollow;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let useProjectState: typeof import("state/definitions").useProjectState;
-let stopProjectChatResponse: typeof import("state/actions/aiChatControls").stopProjectChatResponse;
-let stopManagedSectionChatResponse: typeof import("state/actions/aiChatControls").stopManagedSectionChatResponse;
-let getLLMChatHydrationOutcome: typeof import("state/actions/aiHydration").getLLMChatHydrationOutcome;
-let getExternalAgentChatHydrationOutcome: typeof import("state/actions/aiHydration").getExternalAgentChatHydrationOutcome;
-let getDefaultChatDetails: typeof import("state/actions/aiChatDetails").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/aiChatStreaming").receiveLLMResponseChunk;
+let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
+let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
+let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
+let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
+let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 function seedFollowToolArguments(
@@ -120,18 +120,14 @@ describe("stopProjectChatResponse", () => {
     useAIFollow = definitions.useAIFollow;
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
-    const aiChatDetails = await import("state/actions/aiChatDetails");
-    const aiChatStreaming = await import("state/actions/aiChatStreaming");
-    const aiChatControls = await import("state/actions/aiChatControls");
-    const aiHydration = await import("state/actions/aiHydration");
-    stopProjectChatResponse = aiChatControls.stopProjectChatResponse;
-    stopManagedSectionChatResponse =
-      aiChatControls.stopManagedSectionChatResponse;
-    getLLMChatHydrationOutcome = aiHydration.getLLMChatHydrationOutcome;
+    const ai = await import("state/actions/ai");
+    stopProjectChatResponse = ai.stopProjectChatResponse;
+    stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
+    getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
-      aiHydration.getExternalAgentChatHydrationOutcome;
-    getDefaultChatDetails = aiChatDetails.getDefaultChatDetails;
-    receiveLLMResponseChunk = aiChatStreaming.receiveLLMResponseChunk;
+      ai.getExternalAgentChatHydrationOutcome;
+    getDefaultChatDetails = ai.getDefaultChatDetails;
+    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
