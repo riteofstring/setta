@@ -24,7 +24,7 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "./renameRefactors";
-import { createNodesMapFromProjectConfigChildren } from "./sectionDisplayQueries";
+import { createNodesMapFromProjectConfigChildren } from "./sectionDisplayStructure";
 import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
 import { mergeStreamingChatSections } from "./sectionStreamingMerge";
 import { clearToolArgumentPreviewForProjectState } from "./sectionToolArgumentPreview";

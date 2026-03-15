@@ -3,12 +3,12 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { getTopLevelSectionIdsForDisplay } from "state/actions/sectionDisplayStructure";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   getActiveViewModeConfig,
   getSectionShouldRender,
-  getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionDisplayQueries";
-import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
+} from "state/actions/sectionViewModeVisibility";
 import {
   useAIStore,
   useProjectState,

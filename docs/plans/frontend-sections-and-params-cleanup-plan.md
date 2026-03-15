@@ -16,7 +16,7 @@ Make section chrome and param rendering easy to change without touching measurem
   - chat/browser/task-board layout internals already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
   - project-level page routing and pane shells
 
-## Status Refresh (2026-03-14)
+## Status Refresh (2026-03-15)
 
 - This domain is still relatively close to the original planning snapshot for
   JSX-heavy section chrome, but section-creation state is no longer a single
@@ -52,6 +52,12 @@ Make section chrome and param rendering easy to change without touching measurem
   is now the thin in-state composition facade, and
   `frontend/src/state/actions/sections/moveSections.ts` remains the thin
   optimistic backend command facade.
+- `frontend/src/state/actions/sectionDisplayStructure.ts` now owns top-level
+  display selection, displayed-child tree derivation, node-map creation, and
+  DnD child reset, `frontend/src/state/actions/sectionViewModeVisibility.ts`
+  now owns active-view lookup plus visibility/render and ancestor-visibility
+  queries, and `frontend/src/state/actions/sectionDisplayQueries.ts` is now
+  the thin compatibility facade.
 - `frontend/src/state/actions/params/paramSelectionCommands.ts` now owns
   single-param drag/drop selection normalization,
   `frontend/src/state/actions/params/paramMoveCommands.ts` now owns optimistic

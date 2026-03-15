@@ -86,12 +86,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   keep new effective-impl reads, section layout queries, and local impl writes
   on those dedicated surfaces instead of adding them back to the remaining
   metadata/query file.
-- `frontend/src/state/actions/sectionDisplayQueries.ts` now owns top-level
-  display selection, displayed-child tree derivation, node-map creation, DnD
-  child reset, and view-mode visibility queries that previously lived in
-  `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
-  section-render/display queries on that dedicated surface instead of adding
-  them back to the remaining streaming/tool-preview helper file.
+- `frontend/src/state/actions/sectionDisplayStructure.ts` now owns top-level
+  display selection, displayed-child tree derivation, node-map creation, and
+  DnD child reset that previously lived in
+  `frontend/src/state/actions/sectionInfos.ts`, while
+  `frontend/src/state/actions/sectionViewModeVisibility.ts` now owns active
+  view-mode lookup, visibility/render queries, and ancestor-visibility reads,
+  and `frontend/src/state/actions/sectionDisplayQueries.ts` is now the thin
+  compatibility facade; future cleanup should keep new section-render/display
+  queries on those dedicated surfaces instead of adding them back to the
+  remaining streaming/tool-preview helper file.
 - `frontend/src/state/actions/sectionStreamingMerge.ts` now owns streaming chat
   merge reconciliation for backend project-state snapshots,
   `frontend/src/state/actions/sectionShownParams.ts` now owns shown-param and
@@ -377,11 +381,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionDisplayQueries.ts` at 242 lines
   - `frontend/src/state/actions/projectChatThreadStorageUndo.ts` at 238 lines
   - `frontend/src/state/actions/projectChatWindowingNormalization.ts` at 236 lines
   - `frontend/src/state/actions/stateMachineRunSelection.ts` at 234 lines
   - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` at 234 lines
+  - `frontend/src/state/actions/sectionLayoutQueries.ts` at 233 lines
+  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
@@ -602,10 +607,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `sectionEffectiveImplMutations.ts` now owns:
   - in-place impl mutation helpers for section/code-object writes
   - cache invalidation after shared, base-impl, or variant-modifier updates
-- `sectionDisplayQueries.ts` now owns:
+- `sectionDisplayStructure.ts` now owns:
   - top-level display selection and displayed-child tree derivation
   - node-map creation from current layouts and effective section styling
-  - DnD child reset plus view-mode visibility/render queries
+  - DnD child reset
+- `sectionViewModeVisibility.ts` now owns:
+  - active-view lookup and section visibility/read gating queries
+  - ancestor-visibility comparisons used by nested section containers
+- `sectionDisplayQueries.ts` now owns:
+  - compatibility re-exports for callers that have not moved yet
 - `sectionStreamingMerge.ts` now owns:
   - backend snapshot merge reconciliation for streaming chat sections
 - `sectionShownParams.ts` now owns:

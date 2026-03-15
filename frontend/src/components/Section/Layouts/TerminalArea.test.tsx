@@ -14,7 +14,7 @@ let mockProjectState: MockProjectState = {
   },
 };
 
-vi.mock("state/actions/sectionDisplayQueries", () => ({
+vi.mock("state/actions/sectionViewModeVisibility", () => ({
   getActiveViewModeConfig: () => ({
     isUserFacing: false,
   }),

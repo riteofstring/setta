@@ -253,13 +253,16 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   active-view layout selection, top-level layout snapshot building, pending-op
   reconciliation, and debounced layout persistence, reducing
   `frontend/src/state/actions/sectionInfos.ts` further to 1308 lines.
-- `frontend/src/state/actions/sectionDisplayQueries.ts` now owns top-level
-  display selection, displayed-child tree derivation, node-map creation, DnD
-  child reset, and view-mode visibility queries that previously lived in
-  `frontend/src/state/actions/sectionInfos.ts`, reducing
-  `frontend/src/state/actions/sectionInfos.ts` further to 457 lines for the
-  remaining streaming merge, shown-param, ancestry, and tool-preview cleanup
-  surface.
+- `frontend/src/state/actions/sectionDisplayStructure.ts` now owns top-level
+  display selection, displayed-child tree derivation, node-map creation, and
+  DnD child reset that previously lived in
+  `frontend/src/state/actions/sectionInfos.ts`, while
+  `frontend/src/state/actions/sectionViewModeVisibility.ts` now owns active
+  view-mode lookup, visibility/render queries, and ancestor-visibility reads,
+  and `frontend/src/state/actions/sectionDisplayQueries.ts` is now the thin
+  compatibility facade, reducing `frontend/src/state/actions/sectionInfos.ts`
+  further to 457 lines for the remaining streaming merge, shown-param,
+  ancestry, and tool-preview cleanup surface.
 - `frontend/src/state/actions/sectionStreamingMerge.ts`,
   `frontend/src/state/actions/sectionShownParams.ts`,
   `frontend/src/state/actions/sectionHierarchy.ts`, and
@@ -674,7 +677,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/sectionDisplayQueries.ts`, `state/actions/projectChatThreadStorageUndo.ts`, `state/actions/projectChatWindowingNormalization.ts`, `state/actions/stateMachineRunSelection.ts`, `state/actions/projectChatWindowingCanvasBoot.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/projectChatThreadStorageUndo.ts`, `state/actions/projectChatWindowingNormalization.ts`, `state/actions/stateMachineRunSelection.ts`, `state/actions/projectChatWindowingCanvasBoot.ts`, `state/actions/sectionLayoutQueries.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

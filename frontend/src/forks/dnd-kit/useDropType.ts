@@ -15,7 +15,7 @@ import {
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { manualDndChildrenReset } from "state/actions/sectionDisplayQueries";
+import { manualDndChildrenReset } from "state/actions/sectionDisplayStructure";
 import {
   getCurrSectionVariant,
   getSectionChildren,

@@ -475,10 +475,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
     reconciliation, active-section sync, viewport updates, and project-chat
     windowing coordination for authoritative project snapshots.
-  - `state/actions/sectionDisplayQueries.ts` owns top-level display selection,
-    displayed-child tree derivation, node-map creation, DnD child reset, and
-    view-mode visibility queries used by section rendering and project-state
-    bootstrap flows.
+  - `state/actions/sectionDisplayStructure.ts` owns top-level display
+    selection, displayed-child tree derivation, node-map creation, and DnD
+    child reset used by section rendering and project-state bootstrap flows.
+  - `state/actions/sectionViewModeVisibility.ts` owns active-view lookup,
+    visibility/read gating, and ancestor-visibility queries for section
+    rendering.
+  - `state/actions/sectionDisplayQueries.ts` is now the thin compatibility
+    facade over those section display owners.
   - `state/actions/projectStateCommands.ts` owns the shared project-state
     command entrypoints for section delete/group flows, param selection,
     viewport persistence, and all-project-metadata updates.

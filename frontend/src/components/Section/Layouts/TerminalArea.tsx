@@ -1,7 +1,7 @@
 import _ from "lodash";
 import React, { useState } from "react";
-import { getActiveViewModeConfig } from "state/actions/sectionDisplayQueries";
 import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionInfos";
+import { getActiveViewModeConfig } from "state/actions/sectionViewModeVisibility";
 import { useProjectState } from "state/definitions";
 import { useTerminal } from "state/hooks/terminals/terminal";
 import { NO_PAN_CLASS_NAME } from "utils/constants";

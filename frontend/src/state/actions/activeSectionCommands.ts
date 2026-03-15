@@ -2,7 +2,7 @@ import { getActiveSectionUIIds } from "state/activeSectionSelection";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { setActiveSectionIds } from "./activeSectionSync";
-import { getTopLevelSectionIdsForDisplay } from "./sectionDisplayQueries";
+import { getTopLevelSectionIdsForDisplay } from "./sectionDisplayStructure";
 import { getCurrEffectiveSectionImpl } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 

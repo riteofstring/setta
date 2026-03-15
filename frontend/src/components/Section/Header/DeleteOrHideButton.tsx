@@ -1,8 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
-import { getActiveViewModeConfig } from "state/actions/sectionDisplayQueries";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { getActiveViewModeConfig } from "state/actions/sectionViewModeVisibility";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {

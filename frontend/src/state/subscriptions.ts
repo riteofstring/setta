@@ -16,12 +16,12 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import { debouncedDispatchViewportUpdate } from "./actions/projectStateCommands";
+import { getDisplayedSectionIdToChildren } from "./actions/sectionDisplayStructure";
+import { getCurrEffectiveSectionImpl } from "./actions/sectionEffectiveImpls";
 import {
-  getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionViewModeVisibility,
-} from "./actions/sectionDisplayQueries";
-import { getCurrEffectiveSectionImpl } from "./actions/sectionEffectiveImpls";
+} from "./actions/sectionViewModeVisibility";
 import { getActiveViewModeTopLevelSections } from "./actions/topLevelSectionLayouts";
 import { decodeExistingRawImages } from "./hooks/artifactTransport";
 

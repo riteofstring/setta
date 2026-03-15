@@ -3,13 +3,13 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getActiveViewModeConfig } from "state/actions/sectionDisplayQueries";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { getActiveViewModeConfig } from "state/actions/sectionViewModeVisibility";
 import { useContextMenus, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {

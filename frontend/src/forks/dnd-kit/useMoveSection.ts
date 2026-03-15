@@ -6,7 +6,7 @@ import {
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useRef } from "react";
-import { manualDndChildrenReset } from "state/actions/sectionDisplayQueries";
+import { manualDndChildrenReset } from "state/actions/sectionDisplayStructure";
 import { getSectionChildren } from "state/actions/sectionInfos";
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 import {

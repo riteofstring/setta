@@ -4,7 +4,7 @@ import {
   createNodesMapFromProjectConfigChildren,
   getDisplayedSectionIdToChildren,
   getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionDisplayQueries";
+} from "state/actions/sectionDisplayStructure";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {

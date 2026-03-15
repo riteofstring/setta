@@ -1,4 +1,4 @@
-import { getTopLevelSectionIdsForDisplay } from "state/actions/sectionDisplayQueries";
+import { getTopLevelSectionIdsForDisplay } from "state/actions/sectionDisplayStructure";
 import { useProjectState } from "state/definitions";
 import { useSectionRefs } from "state/stores/layoutInteractionStores";
 import type { TabScopeRegistration } from "./focusManagerRegistry";

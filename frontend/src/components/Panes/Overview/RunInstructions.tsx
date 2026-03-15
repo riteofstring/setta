@@ -14,14 +14,14 @@ import {
   toggleCustomRunInDropdown,
 } from "state/actions/customRuns";
 import {
-  getActiveViewModeConfig,
-  getSectionShouldRender,
-} from "state/actions/sectionDisplayQueries";
-import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getSectionCore,
 } from "state/actions/sectionInfos";
+import {
+  getActiveViewModeConfig,
+  getSectionShouldRender,
+} from "state/actions/sectionViewModeVisibility";
 import {
   resetStateMachineRun,
   startStateMachineRun,

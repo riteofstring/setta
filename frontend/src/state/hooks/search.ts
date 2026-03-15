@@ -8,7 +8,7 @@ import { useState } from "react";
 import {
   getDisplayedSectionIdToChildren,
   getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionDisplayQueries";
+} from "state/actions/sectionDisplayStructure";
 import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import { useProjectState, ZustandProjectState } from "state/definitions";
