@@ -970,6 +970,21 @@ type SetChartSettingsRequest struct {
 	ChangedSettings []string                         `json:"changedSettings"`
 }
 
+func validateChartTypeRequestValue(fieldName string, chartType projectstate.ChartType) error {
+	switch chartType {
+	case projectstate.ChartTypeLine, projectstate.ChartTypeScatter:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid %s value %q. Expected one of: %q, %q.",
+			fieldName,
+			string(chartType),
+			projectstate.ChartTypeLine,
+			projectstate.ChartTypeScatter,
+		)
+	}
+}
+
 type SetTextBlockTextRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -5380,6 +5395,10 @@ func setChartTypeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
+		if err := validateChartTypeRequestValue("chartType", payload.ChartType); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+			return
+		}
 		if deps.ProjectState == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -5414,6 +5433,10 @@ func setChartSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 		sectionID := strings.TrimSpace(payload.SectionID)
 		if sectionID == "" {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if err := validateChartTypeRequestValue("chartSettings.type", payload.ChartSettings.Type); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
 			return
 		}
 		if deps.ProjectState == nil {

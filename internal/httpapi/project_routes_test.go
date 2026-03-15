@@ -6301,47 +6301,112 @@ func TestRegisterProjectRoutesChartMutationsRejectInvalidInputs(t *testing.T) {
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 
-	for _, requestSpec := range []struct {
-		route        string
-		body         string
-		expectedCode int
-		expectedBody string
-	}{
-		{
-			route:        RouteSetChartAreaDataPath,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","dataPath":"chart.csv"}`,
-			expectedCode: http.StatusUnprocessableEntity,
-			expectedBody: `"code":"chart_section_required"`,
-		},
-		{
-			route:        RouteSetChartType,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartType":"bar"}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"chart_type_invalid"`,
-		},
-		{
-			route:        RouteSetChartSettings,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"bar"},"changedSettings":[]}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"chart_type_invalid"`,
-		},
-		{
-			route:        RouteSetChartSettings,
-			body:         `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"line","categoryColumn":"series"},"changedSettings":["categoryColumn"]}`,
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `"code":"chart_settings_field_invalid"`,
-		},
-	} {
-		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		name                string
+		route               string
+		body                string
+		expectedCode        int
+		expectedErrorCode   string
+		expectedMessagePart string
+	}{
+		{
+			name:                "data_path_requires_chart_section",
+			route:               RouteSetChartAreaDataPath,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","dataPath":"chart.csv"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "chart_section_required",
+			expectedMessagePart: "Section must resolve to a chart section.",
+		},
+		{
+			name:                "chart_type_rejects_unknown_literal_at_transport",
+			route:               RouteSetChartType,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartType":"bar"}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid chartType value "bar".`,
+		},
+		{
+			name:                "chart_type_rejects_padded_literal_without_trimming",
+			route:               RouteSetChartType,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartType":" scatter "}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid chartType value " scatter ".`,
+		},
+		{
+			name:                "chart_settings_type_rejects_unknown_literal_at_transport",
+			route:               RouteSetChartSettings,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"bar"},"changedSettings":[]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid chartSettings.type value "bar".`,
+		},
+		{
+			name:                "chart_settings_type_rejects_padded_literal_without_trimming",
+			route:               RouteSetChartSettings,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":" line "},"changedSettings":[]}`,
+			expectedCode:        http.StatusUnprocessableEntity,
+			expectedErrorCode:   "invalid_request",
+			expectedMessagePart: `Invalid chartSettings.type value " line ".`,
+		},
+		{
+			name:                "chart_settings_field_validation_still_uses_runtime_error_path",
+			route:               RouteSetChartSettings,
+			body:                `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"line","categoryColumn":"series"},"changedSettings":["categoryColumn"]}`,
+			expectedCode:        http.StatusBadRequest,
+			expectedErrorCode:   "chart_settings_field_invalid",
+			expectedMessagePart: "chart settings field is invalid",
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
 		if response.Code != requestSpec.expectedCode {
-			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+			t.Fatalf("%s: expected %d for %s, got %d with body %q", requestSpec.name, requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
 		}
-		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
-			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+
+		var payload errorResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("%s: decode error payload: %v", requestSpec.name, err)
 		}
+		if payload.Error.Code != requestSpec.expectedErrorCode {
+			t.Fatalf("%s: expected error code %q, got %#v", requestSpec.name, requestSpec.expectedErrorCode, payload)
+		}
+		if !strings.Contains(payload.Error.Message, requestSpec.expectedMessagePart) {
+			t.Fatalf("%s: expected error message to contain %q, got %#v", requestSpec.name, requestSpec.expectedMessagePart, payload)
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	chartVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["chart-section"]
+	chartImplID := payload.ProjectState.SectionVariants[chartVariantID].Impl
+	chartImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[chartImplID])
+	rawChartSettings, ok := chartImplPayload["chartSettings"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chartSettings object, got %#v", chartImplPayload["chartSettings"])
+	}
+	if got := rawChartSettings["type"]; got != "line" {
+		t.Fatalf("expected rejected chart-type requests to leave chartSettings.type unchanged, got %#v", got)
+	}
+	if got := rawChartSettings["secondYAxisColumns"]; !reflect.DeepEqual(got, []any{"humidity"}) {
+		t.Fatalf("expected rejected chart-type requests to leave secondYAxisColumns unchanged, got %#v", got)
 	}
 }
 
