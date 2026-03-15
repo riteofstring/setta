@@ -86,6 +86,11 @@ type StandaloneNonChatTarget = Exclude<
   StandaloneProjectChatTarget
 >;
 
+type StandaloneRenderableNonChatTarget = Extract<
+  StandaloneSurfaceTarget,
+  { kind: "section" | "window_space" }
+>;
+
 function normalizeStandaloneChatId(
   chatId: string | null | undefined,
 ): string | null {
@@ -524,7 +529,7 @@ function StandaloneNonChatRouteSurface({
   canUseManagedChat,
 }: {
   projectConfigId: string;
-  target: StandaloneNonChatTarget;
+  target: StandaloneRenderableNonChatTarget;
   canUseManagedChat: boolean;
 }) {
   const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
@@ -638,38 +643,6 @@ function StandaloneNonChatRouteSurface({
 
   if (shouldBlockStandaloneManagedChat) {
     return <StandaloneManagedChatBlockedSurface />;
-  }
-
-  if (target.kind === "section_not_found") {
-    return (
-      <StandaloneSurfaceShell>
-        <div
-          className="relative min-h-0 flex-1"
-          data-testid="standalone-section-not-found"
-        >
-          <NotFound
-            title="Section Not Found"
-            description="No section matches this standalone route."
-          />
-        </div>
-      </StandaloneSurfaceShell>
-    );
-  }
-
-  if (target.kind === "window_space_not_found") {
-    return (
-      <StandaloneSurfaceShell>
-        <div
-          className="relative min-h-0 flex-1"
-          data-testid="standalone-window-space-not-found"
-        >
-          <NotFound
-            title="Window Space Not Found"
-            description="No saved window space matches this standalone route."
-          />
-        </div>
-      </StandaloneSurfaceShell>
-    );
   }
 
   if (target.kind === "window_space") {
