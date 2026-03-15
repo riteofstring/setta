@@ -127,8 +127,6 @@ func (spec BackendWorkerSpec) sessionOptions(host *WorkerHost) WorkerSessionOpti
 		PluginVersion:         spec.PluginVersion,
 		PluginRoot:            spec.PluginRoot,
 		Entrypoint:            spec.Entrypoint,
-		ServerMode:            spec.ServerMode,
-		RequestedCapabilities: append([]string(nil), spec.RequestedCapabilities...),
 		EffectiveCapabilities: append([]string(nil), spec.EffectiveCapabilities...),
 		Environment:           append([]string(nil), spec.Environment...),
 		WorkingDirectory:      spec.WorkingDirectory,

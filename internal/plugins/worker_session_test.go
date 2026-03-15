@@ -21,7 +21,6 @@ func TestStartWorkerSessionRequiresFields(t *testing.T) {
 		PluginVersion:         "0.1.0",
 		PluginRoot:            "/tmp/plugin-root",
 		Entrypoint:            "/tmp/plugin-root/entrypoint.py",
-		ServerMode:            "share",
 		EffectiveCapabilities: []string{CapabilityEmitListenerEvents},
 		Host:                  host,
 	}
@@ -65,13 +64,6 @@ func TestStartWorkerSessionRequiresFields(t *testing.T) {
 				options.Entrypoint = ""
 			},
 			target: ErrWorkerSessionEntrypointRequired,
-		},
-		{
-			name: "server mode",
-			mutate: func(options *WorkerSessionOptions) {
-				options.ServerMode = ""
-			},
-			target: ErrWorkerSessionServerModeRequired,
 		},
 		{
 			name: "host",
@@ -236,7 +228,6 @@ func newWorkerSessionTestOptions(t *testing.T, host *WorkerHost, shareSessionID 
 		PluginVersion:         "0.1.0",
 		PluginRoot:            pluginRoot,
 		Entrypoint:            entrypoint,
-		ServerMode:            "share",
 		EffectiveCapabilities: []string{CapabilityEmitListenerEvents},
 		Environment:           workerRPCTestEnv(repoRoot),
 		WorkingDirectory:      repoRoot,

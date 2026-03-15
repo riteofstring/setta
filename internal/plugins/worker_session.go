@@ -21,7 +21,6 @@ var (
 	ErrWorkerSessionPluginVersionRequired = errors.New("plugins: worker session plugin version is required")
 	ErrWorkerSessionPluginRootRequired    = errors.New("plugins: worker session plugin root is required")
 	ErrWorkerSessionEntrypointRequired    = errors.New("plugins: worker session entrypoint is required")
-	ErrWorkerSessionServerModeRequired    = errors.New("plugins: worker session server mode is required")
 	ErrWorkerSessionClosed                = errors.New("plugins: worker session is closed")
 	ErrWorkerSessionStartFailed           = errors.New("plugins: worker session start failed")
 	ErrWorkerSessionCloseFailed           = errors.New("plugins: worker session close failed")
@@ -33,8 +32,6 @@ type WorkerSessionOptions struct {
 	PluginVersion         string
 	PluginRoot            string
 	Entrypoint            string
-	ServerMode            string
-	RequestedCapabilities []string
 	EffectiveCapabilities []string
 	Environment           []string
 	WorkingDirectory      string
@@ -73,10 +70,6 @@ func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
 	if entrypoint == "" {
 		return nil, ErrWorkerSessionEntrypointRequired
 	}
-	serverMode := strings.TrimSpace(options.ServerMode)
-	if serverMode == "" {
-		return nil, ErrWorkerSessionServerModeRequired
-	}
 	if options.Host == nil {
 		return nil, ErrWorkerRPCHostRequired
 	}
@@ -91,23 +84,7 @@ func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
 		pluginRoot,
 		"--entrypoint",
 		entrypoint,
-		"--server-mode",
-		serverMode,
 	)
-	for _, capability := range options.RequestedCapabilities {
-		capability = strings.TrimSpace(capability)
-		if capability == "" {
-			continue
-		}
-		command = append(command, "--requested-capability", capability)
-	}
-	for _, capability := range options.EffectiveCapabilities {
-		capability = strings.TrimSpace(capability)
-		if capability == "" {
-			continue
-		}
-		command = append(command, "--effective-capability", capability)
-	}
 
 	cmd := exec.Command(command[0], command[1:]...)
 	if strings.TrimSpace(options.WorkingDirectory) != "" {

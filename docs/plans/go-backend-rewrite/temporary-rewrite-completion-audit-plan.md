@@ -656,3 +656,15 @@ registration failures. This does not change the blocker verdict, but it narrows
 the retained Python worker boundary away from non-functional compatibility
 helpers and closer to the real route/MCP/codegen/language-server/external-agent
 runtime that still needs replacement.
+
+A twenty-eighth follow-up rewrite step removed the Python worker's mode and
+capability introspection contract. `backend/setta/plugins/worker.py` no longer
+accepts `--server-mode`, `--requested-capability`, or
+`--effective-capability`, and the worker plugin context no longer exposes those
+values back to Python plugin code. The focused Python worker test that existed
+only to assert that metadata echo path was removed, and the Go worker-session /
+worker-RPC wiring now passes capability enforcement only through the Go host
+context instead of feeding a dead Python-side convenience API. This keeps the
+Go runtime's real capability filtering/status tracking intact while narrowing
+the remaining Python worker runtime away from authoring-time introspection
+helpers.

@@ -67,7 +67,6 @@ func TestWorkerRPCClientCallWithPythonWorkerDeliversListenerDependencyEvents(t *
 
 	process := newWorkerRPCTestProcess(t, workerRPCTestProcessOptions{
 		Host:           host,
-		ServerMode:     "share",
 		ShareSessionID: "share-a",
 	})
 	defer process.Close(t)
@@ -162,8 +161,7 @@ func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing
 	}
 
 	process := newWorkerRPCTestProcess(t, workerRPCTestProcessOptions{
-		Host:       host,
-		ServerMode: "share",
+		Host: host,
 	})
 	defer process.Close(t)
 
@@ -255,7 +253,6 @@ func TestWorkerRPCClientCallRejectsInvalidResponseContracts(t *testing.T) {
 
 type workerRPCTestProcessOptions struct {
 	Host           *WorkerHost
-	ServerMode     string
 	ShareSessionID string
 }
 
@@ -278,10 +275,6 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 		pluginRoot,
 		"--entrypoint",
 		entrypoint,
-		"--server-mode",
-		options.ServerMode,
-		"--effective-capability",
-		CapabilityEmitListenerEvents,
 	)
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Dir = repoRoot
