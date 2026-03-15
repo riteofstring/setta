@@ -101,13 +101,7 @@ def _load_codex_mcp_servers_from_path(
         return {} if fail_closed else None
     if not raw_servers:
         return {} if fail_closed else None
-    parsed = _parse_codex_mcp_servers(raw_servers)
-    if parsed:
-        return parsed
-    return {} if fail_closed else None
 
-
-def _parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerConfig]:
     parsed: dict[str, MCPServerConfig] = {}
     validated_entries: list[tuple[str, str, Any]] = []
     raw_server_labels_by_canonical_id: dict[str, list[str]] = {}
@@ -118,7 +112,15 @@ def _parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServer
         else:
             server_label = repr(raw_server_id)
         try:
-            server_id = _validate_codex_server_id(raw_server_id)
+            if not isinstance(raw_server_id, str):
+                raise ValueError("server id must be a string")
+            server_id = raw_server_id.strip()
+            if not server_id:
+                raise ValueError("server id is empty")
+            if server_id == SETTA_MCP_SERVER_ID:
+                raise ValueError("server id is reserved for setta")
+            if "__" in server_id:
+                raise ValueError("server id cannot contain '__'")
         except ValueError as exc:
             logger.warning(
                 "Skipping Codex MCP server '%s': %s",
@@ -163,7 +165,9 @@ def _parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServer
             continue
         parsed[server_id] = server_config
 
-    return parsed
+    if parsed:
+        return parsed
+    return {} if fail_closed else None
 
 
 def _parse_codex_mcp_server_entry(
@@ -351,16 +355,3 @@ def _parse_optional_nonempty_string_field(
     if not normalized:
         return None
     return normalized
-
-
-def _validate_codex_server_id(raw_server_id: Any) -> str:
-    if not isinstance(raw_server_id, str):
-        raise ValueError("server id must be a string")
-    server_id = raw_server_id.strip()
-    if not server_id:
-        raise ValueError("server id is empty")
-    if server_id == SETTA_MCP_SERVER_ID:
-        raise ValueError("server id is reserved for setta")
-    if "__" in server_id:
-        raise ValueError("server id cannot contain '__'")
-    return server_id
