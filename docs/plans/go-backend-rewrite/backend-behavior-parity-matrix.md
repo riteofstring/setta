@@ -29,6 +29,7 @@ It currently covers:
 - listener coverage route and coverage-update contracts
 - listener frontend emit dependency/artifact update behavior
 - listener router-endpoint call transport behavior
+- listener chat-toolkit and scriptable-chat built-in endpoint behavior
 
 Rows outside these slices are still pending.
 
@@ -186,6 +187,19 @@ Rows outside these slices are still pending.
 | `LR-04` | Unknown listener endpoints fail with `listener_call_failed` and return error details in `ListenerRouterEndpointResult`, which the retained listener client surfaces. | `tests/websockets/test_python_script_receiver.py::test_listener_router_endpoint_call_returns_error_for_unknown_plugin_endpoint`; `tests/api/test_listener_router_endpoint_calls.py::test_call_router_endpoint_surfaces_error_details`; `backend/setta/api/listener.py::_handle_router_endpoint_result`. | Impl/proof: `internal/wsapi/routes.go::handleListenerRouterEndpointCall`; `internal/wsapi/routes_test.go::TestRegisterRoutesListenerEndpointCallReturnsUnknownEndpointError`. | `Proved` | |
 | `LR-05` | Empty listener router-endpoint names fail with `listener_call_invalid_operation` and do not dispatch. | `backend/setta/websockets/msg_handlers/python_script_receiver.py::_handle_listener_router_endpoint_call`. | Impl: `internal/wsapi/routes.go::handleListenerRouterEndpointCall`. | `Implemented, proof incomplete` | Current Go has the same empty-endpoint guard, but this slice has no direct Go test yet. |
 
+## Listener Chat Built-Ins
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `LC-01` | The retained listener chat-history client can round-trip chat-section chat ids over `route_set_chat_section_chat_id` and `route_get_chat_section_chat_id` through the listener router-endpoint transport. | `tests/llm/test_chat_toolkit_listener_clients.py::test_history_client_coerces_chat_payloads`. | App proof: `internal/app/websocket_test.go::TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint`. | `Proved` | This row is scoped to the listener transport contract, not the broader chat-section route family. |
+| `LC-02` | Scriptable chat CRUD built-ins are exposed over the listener transport: `route_create_chat`, `route_get_chat`, `route_append_chat_messages`, and `route_set_chat_system_prompt` preserve chat state and return structured chat payloads. | `tests/llm/test_chat_toolkit_listener_clients.py::test_history_client_coerces_chat_payloads`; `tests/llm/test_chat_toolkit_session_errors.py` uses the same route family for session flows. | Impl: `internal/app/listener_built_in_endpoint_invoker.go`; service proof: `internal/scriptablechat/service_test.go::TestServiceCRUDRoundTrip`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketDispatchesScriptableChatBuiltIns`. | `Proved` | Current Go app proof directly covers create/append/system-prompt; service proof covers `get_chat` as part of the CRUD round-trip. |
+| `LC-03` | `route_create_chat` resolves the scriptable default LLM config when no engine config is supplied, resolves managed engine configs when one is supplied, and persists the scoped `projectConfigId`. | `tests/llm/test_chat_toolkit_listener_clients.py::test_history_client_coerces_chat_payloads`; active chat-section docs: `docs/reference/chat-sections.md` scriptable mode section. | Impl: `internal/scriptablechat/service.go::CreateChat`; proof: `internal/scriptablechat/service_test.go::TestServiceCRUDRoundTrip`; `internal/scriptablechat/service_test.go::TestServiceCreateChatResolvesManagedEngineConfig`; `internal/scriptablechat/service_test.go::TestServiceCreateChatPersistsProjectConfigID`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketDispatchesScriptableChatBuiltIns`; `internal/app/websocket_test.go::TestAppListenerWebsocketRunsScriptableChatMCPTools`. | `Proved` | |
+| `LC-04` | `route_get_all_chat_metadata` returns scriptable chat metadata with stable cached/derived names and persisted project scoping through the listener transport. | `tests/llm/test_chat_toolkit_listener_clients.py::test_history_client_coerces_chat_payloads`. | Impl: `internal/scriptablechat/service.go::GetAllMetadata`; proof: `internal/scriptablechat/service_test.go::TestServiceGetAllMetadataUsesCachedNamesAndSortsByLastUpdated`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketDispatchesScriptableChatBuiltIns`. | `Proved` | |
+| `LC-05` | `route_delete_chat` is part of the retained listener chat-history surface and removes the persisted scriptable chat entry. | `tests/llm/test_chat_toolkit_listener_clients.py::test_history_client_coerces_chat_payloads`. | Impl: `internal/app/listener_built_in_endpoint_invoker.go`; service proof: `internal/scriptablechat/service_test.go::TestServiceCRUDRoundTrip`. | `Implemented, proof incomplete` | Current Go proves the delete behavior at the service layer, but this slice has no direct app websocket proof yet for delete over the listener route. |
+| `LC-06` | `route_run_mcp_tools` over the listener transport runs tools in the chat/section/project/share-session scope and forwards `frontendAffinityToken` into tool-call meta. | `tests/llm/test_chat_toolkit_listener_clients.py::test_tool_runner_client_coerces_messages`; `tests/llm/test_chat_toolkit_listener_clients.py::test_tool_runner_client_forwards_frontend_affinity_token`. | Impl: `internal/app/listener_built_in_endpoint_invoker.go`; `internal/scriptablechat/service.go::RunTools`; proof: `internal/scriptablechat/service_test.go::TestServiceRunToolsForwardsFrontendAffinityTokenAndContext`; `internal/scriptablechat/service_test.go::TestServiceRunToolsRejectsBlankFrontendAffinityToken`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketRunsScriptableChatMCPTools`. | `Proved` | |
+| `LC-07` | `route_emit_chat_stream_delta` over the listener transport broadcasts frontend `LLMStreamingResponse` events with the requested chat/section/project/share-session scope. | `tests/llm/test_chat_toolkit_session_errors.py` stream-emitter route usage; `docs/reference/chat-sections.md` scriptable mode section. | Impl: `internal/app/listener_built_in_endpoint_invoker.go`; `internal/scriptablechat/service.go::EmitStreamDelta`; proof: `internal/scriptablechat/service_test.go::TestServiceEmitStreamDeltaBroadcastsFrontendMessage`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend`. | `Proved` | |
+| `LC-08` | `route_set_chat_section_state` over the listener transport is followed by an authoritative `ListenerForceRefresh` carrying the same `callId` and the updated chat-section state. | `docs/reference/chat-sections.md` scriptable mode section; `docs/reference/codegen-section-policy-and-metadata.md` listener-side chat dependency update note; `tests/api/test_listener_local_dependency_updates.py::test_chat_section_update_refreshes_ctx_values`. | Impl: `internal/wsapi/routes.go::listenerEndpointRequiresForceRefresh`; `internal/wsapi/routes.go::sendListenerEndpointForceRefresh`; app proof: `internal/app/websocket_test.go::TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefresh`. | `Proved` | |
+
 ## Current Findings
 
 1. The matrix now contains four concrete source-parity gaps:
@@ -193,9 +207,9 @@ Rows outside these slices are still pending.
 2. The project-shell slice also surfaced one source behavior that is still
    unproven on the current Go architecture:
    `PS-06`.
-3. The listener transport slices added five more rows that are implemented in Go but
+3. The listener transport slices added six more rows that are implemented in Go but
    still under-proved relative to `main`:
-   `LS-04`, `LS-12`, `LS-13`, `LS-16`, and `LR-05`.
+   `LS-04`, `LS-12`, `LS-13`, `LS-16`, `LR-05`, and `LC-05`.
 4. The remaining issues in the naming slice are still mostly proof gaps rather
    than obvious implementation gaps.
 5. The next high-value steps are:
@@ -206,6 +220,6 @@ Rows outside these slices are still pending.
    - close proof gaps for project/view-mode/window-space/section format-rule
      variants
    - close the remaining listener proof gaps (`LS-04`, `LS-12`, `LS-13`,
-     `LS-16`, `LR-05`)
+     `LS-16`, `LR-05`, `LC-05`)
    - continue the matrix into the remaining realtime/runtime slices that are
      still outside this partial matrix
