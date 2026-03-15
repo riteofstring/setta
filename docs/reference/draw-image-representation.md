@@ -57,17 +57,17 @@ Relevant code:
 - Image file changes emit binary deltas via
   `Artifacts.emit_realtime_image_updates`, which streams bytes in a binary frame.
 - Listener-side dependency updates for Draw/Image expect `BinaryDependencyValue`
-  and are validated on the Go listener websocket path.
+  (see `ListenerFrontendEmitResolver`).
 - Direct dependency updates for Image sections are not applied to project state;
-  use artifact updates instead because the Go listener emit handler only accepts
-  writable section-param plus `TextBlock`/`Chat`/`Plugin` dependency targets.
+  use artifact updates instead (`listener_dependency_updates.py` raises
+  `NotImplementedError` for Image sections).
 
 Relevant code:
 - `frontend/src/components/Section/Layouts/DrawArea/useRealtimeDrawEmitter.ts`
 - `frontend/src/state/actions/websocketReceive.ts`
 - `backend/setta/project_state/artifacts.py`
-- `internal/wsapi/listener_frontend_emit.go`
-- `internal/artifacts/service.go`
+- `backend/setta/listeners/listener_frontend_emit_resolver.py`
+- `backend/setta/project_state/listener_dependency_updates.py`
 
 ## Packaged runtime (codegen output)
 - Dependency graph exports:
