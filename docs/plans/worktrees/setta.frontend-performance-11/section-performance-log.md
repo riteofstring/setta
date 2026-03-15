@@ -4091,3 +4091,39 @@ Append-only log for the section performance refactor.
   - If the work continues, treat the fixed same-row hysteresis threshold as the first local-only experiment inside `getPastHalfway()`.
   - Only widen back out to broader pointer-direction or collision-ranking changes if a fresh rerun disproves this threshold explanation.
   - If the work stops here, document the remaining `~1.2px` row-height gap as blocked at this threshold-level seam.
+
+### 2026-03-18 110
+
+- Item: Land the compact-row `getPastHalfway()` hysteresis experiment as the new lower-seam baseline.
+- Status: `needs_more_work`
+- Details:
+  - Kept the change inside:
+    - `frontend/src/forks/dnd-kit/adapter/collision.ts`
+  - New kept behavior:
+    - same-collision hysteresis no longer hard-codes `±10px` for every repeated collision
+    - the baseline is now:
+      - `min(10px, 25% of the smaller active/droppable axis size)`
+    - practical compact-row effect:
+      - `20px` rows now use a `5px` same-collision buffer
+      - larger targets still keep the `10px` cap
+  - Added focused direct coverage in:
+    - `frontend/src/forks/dnd-kit/adapter/collision.test.ts`
+      - repeated same-id compact-row `true -> false` midpoint flip
+      - repeated same-id compact-row `false -> true` midpoint flip
+      - same-id scoping only
+      - large-target cap preservation
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/forks/dnd-kit/adapter/collision.test.ts src/forks/dnd-kit/adapter/sorting.test.ts src/forks/dnd-kit/adapter/collisionCompare.test.ts src/forks/dnd-kit/dndCollisions.integration.test.ts`
+      - result: `4` files passed, `23` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `2 passed`
+  - Interpretation:
+    - this is enough evidence to keep the threshold change as the new lower-seam baseline
+    - it is not enough to close checkpoint 1, because the shared-row residual-gap geometry candidate has not yet been rerun on top of this new hysteresis baseline
+  - Recorded the experiment in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-compact-row-hysteresis-experiment.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Retry the narrow residual shared-row geometry candidate, or the closest equivalent label-root follow-up, on top of this hysteresis baseline.
+  - Rerun the callable reorder/indent canary immediately after that geometry retry.
+  - Compare untouched `main` versus worktree again on the shared-row geometry path before widening beyond threshold sizing.
