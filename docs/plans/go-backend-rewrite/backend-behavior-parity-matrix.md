@@ -5,13 +5,14 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `6a2f061ba1781994d754e8cba199b692b75857cc`
+- Target head: `5b6ab76449ea19adf1788cb2daa091c228d13174`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
   bootstrap/coverage/force-refresh/frontend-emit/plugin-transport slice, the
   terminals/terminal-websocket/delete/interrupt/run-code/deployment-policy
-  slice, and the detached-run route/manager slice from
+  slice, the detached-run route/manager slice, and the first bounded
+  format-code/watch-code/LSP route-service slice from
   `backend-behavior-parity-matrix-plan.md`
 - Relevant retained-boundary review:
   - checked `docs/plans/go-backend-rewrite/CURRENT.md`,
@@ -25,9 +26,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `110`
+- Rows audited in this pass: `129`
 - Status counts:
-  - `Proved`: `105`
+  - `Proved`: `124`
   - `Intentional divergence`: `5`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
@@ -45,6 +46,10 @@ Last audited: `2026-03-16`
   - `internal/wsapi/routes.go`: listener init missing-project error payloads now
     omit the extra Go-only `"message"` field so the retained websocket transport
     matches the source contract
+  - `internal/httpapi/project_routes.go` and `internal/httpapi/lsp_routes.go`:
+    `setTypeErrorIgnore` now lives on the project-mutation route stack so IDE
+    callers keep the existing behavior and deployment/share callers follow the
+    source param-change policy and overlay semantics
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -68,6 +73,10 @@ Last audited: `2026-03-16`
 - This pass also extends the matrix into the detached-run slice: route
   launcher/deployment/snapshot validation, override validation, detached-run
   snapshot planning, and detached-run manager lifecycle/status persistence.
+- This pass also extends the matrix into the first format-code/watch-code/LSP
+  slice: format-code target validation and sanitized errors, watch-code
+  baseline/update-order/create-delete behavior, and LSP
+  diagnostics/completion/restart/type-check/type-error-ignore route contracts.
 - Adjacent behaviors seen in neighboring source tests but intentionally deferred
   to later passes include:
   - view-mode sort-order transport/details
@@ -89,8 +98,13 @@ Last audited: `2026-03-16`
     encoding rows beyond the route/manager invariants audited here
   - draw-snapshot persistence/codegen side effects beyond the terminal dispatch
     rows audited here
-  - LSP, formatting, and watch-code behavior rows from the broader fourth audit
-    slice
+  - broader format-code transport/detail rows beyond the
+    target-validation/sanitized-error/watch-registry subset audited here
+  - broader watch-code rename/move/signature-reuse/baseline-lifecycle rows
+    beyond the baseline/create-delete/update-order subset audited here
+  - broader LSP diagnostics ignore-state, plugin-registration, and launcher
+    detail-parity rows beyond the diagnostics/completions/restart/type-check/
+    type-error-ignore subset audited here
 
 ## Current Gaps
 
@@ -214,3 +228,22 @@ Last audited: `2026-03-16`
 | `detached_run.cancel_after_exit_keeps_exited_status` | `tests/run_manager/test_detached_run_manager.py::test_cancel_after_exit_keeps_exited_status` | `internal/detachedruns/manager.go::CancelRun` | `TestManagerCancelRunKeepsExitedStatus` | callers can still issue idempotent cancel requests after exit without mutating the completed status | `Proved` | Canceling an already exited detached run still preserves the completed `exited` metadata instead of rewriting it to `canceled`. |
 | `detached_run.get_status_untracked_marks_lost` | `tests/run_manager/test_detached_run_manager.py::test_get_status_untracked_run_marks_lost` | `internal/detachedruns/manager.go::GetStatus` | `TestManagerGetStatusUntrackedRunMarksLost` | `getRunStatus` still reflects the manager-owned persisted state for orphaned processes | `Proved` | If a detached run loses its in-memory process tracking, status reads still mark it as `lost` instead of leaving a stale `running` record behind. |
 | `detached_run.cancel_untracked_marks_lost` | `tests/run_manager/test_detached_run_manager.py::test_cancel_untracked_run_marks_lost` | `internal/detachedruns/manager.go::CancelRun` | `TestManagerCancelRunUntrackedRunMarksLost` | `cancelRun` still routes through the same manager path even when the process table no longer has the run | `Proved` | Canceling an untracked detached run still resolves it to `lost` without inventing an exit code. |
+| `format_code.python_section_formats` | `tests/project_state/test_format_code.py::test_format_code_updates_python_code` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeFormatsPythonSection` | `internal/httpapi/project_routes.go`; `TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK` | `Proved` | Formatting a Python code section still mutates the stored section code through the surviving route/service path. |
+| `format_code.generated_prefix_suffix_formats` | `tests/project_state/test_format_code.py::test_format_code_updates_gen_python_prefix_suffix` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeFormatsGeneratedPythonTarget` | `RouteFormatCode` remains part of the generated frontend transport surface | `Proved` | Generated Python targets still reformat both prefix and suffix text together. |
+| `format_code.read_only_binding_forbidden` | `tests/project_state/test_set_code_access_mode.py::test_format_code_rejects_read_only_binding` | `internal/app/code_updates.go::FormatCode`; `internal/httpapi/project_routes.go::writeFormatCodeError` | `TestCodeUpdateServiceFormatCodeRejectsReadOnlyBinding`; `TestRegisterProjectRoutesFormatCodeReturnsForbiddenForReadOnlyBinding` | `frontend/src/utils/generatedEndpoints.ts` still calls `formatCode` directly | `Proved` | Bound read-only code sections still reject format attempts without mutating stored code. |
+| `format_code.non_python_and_non_code_targets_rejected_422` | `tests/project_state/test_format_code.py::test_format_code_rejects_non_python_code_section`; `...test_format_code_rejects_non_code_section` | `internal/app/code_updates.go::FormatCode`; `internal/httpapi/project_routes.go::writeFormatCodeError` | `TestRegisterProjectRoutesFormatCodeReturns422ForInvalidTarget` | same `formatCode` transport surface as above | `Proved` | Non-Python and non-code format targets still fail with the source invalid-format contract. |
+| `format_code.invalid_python_sanitizes_detail` | `tests/project_state/test_format_code.py::test_format_code_rejects_invalid_python_code`; `tests/utils/test_format_code.py::test_ruff_format_with_error_uses_utf8_encoding` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeRejectsInvalidPythonCodeWithSanitizedDetail` | `internal/httpapi/project_routes.go` maps the failure back onto `invalid_format_code` | `Proved` | Invalid Python source still returns a string detail with formatter noise sanitized out. |
+| `format_code.invalid_generated_prefix_suffix_sanitizes_detail` | `tests/project_state/test_format_code.py::test_format_code_rejects_invalid_gen_prefix`; `...test_format_code_rejects_invalid_gen_suffix` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeRejectsInvalidGeneratedPrefixWithSanitizedDetail`; `TestCodeUpdateServiceFormatCodeRejectsInvalidGeneratedSuffixWithSanitizedDetail` | same route boundary as other format-code rows | `Proved` | Invalid generated prefix/suffix content still reports which generated segment failed and strips ANSI noise. |
+| `format_code.allows_unused_args_and_generated_undefined_symbols` | `tests/project_state/test_format_code.py::test_format_code_allows_unused_args`; `...test_format_code_allows_undefined_symbols_in_gen_prefix` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeAllowsUnusedArgs`; `TestCodeUpdateServiceFormatCodeAllowsUndefinedSymbolsInGeneratedPython` | `formatCode` remains a thin transport wrapper around the same formatter service | `Proved` | Formatting still tolerates unused callable args and unresolved generated-code symbols instead of treating them as fatal errors. |
+| `format_code.bound_section_updates_watch_code_registry` | `tests/project_state/test_codegen_targets.py::test_format_code_updates_watch_code_registry` | `internal/app/code_updates.go::FormatCode` | `TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry`; `TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate` | `internal/httpapi/project_routes.go::formatCodeHandler` drives the app-owned route | `Proved` | Formatting a watch-code-bound section still refreshes the callable registry alongside the stored code. |
+| `watch_code.enable_baselines_existing_inputs_without_creating_sections` | `tests/project_state/test_watch_code.py::test_baseline_on_enable_skips_existing_defs` | `internal/projectstate/watch_code.go`; `internal/httpapi/project_routes.go::setWatchCodeEnabledHandler` | `TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs`; `TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs` | `frontend/src/utils/generatedEndpoints.ts` still exposes `setWatchCodeEnabled` | `Proved` | Enabling watch code still baselines existing watched definitions without immediately materializing callable sections. |
+| `watch_code.new_inputs_baseline_only_new_paths_when_enabled` | `tests/project_state/test_watch_code.py::test_baseline_new_watch_inputs_when_enabled` | `internal/projectstate/watch_code.go`; `internal/httpapi/project_routes.go::setWatchCodeInputsHandler` | `TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled`; `TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs` | `setWatchCodeInputs` remains an active generated endpoint | `Proved` | Adding watch inputs while watch code is enabled still baselines only the new paths and preserves prior baseline entries. |
+| `watch_code.rejects_inputs_outside_workspace` | `tests/project_state/test_watch_code.py::test_rejects_watch_inputs_outside_repo` | `internal/projectstate/watch_code.go`; `internal/httpapi/project_routes.go::writeSetWatchCodeError` | `TestRuntimeSetWatchCodeInputsRejectsOutsideWorkspace`; `TestRegisterProjectRoutesRejectsWatchCodeInputsOutsideWorkspace` | same `setWatchCodeInputs` transport surface as above | `Proved` | Watch inputs outside the workspace root still fail closed instead of being normalized into the project state. |
+| `watch_code.runtime_create_delete_callbacks_apply_registry_and_cleanup` | `tests/project_state/test_watch_code.py::test_external_file_reload_creates_section`; `...test_deleted_file_clears_registry_and_baseline` | `internal/app/app.go`; `internal/watchcode/service.go`; `internal/projectstate/watch_code_apply.go` | `TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks` | the live IDE app still owns the watch-code callback loop | `Proved` | Creating a watched file still registers and materializes the callable section, and deleting it still clears the registry and baseline state. |
+| `watch_code.bound_section_updates_sync_lsp_before_watch_apply` | `tests/project_state/test_watch_code.py::test_syncs_lsp_before_watch_code_update` | `internal/app/code_updates.go::SetCode`; `internal/app/code_updates.go::ReloadBoundCodeFile` | `TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply`; `TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate` | `internal/httpapi/project_routes.go::setCodeHandler` uses the same code-update service | `Proved` | Bound-section updates still sync LSP before watch-code reconciliation so signature refresh sees the new source of truth. |
+| `lsp.diagnostics.latest_snapshot_route` | `backend/setta/routers/project_manager.py::route_get_latest_lsp_diagnostics`; `backend/setta/project_state/base_project_manager.py::get_latest_lsp_diagnostics` | `internal/httpapi/lsp_routes.go::getLatestLSPDiagnosticsHandler` | `TestRegisterLSPRoutesReturnsLatestDiagnosticsSnapshot` | `frontend/src/utils/generatedEndpoints.ts` still exposes `getLatestLspDiagnostics` | `Proved` | The diagnostics route still returns the current project-scoped snapshot payload instead of reconstructing ad hoc response fields. |
+| `lsp.completion_snapshot_routes_serve_existing_payloads` | `backend/setta/routers/project_manager.py::route_text_field_completion`; `...route_output_accessor_completion`; `...route_code_area_completion`; `...route_gen_code_prefix_completion`; `...route_gen_code_suffix_completion`; `backend/setta/api/generated_listener_endpoints.py` completion methods | `internal/httpapi/lsp_routes.go`; `internal/lspcompletion/service.go` | `TestRegisterLSPRoutesServesSnapshotCompletionEndpoints` | active completion callers still post the same route payload shapes via generated endpoints | `Proved` | The Go completion routes still accept the existing payloads and return completion lists/null bodies on the same surviving transport surface. |
+| `lsp.diagnostics_and_completion_routes_reject_share_mode` | `backend/setta/routers/project_manager.py::_deny_deployment_mode_lsp`; route callers under `route_text_field_completion` through `route_get_latest_lsp_diagnostics` | `internal/httpapi/lsp_routes.go::RegisterLSPRoutes`; `internal/httpapi/httpapi.go::RequireIDEMode` | `TestRegisterLSPRoutesRejectsShareModeRequests`; `TestRegisterLSPRoutesRejectsShareModeCompletionRequests` | deployment/share callers still hit the same route names when present in generated bindings | `Proved` | LSP diagnostics and completion routes remain unavailable outside IDE mode. |
+| `lsp.restart_language_server.route_restarts_live_document` | `backend/setta/routers/project_manager.py::route_restart_language_server` | `internal/httpapi/lsp_routes.go::restartLanguageServerHandler` | `TestRegisterLSPRoutesRestartsLanguageServer` | the edit-menu action still routes through `restartLanguageServer` in generated bindings | `Proved` | Restarting the language server still hands the admin surface the live project document snapshot. |
+| `lsp.type_check.route_targets_requested_project` | `backend/setta/routers/project_manager.py::route_type_check`; `tests/routers/test_full_runtime_mode_guards.py::test_type_check_is_blocked_in_launcher_mode` | `internal/httpapi/lsp_routes.go::typeCheckHandler` | `TestRegisterLSPRoutesTypeChecksProject` | `frontend/src/utils/generatedEndpoints.ts` still exposes `typeCheck` | `Proved` | Manual type-check still targets the requested project through the admin surface rather than a frontend-only fallback. |
+| `lsp.type_error_ignore.ide_and_deployment_param_policy` | `backend/setta/routers/project_manager.py::route_set_type_error_ignore`; `tests/routers/test_share_policy_routes.py` includes `set_type_error_ignore` in the param-guard matrix | `internal/httpapi/project_routes.go::setTypeErrorIgnoreHandler` | `TestRegisterProjectRoutesSetsTypeErrorIgnore`; `TestRegisterProjectRoutesSetTypeErrorIgnoreRespectsDeploymentParamPolicy`; `TestRegisterProjectRoutesSetTypeErrorIgnoreRejectsDeploymentWhenParamChangesForbidden` | `frontend/src/utils/generatedEndpoints.ts` still exposes `setTypeErrorIgnore` on the active transport surface | `Proved` | Type-error ignore now matches the source ownership and policy contract: IDE persists the state directly, and deployment/share requests are allowed or denied by the param-change policy while mutating only the session overlay. |
