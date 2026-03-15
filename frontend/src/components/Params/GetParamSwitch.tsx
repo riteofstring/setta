@@ -1,10 +1,8 @@
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { matchSorter } from "match-sorter";
 import { useMemo } from "react";
-import {
-  getCurrEffectiveSectionImplWithTypeGuard,
-  getParamDisplayName,
-} from "state/actions/sectionInfos";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";

@@ -4,8 +4,11 @@ from fastapi import (
     Depends,
     HTTPException,
     Request,
+    WebSocket,
+    WebSocketException,
     status,
 )
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
@@ -15,8 +18,29 @@ def get_app_state_from_request(request: Request) -> SettaFastAPIState:
     return request.app.state.setta
 
 
+def get_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
+    return websocket.app.state.setta
+
+
+def get_app_state_from_connection(
+    request: Request = None,
+    websocket: WebSocket = None,
+) -> SettaFastAPIState:
+    if request is not None:
+        return get_app_state_from_request(request)
+    if websocket is not None:
+        return get_app_state_from_websocket(websocket)
+    raise KeyError("Missing request/websocket for app state dependency.")
+
+
 async def get_ready_app_state_from_request(request: Request) -> SettaFastAPIState:
     state = get_app_state_from_request(request)
+    await state.wait_until_ready()
+    return state
+
+
+async def get_ready_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
+    state = get_app_state_from_websocket(websocket)
     await state.wait_until_ready()
     return state
 
@@ -40,6 +64,12 @@ def _extract_share_session_id(
     return None
 
 
+async def _close_websocket_with_code(websocket: WebSocket, code: int) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=code)
+
+
 def maybe_get_share_session_id_from_request(request: Request) -> str | None:
     return _extract_share_session_id(
         request.headers, request.cookies, request.query_params, required=False
@@ -47,50 +77,64 @@ def maybe_get_share_session_id_from_request(request: Request) -> str | None:
 
 
 def require_ide_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_request),
+    state: SettaFastAPIState = Depends(get_app_state_from_connection),
+    websocket: WebSocket = None,
 ) -> None:
-    require_not_deployment_mode(state)
+    require_not_deployment_mode(state, websocket=websocket)
     if getattr(state, "launcher_mode", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+        _raise_mode_forbidden(
+            websocket=websocket,
             detail="Launcher mode does not allow this endpoint.",
         )
 
 
 def require_not_deployment_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_request),
+    state: SettaFastAPIState = Depends(get_app_state_from_connection),
+    websocket: WebSocket = None,
 ) -> None:
     if state.deployment_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+        _raise_mode_forbidden(
+            websocket=websocket,
             detail="Deployment mode does not allow this endpoint.",
         )
 
 
 def require_full_ide_runtime(
-    state: SettaFastAPIState = Depends(get_app_state_from_request),
+    state: SettaFastAPIState = Depends(get_app_state_from_connection),
+    websocket: WebSocket = None,
 ) -> None:
-    require_ide_mode(state)
+    require_ide_mode(state, websocket=websocket)
 
 
 def require_not_launcher_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_request),
+    state: SettaFastAPIState = Depends(get_app_state_from_connection),
+    websocket: WebSocket = None,
 ) -> None:
     if getattr(state, "launcher_mode", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+        _raise_mode_forbidden(
+            websocket=websocket,
             detail="Launcher mode does not allow this endpoint.",
         )
 
 
 def require_launcher_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_request),
+    state: SettaFastAPIState = Depends(get_app_state_from_connection),
+    websocket: WebSocket = None,
 ) -> None:
     if not state.launcher_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+        _raise_mode_forbidden(
+            websocket=websocket,
             detail="Launcher mode does not allow this endpoint.",
         )
+
+
+def _raise_mode_forbidden(*, websocket: WebSocket | None, detail: str) -> None:
+    if websocket is not None:
+        raise WebSocketException(code=4403, reason=detail)
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=detail,
+    )
 
 
 def require_share_session_id(
@@ -117,6 +161,32 @@ def require_share_session_id(
     return share_session_id
 
 
+async def require_share_session_id_from_websocket(
+    websocket: WebSocket,
+    state: SettaFastAPIState,
+    *,
+    create_session_backend: bool = True,
+) -> str | None:
+    if not state.deployment_mode:
+        return None
+    share_session_id = _extract_share_session_id(
+        websocket.headers,
+        websocket.cookies,
+        websocket.query_params,
+        required=False,
+    )
+    if share_session_id is None:
+        await _close_websocket_with_code(websocket, 4400)
+        return None
+    if not state.share_session_store.has_session(share_session_id):
+        await _close_websocket_with_code(websocket, 4404)
+        return None
+    state.share_session_store.touch_session(share_session_id)
+    if create_session_backend:
+        state.share_runtime_state.get_or_create_session_backend(share_session_id)
+    return share_session_id
+
+
 async def get_runtime_context_from_request(
     request: Request,
 ) -> AsyncGenerator[RuntimeContext, None]:
@@ -130,10 +200,34 @@ async def get_runtime_context_from_request(
     yield RuntimeContext(state, share_session_id=share_session_id)
 
 
+async def get_runtime_context_from_websocket(
+    websocket: WebSocket,
+) -> AsyncGenerator[RuntimeContext, None]:
+    state = await get_ready_app_state_from_websocket(websocket)
+    share_session_id = None
+    if state.deployment_mode:
+        share_session_id = await require_share_session_id_from_websocket(
+            websocket,
+            state,
+        )
+        if share_session_id is None:
+            raise WebSocketDisconnect()
+    yield RuntimeContext(state, share_session_id=share_session_id)
+
+
 AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]
 ReadyAppStateFromRequest = Annotated[
     SettaFastAPIState, Depends(get_ready_app_state_from_request)
 ]
+AppStateFromWebsocket = Annotated[
+    SettaFastAPIState, Depends(get_app_state_from_websocket)
+]
+ReadyAppStateFromWebsocket = Annotated[
+    SettaFastAPIState, Depends(get_ready_app_state_from_websocket)
+]
 RuntimeContextFromRequest = Annotated[
     RuntimeContext, Depends(get_runtime_context_from_request)
+]
+RuntimeContextFromWebsocket = Annotated[
+    RuntimeContext, Depends(get_runtime_context_from_websocket)
 ]
