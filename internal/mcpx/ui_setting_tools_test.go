@@ -90,6 +90,41 @@ func setUISettingAgenticContextWithShareSession(
 	}
 }
 
+func setUISettingAgenticContextWithShareSessionAndFrontendAffinity(
+	t *testing.T,
+	clientSession *sdkmcp.ClientSession,
+	projectConfigID string,
+	chatID string,
+	sectionID string,
+	shareSessionID string,
+	frontendAffinityToken string,
+	allowUnscoped bool,
+) {
+	t.Helper()
+
+	arguments := map[string]any{
+		"projectConfigId":       projectConfigID,
+		"shareSessionId":        shareSessionID,
+		"frontendAffinityToken": frontendAffinityToken,
+	}
+	if allowUnscoped {
+		arguments["allowUnscoped"] = true
+	} else {
+		arguments["chatId"] = chatID
+		arguments["sectionId"] = sectionID
+	}
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "set_agentic_context",
+		Arguments: arguments,
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+}
+
 func (s uiSettingDriftProjectState) CompareAndSetShowParamDisplayNames(
 	ctx context.Context,
 	projectID string,
@@ -285,6 +320,121 @@ func TestServerRevealUISettingForwardsShareSessionID(t *testing.T) {
 	}
 	if revealService.input.ShareSessionID != "share-session-1" {
 		t.Fatalf("expected shareSessionID share-session-1, got %q", revealService.input.ShareSessionID)
+	}
+}
+
+func TestServerRevealUISettingShareScopePrefersAgenticFrontendAffinityTokenOverRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-1",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSessionAndFrontendAffinity(
+		t,
+		clientSession,
+		"project-alpha",
+		"chat-1",
+		"chat-section",
+		"share-session-1",
+		"frontend-from-context",
+		false,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Meta: sdkmcp.Meta{
+			"frontendAffinityToken": "frontend-from-request",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected shareSessionID share-session-1, got %q", revealService.input.ShareSessionID)
+	}
+	if revealService.input.FrontendAffinityToken != "frontend-from-context" {
+		t.Fatalf("expected session frontend affinity token, got %q", revealService.input.FrontendAffinityToken)
+	}
+}
+
+func TestServerRevealUISettingShareScopeIgnoresMalformedMetaFrontendAffinityWhenAgenticAffinityExists(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-1",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSessionAndFrontendAffinity(
+		t,
+		clientSession,
+		"project-alpha",
+		"chat-1",
+		"chat-section",
+		"share-session-1",
+		"frontend-from-context",
+		false,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Meta: sdkmcp.Meta{
+			"frontendAffinityToken": []any{"frontend-from-request"},
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.FrontendAffinityToken != "frontend-from-context" {
+		t.Fatalf("expected session frontend affinity token, got %q", revealService.input.FrontendAffinityToken)
 	}
 }
 

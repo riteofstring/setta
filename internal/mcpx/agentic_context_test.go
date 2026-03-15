@@ -207,6 +207,107 @@ func TestResolveAgenticContextFallsBackToSessionShareSessionID(t *testing.T) {
 	}
 }
 
+func TestResolveAgenticContextUsesRequestFrontendAffinityTokenWhenSessionAffinityMissing(t *testing.T) {
+	t.Parallel()
+
+	headers := http.Header{}
+	headers.Set(AgenticContextFrontendAffinityHeader, "frontend-from-header")
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId":       "project-alpha",
+				"frontendAffinityToken": "frontend-from-request",
+			},
+			Headers: headers,
+		},
+		&AgenticContext{ProjectConfigID: "project-alpha"},
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.FrontendAffinityToken != "frontend-from-request" {
+		t.Fatalf("expected request frontend affinity token, got %q", resolved.FrontendAffinityToken)
+	}
+}
+
+func TestResolveAgenticContextPrefersSessionFrontendAffinityTokenOverRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId":       "project-alpha",
+				"frontendAffinityToken": "frontend-from-request",
+			},
+		},
+		&AgenticContext{
+			ProjectConfigID:       "project-alpha",
+			FrontendAffinityToken: "frontend-from-session",
+		},
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.FrontendAffinityToken != "frontend-from-session" {
+		t.Fatalf("expected session frontend affinity token, got %q", resolved.FrontendAffinityToken)
+	}
+}
+
+func TestResolveAgenticContextIgnoresMalformedMetaFrontendAffinityTokenWhenSessionAffinityExists(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId":       "project-alpha",
+				"frontendAffinityToken": []any{"frontend-from-request"},
+			},
+		},
+		&AgenticContext{
+			ProjectConfigID:       "project-alpha",
+			FrontendAffinityToken: "frontend-from-session",
+		},
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.FrontendAffinityToken != "frontend-from-session" {
+		t.Fatalf("expected session frontend affinity token, got %q", resolved.FrontendAffinityToken)
+	}
+}
+
+func TestResolveAgenticContextIgnoresBlankMetaFrontendAffinityTokenWithoutSessionAffinity(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId":       "project-alpha",
+				"frontendAffinityToken": "   ",
+			},
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.FrontendAffinityToken != "" {
+		t.Fatalf("expected blank frontend affinity token to be ignored, got %q", resolved.FrontendAffinityToken)
+	}
+}
+
 func mustTargetResolutionProjectView(t *testing.T) projectview.SingleConfig {
 	t.Helper()
 

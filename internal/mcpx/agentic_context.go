@@ -177,17 +177,11 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 	if err != nil {
 		return nil, err
 	}
-	frontendAffinityToken, err := resolveAgenticContextString(
+	frontendAffinityToken := resolveFrontendAffinityToken(
 		requestContext.Meta,
-		"frontendAffinityToken",
 		requestContext.Headers,
-		AgenticContextFrontendAffinityHeader,
 		sessionContextField(sessionContext, func(value AgenticContext) string { return value.FrontendAffinityToken }),
-		true,
 	)
-	if err != nil {
-		return nil, err
-	}
 	allowUnscoped, err := resolveAllowUnscoped(
 		requestContext.Meta,
 		requestContext.Headers,
@@ -228,6 +222,19 @@ func resolveAgenticContextString(
 	return strings.TrimSpace(sessionValue), nil
 }
 
+func resolveFrontendAffinityToken(meta map[string]any, headers http.Header, sessionValue string) string {
+	if trimmedSessionValue := strings.TrimSpace(sessionValue); trimmedSessionValue != "" {
+		return trimmedSessionValue
+	}
+	if metaValue, ok := readBestEffortMetaString(meta, "frontendAffinityToken"); ok {
+		return metaValue
+	}
+	if headerValue, ok := readBestEffortHeaderString(headers, AgenticContextFrontendAffinityHeader); ok {
+		return headerValue
+	}
+	return ""
+}
+
 func resolveAllowUnscoped(meta map[string]any, headers http.Header, sessionValue bool) (bool, error) {
 	if value, ok, err := readMetaBool(meta, "allowUnscoped"); ok || err != nil {
 		return value, err
@@ -257,6 +264,25 @@ func readMetaString(meta map[string]any, key string, rejectBlank bool) (string, 
 	return trimmed, true, nil
 }
 
+func readBestEffortMetaString(meta map[string]any, key string) (string, bool) {
+	if len(meta) == 0 {
+		return "", false
+	}
+	rawValue, ok := meta[key]
+	if !ok || rawValue == nil {
+		return "", false
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return "", false
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", false
+	}
+	return trimmed, true
+}
+
 func readHeaderString(headers http.Header, key string, rejectBlank bool) (string, bool, error) {
 	if headers == nil {
 		return "", false, nil
@@ -269,6 +295,17 @@ func readHeaderString(headers http.Header, key string, rejectBlank bool) (string
 		return "", true, newToolError("invalid_arguments", "%s must be a non-empty string when provided", key)
 	}
 	return value, true, nil
+}
+
+func readBestEffortHeaderString(headers http.Header, key string) (string, bool) {
+	if headers == nil {
+		return "", false
+	}
+	value := strings.TrimSpace(headers.Get(key))
+	if value == "" {
+		return "", false
+	}
+	return value, true
 }
 
 func readMetaBool(meta map[string]any, key string) (bool, bool, error) {
