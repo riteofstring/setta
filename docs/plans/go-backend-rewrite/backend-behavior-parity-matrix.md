@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`4f901e6edd4747bcbe5d44b306f0a3480d2e0e0c`
+`2dfc6a3c78125cec1df92c1dfe23a2efa55b6d42`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -72,6 +72,7 @@ It currently covers:
   behavior
 - param value/config mutation and section edge-port route behavior
 - section-variant mutation and delete-route behavior
+- view-mode create/switch/edit route behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -143,7 +144,10 @@ Rows outside these slices are still pending.
 - The section-variant slice mostly closes with proofs, but it adds one more
   caller-backed variant-policy gap, one broader direct-route proof gap, and
   one more dormant delete-route boundary row.
-- Forty-two concrete parity gaps are already visible:
+- The view-mode route slice mostly closes with proofs, but it adds one more
+  caller-backed variant-policy gap plus one more dormant edit-family boundary
+  row.
+- Forty-three concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -1034,15 +1038,24 @@ Rows outside these slices are still pending.
 | `SV-05` | In share/app sessions, the non-delete section-variant mutation family stays mounted behind `allowVariantChanges`: `createNewSectionVariant`, `setSectionVariant`, `setDefaultSectionVariant`, `setSectionVariantSortOrder`, `setSectionVariantName`, `toggleVariantFrozen`, `toggleVariantJSONSource`, and `setVariantJSONSourceKeys` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_create_new_section_variant,route_set_section_variant,route_set_default_section_variant,route_set_section_variant_sort_order,route_set_section_variant_name,route_toggle_variant_frozen,route_toggle_variant_json_source,route_set_variant_json_source_keys}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues those writes from share-aware `canEditVariants` callers via `frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx` and `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx`. | `Missing` | This is an active parity gap: the source/current policy boundary keeps these writes transport-visible under `allowVariantChanges`, but current Go removes the entire family outside IDE while shared variant-edit surfaces still call it. |
 | `SV-06` | In share/app sessions, `deleteSectionVariantOrAsk` and `deleteJSONSourceFileAndVariant` stay transport-visible and fail closed with share-mode `403` instead of disappearing entirely outside IDE. | Source routes: `backend/setta/routers/project_manager.py::{route_delete_section_variant_or_ask,route_delete_json_source_file_and_variant}`; source share-route tests: `tests/routers/test_share_filesystem_routes.py::{test_delete_section_variant_blocked_in_share_mode,test_delete_json_source_variant_blocked_in_share_mode}`. | Current Go mounts both delete routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend variant deletion wiring in `frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx` disables deletion outside IDE/deployment via `allowVariantDeletion = canEditVariants && !isDeploymentMode`, and the modal action helpers live in `frontend/src/state/actions/project/sectionVariants.ts`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active Go-era non-IDE caller still depends on the direct delete-route contract. |
 
+## View Mode Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `VM-01` | `createViewMode` clones the current layout/viewport into a new active view mode, and `setActiveViewMode` swaps the project snapshot back to the stored layout/viewport for the selected mode. | Source docs: `docs/reference/view-modes.md`; source manager methods: `backend/setta/project_state/base_project_manager.py::{create_view_mode,set_active_view_mode}`; source project-state test: `tests/project_state/test_project_config_view_modes.py::test_view_modes_store_layout_and_viewport`. | Impl: `internal/projectstate/view_modes.go::{CreateViewMode,SetActiveViewMode}`; proof: `internal/projectstate/view_modes_test.go::TestRuntimeCreateAndSwitchViewModesSwapLayoutAndViewportState`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestState,TestRegisterProjectRoutesSetActiveViewModeReturnsNotFoundForUnknownViewMode}`. | `Proved` | The default-name portion of view-mode creation stays tracked in the naming slice (`VN-03`); this row is about stored layout/viewport behavior and active-mode switching. |
+| `VM-02` | `toggleIsEditingViewMode`, `toggleSectionVisibility`, `toggleViewModeUserFacing`, `toggleViewModeTab`, `setViewModeName`, `setViewModeSortOrder`, and `deleteViewMode` persist their view-mode metadata, visibility, and fallback-order updates, while the direct routes preserve typed `404` / `422` mapping for invalid names, unknown sections/view modes, and invalid sort orders. | Source docs: `docs/reference/view-modes.md`; `docs/reference/name-validation.md`; source manager methods: `backend/setta/project_state/base_project_manager.py::{toggle_is_editing_view_mode,toggle_section_visibility,toggle_view_mode_user_facing,toggle_view_mode_tab,set_view_mode_name,set_view_mode_sort_order,delete_view_mode}`; source project-state tests: `tests/project_state/test_project_config_view_modes.py::{test_toggle_view_mode_tab_updates_flag,test_set_view_mode_sort_order_rejects_duplicate_ids,test_delete_active_view_mode_uses_sorted_order_fallback}`. | Impl: `internal/projectstate/view_modes.go::{ToggleIsEditingViewMode,ToggleSectionVisibility,ToggleViewModeUserFacing,ToggleViewModeTab,SetViewModeName,SetViewModeSortOrder,DeleteViewMode}`; proof: `internal/projectstate/view_modes_test.go::{TestRuntimeViewModeNameValidationAndSortOrderErrors,TestRuntimeDeleteActiveViewModeUsesSortedOrderFallback}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestState,TestRegisterProjectRoutesToggleSectionVisibilityReturnsNotFoundForUnknownSection,TestRegisterProjectRoutesSetViewModeNameReturns422ForInvalidName,TestRegisterProjectRoutesSetViewModeSortOrderReturns422ForDuplicateIDs,TestRegisterProjectRoutesSetViewModeSortOrderReturns404ForUnknownViewMode}`. | `Proved` | Current Go route proof covers the active view-mode latest-state payload after toggles, reorder, rename, and delete, while the runtime proof covers sorted-order fallback when the active mode is deleted. |
+| `VM-03` | In share/app sessions, `setActiveViewMode` stays mounted behind `allowVariantChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source route: `backend/setta/routers/project_manager.py::route_set_active_view_mode`. | Current Go mounts `RouteSetActiveViewMode` only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues that write from share-aware callers via `frontend/src/components/Pages/Project/ViewModeTabs.tsx`, `frontend/src/state/hooks/viewModeUrl.ts`, and `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx`. | `Missing` | This is an active parity gap: the source/current docs keep active view-mode switching on the `allowVariantChanges` boundary, but current Go removes the route outside IDE while shared callers still use it for tabs, URL sync, and the overview pane. |
+| `VM-04` | In share/app sessions, the remaining view-mode edit family stays transport-visible and fails closed with deployment-mode `403` when `allowVariantChanges=true` instead of disappearing entirely outside IDE: `createViewMode`, `toggleIsEditingViewMode`, `toggleSectionVisibility`, `toggleViewModeUserFacing`, `toggleViewModeTab`, `setViewModeName`, `setViewModeSortOrder`, and `deleteViewMode`. | Source docs: `docs/reference/share-policy-flags.md`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_view_mode_routes_blocked_when_variant_changes_allowed`; source routes: `backend/setta/routers/project_manager.py::{route_create_view_mode,route_toggle_is_editing_view_mode,route_toggle_section_visibility,route_toggle_view_mode_user_facing,route_toggle_view_mode_tab,route_set_view_mode_name,route_set_view_mode_sort_order,route_delete_view_mode}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; the current overview-pane edit family in `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` still guards them with `canEditStructure`, so active non-IDE callers remain unproven. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove an active Go-era non-IDE caller still depends on the direct edit-route contract. |
+
 ## Current Findings
 
-1. The matrix now contains forty-two concrete source-parity gaps:
+1. The matrix now contains forty-three concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
-   `PV-05`, and `SV-05`.
+   `PV-05`, `SV-05`, and `VM-03`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1162,28 +1175,31 @@ Rows outside these slices are still pending.
 38. The section-variant slice mostly closes with proofs, but it adds one real
     variant-policy gap (`SV-05`), one broader direct-route proof gap
     (`SV-02`), and one dormant delete-route boundary row (`SV-06`).
-39. Git route behavior is now largely proved, including literal pathspec
+39. The view-mode route slice mostly closes with proofs, but it adds one real
+    active-view-mode policy gap (`VM-03`) plus one dormant edit-family
+    boundary row (`VM-04`).
+40. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-40. The remaining issues in the naming slice are still mostly proof gaps rather
+41. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-41. The next high-value steps are:
+42. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
       `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
-      `VL-07`, `SP-03`, `PA-02`, `PV-05`, and `SV-05` should be restored or
-      documented as intentional divergences
+      `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, and `VM-03` should be
+      restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
       `LH-04`, `WL-05`, `AS-02`, `SM-04`, `CH-04`, `SD-07`, `SD-08`,
-      `SD-09`, `CS-05`, `CB-05`, `CD-02`, `CD-03`, `PV-06`, `EP-02`, and
-      `SV-06` can be treated as fully dead legacy or share-only transports,
-      or still need explicit retained-boundary decisions
+      `SD-09`, `CS-05`, `CB-05`, `CD-02`, `CD-03`, `PV-06`, `EP-02`,
+      `SV-06`, and `VM-04` can be treated as fully dead legacy or share-only
+      transports, or still need explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
