@@ -41,10 +41,10 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
@@ -136,6 +136,17 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   return to the larger unresolved roots in
   [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) unless a same-turn
   slice shortens one of those local git owners directly.
+- `StandaloneWindowSpaceSurface.tsx` is no longer a top hotspot after
+  delegating standalone window hydration, merge, focus, bounds, chat-id, and
+  embedded-git visibility transitions to
+  `frontend/src/components/Pages/Project/standaloneWindowSpaceWindowModel.ts`
+  plus local window-session, blocked-window filtering, visible-window sorting,
+  and snap-resize interaction ownership to
+  `frontend/src/components/Pages/Project/useStandaloneWindowSpaceWindowSession.ts`;
+  page-domain follow-through should now start from
+  `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` or
+  one of those sharp local owners instead of rebuilding a larger standalone
+  page coordinator.
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
 - `HomePage.tsx` is no longer a top hotspot after the local home-page split
   into `homeProjectGallery.tsx`, `homeWorkspaceSidePanes.tsx`,

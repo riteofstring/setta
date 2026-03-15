@@ -80,6 +80,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/App/appRegistry.tsx` at 888 lines after the local param-input, param-controls, and param-model extraction and still a real cross-domain front-door hotspot
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 813 lines and still a large overview-pane front door
 - `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after delegating gallery/list rendering to `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace/browser plus side-pane shells to `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`, selected-project metadata rendering to `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and shared path/count helpers to `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so it is no longer a top-size hotspot.
+- `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` is
+  now 333 lines after delegating standalone window hydration/merge/focus/bounds
+  transitions plus chat-id and embedded-git visibility writes to
+  `frontend/src/components/Pages/Project/standaloneWindowSpaceWindowModel.ts`
+  and local window-session, blocked-window filtering, visible-window sorting,
+  and snap-resize interaction ownership to
+  `frontend/src/components/Pages/Project/useStandaloneWindowSpaceWindowSession.ts`,
+  so it is no longer a top-size hotspot.
 - `frontend/src/components/Git/GitGraphOverlay.tsx` is now 310 lines after delegating commit lookup, search-blob, digest, and decoration-chip ownership to `frontend/src/components/Git/gitGraphOverlayCommitIndex.ts`, the virtualized history-pane list plus lane/gutter rendering to `frontend/src/components/Git/gitGraphOverlayCommitListSurface.tsx`, and selected-commit details to `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.tsx`, so it is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555 lines after the local codegen sections, codegen policy content, and codegen model extraction and is no longer a top-size hotspot.
 - `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
@@ -336,16 +344,16 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   UI front doors and a small set of still-large cross-domain entry surfaces.
   Default to those before revisiting already-improved coordinators such as
   `ChatArea.tsx`, `ChatInput.tsx`, `ProjectChatBottomDock.tsx`,
-  `ProjectChatSkillsMcpViewer.tsx`, `ProjectChatHistory.tsx`,
+  `ProjectChatSkillsMcpViewer.tsx`, `StandaloneWindowSpaceSurface.tsx`,
   `TaskBoardArea.tsx`, `RunInstructions.tsx`, or `GitGraphOverlay.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
-  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
-  `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `ChatMessages.tsx` as a
+  `StandaloneWindowSpaceSurface.tsx`, `ChatInput.tsx`, or `ChatMessages.tsx` as a
   default starting point while a same-domain higher-priority front door above
   remains unresolved, unless the slice directly shortens that higher-priority
   path.
@@ -1038,19 +1046,17 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
-  - `frontend/src/components/Section/Layouts/BrowserArea.tsx` only when a
-    same-turn follow-through shortens `useBrowserAreaFolderSession.ts`,
-    `useBrowserAreaPreviewState.ts`, or `BrowserAreaContentView.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
-  - project-chat hydration/runtime orchestration vs submission/edit handlers vs
-    render branching in `ProjectChatCore.tsx`
-  - tracked git-pane/window lifecycle vs floating placement/snap behavior in
-    `ProjectChatBottomDock.tsx`
-  - standalone window focus/z-index vs bounds/snap math vs page shell rendering
-    in `StandaloneWindowSpaceSurface.tsx`
+  - app-mode registration and mode-shell composition vs param/control wiring in
+    `appRegistry.tsx`
+  - history selection/search authority vs DnD/grouping vs final panel
+    composition in `ProjectChatHistory.tsx`
+  - standalone route target/title/share-policy gating vs page shell rendering
+    in `StandaloneProjectSurfacePage.tsx`
 
 ## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 
@@ -1125,19 +1131,18 @@ Notes:
    file names, clearer subfolders, and colocated tests.
 2. Choose the highest unresolved UI hotspot from the current tree and the
    companion plans,
-   usually `components/Chat/ChatMessages.tsx`,
-   `components/Git/GitGraphOverlay.tsx`,
-   `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
-   `components/Pages/Project/StandaloneWindowSpaceSurface.tsx`,
-   `components/Section/Layouts/BrowserArea.tsx`, or
-   `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+   usually `components/App/appRegistry.tsx`,
+   `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`,
+   `components/Panes/Overview/App/AppConfigPane.tsx`,
+   `components/Pages/Project/StandaloneProjectSurfacePage.tsx`, or
+   `components/Pages/Launcher/LauncherHomePage.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a
    direct prerequisite for simplifying one of those larger hotspots or when it
    deletes a now-unnecessary compatibility surface after callers have
    converged.
 4. Continue into already-improved coordinators such as
    `ProjectChatSkillsMcpViewer.tsx`, `ProjectChat.tsx`,
-   `ProjectChatHistory.tsx`, `ChatInput.tsx`, or `BrowserArea.tsx` only after
+   `StandaloneWindowSpaceSurface.tsx`, `ChatInput.tsx`, or `BrowserArea.tsx` only after
    the larger same-domain front doors above are materially smaller, or when
    the same-turn slice directly shortens them.
 5. Add domain subfolders in oversized flat namespaces only after each area
