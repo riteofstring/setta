@@ -2960,6 +2960,38 @@ module map and placement guide while this cleanup progresses.
     message delta reducers from finalized-assistant merge or message-upsert
     helpers.
 
+## 2026-03-15 06:04:21 PDT
+
+- Slice completed: split shared streaming message delta reducers away from
+  finalized-assistant merge and message-upsert helpers
+- Key files touched:
+  - `frontend/src/state/actions/aiChatStreamingMessages.ts`
+  - `frontend/src/state/actions/aiChatStreamingMessageDeltas.ts`
+  - `frontend/src/state/actions/aiChatStreamingMessageUpserts.ts`
+  - `frontend/src/state/actions/aiChatStreamingMessageDeltas.test.ts`
+  - `frontend/src/state/actions/aiChatStreamingMessageUpserts.test.ts`
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/aiChatStreamingRouting.ts`
+  - `frontend/src/state/actions/aiChatStreamingSectionState.ts`
+  - `frontend/src/state/actions/aiChatStreamingToolCalls.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiChatStreamingMessageDeltas.test.ts src/state/actions/aiChatStreamingMessageUpserts.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiStreamingPersistence.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiChatPromotion.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatStreaming.ts src/state/actions/aiChatStreamingRouting.ts src/state/actions/aiChatStreamingSectionState.ts src/state/actions/aiChatStreamingToolCalls.ts src/state/actions/aiChatStreamingMessages.ts src/state/actions/aiChatStreamingMessageDeltas.ts src/state/actions/aiChatStreamingMessageUpserts.ts src/state/actions/aiChatStreamingMessageDeltas.test.ts src/state/actions/aiChatStreamingMessageUpserts.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `a51f39f3bd`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/uiSettingRevealActivation.ts`, now the
+    largest authored/shared state hotspot at 307 lines, by separating
+    active-section or pane-opening writes from accordion and project-chat-aux
+    activation helpers.
+
 ## 2026-03-15 05:26:34 PDT
 
 - Slice completed: split saved window-space CRUD ownership from the
