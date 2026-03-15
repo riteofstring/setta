@@ -5721,3 +5721,36 @@ schedule settings` button still appears on the live task row.
   - Simplify `frontend/src/plugins/runtime.ts`, which is now the largest
     unresolved default-priority front-door hotspot in the README and cleanup
     plan after `TaskBoardArea.tsx` delegated its local schedule owners.
+
+## 2026-03-15 20:58:41 PDT
+
+- Slice completed: extracted plugin runtime project-state bridge
+- This was higher value than jumping straight to `frontend/src/components/Chat/ChatInput.tsx`
+  because `frontend/src/plugins/runtime.ts` was still the top unresolved
+  front-door hotspot at turn start, and the plugin project-state selector,
+  snapshot, and subscription bridge was the largest mixed host-state
+  responsibility still living inside that runtime coordinator.
+- Key files touched:
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/plugins/runtimeProjectStateBridge.ts`
+  - `frontend/src/plugins/runtimeValidation.ts`
+  - `frontend/src/plugins/runtimeProjectStateBridge.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/plugins/runtimeProjectStateBridge.test.ts src/plugins/runtime.test.ts`
+  - `pnpm -C frontend exec vite build`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/plugins/plugin-ui-settings-tools.spec.ts frontend/tests/e2e/overview/plugins/plugins-pane.spec.ts --grep "plugin UI settings tools mutate and reveal plugin settings|opening plugins tab does not trigger redundant plugin runtime refresh"`
+  - `pnpm -C frontend exec prettier --check src/plugins/runtime.ts src/plugins/runtimeValidation.ts src/plugins/runtimeProjectStateBridge.ts src/plugins/runtimeProjectStateBridge.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added and no CDP visual check was run because this
+    slice only moved non-visual plugin runtime host-state logic into local
+    owners without changing UI layout or interaction chrome directly.
+- Commit hash:
+  - `facd7f640ccaa71f343668e4ccbca65bef9a8167`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the
+    largest unresolved front-door hotspot in the README and cleanup plan after
+    `frontend/src/plugins/runtime.ts` delegated its local project-state bridge.
