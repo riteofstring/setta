@@ -176,6 +176,62 @@ func TestRuntimeViewModeNameValidationAndSortOrderErrors(t *testing.T) {
 	}
 }
 
+func TestRuntimeSetViewModeNameRejectsDocumentedInvalidNames(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "reserved_home",
+			input: "home",
+		},
+		{
+			name:  "reserved_settings",
+			input: "Settings",
+		},
+		{
+			name:  "path_separator",
+			input: "bad/name",
+		},
+		{
+			name:  "dotdot_segment",
+			input: "bad..name",
+		},
+		{
+			name:  "control_character",
+			input: "bad\nname",
+		},
+		{
+			name:  "invalid_character",
+			input: "bad@name",
+		},
+		{
+			name:  "invalid_after_sanitization",
+			input: "__",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			runtime := openViewModesTestRuntime(t)
+
+			_, err := runtime.SetViewModeName(context.Background(), "project-alpha", "focus", testCase.input)
+			if !IsInvalidViewModeNameError(err) {
+				t.Fatalf("expected InvalidViewModeNameError, got %v", err)
+			}
+
+			project := runtime.Snapshot().Document.Projects["project-alpha"]
+			if got := project.ViewModes["focus"].Name; got != "Focus" {
+				t.Fatalf("expected rejected rename to keep Focus, got %q", got)
+			}
+		})
+	}
+}
+
 func TestRuntimeDeleteActiveViewModeUsesSortedOrderFallback(t *testing.T) {
 	t.Parallel()
 
