@@ -84,3 +84,8 @@ categorize them.
   keep using small targeted tests like this when a caller-visible row is
   already implemented and a full differential harness slice would add little
   beyond the isolated proof
+- The no-profile config-loader branch that ignores `profileLookupHome` is now
+  proved by direct Go `Load(...)` coverage too; continue taking these shared
+  config/CLI proof-only rows in small slices while the larger remaining work
+  stays on deployment, websocket, watch-code, external-agent, and packaged-CLI
+  gaps
