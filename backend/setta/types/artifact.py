@@ -3,9 +3,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
 from setta.types.binary_content import BinaryContentRef
+from setta.types.id import create_new_id
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 

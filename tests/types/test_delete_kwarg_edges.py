@@ -1,6 +1,4 @@
 import pytest
-
-from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.settings_state import SettingsState
@@ -18,6 +16,7 @@ from setta.types.helpers_lvl2 import (
     set_section_edge_inputs,
     set_section_edge_outputs,
 )
+from setta.types.id import create_new_id
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, SectionType

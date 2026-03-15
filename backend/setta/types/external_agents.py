@@ -2,16 +2,13 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-from setta.database.utils import create_new_id
-from setta.types.id import ID
+from setta.types.id import ID, create_new_id
 
 
 class ExternalAgentToolType(str, Enum):
     claude_code = "claude_code"
     codex = "codex"
     opencode = "opencode"
-    plugin = "plugin"
 
 
 class ExternalAgentRunMode(str, Enum):
@@ -76,7 +73,6 @@ class ExternalAgentConfig(BaseModel, extra="forbid"):
     name: str
     description: str = ""
     toolType: ExternalAgentToolType
-    pluginAdapterId: str | None = None
     runMode: ExternalAgentRunMode
     commandPath: str | None = None
     baseUrl: str | None = None
