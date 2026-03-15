@@ -157,9 +157,11 @@ class TestMultiMCPClientToolCache:
         client._update_tool_cache_for_server("github", [github_tool])
 
         filtered = client.discoverable_tool_definitions_for_servers({"github"})
+        filtered_annotations = client.tool_annotations_for_servers({"github"})
 
         assert "github__search_repo" in filtered
         assert f"{SETTA_MCP_SERVER_ID}__read_file_range" not in filtered
+        assert filtered_annotations == {"github__search_repo": None}
 
     def test_skips_search_tool(self) -> None:
         client = MultiMCPClient({})

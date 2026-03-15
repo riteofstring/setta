@@ -354,7 +354,11 @@ class MultiMCPClient:
     ) -> dict[str, SettaToolAnnotations | None]:
         if self.disabled:
             return {}
-        return self._filter_tool_annotations(self.tool_annotations_by_name, server_ids)
+        return {
+            name: payload
+            for name, payload in self.tool_annotations_by_name.items()
+            if self._tool_belongs_to_server(name, server_ids)
+        }
 
     def _filter_tool_definitions(
         self,
@@ -364,17 +368,6 @@ class MultiMCPClient:
         return {
             name: payload
             for name, payload in definitions.items()
-            if self._tool_belongs_to_server(name, server_ids)
-        }
-
-    def _filter_tool_annotations(
-        self,
-        annotations: dict[str, SettaToolAnnotations | None],
-        server_ids: set[str],
-    ) -> dict[str, SettaToolAnnotations | None]:
-        return {
-            name: payload
-            for name, payload in annotations.items()
             if self._tool_belongs_to_server(name, server_ids)
         }
 
