@@ -20,9 +20,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-16)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/Chat/ChatMessages.tsx` is now about 1236 lines after the local chat-owner extractions and remains one of the largest chat rendering front doors
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` is now about 1185 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is now about 1019 lines after the local hydration-runtime, slash-command-authority, execution-settings, conversation-model, and hydration-session extractions and is now a follow-through coordinator in this domain
+- `frontend/src/components/Chat/ChatMessages.tsx` is now about 528 lines after the local bubble-shell, action-rail, and per-message surface extraction and is no longer a blocking top hotspot in this domain.
 - `frontend/src/components/Chat/ChatInput.tsx` is now about 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and is no longer a blocking top-size hotspot in this domain.
 - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` is now about 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer the blocking top hotspot in this domain.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` is now about 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer the blocking top hotspot in this domain.
@@ -30,8 +30,8 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` is now about 64 lines after delegating accordion section routing and settings-manager ownership into sharp local owners, so it is no longer a blocking front-door hotspot in this domain.
 - The next default work in this domain should continue from the remaining
   large chat/project-AI surfaces a contributor still opens first:
-  - `ChatMessages.tsx`
   - `ProjectChat.tsx`
+  - `ProjectChatCore.tsx`
 - `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
   `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, and
   the extracted `ProjectAISettings` manager owners still matter, but they are
@@ -47,6 +47,9 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/Chat/chatMessageRuntime.tsx` now owns idle-spinner timing, run-duration persistence, timestamps, count-badge animation, activity-label scrambling, ISO timestamp parsing, and activity thought-preview scroll behavior for `ChatMessages.tsx`
   - `frontend/src/components/Chat/chatAssistantActivityCard.tsx` now owns the assistant activity card shell, timeline row rendering, open-all coordination, and activity-item copy wiring for `ChatMessages.tsx`
   - `frontend/src/components/Chat/chatCopyText.ts` now owns the shared clipboard-notification helper used by `ChatMessages.tsx` and `chatAssistantActivityCard.tsx`
+  - `frontend/src/components/Chat/chatMessageBubbles.tsx` now owns assistant/user/system bubble shells and action-anchor placement for `ChatMessages.tsx`
+  - `frontend/src/components/Chat/chatMessageActions.tsx` now owns copy/edit/redo/branch-switch controls for `ChatMessages.tsx`
+  - `frontend/src/components/Chat/chatMessageSurface.tsx` now owns per-message assistant/user/system render branching, editor swap handling, and action-bar composition for `ChatMessages.tsx`
   - `frontend/src/components/Chat/ChatInputMetaControls.tsx` now owns the
     composer footer/meta row controls, context-left badge formatting and toggle
     behavior, runtime activity counter/dropdown shells, and
@@ -106,7 +109,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 
 ## Current Problems
 
-- `ChatMessages.tsx` is much smaller now, but it still mixes assistant/user/system bubble shells, grouped activity-only row iteration, and message-level action wiring even after assistant activity/timeline derivation moved into `chatAssistantActivity.ts`, the activity card moved into `chatAssistantActivityCard.tsx`, structured-output/tool-call rendering moved into `chatStructuredOutput.tsx`, attachment/media preview handling moved into `chatAttachmentPreviewUrls.ts` plus `chatAttachmentPreviews.tsx`, markdown/search-highlight rendering moved into `chatMessageContent.tsx`, and timers/streaming runtime wiring moved into `chatMessageRuntime.tsx`.
+- `ChatMessages.tsx` is much smaller now, but it still coordinates grouped activity-only row iteration, search-match scrolling, edit-mode session state, and placeholder-assistant row wiring over `chatMessageSurface.tsx`, `chatMessageActions.tsx`, and `chatMessageBubbles.tsx`. Follow-through here should continue only when it shortens one of those remaining coordinator paths instead of reopening the extracted render owners by default.
 - `ChatInput.tsx` is smaller now, but it still mixes slash suggestion layout,
   attachment handling, and the remaining composer render shell even after
   slash-command parsing plus queued-draft replay moved into
@@ -204,12 +207,13 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - A good slice in this phase removes one major responsibility from one of these
   files and makes the new owner obvious from the caller.
 
-2. Continue into the next chat or project-AI roots, not the follow-through coordinators
+2. Continue into the remaining project-AI roots before chat follow-through owners
 
-- After `ProjectChat.tsx`, default next to `ChatMessages.tsx`; treat
-  `ChatInput.tsx`, `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`, and the
-  extracted `ProjectAISettings` manager owners as follow-through unless a
-  same-turn cut directly shortens one of those remaining coordination paths.
+- After `ProjectChat.tsx`, default next to `ProjectChatCore.tsx`; treat
+  `ChatMessages.tsx`, `ChatInput.tsx`, `ProjectChatBottomDock.tsx`,
+  `ProjectChatSkillsMcpViewer.tsx`, and the extracted `ProjectAISettings`
+  manager owners as follow-through unless a same-turn cut directly shortens
+  one of those remaining project-AI coordination paths.
 - Keep pushing clearly named responsibilities out of those files:
   - assistant or user/system bubble shells and message-level action wiring
   - slash-suggestion layout and attachment handling when a same-turn cut still

@@ -41,9 +41,9 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
@@ -101,6 +101,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `chatInputDraftSession.ts` plus the queued-draft rail shell to
   `ChatInputQueuedDraftStack.tsx`; chat/project-AI follow-through should now
   start from the larger remaining front doors in
+  [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- `ChatMessages.tsx` is no longer a top hotspot after delegating the
+  assistant/user/system bubble shells to `chatMessageBubbles.tsx`, the
+  copy/edit/redo/branch action rail to `chatMessageActions.tsx`, and the
+  per-message render branches to `chatMessageSurface.tsx`; chat follow-through
+  should now return to the larger remaining front doors in
   [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
 - `ProjectAISettings.tsx` is no longer a top hotspot after delegating
   accordion section routing to `projectAISettingsSections.tsx`, guardrail

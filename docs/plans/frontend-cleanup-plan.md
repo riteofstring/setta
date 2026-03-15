@@ -70,7 +70,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Chat/ChatInput.tsx` at 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 63 lines after the local settings-section and manager extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1019 lines after the local hydration-runtime, slash-command-authority, execution-settings, conversation-model, and hydration-session extractions and is now a follow-through project-AI coordinator
-- `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is still one of the largest unresolved chat rendering front doors.
+- `frontend/src/components/Chat/ChatMessages.tsx` is now 528 lines after delegating the message bubble shells to `frontend/src/components/Chat/chatMessageBubbles.tsx`, the action rail to `frontend/src/components/Chat/chatMessageActions.tsx`, and per-message render branches to `frontend/src/components/Chat/chatMessageSurface.tsx`, so it is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 646 lines after the local tree-data transport/view-model, list-surface, and search-filter extraction and is no longer a top-size hotspot
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 588 lines after the local preview-surface, preview-state, and folder-session extraction and is no longer a top-size hotspot
@@ -321,9 +321,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `TaskBoardArea.tsx`, `RunInstructions.tsx`, or
   `appRegistry.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
@@ -369,6 +369,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Chat/chatMessageRuntime.tsx` now owns idle-spinner timing, run-duration persistence, timestamps, count-badge animation, activity-label scrambling, ISO timestamp parsing, and activity thought-preview scroll behavior used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatAssistantActivityCard.tsx` now owns the assistant activity card shell, timeline row rendering, open-all coordination, and activity-item copy wiring used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatCopyText.ts` now owns the shared clipboard-notification helper used by `frontend/src/components/Chat/ChatMessages.tsx` and `frontend/src/components/Chat/chatAssistantActivityCard.tsx`.
+- `frontend/src/components/Chat/chatMessageBubbles.tsx` now owns the assistant, user, and system bubble shells plus action-anchor placement used by `frontend/src/components/Chat/ChatMessages.tsx` and `frontend/src/components/Chat/chatMessageSurface.tsx`.
+- `frontend/src/components/Chat/chatMessageActions.tsx` now owns copy/edit/redo/branch-switch controls used by `frontend/src/components/Chat/ChatMessages.tsx` and `frontend/src/components/Chat/chatMessageSurface.tsx`.
+- `frontend/src/components/Chat/chatMessageSurface.tsx` now owns per-message assistant/user/system render branching, editor swap handling, and action-bar composition used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/ChatInputMetaControls.tsx` now owns the
   composer footer/meta row controls, context-left badge formatting and toggle
   behavior, runtime activity counter/dropdown shells, and
@@ -1000,9 +1003,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
