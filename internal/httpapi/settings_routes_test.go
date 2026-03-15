@@ -52,25 +52,34 @@ func TestRegisterSettingsRoutesBlocksLoadOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 
 	// The live settings-state transport stays behind the full IDE runtime guard.
-	for _, mode := range []config.Mode{config.ModeLauncher, config.ModeShare, config.ModeApp} {
-		mode := mode
-		t.Run(string(mode), func(t *testing.T) {
+	for _, testCase := range []struct {
+		mode           config.Mode
+		expectedDetail string
+	}{
+		{mode: config.ModeLauncher, expectedDetail: "Launcher mode does not allow this endpoint."},
+		{mode: config.ModeShare, expectedDetail: "Deployment mode does not allow this endpoint."},
+		{mode: config.ModeApp, expectedDetail: "Deployment mode does not allow this endpoint."},
+	} {
+		testCase := testCase
+		t.Run(string(testCase.mode), func(t *testing.T) {
 			t.Parallel()
 
-			handler := newSettingsRouteTestHandler(t, mode, nil, nil)
+			handler := newSettingsRouteTestHandler(t, testCase.mode, nil, nil)
 			response := httptest.NewRecorder()
 			request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadSettings, nil)
 			handler.ServeHTTP(response, request)
 			if response.Code != http.StatusForbidden {
-				t.Fatalf("expected load settings 403 in mode %s, got %d with body %q", mode, response.Code, response.Body.String())
+				t.Fatalf("expected load settings 403 in mode %s, got %d with body %q", testCase.mode, response.Code, response.Body.String())
 			}
 
-			var payload errorResponse
+			var payload struct {
+				Detail string `json:"detail"`
+			}
 			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("decode load settings error payload: %v", err)
 			}
-			if payload.Error.Code != "mode_forbidden" {
-				t.Fatalf("expected mode_forbidden, got %q", payload.Error.Code)
+			if payload.Detail != testCase.expectedDetail {
+				t.Fatalf("expected detail %q, got %#v", testCase.expectedDetail, payload)
 			}
 		})
 	}
@@ -124,12 +133,19 @@ func TestRegisterSettingsRoutesBlocksSaveOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 
 	// Save should follow the same launcher/deployment block as load.
-	for _, mode := range []config.Mode{config.ModeLauncher, config.ModeShare, config.ModeApp} {
-		mode := mode
-		t.Run(string(mode), func(t *testing.T) {
+	for _, testCase := range []struct {
+		mode           config.Mode
+		expectedDetail string
+	}{
+		{mode: config.ModeLauncher, expectedDetail: "Launcher mode does not allow this endpoint."},
+		{mode: config.ModeShare, expectedDetail: "Share mode does not allow updating settings."},
+		{mode: config.ModeApp, expectedDetail: "Share mode does not allow updating settings."},
+	} {
+		testCase := testCase
+		t.Run(string(testCase.mode), func(t *testing.T) {
 			t.Parallel()
 
-			handler := newSettingsRouteTestHandler(t, mode, nil, nil)
+			handler := newSettingsRouteTestHandler(t, testCase.mode, nil, nil)
 			response := httptest.NewRecorder()
 			request := httptest.NewRequest(
 				http.MethodPost,
@@ -139,15 +155,17 @@ func TestRegisterSettingsRoutesBlocksSaveOutsideFullIDE(t *testing.T) {
 			request.Header.Set("Content-Type", "application/json")
 			handler.ServeHTTP(response, request)
 			if response.Code != http.StatusForbidden {
-				t.Fatalf("expected save settings 403 in mode %s, got %d with body %q", mode, response.Code, response.Body.String())
+				t.Fatalf("expected save settings 403 in mode %s, got %d with body %q", testCase.mode, response.Code, response.Body.String())
 			}
 
-			var payload errorResponse
+			var payload struct {
+				Detail string `json:"detail"`
+			}
 			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("decode save settings error payload: %v", err)
 			}
-			if payload.Error.Code != "mode_forbidden" {
-				t.Fatalf("expected mode_forbidden, got %q", payload.Error.Code)
+			if payload.Detail != testCase.expectedDetail {
+				t.Fatalf("expected detail %q, got %#v", testCase.expectedDetail, payload)
 			}
 		})
 	}

@@ -483,6 +483,10 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 	})
 }
 
+func writeDetail(w http.ResponseWriter, status int, detail any) {
+	writeJSON(w, status, map[string]any{"detail": detail})
+}
+
 func decodeJSONBody[T any](r *http.Request) (T, error) {
 	var payload T
 	if r.Body == nil {

@@ -39,14 +39,17 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 		}
 	}
 
-	protectedRouter := router.With(RequireFullIDERuntime(deps.ModePolicy))
-	protectedRouter.Post(RouteLoadSettings, loadSettingsHandler(deps))
-	protectedRouter.Post(RouteSaveSettings, saveSettingsHandler(deps))
+	router.Post(RouteLoadSettings, loadSettingsHandler(deps))
+	router.Post(RouteSaveSettings, saveSettingsHandler(deps))
 	return nil
 }
 
 func loadSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := settingsLoadModeDetail(deps.ModePolicy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
 		if deps.SettingsState == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -57,6 +60,10 @@ func loadSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 
 func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := settingsSaveModeDetail(deps.ModePolicy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
 		if deps.SettingsState == nil || deps.WebsocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -90,6 +97,28 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func settingsLoadModeDetail(policy modes.Policy) (string, bool) {
+	switch {
+	case policy.IsDeployment():
+		return "Deployment mode does not allow this endpoint.", true
+	case policy.IsLauncher():
+		return "Launcher mode does not allow this endpoint.", true
+	default:
+		return "", false
+	}
+}
+
+func settingsSaveModeDetail(policy modes.Policy) (string, bool) {
+	switch {
+	case policy.IsDeployment():
+		return "Share mode does not allow updating settings.", true
+	case policy.IsLauncher():
+		return "Launcher mode does not allow this endpoint.", true
+	default:
+		return "", false
 	}
 }
 

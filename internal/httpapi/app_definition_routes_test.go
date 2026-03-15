@@ -185,21 +185,83 @@ func TestRegisterAppDefinitionRoutesRejectsInvalidSetInput(t *testing.T) {
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_request"`) {
-		t.Fatalf("expected invalid_request body, got %q", response.Body.String())
+	var payload struct {
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid set payload: %v", err)
+	}
+	if !strings.Contains(payload.Detail, "unknown catalog") {
+		t.Fatalf("expected unknown catalog detail, got %#v", payload)
 	}
 }
 
-func TestRegisterAppDefinitionRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterAppDefinitionRoutesBlocksDeploymentModesWithStructuralDetail(t *testing.T) {
 	t.Parallel()
 
-	handler := newAppDefinitionRouteTestHandler(t, config.ModeShare, nil)
-	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAppCatalog, nil)
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		mode := mode
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+
+			handler := newAppDefinitionRouteTestHandler(t, mode, openAppDefinitionRouteRuntime(t))
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAppDefinition, strings.NewReader(`{}`))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload struct {
+				Detail string `json:"detail"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode deployment detail payload: %v", err)
+			}
+			if payload.Detail != "Deployment mode disallows structural changes." {
+				t.Fatalf("expected deployment structural detail, got %#v", payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAppDefinitionRoutesAllowsCatalogOutsideIDE(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeIDE, config.ModeLauncher, config.ModeShare, config.ModeApp} {
+		mode := mode
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+
+			handler := newAppDefinitionRouteTestHandler(t, mode, nil)
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAppCatalog, nil)
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestRegisterAppDefinitionRoutesAllowsLauncherModeWhenRuntimePresent(t *testing.T) {
+	t.Parallel()
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeLauncher, openAppDefinitionRouteRuntime(t))
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteValidateAppDefinition,
+		strings.NewReader(`{"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 }
 

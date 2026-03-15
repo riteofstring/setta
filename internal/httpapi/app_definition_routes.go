@@ -88,11 +88,10 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDepen
 		return fmt.Errorf("project-state app-definition runtime is required in ide mode")
 	}
 
-	guard := RequireFullIDERuntime(deps.ModePolicy)
-	router.With(guard).Get(RouteGetAppCatalog, getAppCatalogHandler())
-	router.With(guard).Post(RouteGetAppDefinition, getAppDefinitionHandler(deps))
-	router.With(guard).Post(RouteValidateAppDefinition, validateAppDefinitionHandler(deps))
-	router.With(guard).Post(RouteSetAppDefinition, setAppDefinitionHandler(deps))
+	router.Get(RouteGetAppCatalog, getAppCatalogHandler())
+	router.Post(RouteGetAppDefinition, getAppDefinitionHandler(deps))
+	router.Post(RouteValidateAppDefinition, validateAppDefinitionHandler(deps))
+	router.Post(RouteSetAppDefinition, setAppDefinitionHandler(deps))
 	return nil
 }
 
@@ -153,8 +152,12 @@ func buildAppCatalogResponse(catalog appspec.Catalog) AppCatalogResponse {
 
 func getAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := appDefinitionModeDetail(deps.ModePolicy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
 		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			writeDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
 		payload, err := decodeJSONBody[GetAppDefinitionRequest](r)
@@ -174,8 +177,12 @@ func getAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 
 func validateAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := appDefinitionModeDetail(deps.ModePolicy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
 		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			writeDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
 		payload, err := decodeJSONBody[ValidateAppDefinitionRequest](r)
@@ -207,8 +214,12 @@ func validateAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.Hand
 
 func setAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := appDefinitionModeDetail(deps.ModePolicy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
 		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			writeDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
 		payload, err := decodeJSONBody[SetAppDefinitionRequest](r)
@@ -239,6 +250,13 @@ func setAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 	}
 }
 
+func appDefinitionModeDetail(policy modes.Policy) (string, bool) {
+	if policy.IsDeployment() {
+		return "Deployment mode disallows structural changes.", true
+	}
+	return "", false
+}
+
 func writeAppDefinitionRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectstate.ErrRuntimeClosed),
@@ -246,8 +264,8 @@ func writeAppDefinitionRouteError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	case errors.Is(err, projectstate.ErrAppSpecPathUnconfigured),
 		errors.Is(err, projectstate.ErrAppSpecNotFound):
-		writeError(w, r, http.StatusNotFound, "app_spec_not_found", err.Error())
+		writeDetail(w, http.StatusNotFound, err.Error())
 	default:
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+		writeDetail(w, http.StatusUnprocessableEntity, err.Error())
 	}
 }
