@@ -265,6 +265,30 @@ func TestRegisterAppDefinitionRoutesAllowsLauncherModeWhenRuntimePresent(t *test
 	}
 }
 
+func TestRegisterAppDefinitionRoutesReturns404DetailWhenProjectManagerUnavailable(t *testing.T) {
+	t.Parallel()
+
+	handler := newAppDefinitionRouteTestHandler(t, config.ModeLauncher, nil)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAppDefinition, strings.NewReader(`{}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload struct {
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing manager payload: %v", err)
+	}
+	if payload.Detail != "Project manager not available." {
+		t.Fatalf("expected missing manager detail, got %#v", payload)
+	}
+}
+
 func newAppDefinitionRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
