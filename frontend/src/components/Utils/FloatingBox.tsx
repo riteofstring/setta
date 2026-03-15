@@ -3,11 +3,9 @@ import _ from "lodash";
 import { Resizable, ResizeCallback } from "re-resizable";
 import React, { useEffect, useRef } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
-import {
-  createTopLevelSection,
-  getEmptySpacePosition,
-} from "state/actions/sections/createSections";
-import { useLocalStorage, useSettings } from "state/definitions";
+import { getEmptySpacePosition } from "state/actions/sections/createSectionPlacement";
+import { createTopLevelSection } from "state/actions/sections/createSections";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { APP_FLOATING_BOX_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";

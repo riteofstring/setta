@@ -1,11 +1,23 @@
-import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
+import { moveSelectedParamsDown } from "state/actions/params/paramMoveKeyboardCommands";
+import { applyParamMove } from "state/actions/params/paramMoveMutations";
+import {
+  buildVisibleParamIdSet,
+  buildVisibleSelectionGroups,
+  orderParamIdsByParent,
+  resolveSectionWithSelectedParams,
+} from "state/actions/params/paramMoveQueries";
+import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
+import {
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionEffectiveImpls";
+import { useActiveSectionUI } from "state/activeSectionUI";
+import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  route_indent_params,
   route_move_param_groups,
   route_move_params,
-  route_unindent_params,
 } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
@@ -17,18 +29,12 @@ import {
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultDictSectionImpl,
   createVariant,
+  isBaseParentCodeObjImpl,
+  isBaseSectionWithParamsImpl,
   ParameterPassingStyleEnum,
   ParamNameTypeEnum,
-  type BaseCodeObjImplUnion,
-  type ShownParamIds,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  indentSelectedParams,
-  moveParamsWithBackend,
-  moveSelectedParamsDown,
-  unindentSelectedParams,
-} from "./moveParams";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -36,313 +42,449 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_move_params: vi.fn(),
-    route_move_param_groups: vi.fn(),
-    route_indent_params: vi.fn(),
-    route_unindent_params: vi.fn(),
+    route_move_param_groups: vi.fn(async () => ({
+      data: undefined,
+      status: 200,
+      hasResponse: true,
+    })),
+    route_move_params: vi.fn(async () => ({
+      data: undefined,
+      status: 200,
+      hasResponse: true,
+    })),
+    route_toggle_param_selected: vi.fn(async () => ({
+      data: undefined,
+      status: 200,
+      hasResponse: true,
+    })),
+    route_unselect_all_params: vi.fn(async () => ({
+      data: undefined,
+      status: 200,
+      hasResponse: true,
+    })),
   };
 });
 
-const mockedRouteMoveParams = vi.mocked(route_move_params);
-const mockedRouteMoveParamGroups = vi.mocked(route_move_param_groups);
-const mockedRouteIndentParams = vi.mocked(route_indent_params);
-const mockedRouteUnindentParams = vi.mocked(route_unindent_params);
+type ParamNodeSpec = {
+  children?: Array<string>;
+  id: string;
+  kind: "leaf" | "nested";
+  name?: string;
+};
 
-const sectionId = "dict-section";
-const sectionVariantId = "dict-variant";
-const sectionImplId = "dict-impl";
-const rootParamId = "root-param";
+type ParamSectionBundle = {
+  codeObjImpls: ZustandProjectState["codeObjImpls"];
+  codeObjs: ZustandProjectState["codeObjs"];
+  codeObjVariants: ZustandProjectState["codeObjVariants"];
+  rootId: string;
+  sectionId: string;
+  sectionImpls: ZustandProjectState["sectionImpls"];
+  sectionVariantId: string;
+  sectionVariants: ZustandProjectState["sectionVariants"];
+  sections: ZustandProjectState["sections"];
+  shownParamIds: ZustandProjectState["shownParamIds"];
+};
 
-function createNestedParamImpl(
-  id: string,
-  children: Array<string>,
-): BaseCodeObjImplUnion {
+function createNestedParamImpl(implId: string, node: ParamNodeSpec) {
   return {
     type: CodeObjTypeEnum.NestedParam,
-    id,
-    name: id,
+    id: implId,
+    name: node.name ?? node.id,
     description: "",
     isPreset: false,
-    children,
+    children: [...(node.children ?? [])],
     coreNameType: ParamNameTypeEnum.TEXT,
-    coreNameEditable: true,
+    coreNameEditable: false,
     passingStyle: ParameterPassingStyleEnum.DEFAULT,
     typeAnnotation: "",
   };
 }
 
-function createShownParamIds(
-  rootChildren: Array<string>,
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-): ShownParamIds {
-  return {
-    pinned: {
-      requiredParamIdsToPaths: {},
-      topLevelParamIds: [],
+function createParamSectionBundle({
+  sectionId,
+  selectedParams = [],
+  edgeInputParams = [],
+  nodes = [
+    {
+      id: "root-param",
+      kind: "nested",
+      children: ["param-a", "param-b", "param-c"],
     },
-    unpinned: {
-      requiredParamIdsToPaths,
-      topLevelParamIds: rootChildren,
-    },
-  };
-}
-
-function seedDictParamState({
-  rootChildren,
-  selectedParams,
-  nestedChildrenByParent = {},
+    { id: "param-a", kind: "leaf" },
+    { id: "param-b", kind: "leaf" },
+    { id: "param-c", kind: "leaf" },
+  ],
+  rootId = "root-param",
+  visibleParamIds,
 }: {
-  rootChildren: Array<string>;
-  selectedParams: Array<string>;
-  nestedChildrenByParent?: Record<string, Array<string>>;
-}) {
-  const allIds = new Set<string>([rootParamId, ...rootChildren]);
-  for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
-    allIds.add(parentId);
-    for (const childId of children) {
-      allIds.add(childId);
-    }
+  edgeInputParams?: Array<string>;
+  nodes?: Array<ParamNodeSpec>;
+  rootId?: string;
+  sectionId: string;
+  selectedParams?: Array<string>;
+  visibleParamIds?: Array<string>;
+}): ParamSectionBundle {
+  const rootNode = nodes.find((node) => node.id === rootId);
+  if (!rootNode || rootNode.kind !== "nested") {
+    throw new Error(`Section ${sectionId} is missing nested root ${rootId}.`);
   }
 
-  const codeObjs: Record<string, ReturnType<typeof createCore>> = {};
-  const codeObjVariants: Record<string, ReturnType<typeof createVariant>> = {};
-  const codeObjImpls: Record<string, BaseCodeObjImplUnion> = {
-    "root-param-impl": createNestedParamImpl("root-param-impl", rootChildren),
-  };
-  const codeObjVariantMap: Record<string, string> = {
-    [rootParamId]: "root-param-variant",
-  };
+  const sectionVariantId = `${sectionId}-variant`;
+  const sectionImplId = `${sectionId}-impl`;
+  const visibleIds =
+    visibleParamIds ??
+    nodes.filter((node) => node.id !== rootId).map((node) => node.id);
+  const topLevelVisibleParamIds = (rootNode.children ?? []).filter((id) =>
+    visibleIds.includes(id),
+  );
 
-  codeObjs[rootParamId] = createCore({
-    id: rootParamId,
-    name: "root",
-    variants: ["root-param-variant"],
-    defaultVariant: "root-param-variant",
-  });
-  codeObjVariants["root-param-variant"] = createVariant({
-    id: "root-param-variant",
-    impl: "root-param-impl",
-    nonPresetImpls: ["root-param-impl"],
-  });
+  const codeObjs: ZustandProjectState["codeObjs"] = {};
+  const codeObjImpls: ZustandProjectState["codeObjImpls"] = {};
+  const codeObjVariants: ZustandProjectState["codeObjVariants"] = {};
+  const codeObjVariantMap: Record<string, string> = {};
 
-  for (const id of allIds) {
-    if (id === rootParamId) {
-      continue;
-    }
-    const variantId = `${id}-variant`;
-    const implId = `${id}-impl`;
-    codeObjs[id] = createCore({
-      id,
-      name: id,
+  for (const node of nodes) {
+    const variantId = `${sectionId}-${node.id}-variant`;
+    const implId = `${sectionId}-${node.id}-impl`;
+    codeObjVariantMap[node.id] = variantId;
+    codeObjs[node.id] = createCore({
+      id: node.id,
+      name: node.name ?? node.id,
       variants: [variantId],
       defaultVariant: variantId,
+      sharedModifier: {},
+      unsharedKeys: [],
     });
     codeObjVariants[variantId] = createVariant({
       id: variantId,
+      name: `${node.id} variant`,
       impl: implId,
-      nonPresetImpls: [implId],
+      nonPresetImpls: [],
     });
-    codeObjVariantMap[id] = variantId;
-
-    const nestedChildren = nestedChildrenByParent[id];
-    codeObjImpls[implId] = nestedChildren
-      ? createNestedParamImpl(implId, nestedChildren)
-      : createCodeParamCodeObjImpl(createUserDefaultCodeParamCodeObjImpl(), {
-          id: implId,
-          value: id,
-        });
+    codeObjImpls[implId] =
+      node.kind === "nested"
+        ? createNestedParamImpl(implId, node)
+        : createCodeParamCodeObjImpl(createUserDefaultCodeParamCodeObjImpl(), {
+            id: implId,
+            name: node.name ?? node.id,
+          });
   }
 
-  const requiredParamIdsToPaths: Record<string, Array<string>> = {};
-  for (const id of allIds) {
-    if (id === rootParamId) {
-      continue;
-    }
-    const path = [id];
-    for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
-      if (children.includes(id)) {
-        path.unshift(parentId);
-      }
-    }
-    requiredParamIdsToPaths[id] = path;
-  }
-
-  useProjectState.setState((state) => {
-    state.projectConfig = createProjectConfig({
-      id: "project-1",
-      sectionVariantMap: { [sectionId]: sectionVariantId },
-    });
-    state.sections = {
+  return {
+    rootId,
+    sectionId,
+    sectionVariantId,
+    sections: {
       [sectionId]: createCore({
         id: sectionId,
-        name: "Dict",
+        name: `${sectionId} section`,
         variants: [sectionVariantId],
         defaultVariant: sectionVariantId,
       }),
-    };
-    state.sectionVariants = {
-      [sectionVariantId]: createVariant({
-        id: sectionVariantId,
-        impl: sectionImplId,
-        nonPresetImpls: [sectionImplId],
-      }),
-    };
-    state.sectionImpls = {
+    },
+    sectionImpls: {
       [sectionImplId]: createDictSectionImpl(
         createUserDefaultDictSectionImpl(),
         {
           id: sectionImplId,
-          topLevelParamId: rootParamId,
-          selectedParams,
-          edgeInputParams: [],
-          pinnedParams: [],
-          paramFilter: "",
+          topLevelParamId: rootId,
           codeObjVariantMap,
+          selectedParams,
+          edgeInputParams,
         },
       ),
-    };
-    state.codeObjs = codeObjs;
-    state.codeObjVariants = codeObjVariants;
-    state.codeObjImpls = codeObjImpls;
-    state.artifactGroups = {};
-    state.singletonSections = createSingletonSections();
-    state.parentSectionMap = { [sectionId]: null };
-    state.shownParamIds = {
-      [sectionVariantId]: createShownParamIds(
-        rootChildren,
-        requiredParamIdsToPaths,
-      ),
-    };
-    state.previewSectionVariantMap = {};
-    state.requiredDecodedImages = [];
-  });
+    },
+    sectionVariants: {
+      [sectionVariantId]: createVariant({
+        id: sectionVariantId,
+        name: `${sectionId} variant`,
+        impl: sectionImplId,
+        nonPresetImpls: [],
+      }),
+    },
+    codeObjs,
+    codeObjImpls,
+    codeObjVariants,
+    shownParamIds: {
+      [sectionVariantId]: {
+        pinned: {
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+        unpinned: {
+          requiredParamIdsToPaths: Object.fromEntries(
+            visibleIds.map((id) => [id, [id]]),
+          ),
+          topLevelParamIds: topLevelVisibleParamIds,
+        },
+      },
+    },
+  };
 }
 
-describe("moveParams", () => {
+function createProjectState(
+  bundles: Array<ParamSectionBundle>,
+): ZustandProjectState {
+  const sections: ZustandProjectState["sections"] = {};
+  const sectionImpls: ZustandProjectState["sectionImpls"] = {};
+  const sectionVariants: ZustandProjectState["sectionVariants"] = {};
+  const codeObjs: ZustandProjectState["codeObjs"] = {};
+  const codeObjImpls: ZustandProjectState["codeObjImpls"] = {};
+  const codeObjVariants: ZustandProjectState["codeObjVariants"] = {};
+  const shownParamIds: ZustandProjectState["shownParamIds"] = {};
+  const sectionVariantMap: Record<string, string> = {};
+  const parentSectionMap: Record<string, string | null> = {};
+
+  for (const bundle of bundles) {
+    Object.assign(sections, bundle.sections);
+    Object.assign(sectionImpls, bundle.sectionImpls);
+    Object.assign(sectionVariants, bundle.sectionVariants);
+    Object.assign(codeObjs, bundle.codeObjs);
+    Object.assign(codeObjImpls, bundle.codeObjImpls);
+    Object.assign(codeObjVariants, bundle.codeObjVariants);
+    Object.assign(shownParamIds, bundle.shownParamIds);
+    sectionVariantMap[bundle.sectionId] = bundle.sectionVariantId;
+    parentSectionMap[bundle.sectionId] = null;
+  }
+
+  return {
+    projectConfig: createProjectConfig({
+      id: "project-1",
+      sectionVariantMap,
+    }),
+    sections,
+    sectionImpls,
+    sectionVariants,
+    codeObjs,
+    codeObjImpls,
+    codeObjVariants,
+    artifactGroups: {},
+    singletonSections: createSingletonSections(),
+    parentSectionMap,
+    shownParamIds,
+    previewSectionVariantMap: {},
+    requiredDecodedImages: [],
+  } as ZustandProjectState;
+}
+
+function seedProjectState(
+  bundles: Array<ParamSectionBundle>,
+): ZustandProjectState {
+  const state = createProjectState(bundles);
+  useProjectState.setState(state);
+  return state;
+}
+
+describe("moveParams feature split", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
-    mockedRouteMoveParams.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteMoveParamGroups.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteIndentParams.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteUnindentParams.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
   });
 
   afterEach(() => {
     resetProjectStores();
+    vi.clearAllMocks();
   });
 
-  it("posts moveParams with the canonical payload and applies the optimistic reorder", () => {
-    seedDictParamState({
-      rootChildren: ["param-a", "param-b"],
-      selectedParams: [],
+  it("orders moved param ids by the parent's current child order", () => {
+    // Drag/drop reorder should preserve the parent's canonical child ordering.
+    const bundle = createParamSectionBundle({ sectionId: "section-order" });
+    const state = createProjectState([bundle]);
+
+    expect(
+      orderParamIdsByParent(state, bundle.sectionId, bundle.rootId, [
+        "param-c",
+        "param-a",
+      ]),
+    ).toEqual(["param-a", "param-c"]);
+  });
+
+  it("groups contiguous visible selections without merging separated siblings", () => {
+    // Keyboard moves operate on contiguous visible groups rather than each param independently.
+    expect(
+      buildVisibleSelectionGroups(
+        ["param-a", "param-b", "param-c", "param-d", "param-e"],
+        new Set(["param-a", "param-b", "param-d"]),
+      ),
+    ).toEqual([["param-a", "param-b"], ["param-d"]]);
+  });
+
+  it("prefers the active section when multiple sections have selected params", () => {
+    // Param commands should target the active section first instead of whichever section is visited first.
+    const primary = createParamSectionBundle({
+      sectionId: "section-primary",
+      selectedParams: ["param-a"],
+    });
+    const secondary = createParamSectionBundle({
+      sectionId: "section-secondary",
+      selectedParams: ["param-b"],
+    });
+    const state = createProjectState([primary, secondary]);
+
+    useActiveSectionUI.setState({ activeIds: ["section-secondary"] });
+
+    expect(resolveSectionWithSelectedParams(state)).toBe("section-secondary");
+  });
+
+  it("filters edge-input params out of the visible param id set", () => {
+    // Hidden edge-input params should never participate in keyboard moves.
+    const bundle = createParamSectionBundle({
+      sectionId: "section-visible",
+      nodes: [
+        {
+          id: "root-param",
+          kind: "nested",
+          children: ["param-a", "param-edge", "param-b"],
+        },
+        { id: "param-a", kind: "leaf" },
+        { id: "param-edge", kind: "leaf" },
+        { id: "param-b", kind: "leaf" },
+      ],
+      edgeInputParams: ["param-edge"],
+      visibleParamIds: ["param-a", "param-edge", "param-b"],
+    });
+    const state = createProjectState([bundle]);
+
+    expect([...buildVisibleParamIdSet(state, bundle.sectionId)]).toEqual([
+      "param-a",
+      "param-b",
+    ]);
+  });
+
+  it("selects only the requested param when drag selection targets a sibling", () => {
+    // Param drag/drop should collapse prior multi-selection to the dragged sibling before moving it.
+    const bundle = createParamSectionBundle({
+      sectionId: "section-select-only",
+      selectedParams: ["param-a", "param-b"],
+    });
+    seedProjectState([bundle]);
+
+    selectOnlyParam(bundle.sectionId, "param-c");
+
+    expect(
+      getCurrEffectiveSectionImplWithTypeGuard(
+        useProjectState.getState(),
+        bundle.sectionId,
+        isBaseSectionWithParamsImpl,
+      ).selectedParams,
+    ).toEqual(["param-c"]);
+  });
+
+  it("reorders siblings and keeps shown top-level order in sync", () => {
+    // Local optimistic moves should keep both the root children and shown-param order aligned.
+    const bundle = createParamSectionBundle({ sectionId: "section-reorder" });
+    const state = createProjectState([bundle]);
+
+    applyParamMove(state, bundle.sectionId, {
+      paramIds: ["param-c"],
+      newParentId: bundle.rootId,
+      newIndex: 1,
     });
 
-    moveParamsWithBackend({
-      sectionId,
-      paramIds: ["param-b"],
-      newParentId: rootParamId,
+    expect(
+      getCurrEffectiveCodeObjImpl(state, bundle.sectionId, bundle.rootId),
+    ).toMatchObject({
+      children: ["param-a", "param-c", "param-b"],
+    });
+    expect(
+      state.shownParamIds[bundle.sectionVariantId]?.unpinned.topLevelParamIds,
+    ).toEqual(["param-a", "param-c", "param-b"]);
+  });
+
+  it("promotes a leaf target to a nested parent when reparents move into it", () => {
+    // Reparenting into a leaf param should upgrade that param into a nested parent before inserting children.
+    const bundle = createParamSectionBundle({ sectionId: "section-reparent" });
+    const state = createProjectState([bundle]);
+
+    applyParamMove(state, bundle.sectionId, {
+      paramIds: ["param-a"],
+      newParentId: "param-c",
       newIndex: 0,
     });
 
-    expect(mockedRouteMoveParams).toHaveBeenCalledWith({
+    expect(
+      getCurrEffectiveCodeObjImpl(state, bundle.sectionId, bundle.rootId),
+    ).toMatchObject({
+      children: ["param-b", "param-c"],
+    });
+    const nextParent = getCurrEffectiveCodeObjImpl(
+      state,
+      bundle.sectionId,
+      "param-c",
+    );
+    expect(isBaseParentCodeObjImpl(nextParent)).toBe(true);
+    if (!isBaseParentCodeObjImpl(nextParent)) {
+      throw new Error("Expected param-c to become a nested parent.");
+    }
+    expect(nextParent.children).toEqual(["param-a"]);
+    expect(
+      state.shownParamIds[bundle.sectionVariantId]?.unpinned.topLevelParamIds,
+    ).toEqual(["param-b", "param-c"]);
+  });
+
+  it("applies optimistic single-param moves before sending the backend request", () => {
+    // Direct drag/drop moves should update local state immediately and send the exact backend payload.
+    const bundle = createParamSectionBundle({
+      sectionId: "section-single-move",
+    });
+    seedProjectState([bundle]);
+
+    moveParamsWithBackend({
+      sectionId: bundle.sectionId,
+      paramIds: ["param-c"],
+      newParentId: bundle.rootId,
+      newIndex: 0,
+    });
+
+    expect(route_move_params).toHaveBeenCalledWith({
       projectConfigId: "project-1",
-      sectionId,
-      paramIds: ["param-b"],
-      newParentId: rootParamId,
+      sectionId: bundle.sectionId,
+      paramIds: ["param-c"],
+      newParentId: bundle.rootId,
       newIndex: 0,
       frontendOpId: expect.any(String),
     });
-
-    const rootImpl = getCurrEffectiveCodeObjImpl(
-      useProjectState.getState(),
-      sectionId,
-      rootParamId,
-    );
-    if (rootImpl.type !== CodeObjTypeEnum.NestedParam) {
-      throw new Error("expected root param impl to stay nested");
-    }
-    expect(rootImpl.children).toEqual(["param-b", "param-a"]);
-  });
-
-  it("posts indentParams with the selected root param ids", () => {
-    seedDictParamState({
-      rootChildren: ["param-a", "param-b", "param-c"],
-      selectedParams: ["param-b", "param-c"],
-    });
-
-    expect(indentSelectedParams()).toBe(true);
-
-    expect(mockedRouteIndentParams).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      paramIds: ["param-b", "param-c"],
+    expect(
+      getCurrEffectiveCodeObjImpl(
+        useProjectState.getState(),
+        bundle.sectionId,
+        bundle.rootId,
+      ),
+    ).toMatchObject({
+      children: ["param-c", "param-a", "param-b"],
     });
   });
 
-  it("posts unindentParams for the selected nested param ids", () => {
-    seedDictParamState({
-      rootChildren: ["parent-param", "other-param"],
-      selectedParams: ["nested-child"],
-      nestedChildrenByParent: {
-        "parent-param": ["nested-child"],
-      },
+  it("builds grouped keyboard moves from the visible sibling order", () => {
+    // Keyboard move-down should move the entire contiguous selected group as one backend operation.
+    const bundle = createParamSectionBundle({
+      sectionId: "section-keyboard",
+      selectedParams: ["param-a", "param-b"],
     });
-
-    expect(unindentSelectedParams()).toBe(true);
-
-    expect(mockedRouteUnindentParams).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      paramIds: ["nested-child"],
-    });
-  });
-
-  it("posts moveParamGroups for visible keyboard moves and reapplies the optimistic order", () => {
-    seedDictParamState({
-      rootChildren: ["param-a", "param-b", "param-c"],
-      selectedParams: ["param-a"],
-    });
+    seedProjectState([bundle]);
+    useActiveSectionUI.setState({ activeIds: [bundle.sectionId] });
 
     expect(moveSelectedParamsDown()).toBe(true);
-
-    expect(mockedRouteMoveParamGroups).toHaveBeenCalledWith({
+    expect(route_move_param_groups).toHaveBeenCalledWith({
       projectConfigId: "project-1",
-      sectionId,
+      sectionId: bundle.sectionId,
       moves: [
         {
-          paramIds: ["param-a"],
-          newParentId: rootParamId,
+          paramIds: ["param-a", "param-b"],
+          newParentId: bundle.rootId,
           newIndex: 1,
         },
       ],
       frontendOpId: expect.any(String),
     });
-
-    const rootImpl = getCurrEffectiveCodeObjImpl(
-      useProjectState.getState(),
-      sectionId,
-      rootParamId,
-    );
-    if (rootImpl.type !== CodeObjTypeEnum.NestedParam) {
-      throw new Error("expected root param impl to stay nested");
-    }
-    expect(rootImpl.children).toEqual(["param-b", "param-a", "param-c"]);
+    expect(
+      getCurrEffectiveCodeObjImpl(
+        useProjectState.getState(),
+        bundle.sectionId,
+        bundle.rootId,
+      ),
+    ).toMatchObject({
+      children: ["param-c", "param-a", "param-b"],
+    });
   });
 });

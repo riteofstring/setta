@@ -13,25 +13,21 @@ import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
-import {
-  getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
-  getParamDisplayName,
-  toggleParamSelected,
-} from "state/actions/sectionInfos";
+import { toggleParamSelected } from "state/actions/projectStateCommands";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import {
-  useLocalStorage,
-  useMisc,
-  useProjectState,
-  useResizeEvent,
-  useSettings,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { getCurrShownParamIds } from "state/actions/sectionShownParams";
+import { useProjectState, useResizeEvent } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useIsScrollable } from "state/hooks/sectionScrollability";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
+import {
+  useMisc,
+  useTemporaryMiscState,
+} from "state/stores/layoutInteractionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
