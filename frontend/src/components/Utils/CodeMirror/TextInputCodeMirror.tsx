@@ -172,25 +172,150 @@ function CoreCodeMirror({
   completionsFn,
   tooltipParentDivId,
 }) {
-  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const canUseLsp = !isDeploymentMode;
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
+  const onCreateEditor = useMemo(
+    () =>
+      getOnCreateEditor({
+        initialEvent,
+        divId,
+        value,
+        defaultVal,
+      }),
+    [defaultVal, divId, initialEvent, value],
+  );
+
+  if (shouldAutocomplete) {
+    return (
+      <AutocompleteCoreCodeMirror
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        value={value}
+        defaultVal={defaultVal}
+        onChange={onChange}
+        className={className}
+        singleLine={singleLine}
+        wrapLines={wrapLines}
+        keyComboActions={keyComboActions}
+        onEscape={onEscape}
+        onBlur={onBlur}
+        onTab={onTab}
+        onCreateEditor={onCreateEditor}
+        theme={theme}
+        language={language}
+        completionsFn={completionsFn}
+        tooltipParentDivId={tooltipParentDivId}
+        divId={divId}
+      />
+    );
+  }
+
+  return (
+    <PlainCoreCodeMirror
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      className={className}
+      singleLine={singleLine}
+      wrapLines={wrapLines}
+      keyComboActions={keyComboActions}
+      onEscape={onEscape}
+      onBlur={onBlur}
+      onTab={onTab}
+      onCreateEditor={onCreateEditor}
+      theme={theme}
+      language={language}
+      divId={divId}
+    />
+  );
+}
+
+function PlainCoreCodeMirror({
+  value,
+  defaultVal,
+  onChange,
+  className,
+  singleLine,
+  wrapLines,
+  keyComboActions,
+  onEscape,
+  onBlur,
+  onTab,
+  onCreateEditor,
+  theme,
+  language,
+  divId,
+}) {
+  const extensions = useMemo(
+    () =>
+      getExtensions({
+        language,
+        singleLine,
+        wrapLines,
+        tabToAutocomplete: true,
+        keyComboActions,
+        onTab,
+        onEscape,
+      }),
+    [
+      keyComboActions,
+      language,
+      onEscape,
+      onTab,
+      singleLine,
+      wrapLines,
+    ],
+  );
+
+  return (
+    <RenderedCodeMirror
+      divId={divId}
+      className={className}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      onBlur={onBlur}
+      onCreateEditor={onCreateEditor}
+      theme={theme}
+      extensions={extensions}
+    />
+  );
+}
+
+function AutocompleteCoreCodeMirror({
+  sectionId,
+  paramInfoId,
+  value,
+  defaultVal,
+  onChange,
+  className,
+  singleLine,
+  wrapLines,
+  keyComboActions,
+  onEscape,
+  onBlur,
+  onTab,
+  onCreateEditor,
+  theme,
+  language,
+  completionsFn,
+  tooltipParentDivId,
+  divId,
+}) {
   const resolvedTooltipParentDivId =
     resolveTooltipParentDivId(tooltipParentDivId);
   const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
-
-  const resolvedCompletionsFn = useMemo(() => {
-    if (!shouldAutocomplete) {
-      return undefined;
-    }
-    return completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId);
-  }, [completionsFn, paramInfoId, sectionId, shouldAutocomplete]);
+  const resolvedCompletionsFn = useMemo(
+    () => completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId),
+    [completionsFn, paramInfoId, sectionId],
+  );
 
   const extensions = useMemo(
     () =>
       getExtensions({
-        parent: shouldAutocomplete ? tooltipParent : null,
+        parent: tooltipParent,
         language,
         completionsFn: resolvedCompletionsFn,
         singleLine,
@@ -206,24 +331,38 @@ function CoreCodeMirror({
       onEscape,
       onTab,
       resolvedCompletionsFn,
-      shouldAutocomplete,
       singleLine,
       tooltipParent,
       wrapLines,
     ],
   );
 
-  const onCreateEditor = useMemo(
-    () =>
-      getOnCreateEditor({
-        initialEvent,
-        divId,
-        value,
-        defaultVal,
-      }),
-    [defaultVal, divId, initialEvent, value],
+  return (
+    <RenderedCodeMirror
+      divId={divId}
+      className={className}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      onBlur={onBlur}
+      onCreateEditor={onCreateEditor}
+      theme={theme}
+      extensions={extensions}
+    />
   );
+}
 
+function RenderedCodeMirror({
+  divId,
+  className,
+  value,
+  defaultVal,
+  onChange,
+  onBlur,
+  onCreateEditor,
+  theme,
+  extensions,
+}) {
   return (
     <CodeMirror
       id={divId}

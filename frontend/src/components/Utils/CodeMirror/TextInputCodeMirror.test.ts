@@ -23,6 +23,9 @@ const { getExtensionsMock } = vi.hoisted(() => ({
 const { lastCodeMirrorPropsMock } = vi.hoisted(() => ({
   lastCodeMirrorPropsMock: vi.fn(),
 }));
+const { useCodeMirrorTooltipParentMock } = vi.hoisted(() => ({
+  useCodeMirrorTooltipParentMock: vi.fn(() => null),
+}));
 
 vi.mock("state/actions/activeSectionController", () => ({
   applyActiveSectionChange: applyActiveSectionChangeMock,
@@ -50,7 +53,7 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorStyle", () => ({
 }));
 
 vi.mock("components/Utils/CodeMirror/useCodeMirrorTooltipParent", () => ({
-  useCodeMirrorTooltipParent: () => null,
+  useCodeMirrorTooltipParent: useCodeMirrorTooltipParentMock,
 }));
 
 vi.mock("components/Utils/CodeMirror/getExtensions", () => ({
@@ -149,6 +152,7 @@ describe("TextInputCodeMirror activation", () => {
     applyActiveSectionChangeMock.mockClear();
     getExtensionsMock.mockClear();
     lastCodeMirrorPropsMock.mockClear();
+    useCodeMirrorTooltipParentMock.mockClear();
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
@@ -223,6 +227,7 @@ describe("TextInputCodeMirror activation", () => {
     expect(getExtensionsMock).toHaveBeenCalled();
     const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
     expect(lastCall?.completionsFn).toBeUndefined();
+    expect(useCodeMirrorTooltipParentMock).not.toHaveBeenCalled();
     const lastCodeMirrorProps = lastCodeMirrorPropsMock.mock.calls.at(-1)?.[0];
     expect(lastCodeMirrorProps?.basicSetup).toMatchObject({
       history: false,
@@ -275,6 +280,7 @@ describe("TextInputCodeMirror activation", () => {
 
     expect(getExtensionsMock).toHaveBeenCalledTimes(1);
     const firstCall = getExtensionsMock.mock.calls[0]?.[0];
+    expect(useCodeMirrorTooltipParentMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       root.render(
