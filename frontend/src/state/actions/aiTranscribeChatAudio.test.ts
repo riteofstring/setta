@@ -6,10 +6,8 @@ import {
 } from "utils/generatedEndpoints";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  resampleMonoPcm16ToSampleRate,
-  transcribeChatAudioWithProfile,
-} from "./aiTranscription";
+import { resampleMonoPcm16ToSampleRate } from "./aiTranscriptionAudio";
+import { transcribeChatAudioWithProfile } from "./aiTranscriptionUpload";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<

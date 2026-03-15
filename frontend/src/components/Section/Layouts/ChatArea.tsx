@@ -52,7 +52,7 @@ import {
   submitMessage,
 } from "state/actions/aiChatSubmission";
 import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
-import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
+import { transcribeChatAudioWithProfile } from "state/actions/aiTranscriptionUpload";
 import {
   buildBranchFromEdit,
   buildBranchIndexFromBranches,

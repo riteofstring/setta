@@ -38,7 +38,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - AI-follow tool-argument snapshot reads/writes plus backend snapshot fetch now live in `frontend/src/state/actions/aiFollowToolArguments.ts`, while tool-result highlights and scope-violation timeout orchestration now live in `frontend/src/state/actions/aiFollowHighlights.ts`
   - LLM config loading/saving now lives in `frontend/src/state/actions/aiLLMConfiguration.ts`, managed API-key snapshot/load/save behavior now lives in `frontend/src/state/actions/aiManagedApiKeys.ts`, while agent-profile, prompt-template, external-agent, external-agent-health, and engine-config catalog fetch/hydration now live in `frontend/src/state/actions/aiConfigurationCatalogLoads.ts`, shared AI catalog store writes now live in `frontend/src/state/actions/aiConfigurationCatalogState.ts`, and catalog mutations now live in `frontend/src/state/actions/aiConfigurationCatalogMutations.ts`
-  - provider dictation orchestration now lives in `frontend/src/state/actions/aiTranscription.ts`, while session transport now lives in `frontend/src/state/actions/aiTranscriptionSessions.ts` and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscriptionProfiles.ts`
+  - provider dictation audio decode and realtime payload prep now live in `frontend/src/state/actions/aiTranscriptionAudio.ts`, provider upload orchestration now lives in `frontend/src/state/actions/aiTranscriptionUpload.ts`, `frontend/src/state/actions/aiTranscription.ts` is now a thin compatibility facade, while session transport now lives in `frontend/src/state/actions/aiTranscriptionSessions.ts` and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscriptionProfiles.ts`
   - `RunInstructions.tsx` already delegates some state/parsing work to `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
 - Before starting a slice, re-measure the current file and check for nearby helper modules/tests.
@@ -110,7 +110,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   ref selection, load planning, and revision-stamp hooks, and
   `frontend/src/state/hooks/artifacts.ts` is now an 18-line compatibility
   facade.
-- `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation decode, resample, chunk, and upload orchestration.
+- `frontend/src/state/actions/aiTranscriptionAudio.ts` now owns provider dictation decode, mono PCM conversion, resample, and realtime payload preparation.
+- `frontend/src/state/actions/aiTranscriptionUpload.ts` now owns provider dictation session start/append/stop/cancel orchestration plus transcript assembly.
+- `frontend/src/state/actions/aiTranscription.ts` is now a thin compatibility facade over those narrower dictation owners.
 - `frontend/src/state/actions/aiTranscriptionSessions.ts` now owns provider session transport, request-error handling, and chunk-size policy.
 - `frontend/src/state/actions/aiTranscriptionProfiles.ts` now owns transcription-profile loading, websocket/store snapshot updates, and CRUD.
 - `frontend/src/state/actions/stateMachineDraftValidationGraph.ts` now owns machine-section and workflow-edge graph reads, `frontend/src/state/actions/stateMachineDraftValidationWarnings.ts` now owns draft warning detail/result assembly, and `frontend/src/state/actions/stateMachineDraftValidation.ts` now owns traversal/orchestration for workflow draft validation.
@@ -592,7 +594,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiTranscription.ts`, `state/actions/projectChatWindowingEphemeral.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/actions/keyShortcutRegistrationGroups.ts`, `state/hooks/aiFollow.ts`, or the shared chat UI surfaces.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/projectChatWindowingEphemeral.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/actions/keyShortcutRegistrationGroups.ts`, `state/hooks/aiFollow.ts`, or the shared chat UI surfaces.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

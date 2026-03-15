@@ -153,8 +153,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     facade over the narrower catalog owners.
   - `state/actions/aiConfiguration.ts` is now a thin compatibility surface that
     re-exports the LLM/config and catalog owners.
-  - `state/actions/aiTranscription.ts` owns provider dictation decode,
-    resample, chunk, and upload orchestration.
+  - `state/actions/aiTranscriptionAudio.ts` owns provider dictation decode,
+    mono PCM conversion, resample, and realtime-payload preparation.
+  - `state/actions/aiTranscriptionUpload.ts` owns provider dictation session
+    start, append, stop, cancel, and transcript assembly orchestration.
+  - `state/actions/aiTranscription.ts` is now a thin compatibility facade over
+    those narrower dictation owners.
   - `state/actions/aiTranscriptionSessions.ts` owns provider session transport,
     request error handling, and chunk-size policy.
   - `state/actions/aiTranscriptionProfiles.ts` owns transcription-profile load,

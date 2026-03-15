@@ -56,7 +56,7 @@ import {
   type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
 } from "state/actions/aiHydration";
-import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
+import { transcribeChatAudioWithProfile } from "state/actions/aiTranscriptionUpload";
 import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import type {
   ChatHistoryCompatibility,
