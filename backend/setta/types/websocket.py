@@ -95,7 +95,6 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
 class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
-    PYTHON_SCRIPT = "PYTHON_SCRIPT"
     FRONTEND = "FRONTEND"
 
 

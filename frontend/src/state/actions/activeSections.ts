@@ -3,16 +3,14 @@ import {
   clearScheduledActiveSectionBackendSync,
   disableActiveSectionUIBackendHydration,
   failPendingActiveSectionBackendSyncOp,
+  getActiveSectionUIIds,
+  getActiveSectionUISelectionGeneration,
   getScheduledActiveSectionBackendSync,
   markPendingActiveSectionBackendSyncOp,
   restoreBackendAuthoritativeActiveSectionUIIds,
   schedulePendingActiveSectionBackendSync,
-} from "state/activeSectionBackendSync";
-import {
-  getActiveSectionUIIds,
-  getActiveSectionUISelectionGeneration,
   setActiveSectionUIIds,
-} from "state/activeSectionSelection";
+} from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
@@ -22,10 +20,10 @@ import { res200 } from "utils/endpointUtils";
 import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { getTopLevelSectionIdsForDisplay } from "./sectionDisplayQueries";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  getTopLevelSectionIdsForDisplay,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 

@@ -1,10 +1,8 @@
 import { route_get_folder_contents } from "utils/generatedEndpoints";
+import type { FolderContentItem } from "utils/generatedTypes";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
 
-type WorkspaceRootEntry = {
-  name: string;
-  type: string;
-};
+type WorkspaceRootEntry = Pick<FolderContentItem, "name" | "type">;
 
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
