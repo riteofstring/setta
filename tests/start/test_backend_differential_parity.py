@@ -830,6 +830,79 @@ class Route:
             },
         )
 
+    def test_summarize_settings_project_reserved_name_save_update_detects_reserved_name_persistence(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        restart_load_payload = {
+            "projectConfig": {
+                "name": "settings",
+                "activeViewModeId": "settings-all",
+                "viewModes": {
+                    "settings-core": {
+                        "id": "settings-core",
+                        "name": "Core",
+                        "sortIndex": 0,
+                    },
+                    "settings-all": {
+                        "id": "settings-all",
+                        "name": "All Settings",
+                        "sortIndex": 4,
+                    },
+                },
+            }
+        }
+        restart_latest_payload = {
+            "projectState": restart_load_payload,
+        }
+        persisted_payload = {
+            "projects": {
+                "settings": {
+                    "name": "settings",
+                    "activeViewModeId": "settings-all",
+                    "viewModes": {
+                        "settings-core": {
+                            "id": "settings-core",
+                            "name": "Core",
+                            "sortIndex": 0,
+                        },
+                        "settings-all": {
+                            "id": "settings-all",
+                            "name": "All Settings",
+                            "sortIndex": 4,
+                        },
+                    },
+                }
+            }
+        }
+
+        summary = harness.summarize_settings_project_reserved_name_save_update(
+            initial_load_http_status=200,
+            save_http_status=200,
+            restart_load_http_status=200,
+            restart_load_payload=restart_load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload=restart_latest_payload,
+            persisted_after_payload=persisted_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "saveProjectHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadProjectName": "settings",
+                "restartLoadActiveViewModeName": "All Settings",
+                "restartLatestProjectName": "settings",
+                "restartLatestActiveViewModeName": "All Settings",
+                "persistedProjectName": "settings",
+                "persistedActiveViewModeName": "All Settings",
+            },
+        )
+
     def test_settings_store_view_mode_names_supports_go_store_shape(self) -> None:
         harness = load_harness_module()
 
@@ -971,6 +1044,38 @@ class Route:
         self.assertEqual(
             harness.settings_store_view_mode_names(payload),
             ["Core", "All Settings"],
+        )
+
+    def test_settings_store_active_view_mode_name_supports_python_store_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "activeViewModeId": "settings-all",
+                        "viewModes": {
+                            "settings-core": {
+                                "id": "settings-core",
+                                "name": "Core",
+                                "sortIndex": 0,
+                            },
+                            "settings-all": {
+                                "id": "settings-all",
+                                "name": "All Settings",
+                                "sortIndex": 4,
+                            },
+                        },
+                    }
+                }
+            }
+        }
+
+        self.assertEqual(
+            harness.settings_store_active_view_mode_name(payload),
+            "All Settings",
         )
 
     def test_summarize_settings_project_valid_view_mode_noop_detects_no_rewrite(

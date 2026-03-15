@@ -27,6 +27,10 @@ scenarios:
     kind: settings_project_live_hydration
     seed: none
     description: Direct live settings saves should rehydrate the dedicated /settings shell before the next load/readback.
+  - name: settings_project_reserved_name_save_update
+    kind: settings_project_reserved_name_save_update
+    seed: none
+    description: Saving a mutated dedicated /settings project should preserve the reserved built-in project name across restart and readback.
   - name: settings_project_required_view_mode_repair
     kind: settings_project_required_view_mode_repair
     seed: none

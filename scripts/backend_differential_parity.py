@@ -48,6 +48,7 @@ ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
+ROUTE_SAVE_PROJECT = "/api/saveProject"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
 ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
 ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT = "/api/createWorkspaceLaunchIntent"
@@ -777,6 +778,8 @@ def execute_scenario(
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
         return execute_settings_project_live_hydration(backend)
+    if scenario.kind == "settings_project_reserved_name_save_update":
+        return execute_settings_project_reserved_name_save_update(backend)
     if scenario.kind == "settings_project_required_view_mode_repair":
         return execute_settings_project_required_view_mode_repair(backend)
     if scenario.kind == "settings_project_deleted_active_view_mode_repair":
@@ -1090,6 +1093,91 @@ def execute_settings_project_live_hydration(
         if latest_response is None
         else latest_response.status_code,
         "latestProjectState": latest_payload,
+    }
+
+
+def execute_settings_project_reserved_name_save_update(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+
+    save_response = None
+    save_payload = None
+
+    if initial_load_response.status_code == 200 and isinstance(initial_load_payload, dict):
+        save_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_SAVE_PROJECT,
+            payload={"projectConfigId": "settings"},
+        )
+        save_payload = normalize_response_json_allow_status(save_response)
+
+    restart_load_response = None
+    restart_load_payload = None
+    restart_latest_response = None
+    restart_latest_payload = None
+    persisted_after_payload = None
+
+    if initial_load_response.status_code == 200:
+        restart_backend(backend)
+        restart_load_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_LOAD_PROJECT_CONFIG,
+            payload={"projectConfigName": "settings"},
+        )
+        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+        if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+            restarted_project_config = object_field(restart_load_payload, "projectConfig")
+            restarted_project_id = expect_non_empty_string(
+                restarted_project_config.get("id"),
+                "projectConfig.id",
+            )
+            restart_latest_response = post_json_allow_status(
+                session=backend.session,
+                base_url=backend.base_url,
+                route=ROUTE_GET_LATEST_PROJECT_STATE,
+                payload={"projectConfigId": restarted_project_id},
+            )
+            restart_latest_payload = normalize_response_json_allow_status(
+                restart_latest_response
+            )
+        persisted_after_payload = read_persisted_settings_project_document(backend)
+
+    summary = summarize_settings_project_reserved_name_save_update(
+        initial_load_http_status=initial_load_response.status_code,
+        save_http_status=None if save_response is None else save_response.status_code,
+        restart_load_http_status=None
+        if restart_load_response is None
+        else restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        restart_latest_payload=restart_latest_payload,
+        persisted_after_payload=persisted_after_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "saveProjectStatus": None if save_response is None else save_response.status_code,
+        "saveProject": save_payload,
+        "restartLoadProjectConfigStatus": None
+        if restart_load_response is None
+        else restart_load_response.status_code,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        "restartLatestProjectState": restart_latest_payload,
+        "persistedSettingsProjectDocumentAfterRestart": persisted_after_payload,
     }
 
 
@@ -2160,6 +2248,66 @@ def summarize_settings_project_live_hydration(
     return summary
 
 
+def summarize_settings_project_reserved_name_save_update(
+    initial_load_http_status: int,
+    save_http_status: int | None,
+    restart_load_http_status: int | None,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    persisted_after_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+        "saveProjectHttpStatus": save_http_status,
+        "restartLoadHttpStatus": restart_load_http_status,
+        "restartLatestHttpStatus": restart_latest_http_status,
+    }
+
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        restart_project_config = object_field(restart_load_payload, "projectConfig")
+        summary["restartLoadProjectName"] = normalized_string(
+            restart_project_config.get("name")
+        )
+        restart_load_active_view_mode_name = settings_payload_active_view_mode_name(
+            restart_load_payload
+        )
+        if restart_load_active_view_mode_name is not None:
+            summary["restartLoadActiveViewModeName"] = (
+                restart_load_active_view_mode_name
+            )
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        restart_latest_project_config = object_field(latest_project_state, "projectConfig")
+        summary["restartLatestProjectName"] = normalized_string(
+            restart_latest_project_config.get("name")
+        )
+        restart_latest_active_view_mode_name = settings_payload_active_view_mode_name(
+            latest_project_state
+        )
+        if restart_latest_active_view_mode_name is not None:
+            summary["restartLatestActiveViewModeName"] = (
+                restart_latest_active_view_mode_name
+            )
+
+    if isinstance(persisted_after_payload, dict):
+        settings_project = settings_project_payload_from_store_payload(persisted_after_payload)
+        persisted_project_config = settings_project
+        if "projectConfig" in settings_project:
+            persisted_project_config = object_field(settings_project, "projectConfig")
+        summary["persistedProjectName"] = normalized_string(
+            persisted_project_config.get("name")
+        )
+        persisted_active_view_mode_name = settings_store_active_view_mode_name(
+            persisted_after_payload
+        )
+        if persisted_active_view_mode_name is not None:
+            summary["persistedActiveViewModeName"] = persisted_active_view_mode_name
+
+    return summary
+
+
 def summarize_settings_project_required_view_mode_repair(
     initial_load_http_status: int,
     delete_http_status: int,
@@ -2786,6 +2934,19 @@ def settings_payload_view_mode_names(payload: dict[str, Any]) -> list[str]:
     return ordered_view_mode_names(view_modes)
 
 
+def settings_payload_active_view_mode_name(payload: dict[str, Any]) -> str | None:
+    project_config = object_field(payload, "projectConfig")
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
+    if not active_view_mode_id or active_view_mode_id not in view_modes:
+        return None
+    active_view_mode = expect_object(
+        view_modes[active_view_mode_id],
+        f"viewModes.{active_view_mode_id}",
+    )
+    return normalized_string(active_view_mode.get("name")) or None
+
+
 def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
     if not isinstance(payload, dict):
         raise ParityHarnessError(
@@ -2800,6 +2961,28 @@ def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
         if project_config:
             view_modes = object_field(project_config, "viewModes", allow_missing=True)
     return ordered_view_mode_names(view_modes)
+
+
+def settings_store_active_view_mode_name(payload: dict[str, Any]) -> str | None:
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            "Persisted settings project document must be a JSON object, "
+            f"got {type(payload).__name__}"
+        )
+
+    settings_project = settings_project_payload_from_store_payload(payload)
+    project_config = settings_project
+    if "projectConfig" in settings_project:
+        project_config = object_field(settings_project, "projectConfig")
+    active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    if not active_view_mode_id or active_view_mode_id not in view_modes:
+        return None
+    active_view_mode = expect_object(
+        view_modes[active_view_mode_id],
+        f"viewModes.{active_view_mode_id}",
+    )
+    return normalized_string(active_view_mode.get("name")) or None
 
 
 def settings_store_top_level_section_count(payload: dict[str, Any]) -> int:
