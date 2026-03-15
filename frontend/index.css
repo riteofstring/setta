@@ -413,6 +413,41 @@ html.dark body {
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
 }
 
+.section-windowflow-shell > .section-title {
+  align-self: stretch;
+  flex: 0 0 auto;
+  min-height: 22px;
+  min-width: 0;
+}
+
+.section-windowflow-shell
+  > :is(
+    .section-search,
+    .section-args,
+    .section-row-pin,
+    .section-row-pin-main
+  ) {
+  align-self: stretch;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.section-windowflow-shell
+  > :is(
+    .section-main,
+    .section-main-full-w,
+    .section-full,
+    .section-full-no-title,
+    .section-w-full,
+    .section-row-main,
+    .section-row-left-bottom
+  ) {
+  align-self: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
 .section-grid-sweep-areas {
   grid-template-areas:
     "search search search search search"
@@ -474,13 +509,19 @@ html.dark body {
 .section-param-row > [data-param-label-shape="nameInputLeaf"],
 .section-param-row > [data-param-label-shape="nameInputParent"],
 .section-param-row > [data-param-label-shape="nameInputLeaf"] + .section-value,
-.section-param-row > [data-param-label-shape="nameInputParent"] + .section-value {
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  + .section-value {
   font-size: 12px;
   line-height: 16px;
 }
 
-.section-param-row > [data-param-label-shape="nameInputLeaf"] > .peer\/nameinput,
-.section-param-row > [data-param-label-shape="nameInputParent"] > .peer\/nameinput,
+.section-param-row
+  > [data-param-label-shape="nameInputLeaf"]
+  > .peer\/nameinput,
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  > .peer\/nameinput,
 .section-param-row
   > [data-param-label-shape="nameInputLeaf"]
   + .section-value
@@ -727,9 +768,12 @@ input[type="color" i] {
   pointer-events: none;
   transition: opacity 160ms ease-out;
   z-index: 2;
-  -webkit-mask: linear-gradient(#000 0 0) content-box,
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }

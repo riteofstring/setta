@@ -343,7 +343,7 @@ function MetaControlValueArea({
   }
 
   return (
-    <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
+    <div className="col-span-full row-span-full flex h-full min-h-0 w-full flex-1 items-stretch self-stretch p-0">
       {codeObjType === CodeObjTypeEnum.ButtonParam ? (
         <MetaControlContent
           sectionId={sectionId}
