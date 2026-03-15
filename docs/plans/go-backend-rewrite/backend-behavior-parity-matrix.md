@@ -715,7 +715,7 @@ It covers:
 | `MA-02` | Source `startAgentRun` dispatches external-agent-backed profiles through the external runtime after engine/preflight validation; current Go intentionally keeps `startAgentRun` managed-only and rejects external-agent-backed profiles with `managed_llm_engine_required`. | Source route: `backend/setta/routers/agentic.py::route_start_agent_run`; source test: `tests/routers/test_agentic_routes.py::test_agent_profile_routes_validate_llm_config_id`. | Current Go route mapping: `internal/httpapi/agent_run_routes.go::writeManagedAgentRunError`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesRejectsExternalAgentProfileOnStart`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-start-stop-runtime-and-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`. | `Intentional divergence` | The Phase 14 docs explicitly rejected reintroducing Python's hybrid external-agent dispatch through `POST /startAgentRun`. |
 | `MA-03` | `stopAgentRun` cancels the active managed run and returns persisted cancelled terminal state. | `tests/routers/test_agentic_routes.py` managed run flow covering `route_stop_agent_run`; source route: `backend/setta/routers/agentic.py::route_stop_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::stopAgentRunHandler`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesStopsManagedRun`. | `Proved` | |
 | `MA-04` | Managed start/stop surface typed `503 managed_agent_run_unavailable` when the managed runtime is disabled or not yet executable in real app wiring. | Source route: `backend/setta/routers/agentic.py::{route_start_agent_run,route_stop_agent_run}`; source disabled-runtime branch uses `AgentRunner.disabled`. | Impl: `internal/httpapi/agent_run_routes.go::{startAgentRunHandler,stopAgentRunHandler,writeManagedAgentRunError}`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesReturnUnavailableWhenManagedRuntimeDisabled`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-start-stop-runtime-and-transport.md`. | `Proved` | |
-| `MA-05` | Missing managed run ids on `stopAgentRun` return typed `404 agent_run_not_found`. | Source route: `backend/setta/routers/agentic.py::route_stop_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::{stopAgentRunHandler,writeManagedAgentRunError}`. | `Implemented, proof incomplete` | Current Go error mapping clearly includes the typed `agent_run_not_found` branch, but this slice does not yet cite a direct Go route test for missing-run stop transport. |
+| `MA-05` | Missing managed run ids on `stopAgentRun` return typed `404 agent_run_not_found`. | Source route: `backend/setta/routers/agentic.py::route_stop_agent_run`. | Impl/proof: `internal/httpapi/agent_run_routes.go::{stopAgentRunHandler,writeManagedAgentRunError}`; `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesReturnsNotFoundForMissingManagedRunStop`. | `Proved` | |
 
 ## State Machine Runs
 
@@ -1162,9 +1162,8 @@ It covers:
     real behavior gaps and retains one proof-gap cluster (`AH-02`).
 15. The AI-follow / external-run-stop / agent-run-read slice now closes with
     proofs and adds no new real behavior gap.
-16. The managed-agent-run slice mostly closes with proofs, but it adds one
-    documented clean-break divergence (`MA-02`) plus one more proof gap
-    (`MA-05`).
+16. The managed-agent-run slice now closes with proofs and retains one
+    documented clean-break divergence (`MA-02`).
 17. The state-machine-run slice mostly closes with proofs, but it adds one
     dormant share-mutation row (`SM-04`) plus one more proof-gap cluster
     (`SM-05`).
@@ -1273,7 +1272,7 @@ It covers:
       `TS-07`, `TS-11`), plus the new chat/managed-stop proof gap (`AH-02`),
       plus the new chat-section proof gap (`CS-06`), plus the new
       project-chat-windowing proof gaps (`CW-02`, `CW-06`), plus the new
-      managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
+      state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
       (`WS-02`, `WS-05`), plus the new local-session filtering proof gap
       (`SR-02`), plus the new param-value proof gap (`PV-02`), plus the new

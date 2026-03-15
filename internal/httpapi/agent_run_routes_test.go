@@ -214,6 +214,29 @@ func TestRegisterAgentRunRoutesStopsManagedRun(t *testing.T) {
 	}
 }
 
+// The stop route should preserve the typed not-found response when the caller
+// targets a managed run id that does not exist.
+func TestRegisterAgentRunRoutesReturnsNotFoundForMissingManagedRunStop(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAgentRunRouteFixture(t, config.ModeIDE, &routeAgentRunExecutor{})
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteStopAgentRun, strings.NewReader(`{"runId":"run-missing"}`))
+	response := httptest.NewRecorder()
+
+	fixture.handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing managed stop error: %v", err)
+	}
+	if payload.Error.Code != "agent_run_not_found" {
+		t.Fatalf("expected agent_run_not_found, got %#v", payload)
+	}
+}
+
 func TestRegisterAgentRunRoutesStartsManagedRunChain(t *testing.T) {
 	t.Parallel()
 
