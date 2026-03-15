@@ -12,7 +12,6 @@ Principles:
 Current fixtures:
 
 - `backend/`: backend-only plugin shell with a minimal Python entrypoint.
-- `backend-external-agent/`: backend-only plugin that registers external agent adapters.
 - `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
 - `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
@@ -28,7 +27,7 @@ Target fixture catalog (coverage baseline):
 
 - Maintain at least 15 fixture plugins under `tests/fixtures/plugins/`.
 - Include fixtures for each category:
-- backend success paths (minimal backend shells, historical external-agent fixture)
+- backend success paths (minimal backend shells)
 - frontend success paths (sections/panes/commands/top-nav)
 - full-stack success paths
 - content-only paths
@@ -37,7 +36,7 @@ Target fixture catalog (coverage baseline):
 
 Current count:
 
-- 22 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 21 fixture directories are currently present under `tests/fixtures/plugins/`.
 - 15 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 

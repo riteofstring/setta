@@ -809,3 +809,13 @@ tests an external-agent registration block for plugins. After that slice, the
 remaining rewrite tail in this area is no longer the active Go/frontend
 contract; it is the legacy Python external-agent adapter runtime and tests
 that still exist in-tree.
+
+A later follow-up cleanup slice then removed that legacy Python plugin
+external-agent adapter runtime as well. The Python external-agent types no
+longer define `toolType=plugin` or `pluginAdapterId`, the dedicated
+plugin-process adapter module and plugin-branch registry logic were deleted,
+the Python preflight/runner/router stack no longer threads plugin adapter
+registrations through health checks or run startup, and the dedicated plugin
+external-agent tests plus fixture plugin were removed. After that slice, the
+old plugin external-agent path is gone from both the active Go contract and
+the remaining Python backend code.
