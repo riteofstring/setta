@@ -3364,3 +3364,32 @@ Append-only log for the section performance refactor.
   - Keep using the dummy-node `mousedown` harness for any further cold activation traces on this checkpoint.
   - Resolve or explain the focused row/input parity drift against untouched `main` before trusting another lower-seam performance decision.
   - If a parity-resolved rerun still points back down here, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` before reopening the already-trimmed lower activation files.
+
+### 2026-03-17 93
+
+- Item: Correct the main-side focused underline read for the deterministic `mousedown` harness.
+- Status: `needs_more_work`
+- Details:
+  - Re-ran the clean reload `mode` activation read on both branches, but this time enumerated every `.section-value` node inside the row after the direct dummy-node `pointerdown` + `mousedown`.
+  - Entry 92's gray-border conclusion on untouched `main` came from the wrong node:
+    - the first `.section-value` on untouched `main` is the live CodeMirror root after activation
+    - the actual underline is a second sibling span that carries the border
+  - Corrected untouched `main` post-activation read:
+    - live CodeMirror root exists and is `:focus-within`
+    - active element role stays `textbox`
+    - the sibling underline span turns blue: `rgb(96, 165, 250)`
+  - Corrected worktree post-activation read:
+    - the single wrapper `.section-value` is `:focus-within`
+    - its border also turns blue: `rgb(96, 165, 250)`
+  - Conclusion from the corrected DOM read:
+    - the deterministic harness does reach the focused underline styling on both branches
+    - the earlier gray-underline interpretation was a selector mistake, not a real parity regression
+    - the remaining real branch differences are structural:
+      - untouched `main`: grid row shell plus sibling underline span
+      - worktree: flex row shell plus wrapper underline
+      - the worktree also keeps the inherited `ui-monospace` stack on the live editor while untouched `main` still uses the older bare `monospace` class path
+  - The checkpoint still remains open because the reliable activation trace is mixed; the correction only removes one false blocker.
+- Next action:
+  - Keep using the deterministic dummy-node `mousedown` harness for any follow-up cold activation traces.
+  - Base the next checkpoint decision on the mixed trace plus the corrected DOM/screenshot read, not on the false gray-border conclusion from entry 92.
+  - If the evidence still points back down into the lower activation seam, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` first.
