@@ -18,8 +18,7 @@ Last audited: `2026-03-16`
 
 - Rows audited in this pass: `41`
 - Status counts:
-  - `Proved`: `39`
-  - `Missing`: `2`
+  - `Proved`: `41`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
     preserves the Python-source blank root name instead of inventing `"params"`
@@ -28,6 +27,9 @@ Last audited: `2026-03-16`
     `422 {"detail": ...}` bodies
   - `internal/httpapi/project_routes.go`: invalid initial top-level section names
     now map to `422 {"detail": ...}` instead of falling through to `500`
+  - `internal/httpapi/project_shell_routes.go`: `loadProjectConfig` now returns
+    a detail-style 404 body, `deleteProjectConfigs` now returns `true`, and
+    `deleteNotification` now returns `{"success": bool}` to match the source
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -50,10 +52,9 @@ Last audited: `2026-03-16`
 
 ## Current Gaps
 
-- `project_shell.delete_projects.transport_true_response`
-  - Python source returns literal `true`; Go currently returns `null`.
-- `project_shell.notifications.delete_transport_success_bool`
-  - Python source returns `{"success": bool}`; Go currently returns `null`.
+- None in the rows audited so far.
+- Deferred follow-up still exists for unaudited slices and for the project-shell
+  exact-name whitespace/duplicate lookup nuances called out in Scope Notes.
 
 ## Matrix
 
@@ -98,7 +99,7 @@ Last audited: `2026-03-16`
 | `project_shell.save_as.invalid_name.transport_422_detail` | `backend/setta/routers/projects.py::route_save_as_new_project_config` catches `InvalidProjectName` with `detail=str(exc)` | `internal/httpapi/project_shell_routes.go` | `TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail` | frontend shell callers use generated endpoints | `Proved` | The invalid-name route contract matches the source. |
 | `project_shell.set_default_project.persists_and_noop` | `backend/setta/project_state/base_project_manager.py::set_as_default_project`; `backend/setta/routers/projects.py::router_set_as_default_project` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook`; `TestServiceSetDefaultProjectConfigNoopSkipsMetadataHook`; `TestRegisterProjectShellRoutesSetsDefaultProjectConfig` | app metadata broadcasts are wired in `internal/app/app.go` | `Proved` | Go preserves both persisted default-project updates and no-op hook suppression. |
 | `project_shell.delete_projects.reconciles_default_and_runs_hooks` | `backend/setta/project_state/base_project_manager.py::delete_project_configs`; related source tests in `tests/project_state/test_codegen_targets.py` and `tests/project_state/test_watch_code.py` | `internal/projectshell/service.go`; `internal/httpapi/project_shell_routes.go` | `TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault`; `TestRegisterProjectShellRoutesDeletesProjectConfigs` | app wiring deletes project terminals in `internal/app/app.go` | `Proved` | The Go shell delete path reconciles the default project and runs the post-delete hooks. |
-| `project_shell.delete_projects.transport_true_response` | `backend/setta/routers/projects.py::route_delete_project_configs` returns literal `True` | `internal/httpapi/project_shell_routes.go::deleteProjectConfigsHandler` | `TestRegisterProjectShellRoutesDeletesProjectConfigs` proves behavior but does not lock the response body shape | frontend delete-project modal only checks HTTP success in `frontend/src/components/Modals/DeleteProjectWarningModal/DeleteProjectWarningModal.tsx` | `Missing` | Go currently returns `null` here instead of the source `true` JSON response. |
+| `project_shell.delete_projects.transport_true_response` | `backend/setta/routers/projects.py::route_delete_project_configs` returns literal `True` | `internal/httpapi/project_shell_routes.go::deleteProjectConfigsHandler` | `TestRegisterProjectShellRoutesDeletesProjectConfigs` | frontend delete-project modal only checks HTTP success in `frontend/src/components/Modals/DeleteProjectWarningModal/DeleteProjectWarningModal.tsx` | `Proved` | Go now returns the source `true` JSON response. |
 | `project_shell.notifications.list_filtered_by_project` | `backend/setta/routers/projects.py::route_get_notifications` returns `read_notifications(projectConfigId)` | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesReturnsProjectNotifications`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane calls `route_get_notifications` | `Proved` | The Go notifications read path keeps per-project filtering. |
 | `project_shell.notifications.delete_persists` | `backend/setta/routers/projects.py::route_delete_notification` deletes the notification through the DB | `internal/httpapi/project_shell_routes.go`; `internal/notifications/service.go` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | frontend notifications pane removes locally, then posts the delete | `Proved` | The delete side effect itself survives in Go. |
-| `project_shell.notifications.delete_transport_success_bool` | `backend/setta/routers/projects.py::route_delete_notification` returns `{"success": success}` | `internal/httpapi/project_shell_routes.go::deleteNotificationHandler` | `TestRegisterProjectShellRoutesDeletesNotification` currently proves deletion only, not source response shape | `frontend/src/components/Panes/Overview/NotificationsArea.tsx` ignores the response today | `Missing` | Go currently returns `null` instead of the source success object. |
+| `project_shell.notifications.delete_transport_success_bool` | `backend/setta/routers/projects.py::route_delete_notification` returns `{"success": success}` | `internal/httpapi/project_shell_routes.go::deleteNotificationHandler` | `TestRegisterProjectShellRoutesDeletesNotification`; `TestAppServesProjectShellRenameAndNotificationRoutes` | `frontend/src/components/Panes/Overview/NotificationsArea.tsx` ignores the response today | `Proved` | Go now returns the source success object. |

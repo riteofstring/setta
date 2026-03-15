@@ -1695,6 +1695,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteProjectConfigs",
 			RequestType:     reflect.TypeOf(DeleteProjectConfigsRequestInput{}),
+			ResponseType:    reflect.TypeOf(DeleteProjectConfigsResponse(false)),
 		},
 		{
 			FunctionName:    "route_set_as_default_project",
@@ -1724,6 +1725,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteNotification",
 			RequestType:     reflect.TypeOf(DeleteNotificationRequestInput{}),
+			ResponseType:    reflect.TypeOf(DeleteNotificationResponse{}),
 		},
 		{
 			FunctionName:    "route_create_new_section_variant",

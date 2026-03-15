@@ -6187,6 +6187,8 @@ export function createDeleteProjectConfigsRequestInput(
   return options as DeleteProjectConfigsRequestInput;
 }
 
+export type DeleteProjectConfigsResponse = boolean;
+
 export type SetAsDefaultProjectRequestInput = {
   projectConfigId: string;
 };
@@ -6224,6 +6226,15 @@ export function createDeleteNotificationRequestInput(
   options: Partial<DeleteNotificationRequestInput> = {},
 ): DeleteNotificationRequestInput {
   return options as DeleteNotificationRequestInput;
+}
+
+export type DeleteNotificationResponse = {
+  success: boolean;
+};
+export function createDeleteNotificationResponse(
+  options: Partial<DeleteNotificationResponse> = {},
+): DeleteNotificationResponse {
+  return options as DeleteNotificationResponse;
 }
 
 export type CreateNewSectionVariantRequestInput = {

@@ -180,6 +180,8 @@ type DeleteProjectConfigsRequestInput struct {
 	IDs []string `json:"ids"`
 }
 
+type DeleteProjectConfigsResponse bool
+
 type SetProjectConfigNameRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
 	NewName         string `json:"newName"`
@@ -198,6 +200,10 @@ type DeleteNotificationRequestInput struct {
 }
 
 type NotificationsResponse []SettaNotification
+
+type DeleteNotificationResponse struct {
+	Success bool `json:"success"`
+}
 
 type DocstringToMarkdownResponse string
 

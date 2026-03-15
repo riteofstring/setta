@@ -107,7 +107,7 @@ export async function route_create_project_config(x: gt.CreateProjectConfigReque
 }
 
 
-export async function route_delete_project_configs(x: gt.DeleteProjectConfigsRequestInput): Promise<ResponseDataAndStatus<null>> {
+export async function route_delete_project_configs(x: gt.DeleteProjectConfigsRequestInput): Promise<ResponseDataAndStatus<gt.DeleteProjectConfigsResponse>> {
 
   return await post(GoHTTPRouteHelpers.deleteProjectConfigs(), x);
 }
@@ -131,7 +131,7 @@ export async function route_get_notifications(x: gt.GetNotificationsRequestInput
 }
 
 
-export async function route_delete_notification(x: gt.DeleteNotificationRequestInput): Promise<ResponseDataAndStatus<null>> {
+export async function route_delete_notification(x: gt.DeleteNotificationRequestInput): Promise<ResponseDataAndStatus<gt.DeleteNotificationResponse>> {
 
   return await post(GoHTTPRouteHelpers.deleteNotification(), x);
 }

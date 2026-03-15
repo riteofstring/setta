@@ -236,6 +236,14 @@ func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
 		t.Fatalf("expected delete notification 200, got %d with body %q", deleteNotificationResponse.StatusCode, string(body))
 	}
 
+	var deleteNotificationPayload httpapi.DeleteNotificationResponse
+	if err := json.NewDecoder(deleteNotificationResponse.Body).Decode(&deleteNotificationPayload); err != nil {
+		t.Fatalf("decode delete notification payload: %v", err)
+	}
+	if !deleteNotificationPayload.Success {
+		t.Fatalf("expected delete notification success true, got %#v", deleteNotificationPayload)
+	}
+
 	remainingNotifications, err := notificationStore.List()
 	if err != nil {
 		t.Fatalf("list remaining notifications: %v", err)

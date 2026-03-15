@@ -549,6 +549,14 @@ func TestRegisterProjectShellRoutesDeletesProjectConfigs(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
+	var payload bool
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode delete projects payload: %v", err)
+	}
+	if !payload {
+		t.Fatalf("expected delete projects success true, got %#v", payload)
+	}
+
 	snapshot := projectRuntime.Snapshot()
 	if _, ok := snapshot.Document.Projects["project-beta"]; ok {
 		t.Fatalf("expected deleted project-beta, got %#v", snapshot.Document.Projects)
@@ -799,6 +807,14 @@ func TestRegisterProjectShellRoutesDeletesNotification(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload DeleteNotificationResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode delete notification payload: %v", err)
+	}
+	if !payload.Success {
+		t.Fatalf("expected delete notification success true, got %#v", payload)
 	}
 
 	remaining, err := notificationRuntime.store.List()

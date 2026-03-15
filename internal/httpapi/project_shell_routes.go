@@ -69,6 +69,8 @@ type CreateProjectConfigRequest struct {
 	PreviewImgColor string `json:"previewImgColor"`
 }
 
+type DeleteProjectConfigsResponse bool
+
 type DeleteProjectConfigsRequest struct {
 	IDs []string `json:"ids"`
 }
@@ -88,6 +90,10 @@ type GetNotificationsRequest struct {
 
 type DeleteNotificationRequest struct {
 	NotificationID string `json:"notificationId"`
+}
+
+type DeleteNotificationResponse struct {
+	Success bool `json:"success"`
 }
 
 func RegisterProjectShellRoutes(router chi.Router, deps ProjectShellRouteDependencies) error {
@@ -239,7 +245,7 @@ func deleteProjectConfigsHandler(deps ProjectShellRouteDependencies) http.Handle
 			writeProjectLifecycleMutationError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		writeJSON(w, http.StatusOK, DeleteProjectConfigsResponse(true))
 	}
 }
 
@@ -316,11 +322,12 @@ func deleteNotificationHandler(deps ProjectShellRouteDependencies) http.HandlerF
 			return
 		}
 
-		if _, err := deps.Notifications.DeleteNotification(r.Context(), payload.NotificationID); err != nil {
+		success, err := deps.Notifications.DeleteNotification(r.Context(), payload.NotificationID)
+		if err != nil {
 			writeProjectShellRouteError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		writeJSON(w, http.StatusOK, DeleteNotificationResponse{Success: success})
 	}
 }
 

@@ -42,8 +42,8 @@ route_delete_engine_config POST GoHTTPRoutes.deleteEngineConfig pathParams=- req
 route_delete_external_agent_config POST GoHTTPRoutes.deleteExternalAgentConfig pathParams=- request=DeleteExternalAgentConfigRequestInput response=- binary=false
 route_delete_json_source_file_and_variant POST GoHTTPRoutes.deleteJsonSourceFileAndVariant pathParams=- request=DeleteJSONSourceFileAndVariantRequest response=- binary=false
 route_delete_kwarg POST GoHTTPRoutes.deleteKwarg pathParams=- request=DeleteKwargRequestInput response=- binary=false
-route_delete_notification POST GoHTTPRoutes.deleteNotification pathParams=- request=DeleteNotificationRequestInput response=- binary=false
-route_delete_project_configs POST GoHTTPRoutes.deleteProjectConfigs pathParams=- request=DeleteProjectConfigsRequestInput response=- binary=false
+route_delete_notification POST GoHTTPRoutes.deleteNotification pathParams=- request=DeleteNotificationRequestInput response=DeleteNotificationResponse binary=false
+route_delete_project_configs POST GoHTTPRoutes.deleteProjectConfigs pathParams=- request=DeleteProjectConfigsRequestInput response=DeleteProjectConfigsResponse binary=false
 route_delete_prompt_template POST GoHTTPRoutes.deletePromptTemplate pathParams=- request=DeletePromptTemplateRequestInput response=- binary=false
 route_delete_section_variant_or_ask POST GoHTTPRoutes.deleteSectionVariantOrAsk pathParams=- request=DeleteSectionVariantOrAskRequest response=DeleteSectionVariantOrAskResponse binary=false
 route_delete_sections POST GoHTTPRoutes.deleteSections pathParams=- request=DeleteSectionsRequestInput response=- binary=false
