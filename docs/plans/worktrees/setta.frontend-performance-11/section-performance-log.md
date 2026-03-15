@@ -3623,3 +3623,42 @@ Append-only log for the section performance refactor.
     - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
     - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
   - Reconcile the row-height and key/value typography mismatch against untouched `main` before trying to accept checkpoint 1 again.
+
+### 2026-03-17 99
+
+- Item: Probe a wrapper-local fix for the shared-row geometry mismatch without reopening the broader lower seam.
+- Status: `needs_more_work`
+- Details:
+  - Tried a local-only wrapper adjustment in:
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - The local patch was able to recover the explicit `GlobalVariables` shared-row compare:
+    - worktree row height: `24.06`
+    - worktree key/value heights: `24.06`
+    - worktree key/value typography: `12px / 16px`
+    - that matches the untouched `main` read closely enough to prove the remaining mismatch is locally tractable inside the direct wrapper layer
+  - Focused verification under the local patch stayed green:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-params.spec.ts frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/global-variables-kwargs.spec.ts frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts`
+      - result: `7` tests passed
+  - The same local patch also introduced a real callable reorder/indent regression:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+    - result under the patch: failed
+    - observed order after dragging `k` before `h`: `h > k > i > j`
+  - Control check:
+    - stashed the local wrapper patch
+    - reran the same callable minimum-regression grep on the clean branch state
+    - result after stashing: `2 passed`
+  - Recorded the full attempt in:
+    - `perf/reports/frontend/2026-03-17_section-shell-s1-checkpoint1-row-geometry-attempt.md`
+  - Decision:
+    - do not land the wrapper-only geometry fix from this pass
+    - checkpoint 1 stays open
+    - the next blocker is no longer missing coverage or raw geometry alone; it is finding a lower-seam fix that keeps the callable reorder/indent drag surface intact
+- Next action:
+  - Keep the branch on the last clean code state.
+  - Re-enter the lower seam only with a fix that can satisfy both:
+    - the explicit shared-row compare against untouched `main`
+    - the callable reorder/indent representative in `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Do not move upward into `sectionChrome` until both gates are green.
