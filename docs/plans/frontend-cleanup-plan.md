@@ -54,10 +54,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1429 authored TS/TSX files under `frontend/src`.
-- There are 44 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 1432 authored TS/TSX files under `frontend/src`.
+- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 2400 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 2297 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 2117 lines
@@ -67,6 +66,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data transport/view-model extraction
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2323 lines
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1974 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 2304 lines
@@ -89,12 +89,20 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx`,
   so the next default work in that cluster should continue from the remaining
   front-door hotspots instead of re-cutting those new local owners immediately.
+- `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  now delegates root bootstrap, folder-request ownership, recursive-search
+  crawl, preview URL refresh, and tree flatten/filter/sort state to
+  `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts`
+  and
+  `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts`,
+  so the next default work in that domain should continue from the remaining
+  larger front-door surfaces instead of immediately re-cutting those new local
+  owners.
 - Future cleanup should default to the remaining giant render-heavy entry
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
@@ -107,6 +115,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
 - Do not pick a smaller `state/actions` or `state/hooks` split while a
   same-domain 2000+ line UI file remains, unless the lower-level extraction is
   a direct prerequisite for simplifying that larger file.
@@ -147,6 +156,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx` now owns workspace-root polling, python-signal probing, create-project starter prompt adaptation, and the empty-chat render shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts` now owns custom slash-command draft reconciliation, namespace-authority gating, and native-command status text, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx` now owns slash-command engine tabs, agent-run polling, custom-command draft state, and the slash-command form/list shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx` now owns external-agent config selection state, tool-type/run-mode reconciliation, Claude/OpenCode validation, and the external-agent form shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
+- `frontend/src/components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts` now owns file-browser tree flatten/filter/sort helpers, request-ownership tokens, path/date formatting, and Setta-badge metadata helpers, while `frontend/src/components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts` now owns file-browser root bootstrap, per-folder transport state, recursive-search crawling, preview URL refresh, and navigation tree view state used by `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.

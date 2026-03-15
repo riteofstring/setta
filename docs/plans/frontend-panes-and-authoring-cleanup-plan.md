@@ -21,9 +21,10 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 - `AppConfigPane.tsx` is no longer the original 1700+ line monolith. It already delegates preview/draft shaping work to `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`.
 - `RunInstructions.tsx` already has helper seams in `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`, but the main surface still carries too much orchestration.
-- `FileBrowserPane.tsx` is now one of the largest unresolved front-door pane
-  surfaces in the whole frontend and should come before medium-sized
-  authoring-only cleanup in this domain.
+- `FileBrowserPane.tsx` now delegates tree-data transport and tree view-model
+  ownership to `useFileBrowserPaneTreeData.ts` and
+  `fileBrowserPaneTreeModel.ts`, so future work in this domain should extend
+  those seams instead of reintroducing transport logic into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
   to the pane entry surfaces contributors open first instead of polishing
   smaller supporting files.
@@ -32,7 +33,7 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data extraction
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1903 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
@@ -55,13 +56,20 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - generation-mode UI state
 - The existing `appDraftPreview.ts` split is a good start, but transport, generation, persistence, and validation are still coupled in the main surface.
 - `RunInstructions.tsx` still mixes parsed-content rendering, accordion state, runnable controls, and higher-level overview-pane orchestration even after the first helper extractions.
-- `FileBrowserPane.tsx` mixes:
-  - root/folder transport and request ownership
-  - recursive search/filter/sort state
+- `FileBrowserPane.tsx` now focuses on:
   - selection, clipboard, and DnD behavior
-  - preview/download URL lifecycle
-  - row flattening/virtualization and render shells
+  - row/header/virtualized list shells
   - file-open and workspace-action commands
+  - keyboard interaction wiring
+- `useFileBrowserPaneTreeData.ts` now owns:
+  - root/folder transport and request ownership
+  - recursive search crawling and derived tree view state
+  - preview/download URL lifecycle
+  - path navigation state and completion sources
+- `fileBrowserPaneTreeModel.ts` now owns:
+  - tree flatten/filter/sort helpers
+  - request-owner tokens and Setta-badge metadata helpers
+  - file/path/date formatting helpers used by the pane rows
 - `ViewingEditingMode.tsx` mixes:
   - view-mode mutation commands
   - resize behavior
@@ -91,12 +99,13 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 1. Split `FileBrowserPane.tsx` from the pane outward
 
 - Keep `FileBrowserPane.tsx` as the obvious pane entry surface.
-- Extract feature-local owners for:
+- `useFileBrowserPaneTreeData.ts` and `fileBrowserPaneTreeModel.ts` now cover:
   - folder/root transport and stale-request handling
   - tree flattening/filter/sort view models
+  - preview/download URL refresh policy
+- Remaining file-browser work should extract:
   - DnD, clipboard, and open/rename command adapters
   - row/header shells and virtualization-specific render helpers
-  - preview/download URL refresh policy
 - If the slice crosses into `BrowserArea.tsx`, use the sections companion plan as
   a second plan only after the file-browser pane boundary is clear.
 

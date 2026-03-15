@@ -10,11 +10,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1429`
-- Non-generated TS/TSX files at `1000+` lines: `44`
+- Authored TS/TSX files under `frontend/src`: `1432`
+- Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
-  - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2400`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
@@ -24,6 +23,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
   - `components/Git/GitGraphOverlay.tsx` (`2040`)
   - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
+  - `components/Section/Layouts/ChatArea.tsx` (`1972`)
 
 ## Module Map
 
@@ -46,6 +46,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/Panes/Overview/*` owns overview tabs such as App, File Browser,
     Git, Plugins, Project AI, and project overview panes.
+  - `components/Panes/Overview/FileBrowser/fileBrowserPaneTreeModel.ts` owns
+    file-browser tree flatten or filter or sort helpers, request-ownership
+    tokens, path/date formatting, and Setta-badge metadata helpers used by
+    `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`.
+  - `components/Panes/Overview/FileBrowser/useFileBrowserPaneTreeData.ts`
+    owns file-browser root bootstrap, per-folder loading/error ownership,
+    recursive-search crawling, preview URL refresh, and navigation tree view
+    state used by `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`.
+  - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` now focuses on
+    selection state, clipboard/transfer commands, keyboard interaction, and
+    row/filter render shells over those local tree-data owners.
   - `components/Panes/UiEditor/*` and `components/ProjectConfigs/*` own authoring
     and configuration editors.
 

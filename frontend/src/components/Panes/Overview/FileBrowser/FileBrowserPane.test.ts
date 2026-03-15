@@ -1,21 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  isEditableFileBrowserTarget,
+  shouldRefreshMovedExpandedFolder,
+  shouldRefreshRootAfterFileBrowserTransfer,
+  shouldSkipFileBrowserTransfer,
+} from "./FileBrowserPane";
+import {
   buildFileBrowserLoadingPathOwner,
   flattenFileBrowserTree,
   forEachWithConcurrencyLimit,
   getSettaBadgeRefreshFolderPaths,
-  isEditableFileBrowserTarget,
   isOwnedFileBrowserLoadingPath,
   shouldCheckRootWorkspaceInitialization,
   shouldLoadRootWorkspaceInitializationMetadata,
-  shouldRefreshMovedExpandedFolder,
-  shouldRefreshRootAfterFileBrowserTransfer,
   shouldRefreshSettaBadgeDataOnToggleChange,
   shouldShowSettaInitializedFolderIcon,
-  shouldSkipFileBrowserTransfer,
   sortChildPaths,
   type FileNode,
-} from "./FileBrowserPane";
+} from "./fileBrowserPaneTreeModel";
 
 function buildNode(
   name: string,
