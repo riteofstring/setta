@@ -23,11 +23,7 @@ const RouteDeletePromptTemplate = "/deletePromptTemplate"
 type PromptTemplateRouteDependencies struct {
 	ModePolicy   modes.Policy
 	Templates    *prompttemplates.Store
-	ProjectState PromptTemplateProjectState
-}
-
-type PromptTemplateProjectState interface {
-	Snapshot() projectstate.Snapshot
+	ProjectState *projectstate.Runtime
 }
 
 type createPromptTemplateRequest struct {
@@ -78,7 +74,7 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetPromptTemplates, getPromptTemplatesHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps.Templates))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps.Templates))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps.Templates, deps.ProjectState))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps.Templates, deps.ProjectState))
 	return nil
 }
@@ -150,7 +146,6 @@ func createPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-
 		saved, err := store.Get(template.ID)
 		if err != nil {
 			if writePromptTemplateStoreError(w, r, err) {
@@ -163,7 +158,7 @@ func createPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 	}
 }
 
-func updatePromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc {
+func updatePromptTemplateHandler(store *prompttemplates.Store, projectState *projectstate.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -192,6 +187,17 @@ func updatePromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if projectState != nil {
+			if _, _, err := projectState.RefreshLinkedPromptSectionsForTemplate(
+				r.Context(),
+				template.ID,
+				template.Template,
+				projectstate.PromptFormat(template.Format),
+			); err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
 
 		saved, err := store.Get(template.ID)
 		if err != nil {
@@ -205,7 +211,7 @@ func updatePromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 	}
 }
 
-func deletePromptTemplateHandler(store *prompttemplates.Store, projectState PromptTemplateProjectState) http.HandlerFunc {
+func deletePromptTemplateHandler(store *prompttemplates.Store, projectState *projectstate.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

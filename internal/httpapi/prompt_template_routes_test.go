@@ -245,6 +245,58 @@ func TestRegisterPromptTemplateRoutesUpdatesTemplate(t *testing.T) {
 	}
 }
 
+func TestRegisterPromptTemplateRoutesUpdateRefreshesLinkedPromptSections(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-1",
+		Name:     "Greeting",
+		Template: "Old {{ name }}",
+		Format:   prompttemplates.FormatJinja,
+	}); err != nil {
+		t.Fatalf("save template: %v", err)
+	}
+	projectRuntime := newPromptTemplateRouteLinkedPromptSectionRuntimeWithState(
+		t,
+		"template-1",
+		"Old {{ name }}",
+		map[string]string{"name": "Ada"},
+	)
+	handler := newPromptTemplateRouteTestHandlerWithProjectState(t, config.ModeIDE, store, projectRuntime)
+
+	response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, RouteUpdatePromptTemplate, map[string]any{
+		"template": map[string]any{
+			"id":       "template-1",
+			"name":     "Greeting",
+			"template": "Hello {{ name }}",
+			"format":   "Jinja",
+		},
+	})
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	promptPayload := promptTemplateRoutePromptPayload(t, project.Sections["prompt-section"].SharedModifier)
+	if got := promptPayload["promptTemplateId"]; got != "template-1" {
+		t.Fatalf("expected promptTemplateId template-1, got %#v", got)
+	}
+	if got := promptPayload["template"]; got != "Hello {{ name }}" {
+		t.Fatalf("expected refreshed template, got %#v", got)
+	}
+	if got := promptPayload["format"]; got != string(projectstate.PromptFormatJinja) {
+		t.Fatalf("expected prompt format Jinja, got %#v", got)
+	}
+	if got := promptPayload["renderedText"]; got != "Hello Ada" {
+		t.Fatalf("expected refreshed renderedText Hello Ada, got %#v", got)
+	}
+	if value, ok := promptPayload["renderError"]; !ok || value != nil {
+		t.Fatalf("expected renderError to clear after refresh, got %#v", promptPayload["renderError"])
+	}
+}
+
 func TestRegisterPromptTemplateRoutesReturnsNotFoundForUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -604,11 +656,27 @@ func newPromptTemplateRouteWorkflowReferenceRuntime(t *testing.T, templateID str
 func newPromptTemplateRouteLinkedPromptSectionRuntime(t *testing.T, templateID string) *projectstate.Runtime {
 	t.Helper()
 
+	return newPromptTemplateRouteLinkedPromptSectionRuntimeWithState(
+		t,
+		templateID,
+		"Linked {{ name }}",
+		map[string]string{},
+	)
+}
+
+func newPromptTemplateRouteLinkedPromptSectionRuntimeWithState(
+	t *testing.T,
+	templateID string,
+	template string,
+	inputs map[string]string,
+) *projectstate.Runtime {
+	t.Helper()
+
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
-			"project-alpha": promptTemplateRouteLinkedPromptProject(t, templateID),
+			"project-alpha": promptTemplateRouteLinkedPromptProject(t, templateID, template, inputs),
 		},
 	})
 	if err != nil {
@@ -622,7 +690,12 @@ func newPromptTemplateRouteLinkedPromptSectionRuntime(t *testing.T, templateID s
 	return projectRuntime
 }
 
-func promptTemplateRouteLinkedPromptProject(t *testing.T, templateID string) projectstate.Project {
+func promptTemplateRouteLinkedPromptProject(
+	t *testing.T,
+	templateID string,
+	template string,
+	inputs map[string]string,
+) projectstate.Project {
 	t.Helper()
 
 	project, err := projectstate.Project{
@@ -653,8 +726,8 @@ func promptTemplateRouteLinkedPromptProject(t *testing.T, templateID string) pro
 					"id":               "prompt-impl",
 					"type":             "Prompt",
 					"promptTemplateId": templateID,
-					"template":         "Linked {{ name }}",
-					"inputs":           map[string]string{},
+					"template":         template,
+					"inputs":           inputs,
 					"format":           string(projectstate.PromptFormatJinja),
 					"renderedText":     "",
 					"missingVariables": []string{},
@@ -667,6 +740,19 @@ func promptTemplateRouteLinkedPromptProject(t *testing.T, templateID string) pro
 		t.Fatalf("normalize linked prompt project: %v", err)
 	}
 	return project
+}
+
+func promptTemplateRoutePromptPayload(t *testing.T, raw projectstate.RawJSON) map[string]any {
+	t.Helper()
+
+	payload := map[string]any{}
+	if len(raw) == 0 {
+		return payload
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode prompt payload: %v", err)
+	}
+	return payload
 }
 
 func mustMarshalProjectObject(value map[string]any) projectstate.RawJSON {
