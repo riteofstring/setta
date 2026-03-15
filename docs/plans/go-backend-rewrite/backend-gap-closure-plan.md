@@ -113,3 +113,8 @@ categorize them.
   small direct route/service proofs when the implementation already matches
   `main`, but avoid spending too long trying to force the remaining
   platform-default Setta-home row if a larger caller-visible slice is cheaper
+- The file-browser missing-folder empty-list branch and the folder-listing
+  `path_not_found` vs `path_not_directory` transport split are now proved too;
+  the same heuristic still applies: close adjacent proof-only route/service
+  rows in small bundles when the owner is already aligned, then return to the
+  larger remaining live-surface gaps
