@@ -87,7 +87,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     chat reconciliation for in-flight overlays and preserved assistant content.
   - `state/actions/chatMergeUtils.ts` is now the thin compatibility facade
     over those narrower chat merge owners.
-  - `state/actions/chat*.ts` owns the remaining chat merge utilities.
+  - `state/actions/chatBranchState.ts` owns branch bootstrap, active-branch
+    fallback, and incoming-message sync for managed chat sections.
+  - `state/actions/chatBranchEditing.ts` owns edited-message history truncation
+    plus child-branch creation from edited messages.
+  - `state/actions/chatBranchIndexState.ts` owns branch-index derivation from
+    section branch records.
+  - `state/actions/chatBranches.ts` is now the thin compatibility facade over
+    those branch owners.
   - `state/actions/projectChatThreadGroupCrud.ts` owns persisted project chat
     thread group creation and rename behavior.
   - `state/actions/projectChatThreadGroupOrdering.ts` owns persisted project
@@ -697,6 +704,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   provenance lookups, shared run filtering/grouping, and shared history types,
   so follow-up cleanup there should stay local to one of those owners instead
   of regrowing `state/actions/chatHistory.ts`.
+- `state/actions/chatBranchState.ts`,
+  `state/actions/chatBranchEditing.ts`, and
+  `state/actions/chatBranchIndexState.ts` now split branch bootstrap or
+  message-sync behavior, edited-message branch creation, and branch-index
+  derivation, so follow-up cleanup there should stay local to one of those
+  owners instead of regrowing `state/actions/chatBranches.ts`.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.

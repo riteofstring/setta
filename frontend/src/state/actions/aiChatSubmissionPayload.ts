@@ -21,7 +21,7 @@ import {
   type SubmitMessageRequestPayload,
 } from "./aiChatSubmissionRequestPayload";
 import { getChatAppGenerationDetailsForTarget } from "./aiPendingChatAppGenerationState";
-import { buildEditedMessageHistory } from "./chatBranches";
+import { buildEditedMessageHistory } from "./chatBranchEditing";
 
 export type PreparedSubmitMessageRequest = {
   requestPayload: SubmitMessageRequestPayload;

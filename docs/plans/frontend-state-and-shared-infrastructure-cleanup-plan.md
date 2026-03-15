@@ -363,11 +363,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/chatBranches.ts` at 251 lines
   - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` at 250 lines
   - `frontend/src/state/actions/websocketRealtime.ts` at 250 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 249 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 245 lines
+  - `frontend/src/state/actions/sectionDisplayQueries.ts` at 243 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -413,6 +413,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history
   types, and `frontend/src/state/actions/chatHistory.ts` is now a thin
   compatibility facade.
+- `frontend/src/state/actions/chatBranchState.ts` now owns branch bootstrap,
+  active-branch fallback, and incoming-message sync,
+  `frontend/src/state/actions/chatBranchEditing.ts` now owns edited-message
+  history truncation plus child-branch creation,
+  `frontend/src/state/actions/chatBranchIndexState.ts` now owns branch-index
+  derivation from section branch records, and
+  `frontend/src/state/actions/chatBranches.ts` is now a thin compatibility
+  facade.
 - `frontend/src/state/stores/uiPreferenceState.ts` now owns UI preference
   types and default state,
   `frontend/src/state/stores/uiPreferencePersistence.ts` now owns persisted
@@ -685,6 +693,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `chatMessageMerge.ts` for generic message completeness scoring and message merge normalization
   - `chatHydrationMerge.ts` for hydration-time local-vs-backend chat reconciliation and preserved assistant streaming content
   - `chatMergeUtils.ts` as the thin compatibility facade
+- `chatBranchState.ts`, `chatBranchEditing.ts`, `chatBranchIndexState.ts`, and
+  `chatBranches.ts` now split into:
+  - `chatBranchState.ts` for branch bootstrap, active-branch fallback, and incoming-message sync
+  - `chatBranchEditing.ts` for edited-message history truncation and child-branch creation
+  - `chatBranchIndexState.ts` for branch-index derivation from section branch records
+  - `chatBranches.ts` as the thin compatibility facade
 - `windowSpaceCrud.ts` now owns:
   - saved window-space sort/name/delete mutations
   - optimistic persistence and layout-mutation rollback

@@ -53,11 +53,9 @@ import {
   initializePendingChatDetails,
 } from "state/actions/aiPendingChatMessageState";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscriptionUpload";
-import {
-  buildBranchFromEdit,
-  buildBranchIndexFromBranches,
-  ensureChatBranchState,
-} from "state/actions/chatBranches";
+import { buildBranchFromEdit } from "state/actions/chatBranchEditing";
+import { buildBranchIndexFromBranches } from "state/actions/chatBranchIndexState";
+import { ensureChatBranchState } from "state/actions/chatBranchState";
 import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import type {
   ChatHistoryCompatibility,
