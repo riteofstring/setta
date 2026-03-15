@@ -34,8 +34,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   section exposure/binding and mode-transition reducers to
   `projectChatWindowingSectionState.ts`, title/chat-id reducers to
   `projectChatWindowingMetadataState.ts`, compatibility re-exports to
-  `projectChatWindowingState.ts`, canvas boot and DOM surface lookup to
-  `projectChatWindowingCanvasBoot.ts`, tracked git-pane graph window reuse to
+  `projectChatWindowingState.ts`, canvas surface lookup plus boot
+  position/size resolution to `projectChatWindowingCanvasSurface.ts`, canvas
+  section boot flow to `projectChatWindowingCanvasBoot.ts`, tracked git-pane
+  graph window reuse to
   `projectChatWindowingTrackedGitPane.ts`, public window lifecycle/focus
   commands to `projectChatWindowLifecycleCommands.ts`, public
   placement/dock-fraction/bounds commands plus tracked git-pane cleanup to
@@ -395,11 +397,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` at 234 lines
   - `frontend/src/state/actions/sectionLayoutQueries.ts` at 233 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/customRuns.ts` at 227 lines
+  - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
+  - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
   - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/appSessionState.ts` at 229 lines
@@ -863,10 +866,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `createSectionFileOpenCommands.ts` for per-impl file-open commands
   - `createSectionFileDropRouting.ts` for dropped-file routing into the correct open command
   - `createSectionImplDefaults.ts` for per-impl create defaults such as text-block display-mode normalization
-- `projectChatWindowingCanvasBoot.ts` now owns:
+- `projectChatWindowingCanvasSurface.ts` now owns:
   - DOM surface rect lookup for project chat windows
   - canvas boot position/size resolution from existing window surfaces
+- `projectChatWindowingCanvasBoot.ts` now owns:
   - section boot flow that moves externalized chat windows back into the canvas
+  - window-to-section rebind orchestration after section creation
 - `projectChatWindowingTrackedGitPane.ts` now owns:
   - tracked git-pane graph window reuse
   - maximize and title refresh for the pane-following git graph surface

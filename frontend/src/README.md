@@ -224,9 +224,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     chat-id reducers.
   - `state/actions/projectChatWindowingState.ts` is now a thin compatibility
     surface that re-exports the section and metadata owners.
-  - `state/actions/projectChatWindowingCanvasBoot.ts` owns DOM surface lookup,
-    canvas boot positioning/sizing, and the section boot flow from windowed
-    chat surfaces back into the canvas.
+  - `state/actions/projectChatWindowingCanvasSurface.ts` owns DOM surface
+    lookup plus canvas boot positioning/sizing.
+  - `state/actions/projectChatWindowingCanvasBoot.ts` owns the section boot
+    flow from windowed chat surfaces back into the canvas.
   - `state/actions/projectChatWindowingTrackedGitPane.ts` owns tracked git-pane
     graph window reuse plus maximize/title coordination.
   - `state/actions/projectChatWindowingTrackedGitPaneState.ts` owns tracked
