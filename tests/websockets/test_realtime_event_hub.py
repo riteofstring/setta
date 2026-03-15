@@ -23,10 +23,6 @@ SECTION_B_ID = ID("section-b")
 class _StubPythonScriptSender:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
-        self.registered_hub = None
-
-    def register_realtime_event_hub(self, event_hub: RealtimeEventHub) -> None:
-        self.registered_hub = event_hub
 
     async def send_realtime_update(
         self,
@@ -82,28 +78,6 @@ async def test_emit_realtime_delta_increments_sequence() -> None:
 
     assert second["sequence"] == 2
     assert second["deltas"] == [delta_b]
-
-
-async def test_reset_sequence_starts_from_one() -> None:
-    sender, hub = _build_sender_and_hub()
-
-    delta = ListenerRealtimeDelta(
-        dependency=create_dep_key(sectionId=SECTION_A_ID),
-        value=LiteralDependencyValue("1"),
-    )
-
-    await hub.emit_realtime_delta(
-        project_config_id=PROJECT_ID,
-        deltas=[delta],
-    )
-    hub.reset_sequence(PROJECT_ID)
-    await hub.emit_realtime_delta(
-        project_config_id=PROJECT_ID,
-        deltas=[delta],
-    )
-
-    assert len(sender.calls) == 2
-    assert sender.calls[1]["sequence"] == 1
 
 
 async def test_emit_realtime_delta_requires_dependency_ids() -> None:
