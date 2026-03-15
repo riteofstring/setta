@@ -188,15 +188,6 @@ class BrowserSavedSearch(BaseModel, extra="forbid"):
     quickInfo: str = ""
 
 
-class BrowserAreaItemType(str, Enum):
-    Image = "Image"
-    Video = "Video"
-    Text = "Text"
-    Data = "Data"
-    Brushes = "Brushes"
-    Other = "Other"
-
-
 class BrowserAreaItem(BaseModel, extra="forbid"):
     id: str
     type: Any

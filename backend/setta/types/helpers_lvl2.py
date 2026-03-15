@@ -19,7 +19,6 @@ from setta.types.code_obj_impls import (
     DropzoneParamCodeObjImpl,
     PasswordParamCodeObjImpl,
     SectionParamCodeObjTypeSet,
-    TextParamCodeObjImpl,
 )
 from setta.types.core import (
     Core,
@@ -35,7 +34,6 @@ from setta.types.generated.effective_impls import (
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
-    BaseCodeObjImplArgs,
     BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
     BaseParamCodeObjImplArgsWithCallable,
@@ -76,13 +74,12 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     get_curr_section_variant,
     get_variant_base_and_effective_code_obj_impl_with_type_guard,
-    get_variant_base_code_obj_impl,
     get_variant_effective_section_impl,
     set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
-from setta.types.id import ID, create_new_id
+from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -113,13 +110,12 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
 )
 from setta.utils.errors import InvalidSectionName
-from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     validate_project_name,
     validate_section_name,
 )
 from setta.utils.paths import normalize_workspace_path
-from setta.utils.utils import insert_into_array, move_item_in_array
+from setta.utils.utils import insert_into_array
 
 logger = logging.getLogger(__name__)
 
@@ -841,42 +837,6 @@ def _prune_unused_code_objs(p: "ProjectStateSingleConfig") -> None:
     for code_obj_id in list(p.codeObjs.keys()):
         if code_obj_id not in reachable:
             delete_code_obj(p, code_obj_id)
-
-
-def create_new_code_obj_variant(
-    p: "ProjectStateCore",
-    codeObjId: ID,
-    codeObjVariantId: ID | None,
-    codeObjImpl: BaseCodeObjImplUnion | None,
-):
-    currBaseImpl: BaseCodeObjImplUnion | None = codeObjImpl
-    if not currBaseImpl and codeObjVariantId:
-        currBaseImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
-
-    newBaseImpl: BaseCodeObjImplUnion
-    if currBaseImpl:
-        if currBaseImpl.isPreset:
-            newBaseImpl = currBaseImpl
-        else:
-            newBaseImpl = currBaseImpl.model_copy(
-                update=BaseCodeObjImplArgs(
-                    id=create_new_id(),
-                    name=generate_memorable_string(),
-                ),
-                deep=True,
-            )
-    else:
-        newBaseImpl = TextParamCodeObjImpl()
-
-    newVariant = Variant(
-        impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
-    )
-    core = p.codeObjs[codeObjId]
-
-    core.variants.append(newVariant.id)
-    p.codeObjImpls[newBaseImpl.id] = newBaseImpl
-    p.codeObjVariants[newVariant.id] = newVariant
-    return newVariant.id
 
 
 def change_param_impl(
@@ -1718,59 +1678,6 @@ def _get_next_top_level_z_index(p: "ProjectStateSingleConfig") -> int:
     return (
         max(layout.zIndex for layout in p.projectConfig.topLevelSections.values()) + 1
     )
-
-
-def move_section_to_parent_section(
-    p: "ProjectStateSingleConfig",
-    newParentId: ID,
-    sectionId: ID,
-    idx: int,
-):
-    new_parent_impl = get_curr_effective_section_impl_with_type_guard(
-        p, newParentId, BaseParentSectionImpl
-    )
-    _validate_code_section_children_for_parent(
-        p, newParentId, new_parent_impl, [sectionId]
-    )
-    oldParentId = p.parentSectionMap[sectionId]
-    if oldParentId and oldParentId == newParentId:
-        set_curr_effective_section_impl_value(
-            p,
-            oldParentId,
-            BaseParentSectionImplArgsWithCallable(
-                children=lambda currChildren: move_item_in_array(
-                    currChildren, currChildren.index(sectionId), idx
-                )
-            ),
-        )
-        return
-
-    if oldParentId:
-        _maybe_clear_code_section_attached_terminal(p, oldParentId, sectionId)
-        # filter out of old parent
-        set_curr_effective_section_impl_value(
-            p,
-            oldParentId,
-            BaseParentSectionImplArgsWithCallable(
-                children=lambda currChildren: [
-                    c for c in currChildren if c != sectionId
-                ]
-            ),
-        )
-    else:
-        del p.projectConfig.topLevelSections[sectionId]
-
-    set_curr_effective_section_impl_value(
-        p,
-        newParentId,
-        BaseParentSectionImplArgsWithCallable(
-            children=lambda currChildren: insert_into_array(
-                currChildren, idx, [sectionId]
-            )
-        ),
-    )
-    if isinstance(new_parent_impl, BaseCodeSectionImpl):
-        _set_code_section_attached_terminal(p, newParentId, sectionId)
 
 
 def move_sections_to_parent_section(
