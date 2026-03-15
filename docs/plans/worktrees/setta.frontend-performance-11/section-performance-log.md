@@ -3072,3 +3072,35 @@ Append-only log for the section performance refactor.
     - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
     - the mirrored param-input affordance copies in `frontend/src/components/App/appRegistry.tsx`
   - Keep `Callable`, `Dict`, `GlobalVariables`, and one floated/window param section in the verification set, with `MetaControl` as a contrast check, before any move upward into `sectionChrome`.
+
+### 2026-03-17 84
+
+- Item: Keep the text-input activation path synchronous and stable while CDP is still blocked.
+- Status: `needs_more_work`
+- Details:
+  - Landed another lower-seam activation slice in:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+  - The follow-up changed the touched row-input contract by:
+    - flushing first activation synchronously on pointer and tab focus so the real editor mounts before the broader active-section work continues
+    - memoizing the real text-input extension stack and create-editor hook so ordinary controlled-value rerenders do not rebuild them
+    - caching the per-field completion source used by text inputs so repeated mounts for the same field do not recreate that wrapper
+    - adding a focused behavior test that locks the activated extension stack across value-only rerenders
+  - Focused Vitest result:
+    - `12` files passed
+    - `31` tests passed
+  - Representative Playwright result:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - `6 passed`
+  - Chrome DevTools rerun status:
+    - attempted to recover `chrome-devtools-mcp`, but the transport still closes immediately on `list_pages`
+    - no fresh untouched-`main` vs worktree activation trace could be captured in this pass
+  - Conclusion:
+    - another local bootstrap trim is landed and covered
+    - checkpoint 1 is still not accepted because the required untouched-`main` vs worktree cold-activation trace could not be rerun
+    - the next likely local win, if the rerun is still mixed once CDP is back, is static-base extension caching plus a true non-autocomplete fast path in the same text-input seam
+- Next action:
+  - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+  - If the rerun is still only mixed, stay in the same seam and target:
+    - static-base extension caching in `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+    - a non-autocomplete tooltip/extension fast path in `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
