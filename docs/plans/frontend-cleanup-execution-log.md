@@ -2660,3 +2660,32 @@ module map and placement guide while this cleanup progresses.
     the largest authored/shared state hotspot at 362 lines, by separating
     local-storage restore and project-state restore helpers from the shared
     owned-record revert utilities.
+
+## 2026-03-15 04:31:22 PDT
+
+- Slice completed: split UI setting reveal rollback ownership by restore
+  surface and shared owned-record revert helpers
+- Key files touched:
+  - `frontend/src/state/actions/uiSettingRevealMutationRecordRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationProjectStateRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationProjectStateRestore.test.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationCapture.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingRevealMutationSnapshots.test.ts src/state/actions/uiSettingRevealMutationProjectStateRestore.test.ts src/state/actions/uiSettingRevealMutationCapture.test.ts src/state/actions/uiSettingRevealMutationOwnership.test.ts src/state/actions/uiSettingReveal.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/uiSettingRevealMutationRestore.ts src/state/actions/uiSettingRevealMutationLocalStorageRestore.ts src/state/actions/uiSettingRevealMutationProjectStateRestore.ts src/state/actions/uiSettingRevealMutationRecordRestore.ts src/state/actions/uiSettingRevealMutationCapture.ts src/state/actions/uiSettingRevealMutationSnapshots.test.ts src/state/actions/uiSettingRevealMutationProjectStateRestore.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `38f6b4d2e`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatThreadGroupMutations.ts`, now
+    tied for the largest authored/shared state hotspot at 362 lines, by
+    separating group CRUD and naming logic from the remaining pin/collapse/
+    reorder and assignment or delete flows.
