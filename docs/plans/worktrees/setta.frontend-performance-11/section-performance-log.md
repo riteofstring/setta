@@ -1,8 +1,8 @@
-# Callable Performance Refactor Log
+# Section Performance Refactor Log
 
-Append-only log for the callable DOM-first performance refactor.
+Append-only log for the section performance refactor.
 
-- Related plan: `docs/plans/worktrees/setta/callable-performance-plan.md`
+- Related plan: `docs/plans/worktrees/setta.frontend-performance-11/section-performance-plan.md`
 - Rule: append new entries only; do not rewrite or delete prior entries.
 
 ## Status Labels
@@ -24,7 +24,7 @@ Append-only log for the callable DOM-first performance refactor.
   - Reviewed the frontend performance retrospective.
   - Reviewed the browser-MCP quickstart and verification checklist.
   - Inspected the callable subtree from `CallableArea` down through param rows and group shells.
-  - Wrote the phased plan under `docs/plans/worktrees/setta/callable-performance-plan.md`.
+  - Wrote the phased plan under `docs/plans/worktrees/setta/section-performance-plan.md`.
 
 ### 2026-03-16 02
 
@@ -1183,3 +1183,788 @@ Append-only log for the callable DOM-first performance refactor.
   - The branch is now explicitly aimed at structural simplification with user-visible parity, not redesign.
 - Next action:
   - Continue the shared section-shell baseline under the clarified anti-div-soup and parity-first constraints.
+
+### 2026-03-16 49
+
+- Item: Completed `Phase S0: Shared Section-Shell Baseline` and made Chrome DevTools profiling explicit in the active plan.
+- Status: `done`
+- Details:
+  - Locked the first non-callable representative scene pair:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Built the same two shared-shell controls on both branches:
+    - `S0 Code`
+    - `S0 Dict`
+  - Locked the `Dict` scene so it exercises the shared param shell:
+    - `alpha` pinned
+    - `beta` as an edge input
+    - `delta` indented under `gamma`
+  - Captured fresh Chrome DevTools DOM audits on both branches:
+    - `Code`
+      - `main`: `101` nodes, depth `12`, grid `3`, subgrid `0`, wrapper-only `4`
+      - worktree: `101` nodes, depth `12`, grid `3`, subgrid `0`, wrapper-only `4`
+    - `Dict`
+      - `main`: `97` nodes, depth `14`, grid `13`, subgrid `0`, wrapper-only `6`
+      - worktree: `84` nodes, depth `12`, grid `12`, subgrid `0`, wrapper-only `6`
+  - Captured Chrome DevTools `Performance` traces and screenshots under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s0/` for:
+    - `Code` resize on both branches
+    - `Dict` resize on both branches
+    - shared pan/zoom on both branches
+  - Wrote the dedicated S0 report at `perf/reports/frontend/2026-03-16_section-shell-s0.md`.
+  - Recorded the first deepest-first attack order from the evidence:
+    - start with the shared `Dict` param-row subtree
+    - re-measure
+    - only then move outward/upward into the shared resizable/container shell
+  - Tightened the plan so Chrome DevTools `Performance` profiling is explicitly required whenever the performance test exercises panning, zooming, resizing, or another section-shell interaction path.
+  - Trace interpretation from the S0 run:
+    - the branch is already flatter for `Dict`, but not for `Code`
+    - the trace ownership still sits in shared shell/editor work rather than a callable-only seam
+    - coarse aggregate event totals on the worktree remained higher on the shared resize path, for example:
+      - `Code` resize `UpdateLayoutTree`: `30.0ms` worktree vs `22.1ms` on untouched `main`
+      - `Dict` resize `UpdateLayoutTree`: `33.2ms` worktree vs `21.6ms` on untouched `main`
+- Interpretation:
+  - The shared section-shell baseline is now real, not just planned.
+  - The next justified implementation pass is `Phase S1` starting from the inner shared `Dict` row shell, not from the top-level section frame.
+- Next action:
+  - Stop here and use the locked S0 scene set plus Chrome DevTools profiling as the gate before starting `Phase S1`.
+
+### 2026-03-16 50
+
+- Item: `Phase S1` checkpoint 1 flattened the shared `Dict` unpinned shell and edge-strip divider wrappers.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` to remove the outer unpinned-area wrapper around the real scroll container in `GetUnpinnedParams`.
+  - Updated the shared edge strip in the same file so the center divider now renders as a single DOM node instead of a wrapper plus child bar.
+  - The accepted deepest-first seam was the unpinned shared `Dict` shell because the inner scroll container already owned:
+    - `ref={setContainerRef}`
+    - the min-height style
+    - `overflow-y-scroll`
+    - `ParamDndList`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+    - result: `6 passed`
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `14 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked `S0 Dict` scene:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - edge strip stayed aligned
+    - center divider stayed visually centered
+    - pinned header and pinned row stayed aligned
+    - unpinned `gamma` / nested `delta` geometry stayed visually aligned with untouched `main`
+  - Live DOM read on the same scene after the checkpoint:
+    - `main`: `92` nodes, depth `11`
+    - worktree: `77` nodes, depth `9`
+    - wrapper-only candidates visible in the same read:
+      - `main`: `2`
+      - worktree: `1`
+  - Recorded a fresh Chrome DevTools `Performance` resize trace pair for the locked `S0 Dict` scene under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s1-checkpoint1/`.
+  - Trace read:
+    - no `ForcedReflow` insight surfaced on either branch in this checkpoint rerun
+    - both branches surfaced only `CLSCulprits`, with `CLS 0.00`
+    - aggregate resize-path totals still favor untouched `main`:
+      - `main` `UpdateLayoutTree`: `31.9ms`
+      - worktree `UpdateLayoutTree`: `44.8ms`
+- Interpretation:
+  - This is an accepted DOM-simplification checkpoint, not an accepted resize-performance win.
+  - The branch is flatter on the locked shared `Dict` scene and remains behaviorally aligned with untouched `main`.
+  - The shared resize path still costs more on the worktree, so `Phase S1` continues.
+- Next action:
+  - Continue `Phase S1` with the next shared `Dict` wrapper/decorative reduction, keeping the locked S0 scene set and Chrome DevTools resize profiling as the acceptance gate.
+
+### 2026-03-16 51
+
+- Item: `Phase S1` checkpoint 2 moved the shared `Dict` edge-strip divider from DOM to a pseudo-element.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` so the shared edge-strip center divider now renders from a `before:` pseudo-element on the strip grid container.
+  - This removed the remaining dedicated divider DOM node without moving refs, DnD ownership, or measurement ownership.
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+    - result: `6 passed`
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `14 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked `S0 Dict` scene:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - edge strip stayed aligned
+    - center divider stayed visually centered after moving to a pseudo-element
+    - pinned header and pinned row stayed aligned
+    - unpinned `gamma` / nested `delta` geometry stayed visually aligned with untouched `main`
+  - Live DOM read on the same scene after the checkpoint:
+    - `main`: `92` nodes, depth `11`
+    - worktree: `76` nodes, depth `9`
+    - wrapper-only candidates visible in the same read:
+      - `main`: `2`
+      - worktree: `1`
+  - Recorded a fresh Chrome DevTools `Performance` resize trace pair for the locked `S0 Dict` scene under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s1-checkpoint2/`.
+  - Trace read from the first saved pair:
+    - both branches surfaced only `CLSCulprits`, with `CLS 0.00`
+    - aggregate resize-path totals now favor the worktree on the locked `S0 Dict` scene:
+      - `main` `UpdateLayoutTree`: `41.0ms`
+      - worktree `UpdateLayoutTree`: `27.2ms`
+      - `main` `Commit`: `12.7ms`
+      - worktree `Commit`: `3.3ms`
+    - an extra `main`-only confirmation trace was captured, but a DevTools trace-state error prevented an equivalent worktree confirmation rerun in the same pass
+- Interpretation:
+  - This is an accepted shared-shell DOM-simplification checkpoint.
+  - The branch is flatter on the locked shared `Dict` scene and the first saved resize trace pair now points in the right direction.
+  - `Phase S1` is still not complete because the remaining shared pinned shell and other section-shell wrappers are still present.
+- Next action:
+  - Continue `Phase S1` with the pinned-area inner content wrapper in `GetPinnedParams`, keeping the locked S0 scene set and Chrome DevTools resize profiling as the acceptance gate.
+
+### 2026-03-16 52
+
+- Item: `Phase S1` checkpoint 3 flattened the shared `Dict` pinned-shell inner content wrapper.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` so the pinned `section` now owns the old wrapper padding and `contentRef` directly.
+  - Removed the inner pinned-shell wrapper between the pinned `section` and the real pinned header/rows content.
+  - Added a focused pinned-shell markup canary in `frontend/src/components/Params/GroupContainer.test.tsx`.
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+    - result: `7 passed`
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `14 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked `S0 Dict` scene:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - pinned header stayed aligned after the wrapper removal
+    - pinned first row stayed aligned with untouched `main`
+    - edge strip and unpinned `gamma` / nested `delta` geometry stayed visually aligned
+  - Live DOM read on the same scene after the checkpoint:
+    - `main`: `92` nodes, depth `11`
+    - worktree: `75` nodes, depth `8`
+    - wrapper-only candidates visible in the same read:
+      - `main`: `2`
+      - worktree: `1`
+  - Recorded fresh Chrome DevTools `Performance` resize traces for the locked `S0 Dict` scene under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s1-checkpoint3/`.
+  - Trace read from the loaded-tab steady pair:
+    - both branches surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate steady resize-path totals still favor untouched `main`:
+      - `main` `UpdateLayoutTree`: `189.2ms`
+      - worktree `UpdateLayoutTree`: `376.6ms`
+      - `main` `Layout`: `14.5ms`
+      - worktree `Layout`: `62.4ms`
+  - A first duplicate-tab trace pair was also captured in the same artifact directory, but it included tab-startup work and is not the checkpoint comparison pair.
+- Interpretation:
+  - This is an accepted shared-shell DOM-simplification checkpoint.
+  - The branch is flatter on the locked shared `Dict` scene, but the steady resize path is still more expensive than untouched `main`.
+  - `Phase S1` is still not complete because the remaining outer shared shell and resize-path ownership are unresolved.
+- Next action:
+  - Continue `Phase S1` with a re-analysis of the outer `section-row-pin-main` shell and the remaining wrapper-only `setta-prevent-section-active-css` seam, keeping the locked S0 scene set and Chrome DevTools resize profiling as the acceptance gate.
+
+### 2026-03-16 53
+
+- Item: `Phase S1` checkpoint 4 flattened the shared `Dict` edge-strip row lists.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` so the left and right edge-strip rows now render directly under their column containers instead of through dedicated row-list wrapper divs.
+  - Added a focused edge-strip markup canary in `frontend/src/components/Params/GroupContainer.test.tsx`.
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+    - result: `8 passed`
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `14 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked `S0 Dict` scene:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - edge strip stayed aligned
+    - left and right edge rows stayed visually aligned after the wrapper removal
+    - pinned header and pinned first row stayed aligned with untouched `main`
+    - unpinned `gamma` / nested `delta` geometry stayed visually aligned
+  - Live DOM read on the same scene after the checkpoint:
+    - `main`: `92` nodes, depth `11`
+    - worktree: `73` nodes, depth `8`
+    - wrapper-only candidates visible in the same read:
+      - `main`: `2`
+      - worktree: `1`
+  - Re-analysis of the outer `section-row-pin-main` shell:
+    - it is not a safe small wrapper-only removal at this stage
+    - it currently owns the shared `outerRef` contract for param-column width CSS variables, fixed-surface height aggregation, and loading-overlay anchoring
+    - the remaining exact `setta-prevent-section-active-css` wrapper-only node is in shared section header chrome, not in `GroupContainer`
+  - Recorded fresh Chrome DevTools `Performance` resize traces for the locked `S0 Dict` scene under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s1-checkpoint4/`.
+  - Trace read from the loaded-tab steady pair:
+    - both branches surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate steady resize-path totals now favor the worktree:
+      - `main` `UpdateLayoutTree`: `181.7ms`
+      - worktree `UpdateLayoutTree`: `157.8ms`
+      - `main` `Layout`: `9.3ms`
+      - worktree `Layout`: `8.3ms`
+      - `main` `Commit`: `3.8ms`
+      - worktree `Commit`: `2.8ms`
+- Interpretation:
+  - This is an accepted shared-shell DOM-simplification checkpoint.
+  - The branch is flatter on the locked shared `Dict` scene and this checkpoint also produced a directional steady resize-path win.
+  - `Phase S1` is still not complete because the remaining outer `GroupContainer` shell is blocked by real ownership rather than decorative wrapper-only nodes.
+- Next action:
+  - Continue `Phase S1` by splitting the outer `GroupContainer` fixed-surface / column-width ownership into explicit refs before retrying the blocked `section-row-pin-main` shell, or pivot to a different shared shell outside `GroupContainer` for the next DOM-only checkpoint.
+
+### 2026-03-16 54
+
+- Item: `Phase S1` checkpoint 5 split the outer `GroupContainer` fixed-surface discovery into explicit refs.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` so the outer wrapper no longer scans descendants for `[data-params-fixed="true"]`.
+  - Added explicit fixed-surface refs for:
+    - the edge strip
+    - the pinned params shell
+  - Reused the same outer fixed-height calculation, but narrowed it to those explicit surface refs.
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `20 passed`
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `14 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked `S0 Dict` scene:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - edge strip stayed aligned
+    - pinned header and pinned first row stayed aligned
+    - unpinned `gamma` / nested `delta` geometry stayed visually aligned
+  - Live DOM read on the same scene after the checkpoint:
+    - `main`: `92` nodes, depth `11`
+    - worktree: `73` nodes, depth `8`
+    - wrapper-only candidates visible in the same read:
+      - `main`: `2`
+      - worktree: `1`
+  - Recorded fresh Chrome DevTools `Performance` resize traces for the locked `S0 Dict` scene under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s1-checkpoint5/`.
+  - Trace read from the warmed loaded-tab steady pair:
+    - both branches surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate steady resize-path totals slightly favor the worktree on `UpdateLayoutTree` and `Commit`:
+      - `main` `UpdateLayoutTree`: `154.5ms`
+      - worktree `UpdateLayoutTree`: `147.2ms`
+      - `main` `Layout`: `6.4ms`
+      - worktree `Layout`: `6.8ms`
+      - `main` `Commit`: `1.2ms`
+      - worktree `Commit`: `1.0ms`
+  - Re-analysis of the outer `section-row-pin-main` shell after this checkpoint:
+    - the fixed-surface discovery blocker is now removed
+    - the wrapper is still blocked by shared section-grid placement, param-column width CSS-variable/container ownership, loading-overlay anchoring, and wrapper spacing that still contributes to `paramsFixedHeight`
+- Interpretation:
+  - This is an accepted ownership-split checkpoint inside `Phase S1`.
+  - The locked shared `Dict` scene stays materially flatter than untouched `main`, even though this checkpoint does not remove another DOM node yet.
+  - `Phase S1` is still not complete because the remaining outer `GroupContainer` shell still owns non-trivial shared layout and measurement contracts.
+- Next action:
+  - Continue `Phase S1` by splitting the outer wrapper's column-width / overlay / spacing ownership before retrying the blocked `section-row-pin-main` shell, or pivot to a different remaining shared-shell seam outside `GroupContainer`.
+
+### 2026-03-16 55
+
+- Item: `Phase S1` checkpoint 6 removed the shared section-header menu wrapper seam.
+- Status: `done`
+- Details:
+  - Updated the shared section-header menu path in `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx` to use a direct dropdown trigger button instead of a menubar wrapper shell.
+  - Added `frontend/src/components/Section/Header/MenuButton/DropdownMenuItem.tsx` and rewired the existing section-header menu item components to that dropdown-backed primitive.
+  - Added a focused section-header SSR markup canary in `frontend/src/components/Section/Header/SectionHeader.test.tsx`.
+  - Added a direct Dict header-menu interaction regression in `frontend/tests/e2e/params/dict-kwargs.spec.ts`.
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `35` tests passed
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `15 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked representative scenes:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - `S0 Code` header title, menu trigger, diagnostics pill, and right-side actions stayed aligned
+    - `S0 Dict` header title, menu trigger, arg toolbar, and right-side actions stayed aligned
+    - `S0 Dict` edge strip, pinned header, and nested `delta` row stayed aligned
+  - Live DOM read after the checkpoint on the locked representative controls:
+    - `S0 Code`
+      - `main`: `113` nodes, depth `9`
+      - worktree: `112` nodes, depth `9`
+    - `S0 Dict`
+      - `main`: `98` nodes, depth `11`
+      - worktree: `78` nodes, depth `8`
+    - wrapper-only candidates visible in the same read:
+      - `main`
+        - `S0 Code`: `div.setta-prevent-section-active-css`
+        - `S0 Dict`: `div.setta-prevent-section-active-css`, `div.pointer-events-none.flex.items-stretch.justify-center`
+      - worktree
+        - none on either locked representative control
+  - Recorded fresh Chrome DevTools `Performance` resize traces for both locked representative scenes under `perf/reports/frontend/artifacts/2026-03-16_section-shell-s1-checkpoint6/`.
+  - Trace read from the warmed steady pairs:
+    - all four traces surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate steady resize-path totals were worse on the worktree for both representative controls:
+      - `S0 Code`
+        - `main` `UpdateLayoutTree`: `149.8ms`
+        - worktree `UpdateLayoutTree`: `179.2ms`
+        - `main` `Layout`: `6.0ms`
+        - worktree `Layout`: `7.0ms`
+        - `main` `Commit`: `1.1ms`
+        - worktree `Commit`: `1.4ms`
+      - `S0 Dict`
+        - `main` `UpdateLayoutTree`: `151.6ms`
+        - worktree `UpdateLayoutTree`: `181.9ms`
+        - `main` `Layout`: `6.9ms`
+        - worktree `Layout`: `7.7ms`
+        - `main` `Commit`: `1.1ms`
+        - worktree `Commit`: `1.3ms`
+- Interpretation:
+  - This is an accepted shared-shell DOM-simplification checkpoint.
+  - The branch removes the remaining exact shared section-header wrapper seam on the locked representative controls with no visible drift.
+  - The warmed resize path did not improve; it regressed on both `S0 Code` and `S0 Dict`, so `Phase S1` is still not complete.
+- Next action:
+  - Decide whether to spend one more `Phase S1` pass splitting the remaining outer `GroupContainer` wrapper ownership, or conclude that the decorative/wrapper-only pass is exhausted and prepare the first `Phase S2` shared row/shell checkpoint with a fresh ownership read.
+
+### 2026-03-17 56
+
+- Item: `Phase S2` checkpoint 1 removed the surviving `grid-cols-subgrid` contract from the shared pinned/unpinned params shells.
+- Status: `done`
+- Details:
+  - Concluded the wrapper-only `Phase S1` pass was exhausted on the locked representative controls and started `Phase S2`.
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` to remove `grid-cols-subgrid` from:
+    - the pinned params rows shell
+    - the unpinned params scroll shell
+  - Extended the existing markup canaries in `frontend/src/components/Params/GroupContainer.test.tsx` so the pinned and unpinned shells explicitly do not render `grid-cols-subgrid`.
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `20 passed`
+  - Re-ran direct Dict/shared-shell Playwright coverage:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `15 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked representative scenes:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - `S0 Code` header title, diagnostics pill, editor surface, and right-side actions stayed aligned
+    - `S0 Dict` header title, arg toolbar, edge strip, pinned header, and nested `delta` row stayed aligned
+  - Live DOM read after the checkpoint on the locked representative controls:
+    - `S0 Code`
+      - `main`: `113` nodes, depth `9`, `grid-cols-subgrid`: `0`
+      - worktree: `112` nodes, depth `9`, `grid-cols-subgrid`: `0`
+    - `S0 Dict`
+      - `main`: `98` nodes, depth `11`, `grid-cols-subgrid`: `3`
+      - worktree: `78` nodes, depth `8`, `grid-cols-subgrid`: `0`
+  - Recorded fresh Chrome DevTools `Performance` resize traces for both locked representative scenes under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint1/`.
+  - Trace read from the warmed steady pairs:
+    - all four traces surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate steady resize-path totals still favored untouched `main`:
+      - `S0 Code`
+        - `main` `UpdateLayoutTree`: `148.2ms`
+        - worktree `UpdateLayoutTree`: `179.6ms`
+        - `main` `Layout`: `6.2ms`
+        - worktree `Layout`: `7.2ms`
+        - `main` `Commit`: `1.4ms`
+        - worktree `Commit`: `1.2ms`
+      - `S0 Dict`
+        - `main` `UpdateLayoutTree`: `160.3ms`
+        - worktree `UpdateLayoutTree`: `178.2ms`
+        - `main` `Layout`: `6.7ms`
+        - worktree `Layout`: `7.7ms`
+        - `main` `Commit`: `1.1ms`
+        - worktree `Commit`: `1.4ms`
+- Interpretation:
+  - This is an accepted structural checkpoint starting `Phase S2`.
+  - The worktree removes the surviving explicit subgrid utility usage from the locked shared `Dict` shell with no visible drift.
+  - The warmed resize path still does not beat untouched `main`, so the remaining work is now more clearly in the deeper recursive row/editor path rather than the old wrapper/subgrid shell alone.
+- Next action:
+  - Continue `Phase S2` by moving deeper into the shared row primitive cluster (`ParamDndList` / `GetParamSwitch` / `ParamSwitch` / `ParamContainer`) instead of revisiting wrapper-only shell cleanup.
+
+### 2026-03-17 57
+
+- Item: `Phase S2` checkpoint 2 removed the special nested-parent row shell from the shared `Dict` row contract.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so parent rows no longer render through the old `section-args-nested section-lg-value` branch.
+  - Nested child `GetParamSwitch` output now renders as sibling rows after the parent row `<article>` instead of inside it.
+  - Updated `frontend/src/components/Params/ParamSwitch.tsx` and `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` so label ownership for parent rows moves into `ParamTextLabel` via `hasChildren`.
+  - Added a focused SSR canary in `frontend/src/components/Params/GroupContainer.test.tsx` to assert sibling nested rows.
+  - Updated `frontend/tests/e2e/params/callable-minimum-regression.spec.ts` so the browser regression checks the flattened sibling row contract and nested-child class toggle instead of the old descendant shape.
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramRowClassNames.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `24` tests passed
+  - Re-ran direct Dict/shared-shell Playwright coverage plus the callable nested-row regression:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked representative scenes:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - `S0 Code` header title, diagnostics pill, editor surface, and right-side actions stayed aligned
+    - `S0 Dict` header title, arg toolbar, edge strip, pinned header, and divider line stayed aligned
+    - the nested `delta` row still reads as a child of `gamma` visually through indentation and the left rail
+  - Live DOM read after the checkpoint on the locked representative controls:
+    - `S0 Code`
+      - `main`: `115` nodes, depth `12`, `section-args-nested` rows: `0`
+      - worktree: `114` nodes, depth `12`, `section-args-nested` rows: `0`
+    - `S0 Dict`
+      - `main`: `100` nodes, depth `14`, `section-args-nested` rows: `1`, nested-child rows: `0`
+      - worktree: `80` nodes, depth `11`, `section-args-nested` rows: `0`, nested-child rows: `1`
+    - structural read from the locked `Dict` scene:
+      - `main`: parent `gamma` row still owns a nested `section-args-nested` shell and `delta` remains a descendant inside it
+      - worktree: `gamma` and `delta` are sibling rows, with `delta` carrying the nested-child rail class instead of the old parent-owned shell
+  - Recorded fresh Chrome DevTools `Performance` resize traces for both locked representative scenes under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint2/`.
+  - Trace read from the warmed steady pairs:
+    - all four traces surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate steady resize-path totals still favored untouched `main`:
+      - `S0 Code`
+        - `main` `UpdateLayoutTree`: `208.0ms`
+        - worktree `UpdateLayoutTree`: `260.5ms`
+        - `main` `Layout`: `9.1ms`
+        - worktree `Layout`: `10.2ms`
+        - `main` `Commit`: `2.3ms`
+        - worktree `Commit`: `3.2ms`
+      - `S0 Dict`
+        - `main` `UpdateLayoutTree`: `185.5ms`
+        - worktree `UpdateLayoutTree`: `217.2ms`
+        - `main` `Layout`: `8.6ms`
+        - worktree `Layout`: `9.7ms`
+        - `main` `Commit`: `1.5ms`
+        - worktree `Commit`: `1.9ms`
+- Interpretation:
+  - This is an accepted structural checkpoint inside `Phase S2`.
+  - The worktree removes the special nested-parent row shell from the locked `Dict` scene with no visible drift.
+  - The warmed resize path is still slower on the worktree for both representative controls, so the remaining cost is now more clearly in the surviving shared row/list orchestration and resize path rather than in the removed parent-row branch.
+- Next action:
+  - Continue `Phase S2` by moving deeper into `GetParamSwitch` / `ParamDndList` and the surviving shared `section-param-row` contract instead of revisiting the removed nested-parent branch.
+
+### 2026-03-17 58
+
+- Item: `Phase S2` checkpoint 3 simplified the shared row/list filter contract by moving the visible-param lookup into the shared render model.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/getFilteredRenderableParamIds.ts` to extract `getFilteredRenderableParamIdLookup`, trim whitespace-only filters before activating filtering, and preserve the existing ancestor-path + temp-placeholder behavior.
+  - Updated `frontend/src/components/Params/getParamDndListRenderModel.ts` so the shared list model computes `visibleParamIdLookup` once and exposes it beside `duplicateIndex`, `paramFilterActive`, and `tree`.
+  - Updated the recursive list path:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - `GetParamSwitch` no longer subscribes to project state to compute filtering; it now receives the precomputed visible-id lookup from the shared list model.
+  - Added focused whitespace-filter guardrails in:
+    - `frontend/src/components/Params/getFilteredRenderableParamIds.test.ts`
+    - `frontend/src/components/Params/getParamDndListRenderModel.test.ts`
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `5` files passed, `28` tests passed
+  - Re-ran direct Dict/shared-shell Playwright coverage plus the callable nested-row regression:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked representative scenes:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Visual read:
+    - `S0 Code` header title, diagnostics pill, editor surface, and right-side actions stayed aligned
+    - `S0 Dict` header title, arg toolbar, edge strip, pinned header, and divider line stayed aligned
+    - the filtered `delta` state reduced to the same `gamma` / `delta` visible path on both branches with no obvious drift in the filter box or nested-child presentation
+  - Live DOM audit after the checkpoint, using the same HTMLElement-only read on both branches:
+    - `S0 Code`
+      - `main`: `101` nodes, depth `12`, param rows `0`
+      - worktree: `100` nodes, depth `12`, param rows `0`
+    - `S0 Dict`
+      - `main`: `97` nodes, depth `14`, param rows `3`, filter inputs `1`
+      - worktree: `77` nodes, depth `11`, param rows `3`, filter inputs `1`
+    - filtered-state read on the locked `Dict` scene:
+      - both branches reduced the visible row count from `3` to `2` when the filter was set to `delta`
+      - both branches restored the visible row count to `3` after clearing the filter
+  - Recorded fresh Chrome DevTools `Performance` traces for the directly touched `S0 Dict` filter interaction under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint3/`.
+  - Trace read from the filter pair, in milliseconds:
+    - both traces surfaced `CLSCulprits` and `ForcedReflow`, with `CLS 0.00`
+    - aggregate totals favored the worktree on the touched filter path:
+      - `FunctionCall`
+        - `main`: `686.6`
+        - worktree: `371.3`
+      - `UpdateLayoutTree`
+        - `main`: `138.6`
+        - worktree: `112.2`
+      - `Layout`
+        - `main`: `9.6`
+        - worktree: `6.1`
+      - `Paint`
+        - `main`: `2.8`
+        - worktree: `1.6`
+      - `RunTask`
+        - `main`: `1172.6`
+        - worktree: `808.6`
+  - Resize / pan / zoom note:
+    - no new resize-path trace was recorded in this checkpoint because the touched code path was filter/render orchestration rather than resize, pan, or zoom logic
+    - the plan still explicitly requires Chrome DevTools `Performance` traces whenever future checkpoints test resize, pan, or zoom
+- Interpretation:
+  - This is an accepted shared row/list orchestration checkpoint inside `Phase S2`.
+  - The base locked DOM stays structurally aligned with the prior flattened worktree, while the touched filter interaction path shows a clear DevTools win on the worktree.
+  - The result supports the architectural read that computing the visible lookup once and removing the recursive `GetParamSwitch` store selector reduces both scripting and follow-on layout work during filtering.
+- Next action:
+  - Continue `Phase S2` below the list/filter layer by simplifying the surviving shared `section-param-row` contract in `ParamSwitch` / `ParamContainer`, including input/error subtree ownership, instead of revisiting the now-shared filter lookup path.
+
+### 2026-03-17 59
+
+- Item: `Phase S2` checkpoint 4 unified the shared temp placeholder and real row shell and narrowed the `ParamSwitch` memo contract.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Params/ParamRowShell.tsx` as the shared row `<article>` shell now used by both the live row path and `TempParamSwitch`.
+  - Updated:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+  - `ParamSwitch` now uses a targeted `areParamSwitchPropsEqual` comparator instead of the old deep `_.isEqual` memo comparison.
+  - Added focused coverage in `frontend/src/components/Params/ParamRowShell.test.tsx`.
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamRowShell.test.tsx src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `6` files passed, `30` tests passed
+  - Re-ran direct Dict/shared-shell Playwright coverage plus the callable nested-row regression:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked representative scenes:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - For this checkpoint, the locked `S0 Dict` representative scene was first matched on the same `delta` filter state and then traced through `delta -> gamma` on both branches.
+  - Live DOM read on the matched `gamma` state:
+    - `main`: `74` nodes, depth `11`, visible rows `["gamma"]`, filter value `gamma`
+    - worktree: `64` nodes, depth `9`, visible rows `["gamma"]`, filter value `gamma`
+  - Recorded fresh Chrome DevTools `Performance` traces for the touched filter path under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint4/`.
+  - Trace read from the matched `delta -> gamma` pair, in milliseconds:
+    - both traces kept `CLS 0.00`
+    - `FunctionCall`
+      - `main`: `1555.528`
+      - worktree: `880.282`
+    - `UpdateLayoutTree`
+      - `main`: `50.422`
+      - worktree: `38.889`
+    - `Layout`
+      - `main`: `5.989`
+      - worktree: `5.011`
+    - `Paint`
+      - `main`: `4.337`
+      - worktree: `3.519`
+    - `RunTask`
+      - `main`: `2260.241`
+      - worktree: `1430.448`
+    - `EventDispatch`
+      - `main`: `2025.802`
+      - worktree: `1891.168`
+    - `TimerFire`
+      - `main`: `693.646`
+      - worktree: `1.924`
+    - `FireAnimationFrame`
+      - `main`: `9.927`
+      - worktree: `6.769`
+    - `Commit`
+      - `main`: `5.698`
+      - worktree: `4.875`
+    - INP
+      - `main`: `213ms`
+      - worktree: `178ms`
+- Interpretation:
+  - This is an accepted structural checkpoint inside `Phase S2`.
+  - The worktree keeps the flatter shared row subtree on the matched filtered `S0 Dict` scene and wins on the directly touched DevTools filter path after sharing the row shell and narrowing the `ParamSwitch` memo boundary.
+- Next action:
+  - Continue `Phase S2` below the shared `ParamSwitch` shell by tightening the `ParamContainer` memo boundary and child-recursion prop contract, especially `requiredParamIdsToPaths`, `visibleParamIdLookup`, and the nested-child recursion handoff, instead of revisiting the rejected render-context split.
+
+### 2026-03-17 60
+
+- Item: `Phase S2` checkpoint 5 moved the recursive child handoff out of `ParamContainer`, made it row-only, and narrowed the `ParamContainer` memo boundary.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so it no longer owns recursive child rendering and now only owns the row/article boundary plus the row-local input, resize handle, tooltip, and error icon work.
+  - Added `areParamContainerPropsEqual` so the row boundary no longer uses a deep `_.isEqual` comparison against the forwarded child element.
+  - Updated `frontend/src/components/Params/ParamSwitch.tsx` so `RealParamSwitch` now owns `useParamDndChildrenForParent(...)` and the recursive `<GetParamSwitch />` handoff for child rows.
+  - Added focused boundary coverage in `frontend/src/components/Params/ParamContainer.test.tsx`.
+  - Re-ran focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamRowShell.test.tsx src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `7` files passed, `31` tests passed
+  - Re-ran direct Dict/shared-shell Playwright coverage plus the callable nested-row regression:
+    - `frontend/tests/e2e/params/dict-kwargs.spec.ts`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - `frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Re-ran Chrome DevTools visual comparison on the locked representative scenes:
+    - untouched `main`: `http://127.0.0.1:3087/falling_wood`
+    - worktree: `http://127.0.0.1:3011/kite_hiding`
+  - Replayed the matched `delta -> gamma` filter interaction on the locked `S0 Dict` scene on both branches.
+  - Live DOM read on the settled `gamma` state:
+    - `main`: `68` nodes, depth `9`, visible rows `["gamma"]`, filter value `gamma`
+    - worktree: `58` nodes, depth `7`, visible rows `["gamma"]`, filter value `gamma`
+  - Recorded fresh Chrome DevTools `Performance` traces for the touched filter path under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint5/`.
+  - Trace read from the matched `delta -> gamma` pair, in milliseconds:
+    - both traces kept `CLS 0.00`
+    - `FunctionCall`
+      - `main`: `910.778`
+      - worktree: `833.940`
+    - `UpdateLayoutTree`
+      - `main`: `42.344`
+      - worktree: `35.895`
+    - `Layout`
+      - `main`: `5.068`
+      - worktree: `4.531`
+    - `Paint`
+      - `main`: `3.245`
+      - worktree: `2.975`
+    - `RunTask`
+      - `main`: `1674.083`
+      - worktree: `1410.200`
+    - `EventDispatch`
+      - `main`: `1918.567`
+      - worktree: `1689.448`
+    - `TimerFire`
+      - `main`: `240.367`
+      - worktree: `265.114`
+    - `FireAnimationFrame`
+      - `main`: `6.070`
+      - worktree: `5.524`
+    - `Commit`
+      - `main`: `5.980`
+      - worktree: `5.153`
+    - INP
+      - `main`: `188ms`
+      - worktree: `169ms`
+- Interpretation:
+  - This is an accepted structural checkpoint inside `Phase S2`.
+  - The worktree keeps the flatter locked `S0 Dict` subtree and improves the directly touched filter path again after making `ParamContainer` row-only and moving the recursive child handoff back to `ParamSwitch`.
+  - `TimerFire` was slightly higher on the worktree, but the main scripting, layout, and interaction metrics still favored the worktree overall.
+- Next action:
+  - Continue `Phase S2` above `ParamContainer` by simplifying the surviving row-tree ownership split across `ParamSwitch`, `GetParamSwitch`, and `ParamDndList`, especially the remaining `requiredParamIdsToPaths` and `visibleParamIdLookup` threading, instead of revisiting the rejected render-context split.
+
+### 2026-03-17 61
+
+- Item: `Phase S2` checkpoint 6 verification is blocked on a Codex-side `chrome-devtools-mcp` transport failure.
+- Status: `blocked`
+- Details:
+  - The current checkpoint-6 candidate is still limited to:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - Focused automated verification for that candidate was already green before the tooling block:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamRowShell.test.tsx src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `7` files passed, `32` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Repeated attempts to use the built-in `chrome-devtools-mcp` session failed on `list_pages` with `Transport closed`.
+  - The browser-side CDP endpoint remained healthy at `http://127.0.0.1:9233/json/version`, so the blocker is in the Codex / MCP transport layer rather than in the app or browser instance.
+  - The accepted branch state therefore remains `Phase S2` checkpoint 5 until the required untouched-`main` vs worktree `S0 Dict` visual comparison and Chrome DevTools `Performance` trace can be rerun.
+- Interpretation:
+  - This is not a rejected checkpoint; it is a tooling/environment blocker on the required acceptance gate.
+  - Do not append a checkpoint-6 perf report or advance the accepted-checkpoint state until the DevTools visual/perf gate can run again.
+- Next action:
+  - Restart the DevTools MCP / Codex tool session for this worktree, then rerun the locked `S0 Dict` untouched-`main` vs worktree visual comparison and Chrome DevTools `Performance` filter trace to accept or revert checkpoint 6.
+
+### 2026-03-17 62
+
+- Item: Add the settings page `All settings` surface to the plan as an occasional large pan/zoom perf control.
+- Status: `done`
+- Details:
+  - Updated `docs/plans/worktrees/setta.frontend-performance-11/section-performance-plan.md`.
+  - Added `http://127.0.0.1:3011/settings` with the `All settings` view mode / tab as an occasional sanity-check surface for pan/zoom profiling because it is large and structurally complex.
+  - Explicitly marked that settings surface as observation-only for this plan.
+  - Explicitly documented that the settings page must not be edited as part of this section-shell work.
+
+### 2026-03-17 63
+
+- Item: Rename the callable performance plan/log files to section performance plan/log.
+- Status: `done`
+- Details:
+  - Renamed the plan file to `docs/plans/worktrees/setta.frontend-performance-11/section-performance-plan.md`.
+  - Renamed the log file to `docs/plans/worktrees/setta.frontend-performance-11/section-performance-log.md`.
+  - Updated the live plan/log cross-links to use the new section-based filenames.
+  - Kept the existing entry history intact while switching the active document names to match the broader section-shell scope.
+
+### 2026-03-17 64
+
+- Item: Rerun the `Phase S2` checkpoint-6 acceptance gate on the locked `S0 Dict` representative controls.
+- Status: `needs_more_work`
+- Details:
+  - Resumed after the `chrome-devtools-mcp` transport recovery and reran the required untouched-`main` vs worktree visual/perf gate on the live representative pages:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - The checkpoint-6 candidate remained limited to the row-tree ownership split across:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamDndList.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.test.tsx`
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - Reused the already-green focused automated verification from the blocked checkpoint-6 run:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Params/ParamRowShell.test.tsx src/components/Params/getFilteredRenderableParamIds.test.ts src/components/Params/getParamDndListRenderModel.test.ts src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `7` files passed, `32` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - result: `19 passed`
+  - Replayed the matched `delta -> gamma` filter interaction on `S0 Dict` on both branches and rechecked the settled `gamma` state.
+  - Live DOM read on the settled representative state:
+    - `main`: `68` nodes, depth `9`, visible rows `["gamma"]`, filter value `gamma`
+    - worktree: `58` nodes, depth `7`, visible rows `["gamma"]`, filter value `gamma`
+  - Chrome DevTools screenshots for the settled `gamma` state remained visually aligned between untouched `main` and the worktree.
+  - Recorded fresh Chrome DevTools `Performance` traces and screenshots under `perf/reports/frontend/artifacts/2026-03-17_section-shell-s2-checkpoint6/`.
+  - Because multiple live pages were open in the browser during capture, the trace totals were read from the target page renderer process identified by each trace's `TracingStartedInBrowser` metadata instead of a raw all-thread sum.
+  - Trace read from the touched `delta -> gamma` pair, in milliseconds:
+    - both traces kept `CLS 0.00`
+    - `main` INP: `562ms`
+    - worktree INP: `206ms`
+    - `FunctionCall`
+      - `main`: `751.304`
+      - worktree: `1450.094`
+    - `UpdateLayoutTree`
+      - `main`: `32.251`
+      - worktree: `35.813`
+    - `Layout`
+      - `main`: `3.353`
+      - worktree: `3.909`
+    - `Paint`
+      - `main`: `2.612`
+      - worktree: `2.554`
+    - `RunTask`
+      - `main`: `992.252`
+      - worktree: `1795.674`
+    - `EventDispatch`
+      - `main`: `2070.834`
+      - worktree: `1916.897`
+    - `TimerFire`
+      - `main`: `2.245`
+      - worktree: `11.022`
+    - `FireAnimationFrame`
+      - `main`: `4.573`
+      - worktree: `4.575`
+    - `Commit`
+      - `main`: `7.842`
+      - worktree: `30.717`
+- Interpretation:
+  - This checkpoint is not blocked anymore, but it is also not accepted.
+  - The candidate keeps visual parity and the flatter representative DOM, but it regresses the touched renderer path on the robust target-page DevTools trace read.
+  - The better reported INP on the worktree does not outweigh the much heavier `FunctionCall`, `RunTask`, and `Commit` totals for this acceptance gate.
+- Next action:
+  - Reduce the added renderer work around `visibleParamIdLookup`, `requiredParamIdsToPaths`, and the surviving row-tree handoff across `GetParamSwitch`, `ParamSwitch`, and `ParamDndList`, then rerun the same locked `S0 Dict` visual/perf gate before advancing the accepted checkpoint state.

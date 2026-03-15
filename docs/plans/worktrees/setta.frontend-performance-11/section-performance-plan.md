@@ -1,15 +1,15 @@
-# Section DOM Simplification Plan
+# Section Performance Plan
 
 Date: 2026-03-16
 Worktree: `setta.frontend-performance-11`
 Branch at planning time: `frontend-performance-11`
-Related log: `docs/plans/worktrees/setta.frontend-performance-11/callable-performance-log.md`
+Related log: `docs/plans/worktrees/setta.frontend-performance-11/section-performance-log.md`
 
 ## Start Here
 
 If you are a new chat/session picking this work up, use this section first.
 
-- Despite the filename, the active work is no longer callable-only.
+- Despite the plan's callable origin, the active work is no longer callable-only.
 - The accepted callable work in this branch is now pilot history for a broader sections-wide DOM simplification effort.
 - The active refactor target is shared section-shell structure above the callable subtree.
 
@@ -18,7 +18,11 @@ Current status:
 - Callable pilot work: complete as pilot/history
 - Callable-specific performance goal: not fully achieved
 - Active plan: sections-wide section-shell simplification
-- Active phase: `Phase S0: Shared Section-Shell Baseline`
+- Completed baseline: `Phase S0: Shared Section-Shell Baseline`
+- Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
+- Active phase: `Phase S2: Shared Row / Shell Contract Simplification`
+- Latest accepted checkpoint: `Phase S2` checkpoint 5 moved the recursive child handoff out of `ParamContainer`, made it row-only, and narrowed the `ParamContainer` memo boundary
+- Checkpoint 6 candidate: visual parity and the locked `S0 Dict` DOM read held, but the rerun Chrome DevTools filter trace regressed on the touched target-renderer path, so checkpoint 6 is not accepted yet
 
 Non-negotiable constraints:
 
@@ -30,18 +34,36 @@ Non-negotiable constraints:
 - Work from the deepest nested layout ownership outward/upward.
 - Expect multiple passes; after removing a top shared grid layer, re-analyze before deciding the next pass.
 - Use Chrome DevTools performance testing and compare untouched `main` vs this worktree.
+- For any performance test that touches panning, zooming, resizing, or another section-shell interaction path, capture a Chrome DevTools `Performance` trace on that path. Playwright metrics or ad hoc timings can support the read, but they do not replace the DevTools profile.
 - If a target truly cannot be achieved without `grid`, stop and report the blocker instead of introducing `grid`.
+- Do not edit the settings page as part of this plan. Treat it as an observation-only perf control surface.
 
 Immediate next step:
 
-1. Run `Phase S0: Shared Section-Shell Baseline`.
-2. Lock representative scenes beyond the callable pilot:
-   - one editor-backed non-callable section
-   - one non-editor section that still exercises the shared section shell and resize path
-3. Capture on `main` and this worktree:
-   - DOM audit: node count, depth, wrapper-only nodes, remaining grid/subgrid ownership
-   - Chrome DevTools traces on the shared resize path
-4. Identify the deepest nested DOM cluster to attack first for each representative section.
+1. Reuse the locked S0 baseline in `perf/reports/frontend/2026-03-16_section-shell-s0.md` plus the accepted S1 checkpoints in `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint1.md` and `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint2.md`.
+2. Reuse the newer shared-shell checkpoints in `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint3.md`, `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint4.md`, `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint5.md`, and `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint6.md` as the accepted `Phase S1` history.
+3. Reuse `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint1.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint2.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint3.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint4.md`, and `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint5.md` as the accepted `Phase S2` history so far.
+4. Treat `Phase S1` as exhausted on the locked representative controls:
+   - no exact wrapper-only candidates remain on the current worktree read for `S0 Code` / `S0 Dict`
+   - the surviving outer `section-row-pin-main` shell is blocked by real ownership, not decoration
+5. Treat the active structural cluster as:
+   - `frontend/src/components/Params/ParamDndList.tsx`
+   - `frontend/src/components/Params/GetParamSwitch.tsx`
+   - `frontend/src/components/Params/ParamSwitch.tsx`
+   - `frontend/src/components/Params/ParamContainer.tsx`
+6. The surviving shared-shell subgrid utility usage in `GroupContainer` is now removed on the worktree representative controls, and the special nested-parent `section-args-nested` row branch is also removed there.
+7. `ParamContainer` is now a row-only boundary beneath the list/filter orchestration, so the next step is to simplify the surviving row-tree handoff above it without changing DnD, selection, or nested-child behavior, starting with:
+   - `frontend/src/components/Params/ParamSwitch.tsx`
+   - `frontend/src/components/Params/GetParamSwitch.tsx`
+   - the remaining child-recursion prop threading, especially `requiredParamIdsToPaths` and `visibleParamIdLookup`
+   - the surviving row-tree ownership split between `ParamDndList`, `GetParamSwitch`, and `ParamSwitch`
+8. Keep `S0 Code` and `S0 Dict` as the required untouched-`main` vs worktree representative controls.
+9. For any `Phase S2` performance test that touches resize, pan, or zoom, capture a Chrome DevTools `Performance` trace on the touched path before deciding whether the checkpoint is accepted.
+10. Current checkpoint-6 state:
+   - the DevTools tooling blocker is cleared and the locked untouched-`main` vs worktree `S0 Dict` visual/perf gate has now been rerun
+   - the in-progress checkpoint-6 candidate in `GetParamSwitch` / `ParamSwitch` / `ParamDndList` / `ParamContainer` kept visual parity and the flatter filtered DOM, but the touched target-renderer filter trace regressed versus untouched `main`
+   - do not accept checkpoint 6 in its current form
+   - the next step is to trim the added renderer work around `visibleParamIdLookup`, `requiredParamIdsToPaths`, and the surviving row-tree handoff, then rerun the same `S0 Dict` acceptance gate
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
@@ -208,7 +230,7 @@ Useful size indicators from the current code scan:
 - “Pixel perfect” is the target. If any delta remains, document the exact element and the reason it cannot be preserved.
 - Each phase requires explicit user approval before starting the next phase.
 - Every measurement report is append-only under `perf/reports/frontend/`.
-- The work log under `docs/plans/worktrees/setta.frontend-performance-11/callable-performance-log.md` is append-only.
+- The work log under `docs/plans/worktrees/setta.frontend-performance-11/section-performance-log.md` is append-only.
 - Phase 2 is the first decisive checkpoint for whether the DOM-first callable strategy is paying off. Phase 1 is useful cleanup but not proof of success by itself.
 
 ## Checkpoint Verification Cadence
@@ -532,7 +554,7 @@ For every completed layout checkpoint and every phase end:
 3. Compare:
    - screenshots or visible layout in CDP
    - bounding boxes of key callable elements
-   - trace metrics for pan, zoom, resize
+   - Chrome DevTools `Performance` trace metrics for pan, zoom, resize
    - DOM metrics for the callable subtree
 4. If there is any visual drift:
    - stop
@@ -600,6 +622,15 @@ Add at least two shared section-shell controls before implementation resumes:
 
 Each accepted checkpoint should compare untouched `main` and this worktree on the same representative scene set in Chrome DevTools.
 
+For any checkpoint that exercises panning, zooming, resizing, or a similar section-shell movement on these scenes, record a Chrome DevTools `Performance` trace for the touched interaction path. Do not treat automated timings alone as sufficient evidence.
+
+Add an occasional large-surface pan/zoom control outside the locked checkpoint scenes:
+
+- `http://127.0.0.1:3011/settings`
+- specifically the `All settings` view mode / tab
+- use it as a periodic sanity check because it is large and structurally complex
+- keep it observation-only for this plan; do not edit that page while doing the section-shell work
+
 ### Active phases
 
 #### Phase S0: Shared Section-Shell Baseline
@@ -614,7 +645,8 @@ Tasks:
    - grid count
    - subgrid count
    - wrapper-only nodes
-2. Capture DevTools traces for the shared resize path and any obviously coupled pan/zoom path.
+2. Capture Chrome DevTools `Performance` traces for the shared resize path and any obviously coupled pan/zoom path.
+   - Do not treat Playwright timings or ad hoc stopwatch numbers as a substitute for this trace evidence.
 3. Map the shared shell ownership:
    - `SectionContainerCoreResizabe`
    - `CustomResizable`
