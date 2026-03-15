@@ -1,7 +1,7 @@
 import {
   buildParamParentMap,
   getParamRootId,
-} from "state/actions/params/paramTree";
+} from "state/actions/params/paramTreeStructure";
 import { setCurrEffectiveCodeObjImplValue } from "state/actions/sectionEffectiveImplMutations";
 import {
   getCurrEffectiveCodeObjImpl,

@@ -8,7 +8,7 @@ import {
   buildVisibleSelectionGroups,
   getParamMovementContext,
 } from "./paramMoveQueries";
-import { resolveFullIndexForVisibleInsertion } from "./paramTree";
+import { resolveFullIndexForVisibleInsertion } from "./paramTreeSelection";
 
 function insertItems<T>(items: T[], index: number, nextItems: T[]): T[] {
   return [...items.slice(0, index), ...nextItems, ...items.slice(index)];

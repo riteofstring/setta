@@ -353,6 +353,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     selection normalization for param drag/drop flows.
   - `state/actions/params/paramMoveCommands.ts` owns optimistic backend
     dispatch for drag/drop param moves plus indent and unindent commands.
+  - `state/actions/params/paramTreeStructure.ts` owns param root lookup,
+    ancestry maps, and visible param tree derivation used by param move and
+    drag/drop flows.
+  - `state/actions/params/paramTreeSelection.ts` owns root-selection filtering,
+    shared-parent resolution, descendant checks, and visible-to-full insertion
+    index mapping for param move and drag/drop flows.
+  - `state/actions/params/paramTree.ts` is now the thin compatibility facade
+    over those param tree owners.
   - `state/actions/params/paramMoveKeyboardCommands.ts` owns visible-sibling
     keyboard move planning and grouped move dispatch for selected params.
   - `state/actions/params/moveParams.ts` is now the thin compatibility facade
@@ -794,6 +802,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   snapshot building from restore conversion helpers, so follow-up cleanup there
   should stay local to those owners instead of regrowing
   `state/actions/windowSpaces.ts`.
+- `state/actions/params/paramTreeStructure.ts`,
+  `state/actions/params/paramTreeSelection.ts`, and
+  `state/actions/params/paramTree.ts` now split param ancestry/tree derivation
+  from selection and insertion helpers, so follow-up param DnD cleanup should
+  stay local to those owners instead of regrowing the old shared tree module.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

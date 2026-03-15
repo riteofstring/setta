@@ -1,11 +1,13 @@
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
+  getRootSelectedParamIds,
+  getSharedParentId,
+} from "state/actions/params/paramTreeSelection";
+import {
   buildParamParentMap,
   buildParamTreeView,
   getParamRootId,
-  getRootSelectedParamIds,
-  getSharedParentId,
-} from "state/actions/params/paramTree";
+} from "state/actions/params/paramTreeStructure";
 import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionEffectiveImpls";
 import {
   getCurrEffectiveSectionImpl,

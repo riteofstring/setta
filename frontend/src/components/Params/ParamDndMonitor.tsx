@@ -35,14 +35,16 @@ import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
 import { orderParamIdsByParent } from "state/actions/params/paramMoveQueries";
 import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
 import {
-  buildParamParentMap,
-  buildParamTreeView,
-  getParamRootId,
   getRootSelectedParamIds,
   getSharedParentId,
   isDescendantOfSelection,
   resolveFullIndexForVisibleInsertion,
-} from "state/actions/params/paramTree";
+} from "state/actions/params/paramTreeSelection";
+import {
+  buildParamParentMap,
+  buildParamTreeView,
+  getParamRootId,
+} from "state/actions/params/paramTreeStructure";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,

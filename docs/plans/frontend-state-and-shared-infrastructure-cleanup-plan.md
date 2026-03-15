@@ -387,6 +387,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   refresh-after-mutation behavior, and
   `frontend/src/state/actions/stateMachineRuns.ts` is now the thin
   compatibility facade.
+- `frontend/src/state/actions/params/paramTreeStructure.ts` now owns param
+  root lookup, ancestry maps, and visible tree derivation,
+  `frontend/src/state/actions/params/paramTreeSelection.ts` now owns
+  root-selection filtering, shared-parent lookup, descendant checks, and
+  visible-to-full insertion index mapping, and
+  `frontend/src/state/actions/params/paramTree.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessionTransport.ts` now owns websocket/session
   bootstrap plus stdin/output transport wiring, `terminalSessions.ts` now owns
@@ -401,20 +408,20 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
   - `frontend/src/state/actions/appSessionState.ts` at 229 lines
   - `frontend/src/state/actions/customRuns.ts` at 227 lines
   - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
   - `frontend/src/state/actions/sections/sectionSizes.ts` at 218 lines
-  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
-  - `frontend/src/state/actions/appSessionState.ts` at 229 lines
-  - `frontend/src/state/actions/customRuns.ts` at 227 lines
-  - `frontend/src/state/actions/sectionLayoutQueries.ts` at 233 lines
-  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
-  - `frontend/src/state/actions/appSessionState.ts` at 229 lines
-  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
-  - `frontend/src/state/actions/params/paramTree.ts` at 230 lines
+  - `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` at 216 lines
+  - `frontend/src/state/actions/edgeHandles.ts` at 216 lines
+  - `frontend/src/state/actions/gitStatusAndDiff.ts` at 215 lines
+  - `frontend/src/state/actions/shareSessionState.ts` at 214 lines
+  - `frontend/src/state/actions/runOrImportCode.ts` at 214 lines
+  - `frontend/src/state/actions/projectChatWindowingInstanceState.ts` at 213 lines
+  - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
+  - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
+  - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
