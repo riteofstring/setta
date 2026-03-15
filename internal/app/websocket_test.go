@@ -644,6 +644,13 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 		}
 	})
 
+	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		document["backend"].(map[string]any)["autoRefetchCallableParamsOnLspMismatch"] = false
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed live settings runtime: %v", err)
+	}
+
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
@@ -678,10 +685,16 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 	if got := websocketPayload["backend"].(map[string]any)["autosave"]; got != false {
 		t.Fatalf("expected websocket autosave false, got %#v", got)
 	}
+	if got := websocketPayload["backend"].(map[string]any)["autoRefetchCallableParamsOnLspMismatch"]; got != false {
+		t.Fatalf("expected websocket mismatch-refetch false to survive materialization, got %#v", got)
+	}
 
 	runtimeDocument := app.SettingsState().Snapshot().Document
 	if got := runtimeDocument["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"]; got != float64(222) {
 		t.Fatalf("expected runtime terminal height 222, got %#v", got)
+	}
+	if got := runtimeDocument["backend"].(map[string]any)["autoRefetchCallableParamsOnLspMismatch"]; got != false {
+		t.Fatalf("expected runtime mismatch-refetch false to survive materialization, got %#v", got)
 	}
 
 	content, err := os.ReadFile(filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName))
@@ -694,6 +707,9 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 	}
 	if got := persisted["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected persisted renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+	if got := persisted["backend"].(map[string]any)["autoRefetchCallableParamsOnLspMismatch"]; got != false {
+		t.Fatalf("expected persisted mismatch-refetch false to survive materialization, got %#v", got)
 	}
 }
 
