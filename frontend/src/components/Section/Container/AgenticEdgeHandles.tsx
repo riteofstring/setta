@@ -6,9 +6,9 @@ import { HandlePosition } from "forks/xyflow/core/types";
 import { useMemo } from "react";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
-  createAgenticEdgeFromConnection,
   isValidAgenticEdgeConnection,
-} from "state/actions/agenticEdges";
+} from "state/actions/agenticEdgeConnections";
+import { createAgenticEdgeFromConnection } from "state/actions/agenticEdgeMutations";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {

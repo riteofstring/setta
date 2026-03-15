@@ -20,7 +20,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-let submitMessage: typeof import("state/actions/ai").submitMessage;
+let submitMessage: typeof import("state/actions/aiChatSubmission").submitMessage;
 let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "draft-surface-affinity";
 
@@ -44,8 +44,8 @@ describe("submitMessage websocket affinity", () => {
       },
     };
     (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
-    const ai = await import("state/actions/ai");
-    submitMessage = ai.submitMessage;
+    const aiChatSubmission = await import("state/actions/aiChatSubmission");
+    submitMessage = aiChatSubmission.submitMessage;
   });
 
   beforeEach(async () => {

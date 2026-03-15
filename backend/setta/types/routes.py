@@ -59,7 +59,6 @@ class Route(str, Enum):
     WEBSOCKET_CLI = "/cli"
     WEBSOCKET_CLI_WITH_ID = "/cli/{id}"
     WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}"
-    WEBSOCKET_LISTENER = "/ws/listeners/{id}"
     SAVE_CODE_INFO = "/codeInfo/save"
     KILL_SUBPROCESSES = "/killSubprocesses"
     FORMAT_CODE = "/formatCode"

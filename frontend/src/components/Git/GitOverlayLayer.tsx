@@ -1,8 +1,8 @@
 import { GitDiffOverlay } from "components/Git/GitDiffOverlay";
 import { useEffect } from "react";
-import { closeGitOverlay } from "state/actions/git";
-import { useLocalStorage } from "state/definitions";
+import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
 import { useGitStore } from "state/git";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 
 export function isEditableEscapeTarget(target: EventTarget | null): boolean {
   if (typeof HTMLElement === "undefined") {
