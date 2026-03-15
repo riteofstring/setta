@@ -8,10 +8,8 @@ import {
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AreaSwitch,
-  SectionContainerCoreResizable,
-} from "./SectionContainerCoreResizabe";
+import { SectionAreaSwitch } from "./SectionAreaSwitch";
+import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 type MockProjectState = {
   projectConfig: {
@@ -249,7 +247,7 @@ describe("SectionContainerCoreResizable", () => {
 
   it("routes workspace section windows through the section-owned surface id", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionAreaSwitch
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
@@ -323,7 +321,7 @@ describe("SectionContainerCoreResizable", () => {
 
   it("preserves explicit standalone thread ownership overrides", () => {
     const markup = renderToStaticMarkup(
-      <AreaSwitch
+      <SectionAreaSwitch
         sectionId="section-123"
         sectionTypeName={SectionTypeEnum.Chat}
         bgColor="bg-setta-50"
