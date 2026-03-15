@@ -1,4 +1,4 @@
-import type { ResizeHandleDirection } from "state/actions/sections/sectionSizes";
+import type { ResizeHandleDirection } from "state/actions/sections/sectionSizeGeometry";
 
 export const SIZE_MODE = {
   any: "any",
