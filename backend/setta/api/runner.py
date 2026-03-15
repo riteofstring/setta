@@ -239,7 +239,12 @@ class SettaRunner:
         self._session = requests.Session()
         self._auth_headers = dict(auth_headers) if auth_headers is not None else None
         self._bootstrap_token = bootstrap_token.strip() if bootstrap_token else None
-        self._workspace_root = self._resolve_workspace_root(workspace_root)
+        if workspace_root is None:
+            self._workspace_root = get_setta_paths().workspace_root
+        elif isinstance(workspace_root, Path):
+            self._workspace_root = workspace_root.expanduser().resolve()
+        else:
+            self._workspace_root = Path(workspace_root).expanduser().resolve()
         self._resolved_auth_headers: dict[str, str] | None = None
         self._project_configs: list[ProjectConfig] | None = None
         self._default_project_config_id: ID | None = None
@@ -370,13 +375,6 @@ class SettaRunner:
         secret = secret_path.read_bytes()
         token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
         return f"{auth_cookie_name(selected.id)}={token}"
-
-    def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
-        if workspace_root is None:
-            return get_setta_paths().workspace_root
-        if isinstance(workspace_root, Path):
-            return workspace_root.expanduser().resolve()
-        return Path(workspace_root).expanduser().resolve()
 
     def _get_project_state(self) -> ProjectStateSingleConfig:
         project_config_id = self._resolve_project_config_id(None)
