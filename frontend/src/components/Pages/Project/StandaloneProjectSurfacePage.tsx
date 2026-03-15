@@ -25,7 +25,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import {
   useAIStore,
   useProjectState,
