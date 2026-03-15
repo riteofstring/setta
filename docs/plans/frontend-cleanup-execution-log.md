@@ -3702,3 +3702,63 @@ module map and placement guide while this cleanup progresses.
     largest authored/shared hotspot at 187 lines, by separating reveal
     mutation lock or lease lifecycle from active-section or pane activation
     orchestration and mismatch/failure-result assembly.
+
+## 2026-03-15 09:45:48 PDT
+
+- Slice completed: split UI setting reveal mutation locking, apply flow, and
+  lease lifecycle ownership
+- Key files touched:
+  - `frontend/src/state/actions/uiSettingRevealMutations.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationApply.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationLeaseLifecycle.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationLock.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationLock.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingRevealMutationLock.test.ts src/state/actions/uiSettingReveal.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/uiSettingRevealMutations.ts src/state/actions/uiSettingRevealMutationApply.ts src/state/actions/uiSettingRevealMutationLeaseLifecycle.ts src/state/actions/uiSettingRevealMutationLock.ts src/state/actions/uiSettingRevealMutationLock.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+  - `pnpm -C frontend exec tsc --noEmit` failed due unrelated pre-existing repo
+    type errors (for example in `src/components/App/appRegistry.tsx`,
+    `src/components/App/AppRenderer.policy.test.tsx`, and
+    `src/utils/generatedEndpoints.ts`)
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `f672dc7a77e3ecedb7394fea61a90bdde7df3362`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/share.ts` into share-session
+    storage/cache/bootstrap ownership and share project-config
+    loading/retry transport so deployment session wiring stops sharing a single
+    action surface.
+
+## 2026-03-15 09:51:03 PDT
+
+- Slice completed: split share-session bootstrap/cache from share
+  project-config load/retry transport
+- Key files touched:
+  - `frontend/src/state/actions/share.ts`
+  - `frontend/src/state/actions/shareSessionState.ts`
+  - `frontend/src/state/actions/shareProjectConfig.ts`
+  - `frontend/src/state/actions/shareSessionState.test.ts`
+  - `frontend/src/state/actions/shareProjectConfig.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/shareSessionState.test.ts src/state/actions/shareProjectConfig.test.ts src/state/actions/websocketShareSessionRecovery.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectConfigs.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/share.ts src/state/actions/shareSessionState.ts src/state/actions/shareProjectConfig.ts src/state/actions/shareSessionState.test.ts src/state/actions/shareProjectConfig.test.ts src/state/actions/websocketShareSessionRecovery.test.ts src/components/Panes/Overview/ProjectConfigs.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `6ec9522e01d21b9de93236507647332ce46d5729`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/activeSections.ts` so backend sync
+    scheduling/flush transport stops living beside high-level selection
+    commands such as clear, prune, select-all, and top-level activation.
