@@ -377,6 +377,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     app-mode rendering, app preview, and app deployment surfaces.
   - `state/actions/appSessionState.ts` owns app-session cookie or session-storage
     bootstrap, recovery, and run-count persistence.
+  - `state/actions/shareSessionState.ts` owns share-session cookie or
+    session-storage bootstrap, cached-session reuse, and deployment-mode
+    initialization.
+  - `state/actions/shareProjectConfig.ts` owns share project-config
+    load/retry transport plus post-load hydration side effects.
+  - `state/actions/share.ts` is now the thin compatibility facade over those
+    narrower share-mode owners.
   - `state/actions/appDeploymentState.ts` owns app deployment load or reset flow
     plus app-config cache hydration.
   - `state/actions/app.ts` is now the thin compatibility facade over those

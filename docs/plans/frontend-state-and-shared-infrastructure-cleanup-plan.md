@@ -142,6 +142,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` now owns
   deployment-policy restore gating plus saved project-chat thread rebound that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
+- `frontend/src/state/actions/shareSessionState.ts` now owns share-session
+  cookie or session-storage bootstrap, cached-session reuse, and
+  deployment-mode initialization that previously lived in
+  `frontend/src/state/actions/share.ts`, while
+  `frontend/src/state/actions/shareProjectConfig.ts` now owns share
+  project-config load/retry transport plus post-load hydration side effects;
+  `frontend/src/state/actions/share.ts` is now the thin compatibility facade.
 - `frontend/src/state/actions/projectChatWindowingNormalization.ts` now owns
   pure windowing normalization and default-bounds helpers that previously
   lived in `frontend/src/state/actions/projectChatWindowingState.ts`, while
@@ -340,12 +347,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/share.ts` at 267 lines
   - `frontend/src/state/actions/aiPendingChatMessageState.ts` at 264 lines
   - `frontend/src/state/actions/activeSections.ts` at 264 lines
   - `frontend/src/state/actions/aiManagedApiKeys.ts` at 258 lines
   - `frontend/src/state/actions/sections/moveSectionState.ts` at 254 lines
   - `frontend/src/state/actions/aiHydrationApply.ts` at 253 lines
+  - `frontend/src/state/actions/agenticEdgeMutations.ts` at 253 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
