@@ -15,12 +15,6 @@ export function attachParamAreaObservers({
     resizeObserver.observe(headerElement);
   }
 
-  const mutationObserver = new MutationObserver(onMeasure);
-  mutationObserver.observe(rowsElement, {
-    childList: true,
-    subtree: true,
-  });
-
   const inputEvents = ["input", "change", "compositionend"] as const;
   for (const eventName of inputEvents) {
     rowsElement.addEventListener(eventName, onMeasure);
@@ -31,6 +25,5 @@ export function attachParamAreaObservers({
       rowsElement.removeEventListener(eventName, onMeasure);
     }
     resizeObserver.disconnect();
-    mutationObserver.disconnect();
   };
 }

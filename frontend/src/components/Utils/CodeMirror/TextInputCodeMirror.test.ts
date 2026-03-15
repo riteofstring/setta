@@ -1,6 +1,132 @@
-import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
-import { describe, expect, it } from "vitest";
-import { resolveTooltipParentDivId } from "./TextInputCodeMirror";
+/* @vitest-environment jsdom */
+
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import "testUtils/reactRefreshPreamble";
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+} from "utils/constants";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  TextInputCodeMirror,
+  resolveTooltipParentDivId,
+} from "./TextInputCodeMirror";
+
+const { applyActiveSectionChangeMock } = vi.hoisted(() => ({
+  applyActiveSectionChangeMock: vi.fn(),
+}));
+const { getExtensionsMock } = vi.hoisted(() => ({
+  getExtensionsMock: vi.fn(() => ["extension"]),
+}));
+const { lastCodeMirrorPropsMock } = vi.hoisted(() => ({
+  lastCodeMirrorPropsMock: vi.fn(),
+}));
+const { useCodeMirrorTooltipParentMock } = vi.hoisted(() => ({
+  useCodeMirrorTooltipParentMock: vi.fn(() => null),
+}));
+
+vi.mock("state/actions/activeSectionController", () => ({
+  applyActiveSectionChange: applyActiveSectionChangeMock,
+}));
+
+vi.mock("state/actions/lsp", () => ({
+  setTextFieldWaitingForLSP: () => () => undefined,
+}));
+
+vi.mock("state/actions/sectionInfos", () => ({
+  getCurrProjectConfigId: () => "project-config-1",
+}));
+
+vi.mock("state/definitions", () => ({
+  useShareSession: (selector: (state: { isDeploymentMode: boolean }) => unknown) =>
+    selector({ isDeploymentMode: false }),
+}));
+
+vi.mock("utils/generatedEndpoints", () => ({
+  route_text_field_completion: vi.fn(),
+}));
+
+vi.mock("components/Utils/CodeMirror/useCodeMirrorStyle", () => ({
+  useCodeMirrorStyle: () => "theme",
+}));
+
+vi.mock("components/Utils/CodeMirror/useCodeMirrorTooltipParent", () => ({
+  useCodeMirrorTooltipParent: useCodeMirrorTooltipParentMock,
+}));
+
+vi.mock("components/Utils/CodeMirror/getExtensions", () => ({
+  getExtensions: getExtensionsMock,
+}));
+
+vi.mock("@uiw/react-codemirror", async () => {
+  const React = await import("react");
+
+  return {
+    default: (props: {
+      className?: string;
+      basicSetup?: Record<string, unknown>;
+      onBlur?: () => void;
+      onCreateEditor?: (view: {
+        contentDOM: { focus: (options?: { preventScroll?: boolean }) => void };
+        dispatch: (transaction: unknown) => void;
+        focus: () => void;
+        posAtCoords: ({
+          x,
+          y,
+        }: {
+          x: number;
+          y: number;
+        }) => number | null;
+      }) => void;
+    }) => {
+      lastCodeMirrorPropsMock(props);
+      React.useEffect(() => {
+        props.onCreateEditor?.({
+          contentDOM: { focus: () => undefined },
+          dispatch: () => undefined,
+          focus: () => undefined,
+          posAtCoords: () => 0,
+        });
+      }, [props]);
+
+      return React.createElement("div", {
+        "data-testid": "real-codemirror",
+        className: props.className,
+        onBlur: props.onBlur,
+        tabIndex: 0,
+      });
+    },
+  };
+});
+
+vi.mock("./DummyCodeMirror", async () => {
+  const React = await import("react");
+
+  return {
+    DummyCodeMirror: (props: {
+      divId: string;
+      className?: string;
+      code?: string;
+      placeholder?: string;
+      onFocus?: () => void;
+      onMouseDownCapture?: (event: MouseEvent) => void;
+    }) =>
+      React.createElement(
+        "div",
+        {
+          "data-testid": "dummy-codemirror",
+          id: props.divId,
+          className: props.className,
+          onFocus: props.onFocus,
+          onMouseDownCapture: props.onMouseDownCapture,
+          tabIndex: 0,
+        },
+        props.code ?? props.placeholder ?? "",
+      ),
+  };
+});
 
 describe("resolveTooltipParentDivId", () => {
   it("returns null when tooltipParentDivId is undefined", () => {
@@ -15,5 +141,168 @@ describe("resolveTooltipParentDivId", () => {
     expect(resolveTooltipParentDivId(CODEMIRROR_TOOLTIP_PARENT_ID)).toBe(
       CODEMIRROR_TOOLTIP_PARENT_ID,
     );
+  });
+});
+
+describe("TextInputCodeMirror activation", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    applyActiveSectionChangeMock.mockClear();
+    getExtensionsMock.mockClear();
+    lastCodeMirrorPropsMock.mockClear();
+    useCodeMirrorTooltipParentMock.mockClear();
+    host = document.createElement("div");
+    document.body.append(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
+  it("keeps the real editor mounted after blur once a field is activated", async () => {
+    await act(async () => {
+      root.render(
+        createElement(TextInputCodeMirror, {
+          sectionId: "section-1",
+          paramInfoId: "param-1",
+          value: "mode",
+          defaultVal: "Mode",
+          onChange: () => undefined,
+          dummyDivId: "dummy-mode-input",
+          dummyCodeClassName: "dummy",
+          realCodeClassName: "real",
+          color: "green",
+          language: "python",
+          autocomplete: false,
+        }),
+      );
+    });
+
+    const dummyCodeMirror = host.querySelector(
+      '[data-testid="dummy-codemirror"]',
+    );
+    expect(dummyCodeMirror).not.toBeNull();
+    expect(dummyCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    );
+    expect(dummyCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ACTIVE_CSS,
+    );
+    expect(host.querySelector('[data-testid="real-codemirror"]')).toBeNull();
+
+    await act(async () => {
+      dummyCodeMirror?.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+
+    expect(applyActiveSectionChangeMock).toHaveBeenCalledWith({
+      interaction: "input-focus",
+      sectionId: "section-1",
+    });
+    expect(host.querySelector('[data-testid="dummy-codemirror"]')).toBeNull();
+
+    const realCodeMirror = host.querySelector(
+      '[data-testid="real-codemirror"]',
+    );
+    expect(realCodeMirror).not.toBeNull();
+    expect(realCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    );
+    expect(realCodeMirror?.className).toContain(
+      SETTA_PREVENT_SECTION_ACTIVE_CSS,
+    );
+    expect(realCodeMirror?.className).not.toContain("opacity-0");
+    expect(getExtensionsMock).toHaveBeenCalled();
+    const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
+    expect(lastCall?.completionsFn).toBeUndefined();
+    expect(useCodeMirrorTooltipParentMock).not.toHaveBeenCalled();
+    const lastCodeMirrorProps = lastCodeMirrorPropsMock.mock.calls.at(-1)?.[0];
+    expect(lastCodeMirrorProps?.basicSetup).toMatchObject({
+      history: false,
+      autocompletion: false,
+      completionKeymap: false,
+      tabSize: 4,
+    });
+
+    await act(async () => {
+      realCodeMirror?.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+    });
+
+    expect(host.querySelector('[data-testid="dummy-codemirror"]')).toBeNull();
+    expect(host.querySelector('[data-testid="real-codemirror"]')).not.toBeNull();
+  });
+
+  it("keeps the activated extension stack stable across value-only rerenders", async () => {
+    await act(async () => {
+      root.render(
+        createElement(TextInputCodeMirror, {
+          sectionId: "section-1",
+          paramInfoId: "param-1",
+          value: "mode",
+          defaultVal: "Mode",
+          onChange: () => undefined,
+          dummyDivId: "dummy-mode-input",
+          dummyCodeClassName: "dummy",
+          realCodeClassName: "real",
+          color: "green",
+          language: "python",
+        }),
+      );
+    });
+
+    const dummyCodeMirror = host.querySelector(
+      '[data-testid="dummy-codemirror"]',
+    );
+    expect(dummyCodeMirror).not.toBeNull();
+
+    await act(async () => {
+      dummyCodeMirror?.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          clientX: 12,
+          clientY: 18,
+        }),
+      );
+    });
+
+    expect(getExtensionsMock).toHaveBeenCalledTimes(1);
+    const firstCall = getExtensionsMock.mock.calls[0]?.[0];
+    expect(useCodeMirrorTooltipParentMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.render(
+        createElement(TextInputCodeMirror, {
+          sectionId: "section-1",
+          paramInfoId: "param-1",
+          value: "mode2",
+          defaultVal: "Mode",
+          onChange: () => undefined,
+          dummyDivId: "dummy-mode-input",
+          dummyCodeClassName: "dummy",
+          realCodeClassName: "real",
+          color: "green",
+          language: "python",
+        }),
+      );
+    });
+
+    expect(host.querySelector('[data-testid="dummy-codemirror"]')).toBeNull();
+    expect(host.querySelector('[data-testid="real-codemirror"]')).not.toBeNull();
+    expect(getExtensionsMock).toHaveBeenCalledTimes(1);
+    const lastCall = getExtensionsMock.mock.calls.at(-1)?.[0];
+    expect(lastCall).toBe(firstCall);
   });
 });
