@@ -5,11 +5,11 @@ import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { getActiveViewModeConfig } from "state/actions/sectionViewModeVisibility";
 import { useContextMenus, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
