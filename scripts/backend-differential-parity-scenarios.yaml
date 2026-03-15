@@ -43,3 +43,7 @@ scenarios:
     kind: settings_project_valid_view_mode_noop
     seed: none
     description: Restarting and reloading an already-valid dedicated settings project should not rewrite the persisted settings shell.
+  - name: settings_project_top_level_layout_repair
+    kind: settings_project_top_level_layout_repair
+    seed: none
+    description: Restarting after the persisted settings shell loses its top-level layouts should rebuild the active layouts and persist the repaired settings shell.

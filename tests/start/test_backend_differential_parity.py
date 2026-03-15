@@ -704,6 +704,111 @@ class Route:
             },
         )
 
+    def test_clear_settings_top_level_layouts_from_store_payload_supports_python_store_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "topLevelSections": {"section-a": {}, "section-b": {}},
+                        "viewModes": {
+                            "settings-core": {
+                                "topLevelSections": {"section-a": {}},
+                            },
+                            "settings-all": {
+                                "topLevelSections": {"section-a": {}, "section-b": {}},
+                            },
+                        },
+                    }
+                }
+            }
+        }
+
+        cleared = harness.clear_settings_top_level_layouts_from_store_payload(payload)
+        project_config = cleared["projects"]["settings"]["projectConfig"]
+
+        self.assertEqual(project_config["topLevelSections"], {})
+        self.assertEqual(
+            project_config["viewModes"]["settings-core"]["topLevelSections"],
+            {},
+        )
+        self.assertEqual(
+            project_config["viewModes"]["settings-all"]["topLevelSections"],
+            {},
+        )
+
+    def test_summarize_settings_project_top_level_layout_repair_detects_rebuild(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        restart_load_payload = {
+            "projectConfig": {
+                "topLevelSections": {"section-a": {}, "section-b": {}},
+                "viewModes": {
+                    "settings-all": {
+                        "id": "settings-all",
+                        "name": "All Settings",
+                        "sortIndex": 4,
+                    },
+                    "settings-core": {
+                        "id": "settings-core",
+                        "name": "Core",
+                        "sortIndex": 0,
+                    },
+                },
+            }
+        }
+        restart_latest_payload = {"projectState": restart_load_payload}
+        persisted_payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "topLevelSections": {"section-a": {}, "section-b": {}},
+                        "viewModes": {
+                            "settings-all": {
+                                "id": "settings-all",
+                                "name": "All Settings",
+                                "sortIndex": 4,
+                            },
+                            "settings-core": {
+                                "id": "settings-core",
+                                "name": "Core",
+                                "sortIndex": 0,
+                            },
+                        },
+                    }
+                }
+            }
+        }
+
+        summary = harness.summarize_settings_project_top_level_layout_repair(
+            initial_load_http_status=200,
+            restart_load_http_status=200,
+            restart_load_payload=restart_load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload=restart_latest_payload,
+            persisted_after_payload=persisted_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadViewModeCount": 2,
+                "restartLoadTopLevelSectionCount": 2,
+                "restartLatestViewModeCount": 2,
+                "restartLatestTopLevelSectionCount": 2,
+                "persistedViewModeCount": 2,
+                "persistedTopLevelSectionCount": 2,
+            },
+        )
+
     def test_remove_settings_section_from_store_payload_supports_go_store_shape(
         self,
     ) -> None:

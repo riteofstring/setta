@@ -759,6 +759,8 @@ def execute_scenario(
         return execute_settings_project_existing_section_code_obj_backfill(backend)
     if scenario.kind == "settings_project_valid_view_mode_noop":
         return execute_settings_project_valid_view_mode_noop(backend)
+    if scenario.kind == "settings_project_top_level_layout_repair":
+        return execute_settings_project_top_level_layout_repair(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -1327,6 +1329,76 @@ def execute_settings_project_valid_view_mode_noop(
         "initialLoadProjectConfigStatus": initial_load_response.status_code,
         "initialLoadProjectConfig": initial_load_payload,
         "persistedSettingsProjectDocumentBeforeRestart": persisted_before_payload,
+        "restartLoadProjectConfigStatus": restart_load_response.status_code,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        "restartLatestProjectState": restart_latest_payload,
+        "persistedSettingsProjectDocumentAfterRestart": persisted_after_payload,
+    }
+
+
+def execute_settings_project_top_level_layout_repair(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    corrupted_payload = clear_settings_top_level_layouts_from_store_payload(
+        persisted_payload
+    )
+    write_json(backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_backend(backend)
+
+    restart_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    restart_latest_response = None
+    restart_latest_payload = None
+    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+        restarted_project_config = object_field(restart_load_payload, "projectConfig")
+        restarted_project_id = expect_non_empty_string(
+            restarted_project_config.get("id"),
+            "projectConfig.id",
+        )
+        restart_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": restarted_project_id},
+        )
+        restart_latest_payload = normalize_response_json_allow_status(
+            restart_latest_response
+        )
+
+    persisted_after_payload = read_persisted_settings_project_document(backend)
+    summary = summarize_settings_project_top_level_layout_repair(
+        initial_load_http_status=initial_load_response.status_code,
+        restart_load_http_status=restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        restart_latest_payload=restart_latest_payload,
+        persisted_after_payload=persisted_after_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "corruptedSettingsProjectDocument": corrupted_payload,
         "restartLoadProjectConfigStatus": restart_load_response.status_code,
         "restartLoadProjectConfig": restart_load_payload,
         "restartLatestProjectStateStatus": None
@@ -1915,6 +1987,47 @@ def summarize_settings_project_valid_view_mode_noop(
     return summary
 
 
+def summarize_settings_project_top_level_layout_repair(
+    initial_load_http_status: int,
+    restart_load_http_status: int,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    persisted_after_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+        "restartLoadHttpStatus": restart_load_http_status,
+        "restartLatestHttpStatus": restart_latest_http_status,
+    }
+
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        project_config = object_field(restart_load_payload, "projectConfig")
+        restart_view_mode_names = settings_payload_view_mode_names(restart_load_payload)
+        summary["restartLoadViewModeCount"] = len(restart_view_mode_names)
+        summary["restartLoadTopLevelSectionCount"] = len(
+            object_field(project_config, "topLevelSections", allow_missing=True)
+        )
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        latest_project_config = object_field(latest_project_state, "projectConfig")
+        restart_latest_view_mode_names = settings_payload_view_mode_names(
+            latest_project_state
+        )
+        summary["restartLatestViewModeCount"] = len(restart_latest_view_mode_names)
+        summary["restartLatestTopLevelSectionCount"] = len(
+            object_field(latest_project_config, "topLevelSections", allow_missing=True)
+        )
+
+    persisted_view_mode_names = settings_store_view_mode_names(persisted_after_payload)
+    summary["persistedViewModeCount"] = len(persisted_view_mode_names)
+    summary["persistedTopLevelSectionCount"] = settings_store_top_level_section_count(
+        persisted_after_payload
+    )
+    return summary
+
+
 def extract_settings_project_param_value(
     payload: dict[str, Any],
     section_name: str,
@@ -2193,6 +2306,20 @@ def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
     return ordered_view_mode_names(view_modes)
 
 
+def settings_store_top_level_section_count(payload: dict[str, Any]) -> int:
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            "Persisted settings project document must be a JSON object, "
+            f"got {type(payload).__name__}"
+        )
+
+    settings_project = settings_project_payload_from_store_payload(payload)
+    project_config = settings_project
+    if "projectConfig" in settings_project:
+        project_config = object_field(settings_project, "projectConfig")
+    return len(object_field(project_config, "topLevelSections", allow_missing=True))
+
+
 def settings_project_payload_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if "projectConfig" in payload:
         return payload
@@ -2238,6 +2365,28 @@ def remove_settings_param_from_store_payload(
         section_name=section_name,
         param_path=param_path,
     )
+    if "projectConfig" in cloned:
+        return cloned
+
+    projects = object_field(cloned, "projects", allow_missing=True)
+    projects["settings"] = settings_project
+    return cloned
+
+
+def clear_settings_top_level_layouts_from_store_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    cloned = json.loads(json.dumps(payload))
+    settings_project = settings_project_payload_from_store_payload(cloned)
+
+    project_config = settings_project
+    if "projectConfig" in settings_project:
+        project_config = object_field(settings_project, "projectConfig")
+    project_config["topLevelSections"] = {}
+
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    for view_mode_id, raw_view_mode in view_modes.items():
+        view_mode = expect_object(raw_view_mode, f"viewModes.{view_mode_id}")
+        view_mode["topLevelSections"] = {}
+
     if "projectConfig" in cloned:
         return cloned
 
