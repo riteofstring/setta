@@ -2954,6 +2954,64 @@ func TestRegisterRoutesShareListenerFrontendEmitRejectsMissingShareSessionContex
 	})
 }
 
+func TestRegisterRoutesShareListenerFrontendEmitRejectsWhenDeploymentPolicyDisallowsParamChanges(t *testing.T) {
+	t.Parallel()
+
+	deploymentPolicy := deployments.DefaultPolicy()
+	deploymentPolicy.AllowParamChanges = false
+	deploymentRuntime := newRouteDeploymentRuntimeWithPolicy(t, config.ModeShare, deploymentPolicy)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+			Deployment:  deploymentRuntime,
+		}),
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"Section":"value"}}}`)); err != nil {
+		t.Fatalf("write share listener frontend emit under disallowed policy: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_failed", map[string]any{
+		"message": "Deployment policy disallows listener updates.",
+	})
+
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("overlay for share session: %v", err)
+	}
+	project, err := overlay.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project after blocked listener emit: %v", err)
+	}
+	if len(project.Sections) != 0 {
+		t.Fatalf("expected blocked listener emit to leave deployment overlay unchanged, got %#v", project.Sections)
+	}
+}
+
 func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *testing.T) {
 	t.Parallel()
 
@@ -3996,6 +4054,16 @@ func newRouteShareArtifactService(
 func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runtime {
 	t.Helper()
 
+	policy := deployments.DefaultPolicy()
+	if mode == config.ModeApp {
+		policy = deployments.DefaultAppPolicy()
+	}
+	return newRouteDeploymentRuntimeWithPolicy(t, mode, policy)
+}
+
+func newRouteDeploymentRuntimeWithPolicy(t *testing.T, mode config.Mode, policy deployments.Policy) *deployments.Runtime {
+	t.Helper()
+
 	root := t.TempDir()
 	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
 	document := projectstate.Document{
@@ -4005,16 +4073,18 @@ func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runt
 			"project-a": {
 				ID:   "project-a",
 				Name: "Project A",
+				ProjectChatWindowing: func() *projectstate.ProjectChatWindowingState {
+					defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+					return &defaultWindowing
+				}(),
 			},
 		},
 	}
 	writeRouteDeploymentJSON(t, filepath.Join(root, projectstate.MainFileName), document)
 
 	deploymentType := "share"
-	policy := deployments.DefaultPolicy()
 	if mode == config.ModeApp {
 		deploymentType = "app"
-		policy = deployments.DefaultAppPolicy()
 	}
 	writeRouteDeploymentJSON(t, filepath.Join(root, "manifest.json"), map[string]any{
 		"version":                1,
