@@ -77,7 +77,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
+  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1224 lines after the local resize-model, resize-hook, and selected-commit-pane extraction
 - `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after delegating gallery/list rendering to `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace/browser plus side-pane shells to `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`, selected-project metadata rendering to `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and shared path/count helpers to `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so it is no longer a top-size hotspot.
 - `frontend/src/components/App/appRegistry.tsx` is now 888 lines after the local param-input, param-controls, and param-model extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555 lines after the local codegen sections, codegen policy content, and codegen model extraction and is no longer a top-size hotspot.
@@ -269,6 +269,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   future work in that domain should continue from the remaining larger layout
   front doors unless a same-turn follow-through shortens the task-board root
   again.
+- `frontend/src/components/Git/GitGraphOverlay.tsx` now delegates the
+  selected-commit summary, expanded commit metadata or file list, and diff
+  viewer to
+  `frontend/src/components/Git/gitGraphOverlaySelectedCommitPane.tsx`, so the
+  remaining git-overlay follow-through should focus on search/indexing,
+  decoration models, or virtualized row ownership rather than re-expanding the
+  selected-commit surface inside the root.
 - Future cleanup should default to the remaining giant render-heavy entry
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
@@ -281,13 +288,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ProjectChatCore.tsx`, `TaskBoardArea.tsx`, `RunInstructions.tsx`, or
   `appRegistry.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`

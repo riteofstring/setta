@@ -37,22 +37,23 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   `frontend/src/components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx`,
   and codegen registration/representation rules to
   `frontend/src/components/Panes/Overview/runInstructionsCodegenModel.ts`.
-- `GitGraphOverlay.tsx` is now the default pane-side entry surface in this
-  companion plan.
+- `GitGraphOverlay.tsx` is now 1224 lines after the local selected-commit-pane
+  extraction and remains a pane-side follow-through hotspot rather than the
+  default first target in this companion plan.
 - `FileBrowserPane.tsx` now delegates tree-data transport and tree view-model
   ownership to `useFileBrowserPaneTreeData.ts` and
   `fileBrowserPaneTreeModel.ts`, so future work in this domain should extend
   those seams instead of reintroducing transport logic into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
   to the largest pane and git entry surfaces contributors still open first:
-  `GitGraphOverlay.tsx`, then return to `FileBrowserPane.tsx`,
+  `FileBrowserPane.tsx`, then `GitGraphOverlay.tsx`,
   `AppConfigPane.tsx`, and authoring follow-up work.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
+  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1224 lines after the local resize-model, resize-hook, and selected-commit-pane extraction
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1399 lines after the local tree-data extraction
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
@@ -69,8 +70,12 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 - `GitGraphOverlay.tsx` mixes:
   - search/indexing helpers and decoration formatting
   - virtualization and row-height caching
-  - row/detail render branches
+  - lane, gutter, and row render branches
   - header/sidebar/empty-state shell composition over the new resize owners
+- `gitGraphOverlaySelectedCommitPane.tsx` now owns:
+  - selected-commit header summary and reload affordance
+  - expanded commit metadata and changed-file list rendering
+  - diff warnings and the CodeMirror diff viewer shell
 - `PluginsPane.tsx` local owners now divide responsibilities as follows:
   - `pluginsPanePluginCard.tsx` owns per-plugin action/render branches,
     capability sections, pane/command launch shells, and config/settings
@@ -157,22 +162,26 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 
 1. Split the remaining giant pane roots first
 
-- Keep `GitGraphOverlay.tsx` as the obvious git overlay entry surface.
+- Keep `FileBrowserPane.tsx` as the default pane-side entry surface and
+  `GitGraphOverlay.tsx` as the obvious git follow-through root inside
+  `frontend/src/components/Git/`.
 - `gitGraphOverlayResizeModel.ts` and `useGitGraphOverlayResize.ts` now own:
   - pane split and column-resize persistence
   - resize clamp math and double-click resets
   - drag cleanup and request-animation-frame resize application
+- `gitGraphOverlaySelectedCommitPane.tsx` now owns:
+  - selected-commit summary, expanded details, changed-file list, and diff view
 - Continue extracting clearly named owners for:
   - search/indexing and decoration view models
-  - virtualized row shells and detail panes
+  - virtualized row shells and lane/gutter rendering
 - `PluginsPane.tsx` now delegates:
   - per-plugin card/action rendering to `pluginsPanePluginCard.tsx`
   - schema-backed config and language-server settings editors to `pluginsPaneConfigEditors.tsx`
   - top-level config-schema field helpers to `pluginsPaneConfigSchema.ts`
   - shared action/capability/install-summary shells to `pluginsPaneShared.tsx`
 - In the same phase, keep the remaining `GitGraphOverlay.tsx` follow-through
-  work ahead of smaller authoring surfaces when choosing the next pane-side
-  slice.
+  work ahead of smaller authoring surfaces once `FileBrowserPane.tsx` is no
+  longer the clearer pane-side front door.
 
 2. Continue `FileBrowserPane.tsx` only when it shortens the main path
 

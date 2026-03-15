@@ -41,13 +41,13 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
@@ -80,6 +80,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `projectChatBottomDockWindowLifecycle.ts`; chat/windowing follow-through
   should now start from the larger remaining front doors in
   [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- `GitGraphOverlay.tsx` now delegates the selected-commit summary, expanded
+  commit metadata or file list, and diff viewer to
+  `gitGraphOverlaySelectedCommitPane.tsx`; pane follow-through should now start
+  from the larger unresolved roots in
+  [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) unless the same slice
+  shortens the git overlay root again.
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
 - `HomePage.tsx` is no longer a top hotspot after the local home-page split
   into `homeProjectGallery.tsx`, `homeWorkspaceSidePanes.tsx`,
