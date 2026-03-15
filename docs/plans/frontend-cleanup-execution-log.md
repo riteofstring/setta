@@ -3819,3 +3819,34 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiManagedApiKeys.ts` so snapshot reads,
     load/reset flows, and persistence or conflict handling stop living in one
     shared file.
+
+## 2026-03-15 10:07:41 PDT
+
+- Slice completed: split managed API-key snapshot/load state from persistence
+  handling
+- Key files touched:
+  - `frontend/src/state/actions/aiManagedApiKeys.ts`
+  - `frontend/src/state/actions/aiManagedApiKeyState.ts`
+  - `frontend/src/state/actions/aiManagedApiKeyPersistence.ts`
+  - `frontend/src/state/actions/aiLLMConfiguration.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/state/actions/aiSaveLLMApiKeys.test.ts`
+  - `frontend/src/state/actions/aiResourceLoadGuards.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateLLMState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiSaveLLMApiKeys.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/state/actions/aiSaveLLMConfig.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiManagedApiKeys.ts src/state/actions/aiManagedApiKeyState.ts src/state/actions/aiManagedApiKeyPersistence.ts src/state/actions/aiLLMConfiguration.ts src/state/actions/websocketIncomingMessages.ts src/state/actions/aiSaveLLMApiKeys.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/components/Panes/Overview/ProjectLevelAI/useHydrateLLMState.ts src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `7c1bb0eaf1fbbdef00fa23d152e3056b9640756e`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sections/moveSectionState.ts` so move
+    planning and local section-tree updates stop living beside backend
+    persistence orchestration.
