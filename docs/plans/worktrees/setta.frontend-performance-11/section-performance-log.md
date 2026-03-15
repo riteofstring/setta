@@ -2119,3 +2119,61 @@ Append-only log for the section performance refactor.
   - With the extra recursion adapter removed, `Phase S2` should now be treated as structurally exhausted.
 - Next action:
   - Move the next serious step to `Phase S3`, with shared resize/session ownership in `CustomResizable` as the preferred boundary.
+
+### 2026-03-17 68
+
+- Item: Accept `Phase S3` checkpoint 1 after extracting the shared resize/session controller from `CustomResizable`.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Utils/Resizable/useSectionResizeController.ts` so the resize/session lifecycle now lives outside the visible shell wrapper.
+  - Updated `frontend/src/components/Utils/Resizable/CustomResizable.tsx` so:
+    - `CustomResizable` is now the thin assembler
+    - `CustomResizableSuperCore` remains the visible shell around `ResizableWithScale`
+    - the `id={`${sectionId}-CustomResizable`}` contract stays intact
+  - Replaced the old helper-only test with direct hook coverage in:
+    - `frontend/src/components/Utils/Resizable/useSectionResizeController.test.tsx`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Utils/Resizable/useSectionResizeController.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `3` files passed, `26` tests passed
+  - Re-ran the representative browser resize suite:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `8 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Captured screenshot pairs for the representative `S0 Dict` section at:
+    - expanded `300px` height
+    - shrunk `225px` height
+  - Verified on both branches at the matched shrunk state:
+    - root size `260 x 225`
+    - filter field remained inside the resizable root
+    - visible `gamma` row remained inside the resizable root
+  - The first exploratory worktree grow trace was not used for acceptance because multiple same-origin `127.0.0.1:3011` tabs were sharing the renderer and polluted the raw totals.
+  - The accepted trace pair was the isolated `S0 Dict` bottom-handle shrink interaction from `300px` to `225px`.
+  - Accepted target-renderer interaction-window totals from the shrink pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `1160.906`
+      - `UpdateLayoutTree`: `276.278`
+      - `Layout`: `12.301`
+      - `Paint`: `3.081`
+      - `RunTask`: `1138.690`
+      - `EventDispatch`: `21.004`
+      - `TimerFire`: `213.680`
+      - `FireAnimationFrame`: `2.235`
+      - `Commit`: `1.936`
+    - worktree
+      - `FunctionCall`: `1155.106`
+      - `UpdateLayoutTree`: `277.188`
+      - `Layout`: `15.193`
+      - `Paint`: `4.011`
+      - `RunTask`: `1134.535`
+      - `EventDispatch`: `20.723`
+      - `TimerFire`: `112.510`
+      - `FireAnimationFrame`: `3.529`
+      - `Commit`: `2.190`
+- Interpretation:
+  - Checkpoint 1 is accepted.
+  - The controller extraction is structurally valuable and performance-neutral enough on the representative resize gate.
+  - The remaining resize-path cost still appears to live higher in shared shell invalidation and edge-handle/layout work, not in the controller seam itself.
+- Next action:
+  - Continue `Phase S3` by targeting `SectionContainerCoreResizabe` / `sectionChrome` ownership and wrapper reduction without reopening the accepted controller split unless a later trace proves it necessary.

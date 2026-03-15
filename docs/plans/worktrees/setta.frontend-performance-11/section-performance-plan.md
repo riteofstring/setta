@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S2` checkpoint 7 removed the extra `GetParamSwitch` recursion adapter by inlining top-level row rendering into `ParamDndList` and child recursion into `ParamSwitch`
-- Current `Phase S2` state: structurally exhausted after checkpoint 7; the next serious step is the shared resize/container boundary in `Phase S3`
+- Latest accepted checkpoint: `Phase S3` checkpoint 1 extracted `useSectionResizeController` from `CustomResizable` while keeping the visible resize shell stable
+- Current `Phase S3` state: checkpoint 1 accepted; the next serious step is higher shared-shell/layout ownership above the controller seam
 
 Non-negotiable constraints:
 
@@ -68,13 +68,21 @@ Immediate next step:
      - worktree is only slightly higher on `Paint` and `TimerFire`
      - INP is effectively flat (`189ms` on `main`, `190ms` on the worktree)
    - treat `Phase S2` as structurally exhausted and move the next serious step to `Phase S3`
-11. The strongest next `Phase S3` candidate is the shared resize/session ownership in:
+11. The strongest opening `Phase S3` candidate was the shared resize/session ownership in:
    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
    - `frontend/src/components/Section/Container/sectionChrome.ts`
-12. Preferred `Phase S3` checkpoint 1 boundary:
+12. Accepted `Phase S3` checkpoint 1 boundary:
    - extract a no-UI-change resize/session controller from `CustomResizable`
    - keep the visual shell stable while moving auto-size promotion, clamp/propagation, and persisted resize commit out of the presentational wrapper
+13. Current post-checkpoint-1 direction:
+   - `useSectionResizeController` now owns the resize/session lifecycle and persisted size commits
+   - the representative `S0 Dict` resize gate stayed effectively flat enough to accept the ownership split
+   - the remaining resize-path cost is still dominated by higher shell invalidation around the shared section frame, not by the controller seam itself
+   - the next serious `Phase S3` pass should target:
+     - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+     - `frontend/src/components/Section/Container/sectionChrome.ts`
+   - do not reopen the controller split unless a later trace shows a new boundary-specific regression
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
