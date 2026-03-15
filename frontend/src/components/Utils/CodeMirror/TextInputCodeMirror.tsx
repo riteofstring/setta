@@ -1,22 +1,16 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
-import {
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "utils/constants";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
-
-const TEXT_INPUT_SECTION_GUARD_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
 
 export function TextInputCodeMirror({
   sectionId,
@@ -47,6 +41,13 @@ export function TextInputCodeMirror({
   const theme = useCodeMirrorStyle(color);
 
   function localOnBlur() {
+    // hack to prevent codemirror from
+    // blocking other inputs on blur
+    // https://github.com/uiwjs/react-codemirror/issues/677
+    setTimeout(() => {
+      setActivationEvent(null);
+      setRealIsInitialized(false);
+    }, 0);
     onBlur?.();
   }
 
@@ -82,7 +83,7 @@ export function TextInputCodeMirror({
           code={value}
           onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}
-          className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${dummyCodeClassName}`}
+          className={dummyCodeClassName}
           singleLine={singleLine}
           wrapLines={wrapLines}
           theme={theme}
@@ -159,9 +160,12 @@ function CoreCodeMirror({
     resolveTooltipParentDivId(tooltipParentDivId);
   const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
 
-  const resolvedCompletionsFn = shouldAutocomplete
-    ? completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId)
-    : undefined;
+  const resolvedCompletionsFn = useCallback(
+    shouldAutocomplete
+      ? completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId)
+      : () => null,
+    [sectionId, paramInfoId, shouldAutocomplete, completionsFn],
+  );
 
   const extensions = getExtensions({
     parent: tooltipParent,
@@ -186,7 +190,7 @@ function CoreCodeMirror({
   return (
     <CodeMirror
       id={divId}
-      className={`${TEXT_INPUT_SECTION_GUARD_CLASS_NAME} ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{
