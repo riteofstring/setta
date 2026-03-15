@@ -14,7 +14,7 @@ from setta.project_state.project_manager_types import (
     RunDetachedResponse,
     RunStatusResponse,
 )
-from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -351,7 +351,13 @@ class SettaRunner:
             matching = [
                 session
                 for session in sessions
-                if _session_matches_base_url(session, base_host, base_port)
+                if (
+                    (base_port is None or session.port == base_port)
+                    and (
+                        base_host is None
+                        or _normalize_host(session.host) == base_host
+                    )
+                )
             ]
             if matching:
                 sessions = matching
@@ -434,13 +440,3 @@ def _normalize_host(host: str | None) -> str | None:
     if cleaned == "::":
         return "::1"
     return cleaned
-
-
-def _session_matches_base_url(
-    session: SessionMetadata, base_host: str | None, base_port: int | None
-) -> bool:
-    if base_port is not None and session.port != base_port:
-        return False
-    if base_host is None:
-        return True
-    return _normalize_host(session.host) == base_host
