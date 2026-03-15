@@ -6058,3 +6058,48 @@ schedule settings` button still appears on the live task row.
     which is now the highest unresolved front-door hotspot after
     `frontend/src/plugins/runtime.ts` dropped to about 622 lines and delegated
     host/validation ownership into feature-local runtime modules.
+
+## 2026-03-15 23:48:03 PDT
+
+- Slice completed: extracted Run Instructions codegen settings owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  because `frontend/src/components/Panes/Overview/RunInstructions.tsx` was
+  still the highest unresolved front-door hotspot at the start of the turn,
+  and it still mixed run snapshot settings, codegen target transport,
+  python-codegen policy UI, workflow/custom-run surfaces, and overview-pane
+  shell composition in one first-hop file.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/Panes/Overview/runInstructionsCodegenSections.tsx`
+  - `frontend/src/components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx`
+  - `frontend/src/components/Panes/Overview/runInstructionsCodegenModel.ts`
+  - `frontend/src/components/Panes/Overview/runInstructionsCodegenModel.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+  - `perf/reports/frontend/run-instructions-codegen-owners-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/runInstructionsCodegenModel.test.ts src/components/Panes/Overview/RunInstructionsAccordion.test.tsx src/components/Panes/Overview/runInstructionsAccordionState.test.ts src/components/Panes/Overview/runInstructionsRunnableCodeBlocks.test.ts src/components/Panes/Overview/runInstructionsStateMachineControls.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/misc/run-instructions-accordion-hierarchy.spec.ts frontend/tests/e2e/overview/plugins/plugin-codegen-target.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/RunInstructions.tsx src/components/Panes/Overview/runInstructionsCodegenSections.tsx src/components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx src/components/Panes/Overview/runInstructionsCodegenModel.ts src/components/Panes/Overview/runInstructionsCodegenModel.test.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-panes-and-authoring-cleanup-plan.md ../perf/reports/frontend/run-instructions-codegen-owners-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/run-instructions-codegen-owners-2026-03-15.md`
+    with before/after DOM and scroll-region measurements for the Run
+    Instructions pane.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy` at
+    `1400x900` and `1024x720`; the default collapsed Run Instructions layout
+    kept the same DOM/spacing metrics before and after, the codegen policy
+    accordion still rendered the generated-metadata plus section/code-obj
+    controls when expanded, and the narrow viewport kept horizontal overflow
+    disabled with aligned accordion trigger widths.
+- Commit hash:
+  - `d847daa0b415a157bfa85bb976261b1d5adef08b`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+    which is now the top unresolved front-door hotspot after
+    `frontend/src/components/Panes/Overview/RunInstructions.tsx` dropped to
+    about 555 lines and delegated its codegen/snapshot settings ownership into
+    feature-local modules.
