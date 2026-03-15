@@ -279,6 +279,71 @@ class Route:
             },
         )
 
+    def test_summarize_persisted_project_windowing_after_create_detects_defaults(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "project-1": {
+                    "projectChatWindowing": {
+                        "instancesById": {},
+                        "order": [],
+                        "nextInstanceNumber": 1,
+                    }
+                }
+            }
+        }
+
+        summary = harness.summarize_persisted_project_windowing_after_create(
+            project_id="project-1",
+            payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "projectPresent": True,
+                "projectChatWindowingPresent": True,
+                "projectChatWindowCount": 0,
+                "projectChatWindowOrderCount": 0,
+                "nextInstanceNumber": 1,
+            },
+        )
+
+    def test_summarize_persisted_project_windowing_after_create_accepts_source_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectConfigs": {"project-1": {"name": "Example project"}},
+            "projectChatWindowingByProjectConfigId": {
+                "project-1": {
+                    "instancesById": {},
+                    "order": [],
+                    "nextInstanceNumber": 1,
+                }
+            },
+        }
+
+        summary = harness.summarize_persisted_project_windowing_after_create(
+            project_id="project-1",
+            payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "projectPresent": True,
+                "projectChatWindowingPresent": True,
+                "projectChatWindowCount": 0,
+                "projectChatWindowOrderCount": 0,
+                "nextInstanceNumber": 1,
+            },
+        )
+
     @staticmethod
     def _restore_env(key: str, value: str | None) -> None:
         if value is None:

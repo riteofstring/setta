@@ -35,6 +35,7 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 		t.Fatalf("unexpected preview image color %q", project.PreviewImgColor)
 	}
 	assertDefaultGeneratedPythonProjectScaffold(t, project)
+	assertDefaultProjectChatWindowingState(t, project)
 	if len(project.ViewModes) != 1 {
 		t.Fatalf("expected one initial view mode, got %#v", project.ViewModes)
 	}
@@ -54,6 +55,7 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 		t.Fatalf("normalized ProjectByID returned error: %v", err)
 	}
 	assertDefaultGeneratedPythonProjectScaffold(t, normalizedProject)
+	assertDefaultProjectChatWindowingState(t, normalizedProject)
 
 	viewMode, ok := project.ViewModes[project.ActiveViewModeID]
 	if !ok {
@@ -158,6 +160,23 @@ func assertDefaultGeneratedPythonProjectScaffold(t *testing.T, project Project) 
 	}
 	if got, ok := rawBinding["autoBinding"].(bool); !ok || got {
 		t.Fatalf("expected generated section autoBinding=false, got %#v", rawBinding["autoBinding"])
+	}
+}
+
+func assertDefaultProjectChatWindowingState(t *testing.T, project Project) {
+	t.Helper()
+
+	if project.ProjectChatWindowing == nil {
+		t.Fatal("expected default project chat windowing state")
+	}
+	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected no project chat windows by default, got %#v", project.ProjectChatWindowing.InstancesByID)
+	}
+	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{}) {
+		t.Fatalf("expected empty project chat window order, got %#v", project.ProjectChatWindowing.Order)
+	}
+	if project.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected next instance number 1, got %d", project.ProjectChatWindowing.NextInstanceNumber)
 	}
 }
 

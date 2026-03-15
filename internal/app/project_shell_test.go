@@ -758,6 +758,18 @@ func assertAppDefaultGeneratedPythonProjectScaffold(t *testing.T, project projec
 	if section.Name != "Generated Python Code" {
 		t.Fatalf("expected persisted created section name Generated Python Code, got %q", section.Name)
 	}
+	if project.ProjectChatWindowing == nil {
+		t.Fatal("expected persisted created project chat windowing state")
+	}
+	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected no created project chat windows, got %#v", project.ProjectChatWindowing.InstancesByID)
+	}
+	if len(project.ProjectChatWindowing.Order) != 0 {
+		t.Fatalf("expected empty created project chat window order, got %#v", project.ProjectChatWindowing.Order)
+	}
+	if project.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected next instance number 1, got %d", project.ProjectChatWindowing.NextInstanceNumber)
+	}
 }
 
 func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *testing.T) {

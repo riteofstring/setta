@@ -15,3 +15,7 @@ scenarios:
     kind: latest_state_after_create_project
     seed: none
     description: Fresh projects should expose the same initial latest-project-state shape after creation.
+  - name: persisted_project_windowing_after_create
+    kind: persisted_project_windowing_after_create
+    seed: none
+    description: Fresh projects should persist authoritative project chat windowing state immediately after creation.

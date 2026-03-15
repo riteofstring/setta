@@ -361,6 +361,16 @@ func TestRegisterProjectShellRoutesCreatesProjectConfig(t *testing.T) {
 	if len(projectRuntime.Snapshot().Document.Projects) != 1 {
 		t.Fatalf("expected one created project, got %#v", projectRuntime.Snapshot().Document.Projects)
 	}
+	project := projectRuntime.Snapshot().Document.Projects[projectRuntime.Snapshot().Document.DefaultProjectID]
+	if project.ProjectChatWindowing == nil {
+		t.Fatal("expected created project chat windowing state")
+	}
+	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected no created project chat windows, got %#v", project.ProjectChatWindowing.InstancesByID)
+	}
+	if project.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected next instance number 1, got %d", project.ProjectChatWindowing.NextInstanceNumber)
+	}
 }
 
 func TestRegisterProjectShellRoutesSavesProject(t *testing.T) {

@@ -157,7 +157,7 @@ func (s ProjectChatWindowingState) Clone() ProjectChatWindowingState {
 			cloned.InstancesByID[instanceID] = instance.Clone()
 		}
 	}
-	cloned.Order = append([]string(nil), s.Order...)
+	cloned.Order = append([]string{}, s.Order...)
 	return cloned
 }
 

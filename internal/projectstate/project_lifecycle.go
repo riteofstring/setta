@@ -29,6 +29,8 @@ func (d *Document) CreateProject(previewImgColor string) (string, string, error)
 		CodegenTargets:          defaultProjectCodegenTargets(),
 		PreviewImgColor:         strings.TrimSpace(previewImgColor),
 	}
+	defaultWindowing := DefaultProjectChatWindowingState()
+	project.ProjectChatWindowing = &defaultWindowing
 	if err := project.ReconcilePythonGeneratedBindings(); err != nil {
 		return "", "", err
 	}

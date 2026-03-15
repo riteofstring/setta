@@ -677,6 +677,8 @@ def execute_scenario(
         return execute_toggle_view_mode_broadcast(backend)
     if scenario.kind == "latest_state_after_create_project":
         return execute_latest_state_after_create_project(backend)
+    if scenario.kind == "persisted_project_windowing_after_create":
+        return execute_persisted_project_windowing_after_create(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -836,6 +838,24 @@ def execute_latest_state_after_create_project(
         "createdProjectName": created_name,
         "loadProjectConfig": loaded,
         "latestProjectState": payload,
+    }
+
+
+def execute_persisted_project_windowing_after_create(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    payload = read_persisted_project_document(backend)
+    summary = summarize_persisted_project_windowing_after_create(
+        project_id=project_id,
+        payload=payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "persistedProjectDocument": payload,
     }
 
 
@@ -1071,6 +1091,65 @@ def summarize_latest_state_after_create_project(
     }
 
 
+def summarize_persisted_project_windowing_after_create(
+    project_id: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    projects = object_field(payload, "projects", allow_missing=True)
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    project = expect_object(
+        projects.get(project_id) or source_projects.get(project_id),
+        f"projects.{project_id}",
+    )
+    raw_windowing = project.get("projectChatWindowing")
+    if raw_windowing is None:
+        source_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        raw_windowing = source_windowing_by_id.get(project_id)
+    windowing = expect_object(
+        raw_windowing,
+        f"projectChatWindowing.{project_id}",
+        allow_missing=True,
+    )
+    instances_by_id = object_field(windowing, "instancesById", allow_missing=True)
+    order = expect_list(
+        windowing.get("order"),
+        f"projects.{project_id}.projectChatWindowing.order",
+        allow_missing=True,
+    )
+    next_instance_number = windowing.get("nextInstanceNumber")
+    return {
+        "projectPresent": True,
+        "projectChatWindowingPresent": raw_windowing is not None,
+        "projectChatWindowCount": len(instances_by_id),
+        "projectChatWindowOrderCount": len(order),
+        "nextInstanceNumber": next_instance_number,
+    }
+
+
+def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:
+    project_path = backend.setta_files_root / PROJECT_FILE_NAME
+    try:
+        payload = json.loads(project_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ParityHarnessError(
+            f"Persisted project document missing at {project_path}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ParityHarnessError(
+            f"Persisted project document is not valid JSON at {project_path}: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            "Persisted project document must be a JSON object, "
+            f"got {type(payload).__name__}"
+        )
+    return payload
+
+
 def read_frontend_messages(
     websocket_url: str,
     frontend_origin: str,
@@ -1155,8 +1234,20 @@ def object_field(
     if not isinstance(mapping, dict):
         raise ParityHarnessError(
             f"Expected object before reading field {key}, got {type(mapping).__name__}"
-        )
+    )
     return expect_object(mapping.get(key), key, allow_missing=allow_missing)
+
+
+def expect_list(value: Any, label: str, allow_missing: bool = False) -> list[Any]:
+    if value is None:
+        if allow_missing:
+            return []
+        raise ParityHarnessError(f"Missing list field {label}")
+    if isinstance(value, list):
+        return value
+    if allow_missing:
+        return []
+    raise ParityHarnessError(f"Expected list for {label}, got {type(value).__name__}")
 
 
 def expect_string_list(value: Any, label: str) -> list[str]:

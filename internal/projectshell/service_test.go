@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"setta/internal/projectstate"
@@ -553,6 +554,18 @@ func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *
 	}
 	if len(project.ViewModes) != 1 {
 		t.Fatalf("expected one initial view mode, got %#v", project.ViewModes)
+	}
+	if project.ProjectChatWindowing == nil {
+		t.Fatal("expected persisted project chat windowing state")
+	}
+	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected no created project chat windows, got %#v", project.ProjectChatWindowing.InstancesByID)
+	}
+	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{}) {
+		t.Fatalf("expected empty created project chat window order, got %#v", project.ProjectChatWindowing.Order)
+	}
+	if project.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected next instance number 1, got %d", project.ProjectChatWindowing.NextInstanceNumber)
 	}
 }
 
