@@ -139,8 +139,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   cleanup, and reconnect or recovery scheduling, reducing
   `frontend/src/state/actions/websocketLifecycle.ts` to the public
   socket-open entrypoint plus route/url selection.
-- `frontend/src/state/actions/windowSpaceCrud.ts` now owns saved window-space
-  sort/name/delete mutations plus optimistic persistence and layout rollback,
+- `frontend/src/state/actions/windowSpaceQueries.ts` now owns saved
+  window-space sort helpers, project-config lookup, layout-mutation gating,
+  and next-name derivation,
+  `frontend/src/state/actions/windowSpaceMutationPersistence.ts` now owns
+  saved window-space sort/name/delete mutations plus optimistic persistence
+  and layout rollback,
+  `frontend/src/state/actions/windowSpaceCrud.ts` is now the thin
+  compatibility facade over those narrower owners,
   `frontend/src/state/actions/windowSpaceSave.ts` now owns current-floating-window
   save flow plus authoritative pre-save sync,
   `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` now owns floating
@@ -155,7 +161,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` is now the thin
   compatibility facade, and
   `frontend/src/state/actions/windowSpacePersistence.ts` is now the thin
-  compatibility facade over the narrowed owners.
+  compatibility facade over the narrowed query, mutation, and save owners.
 - `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns
   floating-window reuse, owner-key resolution, and superseded-floating
   selection that previously lived in
@@ -433,7 +439,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
   - `frontend/src/state/actions/sections/sectionSizes.ts` at 218 lines
   - `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` at 216 lines
   - `frontend/src/state/actions/edgeHandles.ts` at 216 lines
@@ -446,6 +451,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
   - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
+  - `frontend/src/state/actions/edges.ts` at 208 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -822,14 +828,19 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `chatBranchEditing.ts` for edited-message history truncation and child-branch creation
   - `chatBranchIndexState.ts` for branch-index derivation from section branch records
   - `chatBranches.ts` as the thin compatibility facade
-- `windowSpaceCrud.ts` now owns:
+- `windowSpaceQueries.ts` now owns:
+  - saved window-space sort helpers
+  - project-config lookup, layout-mutation gating, and next-name derivation
+- `windowSpaceMutationPersistence.ts` now owns:
   - saved window-space sort/name/delete mutations
   - optimistic persistence and layout-mutation rollback
+- `windowSpaceCrud.ts` is now:
+  - a thin compatibility facade over the query and mutation owners
 - `windowSpaceSave.ts` now owns:
   - current-floating-window save flow
   - authoritative pre-save resync and saved window-space persistence
 - `windowSpacePersistence.ts` is now:
-  - a thin compatibility facade over the narrowed window-space CRUD and save owners
+  - a thin compatibility facade over the narrowed window-space query, mutation, and save owners
 - `windowSpaceSnapshotCapture.ts` now owns:
   - floating window-space snapshot building
 - `windowSpaceSnapshotRestoreConversion.ts` now owns:

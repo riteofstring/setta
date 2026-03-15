@@ -69,14 +69,23 @@ vi.mock("state/definitions", () => ({
   ) => selector(mockProjectState),
 }));
 
-vi.mock("state/actions/windowSpacePersistence", async () => {
+vi.mock("state/actions/windowSpaceSave", async () => {
   const actual = await vi.importActual<
-    typeof import("state/actions/windowSpacePersistence")
-  >("state/actions/windowSpacePersistence");
+    typeof import("state/actions/windowSpaceSave")
+  >("state/actions/windowSpaceSave");
   return {
     ...actual,
     createWindowSpaceFromCurrentFloatingWindows: () =>
       createWindowSpaceFromCurrentFloatingWindowsMock(),
+  };
+});
+
+vi.mock("state/actions/windowSpaceMutationPersistence", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/windowSpaceMutationPersistence")
+  >("state/actions/windowSpaceMutationPersistence");
+  return {
+    ...actual,
     persistWindowSpaceSortOrder: (...args: unknown[]) =>
       persistWindowSpaceSortOrderMock(...args),
     setWindowSpaceName: (...args: unknown[]) => setWindowSpaceNameMock(...args),

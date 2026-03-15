@@ -14,7 +14,7 @@ import {
   canMutateWindowSpaceLayout,
   getProjectWindowSpaces,
   resolveNextWindowSpaceName,
-} from "./windowSpaceCrud";
+} from "./windowSpaceQueries";
 import { snapshotFloatingWindowsForWindowSpace } from "./windowSpaceSnapshotCapture";
 
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<

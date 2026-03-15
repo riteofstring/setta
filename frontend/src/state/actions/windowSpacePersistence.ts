@@ -1,10 +1,13 @@
 export {
   applyWindowSpaceSortOrder,
-  canMutateWindowSpaceLayout,
   deleteWindowSpace,
-  getProjectWindowSpaces,
   persistWindowSpaceSortOrder,
   setWindowSpaceName,
+} from "./windowSpaceMutationPersistence";
+export {
+  canMutateWindowSpaceLayout,
+  getProjectWindowSpaces,
+  resolveNextWindowSpaceName,
   sortWindowSpaces,
-} from "./windowSpaceCrud";
+} from "./windowSpaceQueries";
 export { createWindowSpaceFromCurrentFloatingWindows } from "./windowSpaceSave";

@@ -65,7 +65,7 @@ import {
   deleteWindowSpace,
   persistWindowSpaceSortOrder,
   setWindowSpaceName,
-} from "./windowSpaceCrud";
+} from "./windowSpaceMutationPersistence";
 import { restoreWindowSpaceInWorkspace } from "./windowSpaces";
 import { createWindowSpaceFromCurrentFloatingWindows } from "./windowSpaceSave";
 import {

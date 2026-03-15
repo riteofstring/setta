@@ -3,14 +3,14 @@ import { useProjectState } from "state/definitions";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import {
-  canMutateWindowSpaceLayout,
-  getProjectWindowSpaces,
-} from "./windowSpaceCrud";
-import {
   buildWorkspaceRestoreThreadState,
   getBlockedWindowSpaceRestoreMessage,
   restoreWorkspaceProjectChatThreadBindings,
 } from "./windowSpaceProjectChatThreadRestore";
+import {
+  canMutateWindowSpaceLayout,
+  getProjectWindowSpaces,
+} from "./windowSpaceQueries";
 import { buildWorkspaceRestorePlan } from "./windowSpaceWorkspaceRestorePlan";
 
 export async function restoreWindowSpaceInWorkspace(
