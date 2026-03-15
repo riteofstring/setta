@@ -74,6 +74,65 @@ func TestIntentServiceCreateAndConsumeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestIntentServicePersistsIntentAcrossReinitializationAndKeepsConsumeSingleUse(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_710_000_000, 0).UTC()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	currentSession := &auth.CurrentSession{
+		Metadata: auth.SessionMetadata{ID: "session-1"},
+		Secret:   []byte("secret"),
+	}
+
+	firstService, err := NewIntentService(IntentServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		Now:         func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new first intent service: %v", err)
+	}
+	result, err := firstService.CreateIntent(CreateIntentInput{
+		Request:        decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","settaHome":"/tmp/setta-home"}`),
+		ReturnURL:      "http://127.0.0.1:3000/home",
+		RequestOrigin:  "http://127.0.0.1:3000",
+		CurrentSession: currentSession,
+	})
+	if err != nil {
+		t.Fatalf("create intent: %v", err)
+	}
+
+	// A fresh service instance should still see the persisted intent on disk,
+	// and once any instance consumes it the token must be single-use globally.
+	secondService, err := NewIntentService(IntentServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		Now:         func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new second intent service: %v", err)
+	}
+	storedRequest, returnURL, err := secondService.ConsumeIntent(currentSession, result.LaunchIntentToken)
+	if err != nil {
+		t.Fatalf("consume persisted intent from second service: %v", err)
+	}
+	if trimmedStringPointer(storedRequest.WorkspaceRoot) != "/tmp/workspace" {
+		t.Fatalf("unexpected stored workspace root %q", trimmedStringPointer(storedRequest.WorkspaceRoot))
+	}
+	if returnURL != "http://127.0.0.1:3000/home" {
+		t.Fatalf("unexpected return URL %q", returnURL)
+	}
+
+	thirdService, err := NewIntentService(IntentServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		Now:         func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new third intent service: %v", err)
+	}
+	if _, _, err := thirdService.ConsumeIntent(currentSession, result.LaunchIntentToken); err == nil {
+		t.Fatal("expected consumed launch intent to fail across service instances")
+	}
+}
+
 func TestIntentServiceAllowsTrustedReturnURL(t *testing.T) {
 	t.Parallel()
 
