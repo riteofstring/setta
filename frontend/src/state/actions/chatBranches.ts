@@ -1,4 +1,4 @@
-import { ChatBranchInfo } from "state/definitions";
+import { ChatBranchInfo } from "state/stores/aiStores";
 import {
   BaseChatMessageUnion,
   ChatSectionBranch,
@@ -12,7 +12,7 @@ import {
 import {
   getMessageCompletenessScore,
   mergeChatMessages,
-} from "./chatMergeUtils";
+} from "./chatMessageMerge";
 
 type BranchInitializationResult = {
   nextState: ChatSectionState;
