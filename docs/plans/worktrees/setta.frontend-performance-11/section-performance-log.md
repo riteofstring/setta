@@ -3877,3 +3877,49 @@ Append-only log for the section performance refactor.
   - Use the new `data-param-label-shape` seam for the next local geometry candidate instead of styling the row owner directly.
   - Keep the next candidate scoped to label-root and sibling selectors first; if that still changes the row height enough to miss the final top-row `pastHalfway: false` flip, record that explicitly before trying a different lower seam.
   - Rerun the callable reorder representative before any shared-row compare against untouched `main`.
+
+### 2026-03-18 105
+
+- Item: Keep the first label-root/sibling typography candidate that improves shared-row geometry without regressing reorder.
+- Status: `needs_more_work`
+- Details:
+  - Implemented a narrow CSS-only follow-up in:
+    - `frontend/index.css`
+  - Candidate shape:
+    - targeted only `nameInputLeaf` / `nameInputParent` rows via the new `data-param-label-shape` seam
+    - styled the existing label root plus the first adjacent `.section-value` sibling
+    - set wrapper typography to `12px / 16px`
+    - forced the mounted/dummy CodeMirror content on that path to inherit the same typography
+    - left the row flex contract and draggable `ParamRowShell` `<article>` untouched
+  - Why this is materially different from the rejected wrapper patch:
+    - no wrapper-local pointer or selection behavior changed
+    - no new wrappers were introduced
+    - no DnD ownership or row hitbox attachment moved
+    - the change stayed at the label-root and first value-wrapper descendant layer only
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `2 passed`
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/global-variables-kwargs.spec.ts`
+      - result: `4 passed`
+  - Headed CDP shared-row compare against the existing disposable `GlobalVariables` scenes:
+    - worktree row after the candidate:
+      - row rect: `212.29 x 25.26`
+      - label rect: `98.64 x 21.05`
+      - value rect: `94.41 x 25.26`
+      - label/value wrapper typography: `12px / 16px`
+    - untouched `main` control remains:
+      - row rect: `211.71 x 24.06`
+      - value content rect: `93.83 x 24.06`
+      - value content typography: `12px / 16px`
+    - interpretation:
+      - this candidate materially improves the earlier worktree read (`30.07px` row height) while preserving the drag canary
+      - the remaining blocker is now narrower: roughly `1.2px` of residual row height gap, not the earlier `~6px` geometry mismatch
+  - Recorded the partial recovery in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-nameinput-typography-candidate.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Treat this `nameInput*` typography recovery as the new lower-seam baseline, not as final acceptance.
+  - Narrow the next pass to the remaining `~1.2px` row height gap versus untouched `main`.
+  - Preserve the current callable reorder/indent canary and the dict/global-variables shared-row tests while doing it.

@@ -460,6 +460,64 @@ html.dark body {
   min-width: 0;
 }
 
+.section-param-row > [data-param-label-shape="nameInputLeaf"],
+.section-param-row > [data-param-label-shape="nameInputParent"],
+.section-param-row > [data-param-label-shape="nameInputLeaf"] + .section-value,
+.section-param-row > [data-param-label-shape="nameInputParent"] + .section-value {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.section-param-row > [data-param-label-shape="nameInputLeaf"] > .peer\/nameinput,
+.section-param-row > [data-param-label-shape="nameInputParent"] > .peer\/nameinput,
+.section-param-row
+  > [data-param-label-shape="nameInputLeaf"]
+  + .section-value
+  > .peer\/textinput,
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  + .section-value
+  > .peer\/textinput,
+.section-param-row
+  > [data-param-label-shape="nameInputLeaf"]
+  > .peer\/nameinput
+  .cm-content,
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  > .peer\/nameinput
+  .cm-content,
+.section-param-row
+  > [data-param-label-shape="nameInputLeaf"]
+  + .section-value
+  > .peer\/textinput
+  .cm-content,
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  + .section-value
+  > .peer\/textinput
+  .cm-content,
+.section-param-row
+  > [data-param-label-shape="nameInputLeaf"]
+  > .peer\/nameinput
+  .cm-line,
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  > .peer\/nameinput
+  .cm-line,
+.section-param-row
+  > [data-param-label-shape="nameInputLeaf"]
+  + .section-value
+  > .peer\/textinput
+  .cm-line,
+.section-param-row
+  > [data-param-label-shape="nameInputParent"]
+  + .section-value
+  > .peer\/textinput
+  .cm-line {
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .section-param-row > [data-param-resize-handle="true"] {
   flex: 0 0 auto;
 }
