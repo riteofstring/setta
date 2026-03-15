@@ -330,8 +330,15 @@ func (p Project) Normalized() (Project, error) {
 	if normalized.TopLevelSections == nil {
 		normalized.TopLevelSections = map[string]TopLevelSectionLayout{}
 	}
+	var err error
 	if normalized.WindowSpaces != nil {
-		normalized.WindowSpaces = normalizeWindowSpaces(normalized.WindowSpaces, normalized.Sections)
+		normalized.WindowSpaces, err = normalizeWindowSpaces(
+			normalized.WindowSpaces,
+			normalized.Sections,
+		)
+		if err != nil {
+			return Project{}, fmt.Errorf("normalize window spaces: %w", err)
+		}
 	}
 	if normalized.CodeObjs == nil {
 		normalized.CodeObjs = map[string]CodeObject{}
@@ -345,7 +352,6 @@ func (p Project) Normalized() (Project, error) {
 	normalizedWindowing := ProjectChatWindowingOrDefault(
 		normalized.ProjectChatWindowing,
 	)
-	var err error
 	normalizedWindowing, err = normalizeProjectChatWindowingState(
 		normalizedWindowing,
 		normalized.Sections,

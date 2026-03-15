@@ -359,6 +359,83 @@ func TestProjectNormalizedRejectsInvalidProjectChatWindowOwnerModes(t *testing.T
 	}
 }
 
+func TestProjectNormalizedRejectsInvalidWindowSpaceOwnerModes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		window       WindowSpaceWindow
+		expectedText string
+	}{
+		{
+			name: "section_without_section_binding",
+			window: WindowSpaceWindow{
+				SurfaceKind: WindowSpaceSurfaceKindSection,
+			},
+			expectedText: "Section window-space windows require sectionIdOrNull.",
+		},
+		{
+			name: "project_chat_with_section_binding",
+			window: WindowSpaceWindow{
+				SurfaceKind:     WindowSpaceSurfaceKindProjectChat,
+				SectionIDOrNull: stringPointer("section-a"),
+			},
+			expectedText: "Project-chat window-space windows cannot carry sectionIdOrNull.",
+		},
+		{
+			name: "section_git_graph_mode",
+			window: WindowSpaceWindow{
+				SurfaceKind:     WindowSpaceSurfaceKindSection,
+				SectionIDOrNull: stringPointer("section-a"),
+				Mode:            ChatWindowModeGitGraph,
+			},
+			expectedText: "Section window-space windows cannot use git_graph_mode.",
+		},
+		{
+			name: "project_chat_section_mode",
+			window: WindowSpaceWindow{
+				SurfaceKind: WindowSpaceSurfaceKindProjectChat,
+				Mode:        ChatWindowModeSection,
+			},
+			expectedText: "Project-chat window-space windows cannot use section_mode.",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := Project{
+				ID:   "project-alpha",
+				Name: "Alpha",
+				Sections: map[string]Section{
+					"section-a": {
+						ID:   "section-a",
+						Name: "Section A",
+					},
+				},
+				WindowSpaces: map[string]WindowSpaceConfig{
+					"space-invalid": {
+						ID:        "space-invalid",
+						Name:      "Invalid Workspace",
+						SortIndex: 0,
+						WindowsByID: map[string]WindowSpaceWindow{
+							"window-invalid": tc.window,
+						},
+						Order: []string{"window-invalid"},
+					},
+				},
+			}
+
+			_, err := project.Normalized()
+			if err == nil || !strings.Contains(err.Error(), tc.expectedText) {
+				t.Fatalf("expected error containing %q, got %v", tc.expectedText, err)
+			}
+		})
+	}
+}
+
 func TestProjectCloneDeepCopiesChatWindowingAndWindowSpaces(t *testing.T) {
 	t.Parallel()
 

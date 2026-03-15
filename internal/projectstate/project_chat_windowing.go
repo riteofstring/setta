@@ -282,9 +282,9 @@ func normalizeProjectChatWindowingState(
 func normalizeWindowSpaces(
 	windowSpaces map[string]WindowSpaceConfig,
 	sections map[string]Section,
-) map[string]WindowSpaceConfig {
+) (map[string]WindowSpaceConfig, error) {
 	if windowSpaces == nil {
-		return nil
+		return nil, nil
 	}
 
 	normalized := make(map[string]WindowSpaceConfig, len(windowSpaces))
@@ -315,6 +315,13 @@ func normalizeWindowSpaces(
 			}
 			if nextWindow.Mode == "" {
 				nextWindow.Mode = ChatWindowModeProjectAI
+			}
+			if err := validateWindowSpaceWindowOwnerOnLoad(
+				nextWindow.SurfaceKind,
+				nextWindow.Mode,
+				nextWindow.SectionIDOrNull,
+			); err != nil {
+				return nil, err
 			}
 			if nextWindow.Mode != ChatWindowModeProjectAI {
 				nextWindow.ChatID = nil
@@ -352,7 +359,7 @@ func normalizeWindowSpaces(
 		nextWindowSpace.Order = normalizeOrderedKeys(nextWindowSpace.Order, nextWindowSpace.WindowsByID)
 		normalized[trimmedID] = nextWindowSpace
 	}
-	return normalized
+	return normalized, nil
 }
 
 func normalizeChatWindowBounds(bounds ChatWindowBounds) ChatWindowBounds {
@@ -517,6 +524,26 @@ func validateWindowingOwner(
 	}
 	if mode == ChatWindowModeGitGraph && placement == ChatWindowPlacementCanvasSection {
 		return fmt.Errorf("Project chat git_graph_mode windows cannot use canvas_section placement.")
+	}
+	return nil
+}
+
+func validateWindowSpaceWindowOwnerOnLoad(
+	surfaceKind WindowSpaceSurfaceKind,
+	mode ChatWindowMode,
+	sectionID *string,
+) error {
+	if surfaceKind == WindowSpaceSurfaceKindSection && sectionID == nil {
+		return fmt.Errorf("Section window-space windows require sectionIdOrNull.")
+	}
+	if surfaceKind == WindowSpaceSurfaceKindProjectChat && sectionID != nil {
+		return fmt.Errorf("Project-chat window-space windows cannot carry sectionIdOrNull.")
+	}
+	if surfaceKind == WindowSpaceSurfaceKindSection && mode == ChatWindowModeGitGraph {
+		return fmt.Errorf("Section window-space windows cannot use git_graph_mode.")
+	}
+	if surfaceKind == WindowSpaceSurfaceKindProjectChat && mode == ChatWindowModeSection {
+		return fmt.Errorf("Project-chat window-space windows cannot use section_mode.")
 	}
 	return nil
 }
