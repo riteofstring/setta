@@ -5099,3 +5099,60 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the corrected Chat history spinner seam closed.
   - Re-read `frontend/src/components/Utils/MediaCarousel.tsx` as the next shared shell candidate, using `frontend/src/components/Section/Layouts/BrowserArea.tsx` as the first representative host.
+
+### 2026-03-18 130
+
+- Item: Flatten the shared `MediaCarousel` thumbnail shell while preserving Browser carousel and Chat attachment-preview geometry.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Utils/MediaCarousel.tsx`
+    - `frontend/src/components/Utils/MediaCarousel.test.tsx`
+    - `frontend/src/components/Section/Layouts/BrowserArea.test.tsx`
+    - `frontend/tests/e2e/file-browser/browser-carousel-thumbnail-shell.spec.ts`
+    - `frontend/tests/e2e/chat/chat-attachments.spec.ts`
+  - The accepted shared-shell move is narrow:
+    - the thumbnail shell itself now uses a plain `relative flex ... items-center justify-center` contract instead of `single-cell-container`
+    - the default image/file fallback inside `MediaCarousel` now uses absolute/centered positioning instead of `single-cell-child`
+    - the stable shared carousel selectors stay intact:
+      - `.setta-media-carousel-thumbnail-row`
+      - `Resize thumbnail strip`
+      - `data-media-carousel-item-id`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Utils/MediaCarousel.test.tsx src/components/Utils/MediaCarousel.perf.test.tsx src/components/Utils/MediaCarouselScrollbar.test.ts src/components/Section/Layouts/BrowserArea.test.tsx`
+      - result: `4` files passed, `15` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-carousel-thumbnail-shell.spec.ts frontend/tests/e2e/file-browser/browser-carousel-scroll.spec.ts frontend/tests/e2e/file-browser/browser-carousel-resize.spec.ts frontend/tests/e2e/file-browser/browser-carousel-spreadsheet-preview.spec.ts frontend/tests/e2e/chat/chat-attachments.spec.ts --grep "chat attachment preview supports common file types|carousel thumbnail shells keep the shared wrapper off single-cell helpers|carousel thumbnail strip scrolls with trackpad wheel|carousel thumbnail strip is vertically resizable|browser carousel previews and edits csv/xlsx spreadsheets"`
+      - result: `5` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts frontend/tests/e2e/file-browser/browser-file-open.spec.ts --grep "explorer drag-and-drop opens sections and spreadsheet accepts file drops|browser history buttons navigate folders"`
+      - result: `2` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `wolf_racing` on `http://127.0.0.1:3087/wolf_racing`
+      - Browser carousel row class stays `setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2 [scrollbar-gutter:stable] nopan nowheel`
+      - representative image shell class stays `single-cell-container shrink-0 overflow-clip rounded-md border border-solid border-blue-500 shadow-md`
+      - representative text shell class stays `single-cell-container shrink-0 overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800`
+      - touched markup still exposes `single-cell-container` / `single-cell-child`
+      - geometry:
+        - image shell `100.8 x 100.8`
+        - text shell `96 x 96`
+        - image checkbox offset `5.25 x 5.25`
+        - text checkbox offset `5 x 5`
+        - `TXT` badge `36.04 x 17.5`
+    - worktree: disposable compare project `flying_soft` on `http://127.0.0.1:3011/flying_soft`
+      - Browser carousel row class stays `setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2 [scrollbar-gutter:stable] nopan nowheel`
+      - representative image shell class now reads `relative flex shrink-0 items-center justify-center overflow-clip rounded-md border border-solid border-blue-500 shadow-md`
+      - representative text shell class now reads `relative flex shrink-0 items-center justify-center overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800`
+      - touched markup no longer exposes `single-cell-container` or `single-cell-child`
+      - raw geometry reads slightly smaller because the React Flow viewport scale is `0.987184`
+      - normalized geometry:
+        - image shell `100.8 x 100.8`
+        - text shell `96 x 96`
+        - image checkbox offset `5.25 x 5.25`
+        - text checkbox offset `5 x 5`
+        - `TXT` badge `36.04 x 17.5`
+  - Interpretation:
+    - the shared `MediaCarousel` thumbnail shell is now accepted
+    - Browser carousel and Chat attachment-preview collateral stayed green on that shared-shell move
+    - the next pass should widen upward into the active pane wrapper seam in `frontend/src/components/Utils/PaneContainer.tsx`
+- Next action:
+  - Keep the shared `MediaCarousel` shell closed.
+  - Re-read `frontend/src/components/Utils/PaneContainer.tsx` as the next shared shell candidate, with `frontend/src/components/Git/GitOverlayLayer.tsx` as the closest dependent overlay path.
