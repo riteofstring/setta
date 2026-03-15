@@ -116,6 +116,22 @@ def generate_websocket_unions(output_file: Path):
     print(f"wrote to {output_file}")
 
 
+def generate_clipboard_data_unions(output_file: Path):
+    import setta.types.clipboard
+
+    code = construct_unions(
+        setta.types.clipboard,
+        setta.types.clipboard.BaseClipboardData,
+        "type",
+        setta.types.clipboard,
+        lambda x: x,
+    )
+
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 def generate_chart_settings_unions(output_file: Path):
     import setta.types.artifact
 
@@ -193,6 +209,14 @@ if __name__ == "__main__":
             output_file=(
                 get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
                 / "websocket_unions.py"
+            )
+        )
+    elif sys.argv[1] == "clipboard_data":
+        # has to be done separately due to import dependencies
+        generate_clipboard_data_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "clipboard_data_unions.py"
             )
         )
     elif sys.argv[1] == "chart_settings":
