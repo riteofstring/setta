@@ -3755,3 +3755,55 @@ Append-only log for the section performance refactor.
   - Before attempting another geometry correction, instrument the param drag lifecycle or collision/update path.
   - If the geometry correction returns to the row/CSS seam, prefer a shape-specific hook such as `labelShapeKey` over another generic descendant-wrapper override.
   - Do not rerun the shared-row compare or move upward into `sectionChrome` until the callable reorder/indent representative is green on the next lower-seam candidate.
+
+### 2026-03-17 102
+
+- Item: Instrument the param drag lifecycle, compare clean versus failing reorder runs, and restore the clean branch state.
+- Status: `needs_more_work`
+- Details:
+  - Used temporary HTTP logging to capture param DnD lifecycle events from:
+    - `frontend/src/components/Params/ParamDndMonitor.tsx`
+    - `frontend/src/forks/dnd-kit/ParamDndContext.tsx`
+    - `frontend/src/state/actions/params/moveParams.ts`
+  - Ran a clean control on the callable representative:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+    - result: `2 passed`
+    - additional workspace-only control:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "light workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `1 passed`
+  - Reintroduced the local wrapper-geometry direction only in:
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - The light workspace representative failed again under that local variant:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "light workspace and standalone callable routes preserve reorder and tab indent behavior"`
+    - observed order after dragging `k` before `h`: `h > k > i > j`
+  - Evidence review from the clean-versus-failing event streams:
+    - collision loss is no longer the leading theory:
+      - the failing run still resolves the top-row `over` collisions
+      - no `tracker:filtered-empty` or `over:filtered-empty` read is needed to explain the failure
+    - missing backend sync is no longer the leading theory:
+      - the failing run still reaches `end:move`
+      - the failing run still sends `move:send`
+      - the backend still answers `move:response` with `200`
+    - the concrete divergence is the final insertion step:
+      - clean run:
+        - dragged row height at `start`: `21`
+        - `placeholder:reorder nextIndex`: `2 -> 1 -> 0`
+        - final committed move index: `7`
+      - failing wrapper-geometry variant:
+        - dragged row height at `start`: `20`
+        - `placeholder:reorder nextIndex`: `2 -> 1`
+        - the final top-row hover never reaches the clean branch's last `pastHalfway: false` transition
+        - final committed move index: `8`
+  - Recorded the evidence in:
+    - `perf/reports/frontend/2026-03-17_section-shell-s1-checkpoint1-drag-lifecycle-instrumentation.md`
+    - `perf/reports/frontend/artifacts/2026-03-17_section-shell-s1-checkpoint1-drag-lifecycle-instrumentation/light-workspace-dnd-event-summary.md`
+  - No production code from the temporary instrumentation or the local geometry rerun was kept:
+    - removed the temporary HTTP logging routes and frontend helpers
+    - reverted the local wrapper-geometry variant
+    - restored the worktree to the clean committed code state before continuing the tracker
+- Next action:
+  - Keep the work in the shared lower row-contract owners.
+  - Treat final insertion math under the changed row geometry as the active blocker.
+  - Preserve the clean branch's last top-row `placeholder:reorder nextIndex 0` transition and final `newIndex: 7` while recovering the shared-row geometry match against untouched `main`.
+  - If the next attempt returns to the row/CSS seam, prefer the shape-specific `labelShapeKey` path over another blanket descendant-wrapper override.
