@@ -3122,7 +3122,7 @@ func TestMCPToolCallRouteCompareAndSetWatchCodeFilesAcceptsTemporaryIDs(t *testi
 	}
 }
 
-func TestMCPToolCallRouteSupportsSetProjectConfigCodegenTargets(t *testing.T) {
+func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargets(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
@@ -3181,26 +3181,27 @@ func TestMCPToolCallRouteSupportsSetProjectConfigCodegenTargets(t *testing.T) {
 	}
 
 	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_project_config_codegen_targets success, got %#v", payload.StructuredContent)
+	if !payload.IsError {
+		t.Fatalf("expected set_project_config_codegen_targets rejection, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
+	}
+	if !strings.Contains(fmt.Sprint(structured["message"]), "only supports python") {
+		t.Fatalf("expected python-only rejection message, got %#v", structured["message"])
 	}
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after route set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target after route mutation, got %#v", project.CodegenTargets)
-	}
-	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected codegen target after route mutation %#v", project.CodegenTargets[0])
-	}
-	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"RouteState"`) {
-		t.Fatalf("expected codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after route rejection, got %#v", project.CodegenTargets)
 	}
 }
 
-func TestMCPToolCallRouteSetProjectConfigCodegenTargetsAcceptsTemporaryIDs(t *testing.T) {
+func TestMCPToolCallRouteRejectsPluginSetProjectConfigCodegenTargetsWithTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
@@ -3264,22 +3265,23 @@ func TestMCPToolCallRouteSetProjectConfigCodegenTargetsAcceptsTemporaryIDs(t *te
 	}
 
 	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", payload.StructuredContent)
+	if !payload.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets rejection, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
+	}
+	if !strings.Contains(fmt.Sprint(structured["message"]), "only supports python") {
+		t.Fatalf("expected python-only rejection message, got %#v", structured["message"])
 	}
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after temp-id route set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target after temp-id route mutation, got %#v", project.CodegenTargets)
-	}
-	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected codegen target after temp-id route mutation %#v", project.CodegenTargets[0])
-	}
-	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"TemporaryState"`) {
-		t.Fatalf("expected temp-id codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after temp-id route rejection, got %#v", project.CodegenTargets)
 	}
 }
 

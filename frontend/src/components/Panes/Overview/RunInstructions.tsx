@@ -2,7 +2,6 @@ import * as Switch from "@radix-ui/react-switch";
 import { getStateMachineNodePresentation } from "components/Section/Layouts/stateMachineNodePresentation";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { usePluginStatusEntries } from "plugins/runtime";
 import React from "react";
 import { RiLoopRightFill, RiPlayMiniFill } from "react-icons/ri";
 import {
@@ -41,7 +40,6 @@ import {
 import { useShareCapabilities } from "state/hooks/share";
 import {
   getPythonCodegenTarget,
-  isPluginCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { res200 } from "utils/endpointUtils";
@@ -50,7 +48,6 @@ import {
   CodeObjTypeEnum,
   CodeObjValueRepresentationModeEnum,
   createCodeObjValuePolicy,
-  createProjectCodegenPluginTarget,
   createProjectCodegenPythonTarget,
   createSectionCodegenPolicy,
   isBaseParentSectionImpl,
@@ -60,7 +57,6 @@ import {
   type CodeObjType,
   type CodeObjValueRepresentationMode,
   type Core,
-  type PluginStatusEntry,
   type ProjectCodegenPythonTarget,
   type ProjectCodegenTarget,
   type SectionType,
@@ -91,11 +87,6 @@ type CodeObjOption = {
   type: CodeObjType;
   sectionName: string;
   label: string;
-};
-type PluginCodegenRegistration = {
-  targetId: string;
-  language: string;
-  name: string;
 };
 
 const TOGGLE_ROOT_CLASSES =
@@ -249,7 +240,6 @@ export function RunInstructions() {
     (state) => collectRunInstructionsStateMachineControls(state),
     _.isEqual,
   );
-  const pluginStatusEntries = usePluginStatusEntries();
   const storedAccordionOpenValues = useLocalStorage(
     (x) =>
       x.runInstructionsAccordionOpenValuesByProjectConfigId[projectConfigId] ??
@@ -264,29 +254,6 @@ export function RunInstructions() {
   const runnableCodeBlocks = useRunnableCodeBlockListing();
   const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
   const currentPythonTarget = getPythonCodegenTarget(projectConfig);
-  const pluginCodegenTargets = projectConfig.codegenTargets.filter((target) =>
-    isPluginCodegenTarget(target),
-  );
-  const pluginCodegenRegistrations = React.useMemo(
-    () => collectPluginCodegenRegistrations(pluginStatusEntries),
-    [pluginStatusEntries],
-  );
-  const pluginCodegenRegistrationByTargetId = React.useMemo(() => {
-    const entries = new Map<string, PluginCodegenRegistration>();
-    for (const registration of pluginCodegenRegistrations) {
-      entries.set(registration.targetId, registration);
-    }
-    return entries;
-  }, [pluginCodegenRegistrations]);
-  const orphanedPluginCodegenTargets = React.useMemo(
-    () =>
-      pluginCodegenTargets
-        .filter(
-          (target) => !pluginCodegenRegistrationByTargetId.has(target.language),
-        )
-        .sort((a, b) => a.language.localeCompare(b.language)),
-    [pluginCodegenRegistrationByTargetId, pluginCodegenTargets],
-  );
   const defaultSectionPolicy = React.useMemo(
     () => createSectionCodegenPolicy(),
     [],
@@ -353,11 +320,8 @@ export function RunInstructions() {
       return;
     }
     const nextTargets = checked
-      ? [
-          ...pluginCodegenTargets,
-          currentPythonTarget ?? createProjectCodegenPythonTarget(),
-        ]
-      : pluginCodegenTargets;
+      ? [currentPythonTarget ?? createProjectCodegenPythonTarget()]
+      : [];
     applyCodegenTargets(nextTargets);
   };
 
@@ -368,8 +332,7 @@ export function RunInstructions() {
       return;
     }
     const nextTarget = updater(pythonTarget);
-    const nextTargets = [...pluginCodegenTargets, nextTarget];
-    applyCodegenTargets(nextTargets);
+    applyCodegenTargets([nextTarget]);
   };
 
   const updateSectionPolicy = (
@@ -389,52 +352,6 @@ export function RunInstructions() {
       codeObjValuePolicy: nextPolicy,
     }));
   };
-  const enabledPluginTargetIds = React.useMemo(
-    () => new Set(pluginCodegenTargets.map((target) => target.language)),
-    [pluginCodegenTargets],
-  );
-
-  const togglePluginCodegenTarget = (
-    registration: PluginCodegenRegistration,
-    checked: boolean,
-  ): void => {
-    if (isDeploymentMode) {
-      return;
-    }
-    const alreadyEnabled = enabledPluginTargetIds.has(registration.targetId);
-    if (checked === alreadyEnabled) {
-      return;
-    }
-    const nextPluginTargets = checked
-      ? [
-          ...pluginCodegenTargets,
-          createProjectCodegenPluginTarget({
-            language: registration.targetId,
-            options: {},
-          }),
-        ]
-      : pluginCodegenTargets.filter(
-          (target) => target.language !== registration.targetId,
-        );
-    const nextTargets = pythonCodegenEnabled
-      ? [...nextPluginTargets, pythonTarget]
-      : nextPluginTargets;
-    applyCodegenTargets(nextTargets);
-  };
-
-  const removeOrphanedPluginCodegenTarget = (targetLanguage: string): void => {
-    if (isDeploymentMode) {
-      return;
-    }
-    const nextPluginTargets = pluginCodegenTargets.filter(
-      (target) => target.language !== targetLanguage,
-    );
-    const nextTargets = pythonCodegenEnabled
-      ? [...nextPluginTargets, pythonTarget]
-      : nextPluginTargets;
-    applyCodegenTargets(nextTargets);
-  };
-
   React.useEffect(() => {
     if (!canRun) {
       return;
@@ -1274,75 +1191,6 @@ export function RunInstructions() {
                 </Switch.Root>
               </div>
             </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              {pluginCodegenRegistrations.length === 0 &&
-              orphanedPluginCodegenTargets.length === 0 ? (
-                <div className="text-[11px] text-setta-500 dark:text-setta-400">
-                  No plugin codegen targets registered.
-                </div>
-              ) : null}
-              {pluginCodegenRegistrations.length > 0
-                ? pluginCodegenRegistrations.map((registration) => (
-                    <div
-                      key={registration.targetId}
-                      className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                    >
-                      <div className="min-w-0 flex-1 text-[11px] text-setta-700 dark:text-setta-200">
-                        {registration.name} ({registration.language})
-                        <span className="ml-1 text-[10px] text-setta-500 dark:text-setta-400">
-                          {registration.targetId}
-                        </span>
-                      </div>
-                      <div className="ml-auto flex items-center gap-1">
-                        <span className={TOGGLE_LABEL_CLASSES}>Enabled</span>
-                        <Switch.Root
-                          className={TOGGLE_ROOT_CLASSES}
-                          checked={enabledPluginTargetIds.has(
-                            registration.targetId,
-                          )}
-                          disabled={isDeploymentMode}
-                          onCheckedChange={(checked) =>
-                            togglePluginCodegenTarget(registration, checked)
-                          }
-                        >
-                          <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-                        </Switch.Root>
-                      </div>
-                    </div>
-                  ))
-                : null}
-              {orphanedPluginCodegenTargets.length > 0 ? (
-                <div className="mt-1 space-y-1">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                    Orphaned configured targets
-                  </div>
-                  {orphanedPluginCodegenTargets.map((target) => (
-                    <div
-                      key={`orphaned-${target.language}`}
-                      data-testid={`orphaned-codegen-target-${target.language}`}
-                      className="flex min-w-0 flex-wrap items-center gap-2 rounded border border-amber-300/70 bg-amber-50/80 px-2 py-1 dark:border-amber-700/60 dark:bg-amber-950/30"
-                    >
-                      <div className="min-w-0 flex-1 text-[11px] text-amber-800 dark:text-amber-200">
-                        {target.language}
-                      </div>
-                      <button
-                        data-testid={`remove-orphaned-codegen-target-${target.language}`}
-                        className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
-                        onClick={() =>
-                          removeOrphanedPluginCodegenTarget(target.language)
-                        }
-                        type="button"
-                        {...getFloatingBoxHandlers({
-                          content: "Remove stale codegen target",
-                        })}
-                      >
-                        <i className="gg-trash" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
           </div>
         ),
       },
@@ -1679,35 +1527,6 @@ function AddCodeBlockRow({
       </div>
     </div>
   );
-}
-
-function collectPluginCodegenRegistrations(
-  pluginStatusEntries: PluginStatusEntry[],
-): PluginCodegenRegistration[] {
-  const registrationsById = new Map<string, PluginCodegenRegistration>();
-  for (const pluginStatusEntry of pluginStatusEntries) {
-    for (const registration of pluginStatusEntry.registeredCodegenTargets) {
-      if (registrationsById.has(registration.targetId)) {
-        continue;
-      }
-      registrationsById.set(registration.targetId, {
-        targetId: registration.targetId,
-        language: registration.language,
-        name: registration.name,
-      });
-    }
-  }
-  return [...registrationsById.values()].sort((a, b) => {
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) {
-      return byName;
-    }
-    const byLanguage = a.language.localeCompare(b.language);
-    if (byLanguage !== 0) {
-      return byLanguage;
-    }
-    return a.targetId.localeCompare(b.targetId);
-  });
 }
 
 function useRunnableCodeBlockListing() {

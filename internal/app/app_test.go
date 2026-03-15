@@ -6654,7 +6654,7 @@ func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 }
 
 func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
-	// The real app should surface worker-backed backend language-server and codegen registrations through plugin runtime.
+	// The real app should surface retained backend registrations without reviving removed plugin codegen targets.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -6825,18 +6825,8 @@ func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	}
 
 	statusEntry := findEntry("setta-fixture-backend-codegen")
-	if len(statusEntry.RegisteredCodegenTargets) != 1 {
-		t.Fatalf("expected one backend codegen registration, got %#v", statusEntry.RegisteredCodegenTargets)
-	}
-	registration := statusEntry.RegisteredCodegenTargets[0]
-	if registration.TargetID != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("expected backend codegen target id, got %#v", registration.TargetID)
-	}
-	if registration.PluginID != "setta-fixture-backend-codegen" || registration.Language != "typescript" {
-		t.Fatalf("unexpected backend codegen registration payload %#v", registration)
-	}
-	if registration.Name != "TypeScript" || registration.DefaultFileName != "setta_gen.ts" {
-		t.Fatalf("unexpected backend codegen registration details %#v", registration)
+	if len(statusEntry.RegisteredCodegenTargets) != 0 {
+		t.Fatalf("expected no backend codegen registrations after removal, got %#v", statusEntry.RegisteredCodegenTargets)
 	}
 	if len(statusEntry.Errors) != 0 {
 		t.Fatalf("expected no backend codegen registration errors, got %#v", statusEntry.Errors)
@@ -8996,13 +8986,12 @@ func TestAppServesRunCodeRoute(t *testing.T) {
 	}
 }
 
-func TestAppRunCodeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
+func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9014,7 +9003,6 @@ func TestAppRunCodeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 		}
 	})
 
-	installAppBackendCodegenFixture(t, cfg)
 	seedAppRunCodeProject(t, app, cfg, "print('APP_PLUGIN_RUN_OK')\n")
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -9077,16 +9065,8 @@ func TestAppRunCodeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("glob plugin codegen output: %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one plugin codegen output, got %v", matches)
-	}
-	content, err := os.ReadFile(matches[0])
-	if err != nil {
-		t.Fatalf("read plugin codegen output: %v", err)
-	}
-	expected := "export class AppPluginState {\n  readonly projectName = 'Alpha';\n}\n"
-	if string(content) != expected {
-		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	if len(matches) != 0 {
+		t.Fatalf("expected no plugin codegen output after run save, got %v", matches)
 	}
 
 	snapshot := app.ProjectStates().Main().Snapshot()
@@ -9107,11 +9087,10 @@ func TestAppRunCodeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 	}
 }
 
-func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
+func TestAppMainRuntimeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9123,7 +9102,6 @@ func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 		}
 	})
 
-	installAppBackendCodegenFixture(t, cfg)
 	seedAppRunCodeProject(t, app, cfg, "print('APP_SAVE_OK')\n")
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -9153,16 +9131,8 @@ func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("glob plugin codegen output: %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one plugin codegen output, got %v", matches)
-	}
-	content, err := os.ReadFile(matches[0])
-	if err != nil {
-		t.Fatalf("read plugin codegen output: %v", err)
-	}
-	expected := "export class DirectSaveState {\n  readonly projectName = 'Alpha';\n}\n"
-	if string(content) != expected {
-		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	if len(matches) != 0 {
+		t.Fatalf("expected no plugin codegen output after main save, got %v", matches)
 	}
 }
 
@@ -9211,11 +9181,10 @@ func TestAppMainRuntimeSaveMaterializesPythonCodegenOutputs(t *testing.T) {
 	}
 }
 
-func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
+func TestAppRejectsPluginSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9226,8 +9195,6 @@ func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-
-	installAppBackendCodegenFixture(t, cfg)
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -9267,42 +9234,33 @@ func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 		t.Fatalf("post codegen targets: %v", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
+	if response.StatusCode != http.StatusBadRequest {
 		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+		t.Fatalf("expected 400, got %d with body %q", response.StatusCode, string(body))
 	}
 
-	var payload projectview.SingleConfig
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode project state response: %v", err)
+		t.Fatalf("decode project error response: %v", err)
 	}
-	if payload.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha response, got %q", payload.ProjectConfig.ID)
+	if payload.Error.Code != "invalid_project_codegen_targets" {
+		t.Fatalf("expected invalid_project_codegen_targets, got %#v", payload)
 	}
-	if len(payload.ProjectConfig.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target in response, got %d", len(payload.ProjectConfig.CodegenTargets))
-	}
-
-	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
-		t.Fatalf("glob plugin codegen output: %v", err)
+		t.Fatalf("project by id after rejection: %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one plugin codegen output, got %v", matches)
-	}
-	content, err := os.ReadFile(matches[0])
-	if err != nil {
-		t.Fatalf("read plugin codegen output: %v", err)
-	}
-	expected := "export class RouteState {\n  readonly projectName = 'Alpha';\n}\n"
-	if string(content) != expected {
-		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after rejection, got %#v", project.CodegenTargets)
 	}
 }
 
-func TestAppLinkedPluginCodegenTargetsWorkWithoutRestart(t *testing.T) {
-	// Linking a plugin-backed codegen target after startup should not require a
-	// separate app-owned hot-refresh path before the target can be selected.
+func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
+	// Linking a legacy plugin-codegen plugin after startup should not revive removed runtime registrations.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -9423,15 +9381,11 @@ func TestAppLinkedPluginCodegenTargetsWorkWithoutRestart(t *testing.T) {
 	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-backend-codegen" {
 		t.Fatalf("unexpected linked plugin runtime payload %#v", runtimePayload.Status.Plugins[0])
 	}
-	if len(runtimePayload.Status.Plugins[0].RegisteredCodegenTargets) != 1 {
-		t.Fatalf("expected one linked plugin codegen target, got %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets)
-	}
-	if runtimePayload.Status.Plugins[0].RegisteredCodegenTargets[0].TargetID != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected linked plugin codegen registration %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets[0])
+	if len(runtimePayload.Status.Plugins[0].RegisteredCodegenTargets) != 0 {
+		t.Fatalf("expected no linked plugin codegen targets after removal, got %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets)
 	}
 
-	var payload projectview.SingleConfig
-	postJSON(httpapi.RouteSetProjectConfigCodegenTargets, map[string]any{
+	requestBody := mustAppJSON(t, map[string]any{
 		"projectConfigId": "project-alpha",
 		"codegenTargets": []map[string]any{
 			{
@@ -9441,29 +9395,30 @@ func TestAppLinkedPluginCodegenTargetsWorkWithoutRestart(t *testing.T) {
 				},
 			},
 		},
-	}, &payload)
-
-	if payload.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha response, got %q", payload.ProjectConfig.ID)
-	}
-	if len(payload.ProjectConfig.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target in response, got %d", len(payload.ProjectConfig.CodegenTargets))
-	}
-
-	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetProjectConfigCodegenTargets, bytes.NewReader(requestBody))
 	if err != nil {
-		t.Fatalf("glob linked plugin codegen output: %v", err)
+		t.Fatalf("new setProjectConfigCodegenTargets request: %v", err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one linked plugin codegen output, got %v", matches)
-	}
-	content, err := os.ReadFile(matches[0])
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		t.Fatalf("read linked plugin codegen output: %v", err)
+		t.Fatalf("post setProjectConfigCodegenTargets: %v", err)
 	}
-	expected := "export class LinkedState {\n  readonly projectName = 'Alpha';\n}\n"
-	if string(content) != expected {
-		t.Fatalf("unexpected linked plugin codegen output: %q", string(content))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected setProjectConfigCodegenTargets 400, got %d with body %q", response.StatusCode, string(payload))
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after linked plugin rejection: %v", err)
+	}
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after linked plugin rejection, got %#v", project.CodegenTargets)
 	}
 }
 

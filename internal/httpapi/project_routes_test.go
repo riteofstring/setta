@@ -27,7 +27,7 @@ import (
 	"setta/internal/settingsstate"
 )
 
-func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testing.T) {
+func TestRegisterProjectRoutesRejectsPluginCodegenTargets(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
@@ -88,42 +88,32 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 		return nil
 	}), nil, nil)
 
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetProjectConfigCodegenTargets,
-		strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"AlphaState"}}]}`),
-	)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetProjectConfigCodegenTargets, strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"AlphaState"}}]}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
-
-	var payload projectview.SingleConfig
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode project state payload: %v", err)
+		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha response, got %q", payload.ProjectConfig.ID)
+	if payload.Error.Code != "invalid_project_codegen_targets" {
+		t.Fatalf("expected invalid_project_codegen_targets, got %#v", payload)
 	}
-	if len(payload.ProjectConfig.CodegenTargets) != 1 {
-		t.Fatalf("expected one returned codegen target, got %d", len(payload.ProjectConfig.CodegenTargets))
-	}
-	if string(payload.ProjectConfig.CodegenTargets[0]) != `{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"AlphaState"}}` {
-		t.Fatalf("unexpected returned codegen target %q", string(payload.ProjectConfig.CodegenTargets[0]))
-	}
-	if len(validatedTargets) != 1 || validatedTargets[0] != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected validated targets %#v", validatedTargets)
+	if len(validatedTargets) != 0 {
+		t.Fatalf("expected plugin target rejection before validator, got %#v", validatedTargets)
 	}
 
 	snapshot := projectRuntime.Snapshot()
 	project := snapshot.Document.Projects["project-alpha"]
-	if len(project.CodegenTargets) != 1 {
-		t.Fatalf("expected one persisted codegen target, got %d", len(project.CodegenTargets))
-	}
-	if string(project.CodegenTargets[0].Payload) != `{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"AlphaState"}}` {
-		t.Fatalf("unexpected persisted payload %q", string(project.CodegenTargets[0].Payload))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after rejection, got %#v", project.CodegenTargets)
 	}
 }
 

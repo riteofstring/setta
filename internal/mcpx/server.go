@@ -2072,7 +2072,7 @@ func newSetProjectConfigCodegenTargetsHandler(
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil || validator == nil || pythonReconciler == nil {
+		if projectState == nil || pythonReconciler == nil {
 			return nil, newToolError("internal_error", "Project codegen-target mutation runtime is unavailable.")
 		}
 
@@ -7302,6 +7302,14 @@ func readProjectCodegenTargetValue(rawValue any, key string, index int) (project
 	language = strings.TrimSpace(language)
 	if language == "" {
 		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d].language is required", key, index)
+	}
+	if language != string(projectstate.CodeLanguagePython) {
+		return projectstate.ProjectCodegenTarget{}, newToolError(
+			"invalid_arguments",
+			"%s[%d].language only supports python",
+			key,
+			index,
+		)
 	}
 
 	return projectstate.ProjectCodegenTarget{

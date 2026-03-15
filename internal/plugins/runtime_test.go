@@ -203,7 +203,7 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 }
 
 func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
-	// Runtime should surface worker-registered backend language-server and codegen registrations.
+	// Runtime should surface retained backend registrations without reviving removed plugin codegen targets.
 	roots := newFilesystemResolverTestRoots(t)
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-language-server")
 	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
@@ -257,21 +257,11 @@ func TestServiceRuntimeIncludesBackendRegistrations(t *testing.T) {
 	}
 
 	statusEntry := findEntry("setta-fixture-backend-codegen")
-	if len(statusEntry.RegisteredCodegenTargets) != 1 {
-		t.Fatalf("expected one registered codegen target, got %#v", statusEntry.RegisteredCodegenTargets)
-	}
-	registration := statusEntry.RegisteredCodegenTargets[0]
-	if registration.TargetID != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("expected backend-codegen target id, got %#v", registration.TargetID)
-	}
-	if registration.PluginID != "setta-fixture-backend-codegen" {
-		t.Fatalf("expected backend-codegen plugin id on registration, got %#v", registration.PluginID)
-	}
-	if registration.Language != "typescript" || registration.Name != "TypeScript" || registration.DefaultFileName != "setta_gen.ts" {
-		t.Fatalf("unexpected codegen registration payload %#v", registration)
+	if len(statusEntry.RegisteredCodegenTargets) != 0 {
+		t.Fatalf("expected no registered codegen targets after runtime removal, got %#v", statusEntry.RegisteredCodegenTargets)
 	}
 	if len(statusEntry.Errors) != 0 {
-		t.Fatalf("expected no backend registration errors, got %#v", statusEntry.Errors)
+		t.Fatalf("expected no backend registration errors for codegen-only plugin, got %#v", statusEntry.Errors)
 	}
 }
 

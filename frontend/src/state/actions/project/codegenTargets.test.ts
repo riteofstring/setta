@@ -2,6 +2,7 @@ import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectCodegenPluginTarget,
+  createProjectChatWindowingState,
   createProjectCodegenPythonTarget,
   createProjectConfig,
   createSingletonSections,
@@ -67,6 +68,7 @@ describe("applyProjectCodegenTargetsResponse", () => {
       codeObjs: {},
       codeObjImpls: {},
       codeObjVariants: {},
+      projectChatWindowing: createProjectChatWindowingState(),
       projectConfig: createProjectConfig({
         id: "project-alpha",
         name: "Alpha",
@@ -102,6 +104,7 @@ describe("applyProjectCodegenTargetsResponse", () => {
       codeObjs: {},
       codeObjImpls: {},
       codeObjVariants: {},
+      projectChatWindowing: createProjectChatWindowingState(),
       projectConfig: createProjectConfig({
         id: "project-beta",
         name: "Beta",

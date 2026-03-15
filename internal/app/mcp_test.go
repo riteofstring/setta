@@ -4000,14 +4000,12 @@ func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeFilesOverAuthenticatedSSE(
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetProjectConfigCodegenTargetsOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 	saveAppScopedMCPProject(t, cfg)
-	installAppBackendCodegenFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -4051,46 +4049,33 @@ func TestAppIDEMCPServerSupportsSetProjectConfigCodegenTargetsOverAuthenticatedS
 	if err != nil {
 		t.Fatalf("call set_project_config_codegen_targets: %v", err)
 	}
-	if result.IsError {
-		t.Fatalf("expected set_project_config_codegen_targets success, got %#v", result.StructuredContent)
+	if !result.IsError {
+		t.Fatalf("expected set_project_config_codegen_targets rejection, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	message, ok := payload["message"].(string)
+	if !ok || !strings.Contains(message, "only supports python") {
+		t.Fatalf("expected python-only rejection message, got %#v", payload["message"])
 	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after app set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target after app mutation, got %#v", project.CodegenTargets)
-	}
-	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected codegen target after app mutation %#v", project.CodegenTargets[0])
-	}
-
-	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
-	if err != nil {
-		t.Fatalf("glob plugin codegen output: %v", err)
-	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one plugin codegen output, got %v", matches)
-	}
-	content, err := os.ReadFile(matches[0])
-	if err != nil {
-		t.Fatalf("read plugin codegen output: %v", err)
-	}
-	expected := "export class MCPState {\n  readonly projectName = 'Alpha';\n}\n"
-	if string(content) != expected {
-		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after app rejection, got %#v", project.CodegenTargets)
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetProjectConfigCodegenTargetsOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsWithTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
-	prepareAppPluginWorkerRuntime(t)
 	saveAppScopedMCPProject(t, cfg)
-	installAppBackendCodegenFixture(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -4137,22 +4122,24 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetProjectConfigCodegenTargetsOve
 	if err != nil {
 		t.Fatalf("call temp-id set_project_config_codegen_targets: %v", err)
 	}
-	if result.IsError {
-		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", result.StructuredContent)
+	if !result.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets rejection, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	message, ok := payload["message"].(string)
+	if !ok || !strings.Contains(message, "only supports python") {
+		t.Fatalf("expected python-only rejection message, got %#v", payload["message"])
 	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after temp-id app set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target after temp-id app mutation, got %#v", project.CodegenTargets)
-	}
-	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected codegen target after temp-id app mutation %#v", project.CodegenTargets[0])
-	}
-	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"TemporaryMCPState"`) {
-		t.Fatalf("expected temp-id codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after temp-id app rejection, got %#v", project.CodegenTargets)
 	}
 }
 

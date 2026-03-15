@@ -158,6 +158,7 @@ const (
 var (
 	ErrProjectCodegenTargetObjectRequired   = errors.New("project codegen target payload must be a JSON object")
 	ErrProjectCodegenTargetLanguageRequired = errors.New("project codegen target language is required")
+	ErrProjectCodegenTargetPythonOnly       = errors.New("project codegen targets only support python")
 )
 
 type ProjectRouteDependencies struct {
@@ -1329,9 +1330,6 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		}
 		if deps.RenameRefactors == nil {
 			return fmt.Errorf("project rename refactor service is required in ide mode")
-		}
-		if deps.CodegenTargetValidator == nil {
-			return fmt.Errorf("project codegen target validator is required in ide mode")
 		}
 		if deps.PythonCodegenSectionReconciler == nil {
 			return fmt.Errorf("project python generated-section reconciler is required in ide mode")
@@ -5965,7 +5963,7 @@ func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.H
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil || deps.CodegenTargetValidator == nil || deps.PythonCodegenSectionReconciler == nil {
+		if deps.ProjectState == nil || deps.PythonCodegenSectionReconciler == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -6158,6 +6156,9 @@ func decodeProjectCodegenTarget(payload json.RawMessage) (projectstate.ProjectCo
 	language = strings.TrimSpace(language)
 	if language == "" {
 		return projectstate.ProjectCodegenTarget{}, ErrProjectCodegenTargetLanguageRequired
+	}
+	if language != string(projectstate.CodeLanguagePython) {
+		return projectstate.ProjectCodegenTarget{}, ErrProjectCodegenTargetPythonOnly
 	}
 
 	return projectstate.ProjectCodegenTarget{
@@ -7055,6 +7056,7 @@ func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Req
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, ErrProjectCodegenTargetObjectRequired),
 		errors.Is(err, ErrProjectCodegenTargetLanguageRequired),
+		errors.Is(err, ErrProjectCodegenTargetPythonOnly),
 		errors.Is(err, projectstate.ErrFrontendPayloadInvalid),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),

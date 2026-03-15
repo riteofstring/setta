@@ -4340,7 +4340,7 @@ func TestServerCompareAndSetWatchCodeFilesAllowsUnscopedStructuralCallsAndTransl
 	}
 }
 
-func TestServerSetProjectConfigCodegenTargetsRequiresStructuralScope(t *testing.T) {
+func TestServerSetProjectConfigCodegenTargetsRejectsPluginTargetsBeforeScopeCheck(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
@@ -4364,15 +4364,18 @@ func TestServerSetProjectConfigCodegenTargetsRequiresStructuralScope(t *testing.
 		t.Fatalf("call set_project_config_codegen_targets blocked: %v", err)
 	}
 	if !result.IsError {
-		t.Fatal("expected blocked set_project_config_codegen_targets call to fail")
+		t.Fatal("expected invalid set_project_config_codegen_targets call to fail")
 	}
 	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "scope_violation" {
+		t.Fatalf("expected scope_violation code, got %#v", payload["code"])
+	}
 	if payload["reason"] != "structural_denied" {
 		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
 	}
 }
 
-func TestServerSetProjectConfigCodegenTargetsAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+func TestServerSetProjectConfigCodegenTargetsRejectsPluginTargetsWithTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
@@ -4414,22 +4417,23 @@ func TestServerSetProjectConfigCodegenTargetsAllowsUnscopedStructuralCallsAndTra
 	if err != nil {
 		t.Fatalf("call temp-id set_project_config_codegen_targets: %v", err)
 	}
-	if result.IsError {
-		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", result.StructuredContent)
+	if !result.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets rejection, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "only supports python") {
+		t.Fatalf("expected python-only rejection message, got %#v", payload["message"])
 	}
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
-		t.Fatalf("project by id after set_project_config_codegen_targets: %v", err)
+		t.Fatalf("project by id after rejected set_project_config_codegen_targets: %v", err)
 	}
-	if len(project.CodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target, got %#v", project.CodegenTargets)
-	}
-	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("unexpected codegen target language %#v", project.CodegenTargets[0])
-	}
-	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"ScopedMCPState"`) {
-		t.Fatalf("expected project codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected no persisted codegen targets after rejection, got %#v", project.CodegenTargets)
 	}
 }
 
@@ -4458,8 +4462,8 @@ func TestServerSetProjectConfigCodegenTargetsRejectsDuplicateLanguages(t *testin
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
 			"codegenTargets": []any{
-				map[string]any{"language": "setta-fixture-backend-codegen:typescript"},
-				map[string]any{"language": "setta-fixture-backend-codegen:typescript"},
+				map[string]any{"language": "python"},
+				map[string]any{"language": "python", "generateMetadata": true},
 			},
 		},
 	})

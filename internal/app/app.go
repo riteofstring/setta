@@ -136,7 +136,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspCompletion         *lspcompletion.Service
 		lspSignature          *lspsignature.Service
 		pythonMaterializer    *codegen.PythonMaterializer
-		pluginMaterializer    *codegen.PluginMaterializer
 		watchCodeService      *watchcode.Service
 		boundCodeService      *boundcode.Service
 		externalAgentChats    *externalagents.Service
@@ -291,27 +290,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		pluginWorkerRuntime = workerRuntimeProvider
-		workerSpecs, err := plugins.NewFilesystemWorkerSpecResolver(plugins.FilesystemWorkerSpecResolverOptions{
-			WorkspaceRoot:   cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot:  cfg.Paths.SettaFilesRoot,
-			SettaHome:       cfg.Paths.SettaHome,
-			RuntimeProvider: workerRuntimeProvider,
-			ServerMode:      cfg.Server.Mode,
-		})
-		if err != nil {
-			return nil, err
-		}
-		codegenValidator, err = plugins.NewProjectCodegenTargetValidator(workerSpecs)
-		if err != nil {
-			return nil, err
-		}
-		pluginMaterializer, err = codegen.NewPluginMaterializer(codegen.PluginMaterializerOptions{
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			WorkerSpecs:    workerSpecs,
-		})
-		if err != nil {
-			return nil, err
-		}
 		pythonMaterializer, err = codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
@@ -436,7 +414,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					if err := lspDiagnostics.PruneDocument(snapshot.Document); err != nil {
 						return err
 					}
-					return pluginMaterializer.MaterializeDocument(ctx, snapshot.Document)
+					return nil
 				},
 			},
 			SettingsRuntime: projectstate.RuntimeOptions{

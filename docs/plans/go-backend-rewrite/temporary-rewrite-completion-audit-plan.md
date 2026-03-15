@@ -740,3 +740,13 @@ not remove a live worker capability cluster by itself; it removed the dead Go
 product/config surface that still exposed the already-deleted plugin
 external-agent path. The remaining Python plugin worker blocker is still
 limited to codegen targets and language servers.
+
+A later follow-up rewrite step removed the active plugin-codegen app/runtime/UI
+surface as well. The Go app no longer materializes plugin codegen outputs on
+save/run, `setProjectConfigCodegenTargets` now rejects non-Python languages
+over HTTP, app-authenticated MCP, and the MCP tool-call route, plugin runtime
+status no longer loads or surfaces backend codegen registrations, the
+RunInstructions and PluginsPane callers no longer expose plugin codegen target
+selection or registration UI, and the dedicated Playwright coverage for plugin
+codegen target selection was deleted. After that slice, the remaining Python
+plugin worker blocker is limited to language servers.

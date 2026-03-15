@@ -180,8 +180,7 @@ func shouldLoadBackendRegistrations(entry DiscoveredPlugin) bool {
 	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
 		return false
 	}
-	return containsCapability(entry.EffectiveCapabilities, CapabilityRegisterLanguageServer) ||
-		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterCodegenTarget)
+	return containsCapability(entry.EffectiveCapabilities, CapabilityRegisterLanguageServer)
 }
 
 func backendRegistrationCacheKey(entry DiscoveredPlugin, serverMode config.Mode) string {
@@ -229,10 +228,8 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 	}
 
 	languageServers := NewLanguageServerRegistry()
-	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
 		LanguageServerRegistrar: languageServers,
-		CodegenTargetRegistrar:  codegenTargets,
 	})
 	if err != nil {
 		return pluginBackendRegistrationFailureSnapshot(entry, err)
@@ -260,7 +257,7 @@ func (l *BackendRegistrationLoader) loadRegistrations(ctx context.Context, entry
 
 	snapshot := PluginBackendRegistrationSnapshot{
 		LanguageServers: serializeRegisteredLanguageServers(languageServers.Registrations()),
-		CodegenTargets:  serializeRegisteredCodegenTargets(codegenTargets.Registrations()),
+		CodegenTargets:  []PluginRegisteredCodegenTarget{},
 	}
 	if closeErr := started.Close(); closeErr != nil {
 		snapshot.Errors = append(snapshot.Errors, pluginBackendRegistrationError(entry, closeErr))
@@ -285,27 +282,6 @@ func serializeRegisteredLanguageServers(registrations []RegisteredLanguageServer
 	}
 	sort.Slice(serialized, func(left int, right int) bool {
 		return serialized[left].Language < serialized[right].Language
-	})
-	return serialized
-}
-
-func serializeRegisteredCodegenTargets(registrations []RegisteredCodegenTarget) []PluginRegisteredCodegenTarget {
-	if len(registrations) == 0 {
-		return []PluginRegisteredCodegenTarget{}
-	}
-
-	serialized := make([]PluginRegisteredCodegenTarget, 0, len(registrations))
-	for _, registration := range registrations {
-		serialized = append(serialized, PluginRegisteredCodegenTarget{
-			TargetID:        registration.TargetID,
-			PluginID:        registration.PluginID,
-			Language:        registration.Language,
-			Name:            registration.Name,
-			DefaultFileName: registration.DefaultFileName,
-		})
-	}
-	sort.Slice(serialized, func(left int, right int) bool {
-		return serialized[left].TargetID < serialized[right].TargetID
 	})
 	return serialized
 }

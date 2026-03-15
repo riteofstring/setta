@@ -130,8 +130,8 @@ Primary sources used for this checklist:
 | Status   | Capability                                                                             | Notes                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Go-owned | Plugin discovery/install/status/config/lock/runtime refresh                            | `internal/plugins` is the active owner for plugin package/runtime management.                                    |
-| Go-owned | Plugin backend registrations | Plugin backend registration visibility for the retained worker capability clusters lives in `internal/plugins`. The old Python-backed plugin route, static-dir, listener-endpoint, MCP-tool, and external-agent-adapter surfaces have been removed rather than retained. |
-| Go-owned | Plugin-defined codegen and language-server integration                                 | Plugin codegen target visibility and plugin-defined language-server runtime/refresh are Go-owned.                |
+| Go-owned | Plugin backend registrations | Plugin backend registration visibility for the retained worker capability clusters lives in `internal/plugins`. The old Python-backed plugin route, static-dir, listener-endpoint, MCP-tool, external-agent-adapter, and plugin-codegen visibility surfaces have been removed rather than retained. |
+| Go-owned | Plugin-defined language-server integration                                 | Plugin-defined language-server runtime/refresh is Go-owned. Plugin-defined codegen targets are no longer part of the active product/runtime surface.                |
 
 ## 10. Explicit retained, transitional, and external boundaries
 
