@@ -260,6 +260,101 @@ func TestRunConnectRejectsConflictingSettaFilesInputs(t *testing.T) {
 	}
 }
 
+func TestRunConnectForwardsDocumentedRemoteCommandAndPathFlags(t *testing.T) {
+	testCases := []struct {
+		name         string
+		pathArgs     []string
+		wantPathFlag string
+	}{
+		{
+			name:         "setta_files_root",
+			pathArgs:     []string{"--setta-files-root", "/remote/state-root"},
+			wantPathFlag: "--setta-files-root /remote/state-root",
+		},
+		{
+			name:         "setta_files_location",
+			pathArgs:     []string{"--setta-files-location", "global"},
+			wantPathFlag: "--setta-files-location global",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			repoRoot := testRepoRootForSettacli(t)
+			sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+			session := createRemoteSSHStubSession(
+				t,
+				sessionsRoot,
+				"/remote/workspace",
+				61234,
+				time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+				string(sshx.RemoteServerModeIDE),
+			)
+			commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+			configureSSHStubEnvForSettacli(t, repoRoot, sessionsRoot, commandLogPath)
+			argvLogPath := filepath.Join(t.TempDir(), "ssh-argv.log")
+			t.Setenv("SETTA_SSH_BIN", writeSettacliSSHArgLoggingWrapper(t, repoRoot, argvLogPath))
+
+			cwd := t.TempDir()
+			args := []string{
+				"--profile", "missing",
+				"--setta-home", "/remote/setta-home",
+				"--runtime-root", "/remote/runtime-root",
+			}
+			args = append(args, testCase.pathArgs...)
+			args = append(args,
+				"connect", "user@host",
+				"--workspace", "/remote/workspace",
+				"--session", session.ID,
+				"--ssh-args", "-p 2222 -o StrictHostKeyChecking=no",
+				"--remote-cmd", "custom-setta",
+				"--print-only",
+			)
+
+			stdout, stderr, err := runCLIWithOSEnv(cwd, args...)
+			if err != nil {
+				t.Fatalf("run connect with forwarded flags: %v", err)
+			}
+			if strings.TrimSpace(stderr) != "" {
+				t.Fatalf("expected empty stderr, got %q", stderr)
+			}
+
+			lines := strings.Split(strings.TrimSpace(stdout), "\n")
+			if len(lines) != 3 {
+				t.Fatalf("expected tunnel command, bootstrap url, and token lines; got %q", stdout)
+			}
+			if !strings.Contains(lines[0], "-p 2222 -o StrictHostKeyChecking=no") {
+				t.Fatalf("expected ssh args in tunnel command, got %q", lines[0])
+			}
+
+			commandLog := readSettacliCommandLog(t, commandLogPath)
+			if !strings.Contains(commandLog, "custom-setta --profile missing --setta-home /remote/setta-home") {
+				t.Fatalf("expected remote command and setta-home forwarding, got %q", commandLog)
+			}
+			if !strings.Contains(commandLog, testCase.wantPathFlag) {
+				t.Fatalf("expected remote path forwarding %q, got %q", testCase.wantPathFlag, commandLog)
+			}
+			if !strings.Contains(commandLog, "--runtime-root /remote/runtime-root") {
+				t.Fatalf("expected runtime-root forwarding, got %q", commandLog)
+			}
+			if !strings.Contains(commandLog, "status --list-sessions --json --workspace /remote/workspace --server-mode ide") {
+				t.Fatalf("expected list-sessions call, got %q", commandLog)
+			}
+			if !strings.Contains(commandLog, "status --connect-info --json --workspace /remote/workspace --session "+session.ID) {
+				t.Fatalf("expected connect-info call, got %q", commandLog)
+			}
+
+			argvLog := readSettacliCommandLog(t, argvLogPath)
+			if !strings.Contains(argvLog, "-p 2222 -o StrictHostKeyChecking=no") {
+				t.Fatalf("expected ssh-args forwarding, got %q", argvLog)
+			}
+			if !strings.Contains(argvLog, "user@host") {
+				t.Fatalf("expected ssh target in argv log, got %q", argvLog)
+			}
+		})
+	}
+}
+
 func TestRunConnectValidationRejectsInvalidFlagCombinations(t *testing.T) {
 	testCases := []struct {
 		name           string
