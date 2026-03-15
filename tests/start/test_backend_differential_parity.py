@@ -279,6 +279,90 @@ class Route:
             },
         )
 
+    def test_summarize_settings_project_shell_detects_expected_contract(self) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectConfig": {
+                "id": "settings",
+                "name": "settings",
+                "activeViewModeId": "settings-core",
+                "showParamDisplayNames": True,
+                "allowJsonSourceKeyEdits": False,
+                "viewModes": {
+                    "settings-all": {
+                        "id": "settings-all",
+                        "name": "All Settings",
+                        "sortIndex": 4,
+                        "visibilityBySectionId": {
+                            "section-a": True,
+                            "section-b": True,
+                        },
+                    },
+                    "settings-core": {
+                        "id": "settings-core",
+                        "name": "Core",
+                        "sortIndex": 0,
+                        "visibilityBySectionId": {
+                            "section-a": True,
+                            "section-b": False,
+                        },
+                    },
+                },
+            },
+            "sections": {
+                "section-a": {"name": "backend"},
+                "section-b": {"name": "gui"},
+            },
+            "projectChatWindowing": {
+                "instancesById": {},
+                "nextInstanceNumber": 1,
+                "order": [],
+            },
+        }
+        latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "id": "settings",
+                    "name": "settings",
+                }
+            }
+        }
+
+        summary = harness.summarize_settings_project_shell(
+            http_status=200,
+            payload=payload,
+            latest_http_status=200,
+            latest_payload=latest_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "httpStatus": 200,
+                "latestHttpStatus": 200,
+                "projectName": "settings",
+                "sectionCount": 2,
+                "sectionNames": ["backend", "gui"],
+                "viewModeCount": 2,
+                "viewModeNames": ["Core", "All Settings"],
+                "activeViewModeName": "Core",
+                "countsByView": {
+                    "Core": 1,
+                    "All Settings": 2,
+                },
+                "showParamDisplayNames": True,
+                "allowJsonSourceKeyEdits": False,
+                "projectChatWindowingKeys": [
+                    "instancesById",
+                    "nextInstanceNumber",
+                    "order",
+                ],
+                "latestProjectName": "settings",
+                "latestProjectIDMatchesLoadProjectID": True,
+            },
+        )
+
     def test_summarize_persisted_project_windowing_after_create_detects_defaults(
         self,
     ) -> None:

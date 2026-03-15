@@ -679,6 +679,8 @@ def execute_scenario(
         return execute_latest_state_after_create_project(backend)
     if scenario.kind == "persisted_project_windowing_after_create":
         return execute_persisted_project_windowing_after_create(backend)
+    if scenario.kind == "settings_project_shell":
+        return execute_settings_project_shell(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -859,6 +861,51 @@ def execute_persisted_project_windowing_after_create(
     }
 
 
+def execute_settings_project_shell(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    load_payload = normalize_response_json_allow_status(load_response)
+
+    latest_response = None
+    latest_payload = None
+    if load_response.status_code == 200 and isinstance(load_payload, dict):
+        project_config = object_field(load_payload, "projectConfig")
+        project_id = expect_non_empty_string(
+            project_config.get("id"),
+            "projectConfig.id",
+        )
+        latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": project_id},
+        )
+        latest_payload = normalize_response_json_allow_status(latest_response)
+
+    summary = summarize_settings_project_shell(
+        http_status=load_response.status_code,
+        payload=load_payload,
+        latest_http_status=None
+        if latest_response is None
+        else latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    return summary, {
+        "loadProjectConfigStatus": load_response.status_code,
+        "loadProjectConfig": load_payload,
+        "latestProjectStateStatus": None
+        if latest_response is None
+        else latest_response.status_code,
+        "latestProjectState": latest_payload,
+    }
+
+
 def create_and_load_project(backend: BackendSession) -> tuple[str, dict[str, Any]]:
     create_response = post_json(
         session=backend.session,
@@ -919,10 +966,11 @@ def post_json(
     route: str,
     payload: dict[str, Any],
 ) -> requests.Response:
-    response = session.post(
-        base_url + route,
-        json=payload,
-        timeout=REQUEST_TIMEOUT_SECONDS,
+    response = post_json_allow_status(
+        session=session,
+        base_url=base_url,
+        route=route,
+        payload=payload,
     )
     if response.status_code != 200:
         raise ParityHarnessError(
@@ -931,13 +979,33 @@ def post_json(
     return response
 
 
+def post_json_allow_status(
+    session: requests.Session,
+    base_url: str,
+    route: str,
+    payload: dict[str, Any],
+) -> requests.Response:
+    return session.post(
+        base_url + route,
+        json=payload,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+
+
 def normalize_response_json(response: requests.Response) -> Any:
+    payload = normalize_response_json_allow_status(response)
+    if isinstance(payload, dict) and "_rawText" in payload:
+        raise ParityHarnessError(
+            f"Expected JSON response from {response.request.path_url}: {payload['_rawText']}"
+        )
+    return payload
+
+
+def normalize_response_json_allow_status(response: requests.Response) -> Any:
     try:
         return response.json()
-    except json.JSONDecodeError as exc:
-        raise ParityHarnessError(
-            f"Expected JSON response from {response.request.path_url}: {exc}\n{response.text}"
-        ) from exc
+    except json.JSONDecodeError:
+        return {"_rawText": response.text}
 
 
 def summarize_loaded_project_state(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1128,6 +1196,95 @@ def summarize_persisted_project_windowing_after_create(
         "projectChatWindowOrderCount": len(order),
         "nextInstanceNumber": next_instance_number,
     }
+
+
+def summarize_settings_project_shell(
+    http_status: int,
+    payload: Any,
+    latest_http_status: int | None,
+    latest_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "httpStatus": http_status,
+        "latestHttpStatus": latest_http_status,
+    }
+    if http_status != 200 or not isinstance(payload, dict):
+        return summary
+
+    project_config = object_field(payload, "projectConfig")
+    sections = object_field(payload, "sections", allow_missing=True)
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    active_view_mode_id = normalized_string(project_config.get("activeViewModeId"))
+
+    section_names = []
+    for key in sorted(sections):
+        section = expect_object(sections[key], f"sections.{key}")
+        section_names.append(normalized_string(section.get("name")))
+    section_names.sort()
+
+    ordered_view_modes = []
+    for key in sorted(view_modes):
+        view_mode = expect_object(view_modes[key], f"viewModes.{key}")
+        ordered_view_modes.append(view_mode)
+    ordered_view_modes.sort(
+        key=lambda view_mode: (
+            int(view_mode.get("sortIndex") or 0),
+            normalized_string(view_mode.get("name")),
+            normalized_string(view_mode.get("id")),
+        )
+    )
+
+    counts_by_view: dict[str, int] = {}
+    active_view_mode_name = ""
+    for view_mode in ordered_view_modes:
+        view_mode_name = normalized_string(view_mode.get("name"))
+        visibility = object_field(view_mode, "visibilityBySectionId", allow_missing=True)
+        visible_count = sum(1 for visible in visibility.values() if visible is True)
+        if not visibility:
+            visible_count = len(
+                object_field(view_mode, "topLevelSections", allow_missing=True)
+            )
+        counts_by_view[view_mode_name] = visible_count
+        if normalized_string(view_mode.get("id")) == active_view_mode_id:
+            active_view_mode_name = view_mode_name
+
+    latest_project_name = None
+    latest_project_id_matches = None
+    if latest_http_status == 200 and isinstance(latest_payload, dict):
+        latest_project_state = object_field(latest_payload, "projectState")
+        latest_project_config = object_field(latest_project_state, "projectConfig")
+        latest_project_name = normalized_string(latest_project_config.get("name"))
+        latest_project_id_matches = normalized_string(
+            latest_project_config.get("id")
+        ) == normalized_string(project_config.get("id"))
+
+    project_chat_windowing = object_field(
+        payload, "projectChatWindowing", allow_missing=True
+    )
+    summary.update(
+        {
+            "projectName": normalized_string(project_config.get("name")),
+            "sectionCount": len(sections),
+            "sectionNames": section_names,
+            "viewModeCount": len(view_modes),
+            "viewModeNames": [
+                normalized_string(view_mode.get("name"))
+                for view_mode in ordered_view_modes
+            ],
+            "activeViewModeName": active_view_mode_name,
+            "countsByView": counts_by_view,
+            "showParamDisplayNames": bool(
+                project_config.get("showParamDisplayNames", False)
+            ),
+            "allowJsonSourceKeyEdits": bool(
+                project_config.get("allowJsonSourceKeyEdits", False)
+            ),
+            "projectChatWindowingKeys": sorted(project_chat_windowing.keys()),
+            "latestProjectName": latest_project_name,
+            "latestProjectIDMatchesLoadProjectID": latest_project_id_matches,
+        }
+    )
+    return summary
 
 
 def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:

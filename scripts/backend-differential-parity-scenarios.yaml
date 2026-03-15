@@ -19,3 +19,7 @@ scenarios:
     kind: persisted_project_windowing_after_create
     seed: none
     description: Fresh projects should persist authoritative project chat windowing state immediately after creation.
+  - name: settings_project_shell
+    kind: settings_project_shell
+    seed: none
+    description: The dedicated /settings project shell should load and rehydrate with the same section/view-mode contract as the baseline backend.
