@@ -7,11 +7,11 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
+import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
-import { useAppPreview } from "state/stores/appStores";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
