@@ -3220,3 +3220,34 @@ Append-only log for the section performance refactor.
     - it is blocked by the current Codex session's dead DevTools bridge, so the required untouched-`main` vs worktree activation trace still cannot be captured from this session
 - Next action:
   - Re-establish the current Codex session's `chrome-devtools-mcp` bridge, then rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+
+### 2026-03-17 89
+
+- Item: Confirm the lower activation seam is locally exhausted and identify the only trace-gated reopen target.
+- Status: `blocked`
+- Details:
+  - Re-read the lower activation seam with an explorer-style boundary check across:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - the directly-related text-input callers in the param stack
+  - Boundary-read conclusion:
+    - the already-landed local slices cover the stronger obvious bootstrap seams:
+      - synchronous dummy-to-real activation handoff
+      - stable extension/completion setup across rerenders
+      - static extension caching
+      - plain-versus-autocomplete split
+      - scoped `getOnCreateEditor.ts` cursor and selection work
+    - there is no stronger lower-seam refactor to keep taking blind while trace evidence is unavailable
+    - the only plausible reopen target below this seam is the highlighted non-empty dummy path in `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+    - even that dummy-highlight path should stay trace-gated, not implementation-driven by assumption
+  - Current blocker state remains:
+    - browser-side CDP is alive
+    - the current Codex session's built-in `chrome-devtools-mcp` transport still dies with `Transport closed`
+  - Conclusion:
+    - checkpoint 1 remains blocked
+    - the lower activation seam is locally exhausted enough that the next move must come from a fresh untouched-`main` vs worktree activation trace
+- Next action:
+  - Re-establish the current Codex session's `chrome-devtools-mcp` bridge, then rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+  - If that fresh trace still points back down here, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` before reopening the already-trimmed lower activation files.
