@@ -1,5 +1,5 @@
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectSearch } from "state/definitions";
+import { useProjectSearch } from "state/stores/searchStores";
 import { ProjectSearchModeEnum } from "utils/constants";
 
 export const ProjectPageSearchBarDivId = "ProjectPageSearchBar";

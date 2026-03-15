@@ -7,7 +7,8 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { setSectionSize } from "state/actions/sections/sectionSizes";
-import { useProjectState, useSectionRefs } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useSectionRefs } from "state/stores/layoutInteractionStores";
 import {
   route_set_group_overflow_mode,
   route_set_section_sizes,
