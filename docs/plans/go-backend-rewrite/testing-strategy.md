@@ -53,7 +53,6 @@ Use these as the current behavior inventory:
 - `tests/llm`
 - `tests/plugins`
 - `tests/terminals`
-- `tests/server_state`
 - relevant docs under `docs/reference/`
 
 ## Test Layers
