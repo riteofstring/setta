@@ -57,19 +57,21 @@ vi.mock("state/actions/notifications", () => ({
 
 import {
   focusProjectChatWindow,
-  replaceProjectChatWindowingState,
   setProjectChatWindowBounds,
 } from "./projectChatWindowing";
+import { replaceProjectChatWindowingState } from "./projectChatWindowingWrites";
 import {
   applyWindowSpaceSortOrder,
-  createProjectChatWindowingStateFromWindowSpace,
-  createWindowSpaceFromCurrentFloatingWindows,
   deleteWindowSpace,
   persistWindowSpaceSortOrder,
-  restoreWindowSpaceInWorkspace,
   setWindowSpaceName,
+} from "./windowSpaceMutationPersistence";
+import { restoreWindowSpaceInWorkspace } from "./windowSpaces";
+import { createWindowSpaceFromCurrentFloatingWindows } from "./windowSpaceSave";
+import {
+  createProjectChatWindowingStateFromWindowSpace,
   snapshotFloatingWindowsForWindowSpace,
-} from "./windowSpaces";
+} from "./windowSpaceSnapshots";
 
 function buildCreatedWindowSpaceResponse(request: {
   name: string;

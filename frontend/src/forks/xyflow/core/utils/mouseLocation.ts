@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { Position } from "utils/generatedTypes";
 import { screenToFlowPosition, setCenter } from "../hooks/useViewportHelper";
 

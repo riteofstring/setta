@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
-import { useServerMode } from "state/definitions";
+import { useServerMode } from "state/stores/sessionStores";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
