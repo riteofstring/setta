@@ -42,52 +42,45 @@ import {
 import { RiChatNewFill } from "react-icons/ri";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbFolder, TbFolderOpen } from "react-icons/tb";
-import { getRunInputString } from "state/actions/agentRunUtils";
-import { loadAgentRuns } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
+import type { ChatRunType } from "state/actions/chatHistoryTypes";
 import {
-  buildChatHistoryEntries,
-  type ChatRunType,
-} from "state/actions/chatHistory";
-import {
-  canUndoLastProjectChatThreadStorageMutation,
-  createProjectChatThreadGroup,
-  deleteProjectChatThread,
   deleteProjectChatThreadGroup,
-  markProjectChatThreadViewed,
-  renameProjectChatThreadGroup,
-  reorderProjectChatThreadGroups,
-  reorderProjectChatThreads,
   setProjectChatThreadGroupAssignment,
+} from "state/actions/projectChatThreadGroupAssignments";
+import {
+  createProjectChatThreadGroup,
+  renameProjectChatThreadGroup,
+} from "state/actions/projectChatThreadGroupCrud";
+import {
+  reorderProjectChatThreadGroups,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
+} from "state/actions/projectChatThreadGroupOrdering";
+import {
+  deleteProjectChatThread,
+  markProjectChatThreadViewed,
+  reorderProjectChatThreads,
   toggleProjectChatThreadPinned,
-  undoLastProjectChatThreadStorageMutation,
-} from "state/actions/projectChatThreads";
-import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
-import {
-  buildSearchableTextForMessages,
-  countConversationSearchTextMatches,
-  extractRunMessagesForConversationSearch,
-  matchesConversationSearchText,
-  tokenizeConversationSearchQuery,
-} from "utils/conversationSearch";
-import {
-  EngineTypeEnum,
-  ExternalAgentToolTypeEnum,
-  type EngineConfig,
-  type ExternalAgentConfig,
-} from "utils/generatedTypes";
+} from "state/actions/projectChatThreadMutations";
+import { undoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoApply";
+import { canUndoLastProjectChatThreadStorageMutation } from "state/actions/projectChatThreadStorageUndoStack";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { shallow } from "zustand/shallow";
+import {
+  buildProjectChatHistoryViewModel,
+  DRAFT_THREAD_ENTRY_ID,
+  isDraftThreadEntry,
+  normalizeUniqueThreadIds,
+  PINNED_THREAD_DOMAIN,
+  UNPINNED_THREAD_DOMAIN,
+  type ProjectChatHistoryEntry,
+  type ThreadGroupSection,
+  type ThreadPinDomain,
+} from "./projectChatHistoryViewModel";
 
-type ProjectChatHistoryEntry = ReturnType<
-  typeof buildChatHistoryEntries
->[number];
-const DRAFT_THREAD_ENTRY_ID = "__setta_project_chat_draft_thread__";
-const DRAFT_THREAD_LABEL = "New thread...";
 const THREAD_DND_PREFIX = "project-chat-thread::";
 const THREAD_GROUP_DND_PREFIX = "project-chat-thread-group::";
 const THREAD_SECTION_DROP_TARGET_PREFIX = "project-chat-thread-section-drop::";
@@ -97,10 +90,6 @@ const PROJECT_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
 const PROJECT_CHAT_HISTORY_MISSING_SELECTED_CHAT_POLL_INTERVAL_MS = 1500;
 const PROJECT_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
 
-type ThreadPinDomain = "pinned" | "unpinned";
-const PINNED_THREAD_DOMAIN: ThreadPinDomain = "pinned";
-const UNPINNED_THREAD_DOMAIN: ThreadPinDomain = "unpinned";
-
 export function getProjectChatDeleteRecoveryTooltipContent(
   target: "thread" | "group",
 ): string {
@@ -109,17 +98,6 @@ export function getProjectChatDeleteRecoveryTooltipContent(
   }
   return "Remove this chat from history. Use Undo Delete in the toolbar to undo.";
 }
-
-type ThreadGroup = {
-  id: string;
-  name: string;
-  collapsed: boolean;
-  pinned?: boolean;
-};
-
-type ThreadGroupSection = ThreadGroup & {
-  entries: Array<ProjectChatHistoryEntry>;
-};
 
 type ThreadDropPlacement = "before" | "after";
 
@@ -334,194 +312,71 @@ export function ProjectChatHistory({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [historyPollIntervalMs]);
-  const displayEntries = useMemo(() => {
-    if (!draftThread || !draftThread.chatId) {
-      return historyEntries;
-    }
-    return historyEntries.map((entry) => {
-      if (entry.chatId !== draftThread.chatId || entry.nameSource !== null) {
-        return entry;
-      }
-      return {
-        ...entry,
-        label: DRAFT_THREAD_LABEL,
-      };
-    });
-  }, [draftThread, historyEntries]);
-  const hasDraftThreadEntry = useMemo(() => {
-    if (!draftThread?.chatId) {
-      return false;
-    }
-    return displayEntries.some((entry) => entry.chatId === draftThread.chatId);
-  }, [displayEntries, draftThread]);
-  const syntheticDraftThreadEntry =
-    useMemo<ProjectChatHistoryEntry | null>(() => {
-      if (!draftThread) {
-        return null;
-      }
-      if (draftThread.chatId !== null && hasDraftThreadEntry) {
-        return null;
-      }
-      return {
-        chatId: DRAFT_THREAD_ENTRY_ID,
-        label: DRAFT_THREAD_LABEL,
-        nameSource: null,
-        lastUpdatedMs: Number.MAX_SAFE_INTEGER,
-        waitingForResponse: chatId === null,
-        runType,
-        engineConfigId,
-      };
-    }, [chatId, draftThread, engineConfigId, hasDraftThreadEntry, runType]);
-  const engineConfigById = useMemo(() => {
-    return new Map(engineConfigs.map((config) => [config.id, config]));
-  }, [engineConfigs]);
-  const externalAgentConfigById = useMemo(() => {
-    return new Map(externalAgentConfigs.map((config) => [config.id, config]));
-  }, [externalAgentConfigs]);
-  const normalizedMasterSearchTerms = useMemo(
-    () => tokenizeConversationSearchQuery(masterSearchInput),
-    [masterSearchInput],
-  );
-  const hasMasterSearch = normalizedMasterSearchTerms.length > 0;
-  const searchableTextByChatId = useMemo(() => {
-    const byChatId = new Map<string, string>();
-    if (!hasMasterSearch) {
-      return byChatId;
-    }
-    const candidateChatIds = new Set(
-      displayEntries.map((entry) => entry.chatId),
-    );
-    if (candidateChatIds.size === 0) {
-      return byChatId;
-    }
-    const segmentsByChatId = new Map<string, Array<string>>();
-    for (const entry of displayEntries) {
-      segmentsByChatId.set(entry.chatId, [entry.label]);
-    }
-    for (const run of agentRuns) {
-      const runChatId = getRunInputString(run, "chatId");
-      if (!runChatId || !candidateChatIds.has(runChatId)) {
-        continue;
-      }
-      const runMessages = extractRunMessagesForConversationSearch(run);
-      const runSearchText = buildSearchableTextForMessages(runMessages);
-      if (runSearchText.length === 0) {
-        continue;
-      }
-      const existingSegments = segmentsByChatId.get(runChatId);
-      if (!existingSegments) {
-        continue;
-      }
-      existingSegments.push(runSearchText);
-    }
-    for (const [chatId, segments] of segmentsByChatId.entries()) {
-      byChatId.set(chatId, segments.join("\n"));
-    }
-    return byChatId;
-  }, [agentRuns, displayEntries, hasMasterSearch]);
-  const masterSearchMatchCountByChatId = useMemo(() => {
-    const countsByChatId = new Map<string, number>();
-    if (!hasMasterSearch) {
-      return countsByChatId;
-    }
-    for (const entry of displayEntries) {
-      const searchableText =
-        searchableTextByChatId.get(entry.chatId) ?? entry.label;
-      const matchCount = countConversationSearchTextMatches(
-        searchableText,
-        normalizedMasterSearchTerms,
-      );
-      if (matchCount <= 0) {
-        continue;
-      }
-      countsByChatId.set(entry.chatId, matchCount);
-    }
-    if (syntheticDraftThreadEntry) {
-      const draftMatchCount = countConversationSearchTextMatches(
-        syntheticDraftThreadEntry.label,
-        normalizedMasterSearchTerms,
-      );
-      if (draftMatchCount > 0) {
-        countsByChatId.set(syntheticDraftThreadEntry.chatId, draftMatchCount);
-      }
-    }
-    return countsByChatId;
-  }, [
-    displayEntries,
-    hasMasterSearch,
-    normalizedMasterSearchTerms,
-    searchableTextByChatId,
-    syntheticDraftThreadEntry,
-  ]);
-  const searchableDisplayEntries = useMemo(() => {
-    if (!hasMasterSearch) {
-      return displayEntries;
-    }
-    return displayEntries.filter((entry) => {
-      const searchableText =
-        searchableTextByChatId.get(entry.chatId) ?? entry.label;
-      return matchesConversationSearchText(
-        searchableText,
-        normalizedMasterSearchTerms,
-      );
-    });
-  }, [
-    displayEntries,
-    hasMasterSearch,
-    normalizedMasterSearchTerms,
-    searchableTextByChatId,
-  ]);
-
-  const sortedEntries = useMemo(() => {
-    const nextEntries = [...searchableDisplayEntries];
-    const shouldIncludeSyntheticDraft =
-      syntheticDraftThreadEntry &&
-      (!hasMasterSearch ||
-        matchesConversationSearchText(
-          syntheticDraftThreadEntry.label,
-          normalizedMasterSearchTerms,
-        ));
-    if (shouldIncludeSyntheticDraft) {
-      nextEntries.push(syntheticDraftThreadEntry);
-    }
-    return nextEntries.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs);
-  }, [
-    hasMasterSearch,
-    normalizedMasterSearchTerms,
-    searchableDisplayEntries,
-    syntheticDraftThreadEntry,
-  ]);
-
   const viewedThreadIdsSet = useMemo(() => {
     return new Set(viewedThreadIds);
   }, [viewedThreadIds]);
   const pinnedThreadIdsSet = useMemo(() => {
     return new Set(pinnedThreadIds);
   }, [pinnedThreadIds]);
-  const trashedThreadIdsSet = useMemo(() => {
-    return new Set(trashedThreadIds);
-  }, [trashedThreadIds]);
-  const visibleSortedEntries = useMemo(() => {
-    return sortedEntries.filter(
-      (entry) =>
-        isDraftThreadEntry(entry) || !trashedThreadIdsSet.has(entry.chatId),
-    );
-  }, [sortedEntries, trashedThreadIdsSet]);
-  const threadAgentBadgeLabelByChatId = useMemo(() => {
-    const labelByChatId = new Map<string, string>();
-    for (const entry of visibleSortedEntries) {
-      const label = resolveThreadAgentBadgeLabel({
-        entry,
-        engineConfigById,
-        externalAgentConfigById,
-      });
-      if (!label) {
-        continue;
-      }
-      labelByChatId.set(entry.chatId, label);
-    }
-    return labelByChatId;
-  }, [engineConfigById, externalAgentConfigById, visibleSortedEntries]);
+  const {
+    groupIdSet,
+    groupSections,
+    groupSortableEnabledById,
+    groupsSortableEnabled,
+    hasMasterSearch,
+    masterSearchMatchCount,
+    masterSearchMatchCountByChatId,
+    masterSearchQueryKey,
+    orderedVisibleThreadIds,
+    pinnedSearchableGroupSections,
+    pinnedSortableGroupIds,
+    placeholderText,
+    searchableGroupSections,
+    threadAgentBadgeLabelByChatId,
+    threadGroupById,
+    threadPinnedById,
+    ungroupedEntries,
+    unpinnedSearchableGroupSections,
+    unpinnedSortableGroupIds,
+  } = useMemo(
+    () =>
+      buildProjectChatHistoryViewModel({
+        activeChatId: chatId,
+        agentRuns,
+        draftThread,
+        engineConfigId,
+        engineConfigs,
+        externalAgentConfigs,
+        historyEntries,
+        initialLoadComplete: agentRunsInitialLoadComplete,
+        loadError: agentRunsLoadError,
+        masterSearchInput,
+        pinnedThreadIds,
+        runType,
+        threadAssignments,
+        threadGroups,
+        threadOrderIds,
+        trashedThreadIds,
+      }),
+    [
+      agentRuns,
+      agentRunsInitialLoadComplete,
+      agentRunsLoadError,
+      chatId,
+      draftThread,
+      engineConfigId,
+      engineConfigs,
+      externalAgentConfigs,
+      historyEntries,
+      masterSearchInput,
+      pinnedThreadIds,
+      runType,
+      threadAssignments,
+      threadGroups,
+      threadOrderIds,
+      trashedThreadIds,
+    ],
+  );
 
   useEffect(() => {
     if (!editingGroupId) {
@@ -533,106 +388,6 @@ export function ProjectChatHistory({
     }
   }, [editingGroupId, threadGroups]);
 
-  const { groupSections, ungroupedEntries } = useMemo(() => {
-    const groupsById = new Map<string, ThreadGroup>();
-    threadGroups.forEach((group) => {
-      groupsById.set(group.id, group);
-    });
-    const pinnedThreadIdsSet = new Set(pinnedThreadIds);
-    const normalizedThreadOrder = normalizeUniqueThreadIds(threadOrderIds);
-    const threadOrderIndexById = new Map<string, number>();
-    for (let index = 0; index < normalizedThreadOrder.length; index += 1) {
-      const threadId = normalizedThreadOrder[index];
-      if (!threadId) {
-        continue;
-      }
-      threadOrderIndexById.set(threadId, index);
-    }
-
-    const sortThreadEntries = (entries: Array<ProjectChatHistoryEntry>) => {
-      return [...entries].sort((left, right) => {
-        const leftPinned = pinnedThreadIdsSet.has(left.chatId);
-        const rightPinned = pinnedThreadIdsSet.has(right.chatId);
-        if (leftPinned !== rightPinned) {
-          return leftPinned ? -1 : 1;
-        }
-        const leftOrderIndex = threadOrderIndexById.get(left.chatId);
-        const rightOrderIndex = threadOrderIndexById.get(right.chatId);
-        if (leftOrderIndex !== undefined || rightOrderIndex !== undefined) {
-          if (leftOrderIndex === undefined) {
-            return 1;
-          }
-          if (rightOrderIndex === undefined) {
-            return -1;
-          }
-          if (leftOrderIndex !== rightOrderIndex) {
-            return leftOrderIndex - rightOrderIndex;
-          }
-        }
-        return right.lastUpdatedMs - left.lastUpdatedMs;
-      });
-    };
-
-    const entriesByGroupId = new Map<string, Array<ProjectChatHistoryEntry>>();
-    const nextUngroupedEntries: Array<ProjectChatHistoryEntry> = [];
-    const draftGroupId = draftThread?.groupId ?? null;
-
-    for (const entry of visibleSortedEntries) {
-      const groupId =
-        isDraftThreadEntry(entry) && draftGroupId
-          ? draftGroupId
-          : threadAssignments[entry.chatId] ?? null;
-      if (!groupId || !groupsById.has(groupId)) {
-        nextUngroupedEntries.push(entry);
-        continue;
-      }
-      const groupEntries = entriesByGroupId.get(groupId);
-      if (groupEntries) {
-        groupEntries.push(entry);
-      } else {
-        entriesByGroupId.set(groupId, [entry]);
-      }
-    }
-
-    return {
-      groupSections: threadGroups.map((group) => {
-        return {
-          ...group,
-          pinned: group.pinned ?? false,
-          entries: sortThreadEntries(entriesByGroupId.get(group.id) ?? []),
-        };
-      }),
-      ungroupedEntries: sortThreadEntries(nextUngroupedEntries),
-    };
-  }, [
-    draftThread,
-    pinnedThreadIds,
-    visibleSortedEntries,
-    threadAssignments,
-    threadGroups,
-    threadOrderIds,
-  ]);
-
-  const searchableGroupSections = useMemo(() => {
-    if (!hasMasterSearch) {
-      return groupSections;
-    }
-    return groupSections.filter((section) => section.entries.length > 0);
-  }, [groupSections, hasMasterSearch]);
-  const pinnedSearchableGroupSections = useMemo(() => {
-    return searchableGroupSections.filter((section) => section.pinned ?? false);
-  }, [searchableGroupSections]);
-  const unpinnedSearchableGroupSections = useMemo(() => {
-    return searchableGroupSections.filter(
-      (section) => !(section.pinned ?? false),
-    );
-  }, [searchableGroupSections]);
-  const pinnedSortableGroupIds = useMemo(() => {
-    return pinnedSearchableGroupSections.map((section) => section.id);
-  }, [pinnedSearchableGroupSections]);
-  const unpinnedSortableGroupIds = useMemo(() => {
-    return unpinnedSearchableGroupSections.map((section) => section.id);
-  }, [unpinnedSearchableGroupSections]);
   const pinnedSortableGroupDndIds = useMemo(() => {
     return pinnedSortableGroupIds.map((groupId) => toThreadGroupDndId(groupId));
   }, [pinnedSortableGroupIds]);
@@ -641,51 +396,6 @@ export function ProjectChatHistory({
       toThreadGroupDndId(groupId),
     );
   }, [unpinnedSortableGroupIds]);
-  const groupSortableEnabledById = useMemo(() => {
-    const sortableById = new Map<string, boolean>();
-    const pinnedSortableEnabled = pinnedSortableGroupIds.length > 1;
-    const unpinnedSortableEnabled = unpinnedSortableGroupIds.length > 1;
-    for (const groupId of pinnedSortableGroupIds) {
-      sortableById.set(groupId, pinnedSortableEnabled);
-    }
-    for (const groupId of unpinnedSortableGroupIds) {
-      sortableById.set(groupId, unpinnedSortableEnabled);
-    }
-    return sortableById;
-  }, [pinnedSortableGroupIds, unpinnedSortableGroupIds]);
-  const groupsSortableEnabled =
-    !hasMasterSearch &&
-    (pinnedSortableGroupIds.length > 1 || unpinnedSortableGroupIds.length > 1);
-
-  const groupIdSet = useMemo(() => {
-    return new Set(groupSections.map((section) => section.id));
-  }, [groupSections]);
-
-  const orderedVisibleThreadIds = useMemo(() => {
-    const nextIds: Array<string> = [];
-    for (const section of searchableGroupSections) {
-      for (const entry of section.entries) {
-        if (isDraftThreadEntry(entry)) {
-          continue;
-        }
-        nextIds.push(entry.chatId);
-      }
-    }
-    for (const entry of ungroupedEntries) {
-      if (isDraftThreadEntry(entry)) {
-        continue;
-      }
-      nextIds.push(entry.chatId);
-    }
-    return normalizeUniqueThreadIds(nextIds);
-  }, [searchableGroupSections, ungroupedEntries]);
-  const masterSearchMatchCount = hasMasterSearch
-    ? orderedVisibleThreadIds.length
-    : 0;
-  const masterSearchQueryKey = useMemo(
-    () => normalizedMasterSearchTerms.join("\u0000"),
-    [normalizedMasterSearchTerms],
-  );
   useEffect(() => {
     if (!hasMasterSearch || masterSearchMatchCount === 0) {
       setActiveMasterSearchMatchIndex(null);
@@ -755,21 +465,6 @@ export function ProjectChatHistory({
     });
   }, [activeMasterSearchMatchThreadId]);
 
-  const threadGroupById = useMemo(() => {
-    const next = new Map<string, string | null>();
-    for (const threadId of orderedVisibleThreadIds) {
-      next.set(threadId, threadAssignments[threadId] ?? null);
-    }
-    return next;
-  }, [orderedVisibleThreadIds, threadAssignments]);
-  const threadPinnedById = useMemo(() => {
-    const next = new Map<string, boolean>();
-    for (const threadId of orderedVisibleThreadIds) {
-      next.set(threadId, pinnedThreadIdsSet.has(threadId));
-    }
-    return next;
-  }, [orderedVisibleThreadIds, pinnedThreadIdsSet]);
-
   const threadsSortableEnabled =
     !hasMasterSearch && orderedVisibleThreadIds.length > 0;
   const threadDndSensors = useMemo(() => {
@@ -795,14 +490,6 @@ export function ProjectChatHistory({
     }),
     [],
   );
-
-  const placeholderText = useMemo(() => {
-    return getPlaceholderText(
-      agentRunsInitialLoadComplete,
-      agentRunsLoadError,
-      sortedEntries.length,
-    );
-  }, [agentRunsInitialLoadComplete, agentRunsLoadError, sortedEntries.length]);
 
   const handleCreateGroup = useCallback(() => {
     const groupName = buildDefaultThreadGroupName(
@@ -2542,56 +2229,6 @@ function onThreadEntryKeyDown(
   onSelect(entry);
 }
 
-function resolveThreadAgentBadgeLabel({
-  entry,
-  engineConfigById,
-  externalAgentConfigById,
-}: {
-  entry: ProjectChatHistoryEntry;
-  engineConfigById: Map<string, EngineConfig>;
-  externalAgentConfigById: Map<string, ExternalAgentConfig>;
-}): string | null {
-  const llmFallbackBadge = entry.runType === "llm_chat" ? "setta" : null;
-  if (!entry.engineConfigId) {
-    return llmFallbackBadge;
-  }
-  const engineConfig = engineConfigById.get(entry.engineConfigId);
-  if (!engineConfig) {
-    return llmFallbackBadge;
-  }
-  if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
-    return "setta";
-  }
-  if (engineConfig.engineType === EngineTypeEnum.external_agent) {
-    if (!engineConfig.externalAgentConfigId) {
-      return null;
-    }
-    const externalAgentConfig = externalAgentConfigById.get(
-      engineConfig.externalAgentConfigId,
-    );
-    if (!externalAgentConfig) {
-      return null;
-    }
-    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.codex) {
-      return "codex";
-    }
-    if (
-      externalAgentConfig.toolType === ExternalAgentToolTypeEnum.claude_code
-    ) {
-      return "claude";
-    }
-    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.opencode) {
-      return "opencode";
-    }
-    return null;
-  }
-  return null;
-}
-
-function isDraftThreadEntry(entry: ProjectChatHistoryEntry): boolean {
-  return entry.chatId === DRAFT_THREAD_ENTRY_ID;
-}
-
 function isThreadEntryActive(
   entry: ProjectChatHistoryEntry,
   chatId: string | null | undefined,
@@ -2600,20 +2237,6 @@ function isThreadEntryActive(
     return chatId === null || chatId === undefined;
   }
   return entry.chatId === chatId;
-}
-
-function normalizeUniqueThreadIds(threadIds: Array<string>): Array<string> {
-  const seen = new Set<string>();
-  const normalized: Array<string> = [];
-  for (const threadId of threadIds) {
-    const nextId = threadId.trim();
-    if (!nextId || seen.has(nextId)) {
-      continue;
-    }
-    seen.add(nextId);
-    normalized.push(nextId);
-  }
-  return normalized;
 }
 
 function toThreadDndId(threadId: string): string {
@@ -3284,23 +2907,6 @@ function ThreadDropZone({
       {children}
     </div>
   );
-}
-
-function getPlaceholderText(
-  initialLoadComplete: boolean,
-  loadError: string | null,
-  entryCount: number,
-): string {
-  if (loadError) {
-    return loadError;
-  }
-  if (!initialLoadComplete) {
-    return "Loading threads...";
-  }
-  if (entryCount === 0) {
-    return "No threads yet";
-  }
-  return "";
 }
 
 function normalizeThreadGroupNameForEditing(name: string): string | null {

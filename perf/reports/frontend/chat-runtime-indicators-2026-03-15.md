@@ -1,0 +1,27 @@
+## 2026-03-15 Chat Runtime Harness Check
+
+- Slice: extract idle-spinner timing, run-duration persistence, timestamps, count-badge animation, activity-label scrambling, ISO timestamp parsing, and activity thought-preview scroll behavior from `frontend/src/components/Chat/ChatMessages.tsx` into `frontend/src/components/Chat/chatMessageRuntime.tsx`
+- App context: verified through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell was already blank from the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+- Surface exercised: collapsed assistant activity row with one thinking item, one running tool call, active count badge, and minimized thought preview while `waitingForResponse` stayed `true`
+- Historical baseline captured before extraction on the same slice:
+  - harness node count: `156`
+  - total timer count: `2`
+  - thinking timer count: `1`
+  - count badge count: `1`
+  - thought preview enabled: `true`
+  - thought preview pinned to bottom: `true`
+- After extraction clean rerun:
+  - harness node count: `217`
+  - total timer count: `2`
+  - thinking timer count: `1`
+  - count badge count: `1`
+  - count badge animating count: `0`
+  - thought preview enabled: `true`
+  - thought preview pinned to bottom: `true`
+- Visual check:
+  - verified the collapsed assistant activity row still showed the total activity timer, the per-thinking timer, the activity count badge, and the minimized thought preview
+  - confirmed the minimized thought preview still overflowed, auto-scrolled, and reported the pinned-to-bottom state after the streaming delay window
+- Artifacts:
+  - `perf/reports/frontend/chat-runtime-indicators-before-2026-03-15.png`
+  - `perf/reports/frontend/chat-runtime-indicators-after-2026-03-15.png`
+- Perf note: the timer, badge, and thought-preview signals stayed flat after the extraction, and CDP showed no user-visible regression in the collapsed assistant activity row. The raw harness node count was higher on the clean rerun than the historical baseline, so treat that number as noisy relative context rather than a stable guardrail for this slice.
