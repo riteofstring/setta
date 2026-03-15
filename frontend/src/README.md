@@ -353,8 +353,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     and debounced backend persistence for top-level section layout writes.
   - `state/actions/windowSpacePersistence.ts` owns saved window-space sort/name/
     delete/create mutations plus optimistic persistence flow.
-  - `state/actions/windowSpaceSnapshots.ts` owns floating window-space snapshot
-    building and conversion back into project-chat windowing state.
+  - `state/actions/windowSpaceSnapshotCapture.ts` owns floating window-space
+    snapshot building.
+  - `state/actions/windowSpaceSnapshotRestore.ts` owns conversion from saved
+    window-space state back into project-chat windowing state.
+  - `state/actions/windowSpaceSnapshots.ts` is now a thin compatibility facade
+    over the narrower snapshot owners.
   - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` owns floating-window
     reuse, owner-key resolution, and superseded-floating selection for saved
     window-space restores.
@@ -483,10 +487,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   submission orchestration from request payload assembly; follow-up cleanup
   there should stay local to one of those owners instead of regrowing the old
   `ai.ts` surface.
-- `state/actions/windowSpaceSnapshots.ts` now owns the largest remaining saved
-  workspace snapshot/restore conversion cluster, so any follow-up there should
-  stay local to snapshot build and restore conversion helpers instead of
-  regrowing `state/actions/windowSpaces.ts`.
+- `state/actions/windowSpaceSnapshotCapture.ts` and
+  `state/actions/windowSpaceSnapshotRestore.ts` now split saved workspace
+  snapshot building from restore conversion helpers, so follow-up cleanup there
+  should stay local to those owners instead of regrowing
+  `state/actions/windowSpaces.ts`.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

@@ -111,9 +111,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   surfaces instead of mixing them back into lifecycle wiring.
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
-  and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
-  snapshot building plus conversion back into project-chat windowing state that
-  previously lived in `frontend/src/state/actions/windowSpaces.ts`.
+  `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` now owns floating
+  snapshot building, and
+  `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` now owns
+  conversion back into project-chat windowing state that previously lived in
+  `frontend/src/state/actions/windowSpaces.ts`.
 - `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns
   floating-window reuse, owner-key resolution, and superseded-floating
   selection that previously lived in
@@ -229,7 +231,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
@@ -237,9 +238,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
+  - `frontend/src/state/actions/artifacts.ts` at 366 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/windowSpaceSnapshots.ts` at 422 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
   - `frontend/src/state/actions/projectChatWindowingSelectors.ts` at 410 lines
   - `frontend/src/state/actions/aiConfigurationCatalogs.ts` at 397 lines
@@ -247,10 +248,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
-  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
-  - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
-  - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
-  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -440,9 +437,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `windowSpacePersistence.ts` now owns:
   - saved window-space sort/name/delete/create mutations
   - optimistic persistence and layout-mutation rollback
-- `windowSpaceSnapshots.ts` now owns:
+- `windowSpaceSnapshotCapture.ts` now owns:
   - floating window-space snapshot building
+- `windowSpaceSnapshotRestore.ts` now owns:
   - conversion from saved window-space state back into project-chat windowing state
+- `windowSpaceSnapshots.ts` is now:
+  - a thin compatibility facade over the snapshot capture and restore owners
 - `windowSpaceWorkspaceRestoreReuse.ts` now owns:
   - floating-window reuse and owner-key resolution
   - superseded-floating selection for saved window-space restores

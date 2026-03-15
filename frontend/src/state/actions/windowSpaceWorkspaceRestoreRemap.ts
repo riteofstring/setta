@@ -7,7 +7,7 @@ import {
 import {
   allocateFreshProjectChatWindowInstanceId,
   dedupeRestoredSectionBindings,
-} from "./windowSpaceSnapshots";
+} from "./windowSpaceSnapshotRestore";
 import { buildWorkspaceRestoreFloatingReusePlan } from "./windowSpaceWorkspaceRestoreReuse";
 
 export type PreparedWorkspaceRestoredFloatingWindowing = {

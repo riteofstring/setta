@@ -24,7 +24,7 @@ import {
 import { createRandomName } from "utils/idNameCreation";
 import { sanitizeNameForSlug } from "utils/nameValidation";
 import { addTemporaryNotification } from "./notifications";
-import { snapshotFloatingWindowsForWindowSpace } from "./windowSpaceSnapshots";
+import { snapshotFloatingWindowsForWindowSpace } from "./windowSpaceSnapshotCapture";
 
 export function sortWindowSpaces(
   windowSpaces: Array<WindowSpaceConfig>,
