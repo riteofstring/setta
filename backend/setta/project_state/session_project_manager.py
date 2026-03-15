@@ -43,7 +43,6 @@ if TYPE_CHECKING:
     from setta.types.listener import ListenerFrontendEmitKeyAndValue
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-    from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
 class SessionPersistenceMode(str, Enum):
@@ -58,7 +57,6 @@ class SessionProjectManager(BaseProjectManager):
         *,
         persistence_mode: SessionPersistenceMode,
         frontend_sender: "WMHFrontendSender",
-        python_script_sender: "WMHPythonScriptSender",
         settings_file: "SettingsFile",
         specific_file_watcher: "SpecificFileWatcher",
         dbe,
@@ -81,7 +79,6 @@ class SessionProjectManager(BaseProjectManager):
         super().__init__(
             lsp_writers=resolved_lsp_writers,
             websocket_msg_handler=resolved_sender,
-            python_script_sender=python_script_sender,
             settings_file=settings_file,
             specific_file_watcher=specific_file_watcher,
             dbe=dbe,

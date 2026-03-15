@@ -1,7 +1,6 @@
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
 
 from fastapi import HTTPException
 
@@ -63,7 +62,6 @@ class CodegenTargetsProjectManager(BaseProjectManager):
         self,
         lsp_writers,
         websocket_msg_handler,
-        python_script_sender,
         settings_file,
         specific_file_watcher,
         dbe,
@@ -76,7 +74,6 @@ class CodegenTargetsProjectManager(BaseProjectManager):
         super().__init__(
             lsp_writers,
             websocket_msg_handler,
-            python_script_sender,
             settings_file,
             specific_file_watcher,
             dbe,
@@ -268,7 +265,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -347,7 +343,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -410,7 +405,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -469,7 +463,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -497,7 +490,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -548,7 +540,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -589,7 +580,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -656,7 +646,6 @@ class TestCodegenTargetsRunCommand:
         manager = CodegenTargetsProjectManager(
             self.lsp_writers,
             self.frontend_sender,
-            self.python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,

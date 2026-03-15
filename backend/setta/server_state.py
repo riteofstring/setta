@@ -391,7 +391,6 @@ class SettaFastAPIState:
             project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_main,
                 frontend_sender=self.wmh_frontend_sender,
-                python_script_sender=self.wmh_python_script_sender,
                 settings_file=self.settings_file,
                 specific_file_watcher=self.specific_file_watcher,
                 dbe=self.dbe,
@@ -403,7 +402,6 @@ class SettaFastAPIState:
             settings_project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_settings,
                 frontend_sender=self.wmh_frontend_sender,
-                python_script_sender=self.wmh_python_script_sender,
                 settings_file=self.settings_file,
                 specific_file_watcher=self.specific_file_watcher,
                 dbe=self.dbe,
@@ -606,7 +604,6 @@ class SettaFastAPIState:
         self.project_manager_switcher = ProjectManagerSwitcher(
             share_runtime_state=self.share_runtime_state,
             settings_file=self.settings_file,
-            python_script_sender=self.wmh_python_script_sender,
             lsp_writers=lsp_writers,
             frontend_sender=self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,

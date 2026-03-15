@@ -1,16 +1,13 @@
 import asyncio
 import contextvars
 import copy
-import json
 import logging
-import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -478,7 +475,6 @@ from setta.utils.name_validation import (
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 logger = logging.getLogger(__name__)
 
@@ -637,7 +633,6 @@ class BaseProjectManager(ABC):
         self,
         lsp_writers: LSPWriters | NoopLSPWriters,
         websocket_msg_handler: WMHFrontendSender,
-        python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
@@ -647,7 +642,6 @@ class BaseProjectManager(ABC):
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
-        self.python_script_sender = python_script_sender
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe

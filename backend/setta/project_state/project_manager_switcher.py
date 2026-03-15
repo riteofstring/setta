@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from setta.lsp.managers import LSPWriters
     from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-    from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
 class ProjectManagerSwitcher:
@@ -27,7 +26,6 @@ class ProjectManagerSwitcher:
         settings_manager: BaseProjectManager | None = None,
         share_runtime_state: "ShareRuntimeState | None" = None,
         settings_file: "SettingsFile | None" = None,
-        python_script_sender: "WMHPythonScriptSender | None" = None,
         lsp_writers: "LSPWriters | None" = None,
         frontend_sender: "WMHFrontendSender | None" = None,
         specific_file_watcher: "SpecificFileWatcher | None" = None,
@@ -37,14 +35,11 @@ class ProjectManagerSwitcher:
         if share_runtime_state is not None:
             if settings_file is None:
                 raise ValueError("share manager switcher missing settings_file")
-            if python_script_sender is None:
-                raise ValueError("share manager switcher missing python_script_sender")
             if frontend_sender is None:
                 raise ValueError("share manager switcher missing frontend_sender")
             if specific_file_watcher is None:
                 raise ValueError("share manager switcher missing file watcher")
             self.settings_file = settings_file
-            self.python_script_sender = python_script_sender
             self.lsp_writers = lsp_writers
             self.frontend_sender = frontend_sender
             self.specific_file_watcher = specific_file_watcher
@@ -140,7 +135,6 @@ class ProjectManagerSwitcher:
         manager = SessionProjectManager(
             persistence_mode=SessionPersistenceMode.share,
             frontend_sender=self.frontend_sender,
-            python_script_sender=self.python_script_sender,
             settings_file=self.settings_file,
             specific_file_watcher=self.specific_file_watcher,
             dbe=self.share_runtime_state.dbe,
