@@ -364,6 +364,119 @@ func TestIntentServiceConsumeIntentRejectsTamperedExpiredAndReplayedTokens(t *te
 	}
 }
 
+func TestIntentServiceConsumeIntentMapsStoreUnavailableErrors(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_710_000_000, 0).UTC()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	service, err := NewIntentService(IntentServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		Now:         func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new intent service: %v", err)
+	}
+	currentSession := &auth.CurrentSession{
+		Metadata: auth.SessionMetadata{ID: "session-1"},
+		Secret:   []byte("secret"),
+	}
+
+	result, err := service.CreateIntent(CreateIntentInput{
+		Request:        decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`),
+		ReturnURL:      "http://127.0.0.1:3000/home",
+		RequestOrigin:  "http://127.0.0.1:3000",
+		CurrentSession: currentSession,
+	})
+	if err != nil {
+		t.Fatalf("create intent: %v", err)
+	}
+	if err := os.RemoveAll(runtimeRoot); err != nil {
+		t.Fatalf("remove runtime root: %v", err)
+	}
+	if err := os.WriteFile(runtimeRoot, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("replace runtime root with file: %v", err)
+	}
+
+	_, _, err = service.ConsumeIntent(currentSession, result.LaunchIntentToken)
+	if err == nil {
+		t.Fatal("expected store unavailable error")
+	}
+	intentErr, ok := err.(*IntentError)
+	if !ok {
+		t.Fatalf("expected intent error, got %T", err)
+	}
+	if intentErr.Code != "LaunchIntentStoreUnavailable" {
+		t.Fatalf("expected LaunchIntentStoreUnavailable, got %#v", intentErr)
+	}
+}
+
+func TestIntentServiceConsumeIntentRevalidatesStoredPayload(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_710_000_000, 0).UTC()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	service, err := NewIntentService(IntentServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		Now:         func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new intent service: %v", err)
+	}
+	currentSession := &auth.CurrentSession{
+		Metadata: auth.SessionMetadata{ID: "session-1"},
+		Secret:   []byte("secret"),
+	}
+
+	result, err := service.CreateIntent(CreateIntentInput{
+		Request:        decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`),
+		ReturnURL:      "http://127.0.0.1:3000/home",
+		RequestOrigin:  "http://127.0.0.1:3000",
+		CurrentSession: currentSession,
+	})
+	if err != nil {
+		t.Fatalf("create intent: %v", err)
+	}
+
+	storePath := filepath.Join(runtimeRoot, launchIntentStoreFileName)
+	content, err := os.ReadFile(storePath)
+	if err != nil {
+		t.Fatalf("read launch intent store: %v", err)
+	}
+	var payload map[string]map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode launch intent store: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected exactly one stored intent, got %#v", payload)
+	}
+	for tokenDigest, entry := range payload {
+		entry["launchRequestPayload"] = map[string]any{"workspaceRoot": "   "}
+		payload[tokenDigest] = entry
+	}
+	updatedContent, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("encode mutated launch intent store: %v", err)
+	}
+	if err := os.WriteFile(storePath, updatedContent, 0o600); err != nil {
+		t.Fatalf("write mutated launch intent store: %v", err)
+	}
+
+	_, _, err = service.ConsumeIntent(currentSession, result.LaunchIntentToken)
+	if err == nil {
+		t.Fatal("expected invalid stored payload")
+	}
+	intentErr, ok := err.(*IntentError)
+	if !ok {
+		t.Fatalf("expected intent error, got %T", err)
+	}
+	if intentErr.Code != "InvalidLaunchIntent" {
+		t.Fatalf("expected InvalidLaunchIntent, got %#v", intentErr)
+	}
+	if intentErr.Message != "launchRequest.workspaceRoot is required." {
+		t.Fatalf("unexpected invalid stored payload message %#v", intentErr)
+	}
+}
+
 func decodeLaunchRequest(t *testing.T, raw string) Request {
 	t.Helper()
 

@@ -144,6 +144,83 @@ func TestManagementServiceRemoveRejectsMissingOwnershipMarkersForManagedArtifact
 	}
 }
 
+func TestManagementServiceRepairPreservesPreferencesAndRewritesManagedArtifacts(t *testing.T) {
+	homeDir := prepareLauncherArtifactTestHome(t)
+	previousExecutable := writeTestExecutable(t, t.TempDir(), "previous-setta")
+	currentExecutable := writeTestExecutable(t, t.TempDir(), "current-setta")
+	initialService := newTestManagementService(t, previousExecutable, "0.0.1", nil)
+	settaHome := filepath.Join(homeDir, ".setta")
+	openMode := LauncherOpenModeBrowser
+	workspaceBehavior := LauncherWorkspaceBehaviorAlwaysPrompt
+	installArtifacts := true
+	artifactOptions := map[string]string{"app_name": "Setta Custom"}
+
+	if _, err := initialService.Setup(settaHome, LauncherSetupInput{
+		OpenMode:          &openMode,
+		WorkspaceBehavior: &workspaceBehavior,
+		InstallArtifacts:  &installArtifacts,
+		ArtifactOptions:   &artifactOptions,
+	}); err != nil {
+		t.Fatalf("setup managed launcher install: %v", err)
+	}
+
+	metadata, err := LoadLauncherInstallMetadata(settaHome)
+	if err != nil {
+		t.Fatalf("load launcher metadata before repair: %v", err)
+	}
+	if metadata == nil {
+		t.Fatal("expected launcher metadata after setup")
+	}
+	lastUsedWorkspace := filepath.Join(homeDir, "workspace")
+	metadata.LastUsedWorkspace = &lastUsedWorkspace
+	if _, err := WriteLauncherInstallMetadata(settaHome, *metadata); err != nil {
+		t.Fatalf("rewrite launcher metadata with last-used workspace: %v", err)
+	}
+	if err := os.Remove(previousExecutable); err != nil {
+		t.Fatalf("remove previous executable: %v", err)
+	}
+
+	repairService := newTestManagementService(t, currentExecutable, "1.2.3", nil)
+	status, err := repairService.Repair(settaHome)
+	if err != nil {
+		t.Fatalf("repair managed launcher install: %v", err)
+	}
+	if status.TargetValid == nil || !*status.TargetValid {
+		t.Fatalf("expected repaired target to be valid, got %#v", status.TargetValid)
+	}
+	if !reflect.DeepEqual(status.TargetCommand, []string{currentExecutable}) {
+		t.Fatalf("expected repaired target command [%q], got %#v", currentExecutable, status.TargetCommand)
+	}
+	if status.OpenMode == nil || *status.OpenMode != LauncherOpenModeBrowser {
+		t.Fatalf("expected preserved open mode browser, got %#v", status.OpenMode)
+	}
+	if status.WorkspaceBehavior == nil || *status.WorkspaceBehavior != LauncherWorkspaceBehaviorAlwaysPrompt {
+		t.Fatalf("expected preserved workspace behavior always_prompt, got %#v", status.WorkspaceBehavior)
+	}
+	resolvedLastUsedWorkspace, err := resolvePathLoose(lastUsedWorkspace)
+	if err != nil {
+		t.Fatalf("resolve expected last-used workspace: %v", err)
+	}
+	if status.LastUsedWorkspace == nil || *status.LastUsedWorkspace != resolvedLastUsedWorkspace {
+		t.Fatalf("expected preserved last-used workspace %q, got %#v", resolvedLastUsedWorkspace, status.LastUsedWorkspace)
+	}
+	if !reflect.DeepEqual(status.ArtifactOptions, artifactOptions) {
+		t.Fatalf("expected preserved artifact options %#v, got %#v", artifactOptions, status.ArtifactOptions)
+	}
+	if len(status.ManagedArtifacts) == 0 {
+		t.Fatalf("expected repaired managed artifacts, got %#v", status.ManagedArtifacts)
+	}
+
+	wrapperPath := managedLauncherScriptPath(t, status.ManagedArtifacts)
+	content, err := os.ReadFile(wrapperPath)
+	if err != nil {
+		t.Fatalf("read repaired managed launcher script %q: %v", wrapperPath, err)
+	}
+	if !strings.Contains(string(content), currentExecutable) {
+		t.Fatalf("expected repaired launcher script to reference executable %q, got:\n%s", currentExecutable, string(content))
+	}
+}
+
 func TestManagementServiceUpdateRewritesManagedUVToolInstall(t *testing.T) {
 	homeDir := prepareLauncherArtifactTestHome(t)
 	currentExecutable := writeTestExecutable(t, t.TempDir(), "current-setta")

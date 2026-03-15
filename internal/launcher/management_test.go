@@ -1,9 +1,12 @@
 package launcher
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -242,6 +245,227 @@ func TestManagementServiceUpdateRunsUVAndRebindsMetadataOnlyUVToolInstall(t *tes
 	}
 	if !reflect.DeepEqual(calls[1], []string{uvBin, "tool", "dir", "--bin"}) {
 		t.Fatalf("unexpected second uv call %#v", calls[1])
+	}
+}
+
+func TestManagementServiceCollectStatusRejectsMetadataScopeMismatch(t *testing.T) {
+	t.Parallel()
+
+	executable := writeTestExecutable(t, t.TempDir(), "setta")
+	service := newTestManagementService(t, executable, "1.2.3", nil)
+	requestedSettaHome := filepath.Join(t.TempDir(), ".setta")
+	metadataSettaHome := filepath.Join(t.TempDir(), ".setta-other")
+
+	metadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+		TargetCommand:          []string{executable},
+		Channel:                "manual",
+		InstallSource:          LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "scope-token",
+		SettaVersion:           "1.2.3",
+		SettaHome:              metadataSettaHome,
+		OpenMode:               LauncherOpenModeChromeApp,
+		WorkspaceBehavior:      LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build mismatched metadata: %v", err)
+	}
+	if _, err := WriteLauncherInstallMetadata(requestedSettaHome, metadata); err != nil {
+		t.Fatalf("write mismatched metadata: %v", err)
+	}
+
+	_, err = service.CollectStatus(requestedSettaHome)
+	if err == nil {
+		t.Fatal("expected collect status scope mismatch")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "LauncherMetadata" {
+		t.Fatalf("expected LauncherMetadata, got %q (%v)", setupErr.Code, err)
+	}
+	if !strings.Contains(setupErr.Message, "does not match requested scope") {
+		t.Fatalf("expected scope mismatch detail, got %q", setupErr.Message)
+	}
+}
+
+func TestManagementServiceSetupRejectsMetadataScopeMismatch(t *testing.T) {
+	t.Parallel()
+
+	executable := writeTestExecutable(t, t.TempDir(), "setta")
+	service := newTestManagementService(t, executable, "1.2.3", nil)
+	requestedSettaHome := filepath.Join(t.TempDir(), ".setta")
+	metadataSettaHome := filepath.Join(t.TempDir(), ".setta-other")
+
+	metadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+		TargetCommand:          []string{executable},
+		Channel:                "manual",
+		InstallSource:          LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "scope-token",
+		SettaVersion:           "1.2.3",
+		SettaHome:              metadataSettaHome,
+		OpenMode:               LauncherOpenModeChromeApp,
+		WorkspaceBehavior:      LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build mismatched metadata: %v", err)
+	}
+	if _, err := WriteLauncherInstallMetadata(requestedSettaHome, metadata); err != nil {
+		t.Fatalf("write mismatched metadata: %v", err)
+	}
+
+	_, err = service.Setup(requestedSettaHome, LauncherSetupInput{})
+	if err == nil {
+		t.Fatal("expected setup scope mismatch")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "LauncherMetadata" {
+		t.Fatalf("expected LauncherMetadata, got %q (%v)", setupErr.Code, err)
+	}
+	if !strings.Contains(setupErr.Message, "does not match requested scope") {
+		t.Fatalf("expected scope mismatch detail, got %q", setupErr.Message)
+	}
+}
+
+func TestManagementServiceSetupRejectsArtifactPathsOutsideTrustedRoots(t *testing.T) {
+	homeDir := prepareLauncherArtifactTestHome(t)
+	executable := writeTestExecutable(t, t.TempDir(), "setta")
+	service := newTestManagementService(t, executable, "1.2.3", nil)
+	settaHome := filepath.Join(homeDir, ".setta")
+	installArtifacts := true
+	outsidePath := filepath.Join(t.TempDir(), "outside", "setta-launcher")
+	artifactOptions := launcherOutsideTrustedRootOptions(outsidePath)
+
+	_, err := service.Setup(settaHome, LauncherSetupInput{
+		InstallArtifacts: &installArtifacts,
+		ArtifactOptions:  &artifactOptions,
+	})
+	if err == nil {
+		t.Fatal("expected outside trusted roots error")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "BadRequest" {
+		t.Fatalf("expected BadRequest, got %q (%v)", setupErr.Code, err)
+	}
+	if !strings.Contains(setupErr.Message, "outside trusted roots") {
+		t.Fatalf("expected outside trusted roots detail, got %q", setupErr.Message)
+	}
+
+	status, err := service.CollectStatus(settaHome)
+	if err != nil {
+		t.Fatalf("collect launcher status after rejected setup: %v", err)
+	}
+	if status.Installed {
+		t.Fatalf("expected failed setup to leave launcher uninstalled, got %#v", status)
+	}
+}
+
+func TestManagementServiceRemoveRejectsManagedArtifactsOutsideTrustedRoots(t *testing.T) {
+	homeDir := prepareLauncherArtifactTestHome(t)
+	executable := writeTestExecutable(t, t.TempDir(), "setta")
+	service := newTestManagementService(t, executable, "1.2.3", nil)
+	settaHome := filepath.Join(homeDir, ".setta")
+	outsidePath := filepath.Join(t.TempDir(), "outside", "managed-artifact")
+
+	metadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+		TargetCommand:          []string{executable},
+		Channel:                "manual",
+		InstallSource:          LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "outside-token",
+		SettaVersion:           "1.2.3",
+		SettaHome:              settaHome,
+		OpenMode:               LauncherOpenModeChromeApp,
+		WorkspaceBehavior:      LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts: map[string]string{
+			launcherManagedArtifactKeyForPlatform(): outsidePath,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build metadata with outside artifact: %v", err)
+	}
+	if _, err := WriteLauncherInstallMetadata(settaHome, metadata); err != nil {
+		t.Fatalf("write metadata with outside artifact: %v", err)
+	}
+
+	_, err = service.Remove(settaHome)
+	if err == nil {
+		t.Fatal("expected remove to reject outside trusted roots")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "LauncherMetadata" {
+		t.Fatalf("expected LauncherMetadata, got %q (%v)", setupErr.Code, err)
+	}
+	if !strings.Contains(setupErr.Message, "outside trusted roots") {
+		t.Fatalf("expected outside trusted roots detail, got %q", setupErr.Message)
+	}
+	metadataPath, err := resolveLauncherMetadataPath(settaHome)
+	if err != nil {
+		t.Fatalf("resolve launcher metadata path: %v", err)
+	}
+	if _, err := os.Stat(metadataPath); err != nil {
+		t.Fatalf("expected metadata to remain after rejected remove: %v", err)
+	}
+}
+
+func TestValidatePlannedArtifactPathsRejectsDuplicatePaths(t *testing.T) {
+	homeDir := prepareLauncherArtifactTestHome(t)
+	settaHome := filepath.Join(homeDir, ".setta")
+	launcherDir, err := resolveLauncherDir(settaHome)
+	if err != nil {
+		t.Fatalf("resolve launcher dir: %v", err)
+	}
+	duplicatePath := filepath.Join(launcherDir, "duplicate-artifact")
+
+	err = validatePlannedArtifactPaths(map[string]string{
+		"artifact-a": duplicatePath,
+		"artifact-b": duplicatePath,
+	}, settaHome)
+	if err == nil {
+		t.Fatal("expected duplicate artifact paths to fail")
+	}
+	var setupErr *LauncherSetupError
+	if !errors.As(err, &setupErr) {
+		t.Fatalf("expected LauncherSetupError, got %T: %v", err, err)
+	}
+	if setupErr.Code != "BadRequest" {
+		t.Fatalf("expected BadRequest, got %q (%v)", setupErr.Code, err)
+	}
+	if !strings.Contains(setupErr.Message, "must be unique") {
+		t.Fatalf("expected duplicate-path detail, got %q", setupErr.Message)
+	}
+}
+
+func launcherOutsideTrustedRootOptions(path string) map[string]string {
+	switch runtime.GOOS {
+	case "darwin":
+		return map[string]string{"app_path": path}
+	default:
+		return map[string]string{"wrapper_path": path}
+	}
+}
+
+func launcherManagedArtifactKeyForPlatform() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macosApp"
+	case "windows":
+		return "windowsWrapper"
+	default:
+		return "linuxWrapper"
 	}
 }
 
