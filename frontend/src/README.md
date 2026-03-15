@@ -10,10 +10,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-16`
-- Authored TS/TSX files under `frontend/src`: `1498`
-- Non-generated TS/TSX files at `1000+` lines: `37`
+- Authored TS/TSX files under `frontend/src`: `1503`
+- Non-generated TS/TSX files at `1000+` lines: `36`
 - Biggest current front-door hotspots:
-  - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`1658`)
   - `components/Pages/Home/HomePage.tsx` (`1620`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1377`)
   - `components/Section/Layouts/BrowserArea.tsx` (`1302`)
   - `components/Chat/ChatInput.tsx` (`1605`)
+  - `components/Chat/ChatMessages.tsx` (`1236`)
 
 ## Module Map
 
@@ -669,9 +669,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Section/Layouts/taskBoardTaskSchedule.tsx` owns the task-board
     schedule dropdown surface, due or repeat editors, and local recurrence
     draft state used by `components/Section/Layouts/TaskBoardArea.tsx`.
-  - `components/Section/Layouts/TaskBoardArea.tsx` now coordinates task-board
-    list or kanban view state, drag or drop, column or task commands, and task
-    card composition over those local schedule owners.
+  - `components/Section/Layouts/taskBoardAreaModel.ts` owns task or column
+    mutation helpers, DnD ids, drop-target resolution, and done-column
+    completion rules used by the task-board root and render owners.
+  - `components/Section/Layouts/taskBoardAreaToolbar.tsx` owns the task-board
+    view-mode switch plus add-task or add-column toolbar shell.
+  - `components/Section/Layouts/taskBoardAreaTaskListView.tsx` owns the
+    task-list header, row rendering, checkbox or column editing, and task
+    schedule/action chrome.
+  - `components/Section/Layouts/taskBoardAreaKanbanView.tsx` owns kanban lane,
+    resize-handle, and task-card rendering plus per-lane add-task shells.
+  - `components/Section/Layouts/TaskBoardArea.tsx` now coordinates optimistic
+    persistence, normalized board state, drag lifecycle, and kanban column
+    resize over those local task-board owners.
   - `utils/fileBrowser*.ts`, `utils/browserPaths.ts`, and nearby helpers own the
     pure file-browser derivation and path utilities.
 

@@ -44,7 +44,6 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
@@ -54,9 +53,10 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `ProjectChatCore.tsx`,
-  `ProjectChatHistory.tsx`, `ChatInput.tsx`, and `ChatMessages.tsx` are now
+  `ProjectChatHistory.tsx`, `TaskBoardArea.tsx`, and `appRegistry.tsx` are now
   second-order work unless the same slice directly shortens one of the entry
   surfaces above.
 - Local feature `README.md` files are useful once a root surface stabilizes,
@@ -68,8 +68,9 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 - Overview and authoring hotspots, including `GitGraphOverlay.tsx`,
   `PluginsPane.tsx`, `RunInstructions.tsx`, and `FileBrowserPane.tsx`, are
   covered in [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md).
-- Browser/layout surfaces such as `TaskBoardArea.tsx`, `BrowserArea.tsx`, and
-  the now-localized `ChatArea.tsx` owner path remain covered in
+- Browser/layout surfaces such as `BrowserArea.tsx`, the now-localized
+  `TaskBoardArea.tsx` owner path, and the now-localized `ChatArea.tsx` owner
+  path remain covered in
   [frontend-sections-and-params-cleanup-plan.md](./frontend-sections-and-params-cleanup-plan.md).
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
 - State/shared-infrastructure plans are usually secondary reading at this stage. Default to them only when a state or utility split is a direct prerequisite for shrinking a still-large UI entry surface, or when a same-turn slice still starts directly from a large shared-state front door.

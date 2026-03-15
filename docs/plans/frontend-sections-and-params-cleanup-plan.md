@@ -102,12 +102,20 @@ Make section chrome and param rendering easy to change without touching measurem
   preview-kind plus extension/staleness helpers to
   `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts`.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is no longer the
-  sole owner of task scheduling on this branch: it now delegates due or
-  recurrence summary formatting, recurrence ordering, and schedule value
-  helpers to
-  `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts` and
+  sole owner of task scheduling, board rendering, or task/column move math on
+  this branch: it now delegates due or recurrence summary formatting,
+  recurrence ordering, and schedule value helpers to
+  `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts`,
   the schedule dropdown shell plus local recurrence editor state to
-  `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`.
+  `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`,
+  task/column mutations plus DnD/drop-target math to
+  `frontend/src/components/Section/Layouts/taskBoardAreaModel.ts`,
+  the toolbar shell to
+  `frontend/src/components/Section/Layouts/taskBoardAreaToolbar.tsx`,
+  task-list rendering to
+  `frontend/src/components/Section/Layouts/taskBoardAreaTaskListView.tsx`, and
+  kanban lane/resize/task-card rendering to
+  `frontend/src/components/Section/Layouts/taskBoardAreaKanbanView.tsx`.
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is no longer the
   section-chat front door on this branch: it now routes between
   `frontend/src/components/Section/Layouts/chatAreaScriptableSurface.tsx` for
@@ -119,7 +127,6 @@ Make section chrome and param rendering easy to change without touching measurem
   shared send/stop realtime dependency telemetry.
 - The next default work in this domain should now start from the remaining
   layout front doors that contributors open first:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
 - Shared section/param infrastructure such as `GroupContainer.tsx`,
   `ParamUI.tsx`, and `SectionHeader.tsx` still matters, but it is now support
@@ -140,7 +147,6 @@ Make section chrome and param rendering easy to change without touching measurem
   - `frontend/src/state/actions/sections/createSectionPlacement.ts` is 72
     lines for smart placement helpers
 - Main shared hotspots include:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines
   - `frontend/src/components/Params/GroupContainer.tsx` at 999 lines
   - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx` at 944 lines
@@ -152,11 +158,11 @@ Make section chrome and param rendering easy to change without touching measurem
   acts as a thin managed-vs-scriptable branch router over
   `chatAreaManagedSurface.tsx`, `chatAreaManagedHistory.tsx`,
   `chatAreaScriptableSurface.tsx`, and `chatAreaRealtimeEvents.ts`.
-- `TaskBoardArea.tsx` still mixes:
-  - task/column command orchestration
-  - DnD state and drop-target math
-  - board shell rendering for list and kanban modes
-  - inline task editing and completion heuristics
+- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines
+  and acts as the task-board coordinator over `taskBoardAreaModel.ts` for
+  task/column mutations plus DnD math, `taskBoardAreaToolbar.tsx` for the
+  toolbar shell, `taskBoardAreaTaskListView.tsx` for list rendering, and
+  `taskBoardAreaKanbanView.tsx` for lane/resize/card rendering.
 - `BrowserArea.tsx` is smaller after the local preview-state extraction and is
   now a follow-through surface unless a same-turn slice clearly shortens it.
 - `GroupContainer.tsx` mixes:
@@ -196,9 +202,9 @@ Make section chrome and param rendering easy to change without touching measurem
 1. Simplify the layout-heavy front doors first
 
 - Start with:
-  - `TaskBoardArea.tsx`
-  - `BrowserArea.tsx` only after the first two or when it is the clearest
-    same-turn seam
+  - `BrowserArea.tsx`
+  - `TaskBoardArea.tsx` only when a same-turn follow-through shortens the
+    remaining root coordinator or one of its local owners
 - Continue through `chatAreaManagedSurface.tsx` or
   `chatAreaScriptableSurface.tsx` only when a same-turn slice directly
   shortens one of those local section-chat owners.

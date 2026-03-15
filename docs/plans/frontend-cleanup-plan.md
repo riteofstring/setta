@@ -54,22 +54,22 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1498 authored TS/TSX files under `frontend/src`.
-- There are 37 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
+- There are 1503 authored TS/TSX files under `frontend/src`.
+- There are 36 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1377 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, and conversation-search extractions
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1661 lines after the local slash-command extraction
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1658 lines after the local docked/floating/maximized surface extraction
-  - `frontend/src/components/Chat/ChatInput.tsx` at 1606 lines after the local composer meta-controls extraction
+  - `frontend/src/components/Chat/ChatInput.tsx` at 1605 lines after the local composer meta-controls extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a top-size hotspot
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1399 lines after the local tree-data transport/view-model extraction
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines after the local preview-surface and preview-state extraction
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
+- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
@@ -221,14 +221,21 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   front-door surfaces unless a same-turn slice directly shortens one of those
   paths through `ChatInput.tsx`.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` now delegates
-  task due or recurrence summary formatting, recurrence-order normalization, and
-  schedule value helpers to
-  `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts` and
-  the schedule dropdown shell plus local recurrence editor state to
-  `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`, so the
-  next default work in that domain should continue from the remaining board
-  layout, drag/drop, and task or column command clusters instead of re-cutting
-  those new local schedule owners.
+  task due or recurrence summary formatting to
+  `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts`,
+  schedule dropdown/editor state to
+  `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`,
+  task/column mutations plus DnD math to
+  `frontend/src/components/Section/Layouts/taskBoardAreaModel.ts`,
+  toolbar chrome to
+  `frontend/src/components/Section/Layouts/taskBoardAreaToolbar.tsx`,
+  task-list rendering to
+  `frontend/src/components/Section/Layouts/taskBoardAreaTaskListView.tsx`, and
+  kanban lane/resize/task-card rendering to
+  `frontend/src/components/Section/Layouts/taskBoardAreaKanbanView.tsx`, so
+  future work in that domain should continue from the remaining larger layout
+  front doors unless a same-turn follow-through shortens the task-board root
+  again.
 - Future cleanup should default to the remaining giant render-heavy entry
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
@@ -236,10 +243,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The remaining high-leverage work is now split between a few unresolved large
   UI front doors and a small set of still-large cross-domain entry surfaces.
   Default to those before revisiting already-improved coordinators such as
-  `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`,
-  `ChatInput.tsx`, `ChatMessages.tsx`, or `BrowserArea.tsx`.
+  `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatCore.tsx`,
+  `TaskBoardArea.tsx`, `RunInstructions.tsx`, or `appRegistry.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
@@ -268,10 +274,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Treat the existing thin compatibility facades as acceptable transition
   surfaces for now, but do not add more facade-only hops unless the same slice
   also shrinks one of the top hotspots above.
-- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is still a large
-  front-door file without strong root-level colocated test coverage on this
-  branch. If a slice starts there, add direct Vitest coverage for the extracted
-  ownership boundary as part of the same change.
+- `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now down to
+  about 614 lines with direct boundary coverage in
+  `frontend/src/components/Section/Layouts/taskBoardAreaModel.test.ts`. If a
+  future slice moves more root ownership there, update that coverage in the
+  same change.
 - Local feature `README.md` files are useful once a root surface stabilizes,
   but they are supporting work. Do not spend a cleanup slice on docs-only
   churn.

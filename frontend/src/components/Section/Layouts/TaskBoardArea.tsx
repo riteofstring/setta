@@ -1,38 +1,24 @@
-import type { UniqueIdentifier } from "@dnd-kit/abstract";
 import {
   KeyboardSensor,
   PointerActivationConstraints,
   PointerSensor,
 } from "@dnd-kit/dom";
-import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   DragDropProvider,
-  SortableContext,
-  useDroppable,
-  useSortable,
-  verticalListSortingStrategy,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from "forks/dnd-kit/adapter";
-import {
-  applyZoomToTransform,
-  transformToString,
-} from "forks/dnd-kit/adapter/zoom";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
-import { FiColumns, FiList, FiPlus, FiTrash2 } from "react-icons/fi";
-import { MdOutlinePlaylistAdd, MdPlaylistRemove } from "react-icons/md";
-import { RxDragHandleDots2 } from "react-icons/rx";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -48,52 +34,40 @@ import {
 } from "utils/constants";
 import { route_set_task_board_section_state } from "utils/generatedEndpoints";
 import {
-  createTaskBoardColumn,
-  createTaskBoardTask,
   SectionTypeEnum,
   TaskBoardColumn,
   TaskBoardTask,
-  TaskBoardTaskRecurrenceEnum,
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import {
   applyTaskBoardMutation,
   buildTaskBoardLanes,
-  getNextColumnSortIndex,
-  getNextTaskSortIndex,
   normalizeTaskBoardState,
   type TaskBoardMutationKind,
   type TaskBoardState,
 } from "utils/taskBoard";
 import { shallow } from "zustand/shallow";
-import { TaskScheduleMenu } from "./taskBoardTaskSchedule";
+import { TaskBoardAreaKanbanView } from "./taskBoardAreaKanbanView";
 import {
-  formatTaskDueCardSummary,
-  formatTaskDueSummary,
-  formatTaskRecurrenceCardSummary,
-  formatTaskRecurrenceSummary,
-} from "./taskBoardTaskScheduleModel";
-
-const TASK_DND_PREFIX = "task-board-task:";
-const COLUMN_DND_PREFIX = "task-board-column:";
-const TASK_BOARD_LIST_DROP_ID = "task-board-list-drop";
-const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
-const TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH = 240;
-const TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH = 180;
-
-type TaskLane = {
-  column: TaskBoardColumn;
-  tasks: TaskBoardTask[];
-};
-
-type TaskDropPlacement = "before" | "after";
-
-type TaskDropTarget = {
-  targetTaskId: string | null;
-  targetColumnId: string | null;
-  targetPlacement: TaskDropPlacement | null;
-};
+  appendTaskBoardColumn,
+  appendTaskBoardTask,
+  removeTaskBoardTask,
+  reorderTaskBoardTasks,
+  resolveSourceTaskIdFromDragEvent,
+  resolveTaskBoardDropTarget,
+  resolveTaskDropTargetFromDelta,
+  TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH,
+  TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH,
+  TASK_BOARD_NO_DRAG_CLASS_NAME,
+  toTaskBoardState,
+  updateTaskBoardColumn,
+  updateTaskBoardTask,
+  type TaskDropPlacement,
+  type TaskDropTarget,
+} from "./taskBoardAreaModel";
+import { TaskBoardTaskListView } from "./taskBoardAreaTaskListView";
+import { TaskBoardAreaToolbar } from "./taskBoardAreaToolbar";
 
 type TaskBoardDndSource = {
   element?: Element | null;
@@ -138,341 +112,6 @@ function useTaskBoardSensors(isDisabled: boolean) {
 
     return [pointerSensor, keyboardSensor];
   }, [isDisabled]);
-}
-
-function toTaskDndId(taskId: string): string {
-  return `${TASK_DND_PREFIX}${taskId}`;
-}
-
-function toColumnDndId(columnId: string): string {
-  return `${COLUMN_DND_PREFIX}${columnId}`;
-}
-
-function getTaskIdFromDndIdentifier(id: UniqueIdentifier): string | null {
-  const idText = String(id);
-  if (!idText.startsWith(TASK_DND_PREFIX)) {
-    return null;
-  }
-  return idText.slice(TASK_DND_PREFIX.length);
-}
-
-function getColumnIdFromDndIdentifier(id: UniqueIdentifier): string | null {
-  const idText = String(id);
-  if (!idText.startsWith(COLUMN_DND_PREFIX)) {
-    return null;
-  }
-  return idText.slice(COLUMN_DND_PREFIX.length);
-}
-
-function getTaskIdFromDndData(data: unknown): string | null {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-  const taskId = (data as { taskId?: unknown }).taskId;
-  if (typeof taskId !== "string" || taskId.trim() === "") {
-    return null;
-  }
-  return taskId;
-}
-
-function getColumnIdFromDndData(data: unknown): string | null {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-  const columnId = (data as { columnId?: unknown }).columnId;
-  if (typeof columnId !== "string" || columnId.trim() === "") {
-    return null;
-  }
-  return columnId;
-}
-
-function resolveSourceTaskIdFromDragEvent(
-  event: DragStartEvent | DragOverEvent | DragEndEvent,
-): string | null {
-  return (
-    getTaskIdFromDndIdentifier(event.active.id) ??
-    getTaskIdFromDndData(event.active.data?.current)
-  );
-}
-
-function resolveTaskDropPlacementFromCollisions({
-  collisions,
-  overId,
-  sourceTaskId,
-  targetTaskId,
-  tasks,
-}: {
-  collisions: DragOverEvent["collisions"] | DragEndEvent["collisions"];
-  overId: UniqueIdentifier;
-  sourceTaskId: string;
-  targetTaskId: string;
-  tasks: TaskBoardTask[];
-}): TaskDropPlacement {
-  const sourceIndex = tasks.findIndex((task) => task.id === sourceTaskId);
-  const targetIndex = tasks.findIndex((task) => task.id === targetTaskId);
-  if (sourceIndex !== -1 && targetIndex !== -1) {
-    if (sourceIndex < targetIndex) {
-      return "after";
-    }
-    if (sourceIndex > targetIndex) {
-      return "before";
-    }
-  }
-
-  const matchingCollision = collisions?.find(
-    (collision) => String(collision.id) === String(overId),
-  );
-  if (matchingCollision) {
-    if (matchingCollision.pastHalfway === true) {
-      return "after";
-    }
-    if (matchingCollision.pastHalfway === false) {
-      return "before";
-    }
-  }
-  return "before";
-}
-
-function resolveTaskBoardOverId({
-  sourceTaskId,
-  overId,
-  collisions,
-}: {
-  sourceTaskId: string;
-  overId: UniqueIdentifier | null;
-  collisions: DragOverEvent["collisions"] | DragEndEvent["collisions"];
-}): UniqueIdentifier | null {
-  const candidateIds: UniqueIdentifier[] = [];
-  if (overId !== null) {
-    candidateIds.push(overId);
-  }
-  collisions?.forEach((collision) => {
-    if (
-      candidateIds.some(
-        (candidateId) => String(candidateId) === String(collision.id),
-      )
-    ) {
-      return;
-    }
-    candidateIds.push(collision.id);
-  });
-
-  for (const candidateId of candidateIds) {
-    const candidateTaskId = getTaskIdFromDndIdentifier(candidateId);
-    if (candidateTaskId && candidateTaskId !== sourceTaskId) {
-      return candidateId;
-    }
-  }
-
-  for (const candidateId of candidateIds) {
-    if (getColumnIdFromDndIdentifier(candidateId)) {
-      return candidateId;
-    }
-  }
-
-  for (const candidateId of candidateIds) {
-    if (String(candidateId) === TASK_BOARD_LIST_DROP_ID) {
-      return candidateId;
-    }
-  }
-
-  return overId;
-}
-
-function resolveTaskBoardDropTarget({
-  sourceTaskId,
-  overId,
-  overData,
-  collisions,
-  tasks,
-  fallbackColumnId,
-}: {
-  sourceTaskId: string;
-  overId: UniqueIdentifier | null;
-  overData: unknown;
-  collisions: DragOverEvent["collisions"] | DragEndEvent["collisions"];
-  tasks: TaskBoardTask[];
-  fallbackColumnId: string | null;
-}): TaskDropTarget | null {
-  const resolvedOverId = resolveTaskBoardOverId({
-    sourceTaskId,
-    overId,
-    collisions,
-  });
-  if (!resolvedOverId) {
-    return null;
-  }
-
-  const targetTaskId =
-    getTaskIdFromDndData(overData) ??
-    getTaskIdFromDndIdentifier(resolvedOverId);
-  if (targetTaskId && targetTaskId !== sourceTaskId) {
-    const targetTask = tasks.find((task) => task.id === targetTaskId);
-    const placementOverId = resolvedOverId ?? overId;
-    if (!placementOverId) {
-      return null;
-    }
-    return {
-      targetTaskId,
-      targetColumnId:
-        getColumnIdFromDndData(overData) ??
-        targetTask?.columnId ??
-        fallbackColumnId,
-      targetPlacement: resolveTaskDropPlacementFromCollisions({
-        collisions,
-        overId: placementOverId,
-        sourceTaskId,
-        targetTaskId,
-        tasks,
-      }),
-    };
-  }
-
-  const targetColumnId =
-    getColumnIdFromDndData(overData) ??
-    getColumnIdFromDndIdentifier(resolvedOverId) ??
-    (String(resolvedOverId) === TASK_BOARD_LIST_DROP_ID
-      ? fallbackColumnId
-      : null);
-  if (!targetColumnId) {
-    return null;
-  }
-  return {
-    targetTaskId: null,
-    targetColumnId,
-    targetPlacement: null,
-  };
-}
-
-function resolveTaskDropTargetFromDelta({
-  tasks,
-  sourceTaskId,
-  fallbackColumnId,
-  viewMode,
-  deltaY,
-  itemHeight,
-}: {
-  tasks: TaskBoardTask[];
-  sourceTaskId: string;
-  fallbackColumnId: string | null;
-  viewMode: TaskBoardViewMode;
-  deltaY: number;
-  itemHeight: number | null;
-}): TaskDropTarget | null {
-  if (!Number.isFinite(deltaY) || Math.abs(deltaY) < 6) {
-    return null;
-  }
-
-  const sourceTask = tasks.find((task) => task.id === sourceTaskId);
-  if (!sourceTask) {
-    return null;
-  }
-
-  let candidateTasks = tasks;
-  let sourceColumnId: string | null = null;
-  if (viewMode === TaskBoardViewModeEnum.kanban) {
-    sourceColumnId = sourceTask.columnId ?? fallbackColumnId;
-    if (!sourceColumnId) {
-      return null;
-    }
-    candidateTasks = tasks.filter(
-      (task) => (task.columnId ?? fallbackColumnId) === sourceColumnId,
-    );
-  }
-
-  if (candidateTasks.length < 2) {
-    return null;
-  }
-
-  const sourceIndex = candidateTasks.findIndex(
-    (task) => task.id === sourceTaskId,
-  );
-  if (sourceIndex < 0) {
-    return null;
-  }
-
-  const safeItemHeight = Math.max(
-    24,
-    itemHeight !== null && Number.isFinite(itemHeight) ? itemHeight * 0.8 : 36,
-  );
-  const offset = Math.round(deltaY / safeItemHeight);
-  if (offset === 0) {
-    return null;
-  }
-
-  const targetIndex = Math.max(
-    0,
-    Math.min(candidateTasks.length - 1, sourceIndex + offset),
-  );
-  if (targetIndex === sourceIndex) {
-    return null;
-  }
-
-  const targetTask = candidateTasks[targetIndex];
-  if (!targetTask) {
-    return null;
-  }
-
-  return {
-    targetTaskId: targetTask.id,
-    targetColumnId:
-      viewMode === TaskBoardViewModeEnum.kanban
-        ? sourceColumnId
-        : targetTask.columnId ?? fallbackColumnId,
-    targetPlacement: targetIndex > sourceIndex ? "after" : "before",
-  };
-}
-
-function isDoneColumnName(columnName: string): boolean {
-  return columnName.trim().toLowerCase() === "done";
-}
-
-function shouldAutoCompleteColumnTask(
-  columns: TaskBoardColumn[],
-  targetColumnId: string | null,
-): boolean {
-  if (targetColumnId === null) {
-    return false;
-  }
-  const targetColumn = columns.find((column) => column.id === targetColumnId);
-  if (!targetColumn) {
-    return false;
-  }
-  return isDoneColumnName(targetColumn.name);
-}
-
-function findDoneColumnId(columns: TaskBoardColumn[]): string | null {
-  const doneColumn = columns.find((column) => isDoneColumnName(column.name));
-  if (!doneColumn) {
-    return null;
-  }
-  return doneColumn.id;
-}
-
-function toTaskBoardColumnId(
-  task: TaskBoardTask,
-  fallbackColumnId: string | null,
-): string | null {
-  if (task.columnId) {
-    return task.columnId;
-  }
-  return fallbackColumnId;
-}
-
-function toTaskBoardState({
-  viewMode,
-  columns,
-  tasks,
-}: {
-  viewMode: TaskBoardViewMode;
-  columns: TaskBoardColumn[];
-  tasks: TaskBoardTask[];
-}): TaskBoardState {
-  return {
-    viewMode,
-    columns,
-    tasks,
-  };
 }
 
 export function TaskBoardArea({ sectionId }: { sectionId: string }) {
@@ -564,7 +203,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   }, [cleanupKanbanResizeListeners]);
 
   const handleKanbanColumnResizeStart = useCallback(
-    (columnId: string, event: React.MouseEvent<HTMLDivElement>) => {
+    (columnId: string, event: ReactMouseEvent<HTMLDivElement>) => {
       if (isDisabled) {
         return;
       }
@@ -707,52 +346,27 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (isDisabled) {
         return;
       }
-      const title = newTaskTitle.trim();
       const defaultColumnId =
         columnId ?? normalizedState.columns[0]?.id ?? null;
       if (!defaultColumnId) {
         return;
       }
-      const task = createTaskBoardTask({
-        title: title.length > 0 ? title : "New Task",
-        columnId: defaultColumnId,
-        completed: shouldAutoCompleteColumnTask(
-          normalizedState.columns,
-          defaultColumnId,
-        ),
-        recurrence: TaskBoardTaskRecurrenceEnum.none,
-        sortIndex: getNextTaskSortIndex(normalizedState.tasks),
-      });
       setNewTaskTitle("");
-      updateState((current) => ({
-        ...current,
-        tasks: [...current.tasks, task],
-      }));
+      updateState((current) =>
+        appendTaskBoardTask(current, {
+          title: newTaskTitle,
+          columnId: defaultColumnId,
+        }),
+      );
     },
-    [
-      isDisabled,
-      newTaskTitle,
-      normalizedState.columns,
-      normalizedState.tasks,
-      updateState,
-    ],
+    [isDisabled, newTaskTitle, normalizedState.columns, updateState],
   );
 
   const addColumn = useCallback(() => {
     if (isDisabled) {
       return;
     }
-    updateState((current) => ({
-      ...current,
-      columns: [
-        ...current.columns,
-        createTaskBoardColumn({
-          name: `Column ${current.columns.length + 1}`,
-          color: "#3b82f6",
-          sortIndex: getNextColumnSortIndex(current.columns),
-        }),
-      ],
-    }));
+    updateState((current) => appendTaskBoardColumn(current));
   }, [isDisabled, updateState]);
 
   const setViewMode = useCallback(
@@ -777,12 +391,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         return;
       }
       updateState(
-        (current) => ({
-          ...current,
-          tasks: current.tasks.map((task) =>
-            task.id === taskId ? { ...task, ...patch } : task,
-          ),
-        }),
+        (current) => updateTaskBoardTask(current, taskId, patch),
         "non_structural",
       );
     },
@@ -794,18 +403,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (isDisabled) {
         return;
       }
-      updateState((current) => {
-        const nextTasks = current.tasks
-          .filter((task) => task.id !== taskId)
-          .map((task, index) => ({ ...task, sortIndex: index }));
-        if (nextTasks.length === current.tasks.length) {
-          return current;
-        }
-        return {
-          ...current,
-          tasks: nextTasks,
-        };
-      });
+      updateState((current) => removeTaskBoardTask(current, taskId));
     },
     [isDisabled, updateState],
   );
@@ -825,75 +423,14 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (isDisabled) {
         return;
       }
-      updateState((current) => {
-        const sourceIndex = current.tasks.findIndex(
-          (task) => task.id === sourceTaskId,
-        );
-        if (sourceIndex === -1) {
-          return current;
-        }
-        const sourceTask = current.tasks[sourceIndex];
-        if (!sourceTask) {
-          return current;
-        }
-        const resolvedTargetColumnId =
-          targetColumnId ??
-          current.tasks.find((task) => task.id === targetTaskId)?.columnId ??
-          sourceTask.columnId ??
-          current.columns[0]?.id ??
-          null;
-        const tasksWithoutSource = current.tasks.filter(
-          (task) => task.id !== sourceTaskId,
-        );
-        let targetIndex = tasksWithoutSource.length;
-        if (targetTaskId) {
-          const targetIndexWithoutSource = tasksWithoutSource.findIndex(
-            (task) => task.id === targetTaskId,
-          );
-          if (targetIndexWithoutSource >= 0) {
-            const placement = targetPlacement ?? "before";
-            targetIndex =
-              targetIndexWithoutSource + (placement === "after" ? 1 : 0);
-          }
-        } else if (resolvedTargetColumnId !== null) {
-          let lastLaneIndex = -1;
-          tasksWithoutSource.forEach((task, index) => {
-            if ((task.columnId ?? null) === resolvedTargetColumnId) {
-              lastLaneIndex = index;
-            }
-          });
-          if (lastLaneIndex >= 0) {
-            targetIndex = lastLaneIndex + 1;
-          }
-        }
-        const boundedTargetIndex = Math.max(
-          0,
-          Math.min(tasksWithoutSource.length, targetIndex),
-        );
-        const sourceTaskWithUpdatedColumn: TaskBoardTask = {
-          ...sourceTask,
-          columnId: resolvedTargetColumnId,
-          completed: shouldAutoCompleteColumnTask(
-            current.columns,
-            resolvedTargetColumnId,
-          )
-            ? true
-            : sourceTask.completed,
-        };
-        const nextTasks = [
-          ...tasksWithoutSource.slice(0, boundedTargetIndex),
-          sourceTaskWithUpdatedColumn,
-          ...tasksWithoutSource.slice(boundedTargetIndex),
-        ];
-        const tasksWithUpdatedSortIndex = nextTasks.map((task, index) => ({
-          ...task,
-          sortIndex: index,
-        }));
-        return {
-          ...current,
-          tasks: tasksWithUpdatedSortIndex,
-        };
-      });
+      updateState((current) =>
+        reorderTaskBoardTasks(current, {
+          sourceTaskId,
+          targetTaskId,
+          targetColumnId,
+          targetPlacement,
+        }),
+      );
     },
     [isDisabled, updateState],
   );
@@ -904,12 +441,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         return;
       }
       updateState(
-        (current) => ({
-          ...current,
-          columns: current.columns.map((column) =>
-            column.id === columnId ? { ...column, ...patch } : column,
-          ),
-        }),
+        (current) => updateTaskBoardColumn(current, columnId, patch),
         "non_structural",
       );
     },
@@ -1019,11 +551,6 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     ],
   );
 
-  const taskListItems = useMemo(
-    () => normalizedState.tasks.map((task) => toTaskDndId(task.id)),
-    [normalizedState.tasks],
-  );
-
   const dndContextValue = useMemo(
     () => ({
       isMovingFree: false,
@@ -1036,73 +563,15 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     <div
       className={`section-main section-main-full-w flex h-full min-w-[320px] flex-col gap-2 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
     >
-      <div className="mx-1 mt-2 flex shrink-0 flex-wrap items-center gap-2">
-        <button
-          type="button"
-          data-testid="task-board-view-task-list"
-          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
-            normalizedState.viewMode === TaskBoardViewModeEnum.task_list
-              ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
-              : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          }`}
-          onClick={() => setViewMode(TaskBoardViewModeEnum.task_list)}
-          disabled={isDisabled}
-          aria-label="Task list view"
-        >
-          <FiList size={14} />
-          Task List
-        </button>
-        <button
-          type="button"
-          data-testid="task-board-view-kanban"
-          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
-            normalizedState.viewMode === TaskBoardViewModeEnum.kanban
-              ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
-              : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          }`}
-          onClick={() => setViewMode(TaskBoardViewModeEnum.kanban)}
-          disabled={isDisabled}
-          aria-label="Kanban view"
-        >
-          <FiColumns size={14} />
-          Kanban
-        </button>
-        <input
-          value={newTaskTitle}
-          onChange={(event) => setNewTaskTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addTask();
-            }
-          }}
-          disabled={isDisabled}
-          placeholder="Add task title"
-          className="min-w-0 flex-1 rounded-md border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
-        />
-        {normalizedState.viewMode === TaskBoardViewModeEnum.task_list ? (
-          <button
-            type="button"
-            data-testid="task-board-add-task"
-            className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={() => addTask()}
-            disabled={isDisabled}
-          >
-            <FiPlus size={12} />
-            Task
-          </button>
-        ) : null}
-        <button
-          type="button"
-          data-testid="task-board-add-column"
-          className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={addColumn}
-          disabled={isDisabled}
-        >
-          <FiPlus size={12} />
-          Column
-        </button>
-      </div>
+      <TaskBoardAreaToolbar
+        viewMode={normalizedState.viewMode}
+        newTaskTitle={newTaskTitle}
+        isDisabled={isDisabled}
+        onNewTaskTitleChange={setNewTaskTitle}
+        onAddTask={() => addTask()}
+        onAddColumn={addColumn}
+        onViewModeChange={setViewMode}
+      />
 
       <DragDropProvider
         sensors={taskBoardSensors}
@@ -1115,637 +584,31 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       >
         <DragOperationShapeSync enabled />
         {normalizedState.viewMode === TaskBoardViewModeEnum.task_list ? (
-          <div className="min-h-0 flex-1 overflow-auto p-1">
-            <div
-              className="grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 border-b border-setta-200 bg-setta-50/80 px-1.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400"
-              data-testid="task-board-task-list-header"
-            >
-              <span aria-hidden="true" />
-              <span>Task</span>
-              <span>Column</span>
-            </div>
-            <SortableContext
-              id={`${sectionId}:task-list`}
-              items={taskListItems}
-              strategy={verticalListSortingStrategy}
-              forceSorting
-            >
-              <TaskBoardListDropZone fallbackColumnId={fallbackColumnId}>
-                {normalizedState.tasks.map((task) => (
-                  <TaskBoardTaskListRow
-                    key={task.id}
-                    task={task}
-                    fallbackColumnId={fallbackColumnId}
-                    columns={normalizedState.columns}
-                    isDisabled={isDisabled}
-                    isDragging={draggingTaskId === task.id}
-                    updateTask={updateTask}
-                    removeTask={removeTask}
-                  />
-                ))}
-              </TaskBoardListDropZone>
-            </SortableContext>
-            {normalizedState.tasks.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-setta-500 dark:text-setta-400">
-                No tasks yet. Add your first task above.
-              </div>
-            ) : null}
-          </div>
+          <TaskBoardTaskListView
+            sectionId={sectionId}
+            tasks={normalizedState.tasks}
+            columns={normalizedState.columns}
+            fallbackColumnId={fallbackColumnId}
+            isDisabled={isDisabled}
+            draggingTaskId={draggingTaskId}
+            updateTask={updateTask}
+            removeTask={removeTask}
+          />
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto p-1">
-            <div
-              ref={kanbanColumnsContainerRef}
-              className="flex h-full min-w-fit items-stretch"
-            >
-              {lanes.map((lane, laneIndex) => (
-                <Fragment key={lane.column.id}>
-                  {laneIndex > 0 && !isDisabled ? (
-                    <TaskBoardKanbanColumnResizeHandle
-                      dividerIndex={laneIndex - 1}
-                      onMouseDown={(event) => {
-                        const leftLane = lanes[laneIndex - 1];
-                        if (!leftLane) {
-                          return;
-                        }
-                        handleKanbanColumnResizeStart(
-                          leftLane.column.id,
-                          event,
-                        );
-                      }}
-                    />
-                  ) : null}
-                  <TaskBoardKanbanLane
-                    lane={lane}
-                    columnWidth={getKanbanColumnWidth(lane.column.id)}
-                    isDisabled={isDisabled}
-                    draggingTaskId={draggingTaskId}
-                    updateTask={updateTask}
-                    removeTask={removeTask}
-                    updateColumn={updateColumn}
-                    addTask={addTask}
-                  />
-                </Fragment>
-              ))}
-            </div>
-          </div>
+          <TaskBoardAreaKanbanView
+            lanes={lanes}
+            kanbanColumnsContainerRef={kanbanColumnsContainerRef}
+            isDisabled={isDisabled}
+            draggingTaskId={draggingTaskId}
+            getKanbanColumnWidth={getKanbanColumnWidth}
+            onResizeStart={handleKanbanColumnResizeStart}
+            updateTask={updateTask}
+            removeTask={removeTask}
+            updateColumn={updateColumn}
+            addTask={addTask}
+          />
         )}
       </DragDropProvider>
-    </div>
-  );
-}
-
-function TaskBoardListDropZone({
-  children,
-  fallbackColumnId,
-}: {
-  children: ReactNode;
-  fallbackColumnId: string | null;
-}) {
-  const dropId =
-    fallbackColumnId !== null
-      ? toColumnDndId(fallbackColumnId)
-      : TASK_BOARD_LIST_DROP_ID;
-  const { isOver, setNodeRef } = useDroppable({
-    id: dropId,
-    data: {
-      type: "task-board-list",
-      columnId: fallbackColumnId,
-    },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`${isOver ? "bg-blue-50/40 dark:bg-blue-950/30" : ""}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function TaskBoardTaskListRow({
-  task,
-  fallbackColumnId,
-  columns,
-  isDisabled,
-  isDragging,
-  updateTask,
-  removeTask,
-}: {
-  task: TaskBoardTask;
-  fallbackColumnId: string | null;
-  columns: TaskBoardColumn[];
-  isDisabled: boolean;
-  isDragging: boolean;
-  updateTask: (taskId: string, patch: Partial<TaskBoardTask>) => void;
-  removeTask: (taskId: string) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging: isDraggingByDnd,
-    isOver,
-  } = useSortable({
-    id: toTaskDndId(task.id),
-    disabled: isDisabled,
-    transition: {
-      duration: 30,
-      easing: "cubic-bezier(0.2, 0, 0, 1)",
-    },
-    data: {
-      type: "task-board-task",
-      taskId: task.id,
-      columnId: toTaskBoardColumnId(task, fallbackColumnId),
-      sortableOrientation: "vertical",
-    },
-  });
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
-    transition,
-    zIndex: isDraggingByDnd ? 5 : undefined,
-  };
-  const dueSummary = formatTaskDueSummary(task.dueDateIso);
-  const recurrenceSummary = formatTaskRecurrenceSummary(task);
-  const [isDescriptionVisible, setIsDescriptionVisible] = useState(
-    task.description.trim() !== "",
-  );
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={dndStyle}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} mx-0.5 my-0.5 grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 rounded-md border border-setta-100 bg-white/95 py-0.5 pl-0.5 pr-1.5 dark:border-setta-800 dark:bg-setta-900/60 ${
-        isDragging || isDraggingByDnd ? "opacity-60" : ""
-      } ${
-        isOver && !isDraggingByDnd
-          ? "ring-1 ring-blue-400 dark:ring-blue-500"
-          : ""
-      }`}
-      data-task-board-task-id={task.id}
-      data-testid="task-board-task-drag-surface"
-    >
-      <div className="flex items-center justify-start">
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          className={`${NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-400 transition focus-visible:border-blue-400 focus-visible:outline-none dark:text-setta-500 ${
-            isDisabled
-              ? "cursor-default opacity-50"
-              : "cursor-grab active:cursor-grabbing"
-          }`}
-          aria-label="Drag task"
-          data-testid="task-board-task-drag-handle"
-          disabled={isDisabled}
-          {...attributes}
-          {...listeners}
-        >
-          <RxDragHandleDots2 size={14} />
-        </button>
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-1.5">
-          <input
-            type="checkbox"
-            checked={task.completed}
-            onChange={(event) => {
-              const isCompleted = event.target.checked;
-              if (isCompleted) {
-                const doneColumnId = findDoneColumnId(columns);
-                updateTask(task.id, {
-                  completed: true,
-                  ...(doneColumnId ? { columnId: doneColumnId } : {}),
-                });
-                return;
-              }
-              updateTask(task.id, { completed: false });
-            }}
-            disabled={isDisabled}
-            aria-label="Mark task done"
-            data-testid="task-board-task-list-done-checkbox"
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} h-4 w-4 shrink-0 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 disabled:opacity-50`}
-          />
-          <input
-            type="text"
-            key={`${task.id}-${task.title}`}
-            defaultValue={task.title}
-            onBlur={(event) => {
-              const nextTitle = event.target.value.trim();
-              if (nextTitle !== task.title) {
-                updateTask(task.id, { title: nextTitle });
-              }
-            }}
-            disabled={isDisabled}
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100`}
-          />
-          <TaskScheduleMenu
-            task={task}
-            isDisabled={isDisabled}
-            dueSummary={dueSummary}
-            recurrenceSummary={recurrenceSummary}
-            onChangePatch={(patch) => updateTask(task.id, patch)}
-          />
-          <button
-            type="button"
-            data-testid={`task-board-task-description-toggle-${task.id}`}
-            aria-label={
-              isDescriptionVisible
-                ? "Remove task description"
-                : "Add task description"
-            }
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
-            disabled={isDisabled}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (isDescriptionVisible) {
-                updateTask(task.id, { description: "" });
-                setIsDescriptionVisible(false);
-                return;
-              }
-              setIsDescriptionVisible(true);
-            }}
-          >
-            {isDescriptionVisible ? (
-              <MdPlaylistRemove size={12} />
-            ) : (
-              <MdOutlinePlaylistAdd size={12} />
-            )}
-          </button>
-          <button
-            type="button"
-            data-testid={`task-board-task-remove-${task.id}`}
-            aria-label="Remove task"
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-red-300 text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950/30`}
-            disabled={isDisabled}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              removeTask(task.id);
-            }}
-          >
-            <FiTrash2 size={12} />
-          </button>
-        </div>
-        {isDescriptionVisible ? (
-          <textarea
-            key={`${task.id}-${task.description}`}
-            data-testid={`task-board-task-description-input-${task.id}`}
-            defaultValue={task.description}
-            placeholder="Description"
-            onBlur={(event) => {
-              const nextDescription = event.target.value.trim();
-              if (nextDescription !== task.description) {
-                updateTask(task.id, { description: nextDescription });
-              }
-            }}
-            disabled={isDisabled}
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} mt-1 min-h-[44px] w-full resize-y rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100`}
-          />
-        ) : null}
-      </div>
-      <div>
-        <select
-          value={toTaskBoardColumnId(task, fallbackColumnId) ?? ""}
-          onChange={(event) => {
-            const nextColumnId = event.target.value;
-            updateTask(task.id, {
-              columnId: nextColumnId,
-              completed: shouldAutoCompleteColumnTask(columns, nextColumnId)
-                ? true
-                : task.completed,
-            });
-          }}
-          disabled={isDisabled}
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100`}
-        >
-          {columns.map((column) => (
-            <option key={column.id} value={column.id}>
-              {column.name}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
-
-function TaskBoardKanbanColumnResizeHandle({
-  dividerIndex,
-  onMouseDown,
-}: {
-  dividerIndex: number;
-  onMouseDown: React.MouseEventHandler<HTMLDivElement>;
-}) {
-  return (
-    <div
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} relative z-20 flex w-3 shrink-0 items-stretch justify-center`}
-      data-testid={`task-board-kanban-resize-handle-${dividerIndex}`}
-    >
-      <div className="absolute inset-y-0 left-1/2 -translate-x-1/2">
-        <ResizeHandle showResizeHandle={true} onMouseDown={onMouseDown} />
-      </div>
-    </div>
-  );
-}
-
-function TaskBoardKanbanLane({
-  lane,
-  columnWidth,
-  isDisabled,
-  draggingTaskId,
-  updateTask,
-  removeTask,
-  updateColumn,
-  addTask,
-}: {
-  lane: TaskLane;
-  columnWidth: number;
-  isDisabled: boolean;
-  draggingTaskId: string | null;
-  updateTask: (taskId: string, patch: Partial<TaskBoardTask>) => void;
-  removeTask: (taskId: string) => void;
-  updateColumn: (columnId: string, patch: Partial<TaskBoardColumn>) => void;
-  addTask: (columnId?: string) => void;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: toColumnDndId(lane.column.id),
-    data: {
-      type: "task-board-column",
-      columnId: lane.column.id,
-    },
-  });
-  const laneItems = lane.tasks.map((task) => toTaskDndId(task.id));
-
-  return (
-    <article
-      ref={setNodeRef}
-      className={`flex h-full shrink-0 flex-col rounded-md border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/30 ${
-        isOver ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""
-      }`}
-      style={{ width: `${columnWidth}px` }}
-      data-task-board-column-id={lane.column.id}
-    >
-      <header className="border-b border-setta-200 px-2 py-2 dark:border-setta-800">
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={lane.column.color}
-            onChange={(event) =>
-              updateColumn(lane.column.id, {
-                color: event.target.value,
-              })
-            }
-            disabled={isDisabled}
-            className="h-6 w-8 cursor-pointer rounded border border-setta-200 bg-transparent p-0 disabled:opacity-50 dark:border-setta-700"
-            aria-label="Column color"
-          />
-          <input
-            key={`${lane.column.id}-${lane.column.name}`}
-            defaultValue={lane.column.name}
-            onBlur={(event) => {
-              const nextName = event.target.value.trim();
-              if (nextName && nextName !== lane.column.name) {
-                updateColumn(lane.column.id, { name: nextName });
-              }
-            }}
-            disabled={isDisabled}
-            className="min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-          />
-        </div>
-      </header>
-      <SortableContext
-        id={`task-board-lane:${lane.column.id}`}
-        items={laneItems}
-        strategy={verticalListSortingStrategy}
-        forceSorting
-      >
-        <div className="flex min-h-[140px] flex-1 flex-col gap-2 overflow-auto px-2 py-2">
-          {lane.tasks.map((task) => (
-            <TaskBoardKanbanTaskCard
-              key={task.id}
-              task={task}
-              laneColumnId={lane.column.id}
-              isDisabled={isDisabled}
-              isDragging={draggingTaskId === task.id}
-              updateTask={updateTask}
-              removeTask={removeTask}
-            />
-          ))}
-          {lane.tasks.length === 0 ? (
-            <p
-              className={`rounded border border-dashed px-2 py-3 text-center text-[11px] ${
-                isOver
-                  ? "border-blue-400 bg-blue-50/70 text-blue-700 dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-200"
-                  : "border-setta-200 text-setta-500 dark:border-setta-800 dark:text-setta-400"
-              }`}
-            >
-              No tasks in this lane.
-            </p>
-          ) : null}
-        </div>
-      </SortableContext>
-      <div className="border-t border-setta-200 p-2 dark:border-setta-800">
-        <button
-          type="button"
-          data-testid={`task-board-kanban-add-task-${lane.column.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={() => addTask(lane.column.id)}
-          disabled={isDisabled}
-        >
-          <FiPlus size={12} />
-          Task
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function TaskBoardKanbanTaskCard({
-  task,
-  laneColumnId,
-  isDisabled,
-  isDragging,
-  updateTask,
-  removeTask,
-}: {
-  task: TaskBoardTask;
-  laneColumnId: string;
-  isDisabled: boolean;
-  isDragging: boolean;
-  updateTask: (taskId: string, patch: Partial<TaskBoardTask>) => void;
-  removeTask: (taskId: string) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging: isDraggingByDnd,
-    isOver,
-  } = useSortable({
-    id: toTaskDndId(task.id),
-    disabled: isDisabled,
-    transition: {
-      duration: 30,
-      easing: "cubic-bezier(0.2, 0, 0, 1)",
-    },
-    data: {
-      type: "task-board-task",
-      taskId: task.id,
-      columnId: laneColumnId,
-      sortableOrientation: "vertical",
-    },
-  });
-
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
-    transition,
-    zIndex: isDraggingByDnd ? 5 : undefined,
-  };
-  const dueSummary = formatTaskDueSummary(task.dueDateIso);
-  const recurrenceSummary = formatTaskRecurrenceSummary(task);
-  const cardDueSummary = formatTaskDueCardSummary(task.dueDateIso);
-  const cardRecurrenceSummary = formatTaskRecurrenceCardSummary(task);
-  const hasCardScheduleSummary =
-    cardDueSummary !== null || cardRecurrenceSummary !== null;
-  const hasSecondaryContent =
-    task.description.trim() !== "" || hasCardScheduleSummary;
-  const [isDescriptionVisible, setIsDescriptionVisible] = useState(
-    task.description.trim() !== "",
-  );
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={dndStyle}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} rounded-md border border-setta-200 bg-white py-2 pl-0.5 pr-2 dark:border-setta-700 dark:bg-setta-900 ${
-        isDragging || isDraggingByDnd ? "opacity-60" : ""
-      } ${
-        isOver && !isDraggingByDnd
-          ? "ring-1 ring-blue-400 dark:ring-blue-500"
-          : ""
-      }`}
-      data-task-board-task-id={task.id}
-      data-testid="task-board-task-drag-surface"
-    >
-      <div
-        className={`flex items-center gap-1.5 ${hasSecondaryContent ? "mb-1.5" : ""}`}
-      >
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          className={`${NO_DRAG_CLASS_NAME} -ml-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-transparent text-setta-400 transition focus-visible:border-blue-400 focus-visible:outline-none dark:text-setta-500 ${
-            isDisabled
-              ? "cursor-default opacity-50"
-              : "cursor-grab active:cursor-grabbing"
-          }`}
-          aria-label="Drag task"
-          data-testid="task-board-task-drag-handle"
-          disabled={isDisabled}
-          {...attributes}
-          {...listeners}
-        >
-          <RxDragHandleDots2 size={16} />
-        </button>
-        <input
-          type="text"
-          key={`${task.id}-${task.title}`}
-          defaultValue={task.title}
-          onBlur={(event) => {
-            const nextTitle = event.target.value.trim();
-            if (nextTitle !== task.title) {
-              updateTask(task.id, { title: nextTitle });
-            }
-          }}
-          disabled={isDisabled}
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100`}
-        />
-        <TaskScheduleMenu
-          task={task}
-          isDisabled={isDisabled}
-          dueSummary={dueSummary}
-          recurrenceSummary={recurrenceSummary}
-          onChangePatch={(patch) => updateTask(task.id, patch)}
-        />
-        <button
-          type="button"
-          data-testid={`task-board-task-description-toggle-${task.id}`}
-          aria-label={
-            isDescriptionVisible
-              ? "Remove task description"
-              : "Add task description"
-          }
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
-          disabled={isDisabled}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (isDescriptionVisible) {
-              updateTask(task.id, { description: "" });
-              setIsDescriptionVisible(false);
-              return;
-            }
-            setIsDescriptionVisible(true);
-          }}
-        >
-          {isDescriptionVisible ? (
-            <MdPlaylistRemove size={12} />
-          ) : (
-            <MdOutlinePlaylistAdd size={12} />
-          )}
-        </button>
-        <button
-          type="button"
-          data-testid={`task-board-task-remove-${task.id}`}
-          aria-label="Remove task"
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-red-300 text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950/30`}
-          disabled={isDisabled}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            removeTask(task.id);
-          }}
-        >
-          <FiTrash2 size={12} />
-        </button>
-      </div>
-      {isDescriptionVisible ? (
-        <textarea
-          key={`${task.id}-${task.description}`}
-          data-testid={`task-board-task-description-input-${task.id}`}
-          defaultValue={task.description}
-          placeholder="Description"
-          onBlur={(event) => {
-            const nextDescription = event.target.value.trim();
-            if (nextDescription !== task.description) {
-              updateTask(task.id, { description: nextDescription });
-            }
-          }}
-          disabled={isDisabled}
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} mb-1.5 min-h-[52px] w-full resize-y rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100`}
-        />
-      ) : null}
-      {hasCardScheduleSummary ? (
-        <div className="min-w-0 space-y-0.5 text-[11px] text-setta-500 dark:text-setta-400">
-          {cardDueSummary ? (
-            <p className="truncate" title={cardDueSummary}>
-              {cardDueSummary}
-            </p>
-          ) : null}
-          {cardRecurrenceSummary ? (
-            <p className="truncate" title={cardRecurrenceSummary}>
-              {cardRecurrenceSummary}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }
