@@ -57,46 +57,39 @@ import {
   MdVerticalAlignBottom,
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
-import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import {
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
-} from "state/actions/projectChatWindowingNormalization";
-import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
-import {
+  bootProjectChatWindowToCanvasSection,
   clearTrackedGitPaneGraphWindowIfMatches,
-  getTrackedGitPaneGraphWindowInstanceIdForProject,
-} from "state/actions/projectChatWindowingTrackedGitPaneState";
-import {
-  setProjectChatWindowBounds,
-  setProjectChatWindowBoundsById,
-  setProjectChatWindowDockFractions,
-  setProjectChatWindowPlacement,
-} from "state/actions/projectChatWindowLayoutCommands";
-import {
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-  unmaximizeProjectChatWindow,
-} from "state/actions/projectChatWindowLifecycleCommands";
-import {
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+  setProjectChatWindowBounds,
+  setProjectChatWindowBoundsById,
   setProjectChatWindowChatId,
+  setProjectChatWindowDockFractions,
+  setProjectChatWindowPlacement,
   setProjectChatWindowTitle,
-} from "state/actions/projectChatWindowMetadataCommands";
-import { showSectionInProjectChatWindow } from "state/actions/projectChatWindowSectionCommands";
+  showSectionInProjectChatWindow,
+  unmaximizeProjectChatWindow,
+} from "state/actions/projectChatWindowing";
+import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,
+  useLocalStorage,
+  useMisc,
   useProjectState,
+  useSettings,
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { useMisc } from "state/stores/layoutInteractionStores";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

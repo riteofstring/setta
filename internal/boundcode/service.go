@@ -1,0 +1,294 @@
+package boundcode
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+)
+
+const defaultPollInterval = 300 * time.Millisecond
+
+type Binding struct {
+	ProjectID string
+	SectionID string
+}
+
+type FileInput struct {
+	Path     string
+	Bindings []Binding
+}
+
+type FileUpdate struct {
+	Path     string
+	Raw      string
+	Bindings []Binding
+}
+
+type ServiceOptions struct {
+	PollInterval time.Duration
+	OnFileUpdate func(context.Context, FileUpdate) error
+	OnError      func(error)
+}
+
+type Service struct {
+	pollInterval time.Duration
+	onFileUpdate func(context.Context, FileUpdate) error
+	onError      func(error)
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	done   chan struct{}
+
+	mu     sync.Mutex
+	tracks map[string]trackedFile
+}
+
+type trackedFile struct {
+	bindings []Binding
+	state    fileState
+}
+
+type fileState struct {
+	initialized bool
+	exists      bool
+	size        int64
+	modTime     time.Time
+	hash        string
+}
+
+func NewService(options ServiceOptions) (*Service, error) {
+	if options.OnFileUpdate == nil {
+		return nil, fmt.Errorf("bound code file update callback is required")
+	}
+	if options.PollInterval <= 0 {
+		options.PollInterval = defaultPollInterval
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	service := &Service{
+		pollInterval: options.PollInterval,
+		onFileUpdate: options.OnFileUpdate,
+		onError:      options.OnError,
+		ctx:          ctx,
+		cancel:       cancel,
+		done:         make(chan struct{}),
+		tracks:       map[string]trackedFile{},
+	}
+	go service.run()
+	return service, nil
+}
+
+func (s *Service) Close() error {
+	if s == nil {
+		return nil
+	}
+	s.cancel()
+	<-s.done
+	return nil
+}
+
+func (s *Service) SyncInputs(inputs []FileInput) error {
+	if s == nil {
+		return nil
+	}
+
+	next := make(map[string]trackedFile, len(inputs))
+	for _, input := range inputs {
+		path := strings.TrimSpace(input.Path)
+		if path == "" {
+			return fmt.Errorf("bound code file path is required")
+		}
+
+		bindings := normalizeBindings(input.Bindings)
+		if len(bindings) == 0 {
+			continue
+		}
+
+		track, exists := next[path]
+		if !exists {
+			next[path] = trackedFile{
+				bindings: bindings,
+			}
+			continue
+		}
+		track.bindings = mergeBindings(track.bindings, bindings)
+		next[path] = track
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for path, track := range next {
+		if existing, ok := s.tracks[path]; ok {
+			track.state = existing.state
+		}
+		next[path] = track
+	}
+	s.tracks = next
+	return nil
+}
+
+func (s *Service) run() {
+	ticker := time.NewTicker(s.pollInterval)
+	defer ticker.Stop()
+	defer close(s.done)
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.poll()
+		}
+	}
+}
+
+func (s *Service) poll() {
+	for _, pollInput := range s.snapshotTracks() {
+		if err := s.pollFile(pollInput); err != nil {
+			s.reportError(err)
+		}
+	}
+}
+
+type pollInput struct {
+	path     string
+	bindings []Binding
+	state    fileState
+}
+
+func (s *Service) snapshotTracks() []pollInput {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	paths := make([]string, 0, len(s.tracks))
+	for path := range s.tracks {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	inputs := make([]pollInput, 0, len(paths))
+	for _, path := range paths {
+		track := s.tracks[path]
+		inputs = append(inputs, pollInput{
+			path:     path,
+			bindings: append([]Binding(nil), track.bindings...),
+			state:    track.state,
+		})
+	}
+	return inputs
+}
+
+func (s *Service) pollFile(input pollInput) error {
+	info, err := os.Stat(input.path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			s.recordState(input.path, fileState{
+				initialized: true,
+				exists:      false,
+			})
+			return nil
+		}
+		return fmt.Errorf("bound code file stat %q: %w", input.path, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("bound code file %q must be a file", input.path)
+	}
+
+	if input.state.initialized && input.state.exists && info.Size() == input.state.size && info.ModTime().Equal(input.state.modTime) {
+		return nil
+	}
+
+	rawBytes, err := os.ReadFile(input.path)
+	if err != nil {
+		return fmt.Errorf("bound code file read %q: %w", input.path, err)
+	}
+	hash := hashContent(rawBytes)
+	nextState := fileState{
+		initialized: true,
+		exists:      true,
+		size:        info.Size(),
+		modTime:     info.ModTime(),
+		hash:        hash,
+	}
+
+	if !input.state.initialized {
+		s.recordState(input.path, nextState)
+		return nil
+	}
+	if input.state.exists && input.state.hash == hash {
+		s.recordState(input.path, nextState)
+		return nil
+	}
+
+	if err := s.onFileUpdate(s.ctx, FileUpdate{
+		Path:     input.path,
+		Raw:      string(rawBytes),
+		Bindings: append([]Binding(nil), input.bindings...),
+	}); err != nil {
+		return fmt.Errorf("bound code file update %q: %w", input.path, err)
+	}
+	s.recordState(input.path, nextState)
+	return nil
+}
+
+func (s *Service) recordState(path string, state fileState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	track, ok := s.tracks[path]
+	if !ok {
+		return
+	}
+	track.state = state
+	s.tracks[path] = track
+}
+
+func (s *Service) reportError(err error) {
+	if err == nil || s.onError == nil {
+		return
+	}
+	s.onError(err)
+}
+
+func normalizeBindings(bindings []Binding) []Binding {
+	normalized := make([]Binding, 0, len(bindings))
+	seen := map[Binding]struct{}{}
+	for _, binding := range bindings {
+		normalizedBinding := Binding{
+			ProjectID: strings.TrimSpace(binding.ProjectID),
+			SectionID: strings.TrimSpace(binding.SectionID),
+		}
+		if normalizedBinding.ProjectID == "" || normalizedBinding.SectionID == "" {
+			continue
+		}
+		if _, exists := seen[normalizedBinding]; exists {
+			continue
+		}
+		seen[normalizedBinding] = struct{}{}
+		normalized = append(normalized, normalizedBinding)
+	}
+	sort.Slice(normalized, func(left int, right int) bool {
+		if normalized[left].ProjectID != normalized[right].ProjectID {
+			return normalized[left].ProjectID < normalized[right].ProjectID
+		}
+		return normalized[left].SectionID < normalized[right].SectionID
+	})
+	return normalized
+}
+
+func mergeBindings(existing []Binding, additions []Binding) []Binding {
+	return normalizeBindings(append(append([]Binding(nil), existing...), additions...))
+}
+
+func hashContent(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
