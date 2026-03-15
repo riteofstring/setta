@@ -10,11 +10,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1463`
-- Non-generated TS/TSX files at `1000+` lines: `43`
+- Authored TS/TSX files under `frontend/src`: `1466`
+- Non-generated TS/TSX files at `1000+` lines: `42`
 - Biggest current production hotspots:
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
-  - `components/Git/GitGraphOverlay.tsx` (`2040`)
   - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
   - `plugins/runtime.ts` (`1948`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/App/appRegistry.tsx` (`1753`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`1658`)
 
 ## Module Map
 
@@ -594,6 +594,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/Panes/Overview/Git/*` and `components/Git/*` own the git pane,
     diff overlay, graph overlay, and embedded graph window UI.
+  - `components/Git/gitGraphOverlayResizeModel.ts` owns git-graph split or
+    column-width constants, CSS-variable names, clamp math, double-click reset
+    logic, and local-storage patch shaping used by the graph overlay resize
+    flow.
+  - `components/Git/useGitGraphOverlayResize.ts` owns git-graph drag cleanup,
+    request-animation-frame resize application, CSS-variable writes, and
+    persisted split or column-width updates used by
+    `components/Git/GitGraphOverlay.tsx`.
+  - `components/Git/GitGraphOverlay.tsx` now focuses on graph filter state,
+    row-height caching, virtualized commit-row composition, and selected-commit
+    detail rendering over those local resize owners.
   - `state/actions/gitStatusState.ts` owns git status refresh plus diff
     availability derivation.
   - `state/actions/gitDiffOverlayActions.ts` owns diff overlay opening,

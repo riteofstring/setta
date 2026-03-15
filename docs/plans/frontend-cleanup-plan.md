@@ -71,11 +71,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - App and plugin runtime remain cleanup hotspots:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 2040 lines
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` at 2023 lines
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/plugins/runtime.ts` at 1948 lines after the local project-state bridge extraction
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
+  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
 
 ## Current Pivot (2026-03-15)
@@ -190,7 +190,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ChatMessages.tsx`, `FileBrowserPane.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
@@ -200,6 +199,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
@@ -866,10 +866,10 @@ Notes:
 
 - Start with the biggest unresolved first-hop surfaces:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -970,14 +970,13 @@ Notes:
    they are missing, stale, or changed by your slice.
 2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
    usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
-   `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`,
-   `components/Git/GitGraphOverlay.tsx`,
    `components/Panes/Overview/Plugins/PluginsPane.tsx`,
    `components/Section/Layouts/ChatArea.tsx`,
    `plugins/runtime.ts`,
    `components/Panes/Overview/RunInstructions.tsx`,
    `components/App/appRegistry.tsx`,
    `components/Section/Layouts/TaskBoardArea.tsx`,
+   `components/Git/GitGraphOverlay.tsx`,
    `components/Pages/Home/HomePage.tsx`,
    `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or
    `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.

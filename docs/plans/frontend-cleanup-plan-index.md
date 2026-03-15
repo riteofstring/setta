@@ -45,7 +45,6 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 
 - The highest-value unresolved front-door hotspots are:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
@@ -54,6 +53,8 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `ProjectChatCore.tsx`, `ProjectChatHistory.tsx`, `ChatInput.tsx`,
   `ChatMessages.tsx`, `FileBrowserPane.tsx`, and `BrowserArea.tsx` are now

@@ -21,9 +21,9 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 ## Status Refresh (2026-03-15)
 
 - `AppConfigPane.tsx` is no longer the original 1700+ line monolith. It already delegates preview/draft shaping work to `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`.
-- `GitGraphOverlay.tsx` is now one of the clearest remaining non-chat
-  front-door hotspots in the frontend and should usually beat `FileBrowserPane`
-  as a default starting point in this domain.
+- `GitGraphOverlay.tsx` is still a meaningful pane-domain hotspot, but the
+  resize extraction dropped it behind `PluginsPane.tsx` and
+  `RunInstructions.tsx` as the default next pane-side entry surface.
 - `PluginsPane.tsx` and `RunInstructions.tsx` are still large pane entry
   surfaces that contributors open before most of the deeper overview helpers.
 - `RunInstructions.tsx` already has helper seams in `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`, but the main surface still carries too much orchestration.
@@ -33,17 +33,17 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   those seams instead of reintroducing transport logic into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
   to the largest pane and git entry surfaces contributors still open first:
-  `GitGraphOverlay.tsx`, `PluginsPane.tsx`, and `RunInstructions.tsx`, then
-  return to `FileBrowserPane.tsx`, `AppConfigPane.tsx`, and authoring follow-up
-  work.
+  `PluginsPane.tsx`, `RunInstructions.tsx`, and the remaining
+  `GitGraphOverlay.tsx` follow-through work, then return to
+  `FileBrowserPane.tsx`, `AppConfigPane.tsx`, and authoring follow-up work.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
-  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 2040 lines
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` at 2023 lines
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1903 lines
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
+  - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data extraction
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
@@ -53,9 +53,9 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx` at 605 lines
 - `GitGraphOverlay.tsx` mixes:
   - search/indexing helpers and decoration formatting
-  - drag/resize persistence
   - virtualization and row-height caching
   - row/detail render branches
+  - header/sidebar/empty-state shell composition over the new resize owners
 - `PluginsPane.tsx` mixes:
   - plugin catalog and status orchestration
   - enable/disable and reload controls
@@ -121,9 +121,12 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
 1. Split `GitGraphOverlay.tsx` and the remaining giant pane roots first
 
 - Keep `GitGraphOverlay.tsx` as the obvious git overlay entry surface.
-- Extract clearly named owners for:
-  - search/indexing and decoration view models
+- `gitGraphOverlayResizeModel.ts` and `useGitGraphOverlayResize.ts` now own:
   - pane split and column-resize persistence
+  - resize clamp math and double-click resets
+  - drag cleanup and request-animation-frame resize application
+- Continue extracting clearly named owners for:
+  - search/indexing and decoration view models
   - virtualized row shells and detail panes
 - In the same phase, keep `PluginsPane.tsx` and `RunInstructions.tsx` ahead of
   smaller authoring surfaces when choosing the next pane-side slice.
