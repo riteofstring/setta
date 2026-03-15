@@ -3166,3 +3166,30 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/definitions.ts`, now the largest
     authored/shared state hotspot at 404 lines, by separating local standalone
     store definitions from the remaining domain re-export barrel.
+
+## 2026-03-15 07:05:06 PDT
+
+- Slice completed: split local store definitions from the shared definitions barrel
+- Key files touched:
+  - `frontend/src/state/storeDefinitions.ts`
+  - `frontend/src/state/storeDefinitions.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/activeSectionUI.ts`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/ListOfArtifacts.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/storeDefinitions.test.ts src/state/activeSectionUI.test.ts src/state/hooks/sectionSizes.integration.test.tsx src/state/hooks/artifactTransport.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx src/state/actions/project/loadProject.test.ts src/state/actions/projectStateOptimisticUpdates.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/storeDefinitions.ts src/state/definitions.ts src/state/storeDefinitions.test.ts src/state/activeSectionUI.ts src/state/subscriptions.ts src/components/Panes/UiEditor/SectionConfig/ListOfArtifacts.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `a1555997b8`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/activeSectionUI.ts`, now the largest authored/shared
+    state hotspot at 364 lines, by separating active-section selection reads or
+    writes from backend sync ownership and reconciliation helpers.
