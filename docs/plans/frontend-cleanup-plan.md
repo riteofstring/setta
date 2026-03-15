@@ -170,9 +170,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling, reducing
   the old websocket surface into a thin `websocketReceive.ts` facade plus
-  `frontend/src/state/actions/websocketLifecycle.ts` for transport/auth/bootstrap
-  and `frontend/src/state/actions/websocketRealtime.ts` for outbound realtime
-  send or upload behavior.
+  `frontend/src/state/actions/websocketLifecycle.ts` for transport wiring,
+  `frontend/src/state/actions/websocketBootstrap.ts` for socket-open
+  bootstrap, `frontend/src/state/actions/websocketAuthRecovery.ts` for auth
+  recovery, `frontend/src/state/actions/websocketShareSessionRecovery.ts` for
+  share-session heartbeat/recovery, and
+  `frontend/src/state/actions/websocketRealtime.ts` for outbound realtime send
+  or upload behavior.
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
   `frontend/src/state/actions/windowSpaceSnapshots.ts` owns floating
@@ -231,9 +235,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   select or delete or replace commands to `stateMachineEdgeMutations.ts`.
 - `frontend/src/state/actions/websocketReceive.ts` is down to a 7-line
   compatibility entrypoint and now delegates socket lifecycle, reconnect, auth,
-  share-session, and bootstrap behavior to `websocketLifecycle.ts`, outbound
-  realtime dependency or binary send behavior to `websocketRealtime.ts`, and
-  shared active-socket state to `websocketRuntime.ts`.
+  outbound realtime dependency or binary send behavior to
+  `websocketRealtime.ts`, shared active-socket state to `websocketRuntime.ts`,
+  transport wiring to `websocketLifecycle.ts`, socket-open bootstrap to
+  `websocketBootstrap.ts`, auth recovery to `websocketAuthRecovery.ts`, and
+  share-session heartbeat or restoration to
+  `websocketShareSessionRecovery.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation orchestration, lease ownership, snapshot rollback,
   pane activation, DOM anchor/highlight helpers, and execution-status utilities

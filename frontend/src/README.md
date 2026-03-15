@@ -260,8 +260,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     handling.
   - `state/actions/websocketReceive.ts` is now a thin compatibility facade.
   - `state/actions/websocketLifecycle.ts` owns socket transport lifecycle,
-    auth/share-session recovery, and listener-coverage or project-state
-    bootstrap on socket open.
+    active-socket listener wiring, replacement, and reconnect scheduling.
+  - `state/actions/websocketBootstrap.ts` owns socket-open connection
+    registration, current-address send, project-state or diagnostics bootstrap,
+    and deployment listener-coverage bootstrap.
+  - `state/actions/websocketAuthRecovery.ts` owns auth-refresh polling,
+    auth-loss recovery, and reconnect gating during authentication recovery.
+  - `state/actions/websocketShareSessionRecovery.ts` owns share-session
+    heartbeat sends plus share/app session restoration after websocket close
+    codes.
   - `state/actions/websocketRealtime.ts` owns outbound realtime dependency
     events, section literal or binary sends, and binary upload fallback.
   - `state/actions/websocketRuntime.ts` owns the shared active-socket runtime
@@ -377,10 +384,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/websocketLifecycle.ts` is now the largest authored/shared
-  state hotspot, so follow-up cleanup should separate reconnect/auth recovery
-  from socket-open bootstrap and share-session restoration instead of
-  regrowing the already-split chat-control surface
+- `state/actions/projectChatWindowingLayoutState.ts` is now the largest
+  authored/shared state hotspot, so follow-up cleanup should keep shrinking the
+  reducer surface into narrower layout/focus or bounds owners instead of
+  regrowing the newly split websocket lifecycle
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership
@@ -398,10 +405,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   restore planning and remapping policy for saved window spaces, so any
   follow-up cleanup there should stay local to restore planning instead of
   regrowing `state/actions/windowSpaces.ts`
-- `state/actions/websocketLifecycle.ts` still owns a broad transport/auth or
-  reconnect/bootstrap surface even after `websocketReceive.ts` became a thin
-  facade, so future websocket cleanup should stay on the dedicated lifecycle or
-  realtime owners instead of rebuilding the facade
+- `state/actions/websocketLifecycle.ts`, `websocketBootstrap.ts`,
+  `websocketAuthRecovery.ts`, and `websocketShareSessionRecovery.ts` now split
+  transport, bootstrap, auth recovery, and share-session restoration, so any
+  future websocket cleanup should keep extending those owners instead of
+  rebuilding the facade
 - `components/Utils/Resizable/CustomResizable.tsx` now delegates resize
   lifecycle and optimistic persistence to
   `components/Utils/Resizable/useCustomResizableBehavior.ts`, pure clamp/auto-

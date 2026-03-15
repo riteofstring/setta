@@ -74,6 +74,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/websocketReceive.ts`; future cleanup should keep
   new incoming websocket event handlers on that dedicated module instead of
   mixing them back into socket transport and outbound realtime send logic.
+- `frontend/src/state/actions/websocketBootstrap.ts` now owns socket-open
+  connection registration, current-address sends, project-state or diagnostics
+  bootstrap, and deployment listener-coverage bootstrap, while
+  `frontend/src/state/actions/websocketAuthRecovery.ts` now owns auth-refresh
+  polling plus auth-loss reconnect recovery, and
+  `frontend/src/state/actions/websocketShareSessionRecovery.ts` now owns
+  share-session heartbeat and share/app session restoration that previously
+  lived in `frontend/src/state/actions/websocketLifecycle.ts`; future cleanup
+  should keep websocket bootstrap and recovery flows on those dedicated
+  surfaces instead of mixing them back into lifecycle wiring.
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
   and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
@@ -156,28 +166,38 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/projectChatWindowing.ts` at 406 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
+  - `frontend/src/state/actions/websocketLifecycle.ts` at 244 lines
+  - `frontend/src/state/actions/websocketAuthRecovery.ts` at 188 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/projectChatWindowing.ts` at 406 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
+  - `frontend/src/state/actions/websocketLifecycle.ts` at 244 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
   - websocket transport lifecycle and reconnect behavior
-  - auth-refresh polling and auth-loss recovery
-  - share-session recovery plus listener-coverage or project-state bootstrap
+  - active-socket listener wiring, replacement, and reconnect scheduling
+- `websocketBootstrap.ts` now owns:
+  - socket-open connection registration and current-address sends
+  - project-state and diagnostics bootstrap for IDE mode
+  - deployment listener-coverage bootstrap
+- `websocketAuthRecovery.ts` now owns:
+  - auth-refresh polling and auth-loss reconnect recovery
+  - reconnect gating while authentication is missing
+- `websocketShareSessionRecovery.ts` now owns:
+  - share-session heartbeat sends for deployment-mode websockets
+  - share/app session restoration after missing or unknown close codes
 - `websocketRealtime.ts` now owns:
   - outbound realtime dependency events and section literal updates
   - binary realtime sends plus oversize upload fallback
