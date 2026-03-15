@@ -6,13 +6,15 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
-  getCurrEffectiveSectionImpl,
-  getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrSectionVariant,
   getEffectiveSectionImplIfPresent,
   getSectionCore,
   getSectionImpl,
-} from "./sectionEffectiveImpls";
+} from "./sectionEffectiveImplCore";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrSectionVariant,
+} from "./sectionEffectiveImplSelectors";
 
 export function isBaseCodeSectionType(sectionType: SectionType): boolean {
   return (

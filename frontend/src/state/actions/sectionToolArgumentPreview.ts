@@ -8,7 +8,7 @@ import {
 import {
   getEffectiveCodeObjImplIfPresent,
   getEffectiveSectionImplIfPresent,
-} from "./sectionEffectiveImpls";
+} from "./sectionEffectiveImplCore";
 
 export function clearToolArgumentPreviewForProjectState(
   projectConfigId: string,

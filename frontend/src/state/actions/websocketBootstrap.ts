@@ -15,7 +15,7 @@ import {
 import { loadAgentRuns } from "./aiAgentRuns";
 import { requestAIFollowSnapshot } from "./aiFollow";
 import { fetchListenerCoverageSnapshot } from "./listenerCoverage";
-import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "./sectionEffectiveImplSelectors";
 import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
 
 export async function bootstrapSocketOpen({

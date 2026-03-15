@@ -9,7 +9,7 @@ import {
 } from "utils/generatedEndpoints";
 import { clearActiveSectionIds } from "./activeSections";
 import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
-import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "./sectionEffectiveImplSelectors";
 import {
   getConnectionDebugPayload,
   logWorkflowDebug,

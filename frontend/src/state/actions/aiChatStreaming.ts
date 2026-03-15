@@ -7,7 +7,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrProjectConfigId,
   isManagedChatSection,
-} from "state/actions/sectionEffectiveImpls";
+} from "state/actions/sectionEffectiveImplSelectors";
 import {
   clearChatStreamActive,
   markChatStreamActive,

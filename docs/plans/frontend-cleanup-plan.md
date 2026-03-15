@@ -153,14 +153,17 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   used to live in `frontend/src/state/actions/sectionInfos.ts`, reducing
   `frontend/src/state/actions/sectionInfos.ts` to a 67-line compatibility
   facade.
-- `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
-  section/code-object resolution, typed current-section/code-object selectors,
-  and effective-impl cache helpers, while
+- `frontend/src/state/actions/sectionEffectiveImplCore.ts` now owns effective
+  section/code-object derivation, cache invalidation, and low-level
+  entity lookups, while `frontend/src/state/actions/sectionEffectiveImplSelectors.ts`
+  now owns typed current-section/current-code-object selectors, managed-chat
+  checks, and param display-name helpers, reducing
+  `frontend/src/state/actions/sectionEffectiveImpls.ts` to a 29-line
+  compatibility facade; meanwhile,
   `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal
   attachment, section orientation, section type, and section-child queries and
   `frontend/src/state/actions/sectionEffectiveImplMutations.ts` now owns the
-  local impl mutation helpers for section/code-object writes, reducing the
-  core effective-impl selector surface to 423 lines.
+  local impl mutation helpers for section/code-object writes.
 - `frontend/src/state/hooks/sectionMinMaxDims.ts` now owns section sizing-policy
   reads plus measured min/max dimension derivation,
   `frontend/src/state/hooks/sectionScrollability.ts` now owns the shared

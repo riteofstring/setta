@@ -10,8 +10,8 @@ import {
   type ProjectStateSingleConfig,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { getEffectiveImpl } from "./sectionEffectiveImplCore";
 import { setEffectiveImplValue } from "./sectionEffectiveImplMutations";
-import { getEffectiveImpl } from "./sectionEffectiveImpls";
 
 type ChatSectionImpl = Extract<
   BaseSectionImplUnion,

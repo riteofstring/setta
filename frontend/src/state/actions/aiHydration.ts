@@ -1,6 +1,6 @@
 import { clearAIFollowToolArgumentsForChat } from "state/actions/aiFollow";
 import { setCurrEffectiveSectionImplValue } from "state/actions/sectionEffectiveImplMutations";
-import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImplSelectors";
 import {
   isChatStreamActive,
   isSectionStreamActive,

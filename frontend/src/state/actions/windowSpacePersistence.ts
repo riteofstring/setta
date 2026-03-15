@@ -4,7 +4,7 @@ import {
   syncProjectChatWindowingState,
 } from "state/actions/projectChatWindowingWrites";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
-import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImplSelectors";
 import {
   useProjectState,
   useShareSession,

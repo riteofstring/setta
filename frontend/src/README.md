@@ -287,9 +287,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/websocketRuntime.ts` owns the shared active-socket runtime
     state and low-level websocket send helpers used by the lifecycle and
     realtime owners.
-  - `state/actions/sectionEffectiveImpls.ts` owns effective section/code-object
-    resolution, typed current-section/code-object selectors, and effective-impl
-    cache access helpers.
+  - `state/actions/sectionEffectiveImplCore.ts` owns effective section/code-object
+    derivation, cache invalidation, and low-level entity lookups.
+  - `state/actions/sectionEffectiveImplSelectors.ts` owns typed current-section
+    and current-code-object selectors, managed-chat checks, and param
+    display-name helpers built on the effective-impl core.
+  - `state/actions/sectionEffectiveImpls.ts` is now a thin compatibility facade
+    over the effective-impl core and selector owners.
   - `state/actions/sectionLayoutQueries.ts` owns terminal attachment, section
     orientation, section type, and section-child queries that still depend on
     effective-impl selectors but no longer live beside the core derivation
@@ -408,10 +412,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionEffectiveImpls.ts` is now the largest authored/shared
-  state hotspot, so follow-up cleanup should keep shrinking the remaining
-  effective-impl selector surface instead of regrowing layout or mutation
-  ownership.
 - `state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns the remaining
   restore planning and remapping policy for saved window spaces, so follow-up
   cleanup there should stay local to restore-layout helpers instead of
@@ -424,6 +424,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining project-chat windowing coordination surface, so follow-up windowing
   cleanup should stay local to the write pipeline or the new command modules
   instead of regrowing the reducer owners
+- `state/actions/sectionEffectiveImplSelectors.ts` should keep owning typed
+  current-section/current-code-object reads instead of regrowing
+  `state/actions/sectionEffectiveImplCore.ts` or the compatibility facade.
 - `state/actions/sectionStreamingMerge.ts`,
   `state/actions/sectionShownParams.ts`, `state/actions/sectionHierarchy.ts`,
   and `state/actions/sectionToolArgumentPreview.ts` should stay feature-local

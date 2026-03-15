@@ -12,7 +12,7 @@ import {
   createUserDefaultGroupSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
+import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImplSelectors";
 import {
   getHighestAncestor,
   getSectionDescendants,

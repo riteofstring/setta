@@ -13,7 +13,7 @@ import {
   type SetActiveSectionIdsOptions,
   setActiveSectionIds,
 } from "./activeSections";
-import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
+import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImplSelectors";
 import { getHighestAncestor } from "./sectionHierarchy";
 import { setZIndices } from "./sections/sectionPositions";
 

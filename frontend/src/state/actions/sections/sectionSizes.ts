@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { setCurrEffectiveSectionImplValue } from "state/actions/sectionEffectiveImplMutations";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImpls";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionEffectiveImplSelectors";
 import {
   getHighestAncestor,
   getSectionDescendants,

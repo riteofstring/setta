@@ -23,7 +23,7 @@ import {
   dependencyKeyCovered,
   getListenerCoverageRecord,
 } from "./listenerCoverage";
-import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "./sectionEffectiveImplSelectors";
 import { sendBinaryMessage, sendMessage } from "./websocketRuntime";
 
 const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;

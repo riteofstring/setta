@@ -59,9 +59,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/topLevelLayoutPersistence.ts` now owns pending-op
   reconciliation plus debounced backend persistence for top-level section
   layout writes that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
-- `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
-  section/code-object resolution, typed current-section/code-object selectors,
-  and effective-impl cache helpers, while
+- `frontend/src/state/actions/sectionEffectiveImplCore.ts` now owns effective
+  section/code-object derivation, cache invalidation, and low-level entity
+  lookups, while `frontend/src/state/actions/sectionEffectiveImplSelectors.ts`
+  now owns typed current-section/current-code-object selectors, managed-chat
+  checks, and param display-name helpers; `frontend/src/state/actions/sectionEffectiveImpls.ts`
+  is now a thin compatibility facade over those owners, while
   `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal
   attachment, section orientation, section type, and section-child queries that
   previously lived in `frontend/src/state/actions/sectionInfos.ts` and
@@ -190,21 +193,21 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` at 405 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 423 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` at 405 lines
   - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 325 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -290,9 +293,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - external agent approval transport
   - external agent question response transport
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
-- `sectionEffectiveImpls.ts` now owns:
+- `sectionEffectiveImplCore.ts` now owns:
   - effective-impl derivation and caching
+  - low-level section/code-object entity lookups
+- `sectionEffectiveImplSelectors.ts` now owns:
   - typed current-section and current-code-object selectors
+  - managed-chat authority checks and param display-name helpers
+- `sectionEffectiveImpls.ts` is now:
+  - a thin compatibility facade over the effective-impl core and selector owners
 - `sectionLayoutQueries.ts` now owns:
   - terminal attachment helpers for embedded code/terminal relationships
   - section-orientation, section-type, and section-child queries
@@ -494,12 +502,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `sectionEffectiveImpls.ts` into narrower selector clusters
+2. Split `windowSpaceWorkspaceRestoreLayout.ts` into narrower restore helpers
 
-- Separate core effective-impl derivation from the remaining current-section
-  and current-code-object selector helpers.
-- Keep naming explicit so agents can tell whether they are calling a low-level
-  derivation helper, a typed selector, or a cache-aware read.
+- Separate remapping and deduped merge logic from the remaining saved-space
+  layout planning and application helpers.
+- Keep naming explicit so agents can tell whether they are calling a restore
+  planner, an instance-remapping helper, or a merge-policy function.
 
 3. Normalize optimistic mutation infrastructure
 

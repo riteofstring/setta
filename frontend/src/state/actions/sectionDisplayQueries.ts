@@ -12,10 +12,8 @@ import {
   type ProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import {
-  getCurrEffectiveSectionImpl,
-  getEffectiveSectionImplIfPresent,
-} from "./sectionEffectiveImpls";
+import { getEffectiveSectionImplIfPresent } from "./sectionEffectiveImplCore";
+import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImplSelectors";
 import { getActiveViewModeTopLevelSections } from "./topLevelSectionLayouts";
 
 export function getTopLevelSectionIdsForDisplay(

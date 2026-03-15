@@ -7,7 +7,7 @@ import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-} from "state/actions/sectionEffectiveImpls";
+} from "state/actions/sectionEffectiveImplSelectors";
 import { useProjectState } from "state/definitions";
 import {
   route_indent_params,

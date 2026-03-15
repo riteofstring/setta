@@ -4,7 +4,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
-import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
+import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImplSelectors";
 
 export type WorkflowSectionInfo = {
   type: SectionTypeEnum | null;

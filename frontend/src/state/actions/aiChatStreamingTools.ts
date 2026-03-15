@@ -21,7 +21,7 @@ import {
 import { updateChatDetails } from "./aiChatState";
 import { ensureAssistantMessage } from "./aiChatStreamingMessages";
 import { addTemporaryNotification } from "./notifications";
-import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "./sectionEffectiveImplSelectors";
 
 const APP_DEFINITION_TOOL_NAMES = new Set([
   "setta__set_app_definition",

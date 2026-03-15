@@ -4,14 +4,16 @@ import type { Core, ImplArgsBundleMap, Variant } from "utils/generatedTypes";
 import {
   getCodeObjCore,
   getCodeObjImpl,
-  getCurrCodeObjVariant,
-  getCurrSectionVariant,
   getEffectiveImpl,
   getSectionCore,
   getSectionImpl,
   getSectionVariant,
   invalidateEffectiveImplCache,
-} from "./sectionEffectiveImpls";
+} from "./sectionEffectiveImplCore";
+import {
+  getCurrCodeObjVariant,
+  getCurrSectionVariant,
+} from "./sectionEffectiveImplSelectors";
 
 export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   impl: ImplArgsBundleMap[K]["impl"],

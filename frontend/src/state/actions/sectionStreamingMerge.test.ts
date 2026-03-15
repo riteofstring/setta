@@ -12,7 +12,7 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { getEffectiveImpl } from "./sectionEffectiveImpls";
+import { getEffectiveImpl } from "./sectionEffectiveImplCore";
 import { mergeStreamingChatSections } from "./sectionStreamingMerge";
 
 function buildChatState(messageText: string): {

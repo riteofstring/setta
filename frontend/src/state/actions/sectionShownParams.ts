@@ -1,6 +1,6 @@
 import { type ZustandProjectState } from "state/definitions";
 import { type ShownParamIds } from "utils/generatedTypes";
-import { getCurrSectionVariantId } from "./sectionEffectiveImpls";
+import { getCurrSectionVariantId } from "./sectionEffectiveImplSelectors";
 
 type ShownParamBucket = ShownParamIds["pinned"];
 

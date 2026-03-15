@@ -1,7 +1,7 @@
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { isBaseParentSectionImpl } from "utils/generatedTypes";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
-import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
+import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImplSelectors";
 
 export function getSectionInfo(sectionId: string) {
   return useProjectState.getState().sections[sectionId];

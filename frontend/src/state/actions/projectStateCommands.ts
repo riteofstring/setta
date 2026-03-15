@@ -27,7 +27,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-} from "./sectionEffectiveImpls";
+} from "./sectionEffectiveImplSelectors";
 
 export function deleteAllActiveSections() {
   const shareSession = useShareSession.getState();

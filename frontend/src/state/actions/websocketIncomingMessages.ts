@@ -38,7 +38,7 @@ import { updateArtifacts } from "./artifacts";
 import { applyListenerCoverageSnapshot } from "./listenerCoverage";
 import { updateAllProjectMetadata } from "./projectStateCommands";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
-import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
+import { getCurrProjectConfigId } from "./sectionEffectiveImplSelectors";
 import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
 import { updateSettings } from "./settings";
 import {
