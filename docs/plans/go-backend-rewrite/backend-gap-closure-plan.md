@@ -46,9 +46,8 @@ categorize them.
 ## Current Starting Backlog
 
 - Expand the differential manifest beyond the current bootstrap / websocket /
-  create-defaults / dedicated-`/settings` shell slice
-- Dedicated `/settings` live-hydration parity:
-  `settings_project.load.json_source_sections_hydrate_from_live_settings_snapshot`
+  create-defaults / dedicated-`/settings` shell / settings-live-hydration
+  slice
 - Dedicated `/settings` load-repair parity:
   `settings_project.load.repairs_write_back_updated_settings_project_document`
   and related compatibility / integrity follow-ups
