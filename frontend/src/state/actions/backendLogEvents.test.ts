@@ -1,4 +1,5 @@
-import { useBackendLogEvents, useLocalStorage } from "state/definitions";
+import { useBackendLogEvents } from "state/stores/feedbackStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import {
   OverviewNotificationsPaneTabEnum,
