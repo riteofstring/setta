@@ -1,5 +1,5 @@
 import _ from "lodash";
-import type React from "react";
+import React from "react";
 import type { SetStateAction } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
@@ -13,6 +13,7 @@ import {
   SectionTypeEnum,
   type ChatWindowMode,
   type ChatWindowPlacement,
+  type SectionType,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
@@ -36,6 +37,58 @@ type SectionWindowSurfaceProps = {
   >;
 };
 
+type SectionWindowSurfaceBodyProps = {
+  bgColor: string;
+  bodyOverride: React.ReactNode;
+  sectionId: string;
+  sectionTypeName: SectionType;
+  isMinimized: boolean;
+  chatHost: ChatWindowPlacement | "standalone_page";
+  chatModeOverride?: ChatWindowMode;
+  projectChatSurfaceId?: string;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+};
+
+const SectionWindowSurfaceBody = React.memo(function SectionWindowSurfaceBody({
+  bgColor,
+  bodyOverride,
+  sectionId,
+  sectionTypeName,
+  isMinimized,
+  chatHost,
+  chatModeOverride,
+  projectChatSurfaceId,
+  projectChatId,
+  setProjectChatId,
+  onProjectChatBlockedErrorCodeChange,
+}: SectionWindowSurfaceBodyProps) {
+  return (
+    <div
+      className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
+    >
+      {bodyOverride ?? (
+        <SectionAreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={false}
+          chatHost={chatHost}
+          chatModeOverride={chatModeOverride}
+          projectChatSurfaceId={projectChatSurfaceId}
+          projectChatId={projectChatId}
+          setProjectChatId={setProjectChatId}
+          onProjectChatBlockedErrorCodeChange={
+            onProjectChatBlockedErrorCodeChange
+          }
+        />
+      )}
+    </div>
+  );
+});
+
 export function SectionWindowSurface({
   sectionId,
   headerActions,
@@ -52,7 +105,6 @@ export function SectionWindowSurface({
   const isStandalonePage = chatHost === "standalone_page";
   const {
     sectionTypeName,
-    isActiveSection,
     isInOtherProjectConfigs,
     isMinimized,
     positionAndSizeLocked,
@@ -62,7 +114,6 @@ export function SectionWindowSurface({
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     return {
       sectionTypeName: impl.type,
-      isActiveSection: state.projectConfig.activeIds.includes(sectionId),
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       isMinimized: impl.isMinimized,
       positionAndSizeLocked: impl.positionAndSizeLocked,
@@ -99,7 +150,7 @@ export function SectionWindowSurface({
   const isRoot = getIsRoot(sectionTypeName);
   const windowChrome = getWindowSectionChrome({
     sectionTypeName,
-    isActiveSection,
+    isActiveSection: false,
     isInOtherProjectConfigs,
     textBlockMetaControlStyle,
     hasSectionStyleTheme,
@@ -119,7 +170,6 @@ export function SectionWindowSurface({
       <div className={windowChrome.innerShellClassName}>
         <SectionHeader
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={false}
@@ -130,27 +180,21 @@ export function SectionWindowSurface({
           trackMeasuredHeight={false}
           headerProps={headerProps}
         />
-        <div
-          className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${windowChrome.bgColor}`}
-        >
-          {bodyOverride ?? (
-            <SectionAreaSwitch
-              sectionId={sectionId}
-              sectionTypeName={sectionTypeName}
-              bgColor={windowChrome.bgColor}
-              isMinimized={isMinimized}
-              isUserView={false}
-              chatHost={chatHost}
-              chatModeOverride={chatModeOverride}
-              projectChatSurfaceId={projectChatSurfaceId}
-              projectChatId={projectChatId}
-              setProjectChatId={setProjectChatId}
-              onProjectChatBlockedErrorCodeChange={
-                onProjectChatBlockedErrorCodeChange
-              }
-            />
-          )}
-        </div>
+        <SectionWindowSurfaceBody
+          bgColor={windowChrome.bgColor}
+          bodyOverride={bodyOverride}
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          isMinimized={isMinimized}
+          chatHost={chatHost}
+          chatModeOverride={chatModeOverride}
+          projectChatSurfaceId={projectChatSurfaceId}
+          projectChatId={projectChatId}
+          setProjectChatId={setProjectChatId}
+          onProjectChatBlockedErrorCodeChange={
+            onProjectChatBlockedErrorCodeChange
+          }
+        />
       </div>
     </section>
   );
