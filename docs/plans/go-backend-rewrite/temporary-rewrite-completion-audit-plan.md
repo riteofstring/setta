@@ -581,3 +581,12 @@ UI-setting plus MCP verification still passes. This removes the old Python
 UI-setting registry/tools from the remaining plugin blocker set and narrows the
 active backend-ownership tail further toward the standalone Python plugin
 manager/worker runtime itself.
+
+A twentieth follow-up rewrite step deleted the now-dead plugin-runtime
+implementation block from `backend/setta/ui_settings/registry.py` itself. The
+legacy Python registry file no longer imports plugin-runtime types, no longer
+contains schema/backend plugin UI-setting builders, and no longer carries local
+plugin availability/config traversal helpers that the core-only path cannot
+reach. The focused Python UI-setting and MCP verification still passes, which
+confirms that this block had become dead compatibility baggage rather than an
+active retained boundary.

@@ -11,10 +11,7 @@ def test_build_ui_settings_registry_builds_core_only_registry() -> None:
         project_config_id=ID("project-1"),
     )
 
-    assert registry.pluginErrorsByPluginId == {}
-    assert registry.pluginErrorsByPluginAndLocalSettingId == {}
-    assert registry.knownPluginIds == set()
-    assert registry.knownPluginAndLocalSettingIds == set()
+    assert len(registry.list_entries(source_filter="plugin")) == 0
     project_name_entry = registry.get("core.project.name")
     assert project_name_entry is not None
     assert project_name_entry.metadata.source == "core"
