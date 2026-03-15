@@ -189,3 +189,7 @@ categorize them.
   `moveSections` row are now proved too; keep preferring these small
   route-visible malformed-input or mode-guard proofs when they close an
   already-implemented owner without expanding the harness unnecessarily
+- The section-data row for group orientation, image-path, and social-URL
+  deployment blocking is now proved too; the remaining section-data backlog is
+  no longer about basic share/app route exposure and should stay focused on
+  broader surfaces that are still missing or unproved
