@@ -12,7 +12,7 @@ import {
 import {
   getMessageCompletenessScore,
   mergeChatMessages,
-} from "./chatMergeUtils";
+} from "./chatMessageMerge";
 
 type BranchInitializationResult = {
   nextState: ChatSectionState;

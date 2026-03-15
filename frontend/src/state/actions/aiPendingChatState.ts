@@ -16,7 +16,7 @@ import {
   setPendingChatDetailsForSurface,
 } from "./aiChatState";
 import { clearStopEligibleAssistantMessageId } from "./aiStopEligibleAssistantMessages";
-import { mergeChatMessages } from "./chatMergeUtils";
+import { mergeChatMessages } from "./chatMessageMerge";
 
 export function getPendingChatAppGenerationDetailsForSurface(
   state: ReturnType<typeof useAIStore.getState>,

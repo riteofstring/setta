@@ -1,5 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import * as chatMergeUtils from "state/actions/chatMergeUtils";
+import * as chatMessageMerge from "state/actions/chatMessageMerge";
 import {
   createNodesMapFromProjectConfigChildren,
   getDisplayedSectionIdToChildren,
@@ -560,7 +560,7 @@ describe("getDisplayedSectionIdToChildren", () => {
 
 describe("processProjectStateUpdateFromBackend", () => {
   it("skips completeness scoring when simple merge conditions already apply", () => {
-    const scoreSpy = vi.spyOn(chatMergeUtils, "getMessageCompletenessScore");
+    const scoreSpy = vi.spyOn(chatMessageMerge, "getMessageCompletenessScore");
     resetStreamingTracker();
 
     const sectionId = "section-1";

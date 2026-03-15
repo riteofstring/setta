@@ -25,7 +25,7 @@ import {
   type LLMChatHydrationPayload,
 } from "./aiHydrationOutcome";
 import { clearStopEligibleAssistantMessageId } from "./aiStopEligibleAssistantMessages";
-import { reconcileHydratedChatMessages } from "./chatMergeUtils";
+import { reconcileHydratedChatMessages } from "./chatHydrationMerge";
 
 type IncomingChatSectionState = {
   messages: BaseChatMessageUnion[];

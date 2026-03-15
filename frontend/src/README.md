@@ -73,6 +73,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     result application and app preview reset behavior.
   - `state/actions/aiChatStreamingTools.ts` is now a thin compatibility surface
     that re-exports the narrower tool-call, preview, and app-definition owners.
+  - `state/actions/chatMessageMerge.ts` owns generic message completeness
+    scoring and message merge normalization used across pending chat, branch,
+    and section-streaming paths.
+  - `state/actions/chatHydrationMerge.ts` owns hydration-time local-vs-backend
+    chat reconciliation for in-flight overlays and preserved assistant content.
+  - `state/actions/chatMergeUtils.ts` is now the thin compatibility facade
+    over those narrower chat merge owners.
   - `state/actions/chat*.ts` owns the remaining chat merge utilities.
   - `state/actions/projectChatThreadGroupMutations.ts` owns persisted project
     chat thread group creation, rename, collapse, pin, reorder, assignment, and

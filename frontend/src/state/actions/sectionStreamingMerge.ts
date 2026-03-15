@@ -1,7 +1,7 @@
 import {
   getMessageCompletenessScore,
   mergeChatMessages,
-} from "state/actions/chatMergeUtils";
+} from "state/actions/chatMessageMerge";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import { type ZustandProjectState } from "state/definitions";
 import {

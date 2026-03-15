@@ -243,7 +243,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
   - `frontend/src/state/actions/sections/createSectionsHelper.ts` at 375 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/sections/moveSections.ts` at 365 lines
@@ -253,7 +252,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
   - `frontend/src/state/actions/sections/createSectionsHelper.ts` at 375 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/sections/moveSections.ts` at 365 lines
@@ -458,6 +456,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `keyShortcutInputPolicy.ts` for editable-target and input-ignore policy
   - `keyShortcutUtils.ts` as the thin compatibility facade
   - `keyActivationHandlers.ts` for `Tab`/`Escape`, section-selection, and React Flow key-mode handlers
+- `chatMessageMerge.ts`, `chatHydrationMerge.ts`, and `chatMergeUtils.ts` now
+  split into:
+  - `chatMessageMerge.ts` for generic message completeness scoring and message merge normalization
+  - `chatHydrationMerge.ts` for hydration-time local-vs-backend chat reconciliation and preserved assistant streaming content
+  - `chatMergeUtils.ts` as the thin compatibility facade
 - `windowSpacePersistence.ts` now owns:
   - saved window-space sort/name/delete/create mutations
   - optimistic persistence and layout-mutation rollback
