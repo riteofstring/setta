@@ -221,6 +221,10 @@ categorize them.
   queue should likely come from the managed-chat whitespace-affinity branch or
   the remote `stop` CLI forwarding/conflicting-flag pair before switching to
   heavier missing surfaces
+- The managed-chat whitespace frontend-affinity row is now proved too, so the
+  next cheap queue should likely come from the remote `stop` CLI
+  forwarding/conflicting-flag pair unless another similarly narrow
+  service-only proof appears nearby
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
