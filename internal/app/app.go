@@ -939,6 +939,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 		projectShellService, err = projectshell.NewService(projectshell.ServiceOptions{
 			ProjectState:         projectRuntime,
+			SettingsState:        settingsStateRuntime,
 			SettingsProjectState: projectStates.Settings(),
 			AfterProjectSave:     broadcastSavedProjectNotification,
 			AfterProjectMetadataMutation: func(ctx context.Context, snapshot projectstate.Snapshot) error {

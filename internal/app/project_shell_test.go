@@ -208,6 +208,117 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 	}
 }
 
+func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	settingsDocument := app.SettingsState().Snapshot().Document
+	settingsDocument["backend"].(map[string]any)["renameRefactorMode"] = "NEVER_RENAME"
+	saveSettingsBody, err := json.Marshal(httpapi.SaveSettingsRequest{Settings: settingsDocument})
+	if err != nil {
+		t.Fatalf("marshal save settings request: %v", err)
+	}
+
+	saveSettingsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveSettings, strings.NewReader(string(saveSettingsBody)))
+	if err != nil {
+		t.Fatalf("new save settings request: %v", err)
+	}
+	saveSettingsRequest.Header.Set("Content-Type", "application/json")
+	saveSettingsRequest.AddCookie(authCookie)
+
+	saveSettingsResponse, err := http.DefaultClient.Do(saveSettingsRequest)
+	if err != nil {
+		t.Fatalf("save settings: %v", err)
+	}
+	defer saveSettingsResponse.Body.Close()
+	if saveSettingsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(saveSettingsResponse.Body)
+		t.Fatalf("expected save settings 200, got %d with body %q", saveSettingsResponse.StatusCode, string(body))
+	}
+
+	loadSettingsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
+	if err != nil {
+		t.Fatalf("new settings load request: %v", err)
+	}
+	loadSettingsRequest.Header.Set("Content-Type", "application/json")
+	loadSettingsRequest.AddCookie(authCookie)
+
+	loadSettingsResponse, err := http.DefaultClient.Do(loadSettingsRequest)
+	if err != nil {
+		t.Fatalf("load settings project config after settings save: %v", err)
+	}
+	defer loadSettingsResponse.Body.Close()
+	if loadSettingsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(loadSettingsResponse.Body)
+		t.Fatalf("expected settings project config 200, got %d with body %q", loadSettingsResponse.StatusCode, string(body))
+	}
+
+	var loadSettingsPayload projectview.SingleConfig
+	if err := json.NewDecoder(loadSettingsResponse.Body).Decode(&loadSettingsPayload); err != nil {
+		t.Fatalf("decode settings load payload: %v", err)
+	}
+	if got := settingsProjectViewCodeObjValue(t, loadSettingsPayload, "settings-codeobj-impl__backend__backend__renameRefactorMode"); got != "NEVER_RENAME" {
+		t.Fatalf("expected load renameRefactorMode NEVER_RENAME, got %q", got)
+	}
+
+	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
+	if err != nil {
+		t.Fatalf("new latest-state request: %v", err)
+	}
+	latestStateRequest.Header.Set("Content-Type", "application/json")
+	latestStateRequest.AddCookie(authCookie)
+
+	latestStateResponse, err := http.DefaultClient.Do(latestStateRequest)
+	if err != nil {
+		t.Fatalf("get latest project state after settings save: %v", err)
+	}
+	defer latestStateResponse.Body.Close()
+	if latestStateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(latestStateResponse.Body)
+		t.Fatalf("expected latest project state 200, got %d with body %q", latestStateResponse.StatusCode, string(body))
+	}
+
+	var latestStatePayload httpapi.ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.NewDecoder(latestStateResponse.Body).Decode(&latestStatePayload); err != nil {
+		t.Fatalf("decode latest-state payload: %v", err)
+	}
+	if got := settingsProjectViewCodeObjValue(t, latestStatePayload.ProjectState, "settings-codeobj-impl__backend__backend__renameRefactorMode"); got != "NEVER_RENAME" {
+		t.Fatalf("expected latest-state renameRefactorMode NEVER_RENAME, got %q", got)
+	}
+}
+
+func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleConfig, implID string) string {
+	t.Helper()
+
+	rawPayload, ok := payload.CodeObjImpls[implID]
+	if !ok {
+		t.Fatalf("expected code object impl %q", implID)
+	}
+	var decoded struct {
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(rawPayload, &decoded); err != nil {
+		t.Fatalf("decode code object impl %q: %v", implID, err)
+	}
+	return decoded.Value
+}
+
 func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

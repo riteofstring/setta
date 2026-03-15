@@ -363,6 +363,135 @@ class Route:
             },
         )
 
+    def test_summarize_settings_project_live_hydration_detects_loaded_value(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        load_payload = {
+            "sections": {
+                "backend-section": {
+                    "name": "backend",
+                    "defaultVariant": "backend-section-variant",
+                }
+            },
+            "sectionVariants": {
+                "backend-section-variant": {
+                    "impl": "backend-section-impl",
+                }
+            },
+            "sectionImpls": {
+                "backend-section-impl": {
+                    "topLevelParamId": "backend-root",
+                }
+            },
+            "codeObjs": {
+                "backend-root": {
+                    "name": "backend",
+                    "defaultVariant": "backend-root-variant",
+                },
+                "rename-setting": {
+                    "name": "renameRefactorMode",
+                    "defaultVariant": "rename-setting-variant",
+                },
+            },
+            "codeObjVariants": {
+                "backend-root-variant": {
+                    "impl": "backend-root-impl",
+                },
+                "rename-setting-variant": {
+                    "impl": "rename-setting-impl",
+                },
+            },
+            "codeObjImpls": {
+                "backend-root-impl": {
+                    "children": ["rename-setting"],
+                },
+                "rename-setting-impl": {
+                    "value": "NEVER_RENAME",
+                },
+            },
+        }
+        latest_payload = {
+            "projectState": load_payload,
+        }
+
+        summary = harness.summarize_settings_project_live_hydration(
+            save_http_status=200,
+            save_payload=None,
+            load_http_status=200,
+            load_payload=load_payload,
+            latest_http_status=200,
+            latest_payload=latest_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "saveHttpStatus": 200,
+                "loadHttpStatus": 200,
+                "latestHttpStatus": 200,
+                "loadedRenameRefactorMode": "NEVER_RENAME",
+                "latestRenameRefactorMode": "NEVER_RENAME",
+            },
+        )
+
+    def test_summarize_settings_project_live_hydration_supports_python_payload_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        load_payload = {
+            "sections": {
+                "backend-section": {
+                    "name": "backend",
+                    "defaultVariant": "backend-section-variant",
+                    "sharedModifier": {
+                        "children": ["rename-setting"],
+                    },
+                }
+            },
+            "codeObjs": {
+                "rename-setting": {
+                    "name": "renameRefactorMode",
+                    "defaultVariant": "rename-setting-variant",
+                    "sharedModifier": {},
+                },
+            },
+            "codeObjVariants": {
+                "rename-setting-variant": {
+                    "impl": "rename-setting-impl",
+                    "modifier": {
+                        "value": "\"NEVER_RENAME\"",
+                    },
+                },
+            },
+            "codeObjImpls": {
+                "rename-setting-impl": {
+                    "value": "",
+                }
+            },
+        }
+
+        summary = harness.summarize_settings_project_live_hydration(
+            save_http_status=200,
+            save_payload=None,
+            load_http_status=200,
+            load_payload=load_payload,
+            latest_http_status=None,
+            latest_payload=None,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "saveHttpStatus": 200,
+                "loadHttpStatus": 200,
+                "latestHttpStatus": None,
+                "loadedRenameRefactorMode": "NEVER_RENAME",
+            },
+        )
+
     def test_summarize_persisted_project_windowing_after_create_detects_defaults(
         self,
     ) -> None:

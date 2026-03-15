@@ -227,6 +227,89 @@ func EnsureProjectRuntimeBootstrapped(
 	return err
 }
 
+func RefreshProjectRuntimeFromSettings(
+	ctx context.Context,
+	settingsRuntime *Runtime,
+	projectRuntime *projectstate.Runtime,
+) error {
+	if settingsRuntime == nil {
+		return fmt.Errorf("settings runtime is required")
+	}
+	if projectRuntime == nil {
+		return fmt.Errorf("settings project runtime is required")
+	}
+
+	builtDocument, err := BuildProjectDocument(settingsRuntime.Snapshot().Document)
+	if err != nil {
+		return err
+	}
+
+	currentProject, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err == nil && currentProject.Name == SettingsProjectName {
+		builtProject, buildErr := builtDocument.ProjectByID(SettingsProjectID)
+		if buildErr != nil {
+			return buildErr
+		}
+		builtDocument.Projects[SettingsProjectID] = overlayProjectShellState(
+			builtProject,
+			currentProject,
+		)
+	}
+
+	_, err = projectRuntime.MutateAndSave(
+		ctx,
+		func(projectDocument projectstate.Document) (projectstate.Document, error) {
+			return builtDocument, nil
+		},
+	)
+	return err
+}
+
+func overlayProjectShellState(
+	fresh projectstate.Project,
+	current projectstate.Project,
+) projectstate.Project {
+	merged := fresh.Clone()
+	currentClone := current.Clone()
+
+	if currentClone.Viewport != nil || currentClone.ViewportInitialized {
+		merged.Viewport = currentClone.Viewport
+		merged.ViewportInitialized = currentClone.ViewportInitialized
+	}
+	if len(currentClone.ViewModes) > 0 {
+		merged.ViewModes = currentClone.ViewModes
+	}
+	if currentClone.ActiveViewModeID != "" {
+		merged.ActiveViewModeID = currentClone.ActiveViewModeID
+	}
+	if currentClone.IsEditingViewMode {
+		merged.IsEditingViewMode = true
+	}
+	if len(currentClone.TopLevelSections) > 0 {
+		merged.TopLevelSections = currentClone.TopLevelSections
+	}
+	if len(currentClone.WindowSpaces) > 0 {
+		merged.WindowSpaces = currentClone.WindowSpaces
+	}
+	if len(currentClone.ActiveIDs) > 0 {
+		merged.ActiveIDs = currentClone.ActiveIDs
+	}
+	if len(currentClone.Edges) > 0 {
+		merged.Edges = currentClone.Edges
+	}
+	if len(currentClone.AgenticEdges) > 0 {
+		merged.AgenticEdges = currentClone.AgenticEdges
+	}
+	if len(currentClone.StateMachineEdges) > 0 {
+		merged.StateMachineEdges = currentClone.StateMachineEdges
+	}
+	if currentClone.ProjectChatWindowing != nil {
+		merged.ProjectChatWindowing = currentClone.ProjectChatWindowing
+	}
+
+	return merged
+}
+
 func addSettingsSection(project *projectstate.Project, sectionName string, rawValue any) (string, error) {
 	sectionID := settingsSectionID(sectionName)
 	sectionVariantID := settingsSectionVariantID(sectionName)

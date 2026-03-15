@@ -1882,6 +1882,16 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if settingsstate.IsSettingsProjectID(projectID) && deps.SettingsState != nil && deps.SettingsProjectState != nil {
+			if err := settingsstate.RefreshProjectRuntimeFromSettings(
+				r.Context(),
+				deps.SettingsState,
+				deps.SettingsProjectState,
+			); err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+		}
 
 		runtime, err := projectRuntimeForRequest(deps, r)
 		if err != nil {

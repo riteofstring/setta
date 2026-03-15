@@ -1,6 +1,7 @@
 package settingsstate
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -122,4 +123,83 @@ func TestEnsureProjectRuntimeBootstrappedSeedsDedicatedSettingsProject(t *testin
 	if len(project.Sections) != 46 {
 		t.Fatalf("expected 46 settings sections, got %d", len(project.Sections))
 	}
+}
+
+func TestRefreshProjectRuntimeFromSettingsHydratesLiveValuesAndPreservesActiveViewMode(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		project.ActiveViewModeID = "settings-all"
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("set active view mode: %v", err)
+	}
+
+	if _, err := settingsRuntime.MutateAndSave(t.Context(), func(document Document) (Document, error) {
+		document["backend"].(map[string]any)["renameRefactorMode"] = "NEVER_RENAME"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("update live settings runtime: %v", err)
+	}
+
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("refresh settings project runtime: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+	if project.ActiveViewModeID != "settings-all" {
+		t.Fatalf("expected active view mode settings-all, got %q", project.ActiveViewModeID)
+	}
+	if got := settingsProjectCodeObjValue(t, project, "settings-codeobj-impl__backend__backend__renameRefactorMode"); got != "NEVER_RENAME" {
+		t.Fatalf("expected renameRefactorMode NEVER_RENAME, got %q", got)
+	}
+}
+
+func settingsProjectCodeObjValue(t *testing.T, project projectstate.Project, implID string) string {
+	t.Helper()
+
+	impl, ok := project.CodeObjImpls[implID]
+	if !ok {
+		t.Fatalf("expected code object impl %q", implID)
+	}
+	var payload struct {
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(impl.Payload, &payload); err != nil {
+		t.Fatalf("decode code object impl payload %q: %v", implID, err)
+	}
+	return payload.Value
 }

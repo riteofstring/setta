@@ -45,6 +45,8 @@ ROUTE_CREATE_PROJECT_CONFIG = "/api/createProjectConfig"
 ROUTE_LOAD_ALL_PROJECT_METADATA = "/api/loadAllProjectMetadata"
 ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
+ROUTE_LOAD_SETTINGS = "/api/loadSettings"
+ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
 
 
@@ -681,6 +683,8 @@ def execute_scenario(
         return execute_persisted_project_windowing_after_create(backend)
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
+    if scenario.kind == "settings_project_live_hydration":
+        return execute_settings_project_live_hydration(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -897,6 +901,80 @@ def execute_settings_project_shell(
         latest_payload=latest_payload,
     )
     return summary, {
+        "loadProjectConfigStatus": load_response.status_code,
+        "loadProjectConfig": load_payload,
+        "latestProjectStateStatus": None
+        if latest_response is None
+        else latest_response.status_code,
+        "latestProjectState": latest_payload,
+    }
+
+
+def execute_settings_project_live_hydration(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    load_settings_response = post_json(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_SETTINGS,
+        payload={},
+    )
+    settings_payload = normalize_response_json(load_settings_response)
+    if not isinstance(settings_payload, dict):
+        raise ParityHarnessError(
+            f"loadSettings returned unexpected payload: {settings_payload!r}"
+        )
+
+    next_settings = json.loads(json.dumps(settings_payload))
+    backend_settings = object_field(next_settings, "backend")
+    backend_settings["renameRefactorMode"] = "NEVER_RENAME"
+
+    save_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SAVE_SETTINGS,
+        payload={"settings": next_settings},
+    )
+    save_payload = normalize_response_json_allow_status(save_response)
+
+    load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    load_payload = normalize_response_json_allow_status(load_response)
+
+    latest_response = None
+    latest_payload = None
+    if load_response.status_code == 200 and isinstance(load_payload, dict):
+        project_config = object_field(load_payload, "projectConfig")
+        project_id = expect_non_empty_string(
+            project_config.get("id"),
+            "projectConfig.id",
+        )
+        latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": project_id},
+        )
+        latest_payload = normalize_response_json_allow_status(latest_response)
+
+    summary = summarize_settings_project_live_hydration(
+        save_http_status=save_response.status_code,
+        save_payload=save_payload,
+        load_http_status=load_response.status_code,
+        load_payload=load_payload,
+        latest_http_status=None
+        if latest_response is None
+        else latest_response.status_code,
+        latest_payload=latest_payload,
+    )
+    return summary, {
+        "loadSettings": settings_payload,
+        "saveSettingsStatus": save_response.status_code,
+        "saveSettings": save_payload,
         "loadProjectConfigStatus": load_response.status_code,
         "loadProjectConfig": load_payload,
         "latestProjectStateStatus": None
@@ -1285,6 +1363,230 @@ def summarize_settings_project_shell(
         }
     )
     return summary
+
+
+def summarize_settings_project_live_hydration(
+    save_http_status: int,
+    save_payload: Any,
+    load_http_status: int,
+    load_payload: Any,
+    latest_http_status: int | None,
+    latest_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "saveHttpStatus": save_http_status,
+        "loadHttpStatus": load_http_status,
+        "latestHttpStatus": latest_http_status,
+    }
+    if save_http_status != 200:
+        summary["savePayload"] = save_payload
+        return summary
+    if load_http_status != 200 or not isinstance(load_payload, dict):
+        return summary
+
+    summary["loadedRenameRefactorMode"] = extract_settings_project_param_value(
+        load_payload,
+        section_name="backend",
+        param_path=["renameRefactorMode"],
+    )
+
+    if latest_http_status == 200 and isinstance(latest_payload, dict):
+        latest_project_state = object_field(latest_payload, "projectState")
+        summary["latestRenameRefactorMode"] = extract_settings_project_param_value(
+            latest_project_state,
+            section_name="backend",
+            param_path=["renameRefactorMode"],
+        )
+
+    return summary
+
+
+def extract_settings_project_param_value(
+    payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> Any:
+    sections = object_field(payload, "sections")
+    target_section_id = ""
+    for section_id, raw_section in sections.items():
+        section = expect_object(raw_section, f"sections.{section_id}")
+        if normalized_string(section.get("name")) == section_name:
+            target_section_id = section_id
+            break
+    if not target_section_id:
+        raise ParityHarnessError(f"Unable to find settings section named {section_name!r}")
+
+    section = expect_object(sections[target_section_id], f"sections.{target_section_id}")
+    current_children = section_child_code_object_ids(
+        payload,
+        section_id=target_section_id,
+        section=section,
+    )
+    current_code_obj_id = ""
+
+    for index, path_part in enumerate(param_path):
+        current_code_obj_id = find_named_code_object_id(
+            payload,
+            candidate_ids=current_children,
+            child_name=path_part,
+        )
+        if index+1 < len(param_path):
+            current_children = code_object_child_ids(payload, current_code_obj_id)
+
+    if not current_code_obj_id:
+        raise ParityHarnessError(
+            f"Unable to find settings param path {param_path!r} in section {section_name!r}"
+        )
+    return code_object_value(payload, current_code_obj_id)
+
+
+def section_child_code_object_ids(
+    payload: dict[str, Any],
+    section_id: str,
+    section: dict[str, Any],
+) -> list[str]:
+    section_shared_modifier = object_field(section, "sharedModifier", allow_missing=True)
+    shared_children = expect_string_list(
+        section_shared_modifier.get("children"),
+        f"sections.{section_id}.sharedModifier.children",
+    )
+    if shared_children:
+        return shared_children
+
+    section_variant_id = expect_non_empty_string(
+        section.get("defaultVariant"),
+        f"sections.{section_id}.defaultVariant",
+    )
+    section_variants = object_field(payload, "sectionVariants")
+    section_variant = expect_object(
+        section_variants.get(section_variant_id),
+        f"sectionVariants.{section_variant_id}",
+    )
+    section_impl_id = expect_non_empty_string(
+        section_variant.get("impl"),
+        f"sectionVariants.{section_variant_id}.impl",
+    )
+    section_impls = object_field(payload, "sectionImpls")
+    section_impl = expect_object(
+        section_impls.get(section_impl_id),
+        f"sectionImpls.{section_impl_id}",
+    )
+    top_level_param_id = expect_non_empty_string(
+        section_impl.get("topLevelParamId"),
+        f"sectionImpls.{section_impl_id}.topLevelParamId",
+    )
+    return code_object_child_ids(payload, top_level_param_id)
+
+
+def code_object_child_ids(payload: dict[str, Any], code_obj_id: str) -> list[str]:
+    code_objs = object_field(payload, "codeObjs")
+    code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
+    code_obj_shared_modifier = object_field(code_obj, "sharedModifier", allow_missing=True)
+    shared_children = expect_string_list(
+        code_obj_shared_modifier.get("children"),
+        f"codeObjs.{code_obj_id}.sharedModifier.children",
+    )
+    if shared_children:
+        return shared_children
+
+    code_obj_variants = object_field(payload, "codeObjVariants")
+    code_obj_variant_id = expect_non_empty_string(
+        code_obj.get("defaultVariant"),
+        f"codeObjs.{code_obj_id}.defaultVariant",
+    )
+    code_obj_variant = expect_object(
+        code_obj_variants.get(code_obj_variant_id),
+        f"codeObjVariants.{code_obj_variant_id}",
+    )
+    code_obj_impl_id = expect_non_empty_string(
+        code_obj_variant.get("impl"),
+        f"codeObjVariants.{code_obj_variant_id}.impl",
+    )
+    code_obj_impls = object_field(payload, "codeObjImpls")
+    code_obj_impl = expect_object(
+        code_obj_impls.get(code_obj_impl_id),
+        f"codeObjImpls.{code_obj_impl_id}",
+    )
+    return expect_string_list(
+        code_obj_impl.get("children"),
+        f"codeObjImpls.{code_obj_impl_id}.children",
+    )
+
+
+def find_named_code_object_id(
+    payload: dict[str, Any],
+    candidate_ids: list[str],
+    child_name: str,
+) -> str:
+    code_objs = object_field(payload, "codeObjs")
+    for candidate_id in candidate_ids:
+        child_code_obj = expect_object(
+            code_objs.get(candidate_id),
+            f"codeObjs.{candidate_id}",
+        )
+        if normalized_string(child_code_obj.get("name")) == child_name:
+            return candidate_id
+    raise ParityHarnessError(
+        f"Unable to find child code object named {child_name!r} in candidates {candidate_ids!r}"
+    )
+
+
+def code_object_value(payload: dict[str, Any], code_obj_id: str) -> Any:
+    code_objs = object_field(payload, "codeObjs")
+    code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
+    code_obj_shared_modifier = object_field(code_obj, "sharedModifier", allow_missing=True)
+    if "value" in code_obj_shared_modifier:
+        return normalize_scalar_payload_value(code_obj_shared_modifier.get("value"))
+
+    code_obj_variant_id = expect_non_empty_string(
+        code_obj.get("defaultVariant"),
+        f"codeObjs.{code_obj_id}.defaultVariant",
+    )
+    code_obj_variants = object_field(payload, "codeObjVariants")
+    code_obj_variant = expect_object(
+        code_obj_variants.get(code_obj_variant_id),
+        f"codeObjVariants.{code_obj_variant_id}",
+    )
+    variant_modifier = object_field(code_obj_variant, "modifier", allow_missing=True)
+    if "value" in variant_modifier:
+        return normalize_scalar_payload_value(variant_modifier.get("value"))
+
+    code_obj_impls = object_field(payload, "codeObjImpls")
+    code_obj_impl_id = expect_non_empty_string(
+        code_obj_variant.get("impl"),
+        f"codeObjVariants.{code_obj_variant_id}.impl",
+    )
+    code_obj_impl = expect_object(
+        code_obj_impls.get(code_obj_impl_id),
+        f"codeObjImpls.{code_obj_impl_id}",
+    )
+    return normalize_scalar_payload_value(code_obj_impl.get("value"))
+
+
+def normalize_scalar_payload_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    trimmed = value.strip()
+    if not trimmed:
+        return value
+    if trimmed[0] in {'"', "{", "["} or trimmed in {"true", "false", "null"}:
+        try:
+            return json.loads(trimmed)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def find_child_code_object_id(
+    payload: dict[str, Any],
+    parent_code_obj_id: str,
+    child_name: str,
+) -> str:
+    return find_named_code_object_id(
+        payload,
+        candidate_ids=code_object_child_ids(payload, parent_code_obj_id),
+        child_name=child_name,
+    )
 
 
 def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:

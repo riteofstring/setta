@@ -20,6 +20,7 @@ type AfterProjectsDeleteHook func(context.Context, projectstate.Snapshot, []stri
 
 type ServiceOptions struct {
 	ProjectState                 *projectstate.Runtime
+	SettingsState                *settingsstate.Runtime
 	SettingsProjectState         *projectstate.Runtime
 	AfterProjectRename           AfterProjectRenameHook
 	AfterProjectSave             AfterProjectSaveHook
@@ -34,6 +35,7 @@ type AllProjectMetadata struct {
 
 type Service struct {
 	projectState                 *projectstate.Runtime
+	settingsState                *settingsstate.Runtime
 	settingsProjectState         *projectstate.Runtime
 	afterProjectRename           AfterProjectRenameHook
 	afterProjectSave             AfterProjectSaveHook
@@ -47,6 +49,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}
 	return &Service{
 		projectState:                 options.ProjectState,
+		settingsState:                options.SettingsState,
 		settingsProjectState:         options.SettingsProjectState,
 		afterProjectRename:           options.AfterProjectRename,
 		afterProjectSave:             options.AfterProjectSave,
@@ -64,13 +67,22 @@ func (s *Service) LoadAllProjectMetadata(_ context.Context) (AllProjectMetadata,
 	return allProjectMetadataFromDocument(snapshot.Document), nil
 }
 
-func (s *Service) LoadProjectConfig(_ context.Context, projectConfigName string) (projectview.SingleConfig, error) {
+func (s *Service) LoadProjectConfig(ctx context.Context, projectConfigName string) (projectview.SingleConfig, error) {
 	if s == nil || s.projectState == nil {
 		return projectview.SingleConfig{}, ErrProjectStateRequired
 	}
 
 	runtime := s.projectState
 	if settingsstate.IsSettingsProjectName(projectConfigName) && s.settingsProjectState != nil {
+		if s.settingsState != nil {
+			if err := settingsstate.RefreshProjectRuntimeFromSettings(
+				ctx,
+				s.settingsState,
+				s.settingsProjectState,
+			); err != nil {
+				return projectview.SingleConfig{}, err
+			}
+		}
 		runtime = s.settingsProjectState
 	}
 
