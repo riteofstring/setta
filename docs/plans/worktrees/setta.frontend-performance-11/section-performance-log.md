@@ -3251,3 +3251,20 @@ Append-only log for the section performance refactor.
 - Next action:
   - Re-establish the current Codex session's `chrome-devtools-mcp` bridge, then rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
   - If that fresh trace still points back down here, inspect `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` before reopening the already-trimmed lower activation files.
+
+### 2026-03-17 90
+
+- Item: Try clearing stale worktree-side `chrome-devtools-mcp` processes before declaring the session bridge unrecoverable.
+- Status: `blocked`
+- Details:
+  - Inspected the local environment and found many stale `chrome-devtools-mcp` / `npm exec chrome-devtools-mcp@0.17.0` processes still attached to `--browserUrl=http://127.0.0.1:9233`.
+  - Cleared those stale worktree-side MCP processes from the shell.
+  - Re-tried the built-in DevTools tool immediately after cleanup.
+  - Result:
+    - the built-in `chrome-devtools-mcp` tool still failed on `list_pages`
+    - failure remained `Transport closed`
+  - Conclusion:
+    - stale worktree-side MCP processes were not the root cause of the active checkpoint blocker
+    - the current Codex session's DevTools bridge is still dead even after browser restarts and MCP-process cleanup
+- Next action:
+  - Re-establish the current Codex session's `chrome-devtools-mcp` bridge, then rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
