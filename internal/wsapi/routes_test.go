@@ -1710,6 +1710,46 @@ func TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency(t *testing.T
 	})
 }
 
+func TestRegisterRoutesListenerFrontendEmitRejectsInvalidDependencyValue(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	textSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", textSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":{"unexpected":true}}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit invalid dependency value: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_value", map[string]any{
+		"dependencyName": dependencyName,
+		"expectedType":   "Literal",
+	})
+}
+
 func TestRegisterRoutesListenerFrontendEmitBroadcastsArtifactUpdates(t *testing.T) {
 	t.Parallel()
 
@@ -1835,6 +1875,46 @@ func TestRegisterRoutesShareListenerFrontendEmitScopesArtifactUpdatesToSession(t
 	}
 }
 
+func TestRegisterRoutesListenerFrontendEmitRejectsBlankArtifactPath(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	artifactService, _ := newRouteArtifactService(t)
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		Artifacts:           artifactService,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","artifactUpdates":[{"type":"BrushStroke","id":"   ","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}}]}}`)); err != nil {
+		t.Fatalf("write listener blank artifact path update: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_artifact_update", map[string]any{
+		"path":    "   ",
+		"message": "Artifact id must be a non-empty string.",
+	})
+}
+
 func TestRegisterRoutesListenerFrontendEmitRejectsInvalidArtifactUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -1911,6 +1991,66 @@ func TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedArtifactUpdate(t *t
 	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_unsupported_artifact_update", map[string]any{
 		"path": "artifacts/image.png",
 	})
+}
+
+func TestRegisterRoutesListenerFrontendEmitReportsArtifactManagerFailure(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	artifactService, artifactsRoot := newRouteArtifactService(t)
+	if err := os.RemoveAll(artifactsRoot); err != nil {
+		t.Fatalf("remove artifacts root: %v", err)
+	}
+	if err := os.WriteFile(artifactsRoot, []byte("blocked"), 0o644); err != nil {
+		t.Fatalf("replace artifacts root with file: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		Artifacts:           artifactService,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","artifactUpdates":[{"type":"BrushStroke","id":"artifacts/stroke.json","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}}]}}`)); err != nil {
+		t.Fatalf("write listener artifact update with manager failure: %v", err)
+	}
+
+	message := readNextMessage(t, listener)
+	if message.MessageType != realtime.MessageTypeListenerError {
+		t.Fatalf("expected listener error, got %q", message.MessageType)
+	}
+	var content realtime.ListenerErrorContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener error: %v", err)
+	}
+	if content.Error != "listener_emit_artifact_update_failed" {
+		t.Fatalf("expected listener_emit_artifact_update_failed, got %q", content.Error)
+	}
+	rawMessage, ok := content.Details["message"].(string)
+	if !ok {
+		t.Fatalf("expected string listener error message, got %#v", content.Details["message"])
+	}
+	if !strings.Contains(rawMessage, "stroke.json") {
+		t.Fatalf("expected artifact manager failure detail, got %q", rawMessage)
+	}
 }
 
 func TestRegisterRoutesShareListenerFrontendEmitRejectsMissingShareSessionContext(t *testing.T) {

@@ -236,7 +236,10 @@ func handleListenerFrontendEmit(
 	}
 
 	if len(content.DependencyValues) == 0 {
-		return applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps)
+		if err := applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps); err != nil {
+			return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
+		}
+		return nil
 	}
 
 	runtime, err := listenerMutationRuntime(requestInfo, deps)
@@ -286,7 +289,10 @@ func handleListenerFrontendEmit(
 		return err
 	}
 
-	return applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps)
+	if err := applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps); err != nil {
+		return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
+	}
+	return nil
 }
 
 func listenerMutationRuntime(
