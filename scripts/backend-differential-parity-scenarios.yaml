@@ -39,6 +39,10 @@ scenarios:
     kind: window_spaces_invalid_owner_mode_combos_on_load
     seed: none
     description: Restarting with invalid persisted saved-window-space owner or mode combinations should fail closed instead of normalizing impossible windows.
+  - name: windowing_scoped_per_project_config
+    kind: windowing_scoped_per_project_config
+    seed: none
+    description: Restarting with distinct persisted windowing for two projects should keep live project-chat windowing and saved window spaces scoped to each project config.
   - name: settings_project_shell
     kind: settings_project_shell
     seed: none

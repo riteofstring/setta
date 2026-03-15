@@ -588,6 +588,118 @@ func TestStoreSaveRoundTripsChatWindowingAndWindowSpaces(t *testing.T) {
 	}
 }
 
+func TestStoreSaveRoundTripsWindowingScopedPerProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	newProject := func(
+		projectID string,
+		projectName string,
+		windowSpaceID string,
+		windowID string,
+		instanceID string,
+		chatSuffix string,
+	) Project {
+		return Project{
+			ID:   projectID,
+			Name: projectName,
+			WindowSpaces: map[string]WindowSpaceConfig{
+				windowSpaceID: {
+					ID:    windowSpaceID,
+					Name:  projectName + " Workspace",
+					Order: []string{windowID},
+					WindowsByID: map[string]WindowSpaceWindow{
+						windowID: {
+							SurfaceKind: WindowSpaceSurfaceKindProjectChat,
+							Mode:        ChatWindowModeProjectAI,
+							ChatID:      stringPointer("saved-" + chatSuffix),
+							NormalizedBounds: NormalizedFloatingWindowBounds{
+								Width:  0.5,
+								Height: 0.6,
+							},
+						},
+					},
+				},
+			},
+			ProjectChatWindowing: &ProjectChatWindowingState{
+				InstancesByID: map[string]ProjectChatWindowInstance{
+					instanceID: {
+						Placement: ChatWindowPlacementFloating,
+						Mode:      ChatWindowModeProjectAI,
+						ChatID:    stringPointer("live-" + chatSuffix),
+						Bounds: ChatWindowBounds{
+							X:      10,
+							Y:      20,
+							Width:  900,
+							Height: 600,
+						},
+					},
+				},
+				Order:              []string{instanceID},
+				NextInstanceNumber: 2,
+			},
+		}
+	}
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": newProject(
+				"project-alpha",
+				"Alpha",
+				"space-alpha",
+				"window-alpha",
+				"instance-alpha",
+				"alpha",
+			),
+			"project-beta": newProject(
+				"project-beta",
+				"Beta",
+				"space-beta",
+				"window-beta",
+				"instance-beta",
+				"beta",
+			),
+		},
+	}
+
+	expected, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize document: %v", err)
+	}
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save document: %v", err)
+	}
+
+	loaded, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load document: %v", err)
+	}
+
+	for _, projectID := range []string{"project-alpha", "project-beta"} {
+		expectedProject := expected.Projects[projectID]
+		loadedProject := loaded.Projects[projectID]
+		if !reflect.DeepEqual(loadedProject.WindowSpaces, expectedProject.WindowSpaces) {
+			t.Fatalf(
+				"expected window spaces for %s %#v, got %#v",
+				projectID,
+				expectedProject.WindowSpaces,
+				loadedProject.WindowSpaces,
+			)
+		}
+		if !reflect.DeepEqual(loadedProject.ProjectChatWindowing, expectedProject.ProjectChatWindowing) {
+			t.Fatalf(
+				"expected project chat windowing for %s %#v, got %#v",
+				projectID,
+				expectedProject.ProjectChatWindowing,
+				loadedProject.ProjectChatWindowing,
+			)
+		}
+	}
+}
+
 func float64Pointer(value float64) *float64 {
 	return &value
 }

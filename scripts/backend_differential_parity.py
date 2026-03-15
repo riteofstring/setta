@@ -806,6 +806,8 @@ def execute_scenario(
         )
     if scenario.kind == "window_spaces_invalid_owner_mode_combos_on_load":
         return execute_window_spaces_invalid_owner_mode_combos_on_load(backend)
+    if scenario.kind == "windowing_scoped_per_project_config":
+        return execute_windowing_scoped_per_project_config(backend)
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1296,6 +1298,149 @@ def execute_window_spaces_invalid_owner_mode_combos_on_load(
         "restartStartupError": restart_startup_error,
         "restartLoadProjectConfigStatus": restart_load_http_status,
         "restartLoadProjectConfig": restart_load_payload,
+    }
+
+
+def execute_windowing_scoped_per_project_config(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    first_name, _ = create_and_load_project(backend)
+    second_name, _ = create_and_load_project(backend)
+    first_project_id = find_project_id_by_name(backend, first_name)
+    second_project_id = find_project_id_by_name(backend, second_name)
+
+    persisted_payload = read_persisted_project_document(backend)
+    seeded_payload = seed_distinct_windowing_per_project_in_store_payload(
+        persisted_payload,
+        {
+            first_project_id: {
+                "projectChatWindowing": {
+                    "instancesById": {
+                        "instance-alpha": {
+                            "instanceId": "instance-alpha",
+                            "placement": "floating",
+                            "mode": "project_ai_mode",
+                            "chatId": "chat-live-alpha",
+                        }
+                    },
+                    "order": ["instance-alpha"],
+                    "nextInstanceNumber": 2,
+                },
+                "windowSpaces": {
+                    "space-alpha": {
+                        "id": "space-alpha",
+                        "name": "Alpha Workspace",
+                        "sortIndex": 0,
+                        "windowsById": {
+                            "window-alpha": {
+                                "surfaceKind": "project_chat",
+                                "mode": "project_ai_mode",
+                                "chatId": "chat-saved-alpha",
+                            }
+                        },
+                        "order": ["window-alpha"],
+                    }
+                },
+            },
+            second_project_id: {
+                "projectChatWindowing": {
+                    "instancesById": {
+                        "instance-beta": {
+                            "instanceId": "instance-beta",
+                            "placement": "floating",
+                            "mode": "project_ai_mode",
+                            "chatId": "chat-live-beta",
+                        }
+                    },
+                    "order": ["instance-beta"],
+                    "nextInstanceNumber": 2,
+                },
+                "windowSpaces": {
+                    "space-beta": {
+                        "id": "space-beta",
+                        "name": "Beta Workspace",
+                        "sortIndex": 0,
+                        "windowsById": {
+                            "window-beta": {
+                                "surfaceKind": "project_chat",
+                                "mode": "project_ai_mode",
+                                "chatId": "chat-saved-beta",
+                            }
+                        },
+                        "order": ["window-beta"],
+                    }
+                },
+            },
+        },
+    )
+    write_json(backend.setta_files_root / PROJECT_FILE_NAME, seeded_payload)
+
+    restart_backend(backend)
+
+    first_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": first_name},
+    )
+    first_load_payload = normalize_response_json_allow_status(first_load_response)
+    first_latest_http_status: int | None = None
+    first_latest_payload: Any = None
+    if first_load_response.status_code == 200 and isinstance(first_load_payload, dict):
+        first_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": first_project_id},
+        )
+        first_latest_http_status = first_latest_response.status_code
+        first_latest_payload = normalize_response_json_allow_status(first_latest_response)
+
+    second_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": second_name},
+    )
+    second_load_payload = normalize_response_json_allow_status(second_load_response)
+    second_latest_http_status: int | None = None
+    second_latest_payload: Any = None
+    if second_load_response.status_code == 200 and isinstance(second_load_payload, dict):
+        second_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": second_project_id},
+        )
+        second_latest_http_status = second_latest_response.status_code
+        second_latest_payload = normalize_response_json_allow_status(
+            second_latest_response
+        )
+
+    summary = summarize_windowing_scoped_per_project_config(
+        first_load_http_status=first_load_response.status_code,
+        first_load_payload=first_load_payload,
+        first_latest_http_status=first_latest_http_status,
+        first_latest_payload=first_latest_payload,
+        second_load_http_status=second_load_response.status_code,
+        second_load_payload=second_load_payload,
+        second_latest_http_status=second_latest_http_status,
+        second_latest_payload=second_latest_payload,
+    )
+    return summary, {
+        "firstProjectName": first_name,
+        "firstProjectID": first_project_id,
+        "secondProjectName": second_name,
+        "secondProjectID": second_project_id,
+        "seededProjectDocument": seeded_payload,
+        "firstLoadProjectConfigStatus": first_load_response.status_code,
+        "firstLoadProjectConfig": first_load_payload,
+        "firstLatestProjectStateStatus": first_latest_http_status,
+        "firstLatestProjectState": first_latest_payload,
+        "secondLoadProjectConfigStatus": second_load_response.status_code,
+        "secondLoadProjectConfig": second_load_payload,
+        "secondLatestProjectStateStatus": second_latest_http_status,
+        "secondLatestProjectState": second_latest_payload,
     }
 
 
@@ -2603,6 +2748,101 @@ def summarize_window_spaces_invalid_owner_mode_combos_on_load(
     if restart_load_http_status != 200:
         summary["restartLoadErrorSummary"] = normalize_error_summary(restart_load_payload)
     return summary
+
+
+def summarize_windowing_scoped_per_project_config(
+    first_load_http_status: int,
+    first_load_payload: Any,
+    first_latest_http_status: int | None,
+    first_latest_payload: Any,
+    second_load_http_status: int,
+    second_load_payload: Any,
+    second_latest_http_status: int | None,
+    second_latest_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "firstLoadHttpStatus": first_load_http_status,
+        "firstLatestHttpStatus": first_latest_http_status,
+        "secondLoadHttpStatus": second_load_http_status,
+        "secondLatestHttpStatus": second_latest_http_status,
+    }
+    if first_load_http_status == 200 and isinstance(first_load_payload, dict):
+        summary.update(
+            summarize_single_config_windowing_scope(
+                payload=first_load_payload,
+                prefix="firstLoad",
+            )
+        )
+    if first_latest_http_status == 200 and isinstance(first_latest_payload, dict):
+        summary.update(
+            summarize_single_config_windowing_scope(
+                payload=object_field(first_latest_payload, "projectState"),
+                prefix="firstLatest",
+            )
+        )
+    if second_load_http_status == 200 and isinstance(second_load_payload, dict):
+        summary.update(
+            summarize_single_config_windowing_scope(
+                payload=second_load_payload,
+                prefix="secondLoad",
+            )
+        )
+    if second_latest_http_status == 200 and isinstance(second_latest_payload, dict):
+        summary.update(
+            summarize_single_config_windowing_scope(
+                payload=object_field(second_latest_payload, "projectState"),
+                prefix="secondLatest",
+            )
+        )
+    return summary
+
+
+def summarize_single_config_windowing_scope(
+    payload: dict[str, Any],
+    prefix: str,
+) -> dict[str, Any]:
+    project_config = object_field(payload, "projectConfig")
+    window_spaces = object_field(project_config, "windowSpaces", allow_missing=True)
+    window_space_window_ids_by_space: dict[str, list[str]] = {}
+    for window_space_id in sorted(window_spaces.keys()):
+        window_space = expect_object(
+            window_spaces[window_space_id],
+            f"projectConfig.windowSpaces.{window_space_id}",
+        )
+        windows_by_id = object_field(
+            window_space,
+            "windowsById",
+            allow_missing=True,
+        )
+        window_space_window_ids_by_space[window_space_id] = sorted(windows_by_id.keys())
+
+    project_chat_windowing = expect_object(
+        payload.get("projectChatWindowing"),
+        "projectChatWindowing",
+        allow_missing=True,
+    )
+    project_chat_instances = object_field(
+        project_chat_windowing,
+        "instancesById",
+        allow_missing=True,
+    )
+    project_chat_chat_ids: dict[str, str | None] = {}
+    for instance_id in sorted(project_chat_instances.keys()):
+        instance = expect_object(
+            project_chat_instances[instance_id],
+            f"projectChatWindowing.instancesById.{instance_id}",
+        )
+        chat_id = instance.get("chatId")
+        project_chat_chat_ids[instance_id] = (
+            None if chat_id is None else normalized_string(chat_id)
+        )
+
+    return {
+        f"{prefix}WindowSpaceIDs": sorted(window_spaces.keys()),
+        f"{prefix}WindowSpaceWindowIDsBySpace": window_space_window_ids_by_space,
+        f"{prefix}ProjectChatWindowIDs": sorted(project_chat_instances.keys()),
+        f"{prefix}ProjectChatChatIDs": project_chat_chat_ids,
+    }
 
 
 def summarize_single_config_windowing_section_binding_state(
@@ -4968,6 +5208,47 @@ def seed_invalid_window_spaces_owner_mode_in_store_payload(
         return payload
 
     raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
+
+
+def seed_distinct_windowing_per_project_in_store_payload(
+    payload: dict[str, Any],
+    project_windowing_by_id: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    projects = object_field(payload, "projects", allow_missing=True)
+    if projects and all(project_id in projects for project_id in project_windowing_by_id):
+        for project_id, windowing_payload in project_windowing_by_id.items():
+            project = expect_object(projects[project_id], f"projects.{project_id}")
+            project["projectChatWindowing"] = windowing_payload["projectChatWindowing"]
+            project["windowSpaces"] = windowing_payload["windowSpaces"]
+            projects[project_id] = project
+        payload["projects"] = projects
+        return payload
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if source_projects and all(
+        project_id in source_projects for project_id in project_windowing_by_id
+    ):
+        raw_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        for project_id, windowing_payload in project_windowing_by_id.items():
+            project = expect_object(
+                source_projects[project_id],
+                f"projectConfigs.{project_id}",
+            )
+            project["windowSpaces"] = windowing_payload["windowSpaces"]
+            source_projects[project_id] = project
+            raw_windowing_by_id[project_id] = windowing_payload["projectChatWindowing"]
+        payload["projectConfigs"] = source_projects
+        payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
+        return payload
+
+    missing_ids = sorted(project_windowing_by_id.keys())
+    raise ParityHarnessError(
+        f"Unable to find projects {missing_ids!r} in store payload"
+    )
 
 
 def read_persisted_settings_project_document(backend: BackendSession) -> dict[str, Any]:

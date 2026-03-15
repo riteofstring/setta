@@ -2266,6 +2266,97 @@ class Route:
             },
         )
 
+    def test_summarize_windowing_scoped_per_project_config(self) -> None:
+        harness = load_harness_module()
+
+        first_payload = {
+            "projectChatWindowing": {
+                "instancesById": {
+                    "instance-alpha": {
+                        "chatId": "chat-live-alpha",
+                    }
+                }
+            },
+            "projectConfig": {
+                "windowSpaces": {
+                    "space-alpha": {
+                        "windowsById": {
+                            "window-alpha": {}
+                        }
+                    }
+                }
+            },
+        }
+        second_payload = {
+            "projectChatWindowing": {
+                "instancesById": {
+                    "instance-beta": {
+                        "chatId": "chat-live-beta",
+                    }
+                }
+            },
+            "projectConfig": {
+                "windowSpaces": {
+                    "space-beta": {
+                        "windowsById": {
+                            "window-beta": {}
+                        }
+                    }
+                }
+            },
+        }
+
+        self.assertEqual(
+            harness.summarize_windowing_scoped_per_project_config(
+                first_load_http_status=200,
+                first_load_payload=first_payload,
+                first_latest_http_status=200,
+                first_latest_payload={"projectState": first_payload},
+                second_load_http_status=200,
+                second_load_payload=second_payload,
+                second_latest_http_status=200,
+                second_latest_payload={"projectState": second_payload},
+            ),
+            {
+                "firstLoadHttpStatus": 200,
+                "firstLatestHttpStatus": 200,
+                "secondLoadHttpStatus": 200,
+                "secondLatestHttpStatus": 200,
+                "firstLoadWindowSpaceIDs": ["space-alpha"],
+                "firstLoadWindowSpaceWindowIDsBySpace": {
+                    "space-alpha": ["window-alpha"]
+                },
+                "firstLoadProjectChatWindowIDs": ["instance-alpha"],
+                "firstLoadProjectChatChatIDs": {
+                    "instance-alpha": "chat-live-alpha"
+                },
+                "firstLatestWindowSpaceIDs": ["space-alpha"],
+                "firstLatestWindowSpaceWindowIDsBySpace": {
+                    "space-alpha": ["window-alpha"]
+                },
+                "firstLatestProjectChatWindowIDs": ["instance-alpha"],
+                "firstLatestProjectChatChatIDs": {
+                    "instance-alpha": "chat-live-alpha"
+                },
+                "secondLoadWindowSpaceIDs": ["space-beta"],
+                "secondLoadWindowSpaceWindowIDsBySpace": {
+                    "space-beta": ["window-beta"]
+                },
+                "secondLoadProjectChatWindowIDs": ["instance-beta"],
+                "secondLoadProjectChatChatIDs": {
+                    "instance-beta": "chat-live-beta"
+                },
+                "secondLatestWindowSpaceIDs": ["space-beta"],
+                "secondLatestWindowSpaceWindowIDsBySpace": {
+                    "space-beta": ["window-beta"]
+                },
+                "secondLatestProjectChatWindowIDs": ["instance-beta"],
+                "secondLatestProjectChatChatIDs": {
+                    "instance-beta": "chat-live-beta"
+                },
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

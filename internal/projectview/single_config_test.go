@@ -231,6 +231,100 @@ func TestSingleConfigByProjectIDIncludesWindowingFields(t *testing.T) {
 	}
 }
 
+func TestSingleConfigByProjectIDKeepsWindowingScopedPerProject(t *testing.T) {
+	document := testProjectViewDocument(t)
+
+	alpha := document.Projects["project-alpha"]
+	alpha.WindowSpaces = map[string]projectstate.WindowSpaceConfig{
+		"space-alpha": {
+			ID:    "space-alpha",
+			Name:  "Alpha Workspace",
+			Order: []string{"window-alpha"},
+			WindowsByID: map[string]projectstate.WindowSpaceWindow{
+				"window-alpha": {
+					SurfaceKind: projectstate.WindowSpaceSurfaceKindProjectChat,
+					Mode:        projectstate.ChatWindowModeProjectAI,
+					ChatID:      stringPointer("chat-alpha"),
+				},
+			},
+		},
+	}
+	alpha.ProjectChatWindowing = &projectstate.ProjectChatWindowingState{
+		InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+			"instance-alpha": {
+				Placement: projectstate.ChatWindowPlacementFloating,
+				Mode:      projectstate.ChatWindowModeProjectAI,
+				ChatID:    stringPointer("chat-live-alpha"),
+			},
+		},
+		Order:              []string{"instance-alpha"},
+		NextInstanceNumber: 2,
+	}
+	document.Projects["project-alpha"] = alpha
+
+	beta := document.Projects["project-beta"]
+	beta.WindowSpaces = map[string]projectstate.WindowSpaceConfig{
+		"space-beta": {
+			ID:    "space-beta",
+			Name:  "Beta Workspace",
+			Order: []string{"window-beta"},
+			WindowsByID: map[string]projectstate.WindowSpaceWindow{
+				"window-beta": {
+					SurfaceKind: projectstate.WindowSpaceSurfaceKindProjectChat,
+					Mode:        projectstate.ChatWindowModeProjectAI,
+					ChatID:      stringPointer("chat-beta"),
+				},
+			},
+		},
+	}
+	beta.ProjectChatWindowing = &projectstate.ProjectChatWindowingState{
+		InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+			"instance-beta": {
+				Placement: projectstate.ChatWindowPlacementFloating,
+				Mode:      projectstate.ChatWindowModeProjectAI,
+				ChatID:    stringPointer("chat-live-beta"),
+			},
+		},
+		Order:              []string{"instance-beta"},
+		NextInstanceNumber: 2,
+	}
+	document.Projects["project-beta"] = beta
+
+	alphaView, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID alpha returned error: %v", err)
+	}
+	if _, ok := alphaView.ProjectConfig.WindowSpaces["space-alpha"]; !ok {
+		t.Fatalf("expected alpha view to include alpha window space, got %#v", alphaView.ProjectConfig.WindowSpaces)
+	}
+	if _, ok := alphaView.ProjectConfig.WindowSpaces["space-beta"]; ok {
+		t.Fatalf("expected alpha view to exclude beta window space, got %#v", alphaView.ProjectConfig.WindowSpaces)
+	}
+	if _, ok := alphaView.ProjectChatWindowing.InstancesByID["instance-alpha"]; !ok {
+		t.Fatalf("expected alpha view to include alpha live window, got %#v", alphaView.ProjectChatWindowing.InstancesByID)
+	}
+	if _, ok := alphaView.ProjectChatWindowing.InstancesByID["instance-beta"]; ok {
+		t.Fatalf("expected alpha view to exclude beta live window, got %#v", alphaView.ProjectChatWindowing.InstancesByID)
+	}
+
+	betaView, err := SingleConfigByProjectID(document, "project-beta")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID beta returned error: %v", err)
+	}
+	if _, ok := betaView.ProjectConfig.WindowSpaces["space-beta"]; !ok {
+		t.Fatalf("expected beta view to include beta window space, got %#v", betaView.ProjectConfig.WindowSpaces)
+	}
+	if _, ok := betaView.ProjectConfig.WindowSpaces["space-alpha"]; ok {
+		t.Fatalf("expected beta view to exclude alpha window space, got %#v", betaView.ProjectConfig.WindowSpaces)
+	}
+	if _, ok := betaView.ProjectChatWindowing.InstancesByID["instance-beta"]; !ok {
+		t.Fatalf("expected beta view to include beta live window, got %#v", betaView.ProjectChatWindowing.InstancesByID)
+	}
+	if _, ok := betaView.ProjectChatWindowing.InstancesByID["instance-alpha"]; ok {
+		t.Fatalf("expected beta view to exclude alpha live window, got %#v", betaView.ProjectChatWindowing.InstancesByID)
+	}
+}
+
 func TestSingleConfigByProjectIDIncludesEmptyShownParamIDsForCallableWithoutRoot(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]
