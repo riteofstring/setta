@@ -3876,3 +3876,28 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiHydrationApply.ts` so snapshot apply
     reducers stop living beside hydration route handling and shared side-effect
     orchestration.
+
+## 2026-03-15 10:18:18 PDT
+
+- Slice completed: split hydration chat state from section persistence sync
+- Key files touched:
+  - `frontend/src/state/actions/aiHydrationApply.ts`
+  - `frontend/src/state/actions/aiHydrationChatState.ts`
+  - `frontend/src/state/actions/aiHydrationSectionState.ts`
+  - `frontend/src/state/actions/aiHydrationChatState.test.ts`
+  - `frontend/src/state/actions/aiHydrationSectionState.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiHydrationChatState.test.ts src/state/actions/aiHydrationSectionState.test.ts src/state/actions/aiHydrationOutcome.test.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiSectionStateSync.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiHydration.ts src/state/actions/aiHydrationApply.ts src/state/actions/aiHydrationChatState.ts src/state/actions/aiHydrationSectionState.ts src/state/actions/aiHydrationChatState.test.ts src/state/actions/aiHydrationSectionState.test.ts src/state/actions/aiHydrationOutcome.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiSectionStateSync.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `354aafbd0071c97d687ae5d24190c464ea4d6a61`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/agenticEdgeMutations.ts` so edge-shape
+    reducers stop living beside optimistic persistence and selection flows.
