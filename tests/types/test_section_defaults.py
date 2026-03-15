@@ -1,8 +1,7 @@
 import pytest
 
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl2 import create_child_sections, create_top_level_section
-from setta.types.generated.settings_state import SettingsState
+from tests.helpers.settings_state import SettingsState
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -18,7 +17,11 @@ from setta.types.section_impls import (
     StateMachineStartSectionImpl,
     TaskBoardSectionImpl,
 )
-from setta.types.settings_state import SectionSizingPolicy
+from tests.helpers.settings_models import SectionSizingPolicy
+from tests.helpers.project_state_sections import (
+    create_child_sections,
+    create_top_level_section,
+)
 
 
 def test_section_size_defaults_to_auto_width() -> None:
