@@ -144,7 +144,21 @@ class ListenerHotReloader:
     ) -> Iterable[tuple[Path, str | None]]:
         path_string = str(Path(raw_path).expanduser())
         if has_magic(path_string):
-            root, pattern = self._split_glob_root(path_string)
+            expanded = Path(path_string).expanduser()
+            parts = expanded.parts
+            root_parts: list[str] = []
+            pattern_parts: list[str] = []
+            for part in parts:
+                if has_magic(part) or pattern_parts:
+                    pattern_parts.append(part)
+                else:
+                    root_parts.append(part)
+            if not root_parts:
+                root = Path(".")
+            else:
+                root = Path(*root_parts)
+            root = self._resolve_path(root)
+            pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
             yield root, pattern
             return
         normalized = self._resolve_path(Path(path_string))
@@ -266,26 +280,6 @@ class ListenerHotReloader:
         if path.exists():
             return path.is_file()
         return path.suffix != ""
-
-    @staticmethod
-    def _split_glob_root(raw_path: str) -> tuple[Path, str]:
-        expanded = Path(raw_path).expanduser()
-        parts = expanded.parts
-        root_parts: list[str] = []
-        pattern_parts: list[str] = []
-        for part in parts:
-            if has_magic(part) or pattern_parts:
-                pattern_parts.append(part)
-            else:
-                root_parts.append(part)
-        if not root_parts:
-            root = Path(".")
-        else:
-            root = Path(*root_parts)
-        root = ListenerHotReloader._resolve_path(root)
-        pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
-        return root, pattern
-
 
 @dataclass(frozen=True)
 class _WatcherSpec:
