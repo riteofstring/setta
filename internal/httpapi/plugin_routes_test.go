@@ -1417,6 +1417,12 @@ func TestRegisterPluginRootRoutesRequireAuthOnlyForRegisteredBackendRoutes(t *te
 	if unauthorizedResponse.Code != http.StatusUnauthorized {
 		t.Fatalf("expected backend route auth 401, got %d with body %q", unauthorizedResponse.Code, unauthorizedResponse.Body.String())
 	}
+	if contentType := unauthorizedResponse.Header().Get("Content-Type"); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("expected backend route auth html response, got %q", contentType)
+	}
+	if !strings.Contains(unauthorizedResponse.Body.String(), bootstrapPagePath) {
+		t.Fatalf("expected backend route auth html to link to bootstrap page, got %q", unauthorizedResponse.Body.String())
+	}
 
 	token, _, err := authService.MintAuthCookie(time.Now().UTC())
 	if err != nil {

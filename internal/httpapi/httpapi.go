@@ -259,13 +259,13 @@ func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.S
 			now := time.Now().UTC()
 			cookieValue, ok := authService.ReadAuthCookie(r)
 			if !ok {
-				writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
+				writeUnauthorizedAuthResponse(w, r)
 				return
 			}
 
 			requestInfo, err := authService.ValidateAuthCookie(cookieValue, now)
 			if err != nil {
-				writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
+				writeUnauthorizedAuthResponse(w, r)
 				return
 			}
 
@@ -310,6 +310,14 @@ func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.S
 			next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
 		})
 	}
+}
+
+func writeUnauthorizedAuthResponse(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, apiPrefix) {
+		writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
+		return
+	}
+	writeUnauthorizedBootstrapHTML(w)
 }
 
 func modeContextMiddleware(policy modes.Policy) func(http.Handler) http.Handler {
