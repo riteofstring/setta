@@ -281,6 +281,40 @@ func TestRunAPIAutoAuthDefaultsToIDESession(t *testing.T) {
 	}
 }
 
+func TestRunAPIAutoAuthUsesLatestWorkspaceIDESession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	oldProc := fixture.startProcess(t, "setta.server:app")
+	newProc := fixture.startProcess(t, "setta.server:app")
+
+	oldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"server":"old"}`))
+	}))
+	defer oldServer.Close()
+
+	newServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"server":"new"}`))
+	}))
+	defer newServer.Close()
+
+	fixture.createSessionForURL(t, oldProc, oldServer.URL, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+	fixture.createSessionForURL(t, newProc, newServer.URL, time.Date(2026, time.March, 8, 12, 2, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run("--workspace", fixture.workspaceRoot, "--setta-home", fixture.settaHome, "api", "getProjectConfigNamesAndIds", "--json-output")
+	if err != nil {
+		t.Fatalf("run api auto-auth latest ide session: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != `{"server":"new"}` {
+		t.Fatalf("expected latest ide session response, got %q", stdout)
+	}
+}
+
 func TestRunAPIWithExplicitAuthAndPayloadFile(t *testing.T) {
 	t.Parallel()
 
@@ -342,6 +376,49 @@ func TestRunAPIWithExplicitAuthAndPayloadFile(t *testing.T) {
 		t.Fatalf("unexpected agentic headers %#v", captured)
 	}
 	if captured["body"] != `{"arguments":{"ok":true},"tool":"getProjectConfigNamesAndIds"}` {
+		t.Fatalf("unexpected request body %#v", captured["body"])
+	}
+}
+
+func TestRunAPIWithExplicitAuthStdin(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	captured := map[string]any{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		captured["cookie"] = r.Header.Get("Cookie")
+		captured["body"] = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"via":"stdin"}`))
+	}))
+	defer server.Close()
+
+	authPayload := `{"cookieHeader":"Cookie: session=stdin","baseUrl":"` + server.URL + `"}`
+	stdout, stderr, err := fixture.runWithInput(
+		authPayload,
+		"api",
+		"getProjectConfigNamesAndIds",
+		"--auth-stdin",
+		"--json-output",
+	)
+	if err != nil {
+		t.Fatalf("run api explicit auth stdin: %v", err)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if strings.TrimSpace(stdout) != `{"via":"stdin"}` {
+		t.Fatalf("unexpected stdout %q", stdout)
+	}
+	if captured["cookie"] != "session=stdin" {
+		t.Fatalf("unexpected cookie header %#v", captured["cookie"])
+	}
+	if captured["body"] != `{"arguments":{},"tool":"getProjectConfigNamesAndIds"}` {
 		t.Fatalf("unexpected request body %#v", captured["body"])
 	}
 }
