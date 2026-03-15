@@ -13,7 +13,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Authored TS/TSX files under `frontend/src`: `1412`
 - Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2933`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2860`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
@@ -23,6 +22,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2381`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
+  - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
 
 ## Module Map
 
@@ -93,10 +94,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns grouped history derivation, master-search filtering and counts,
     thread ordering, agent badge labels, and placeholder text used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHistoryDnd.ts`
+    owns project-chat history DnD ids, pointer geometry, drop-target
+    resolution, and thread/group reorder math used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now
     focuses on polling, local toolbar state, search navigation, thread/group
-    commands, DnD handlers, and the history render shells over that local
-    view-model owner.
+    commands, DnD orchestration, and the history render shells over those
+    local view-model and DnD owners.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
