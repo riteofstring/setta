@@ -477,8 +477,8 @@ func TestProjectCreateChildSectionsSupportsSourceSingletonAndGeneratedTypes(t *t
 	}
 }
 
-// The source direct create_child_sections helper accepts singleton/generated section
-// types even though the default-child and incrementer family stays narrower.
+// The source create_child_sections helper accepts singleton/generated section
+// types even though the persisted default-child family stays narrower.
 func TestProjectCreateChildSectionsSupportsSourceDirectOnlyTypes(t *testing.T) {
 	t.Parallel()
 
@@ -508,7 +508,7 @@ func TestProjectCreateChildSectionsSupportsSourceDirectOnlyTypes(t *testing.T) {
 		{
 			name:         "generated python",
 			implType:     "GenPythonCode",
-			expectedName: GeneratedPythonCodeSectionName,
+			expectedName: "Generated Python Code",
 			assert: func(t *testing.T, project Project, sectionID string, payload map[string]any, impl SectionImpl) {
 				t.Helper()
 				if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
@@ -614,6 +614,23 @@ func TestProjectCreateChildSectionsAppliesSettingsBackedTaskBoardDefaults(t *tes
 	}
 	if !reflect.DeepEqual(gotNames, []string{"Todo", "Doing", "Done"}) {
 		t.Fatalf("expected seeded task board child column names, got %#v", gotNames)
+	}
+}
+
+func TestProjectCreateChildSectionsRejectsTopLevelOnlyStateMachineTypes(t *testing.T) {
+	t.Parallel()
+
+	for _, implType := range []string{"StateMachineStart", "StateMachineGate", "StateMachineEnd"} {
+		project := testIncrementerProject()
+
+		_, err := project.CreateChildSections(CreateChildSectionsInput{
+			ParentID:    "parent",
+			ImplType:    implType,
+			NumChildren: 1,
+		}, DefaultStructuralMutationSettings())
+		if !errors.Is(err, ErrChildSectionImplTypeUnsupported) {
+			t.Fatalf("expected ErrChildSectionImplTypeUnsupported for %s, got %v", implType, err)
+		}
 	}
 }
 

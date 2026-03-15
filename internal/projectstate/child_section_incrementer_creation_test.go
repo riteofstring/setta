@@ -107,12 +107,83 @@ func TestProjectCreateChildSectionsViaIncrementerSupportsExpandedChildTypes(t *t
 	}
 }
 
-// Incrementer creation follows the narrower default-child family rather than the
-// broader source direct create_child_sections helper.
-func TestProjectCreateChildSectionsViaIncrementerRejectsSourceDirectOnlyTypes(t *testing.T) {
+// Source incrementer creation forwards into create_child_sections, so it should
+// admit the same singleton/generated section family as the direct helper.
+func TestProjectCreateChildSectionsViaIncrementerSupportsSourceDirectOnlyTypes(t *testing.T) {
 	t.Parallel()
 
-	for _, implType := range []string{"GlobalVariables", "GenPythonCode", "GenPythonMetadata"} {
+	testCases := []struct {
+		name         string
+		implType     string
+		expectedName string
+		expectedKind SectionKind
+		expectedGen  GeneratedSectionKind
+	}{
+		{
+			name:         "global variables",
+			implType:     "GlobalVariables",
+			expectedName: "Global Variables",
+			expectedKind: SectionKind("frontend"),
+		},
+		{
+			name:         "generated python",
+			implType:     "GenPythonCode",
+			expectedName: "Generated Python Code",
+			expectedKind: SectionKindGenerated,
+			expectedGen:  GeneratedSectionKindPythonCode,
+		},
+		{
+			name:         "generated python metadata",
+			implType:     "GenPythonMetadata",
+			expectedName: "Generated Python Metadata",
+			expectedKind: SectionKindGenerated,
+			expectedGen:  GeneratedSectionKindPythonMetadata,
+		},
+	}
+
+	for _, tc := range testCases {
+		project := testIncrementerProject()
+
+		result, err := project.CreateChildSectionsViaIncrementer(CreateChildSectionsViaIncrementerInput{
+			CalledBy:    "child-a",
+			ImplType:    tc.implType,
+			NumChildren: 1,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s child via incrementer: %v", tc.name, err)
+		}
+		if len(result.SectionIDs) != 1 {
+			t.Fatalf("expected one created %s child id, got %#v", tc.name, result.SectionIDs)
+		}
+
+		createdID := result.SectionIDs[0]
+		createdSection := project.Sections[createdID]
+		if createdSection.ParentSectionID != "parent" {
+			t.Fatalf("expected %s child parent parent, got %#v", tc.name, createdSection)
+		}
+		if createdSection.Name != tc.expectedName {
+			t.Fatalf("expected %s child name %q, got %q", tc.name, tc.expectedName, createdSection.Name)
+		}
+
+		_, _, impl, err := project.ResolveSection(createdID)
+		if err != nil {
+			t.Fatalf("resolve %s child: %v", tc.name, err)
+		}
+		if impl.Kind != tc.expectedKind {
+			t.Fatalf("expected %s kind %q, got %q", tc.name, tc.expectedKind, impl.Kind)
+		}
+		if tc.expectedKind == SectionKindGenerated {
+			if impl.Generated == nil || impl.Generated.Kind != tc.expectedGen {
+				t.Fatalf("expected %s generated kind %q, got %#v", tc.name, tc.expectedGen, impl.Generated)
+			}
+		}
+	}
+}
+
+func TestProjectCreateChildSectionsViaIncrementerRejectsTopLevelOnlyStateMachineTypes(t *testing.T) {
+	t.Parallel()
+
+	for _, implType := range []string{"StateMachineStart", "StateMachineGate", "StateMachineEnd"} {
 		project := testIncrementerProject()
 
 		_, err := project.CreateChildSectionsViaIncrementer(CreateChildSectionsViaIncrementerInput{

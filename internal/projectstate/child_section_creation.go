@@ -251,7 +251,7 @@ func normalizeCreateChildSectionsInput(input CreateChildSectionsInput) (CreateCh
 }
 
 func isSupportedChildSectionImplType(implType string) bool {
-	_, err := normalizeDefaultChildSectionType(implType)
+	_, err := normalizeCreateChildSectionImplType(implType)
 	return err == nil
 }
 
