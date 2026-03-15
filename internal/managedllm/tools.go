@@ -332,6 +332,11 @@ func buildToolRequestMeta(request agentruns.ExecutionRequest, toolName string) m
 	if trimmed := strings.TrimSpace(request.Run.ID); trimmed != "" {
 		meta["runId"] = trimmed
 	}
+	if shareSessionID, ok := request.Inputs["shareSessionId"].(string); ok {
+		if trimmed := strings.TrimSpace(shareSessionID); trimmed != "" {
+			meta["shareSessionId"] = trimmed
+		}
+	}
 	if !isWorkflowSignalTool && request.SectionID != nil && strings.TrimSpace(*request.SectionID) != "" {
 		meta["sectionId"] = strings.TrimSpace(*request.SectionID)
 	}

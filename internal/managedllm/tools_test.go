@@ -67,6 +67,7 @@ func TestBuildToolRequestMetaIncludesRunContextForWorkflowSignalTool(t *testing.
 		SectionID:       &sectionID,
 		Inputs: map[string]any{
 			"frontendAffinityToken": "frontend-1",
+			"shareSessionId":        "share-session-1",
 		},
 	}, mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_state_machine_signal"))
 
@@ -78,6 +79,9 @@ func TestBuildToolRequestMetaIncludesRunContextForWorkflowSignalTool(t *testing.
 	}
 	if meta["runId"] != "run-child" {
 		t.Fatalf("expected runId run-child, got %#v", meta["runId"])
+	}
+	if meta["shareSessionId"] != "share-session-1" {
+		t.Fatalf("expected shareSessionId share-session-1, got %#v", meta["shareSessionId"])
 	}
 	if _, ok := meta["sectionId"]; ok {
 		t.Fatalf("expected workflow signal tool to omit sectionId for structural access, got %#v", meta["sectionId"])

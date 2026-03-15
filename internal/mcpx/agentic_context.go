@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/modes"
 	"setta/internal/projectview"
 	"setta/internal/tools"
 )
@@ -28,6 +29,7 @@ const (
 
 type AgenticContext struct {
 	ProjectConfigID       string `json:"projectConfigId"`
+	ShareSessionID        string `json:"shareSessionId,omitempty"`
 	ChatID                string `json:"chatId,omitempty"`
 	RunID                 string `json:"runId,omitempty"`
 	SectionID             string `json:"sectionId,omitempty"`
@@ -131,6 +133,17 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 	if err != nil {
 		return nil, err
 	}
+	shareSessionID, err := resolveAgenticContextString(
+		requestContext.Meta,
+		"shareSessionId",
+		requestContext.Headers,
+		modes.ShareSessionHeaderName,
+		sessionContextField(sessionContext, func(value AgenticContext) string { return value.ShareSessionID }),
+		false,
+	)
+	if err != nil {
+		return nil, err
+	}
 	chatID, err := resolveAgenticContextString(
 		requestContext.Meta,
 		"chatId",
@@ -184,11 +197,12 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 		return nil, err
 	}
 
-	if projectConfigID == "" && chatID == "" && runID == "" && sectionID == "" && frontendAffinityToken == "" && !allowUnscoped {
+	if projectConfigID == "" && shareSessionID == "" && chatID == "" && runID == "" && sectionID == "" && frontendAffinityToken == "" && !allowUnscoped {
 		return nil, nil
 	}
 	return &AgenticContext{
 		ProjectConfigID:       projectConfigID,
+		ShareSessionID:        shareSessionID,
 		ChatID:                chatID,
 		RunID:                 runID,
 		SectionID:             sectionID,

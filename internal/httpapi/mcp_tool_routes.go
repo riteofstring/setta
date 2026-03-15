@@ -73,6 +73,9 @@ func agenticContextMeta(value *mcpx.AgenticContext) map[string]any {
 	meta := map[string]any{
 		"projectConfigId": value.ProjectConfigID,
 	}
+	if value.ShareSessionID != "" {
+		meta["shareSessionId"] = value.ShareSessionID
+	}
 	if value.ChatID != "" {
 		meta["chatId"] = value.ChatID
 	}

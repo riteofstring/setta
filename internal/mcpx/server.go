@@ -664,6 +664,10 @@ func (s *Server) newSetAgenticContextHandler() tools.Handler {
 		if err != nil {
 			return nil, err
 		}
+		shareSessionID, err := readOptionalStringArgument(arguments, "shareSessionId")
+		if err != nil {
+			return nil, err
+		}
 		frontendAffinityToken, err := readOptionalNonBlankStringArgument(arguments, "frontendAffinityToken")
 		if err != nil {
 			return nil, err
@@ -683,6 +687,7 @@ func (s *Server) newSetAgenticContextHandler() tools.Handler {
 
 		s.setSessionAgenticContext(invocation.SessionKey, AgenticContext{
 			ProjectConfigID:       projectConfigID,
+			ShareSessionID:        shareSessionID,
 			ChatID:                chatID,
 			RunID:                 runID,
 			SectionID:             sectionID,
@@ -2946,6 +2951,10 @@ func defaultToolDefinitions(
 					"chatId": map[string]any{
 						"type":        "string",
 						"description": "Optional chat id associated with the scoped tool session.",
+					},
+					"shareSessionId": map[string]any{
+						"type":        "string",
+						"description": "Optional active share-session id for deployment-scoped tool routing.",
 					},
 					"runId": map[string]any{
 						"type":        "string",

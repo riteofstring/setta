@@ -33,6 +33,7 @@ type RevealInput struct {
 	SectionIDToActivate   string
 	ContextSectionID      string
 	ChatID                string
+	ShareSessionID        string
 	FrontendAffinityToken string
 	DurationMS            int
 }
@@ -141,7 +142,7 @@ func (c *RevealCoordinator) Reveal(ctx context.Context, input RevealInput) (Reve
 	}
 
 	target := buildRevealTarget(entry.Metadata)
-	targetFrontendID, affinitySelected, err := c.resolveTargetFrontendID(input.FrontendAffinityToken)
+	targetFrontendID, affinitySelected, err := c.resolveTargetFrontendID(input.FrontendAffinityToken, input.ShareSessionID)
 	if err != nil {
 		result.Statuses = []RevealStatus{failedRevealStatus(entry.Metadata.SettingID, err)}
 		return result, nil
@@ -221,15 +222,16 @@ func (c *RevealCoordinator) Reveal(ctx context.Context, input RevealInput) (Reve
 	return result, nil
 }
 
-func (c *RevealCoordinator) resolveTargetFrontendID(frontendAffinityToken string) (string, bool, error) {
+func (c *RevealCoordinator) resolveTargetFrontendID(frontendAffinityToken string, shareSessionID string) (string, bool, error) {
 	registry := c.transport.Registry()
 	if registry == nil {
 		return "", false, fmt.Errorf("uisettings: frontend reveal transport registry is required")
 	}
 
 	trimmedAffinityToken := strings.TrimSpace(frontendAffinityToken)
+	trimmedShareSessionID := strings.TrimSpace(shareSessionID)
 	if trimmedAffinityToken != "" {
-		connectionID, ok := registry.ResolveFrontendConnectionID(trimmedAffinityToken, "")
+		connectionID, ok := registry.ResolveFrontendConnectionID(trimmedAffinityToken, trimmedShareSessionID)
 		if !ok {
 			return "", false, newSettingError(
 				ErrorCodeMutationFailed,
@@ -240,8 +242,17 @@ func (c *RevealCoordinator) resolveTargetFrontendID(frontendAffinityToken string
 		return connectionID, true, nil
 	}
 
-	frontends := registry.Connections(realtime.Selection{Type: realtime.ConnectionTypeFrontend})
+	frontends := registry.Connections(realtime.Selection{
+		Type:           realtime.ConnectionTypeFrontend,
+		ShareSessionID: trimmedShareSessionID,
+	})
 	if len(frontends) == 0 {
+		if trimmedShareSessionID != "" {
+			return "", false, newSettingError(
+				ErrorCodeMutationFailed,
+				"No connected frontend is available for UI setting reveal in the requested share session.",
+			)
+		}
 		return "", false, newSettingError(ErrorCodeMutationFailed, "No connected frontend is available for UI setting reveal.")
 	}
 	if len(frontends) > 1 {

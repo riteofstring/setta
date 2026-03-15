@@ -55,6 +55,39 @@ func setUISettingAgenticContext(
 	}
 }
 
+func setUISettingAgenticContextWithShareSession(
+	t *testing.T,
+	clientSession *sdkmcp.ClientSession,
+	projectConfigID string,
+	chatID string,
+	sectionID string,
+	shareSessionID string,
+	allowUnscoped bool,
+) {
+	t.Helper()
+
+	arguments := map[string]any{
+		"projectConfigId": projectConfigID,
+		"shareSessionId":  shareSessionID,
+	}
+	if allowUnscoped {
+		arguments["allowUnscoped"] = true
+	} else {
+		arguments["chatId"] = chatID
+		arguments["sectionId"] = sectionID
+	}
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "set_agentic_context",
+		Arguments: arguments,
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+}
+
 func (s uiSettingDriftProjectState) CompareAndSetShowParamDisplayNames(
 	ctx context.Context,
 	projectID string,
@@ -194,6 +227,62 @@ func TestServerRevealUISettingReturnsStructuredPayload(t *testing.T) {
 	}
 	if revealService.input.Registry == nil {
 		t.Fatal("expected scoped registry to be forwarded to reveal service")
+	}
+}
+
+func TestServerRevealUISettingForwardsShareSessionID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:       "request-1",
+			ProjectConfigID: "project-alpha",
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "failed",
+					Error: &uisettings.SettingError{
+						Code:    uisettings.ErrorCodeMutationFailed,
+						Message: "expected test failure",
+					},
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContextWithShareSession(
+		t,
+		clientSession,
+		"project-alpha",
+		"chat-1",
+		"chat-section",
+		"share-session-1",
+		false,
+	)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if revealService.input.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected shareSessionID share-session-1, got %q", revealService.input.ShareSessionID)
 	}
 }
 

@@ -194,7 +194,7 @@ It covers:
   - current Go rejects temporary listener ids on `ListenerInit`
   - source-baseline share-scope UI-setting reveal routing is constrained to the
     active `shareSessionId`
-  - current Go reveal routing ignores share-session scope and treats frontend
+  - current Go now matches that session boundary instead of treating frontend
     selection globally
   - source-baseline workflow chats with signal-filtered outgoing edges fail
     closed when the selected agent profile cannot call
@@ -270,12 +270,9 @@ It covers:
   - four more proof-gap clusters around binary upload edge handling, artifact
     upload-policy branches, attachment token/filename edge cases, and
     file-browser read/write concurrency/error paths
-- The UI-settings and app-definition/app-spec slice mostly closes with proofs,
-  but it adds one more concrete behavior gap:
-  - source-baseline share-scope UI-setting reveal routing is constrained to the
-    active `shareSessionId` and share-origin frontend selection
-  - current Go reveal routing ignores share-session scope entirely even though
-    the current docs still describe that constraint
+- The UI-settings and app-definition/app-spec slice now closes its
+  caller-backed reveal-routing gap with proofs and only retains the superseded
+  `/api/streamAppSpec` transport boundary.
 - The same slice also shows one superseded transport boundary:
   - source `/api/streamAppSpec` request validation and image-mode guards are
     still well specified on `main`
@@ -613,7 +610,7 @@ It covers:
 | `US-02` | UI-setting writes validate against each setting schema, reject unsupported watch-code folder shapes/properties with typed errors, and map stale compare-and-set preconditions to `mutation_failed` without clobbering state. | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_returns_structured_validation_error`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_watch_code_folders_invalid_item_shape_is_typed_and_side_effect_free`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_watch_code_folders_rejects_unknown_properties`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_rejects_writer_old_value_drift`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_core_watch_code_enabled_rejects_stale_precondition_without_clobber`. | Impl: `internal/uisettings/registry.go::WriteValue`; `internal/uisettings/core.go`; proof: `internal/uisettings/registry_test.go::{TestRegistryWriteValueRejectsInvalidWatchCodeFolderShape,TestRegistryWriteValueRejectsUnsupportedWatchCodeFolderProperties,TestRegistryWriteValueMapsStaleCompareAndSetToMutationFailed}`; `internal/mcpx/ui_setting_tools_test.go::TestServerSetUISettingValueRejectsWriterOldValueDrift`. | `Proved` | |
 | `US-03` | Same-value watch-code and app-definition metadata compare-and-set writes are side-effect free, and fresh-project app-metadata no-ops do not materialize app-definition state or app-spec files. | `tests/project_state/test_ui_setting_reveal_leases.py::test_compare_and_set_watch_code_noops_are_side_effect_free`; `tests/project_state/test_ui_setting_reveal_leases.py::test_compare_and_set_app_definition_metadata_noops_do_not_materialize_state`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_app_metadata_noops_do_not_materialize_app_definition`. | Impl/proof: `internal/projectstate/ui_settings_compare_and_set_test.go::TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree`; `internal/projectstate/app_definition_compare_and_set_test.go::TestRuntimeCompareAndSetAppDefinitionMetadataNoopsAreSideEffectFreeOnFreshProject`. | `Proved` | This row is about no-op side effects, not the broader reveal flow. |
 | `US-04` | Right-pane UI-setting reveals require section context, use frontend-owned reveal acknowledgements, and fail closed on ambiguity, websocket mismatch, project mismatch, or frontend disconnect. | `tests/mcp/test_ui_setting_tools.py::test_reveal_right_pane_setting_requires_active_section_or_override`; `tests/mcp/test_ui_setting_tools.py::test_reveal_right_pane_uses_frontend_owned_activation_flow`; `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_origin`; `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatches`; `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_closed_when_frontend_ack_websocket_mismatches`; `tests/ui_settings/test_reveal_result_hub.py`. | Impl: `internal/uisettings/reveal.go`; `internal/realtime/ui_setting_reveal_results.go`; proof: `internal/uisettings/reveal_test.go::{TestRevealServiceDispatchesToAffinitySelectedFrontendAndReturnsSuccess,TestRevealServiceRejectsMissingActiveSectionForRightPaneReveal,TestRevealServiceRejectsAmbiguousFrontendSelectionWithoutAffinity}`; `internal/realtime/ui_setting_reveal_results_test.go::{TestUISettingRevealResultHubFailsClosedOnContractMismatch,TestUISettingRevealResultHubCancelsRequestsForDisconnectedWebsocket}`; app proof: `internal/app/mcp_ui_settings_test.go::TestAppIDEMCPToolCallRouteSupportsRevealUISetting`. | `Proved` | |
-| `US-05` | Share-scope UI-setting reveal routing is constrained to the active `shareSessionId`, and missing/ambiguous share-session frontend selection fails within that session boundary instead of considering unrelated frontends. | `tests/mcp/test_ui_setting_tools.py::{test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup,test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_affinity_token,test_reveal_ui_setting_returns_structured_error_when_share_session_id_is_missing,test_reveal_ui_setting_share_scope_succeeds_without_affinity_when_target_is_deterministic,test_reveal_ui_setting_share_scope_reports_no_frontend_without_affinity}`; source coordinator: `backend/setta/ui_settings/reveal_coordinator.py`. | Current Go docs still claim share/app reveal routing is constrained by the active share session: `docs/reference/mcp-system-overview.md` frontend-affinity section. Current Go implementation lacks any share-session input on the reveal path: `internal/mcpx/agentic_context.go::ToolInvocationContext`; `internal/uisettings/reveal.go::{RevealInput,resolveTargetFrontendID}` passes `""` into `realtime.Registry.ResolveFrontendConnectionID` and enumerates all frontend connections without a session filter. | `Missing` | This is a concrete parity gap, not just a proof gap. The source contract was session-aware and the current Go docs still describe that behavior, but the current Go reveal pipeline cannot carry or enforce a share-session scope. |
+| `US-05` | Share-scope UI-setting reveal routing is constrained to the active `shareSessionId`, and missing/ambiguous share-session frontend selection fails within that session boundary instead of considering unrelated frontends. | `tests/mcp/test_ui_setting_tools.py::{test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup,test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_affinity_token,test_reveal_ui_setting_returns_structured_error_when_share_session_id_is_missing,test_reveal_ui_setting_share_scope_succeeds_without_affinity_when_target_is_deterministic,test_reveal_ui_setting_share_scope_reports_no_frontend_without_affinity}`; source coordinator: `backend/setta/ui_settings/reveal_coordinator.py`. | Impl: `internal/mcpx/agentic_context.go::{AgenticContext,resolveAgenticContext}`; `internal/mcpx/ui_setting_tools.go::newRevealUISettingHandler`; `internal/uisettings/reveal.go::{RevealInput,resolveTargetFrontendID}`; active caller plumbing: `internal/httpapi/mcp_tool_routes.go::agenticContextMeta`; `internal/managedllm/tools.go::buildToolRequestMeta`; proof: `internal/uisettings/reveal_test.go::{TestRevealServiceScopesDeterministicSelectionToShareSessionWithoutAffinity,TestRevealServiceRejectsAmbiguousFrontendSelectionWithinShareSession,TestRevealServiceRejectsMissingFrontendWithinRequestedShareSession,TestRevealServiceRejectsAffinityTokenFromDifferentShareSession}`; MCP proof: `internal/mcpx/ui_setting_tools_test.go::TestServerRevealUISettingForwardsShareSessionID`; context/meta proof: `internal/mcpx/agentic_context_test.go::{TestResolveAgenticContextIncludesShareSessionIDFromMeta,TestResolveAgenticContextFallsBackToSessionShareSessionID}`; managed-run meta proof: `internal/managedllm/tools_test.go::TestBuildToolRequestMetaIncludesRunContextForWorkflowSignalTool`; transport proof: `internal/httpapi/mcp_tool_ui_settings_test.go::TestMCPToolCallRouteSupportsRevealUISetting`. | `Proved` | Go now threads `shareSessionId` through MCP agentic context and scopes both affinity-token resolution and fallback frontend enumeration to that session boundary. |
 | `US-06` | Plugin UI settings remain discoverable/readable/writable, while typed structured errors distinguish disabled-plugin `plugin_unavailable` from unknown-setting `setting_not_found`. | `tests/mcp/test_ui_setting_tools.py::{test_plugin_ui_setting_flow_from_config_schema_metadata,test_plugin_ui_setting_returns_plugin_unavailable_when_disabled,test_plugin_unknown_setting_id_is_not_masked_by_other_invalid_contributions}`. | Impl: `internal/uisettings/plugins.go`; `internal/uisettings/registry.go::MissingSettingError`; `internal/mcpx/ui_setting_tools.go`; proof: `internal/mcpx/ui_setting_tools_test.go::{TestServerUISettingToolsSupportSchemaBackedPluginSettings,TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting,TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin}`. | `Proved` | |
 
 ## App Definition And App-Spec
@@ -1133,9 +1130,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains six concrete source-parity gaps:
+1. The matrix now contains five concrete source-parity gaps:
    `LS-11`, `LS-17`,
-   `US-05`, `WS-01`,
+   `WS-01`,
    `DP-08`,
    `DL-02`.
 2. The prompt-template slice now closes with:
@@ -1163,10 +1160,9 @@ It covers:
     proofs, and it adds:
     - one new dormant share/runtime question around binary downloads
       (`BP-03`)
-11. The UI-settings and app-definition/app-spec slice mostly closes with
-    proofs, but it adds one real behavior gap around share-session-scoped
-    reveal routing (`US-05`) plus one more dormant transport row around the
-    superseded `/api/streamAppSpec` HTTP generator (`AS-02`).
+11. The UI-settings and app-definition/app-spec slice now closes its real
+    behavior gaps and only retains the dormant `/api/streamAppSpec` HTTP
+    generator row (`AS-02`).
 12. The app-gen skills and viewer-support slice closes the reveal-path leak and
     retains six proof-gap clusters (`SK-01`, `SK-02`, `SK-03`, `SK-04`,
     `MR-02`, `RV-01`).
@@ -1273,8 +1269,7 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `US-05`,
-      `WS-01`,
+    - decide whether `WS-01`,
       `DP-08`,
       `DL-02` should be restored or
       documented as intentional divergences

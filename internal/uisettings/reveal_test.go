@@ -217,6 +217,221 @@ func TestRevealServiceRejectsAmbiguousFrontendSelectionWithoutAffinity(t *testin
 	}
 }
 
+func TestRevealServiceScopesDeterministicSelectionToShareSessionWithoutAffinity(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-a", "frontend-b"),
+	})
+	if _, err := registry.Register(realtime.RegisterParams{
+		ID:             "frontend-a",
+		Type:           realtime.ConnectionTypeFrontend,
+		ShareSessionID: "share-a",
+	}); err != nil {
+		t.Fatalf("register share-a frontend: %v", err)
+	}
+	if _, err := registry.Register(realtime.RegisterParams{
+		ID:             "frontend-b",
+		Type:           realtime.ConnectionTypeFrontend,
+		ShareSessionID: "share-b",
+	}); err != nil {
+		t.Fatalf("register share-b frontend: %v", err)
+	}
+
+	results := realtime.NewUISettingRevealResultHub()
+	transport := &stubRevealTransport{registry: registry}
+	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
+		if connectionID != "frontend-a" {
+			t.Fatalf("expected reveal dispatch to share-a frontend, got %q", connectionID)
+		}
+		revealMessage, ok := message.(realtime.UISettingRevealMessage)
+		if !ok {
+			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+		}
+		if !results.Resolve(realtime.UISettingRevealResultContent{
+			ProjectConfigID: "project-alpha",
+			RequestID:       revealMessage.Content.RequestID,
+			Statuses: []realtime.UISettingRevealResultStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+				},
+			},
+		}, connectionID) {
+			t.Fatal("expected reveal result resolution to succeed")
+		}
+		return true, nil
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       transport,
+		Results:         results,
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID: "project-alpha",
+		ProjectView:     revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:        revealTestRegistry(t),
+		SettingID:       "core.project.show_param_display_names",
+		ShareSessionID:  "share-a",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if result.EmittedRevealCount != 1 {
+		t.Fatalf("expected emittedRevealCount=1, got %d", result.EmittedRevealCount)
+	}
+	if len(result.Statuses) != 1 || result.Statuses[0].Status != "revealed" {
+		t.Fatalf("expected single revealed status, got %#v", result.Statuses)
+	}
+}
+
+func TestRevealServiceRejectsAmbiguousFrontendSelectionWithinShareSession(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-a", "frontend-b", "frontend-c"),
+	})
+	for _, registration := range []realtime.RegisterParams{
+		{ID: "frontend-a", Type: realtime.ConnectionTypeFrontend, ShareSessionID: "share-a"},
+		{ID: "frontend-b", Type: realtime.ConnectionTypeFrontend, ShareSessionID: "share-a"},
+		{ID: "frontend-c", Type: realtime.ConnectionTypeFrontend, ShareSessionID: "share-b"},
+	} {
+		if _, err := registry.Register(registration); err != nil {
+			t.Fatalf("register frontend %s: %v", registration.ID, err)
+		}
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID: "project-alpha",
+		ProjectView:     revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:        revealTestRegistry(t),
+		SettingID:       "core.project.show_param_display_names",
+		ShareSessionID:  "share-a",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Reveal routing is ambiguous because multiple frontends are connected and no frontendAffinityToken was provided." {
+		t.Fatalf("unexpected ambiguity message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceRejectsMissingFrontendWithinRequestedShareSession(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-a"),
+	})
+	if _, err := registry.Register(realtime.RegisterParams{
+		ID:             "frontend-a",
+		Type:           realtime.ConnectionTypeFrontend,
+		ShareSessionID: "share-b",
+	}); err != nil {
+		t.Fatalf("register frontend: %v", err)
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID: "project-alpha",
+		ProjectView:     revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:        revealTestRegistry(t),
+		SettingID:       "core.project.show_param_display_names",
+		ShareSessionID:  "share-a",
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "No connected frontend is available for UI setting reveal in the requested share session." {
+		t.Fatalf("unexpected no-frontend message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
+func TestRevealServiceRejectsAffinityTokenFromDifferentShareSession(t *testing.T) {
+	t.Parallel()
+
+	registry := realtime.NewRegistry(realtime.RegistryOptions{
+		FrontendAffinityTokenSource: sequentialTokenSource("frontend-a", "frontend-b"),
+	})
+	if _, err := registry.Register(realtime.RegisterParams{
+		ID:             "frontend-a",
+		Type:           realtime.ConnectionTypeFrontend,
+		ShareSessionID: "share-a",
+	}); err != nil {
+		t.Fatalf("register share-a frontend: %v", err)
+	}
+	connectionB, err := registry.Register(realtime.RegisterParams{
+		ID:             "frontend-b",
+		Type:           realtime.ConnectionTypeFrontend,
+		ShareSessionID: "share-b",
+	})
+	if err != nil {
+		t.Fatalf("register share-b frontend: %v", err)
+	}
+	tokenB, ok := registry.FrontendAffinityToken(connectionB.ID)
+	if !ok {
+		t.Fatal("expected frontend affinity token for share-b frontend")
+	}
+
+	service, err := NewRevealService(RevealServiceOptions{
+		Transport:       &stubRevealTransport{registry: registry},
+		Results:         realtime.NewUISettingRevealResultHub(),
+		RequestIDSource: fixedRevealRequestIDSource("request-1"),
+	})
+	if err != nil {
+		t.Fatalf("new reveal service: %v", err)
+	}
+
+	result, err := service.Reveal(context.Background(), RevealInput{
+		ProjectConfigID:       "project-alpha",
+		ProjectView:           revealTestProjectView(t, "callable-section", "Callable", []string{"callable-section"}),
+		Registry:              revealTestRegistry(t),
+		SettingID:             "core.project.show_param_display_names",
+		ShareSessionID:        "share-a",
+		FrontendAffinityToken: tokenB,
+	})
+	if err != nil {
+		t.Fatalf("reveal: %v", err)
+	}
+
+	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
+		t.Fatalf("expected failed status, got %#v", result.Statuses)
+	}
+	if result.Statuses[0].Error.Message != "Frontend affinity token is invalid or no longer available for reveal routing: frontend-b" {
+		t.Fatalf("unexpected affinity error message: %q", result.Statuses[0].Error.Message)
+	}
+}
+
 func revealTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 

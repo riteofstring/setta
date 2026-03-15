@@ -247,7 +247,7 @@ func TestMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"reveal_ui_setting",
 		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.show_param_display_names","sectionIdToActivate":"allowed-callable-section","durationMs":1500},
-		"agenticContext":{"projectConfigId":"project-alpha","chatId":"chat-1","sectionId":"chat-section","frontendAffinityToken":"frontend-token"}
+		"agenticContext":{"projectConfigId":"project-alpha","shareSessionId":"share-session-1","chatId":"chat-1","sectionId":"chat-section","frontendAffinityToken":"frontend-token"}
 	}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
@@ -265,6 +265,9 @@ func TestMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	}
 	if revealService.input.FrontendAffinityToken != "frontend-token" {
 		t.Fatalf("expected frontend affinity token to be forwarded, got %q", revealService.input.FrontendAffinityToken)
+	}
+	if revealService.input.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected share session id to be forwarded, got %q", revealService.input.ShareSessionID)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/tools"
@@ -144,6 +145,32 @@ func TestResolveAgenticContextIncludesRunIDFromMetaAndHeaders(t *testing.T) {
 	}
 }
 
+func TestResolveAgenticContextIncludesShareSessionIDFromMeta(t *testing.T) {
+	t.Parallel()
+
+	headers := http.Header{}
+	headers.Set(modes.ShareSessionHeaderName, "header-session")
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId": "project-alpha",
+				"shareSessionId":  "meta-session",
+			},
+			Headers: headers,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.ShareSessionID != "meta-session" {
+		t.Fatalf("expected shareSessionId meta-session, got %q", resolved.ShareSessionID)
+	}
+}
+
 func TestResolveAgenticContextFallsBackToSessionRunID(t *testing.T) {
 	t.Parallel()
 
@@ -159,6 +186,24 @@ func TestResolveAgenticContextFallsBackToSessionRunID(t *testing.T) {
 	}
 	if resolved.RunID != "run-child" {
 		t.Fatalf("expected session runId run-child, got %q", resolved.RunID)
+	}
+}
+
+func TestResolveAgenticContextFallsBackToSessionShareSessionID(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(ToolRequestContext{}, &AgenticContext{
+		ProjectConfigID: "project-alpha",
+		ShareSessionID:  "share-session-1",
+	})
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.ShareSessionID != "share-session-1" {
+		t.Fatalf("expected session shareSessionId share-session-1, got %q", resolved.ShareSessionID)
 	}
 }
 

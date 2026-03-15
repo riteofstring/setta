@@ -307,6 +307,7 @@ func newRevealUISettingHandler(server *Server, workspaceRoot string) tools.Handl
 			SectionIDToActivate:   sectionIDToActivate,
 			ContextSectionID:      invocation.AgenticContext.SectionID,
 			ChatID:                invocation.AgenticContext.ChatID,
+			ShareSessionID:        invocation.AgenticContext.ShareSessionID,
 			FrontendAffinityToken: invocation.AgenticContext.FrontendAffinityToken,
 			DurationMS:            durationMS,
 		})
