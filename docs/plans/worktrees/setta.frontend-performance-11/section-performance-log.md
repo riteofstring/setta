@@ -3506,3 +3506,50 @@ Append-only log for the section performance refactor.
   - Keep the checkpoint centered on the shared row contract rather than the lower activation internals.
   - Add or adapt a direct `GlobalVariables` row-contract representative, then use it with the existing callable/dict assets to close the declared cross-section verification set.
   - Treat `MetaControl` as a contrast surface only, and reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` only if a future trace explicitly isolates the unchanged non-empty preview path.
+
+### 2026-03-17 96
+
+- Item: Close the missing `GlobalVariables` verification gap for the shared row-contract checkpoint.
+- Status: `needs_more_work`
+- Details:
+  - Added a direct Playwright representative:
+    - `frontend/tests/e2e/params/global-variables-kwargs.spec.ts`
+  - New Playwright coverage exercises the live shared row path after `addKwarg` on a disposable `GlobalVariables` section:
+    - row renders with a visible live box
+    - row shell has `section-param-row`
+    - row display is `flex`
+    - `.section-args-nested` display is `flex`
+    - `.section-args-nested` direction is `column`
+    - `.section-value` display is `flex`
+    - resize handle remains present
+  - Re-ran the focused unit suite:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+    - result: `4` files passed, `7` tests passed
+  - Re-ran the focused Playwright cross-section suite:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-params.spec.ts frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/global-variables-kwargs.spec.ts frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts`
+    - result: `7` tests passed
+  - Recorded direct headed-browser `GlobalVariables` row-contract reads in CDP on both branches:
+    - worktree `smooth_hawk`:
+      - section id: `0007e247-e833-417f-9b3d-5eab0513026e`
+      - row shell: `section-param-row`
+      - row display: `flex`
+      - nested container display: `flex`
+      - nested direction: `column`
+      - value display: `flex`
+      - grid class absent
+    - untouched `main` `dry_slow`:
+      - section id: `dd8ba98a-cd6f-437c-9e14-3febaaafe266`
+      - row shell stays the older grid contract
+      - row display: `grid`
+      - nested container display: `grid`
+      - nested direction reads `row`
+      - value display: `block`
+      - grid class present
+  - Conclusion:
+    - the missing `GlobalVariables` verification gap is closed
+    - the shared row-contract delta is now directly confirmed on `GlobalVariables`, not just on callable
+    - the remaining question for checkpoint 1 is no longer missing coverage; it is whether the current visual/interaction/perf evidence is already sufficient to accept the lower row-contract pass or whether one more explicit untouched-`main` vs worktree shared-row compare is still required before moving upward
+- Next action:
+  - Use the current cross-section evidence set to make the checkpoint-1 acceptance call instead of adding more harnesses.
+  - If the evidence is still judged insufficient, capture one more explicit untouched-`main` vs worktree shared-row compare before moving upward into `sectionChrome`.
+  - Only reopen `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` if a future trace explicitly isolates the unchanged non-empty preview path.
