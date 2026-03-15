@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -143,6 +144,65 @@ class Route:
                 "/api/frontend",
             )
 
+    def test_build_backend_env_uses_go_launcher_when_present(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            go_entrypoint = root / "cmd" / "setta" / "main.go"
+            go_entrypoint.parent.mkdir(parents=True)
+            go_entrypoint.write_text("package main\n", encoding="utf-8")
+            original_setta_bin = os.environ.get("SETTA_BIN")
+            original_setta_server_bin = os.environ.get("SETTA_SERVER_BIN")
+            self.addCleanup(self._restore_env, "SETTA_BIN", original_setta_bin)
+            self.addCleanup(
+                self._restore_env,
+                "SETTA_SERVER_BIN",
+                original_setta_server_bin,
+            )
+            os.environ["SETTA_BIN"] = "/tmp/python-wrapper"
+            os.environ["SETTA_SERVER_BIN"] = "/tmp/stale-setta-server"
+
+            env = harness.build_backend_env(
+                target_root=root,
+                temp_root=root,
+                host="127.0.0.1",
+                port=8123,
+                setta_home=root / ".setta-home",
+                setta_files_root=root / "workspace" / "setta_files",
+                frontend_port=3123,
+            )
+
+            self.assertNotIn("SETTA_BIN", env)
+            self.assertNotIn("SETTA_SERVER_BIN", env)
+            self.assertEqual(env["SETTA_HOST"], "127.0.0.1")
+            self.assertEqual(env["SETTA_PORT"], "8123")
+            self.assertEqual(env["SETTA_DEV_FRONTEND_PORT"], "3123")
+            self.assertEqual(
+                env["PYTHONPATH"],
+                str(root / "backend"),
+            )
+
+    def test_build_backend_env_uses_python_wrapper_when_go_launcher_missing(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            env = harness.build_backend_env(
+                target_root=root,
+                temp_root=root,
+                host="127.0.0.1",
+                port=8123,
+                setta_home=root / ".setta-home",
+                setta_files_root=root / "workspace" / "setta_files",
+                frontend_port=3123,
+            )
+
+            self.assertIn("SETTA_BIN", env)
+            self.assertTrue(env["SETTA_BIN"].endswith("setta-wrapper.sh"))
+            self.assertNotIn("SETTA_SERVER_BIN", env)
+
     def test_summarize_empty_callable_latest_state_detects_present_entry(
         self,
     ) -> None:
@@ -218,6 +278,13 @@ class Route:
                 "shownParamEntryCount": 0,
             },
         )
+
+    @staticmethod
+    def _restore_env(key: str, value: str | None) -> None:
+        if value is None:
+            os.environ.pop(key, None)
+            return
+        os.environ[key] = value
 
 
 if __name__ == "__main__":

@@ -354,23 +354,15 @@ def start_backend(target: RefTarget, scenario: ScenarioConfig) -> BackendSession
     frontend_websocket_route = resolve_frontend_websocket_route(target.root)
     websocket_url = f"ws://{host}:{port}{frontend_websocket_route}"
     frontend_origin = f"http://{host}:{frontend_port}"
-
-    env = os.environ.copy()
-    env["PATH"] = build_child_path(env)
-    env["PYTHONPATH"] = build_child_pythonpath(target.root, env.get("PYTHONPATH"))
-    env["SETTA_NO_OPEN"] = "1"
-    env["SETTA_HOST"] = host
-    env["SETTA_PORT"] = str(port)
-    env["SETTA_HOME"] = str(setta_home)
-    env["SETTA_FILES_ROOT"] = str(setta_files_root)
-    env["SETTA_DEV_FRONTEND_PORT"] = str(frontend_port)
-    env["SETTA_BIN"] = str(write_python_setta_wrapper(temp_root))
-    packaged_server_bin = REPO_ROOT / ".tools" / "dev-bin" / "setta-server"
-    if packaged_server_bin.exists():
-        env["SETTA_SERVER_BIN"] = str(packaged_server_bin)
-    resolved_go_bin = resolve_current_go_bin()
-    if resolved_go_bin:
-        env["SETTA_GO_BIN"] = resolved_go_bin
+    env = build_backend_env(
+        target_root=target.root,
+        temp_root=temp_root,
+        host=host,
+        port=port,
+        setta_home=setta_home,
+        setta_files_root=setta_files_root,
+        frontend_port=frontend_port,
+    )
 
     with log_path.open("w", encoding="utf-8") as log_file:
         process = subprocess.Popen(
@@ -447,10 +439,48 @@ def build_child_pythonpath(target_root: Path, existing_pythonpath: str | None) -
     return os.pathsep.join(parts)
 
 
+def build_backend_env(
+    target_root: Path,
+    temp_root: Path,
+    host: str,
+    port: int,
+    setta_home: Path,
+    setta_files_root: Path,
+    frontend_port: int,
+) -> dict[str, str]:
+    env = os.environ.copy()
+    env["PATH"] = build_child_path(env)
+    env["PYTHONPATH"] = build_child_pythonpath(target_root, env.get("PYTHONPATH"))
+    env["SETTA_NO_OPEN"] = "1"
+    env["SETTA_HOST"] = host
+    env["SETTA_PORT"] = str(port)
+    env["SETTA_HOME"] = str(setta_home)
+    env["SETTA_FILES_ROOT"] = str(setta_files_root)
+    env["SETTA_DEV_FRONTEND_PORT"] = str(frontend_port)
+
+    resolved_go_bin = resolve_current_go_bin()
+    if resolved_go_bin:
+        env["SETTA_GO_BIN"] = resolved_go_bin
+
+    env.pop("SETTA_SERVER_BIN", None)
+    if target_uses_go_launcher(target_root):
+        env.pop("SETTA_BIN", None)
+        return env
+
+    env["SETTA_BIN"] = str(write_python_setta_wrapper(temp_root))
+    return env
+
+
+def target_uses_go_launcher(target_root: Path) -> bool:
+    return (target_root / "cmd" / "setta" / "main.go").exists()
+
+
 def write_python_setta_wrapper(temp_root: Path) -> Path:
     python_bin = VENV_BIN_DIR / "python"
     if not python_bin.exists():
-        raise ParityHarnessError(f"Missing Python interpreter for harness wrapper: {python_bin}")
+        raise ParityHarnessError(
+            f"Missing Python interpreter for harness wrapper: {python_bin}"
+        )
     wrapper_path = temp_root / "setta-wrapper.sh"
     wrapper_path.write_text(
         "#!/usr/bin/env bash\n"
