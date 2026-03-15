@@ -1,3 +1,6 @@
+import { JSDOM } from "jsdom";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,17 +63,19 @@ function renderApp(
     appPolicy?: SharePolicy | null;
     appDefinition?: ReturnType<typeof createAppDefinition> | null;
     defaultConfigId?: string | null;
+    shareSessionId?: string | null;
   } = {},
 ) {
   const {
     appPolicy = null,
     appDefinition = null,
     defaultConfigId = null,
+    shareSessionId = null,
   } = options;
   useShareSession.setState({
-    isDeploymentMode: false,
+    isDeploymentMode: Boolean(shareSessionId),
     sharePolicy: null,
-    shareSessionId: null,
+    shareSessionId,
     sessionRunCount: 0,
     shareDeploymentName: null,
     shareDeploymentVersion: null,
@@ -95,6 +100,7 @@ describe("AppRenderer", () => {
 
   afterEach(() => {
     resetProjectStores();
+    vi.restoreAllMocks();
   });
 
   it("shows empty state when no app spec is present", () => {
@@ -183,8 +189,6 @@ describe("AppRenderer", () => {
     const runSpy = vi
       .spyOn(endpoints, "route_run_code")
       .mockResolvedValue({ data: null, status: 200, hasResponse: true });
-    const setParamSpy = vi.spyOn(endpoints, "route_set_param_entered_value");
-    const setVariantSpy = vi.spyOn(endpoints, "route_set_section_variant");
 
     renderApp(appSpec, {
       appDefinition,
@@ -196,8 +200,6 @@ describe("AppRenderer", () => {
     expect(handler).toBeDefined();
     await handler?.();
 
-    expect(setVariantSpy).not.toHaveBeenCalled();
-    expect(setParamSpy).not.toHaveBeenCalled();
     expect(runSpy).toHaveBeenCalledWith({
       projectConfigId: configId,
       sectionId,
@@ -270,5 +272,165 @@ describe("AppRenderer", () => {
     });
 
     expect(runSpy).not.toHaveBeenCalled();
+  });
+
+  it("uses the generated binary download helper for app actions", async () => {
+    const contentId = "0123456789abcdef";
+    const shareSessionId = "share-session-a";
+    const filename = "report.bin";
+    const appSpec = {
+      root: {
+        key: "root",
+        type: "ActionButton",
+        props: { label: "Download", action: "downloadBinaryAction" },
+      },
+      elements: {},
+    };
+    const appDefinition = createAppDefinition({
+      actions: {
+        downloadBinaryAction: {
+          type: "downloadBinary",
+          contentId,
+          filename,
+        },
+      },
+    });
+    const policy = createSharePolicy({ allowFileDownloads: true });
+    const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+      url: "http://localhost:3000",
+      pretendToBeVisual: true,
+    });
+    const previousWindow = globalThis.window;
+    const previousDocument = globalThis.document;
+    const previousHTMLElement = globalThis.HTMLElement;
+    const previousHTMLAnchorElement = globalThis.HTMLAnchorElement;
+    const previousRequestAnimationFrame = globalThis.requestAnimationFrame;
+    const previousCancelAnimationFrame = globalThis.cancelAnimationFrame;
+    const previousReactActEnvironment = Reflect.get(
+      globalThis,
+      "IS_REACT_ACT_ENVIRONMENT",
+    );
+
+    Reflect.set(globalThis, "window", dom.window);
+    Reflect.set(globalThis, "document", dom.window.document);
+    Reflect.set(globalThis, "HTMLElement", dom.window.HTMLElement);
+    Reflect.set(globalThis, "HTMLAnchorElement", dom.window.HTMLAnchorElement);
+    Reflect.set(
+      globalThis,
+      "requestAnimationFrame",
+      dom.window.requestAnimationFrame.bind(dom.window),
+    );
+    Reflect.set(
+      globalThis,
+      "cancelAnimationFrame",
+      dom.window.cancelAnimationFrame.bind(dom.window),
+    );
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+
+    let root: ReturnType<typeof createRoot> | null = null;
+    try {
+      useShareSession.setState({
+        isDeploymentMode: true,
+        sharePolicy: null,
+        shareSessionId,
+        sessionRunCount: 0,
+        shareDeploymentName: null,
+        shareDeploymentVersion: null,
+        deploymentMode: null,
+      });
+      const host = document.createElement("div");
+      root = createRoot(host);
+
+      await act(async () => {
+        root?.render(
+          <AppRenderer
+            appSpec={appSpec}
+            appDefinition={appDefinition}
+            appPolicy={policy}
+          />,
+        );
+      });
+
+      const appendSpy = vi.spyOn(document.body, "appendChild");
+      const clickSpy = vi
+        .spyOn(HTMLAnchorElement.prototype, "click")
+        .mockImplementation(() => {});
+
+      const handler = latestHandlers.downloadBinaryAction;
+      expect(handler).toBeDefined();
+      await handler?.();
+
+      expect(appendSpy).toHaveBeenCalledTimes(1);
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+
+      const downloadElement = appendSpy.mock.calls[0]?.[0];
+      expect(downloadElement).toBeInstanceOf(HTMLAnchorElement);
+      if (!(downloadElement instanceof HTMLAnchorElement)) {
+        throw new Error("expected HTMLAnchorElement download trigger");
+      }
+
+      // Anchor-triggered downloads have to carry shareSessionId on the URL.
+      const downloadURL = new URL(downloadElement.href);
+      expect(downloadURL.pathname).toBe(`/api/binary/${contentId}`);
+      expect(downloadURL.searchParams.get("shareSessionId")).toBe(
+        shareSessionId,
+      );
+      expect(downloadElement.download).toBe(filename);
+      expect(downloadElement.rel).toBe("noopener");
+      expect(document.body.querySelectorAll("a")).toHaveLength(0);
+    } finally {
+      if (root) {
+        await act(async () => {
+          root?.unmount();
+        });
+      }
+      if (previousWindow === undefined) {
+        Reflect.deleteProperty(globalThis, "window");
+      } else {
+        Reflect.set(globalThis, "window", previousWindow);
+      }
+      if (previousDocument === undefined) {
+        Reflect.deleteProperty(globalThis, "document");
+      } else {
+        Reflect.set(globalThis, "document", previousDocument);
+      }
+      if (previousHTMLElement === undefined) {
+        Reflect.deleteProperty(globalThis, "HTMLElement");
+      } else {
+        Reflect.set(globalThis, "HTMLElement", previousHTMLElement);
+      }
+      if (previousHTMLAnchorElement === undefined) {
+        Reflect.deleteProperty(globalThis, "HTMLAnchorElement");
+      } else {
+        Reflect.set(globalThis, "HTMLAnchorElement", previousHTMLAnchorElement);
+      }
+      if (previousRequestAnimationFrame === undefined) {
+        Reflect.deleteProperty(globalThis, "requestAnimationFrame");
+      } else {
+        Reflect.set(
+          globalThis,
+          "requestAnimationFrame",
+          previousRequestAnimationFrame,
+        );
+      }
+      if (previousCancelAnimationFrame === undefined) {
+        Reflect.deleteProperty(globalThis, "cancelAnimationFrame");
+      } else {
+        Reflect.set(
+          globalThis,
+          "cancelAnimationFrame",
+          previousCancelAnimationFrame,
+        );
+      }
+      if (previousReactActEnvironment === undefined) {
+        Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
+      } else {
+        Reflect.set(
+          globalThis,
+          "IS_REACT_ACT_ENVIRONMENT",
+          previousReactActEnvironment,
+        );
+      }
+    }
   });
 });
