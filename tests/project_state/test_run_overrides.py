@@ -1,8 +1,10 @@
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from fastapi import HTTPException
+
 import pytest
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -12,8 +14,11 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import RunDetachedRequest
 from setta.project_state.project_manager_types import RunCodeRequest
+from setta.routers.runs import route_run_detached
+from setta.run_manager import DetachedRunManager
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import (
@@ -37,8 +42,8 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests.utils.runtime_context import runtime_context
 from tests.utils.setta_paths import temporary_setta_paths
-
 
 class RunOverridesProjectManager(BaseProjectManager):
     def __init__(
@@ -444,5 +449,36 @@ class TestRunOverride:
             assert snapshot_path.is_file()
             assert self._run_root.resolve() in snapshot_path.resolve().parents
             assert snapshot_path.read_text().strip() == "echo hi"
+        finally:
+            manager.shutdown()
+
+    async def test_route_run_detached_rejects_bad_param_key(self) -> None:
+        manager, project_config, code_section, _, _, _, _ = (
+            self._build_manager_and_state()
+        )
+        try:
+            switcher = ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=manager,
+            )
+            state = SimpleNamespace(
+                project_manager_switcher=switcher,
+                wmh_frontend_sender=self.frontend_sender,
+                share_mode=False,
+                deployment_mode=False,
+                detached_run_manager=DetachedRunManager(self.dbe),
+                terminals=None,
+            )
+            request = RunDetachedRequest(
+                projectConfigId=project_config.id,
+                entrySectionId=code_section.id,
+                runSnapshotMode=RunSnapshotMode.ephemeral,
+                paramOverrides={"bad": "2"},
+            )
+            with pytest.raises(HTTPException) as ctx:
+                with runtime_context(state) as runtime_ctx:
+                    await route_run_detached(request, runtime_ctx)
+            assert ctx.value.status_code == 400
+            assert "Invalid param override key" in str(ctx.value.detail)
         finally:
             manager.shutdown()

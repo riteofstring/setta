@@ -1,10 +1,10 @@
+import { useProjectState } from "state/definitions";
 import {
-  CustomRunAction,
-  CustomRunItem,
-  useLocalStorage,
-  useProjectState,
+  type CustomRunAction,
+  type CustomRunItem,
   useRunControl,
-} from "state/definitions";
+} from "state/stores/projectStatusStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { createNewId } from "utils/idNameCreation";
 import { triggerListenerForceRefresh } from "./listeners";
 import { runCodeBlock } from "./runOrImportCode";

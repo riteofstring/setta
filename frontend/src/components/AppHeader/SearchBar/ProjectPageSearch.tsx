@@ -17,14 +17,15 @@ import {
 import { useMemo, useRef } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  CreateSectionsContextMenuInfo,
-  createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
-} from "state/actions/sections/createSectionsHelper";
+  type CreateSectionsContextMenuInfo,
+} from "state/actions/sections/createSectionCatalog";
+import { createTopLevelSectionFromImplSpecs } from "state/actions/sections/createSectionsHelper";
 import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useProjectSearch, useSettings } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
+import { useProjectSearch } from "state/stores/searchStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { ProjectSearchModeEnum } from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
 

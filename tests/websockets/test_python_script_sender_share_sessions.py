@@ -14,6 +14,7 @@ from setta.types.listener import (
 )
 from setta.types.websocket import (
     WebsocketConnectionType,
+    WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.websockets.listener_registry import ListenerRegistry
@@ -132,3 +133,20 @@ class TestPythonScriptSenderShareSession:
 
         parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent_a[0])
         assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
+
+    async def test_force_refresh_filters_by_share_session(self) -> None:
+        await self.sender.send_force_refresh(
+            projectConfigId=self.project_config_id,
+            share_session_id="session-b",
+        )
+
+        sent_a = _sent_text_messages(self.messages_by_label["session-a"])
+        sent_b = _sent_text_messages(self.messages_by_label["session-b"])
+        sent_shared = _sent_text_messages(self.messages_by_label["shared"])
+
+        assert len(sent_a) == 0
+        assert len(sent_b) == 1
+        assert len(sent_shared) == 1
+
+        parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent_b[0])
+        assert isinstance(parsed, WebsocketMsgListenerForceRefresh)

@@ -1,4 +1,5 @@
-import { useNameValidationErrors, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useNameValidationErrors } from "state/stores/editorDiagnosticsStores";
 import { SettaProjectNameValidationErrors } from "utils/generatedTypes";
 
 function applyNameValidationErrors(content: SettaProjectNameValidationErrors) {
