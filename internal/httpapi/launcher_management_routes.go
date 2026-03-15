@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -140,6 +142,11 @@ func setupLauncherHandler(defaultSettaHome string, manager *launcher.ManagementS
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeStrictJSONBody[setupLauncherRequest](r)
 		if err != nil {
+			var unknownFieldErr *strictJSONUnknownFieldError
+			if errors.As(err, &unknownFieldErr) {
+				writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", unknownFieldErr.Error())
+				return
+			}
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
@@ -417,7 +424,17 @@ func decodeStrictJSONBody[T any](r *http.Request) (T, error) {
 	if r.Body == nil {
 		return payload, nil
 	}
-	decoder := json.NewDecoder(r.Body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return payload, err
+	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return payload, nil
+	}
+	if field, ok := detectUnknownTopLevelJSONField[T](body); ok {
+		return payload, &strictJSONUnknownFieldError{Field: field}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&payload); err != nil {
 		if errors.Is(err, io.EOF) {
@@ -425,7 +442,77 @@ func decodeStrictJSONBody[T any](r *http.Request) (T, error) {
 		}
 		return payload, err
 	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return payload, fmt.Errorf("unexpected trailing JSON content")
+		}
+		return payload, err
+	}
 	return payload, nil
+}
+
+type strictJSONUnknownFieldError struct {
+	Field string
+}
+
+func (e *strictJSONUnknownFieldError) Error() string {
+	if e == nil || strings.TrimSpace(e.Field) == "" {
+		return "Unknown field."
+	}
+	return fmt.Sprintf("Unknown field: %s.", e.Field)
+}
+
+func detectUnknownTopLevelJSONField[T any](body []byte) (string, bool) {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return "", false
+	}
+
+	fields := strictJSONFieldNames[T]()
+	if len(fields) == 0 {
+		return "", false
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &raw); err != nil {
+		return "", false
+	}
+	for key := range raw {
+		if _, ok := fields[key]; ok {
+			continue
+		}
+		return key, true
+	}
+	return "", false
+}
+
+func strictJSONFieldNames[T any]() map[string]struct{} {
+	var zero T
+	valueType := reflect.TypeOf(zero)
+	for valueType != nil && valueType.Kind() == reflect.Pointer {
+		valueType = valueType.Elem()
+	}
+	if valueType == nil || valueType.Kind() != reflect.Struct {
+		return nil
+	}
+
+	fields := make(map[string]struct{}, valueType.NumField())
+	for i := 0; i < valueType.NumField(); i++ {
+		field := valueType.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		tag := field.Tag.Get("json")
+		name := strings.TrimSpace(strings.Split(tag, ",")[0])
+		switch name {
+		case "":
+			name = field.Name
+		case "-":
+			continue
+		}
+		fields[name] = struct{}{}
+	}
+	return fields
 }
 
 func stringPointerValue(value *string) string {

@@ -138,13 +138,42 @@ func TestRegisterLauncherManagementRoutesRejectUnknownSetupFields(t *testing.T) 
 	)
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected strict setup decode 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected strict setup decode 422, got %d with body %q", response.Code, response.Body.String())
 	}
 
 	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode invalid setup response: %v", err)
+	}
+	if payload.Error.Code != "invalid_request" {
+		t.Fatalf("expected invalid_request error, got %#v", payload)
+	}
+	if !strings.Contains(payload.Error.Message, "managedArtifacts") {
+		t.Fatalf("expected unknown field detail to mention managedArtifacts, got %#v", payload)
+	}
+}
+
+func TestRegisterLauncherManagementRoutesRejectMalformedSetupJSON(t *testing.T) {
+	t.Parallel()
+
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, filepath.Join(t.TempDir(), ".setta"), newLauncherManagementService(t))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetupLauncher,
+		strings.NewReader(`{"channel":`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected malformed setup payload 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode malformed setup response: %v", err)
 	}
 	if payload.Error.Code != "invalid_json" {
 		t.Fatalf("expected invalid_json error, got %#v", payload)
