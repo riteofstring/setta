@@ -76,10 +76,33 @@ class AgentRunChatStore(ChatStore):
         runs = list_agent_runs_by_metadata(self.dbe, run_type=SCRIPTABLE_CHAT_RUN_TYPE)
         output: list[ChatMetadata] = []
         for run in runs:
-            metadata = _build_chat_metadata_from_run(run)
-            if metadata is None:
+            if not run.inputs:
                 continue
-            output.append(metadata)
+            raw_llm_config = run.inputs.get("llmConfig")
+            if not isinstance(raw_llm_config, dict):
+                continue
+            llm_config = LLMConfig.model_validate(raw_llm_config)
+            raw_name = run.outputs.get("name") if run.outputs else None
+            name = raw_name if isinstance(raw_name, str) else None
+            if name is None:
+                messages = _parse_run_messages(run)
+                name = derive_chat_name(messages)
+            last_updated = _parse_last_updated(run)
+            raw_project_config_id = run.inputs.get("projectConfigId")
+            project_config_id = (
+                ID(raw_project_config_id)
+                if isinstance(raw_project_config_id, str) and raw_project_config_id
+                else None
+            )
+            output.append(
+                ChatMetadata(
+                    id=run.id,
+                    name=name,
+                    lastUpdated=last_updated,
+                    llmConfig=llm_config.model_copy(deep=True),
+                    projectConfigId=project_config_id,
+                )
+            )
         output.sort(key=lambda entry: entry.lastUpdated)
         return output
 
@@ -202,34 +225,6 @@ def _build_chat_from_run(run: AgentRun) -> Chat | None:
         projectConfigId=project_config_id,
         messages=messages,
         systemPrompt=system_prompt,
-    )
-
-
-def _build_chat_metadata_from_run(run: AgentRun) -> ChatMetadata | None:
-    if not run.inputs:
-        return None
-    raw_llm_config = run.inputs.get("llmConfig")
-    if not isinstance(raw_llm_config, dict):
-        return None
-    llm_config = LLMConfig.model_validate(raw_llm_config)
-    raw_name = run.outputs.get("name") if run.outputs else None
-    name = raw_name if isinstance(raw_name, str) else None
-    if name is None:
-        messages = _parse_run_messages(run)
-        name = derive_chat_name(messages)
-    last_updated = _parse_last_updated(run)
-    raw_project_config_id = run.inputs.get("projectConfigId")
-    project_config_id = (
-        ID(raw_project_config_id)
-        if isinstance(raw_project_config_id, str) and raw_project_config_id
-        else None
-    )
-    return ChatMetadata(
-        id=run.id,
-        name=name,
-        lastUpdated=last_updated,
-        llmConfig=llm_config.model_copy(deep=True),
-        projectConfigId=project_config_id,
     )
 
 
