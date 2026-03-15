@@ -13,7 +13,7 @@ import {
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { shortcutPrettified } from "utils/utils";
 
 export function FileMenu() {

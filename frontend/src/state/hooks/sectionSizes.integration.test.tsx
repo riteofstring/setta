@@ -3,12 +3,9 @@ import {
   getResizeStartAutoSizeUpdate,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
-import {
-  useProjectState,
-  useResizeEvent,
-  useSettings,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useProjectState, useResizeEvent } from "state/definitions";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import {
   getKwargsControlsHeightKey,
@@ -26,7 +23,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useSectionMinMaxDims } from "./sectionSizes";
+import { useSectionMinMaxDims } from "./sectionMinMaxDims";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

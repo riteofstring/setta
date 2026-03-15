@@ -8,13 +8,10 @@ import {
   getSectionChildren,
   getSectionCore,
 } from "state/actions/sectionInfos";
-import {
-  useNameValidationErrors,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
+import { useNameValidationErrors } from "state/stores/editorDiagnosticsStores";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import {
