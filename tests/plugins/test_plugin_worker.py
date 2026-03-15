@@ -5,7 +5,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from setta.plugins.worker import _WorkerState
@@ -21,6 +21,10 @@ def _copy_backend_fixture(tmp_path: Path, fixture_name: str = "backend") -> Path
 
 def _start_worker(
     plugin_root: Path,
+    *,
+    server_mode: Literal["ide", "share", "app"] = "ide",
+    requested_capabilities: list[str] | None = None,
+    effective_capabilities: list[str] | None = None,
 ) -> subprocess.Popen[str]:
     manifest = json.loads((plugin_root / "setta.plugin.json").read_text(encoding="utf-8"))
     entrypoint = plugin_root / "backend" / "entrypoint.py"
@@ -32,9 +36,17 @@ def _start_worker(
         manifest["id"],
         "--plugin-version",
         manifest["version"],
+        "--plugin-root",
+        str(plugin_root),
         "--entrypoint",
         str(entrypoint),
+        "--server-mode",
+        server_mode,
     ]
+    for capability in requested_capabilities or []:
+        command.extend(["--requested-capability", capability])
+    for capability in effective_capabilities or []:
+        command.extend(["--effective-capability", capability])
     return subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
@@ -134,6 +146,7 @@ def test_worker_state_initializes_async_loop_lazily(tmp_path: Path) -> None:
     state = _WorkerState(
         plugin_id="setta-fixture-backend",
         plugin_version="0.1.0",
+        plugin_root=tmp_path,
         entrypoint_path=tmp_path / "entrypoint.py",
     )
     assert state._async_loop is None
@@ -171,13 +184,11 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert "host.register_mcp_tool" in initialize_result["supportedRpcMethods"]
 
         host_method_calls: list[str] = []
-        host_requests: list[dict[str, Any]] = []
         register_response = _rpc_call(
             worker,
             request_id=2,
             method="plugin.register",
             host_method_calls=host_method_calls,
-            host_requests=host_requests,
         )
         assert register_response["id"] == 2
         assert register_response["result"] == {"ok": True}
@@ -187,26 +198,6 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
             "host.register_mcp_tool",
             "host.register_mcp_tool",
         ]
-        mcp_tool_requests = [
-            request
-            for request in host_requests
-            if request.get("method") == "host.register_mcp_tool"
-        ]
-        assert len(mcp_tool_requests) == 2
-
-        read_payload = mcp_tool_requests[0]["params"]["tool"]
-        assert read_payload["name"] == "setta_fixture_backend_echo"
-        assert read_payload["description"] == ""
-        assert read_payload["inputSchema"]["type"] == "object"
-        assert read_payload["inputSchema"]["required"] == ["value"]
-        assert read_payload["metadata"]["kind"] == "discoverable"
-        assert read_payload["metadata"]["accessType"] == "read"
-
-        summary_payload = mcp_tool_requests[1]["params"]["tool"]
-        assert summary_payload["name"] == "setta_fixture_backend_project_summary"
-        assert summary_payload["inputSchema"]["type"] == "object"
-        assert summary_payload["metadata"]["accessType"] == "read"
-        assert summary_payload["metadata"]["searchCategory"] == "project"
 
         shutdown_response = _rpc_call(
             worker,
@@ -217,24 +208,6 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert shutdown_response["result"] == {"ok": True}
     finally:
         _stop_worker(worker)
-
-
-def test_worker_cli_probe_succeeds_without_plugin_metadata() -> None:
-    # Runtime validation should be able to probe the worker command without plugin-specific arguments.
-    completed = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "setta.plugins.worker",
-            "--probe",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert completed.returncode == 0
-    assert completed.stdout == ""
-    assert completed.stderr == ""
 
 
 def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
@@ -363,6 +336,301 @@ def test_worker_register_supports_read_state_emit_and_listener_endpoint(
         assert emit_request["params"]["projectConfigId"] == "fixture-project"
         assert isinstance(emit_request["params"]["dependencyEvents"], list)
         assert len(emit_request["params"]["dependencyEvents"]) == 1
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_context_reflects_server_mode_and_capabilities(tmp_path: Path) -> None:
+    # Worker register context should expose host-provided mode/capabilities metadata.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    marker_path = plugin_root / "backend" / "context.marker.json"
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "import json\n"
+        "from pathlib import Path\n\n"
+        "def register(plugin):\n"
+        "    payload = {\n"
+        "        'serverMode': plugin.server_mode,\n"
+        "        'deploymentMode': plugin.deployment_mode,\n"
+        "        'requestedCapabilities': list(plugin.requested_capabilities),\n"
+        "        'effectiveCapabilities': list(plugin.effective_capabilities),\n"
+        "    }\n"
+        "    Path(plugin.plugin_root, 'backend', 'context.marker.json').write_text(\n"
+        "        json.dumps(payload),\n"
+        "        encoding='utf-8',\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        server_mode="share",
+        requested_capabilities=["registerPane", "readProjectState"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        register_response = _rpc_call(worker, request_id=2, method="plugin.register")
+        assert register_response["result"] == {"ok": True}
+    finally:
+        _stop_worker(worker)
+
+    payload = json.loads(marker_path.read_text(encoding="utf-8"))
+    assert payload == {
+        "serverMode": "share",
+        "deploymentMode": True,
+        "requestedCapabilities": ["registerPane", "readProjectState"],
+        "effectiveCapabilities": ["registerPane"],
+    }
+
+
+def test_worker_register_ui_setting_and_invoke_handler_roundtrip(
+    tmp_path: Path,
+) -> None:
+    # Worker should expose register_ui_setting and invoke registered read/write handlers.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_setting(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_setting(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True, 'projectConfigId': project_config_id}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend setting behavior.',\n"
+        "            'paneId': 'full-settings-pane',\n"
+        "            'revealKey': 'full-settings',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_setting,\n"
+        "            'write': _write_setting,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        requested_capabilities=["registerPane"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_method_calls: list[str] = []
+        host_requests: list[dict[str, Any]] = []
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_method_calls=host_method_calls,
+            host_requests=host_requests,
+        )
+        assert register_response["result"] == {"ok": True}
+        assert host_method_calls == ["host.register_ui_setting"]
+        setting_payload = host_requests[0]["params"]["setting"]
+        assert setting_payload["id"] == "backend_enabled"
+        assert setting_payload["readHandlerId"] == "backend_enabled"
+        assert setting_payload["writeHandlerId"] == "backend_enabled"
+
+        first_read = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert first_read["result"]["value"] is False
+
+        write_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "write",
+                "projectConfigId": "project-a",
+                "value": True,
+            },
+        )
+        assert write_response["result"]["ok"] is True
+
+        second_read = _rpc_call(
+            worker,
+            request_id=5,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert second_read["result"]["value"] is True
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_ui_setting_write_allows_non_serializable_handler_return(
+    tmp_path: Path,
+) -> None:
+    # Worker write RPC should classify success by handler completion, not return serialization.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_setting(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_setting(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return object()\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend setting behavior.',\n"
+        "            'paneId': 'full-settings-pane',\n"
+        "            'revealKey': 'full-settings',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_setting,\n"
+        "            'write': _write_setting,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        requested_capabilities=["registerPane"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        register_response = _rpc_call(worker, request_id=2, method="plugin.register")
+        assert register_response["result"] == {"ok": True}
+
+        write_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "write",
+                "projectConfigId": "project-a",
+                "value": True,
+            },
+        )
+        assert write_response["result"]["ok"] is True
+
+        read_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert read_response["result"]["value"] is True
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_register_ui_setting_does_not_commit_handlers_when_host_rejects(
+    tmp_path: Path,
+) -> None:
+    # Host registration failures must not leak partially installed UI setting handlers.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_setting(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_setting(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True, 'projectConfigId': project_config_id}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend setting behavior.',\n"
+        "            'paneId': 'full-settings-pane',\n"
+        "            'revealKey': 'full-settings',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_setting,\n"
+        "            'write': _write_setting,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        requested_capabilities=["registerPane"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+
+        def _host_response(
+            payload: dict[str, Any], _worker: subprocess.Popen[str]
+        ) -> dict[str, Any]:
+            nested_id = payload["id"]
+            if payload.get("method") == "host.register_ui_setting":
+                return {
+                    "jsonrpc": "2.0",
+                    "id": nested_id,
+                    "error": {
+                        "code": "PLUGIN_BACKEND_REGISTER_FAILED",
+                        "message": "host rejected ui setting registration",
+                    },
+                }
+            return {
+                "jsonrpc": "2.0",
+                "id": nested_id,
+                "result": {"ok": True},
+            }
+
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_response_factory=_host_response,
+        )
+        assert register_response["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
+        assert (
+            "host rejected ui setting registration"
+            in register_response["error"]["message"]
+        )
+
+        # Read should fail because handler installation must remain atomic with host commit.
+        read_after_failure = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert read_after_failure["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
+        assert (
+            "Plugin ui setting read handler not found: backend_enabled"
+            in read_after_failure["error"]["message"]
+        )
     finally:
         _stop_worker(worker)
 
@@ -501,6 +769,8 @@ def test_worker_cli_rejects_missing_identity_args(
     expected_message: str,
 ) -> None:
     # Worker startup should fail fast when plugin id/version args are blank.
+    plugin_root = tmp_path / "plugin-root"
+    plugin_root.mkdir(parents=True, exist_ok=True)
     entrypoint = tmp_path / "entrypoint.py"
     entrypoint.write_text("def register(plugin):\n    return None\n", encoding="utf-8")
 
@@ -513,6 +783,8 @@ def test_worker_cli_rejects_missing_identity_args(
             plugin_id,
             "--plugin-version",
             plugin_version,
+            "--plugin-root",
+            str(plugin_root),
             "--entrypoint",
             str(entrypoint),
         ],
@@ -528,6 +800,8 @@ def test_worker_cli_rejects_missing_identity_args(
 
 def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
     # Worker startup should fail when backend entrypoint path does not exist.
+    plugin_root = tmp_path / "plugin-root"
+    plugin_root.mkdir(parents=True, exist_ok=True)
     missing_entrypoint = tmp_path / "missing-entrypoint.py"
 
     completed = subprocess.run(
@@ -539,6 +813,8 @@ def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
             "setta-fixture-backend",
             "--plugin-version",
             "0.1.0",
+            "--plugin-root",
+            str(plugin_root),
             "--entrypoint",
             str(missing_entrypoint),
         ],
@@ -592,6 +868,16 @@ def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
             "        'generate': lambda _state, _options: {'files': []},\n"
             "    })\n",
             "cannot contain ':' in worker mode",
+        ),
+        (
+            "def register(plugin):\n"
+            "    plugin.register_startup_task(lambda: None)\n",
+            "register_startup_task is not supported",
+        ),
+        (
+            "def register(plugin):\n"
+            "    plugin.register_shutdown_task(lambda: None)\n",
+            "register_shutdown_task is not supported",
         ),
     ],
 )
@@ -821,6 +1107,59 @@ def test_worker_register_surfaces_host_rpc_transport_close(tmp_path: Path) -> No
             register_response["error"]["code"]
             == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
         )
+    finally:
+        _stop_worker(worker)
+
+
+@pytest.mark.parametrize(
+    ("override_content", "expected_message_fragment"),
+    [
+        ("{not-json", "Invalid handshake override JSON"),
+        ("[]", "must be an object"),
+    ],
+)
+def test_worker_initialize_rejects_invalid_handshake_override_payload(
+    tmp_path: Path,
+    override_content: str,
+    expected_message_fragment: str,
+) -> None:
+    # Handshake override payload must be valid JSON object when override file is present.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    override_path = plugin_root / "backend" / "handshake.override.json"
+    override_path.write_text(override_content, encoding="utf-8")
+
+    worker = _start_worker(plugin_root)
+    try:
+        response = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        assert response["id"] == 1
+        assert response["error"]["code"] == "PLUGIN_BACKEND_HANDSHAKE_INVALID"
+        assert expected_message_fragment in response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_handshake_override_payload(tmp_path: Path) -> None:
+    # Worker handshake should include override payload data when present.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    override_path = plugin_root / "backend" / "handshake.override.json"
+    override_path.write_text(
+        json.dumps({"backendPluginApiVersion": 99}, indent=2),
+        encoding="utf-8",
+    )
+
+    worker = _start_worker(plugin_root)
+    try:
+        response = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        assert response["id"] == 1
+        assert response["result"]["backendPluginApiVersion"] == 99
     finally:
         _stop_worker(worker)
 

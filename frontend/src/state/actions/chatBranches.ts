@@ -1,4 +1,4 @@
-import { ChatBranchInfo } from "state/definitions";
+import { ChatBranchInfo } from "state/stores/aiStores";
 import {
   BaseChatMessageUnion,
   ChatSectionBranch,

@@ -2,7 +2,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import {
   getSectionInfo,
   resetSectionsToDefaultVersions,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionHierarchy";
 
 export function ResetToDefaultVersion({ sectionId }) {
   function onClick() {
