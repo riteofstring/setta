@@ -115,14 +115,8 @@ func (s *Service) ClearTextFieldCompletion(
 	sectionID string,
 	_ string,
 ) error {
-	project, err := snapshotProject(runtime, projectID)
-	if err != nil {
-		return err
-	}
-	if _, _, _, err := project.ResolveSection(strings.TrimSpace(sectionID)); err != nil {
-		return err
-	}
-	return nil
+	_, err := snapshotProject(runtime, projectID)
+	return err
 }
 
 func (s *Service) OutputAccessorCompletion(

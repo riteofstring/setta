@@ -757,12 +757,9 @@ func (s *Service) Download(_ context.Context, token string) (DownloadResult, err
 	if err != nil {
 		return DownloadResult{}, err
 	}
-	resolved, ok := s.resolveFilePathForDownload(payload.Path)
-	if !ok {
-		return DownloadResult{}, &Error{
-			Kind:    ErrorPathNotFound,
-			Message: "File not found.",
-		}
+	resolved, err := s.resolvePathWithinWorkspace(payload.Path, "File path")
+	if err != nil {
+		return DownloadResult{}, err
 	}
 	info, err := os.Stat(resolved)
 	if err != nil {

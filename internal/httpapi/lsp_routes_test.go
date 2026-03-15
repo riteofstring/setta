@@ -476,6 +476,271 @@ func TestRegisterLSPRoutesTypeCheckReturnsValidationEnvelopeForMalformedJSONAndM
 	}
 }
 
+// The source type-check route no-oped on unknown project ids because manager
+// dispatch stayed coarse-grained and the project-specific refresh skipped
+// missing projects without raising a typed transport error.
+func TestRegisterLSPRoutesTypeCheckUnknownProjectIsNoOpSuccess(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	admin := &stubLSPAdminService{}
+	handler := newLSPRouteTestHandlerWithAdmin(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+		admin,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteTypeCheck,
+		strings.NewReader(`{"projectConfigId":"project-missing"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response body, got %q", response.Body.String())
+	}
+	if admin.typeCheckProject != "project-missing" {
+		t.Fatalf("expected type-check admin call for missing project, got %q", admin.typeCheckProject)
+	}
+}
+
+// Unknown projects should still rehydrate to the same empty diagnostics
+// snapshot payload shape instead of failing with a typed not-found transport.
+func TestRegisterLSPRoutesReturnsEmptyDiagnosticsSnapshotForUnknownProject(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestLSPDiagnostics,
+		strings.NewReader(`{"projectConfigId":"project-missing"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.LSPDiagnosticsPayload
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode diagnostics payload: %v", err)
+	}
+	if payload.ProjectID != "project-missing" {
+		t.Fatalf("expected missing-project snapshot id, got %#v", payload)
+	}
+	if len(payload.CodeSections) != 0 || len(payload.UnmappedGenCode) != 0 || len(payload.GenCode.Errors) != 0 {
+		t.Fatalf("expected empty missing-project snapshot, got %#v", payload)
+	}
+}
+
+// Snapshot-completion routes should preserve the source generic internal-error
+// transport for unknown project ids instead of returning typed not-found codes.
+func TestRegisterLSPRoutesCompletionSnapshotUnknownProjectUsesInternalErrorTransport(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+
+	cases := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "text field completion",
+			path: RouteTextFieldCompletion,
+			body: `{"projectConfigId":"project-missing","sectionId":"callable-section","paramInfoId":"param-1","fullText":"fixture.","position":8}`,
+		},
+		{
+			name: "gen code prefix completion",
+			path: RouteGenCodePrefixCompletion,
+			body: `{"projectConfigId":"project-missing","fullText":"fixture.","position":8}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertRouteError(t, response, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		})
+	}
+}
+
+// Lookup-miss behavior remains split like the source route family: snapshot
+// completion lookups surface a generic internal error, while clear-text
+// completion treats missing sections as a successful no-op.
+func TestRegisterLSPRoutesCompletionLookupMissTransportsMatchSource(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+
+	errorCases := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "text field missing section",
+			path: RouteTextFieldCompletion,
+			body: `{"projectConfigId":"project-alpha","sectionId":"section-missing","paramInfoId":"param-1","fullText":"fixture.","position":8}`,
+		},
+		{
+			name: "output accessor missing section",
+			path: RouteOutputAccessorCompletion,
+			body: `{"projectConfigId":"project-alpha","sectionId":"section-missing","fullText":".branch","position":7}`,
+		},
+		{
+			name: "code area missing section",
+			path: RouteCodeAreaCompletion,
+			body: `{"projectConfigId":"project-alpha","sectionId":"section-missing","fullText":"fixture.","position":8}`,
+		},
+	}
+
+	for _, tc := range errorCases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertRouteError(t, response, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		})
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteClearTextFieldCompletion,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-missing","paramInfoId":"param-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response body, got %q", response.Body.String())
+	}
+}
+
+// Diagnostics-setting routes should preserve the source generic internal-error
+// transport for missing project and section lookups.
+func TestRegisterLSPRoutesDiagnosticsMutationMissesUseInternalErrorTransport(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := lspDiagnosticsMutationRouteRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+
+	cases := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "mute missing project",
+			path: RouteSetCodeSectionDiagnosticsMute,
+			body: `{"projectConfigId":"project-missing","sectionId":"section-1","mute":true}`,
+		},
+		{
+			name: "mute missing section",
+			path: RouteSetCodeSectionDiagnosticsMute,
+			body: `{"projectConfigId":"project-alpha","sectionId":"section-missing","mute":true}`,
+		},
+		{
+			name: "suppression missing project",
+			path: RouteSetCodeSectionDiagnosticCodeSuppression,
+			body: `{"projectConfigId":"project-missing","sectionId":"section-1","code":"reportFoo","suppress":true}`,
+		},
+		{
+			name: "suppression missing section",
+			path: RouteSetCodeSectionDiagnosticCodeSuppression,
+			body: `{"projectConfigId":"project-alpha","sectionId":"section-missing","code":"reportFoo","suppress":true}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+tc.path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertRouteError(t, response, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		})
+	}
+}
+
 // The admin-side LSP routes follow the source full-runtime router policy:
 // deployment/share and launcher failures must return a plain detail body.
 func TestRegisterLSPRoutesAdminModeGuardsReturnSourceDetailBodies(t *testing.T) {
@@ -662,6 +927,22 @@ func assertLSPValidationEnvelope(t *testing.T, response *httptest.ResponseRecord
 	}
 	if payload.Data != nil {
 		t.Fatalf("expected nil validation data, got %#v", payload.Data)
+	}
+}
+
+func assertRouteError(t *testing.T, response *httptest.ResponseRecorder, expectedStatus int, expectedCode string, expectedMessage string) {
+	t.Helper()
+
+	if response.Code != expectedStatus {
+		t.Fatalf("expected %d, got %d with body %q", expectedStatus, response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode route error: %v", err)
+	}
+	if payload.Error.Code != expectedCode || payload.Error.Message != expectedMessage {
+		t.Fatalf("expected %s/%q, got %#v", expectedCode, expectedMessage, payload)
 	}
 }
 

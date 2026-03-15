@@ -311,6 +311,39 @@ func TestServiceReadFileContentRejectsOversizeAndConcurrentChange(t *testing.T) 
 	}
 }
 
+func TestServiceDownloadURLsAndDownloadsRequireSessionSecret(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+	service.sessions = testSessionProvider{}
+
+	filePath := filepath.Join(workspaceRoot, "notes.txt")
+	if err := os.WriteFile(filePath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write download file: %v", err)
+	}
+
+	_, err := service.BuildDownloadURLs(context.Background(), FileBrowserDownloadURLRequest{
+		Paths: []string{filePath},
+	}, func(token string) string {
+		return "http://example.com/api/fileBrowser/" + token
+	})
+	if err == nil {
+		t.Fatal("expected download-url mint to fail without session secret")
+	}
+	var routeErr *Error
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorTokenUnavailable {
+		t.Fatalf("expected token unavailable error for mint, got %#v", err)
+	}
+
+	_, err = service.Download(context.Background(), "any-token")
+	if err == nil {
+		t.Fatal("expected download consume to fail without session secret")
+	}
+	if !errors.As(err, &routeErr) || routeErr.Kind != ErrorTokenUnavailable {
+		t.Fatalf("expected token unavailable error for consume, got %#v", err)
+	}
+}
+
 func TestServiceWriteFileContentEnforcesCreateOnlyAndStaleGuards(t *testing.T) {
 	t.Parallel()
 

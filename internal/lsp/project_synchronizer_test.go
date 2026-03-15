@@ -608,6 +608,38 @@ func TestProjectSynchronizerTypeCheckProjectRefreshesProjectDocuments(t *testing
 	}
 }
 
+// Manual type-check should preserve the source no-op contract for unknown
+// project ids instead of surfacing a typed not-found error.
+func TestProjectSynchronizerTypeCheckProjectIgnoresUnknownProject(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        syncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	document, _, _, _ := lspTestDocument(t, settaFilesRoot)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := synchronizer.TypeCheckProject(ctx, document, "project-missing"); err != nil {
+		t.Fatalf("type check unknown project: %v", err)
+	}
+	if syncer.synced != nil {
+		t.Fatalf("expected no full sync for unknown project, got %#v", syncer.synced)
+	}
+	if syncer.refreshed != nil {
+		t.Fatalf("expected no refresh for unknown project, got %#v", syncer.refreshed)
+	}
+}
+
 // Non-Python/plugin-language code sections should materialize through the same
 // project snapshot path as Python sections and update the shared diagnostics
 // registry through the stored callback.

@@ -97,6 +97,9 @@ func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document pro
 
 	project, err := document.ProjectByID(projectID)
 	if err != nil {
+		if errors.Is(err, projectstate.ErrProjectNotFound) {
+			return nil
+		}
 		return err
 	}
 	documents, err := s.buildProjectDocuments(project)

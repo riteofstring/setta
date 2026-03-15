@@ -242,11 +242,12 @@ func typeCheckHandler(deps LSPRouteDependencies) http.HandlerFunc {
 		}
 
 		snapshot := deps.ProjectState.Snapshot()
-		if _, err := snapshot.Document.ProjectByID(projectID); err != nil {
-			writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
-			return
-		}
 		if err := deps.Admin.TypeCheckProject(r.Context(), snapshot.Document, projectID); err != nil {
+			if errors.Is(err, projectstate.ErrProjectNotFound) ||
+				errors.Is(err, projectstate.ErrProjectIDRequired) {
+				writeJSON(w, http.StatusOK, nil)
+				return
+			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -284,6 +285,10 @@ func clearTextFieldCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc
 			sectionID,
 			trimOptionalString(payload.ParamInfoID),
 		); err != nil {
+			if errors.Is(err, projectstate.ErrSectionNotFound) {
+				writeJSON(w, http.StatusOK, nil)
+				return
+			}
 			writeLSPCompletionError(w, r, err)
 			return
 		}
@@ -493,12 +498,6 @@ func getLatestLSPDiagnosticsHandler(deps LSPRouteDependencies) http.HandlerFunc 
 			return
 		}
 
-		snapshot := deps.ProjectState.Snapshot()
-		if _, err := snapshot.Document.ProjectByID(projectID); err != nil {
-			writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
-			return
-		}
-
 		writeJSON(w, http.StatusOK, deps.Diagnostics.Snapshot(projectID))
 	}
 }
@@ -647,10 +646,9 @@ func decodeLSPRequest[T any](r *http.Request, requiredFields ...string) (T, erro
 func writeLSPCompletionError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound),
-		errors.Is(err, projectstate.ErrProjectIDRequired):
-		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
-	case errors.Is(err, projectstate.ErrSectionNotFound):
-		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+		errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
@@ -659,10 +657,9 @@ func writeLSPCompletionError(w http.ResponseWriter, r *http.Request, err error) 
 func writeLSPDiagnosticsMutationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound),
-		errors.Is(err, projectstate.ErrProjectIDRequired):
-		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
-	case errors.Is(err, projectstate.ErrSectionNotFound):
-		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+		errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	case errors.Is(err, projectstate.ErrCodeSectionRequired),
 		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode),
 		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticsIgnoreState):

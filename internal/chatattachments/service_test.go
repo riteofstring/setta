@@ -258,6 +258,140 @@ func TestDownloadRejectsInvalidToken(t *testing.T) {
 	}
 }
 
+func TestBuildPayloadPromptTextPairDedupesByAttachmentIDAndOmitsImagesFromNoImagesVariant(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("Hello from attachment."), 0o644); err != nil {
+		t.Fatalf("write text attachment: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "image.png"), []byte("png-bytes"), 0o644); err != nil {
+		t.Fatalf("write image attachment: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: root,
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Sessions: staticSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	payload, err := service.BuildPayload(BuildPayloadRequest{
+		Messages: []map[string]any{
+			{
+				"attachments": []any{
+					map[string]any{"id": "artifacts/notes.txt", "name": "notes.txt", "mimeType": "text/plain"},
+					map[string]any{"id": "artifacts/image.png", "name": "image.png", "mimeType": "image/png"},
+					map[string]any{"id": "artifacts/notes.txt", "name": "notes copy.txt", "mimeType": "text/plain"},
+				},
+			},
+		},
+		ProjectConfigID:     "project-alpha",
+		IncludeText:         true,
+		IncludeTextNoImages: true,
+		IncludeDownloadURLs: true,
+	})
+	if err != nil {
+		t.Fatalf("build payload: %v", err)
+	}
+	if strings.Count(payload.AttachmentText, "[Attachment: notes.txt]") != 1 {
+		t.Fatalf("expected one deduped text attachment block, got %q", payload.AttachmentText)
+	}
+	if !strings.Contains(payload.AttachmentText, "[Attachment: image.png]") {
+		t.Fatalf("expected image placeholder in with-images text, got %q", payload.AttachmentText)
+	}
+	if strings.Contains(payload.AttachmentTextNoImages, "image.png") {
+		t.Fatalf("expected no-images text to omit image placeholder, got %q", payload.AttachmentTextNoImages)
+	}
+	if len(payload.AttachmentURLs) != 2 {
+		t.Fatalf("expected two deduped download urls, got %#v", payload.AttachmentURLs)
+	}
+}
+
+func TestBuildPayloadPrefersExplicitMimeAndFallsBackToKnownTextExtensions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "README"), []byte("explicit mime wins"), 0o644); err != nil {
+		t.Fatalf("write mime override attachment: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "config.local.toml"), []byte("name = \"setta\""), 0o644); err != nil {
+		t.Fatalf("write octet-stream text attachment: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: root,
+		ProjectState:   projectRuntime,
+		Sessions: staticSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	payload, err := service.BuildPayload(BuildPayloadRequest{
+		Messages: []map[string]any{
+			{
+				"attachments": []any{
+					map[string]any{"id": "artifacts/README", "name": "README", "mimeType": "text/plain"},
+					map[string]any{"id": "artifacts/config.local.toml", "name": "config.local.toml", "mimeType": "application/octet-stream"},
+				},
+			},
+		},
+		ProjectConfigID: "project-alpha",
+		IncludeText:     true,
+	})
+	if err != nil {
+		t.Fatalf("build payload: %v", err)
+	}
+	if !strings.Contains(payload.AttachmentText, "[Attachment: README]\nexplicit mime wins") {
+		t.Fatalf("expected explicit mime attachment to inline, got %q", payload.AttachmentText)
+	}
+	if !strings.Contains(payload.AttachmentText, "[Attachment: config.local.toml]\nname = \"setta\"") {
+		t.Fatalf("expected octet-stream known extension attachment to inline, got %q", payload.AttachmentText)
+	}
+	if strings.Contains(payload.AttachmentText, "Content not inlined.") {
+		t.Fatalf("expected both attachments to inline text, got %q", payload.AttachmentText)
+	}
+}
+
 func TestBuildContentDispositionEncodesUnicodeFilename(t *testing.T) {
 	t.Parallel()
 

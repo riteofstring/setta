@@ -636,6 +636,95 @@ func TestRegisterFileBrowserRoutesBlocksCreateFileInDeploymentMode(t *testing.T)
 	}
 }
 
+func TestRegisterFileBrowserRoutesBlocksTransferInDeploymentModeWithExplicitMessage(t *testing.T) {
+	t.Parallel()
+
+	handler := newFileBrowserRouteTestHandler(t, config.ModeShare, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteTransferFileBrowserEntry,
+		strings.NewReader(`{"sourcePath":"notes.txt","destinationFolderPath":".","operation":"move"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "File browsing is disabled in deployment mode.") {
+		t.Fatalf("expected deployment-mode file browser message, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterFileBrowserRoutesDownloadTokenMissesMatchSourceTransport(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	invalidRequest := httptest.NewRequest(http.MethodGet, "/api/fileBrowser/invalid-token", nil)
+	addHTTPTestAuthCookie(t, invalidRequest, authService)
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalidRequest)
+	assertFileBrowserRouteError(t, invalidResponse, http.StatusForbidden, "invalid_file_browser_token", "Invalid or expired file browser token.")
+
+	mintURL := func(path string) string {
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFileBrowserDownloadURL, strings.NewReader(`{"paths":["`+path+`"]}`))
+		request.Header.Set("Content-Type", "application/json")
+		addHTTPTestAuthCookie(t, request, authService)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+		}
+
+		var payload []filebrowser.FileBrowserDownloadURLEntry
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode download urls: %v", err)
+		}
+		if len(payload) != 1 {
+			t.Fatalf("expected one download url, got %#v", payload)
+		}
+		return payload[0].URL
+	}
+
+	missingPath := filepath.Join(workspaceRoot, "missing-after-mint.txt")
+	if err := os.WriteFile(missingPath, []byte("temp"), 0o644); err != nil {
+		t.Fatalf("write mint file: %v", err)
+	}
+	missingURL := mintURL(missingPath)
+	if err := os.Remove(missingPath); err != nil {
+		t.Fatalf("remove minted file: %v", err)
+	}
+	missingRequest := httptest.NewRequest(http.MethodGet, strings.TrimPrefix(missingURL, "http://example.com"), nil)
+	addHTTPTestAuthCookie(t, missingRequest, authService)
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingRequest)
+	assertFileBrowserRouteError(t, missingResponse, http.StatusNotFound, "path_not_found", "File not found.")
+
+	notFilePath := filepath.Join(workspaceRoot, "folder-after-mint.txt")
+	if err := os.WriteFile(notFilePath, []byte("temp"), 0o644); err != nil {
+		t.Fatalf("write path-not-file mint target: %v", err)
+	}
+	notFileURL := mintURL(notFilePath)
+	if err := os.Remove(notFilePath); err != nil {
+		t.Fatalf("remove path-not-file target: %v", err)
+	}
+	if err := os.MkdirAll(notFilePath, 0o755); err != nil {
+		t.Fatalf("replace mint target with directory: %v", err)
+	}
+	notFileRequest := httptest.NewRequest(http.MethodGet, strings.TrimPrefix(notFileURL, "http://example.com"), nil)
+	addHTTPTestAuthCookie(t, notFileRequest, authService)
+	notFileResponse := httptest.NewRecorder()
+	handler.ServeHTTP(notFileResponse, notFileRequest)
+	assertFileBrowserRouteError(t, notFileResponse, http.StatusBadRequest, "path_not_file", "File path is not a file.")
+}
+
 func TestRegisterFileBrowserRoutesBlocksLauncherMode(t *testing.T) {
 	t.Parallel()
 
@@ -726,4 +815,20 @@ func newFileBrowserRouteTestHandlerWithDeploymentRoot(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func assertFileBrowserRouteError(t *testing.T, response *httptest.ResponseRecorder, expectedStatus int, expectedCode string, expectedMessage string) {
+	t.Helper()
+
+	if response.Code != expectedStatus {
+		t.Fatalf("expected %d, got %d with body %q", expectedStatus, response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode file-browser error payload: %v", err)
+	}
+	if payload.Error.Code != expectedCode || payload.Error.Message != expectedMessage {
+		t.Fatalf("expected %s/%q, got %#v", expectedCode, expectedMessage, payload)
+	}
 }
