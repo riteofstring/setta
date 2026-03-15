@@ -180,24 +180,77 @@ func TestRegisterProjectRoutesChatSectionMutationsRejectInvalidSectionAndSetting
 		t.Fatalf("expected chat_section_required code, got %#v", invalidSectionPayload)
 	}
 
-	invalidSettingsRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetChatSectionSettings,
-		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":false,"engineConfigId":null,"transcriptionProfileId":null,"agentProfileId":null,"thinking":false,"permissionMode":"invalid","searchEnabled":false,"dictationMode":"auto"}`),
-	)
-	invalidSettingsRequest.Header.Set("Content-Type", "application/json")
-	invalidSettingsResponse := httptest.NewRecorder()
-	handler.ServeHTTP(invalidSettingsResponse, invalidSettingsRequest)
-	if invalidSettingsResponse.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for invalid permission mode, got %d with body %q", invalidSettingsResponse.Code, invalidSettingsResponse.Body.String())
+	for _, testCase := range []struct {
+		name            string
+		body            string
+		expectedMessage string
+	}{
+		{
+			name:            "unknown permission mode",
+			body:            `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":false,"engineConfigId":null,"transcriptionProfileId":null,"agentProfileId":null,"thinking":false,"permissionMode":"invalid","searchEnabled":false,"dictationMode":"auto"}`,
+			expectedMessage: `Invalid permissionMode value "invalid". Expected one of: "minimal", "yolo", "config_toml_custom".`,
+		},
+		{
+			name:            "padded permission mode",
+			body:            `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":false,"engineConfigId":null,"transcriptionProfileId":null,"agentProfileId":null,"thinking":false,"permissionMode":" minimal ","searchEnabled":false,"dictationMode":"auto"}`,
+			expectedMessage: `Invalid permissionMode value " minimal ". Expected one of: "minimal", "yolo", "config_toml_custom".`,
+		},
+		{
+			name:            "unknown dictation mode",
+			body:            `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":false,"engineConfigId":null,"transcriptionProfileId":null,"agentProfileId":null,"thinking":false,"permissionMode":"minimal","searchEnabled":false,"dictationMode":"invalid"}`,
+			expectedMessage: `Invalid dictationMode value "invalid". Expected one of: "auto", "browser", "provider".`,
+		},
+		{
+			name:            "padded dictation mode",
+			body:            `{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":false,"engineConfigId":null,"transcriptionProfileId":null,"agentProfileId":null,"thinking":false,"permissionMode":"minimal","searchEnabled":false,"dictationMode":" browser "}`,
+			expectedMessage: `Invalid dictationMode value " browser ". Expected one of: "auto", "browser", "provider".`,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			invalidSettingsRequest := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetChatSectionSettings,
+				strings.NewReader(testCase.body),
+			)
+			invalidSettingsRequest.Header.Set("Content-Type", "application/json")
+			invalidSettingsResponse := httptest.NewRecorder()
+			handler.ServeHTTP(invalidSettingsResponse, invalidSettingsRequest)
+			if invalidSettingsResponse.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422 for invalid chat settings, got %d with body %q", invalidSettingsResponse.Code, invalidSettingsResponse.Body.String())
+			}
+
+			var invalidSettingsPayload errorResponse
+			if err := json.Unmarshal(invalidSettingsResponse.Body.Bytes(), &invalidSettingsPayload); err != nil {
+				t.Fatalf("decode invalid settings response: %v", err)
+			}
+			if invalidSettingsPayload.Error.Code != "invalid_request" {
+				t.Fatalf("expected invalid_request code, got %#v", invalidSettingsPayload)
+			}
+			if invalidSettingsPayload.Error.Message != testCase.expectedMessage {
+				t.Fatalf("expected invalid settings message %q, got %q", testCase.expectedMessage, invalidSettingsPayload.Error.Message)
+			}
+		})
 	}
 
-	var invalidSettingsPayload errorResponse
-	if err := json.Unmarshal(invalidSettingsResponse.Body.Bytes(), &invalidSettingsPayload); err != nil {
-		t.Fatalf("decode invalid settings response: %v", err)
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
 	}
-	if invalidSettingsPayload.Error.Code != "chat_permission_mode_invalid" {
-		t.Fatalf("expected chat_permission_mode_invalid code, got %#v", invalidSettingsPayload)
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	chatSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["chat-section"].SharedModifier)
+	if len(chatSharedModifier) != 0 {
+		t.Fatalf("expected invalid chat settings requests to leave chat-section shared modifier unchanged, got %#v", chatSharedModifier)
 	}
 }
 

@@ -1223,6 +1223,40 @@ type SetChatSectionSettingsRequest struct {
 	DictationMode          projectstate.ChatDictationMode  `json:"dictationMode"`
 }
 
+func validateChatPermissionModeRequestValue(mode projectstate.ChatPermissionMode) error {
+	switch mode {
+	case projectstate.ChatPermissionModeMinimal,
+		projectstate.ChatPermissionModeYOLO,
+		projectstate.ChatPermissionModeConfigTomlCustom:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid permissionMode value %q. Expected one of: %q, %q, %q.",
+			string(mode),
+			projectstate.ChatPermissionModeMinimal,
+			projectstate.ChatPermissionModeYOLO,
+			projectstate.ChatPermissionModeConfigTomlCustom,
+		)
+	}
+}
+
+func validateChatDictationModeRequestValue(mode projectstate.ChatDictationMode) error {
+	switch mode {
+	case projectstate.ChatDictationModeAuto,
+		projectstate.ChatDictationModeBrowser,
+		projectstate.ChatDictationModeProvider:
+		return nil
+	default:
+		return fmt.Errorf(
+			"Invalid dictationMode value %q. Expected one of: %q, %q, %q.",
+			string(mode),
+			projectstate.ChatDictationModeAuto,
+			projectstate.ChatDictationModeBrowser,
+			projectstate.ChatDictationModeProvider,
+		)
+	}
+}
+
 type SetStateMachineSectionSettingsRequest struct {
 	FrontendOpID   *string                            `json:"frontendOpId"`
 	ProjectID      string                             `json:"projectConfigId"`
@@ -6095,6 +6129,14 @@ func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFu
 		sectionID := strings.TrimSpace(payload.SectionID)
 		if sectionID == "" {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if err := validateChatPermissionModeRequestValue(payload.PermissionMode); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+			return
+		}
+		if err := validateChatDictationModeRequestValue(payload.DictationMode); err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
 			return
 		}
 		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
