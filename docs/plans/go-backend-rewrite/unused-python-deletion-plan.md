@@ -291,6 +291,11 @@ Current tree note:
   Go under `internal/auth`, `internal/settingsstate`, `internal/projectbackup`,
   `internal/llmconfig`, `internal/codeformat`, `internal/frontendorigins`, and
   `internal/workspacelaunch`.
+- The dead Python MCP/agentic helper residue is also smaller in the current
+  worktree: unused `agentic_scope`, linked-chat target resolution, Codex MCP
+  config import, ID-path extraction, and unused agentic-observability helper
+  types are gone because current tool-scope/runtime ownership already lives in
+  Go under `internal/mcpx`, `internal/tools`, and `internal/managedchat`.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
