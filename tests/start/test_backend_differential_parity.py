@@ -2066,6 +2066,90 @@ class Route:
             },
         )
 
+    def test_summarize_project_windowing_authoritative_presence_on_load_detects_ready_mismatch(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        persisted_payload = {
+            "projects": {
+                "project-1": {
+                    "id": "project-1",
+                    "name": "Example project",
+                }
+            }
+        }
+
+        summary = harness.summarize_project_windowing_authoritative_presence_on_load(
+            restart_startup_error=None,
+            restart_load_http_status=200,
+            restart_load_payload={
+                "projectConfig": {"id": "project-1"},
+                "projectChatWindowing": {
+                    "instancesById": {},
+                    "order": [],
+                    "nextInstanceNumber": 1,
+                }
+            },
+            restart_latest_http_status=200,
+            restart_latest_payload={
+                "projectState": {
+                    "projectConfig": {"id": "project-1"},
+                    "projectChatWindowing": {
+                        "instancesById": {},
+                        "order": [],
+                        "nextInstanceNumber": 1,
+                    },
+                }
+            },
+            persisted_after_payload=persisted_payload,
+            project_id="project-1",
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "persistedWindowingPresentAfterRestart": False,
+                "restartStartupStatus": "ready",
+                "restartLoadHttpStatus": 200,
+                "restartLoadProjectChatWindowingPresent": True,
+                "restartLatestHttpStatus": 200,
+                "restartLatestProjectChatWindowingPresent": True,
+            },
+        )
+
+    def test_summarize_project_windowing_authoritative_presence_on_load_detects_startup_failure(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        persisted_payload = {
+            "projects": {
+                "project-1": {
+                    "id": "project-1",
+                    "name": "Example project",
+                }
+            }
+        }
+
+        summary = harness.summarize_project_windowing_authoritative_presence_on_load(
+            restart_startup_error="backend exited on startup",
+            restart_load_http_status=None,
+            restart_load_payload=None,
+            restart_latest_http_status=None,
+            restart_latest_payload=None,
+            persisted_after_payload=persisted_payload,
+            project_id="project-1",
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "persistedWindowingPresentAfterRestart": False,
+                "restartStartupStatus": "failed",
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

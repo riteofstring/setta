@@ -9,13 +9,16 @@ import (
 const CurrentSchemaVersion = 1
 
 var (
-	ErrProjectPayloadNotObject  = errors.New("project payload must be a JSON object")
-	ErrUnsupportedSchemaVersion = errors.New("unsupported project schema version")
-	ErrProjectIDRequired        = errors.New("project id is required")
-	ErrProjectNameRequired      = errors.New("project name is required")
-	ErrDefaultProjectIDRequired = errors.New("default project id must not be blank")
-	ErrDefaultProjectNotFound   = errors.New("default project id was not found in projects")
-	ErrProjectIDKeyMismatch     = errors.New("project id must match its map key")
+	ErrProjectPayloadNotObject      = errors.New("project payload must be a JSON object")
+	ErrUnsupportedSchemaVersion     = errors.New("unsupported project schema version")
+	ErrProjectIDRequired            = errors.New("project id is required")
+	ErrProjectNameRequired          = errors.New("project name is required")
+	ErrDefaultProjectIDRequired     = errors.New("default project id must not be blank")
+	ErrDefaultProjectNotFound       = errors.New("default project id was not found in projects")
+	ErrProjectIDKeyMismatch         = errors.New("project id must match its map key")
+	ErrProjectChatWindowingRequired = errors.New(
+		"project chat windowing state is required for each persisted project",
+	)
 )
 
 type Document struct {

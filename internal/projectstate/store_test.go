@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -65,6 +66,31 @@ func TestStoreLoadRejectsUnsupportedSchemaVersion(t *testing.T) {
 	_, err := store.Load(context.Background())
 	if !errors.Is(err, ErrUnsupportedSchemaVersion) {
 		t.Fatalf("expected unsupported schema version error, got %v", err)
+	}
+}
+
+func TestStoreLoadRejectsMissingAuthoritativeProjectChatWindowingState(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":   "project-alpha",
+				"name": "Alpha",
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	_, err := store.Load(context.Background())
+	if !errors.Is(err, ErrProjectChatWindowingRequired) {
+		t.Fatalf("expected missing project chat windowing error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "project-alpha") {
+		t.Fatalf("expected missing project id in error, got %v", err)
 	}
 }
 
@@ -155,6 +181,9 @@ func TestStoreSaveRoundTripsDocument(t *testing.T) {
 	}
 	if project.Name != "Alpha" {
 		t.Fatalf("expected project name Alpha, got %q", project.Name)
+	}
+	if project.ProjectChatWindowing == nil {
+		t.Fatal("expected saved project chat windowing to be normalized onto the project")
 	}
 }
 

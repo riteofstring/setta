@@ -23,6 +23,10 @@ scenarios:
     kind: persisted_project_windowing_after_create
     seed: none
     description: Fresh projects should persist authoritative project chat windowing state immediately after creation.
+  - name: project_windowing_authoritative_presence_on_load
+    kind: project_windowing_authoritative_presence_on_load
+    seed: none
+    description: Restarting with a project missing its authoritative live project-chat windowing payload should fail closed instead of synthesizing a default on read.
   - name: settings_project_shell
     kind: settings_project_shell
     seed: none

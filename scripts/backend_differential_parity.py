@@ -794,6 +794,8 @@ def execute_scenario(
         return execute_latest_state_prunes_stale_active_ids(backend)
     if scenario.kind == "persisted_project_windowing_after_create":
         return execute_persisted_project_windowing_after_create(backend)
+    if scenario.kind == "project_windowing_authoritative_presence_on_load":
+        return execute_project_windowing_authoritative_presence_on_load(backend)
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1064,6 +1066,74 @@ def execute_persisted_project_windowing_after_create(
         "projectID": project_id,
         "loadProjectConfig": loaded,
         "persistedProjectDocument": payload,
+    }
+
+
+def execute_project_windowing_authoritative_presence_on_load(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    persisted_payload = read_persisted_project_document(backend)
+    corrupted_payload = remove_project_windowing_from_store_payload(
+        persisted_payload,
+        project_id=project_id,
+    )
+    write_json(backend.setta_files_root / PROJECT_FILE_NAME, corrupted_payload)
+
+    restart_startup_error = restart_backend_allow_startup_failure(backend)
+    restart_load_http_status: int | None = None
+    restart_load_payload: Any = None
+    restart_latest_http_status: int | None = None
+    restart_latest_payload: Any = None
+    if restart_startup_error is None:
+        restart_load_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_LOAD_PROJECT_CONFIG,
+            payload={"projectConfigName": created_name},
+        )
+        restart_load_http_status = restart_load_response.status_code
+        restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+        if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+            restarted_project_config = object_field(restart_load_payload, "projectConfig")
+            restarted_project_id = expect_non_empty_string(
+                restarted_project_config.get("id"),
+                "projectConfig.id",
+            )
+            restart_latest_response = post_json_allow_status(
+                session=backend.session,
+                base_url=backend.base_url,
+                route=ROUTE_GET_LATEST_PROJECT_STATE,
+                payload={"projectConfigId": restarted_project_id},
+            )
+            restart_latest_http_status = restart_latest_response.status_code
+            restart_latest_payload = normalize_response_json_allow_status(
+                restart_latest_response
+            )
+
+    persisted_after_payload = read_persisted_project_document(backend)
+    summary = summarize_project_windowing_authoritative_presence_on_load(
+        restart_startup_error=restart_startup_error,
+        restart_load_http_status=restart_load_http_status,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=restart_latest_http_status,
+        restart_latest_payload=restart_latest_payload,
+        persisted_after_payload=persisted_after_payload,
+        project_id=project_id,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "corruptedProjectDocument": corrupted_payload,
+        "restartStartupError": restart_startup_error,
+        "restartLoadProjectConfigStatus": restart_load_http_status,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": restart_latest_http_status,
+        "restartLatestProjectState": restart_latest_payload,
+        "persistedProjectDocumentAfterRestart": persisted_after_payload,
     }
 
 
@@ -2252,6 +2322,54 @@ def summarize_persisted_project_windowing_after_create(
         "projectChatWindowOrderCount": len(order),
         "nextInstanceNumber": next_instance_number,
     }
+
+
+def summarize_project_windowing_authoritative_presence_on_load(
+    restart_startup_error: str | None,
+    restart_load_http_status: int | None,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    persisted_after_payload: dict[str, Any],
+    project_id: str,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "persistedWindowingPresentAfterRestart": project_has_windowing_in_store_payload(
+            persisted_after_payload,
+            project_id=project_id,
+        ),
+    }
+    if restart_startup_error is not None:
+        summary["restartStartupStatus"] = "failed"
+        return summary
+
+    summary["restartStartupStatus"] = "ready"
+    summary["restartLoadHttpStatus"] = restart_load_http_status
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        raw_windowing = restart_load_payload.get("projectChatWindowing")
+        summary["restartLoadProjectChatWindowingPresent"] = isinstance(
+            raw_windowing,
+            dict,
+        )
+    elif restart_load_http_status is not None:
+        summary["restartLoadErrorSummary"] = normalize_error_summary(
+            restart_load_payload
+        )
+
+    summary["restartLatestHttpStatus"] = restart_latest_http_status
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        raw_windowing = latest_project_state.get("projectChatWindowing")
+        summary["restartLatestProjectChatWindowingPresent"] = isinstance(
+            raw_windowing,
+            dict,
+        )
+    elif restart_latest_http_status is not None:
+        summary["restartLatestErrorSummary"] = normalize_error_summary(
+            restart_latest_payload
+        )
+
+    return summary
 
 
 def summarize_settings_project_shell(
@@ -4365,6 +4483,52 @@ def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:
             f"got {type(payload).__name__}"
         )
     return payload
+
+
+def project_has_windowing_in_store_payload(payload: dict[str, Any], project_id: str) -> bool:
+    projects = object_field(payload, "projects", allow_missing=True)
+    if project_id in projects:
+        project = expect_object(projects[project_id], f"projects.{project_id}")
+        raw_windowing = project.get("projectChatWindowing")
+        return isinstance(raw_windowing, dict)
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if project_id in source_projects:
+        raw_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        raw_windowing = raw_windowing_by_id.get(project_id)
+        return isinstance(raw_windowing, dict)
+
+    raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
+
+
+def remove_project_windowing_from_store_payload(
+    payload: dict[str, Any],
+    project_id: str,
+) -> dict[str, Any]:
+    projects = object_field(payload, "projects", allow_missing=True)
+    if project_id in projects:
+        project = expect_object(projects[project_id], f"projects.{project_id}")
+        project.pop("projectChatWindowing", None)
+        projects[project_id] = project
+        payload["projects"] = projects
+        return payload
+
+    source_projects = object_field(payload, "projectConfigs", allow_missing=True)
+    if project_id in source_projects:
+        raw_windowing_by_id = object_field(
+            payload,
+            "projectChatWindowingByProjectConfigId",
+            allow_missing=True,
+        )
+        raw_windowing_by_id.pop(project_id, None)
+        payload["projectChatWindowingByProjectConfigId"] = raw_windowing_by_id
+        return payload
+
+    raise ParityHarnessError(f"Unable to find project {project_id!r} in store payload")
 
 
 def read_persisted_settings_project_document(backend: BackendSession) -> dict[str, Any]:

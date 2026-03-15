@@ -342,13 +342,14 @@ func (p Project) Normalized() (Project, error) {
 	if normalized.CodeObjImpls == nil {
 		normalized.CodeObjImpls = map[string]CodeObjectImpl{}
 	}
-	if normalized.ProjectChatWindowing != nil {
-		normalizedWindowing := normalizeProjectChatWindowingState(
-			*normalized.ProjectChatWindowing,
-			normalized.Sections,
-		)
-		normalized.ProjectChatWindowing = &normalizedWindowing
-	}
+	normalizedWindowing := ProjectChatWindowingOrDefault(
+		normalized.ProjectChatWindowing,
+	)
+	normalizedWindowing = normalizeProjectChatWindowingState(
+		normalizedWindowing,
+		normalized.Sections,
+	)
+	normalized.ProjectChatWindowing = &normalizedWindowing
 	for index, target := range normalized.CodegenTargets {
 		normalizedTarget, err := target.Normalized()
 		if err != nil {

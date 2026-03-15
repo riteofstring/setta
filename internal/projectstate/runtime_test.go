@@ -37,6 +37,28 @@ func TestOpenRuntimeLoadsCurrentDocumentAndRevision(t *testing.T) {
 	}
 }
 
+func TestOpenRuntimeRejectsMissingPersistedProjectChatWindowingState(t *testing.T) {
+	t.Parallel()
+
+	projectPath := filepath.Join(t.TempDir(), "project.json")
+	writeTestJSON(t, projectPath, map[string]any{
+		"schemaVersion":    CurrentSchemaVersion,
+		"defaultProjectId": "project-alpha",
+		"projects": map[string]any{
+			"project-alpha": map[string]any{
+				"id":   "project-alpha",
+				"name": "Alpha",
+			},
+		},
+	})
+	store := newTestStore(t, projectPath)
+
+	_, err := OpenRuntime(context.Background(), store)
+	if !errors.Is(err, ErrProjectChatWindowingRequired) {
+		t.Fatalf("expected missing project chat windowing error, got %v", err)
+	}
+}
+
 func TestRuntimeMutateBumpsRevisionOnlyWhenStateChanges(t *testing.T) {
 	t.Parallel()
 

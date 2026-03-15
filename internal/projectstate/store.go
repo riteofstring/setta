@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"setta/internal/statefs"
 )
@@ -78,6 +80,12 @@ func (s *Store) loadDocument(ctx context.Context, normalize bool) (Document, err
 	if _, ok := rawPayload.(map[string]any); !ok {
 		return Document{}, ErrProjectPayloadNotObject
 	}
+	if normalize {
+		payloadObject := rawPayload.(map[string]any)
+		if err := validatePersistedProjectChatWindowingPresence(payloadObject); err != nil {
+			return Document{}, err
+		}
+	}
 
 	var document Document
 	if err := json.Unmarshal(content, &document); err != nil {
@@ -114,4 +122,37 @@ func (s *Store) Save(ctx context.Context, document Document) error {
 		return fmt.Errorf("write project document: %w", err)
 	}
 	return nil
+}
+
+func validatePersistedProjectChatWindowingPresence(rawPayload map[string]any) error {
+	rawProjects, ok := rawPayload["projects"]
+	if !ok {
+		return nil
+	}
+	projects, ok := rawProjects.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	missingProjectIDs := make([]string, 0)
+	for projectID, rawProject := range projects {
+		project, ok := rawProject.(map[string]any)
+		if !ok {
+			continue
+		}
+		rawWindowing, ok := project["projectChatWindowing"]
+		if !ok || rawWindowing == nil {
+			missingProjectIDs = append(missingProjectIDs, projectID)
+		}
+	}
+	if len(missingProjectIDs) == 0 {
+		return nil
+	}
+
+	sort.Strings(missingProjectIDs)
+	return fmt.Errorf(
+		"%w: %s",
+		ErrProjectChatWindowingRequired,
+		strings.Join(missingProjectIDs, ", "),
+	)
 }
