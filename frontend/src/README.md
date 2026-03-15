@@ -111,14 +111,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
     composes the outcome and apply owners.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
     single-run/update reconciliation.
-  - `state/actions/aiChatSubmission.ts` owns chat submission/edit orchestration
-    plus pending-surface promotion flow, while
-    `state/actions/aiChatSubmissionRequestPayload.ts` owns execution settings,
-    user-message construction, next-message lookup, and raw request-payload
-    builders, `state/actions/aiChatSubmissionPayload.ts` owns app-generation
-    request metadata plus edited-message request preparation, and
-    `state/actions/aiChatSubmissionEngineResolution.ts` owns edited-chat
-    engine resolution plus agent-run-backed fallback lookup.
+  - `state/actions/aiChatSubmissionMessages.ts` owns optimistic new-message
+    submit orchestration, `state/actions/aiChatSubmissionEdits.ts` owns
+    edited-message pending lifecycle plus managed-section chatId reset or
+    restore, `state/actions/aiChatSubmissionResponse.ts` owns shared backend
+    send plus post-submit hydration refresh, `state/actions/aiChatSubmission.ts`
+    is now the thin compatibility facade, `state/actions/aiChatSubmissionRequestPayload.ts`
+    owns execution settings, user-message construction, next-message lookup,
+    and raw request-payload builders, `state/actions/aiChatSubmissionPayload.ts`
+    owns app-generation request metadata plus edited-message request
+    preparation, and `state/actions/aiChatSubmissionEngineResolution.ts` owns
+    edited-chat engine resolution plus agent-run-backed fallback lookup.
   - `state/actions/aiChatControls.ts` owns public stop orchestration for
     project and managed section chats plus shared LLM stop fallback handling.
   - `state/actions/aiExternalAgentStop.ts` owns external-run lookup, external
@@ -403,8 +406,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
     helpers split across `aiHydration.ts`, `aiHydrationApply.ts`,
     `aiHydrationOutcome.ts`, `aiAgentRuns.ts`,
-    `aiChatSubmission.ts`, `aiChatControls.ts`, `aiExternalAgentStop.ts`,
-    `aiChatStopState.ts`, `aiExternalAgentResponses.ts`, `aiChatState.ts`,
+    `aiChatSubmissionMessages.ts`, `aiChatSubmissionEdits.ts`,
+    `aiChatSubmissionResponse.ts`, `aiChatSubmission.ts`,
+    `aiChatControls.ts`, `aiExternalAgentStop.ts`, `aiChatStopState.ts`,
+    `aiExternalAgentResponses.ts`, `aiChatState.ts`,
     `aiChatSectionState.ts`, `aiPendingChatAppGenerationState.ts`,
     `aiPendingChatMessageState.ts`, and `aiPendingChatState.ts`.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
@@ -662,14 +667,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
   the thin orchestrator; follow-up cleanup there should stay local to one of
   those owners instead of regrowing
   `state/actions/uiSettingRevealMutationSnapshots.ts`.
-- `state/actions/aiChatSubmission.ts`,
+- `state/actions/aiChatSubmissionMessages.ts`,
+  `state/actions/aiChatSubmissionEdits.ts`,
+  `state/actions/aiChatSubmissionResponse.ts`,
+  `state/actions/aiChatSubmission.ts`,
   `state/actions/aiChatSubmissionRequestPayload.ts`,
   `state/actions/aiChatSubmissionPayload.ts`, and
-  `state/actions/aiChatSubmissionEngineResolution.ts` now split
-  pending-surface submission orchestration, shared request-payload assembly,
-  app-generation or edited-message request preparation, and edited-chat engine
-  fallback resolution; follow-up cleanup there should stay local to one of
-  those owners instead of regrowing the old `ai.ts` surface.
+  `state/actions/aiChatSubmissionEngineResolution.ts` now split optimistic
+  new-message submission, edited-message pending lifecycle, shared backend send
+  plus hydration refresh, thin compatibility exports, shared request-payload
+  assembly, app-generation or edited-message request preparation, and
+  edited-chat engine fallback resolution; follow-up cleanup there should stay
+  local to one of those owners instead of regrowing the old `ai.ts` surface.
 - `state/actions/windowSpaceSnapshotCapture.ts` and
   `state/actions/windowSpaceSnapshotRestore.ts` now split saved workspace
   snapshot building from restore conversion helpers, so follow-up cleanup there

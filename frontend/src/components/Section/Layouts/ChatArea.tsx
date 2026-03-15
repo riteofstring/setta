@@ -45,13 +45,13 @@ import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { stopManagedSectionChatResponse } from "state/actions/aiChatControls";
 import { getDefaultChatDetails } from "state/actions/aiChatDetails";
+import { submitEditedMessage } from "state/actions/aiChatSubmissionEdits";
+import { submitMessage } from "state/actions/aiChatSubmissionMessages";
+import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
 import {
   clearPendingChatDetails,
   initializePendingChatDetails,
-  submitEditedMessage,
-  submitMessage,
-} from "state/actions/aiChatSubmission";
-import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
+} from "state/actions/aiPendingChatMessageState";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscriptionUpload";
 import {
   buildBranchFromEdit,

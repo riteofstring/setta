@@ -4,13 +4,19 @@ import {
   route_get_agent_runs,
   route_get_llm_chat,
   route_get_llm_response,
+  route_set_chat_section_chat_id,
 } from "utils/generatedEndpoints";
 import {
   ChatRoleEnum,
   EngineTypeEnum,
+  createChatSectionImpl,
+  createCore,
   createEngineConfig,
   createMessageTextContent,
+  createProjectConfig,
   createUserChatMessage,
+  createUserDefaultChatSectionImpl,
+  createVariant,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -32,6 +38,7 @@ vi.mock("utils/generatedEndpoints", async () => {
     route_get_agent_runs: vi.fn(),
     route_get_llm_chat: vi.fn(),
     route_get_llm_response: vi.fn(),
+    route_set_chat_section_chat_id: vi.fn(),
   };
 });
 
@@ -42,15 +49,23 @@ vi.mock("state/actions/frontendWebsocketAffinity", () => ({
 const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
 const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
 const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
+const mockedRouteSetChatSectionChatId = vi.mocked(
+  route_set_chat_section_chat_id,
+);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let submitEditedMessage: typeof import("state/actions/aiChatSubmission").submitEditedMessage;
+let useProjectState: typeof import("state/definitions").useProjectState;
+let submitEditedMessage: typeof import("state/actions/aiChatSubmissionEdits").submitEditedMessage;
 let getDefaultChatDetails: typeof import("state/actions/aiChatDetails").getDefaultChatDetails;
 let memoryStorage: Storage;
 
 const chatId = "chat-1";
 const OTHER_SURFACE_ID = "surface-other";
 const TARGET_SURFACE_ID = "surface-target";
+const projectConfigId = "project-1";
+const sectionId = "section-1";
+const variantId = "variant-1";
+const implId = "impl-1";
 
 function buildGetLLMResponseResponse(chatId: string) {
   return {
@@ -59,6 +74,39 @@ function buildGetLLMResponseResponse(chatId: string) {
     engineType: "setta_llm" as const,
     sectionId: null,
   };
+}
+
+function seedManagedChatSection(initialChatId: string | null): void {
+  const sectionCore = createCore({
+    id: sectionId,
+    name: "Chat",
+    variants: [variantId],
+    defaultVariant: variantId,
+  });
+  const sectionVariant = createVariant({
+    id: variantId,
+    name: "Chat Variant",
+    impl: implId,
+    nonPresetImpls: [],
+  });
+  const sectionImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: initialChatId }),
+    {
+      id: implId,
+      chatId: initialChatId,
+      managed: true,
+      engineConfigId: "engine-1",
+      thinking: true,
+    },
+  );
+  useProjectState.setState((state) => {
+    state.projectConfig = createProjectConfig({ id: projectConfigId });
+    state.sections = { [sectionId]: sectionCore };
+    state.sectionVariants = { [variantId]: sectionVariant };
+    state.sectionImpls = { [implId]: sectionImpl };
+    state.projectConfig.sectionVariantMap = { [sectionId]: variantId };
+    state.previewSectionVariantMap = {};
+  });
 }
 
 describe("submitEditedMessage", () => {
@@ -84,9 +132,12 @@ describe("submitEditedMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
+    useProjectState = definitions.useProjectState;
     const aiChatDetails = await import("state/actions/aiChatDetails");
-    const aiChatSubmission = await import("state/actions/aiChatSubmission");
-    submitEditedMessage = aiChatSubmission.submitEditedMessage;
+    const aiChatSubmissionEdits = await import(
+      "state/actions/aiChatSubmissionEdits"
+    );
+    submitEditedMessage = aiChatSubmissionEdits.submitEditedMessage;
     getDefaultChatDetails = aiChatDetails.getDefaultChatDetails;
   });
 
@@ -104,6 +155,11 @@ describe("submitEditedMessage", () => {
       status: 200,
       hasResponse: true,
       data: [],
+    });
+    mockedRouteSetChatSectionChatId.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: undefined,
     });
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
@@ -341,5 +397,53 @@ describe("submitEditedMessage", () => {
       { engineConfigId: string | null },
     ];
     expect(payload.engineConfigId).toBe("engine-fallback");
+  });
+
+  it("restores the managed section chatId when edited submission fails", async () => {
+    seedManagedChatSection(chatId);
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 503,
+      hasResponse: true,
+      data: null,
+    });
+
+    const result = await submitEditedMessage({
+      parentChatId: chatId,
+      messages: [
+        createUserChatMessage({
+          id: "msg-1",
+          content: [createMessageTextContent({ text: "Original prompt" })],
+          attachments: [],
+        }),
+      ],
+      messageId: "msg-1",
+      message: "Edited prompt",
+      attachments: [],
+      thinking: false,
+      engineConfigId: "engine-1",
+      isExternalEngine: false,
+      agentProfileId: null,
+      sectionId,
+      pendingSurfaceId: TARGET_SURFACE_ID,
+    });
+
+    expect(result).toBeNull();
+    expect(mockedRouteSetChatSectionChatId).toHaveBeenCalledTimes(2);
+    expect(mockedRouteSetChatSectionChatId.mock.calls[0]?.[0]).toMatchObject({
+      projectConfigId,
+      sectionId,
+      chatId: null,
+    });
+    expect(mockedRouteSetChatSectionChatId.mock.calls[1]?.[0]).toMatchObject({
+      projectConfigId,
+      sectionId,
+      chatId,
+    });
+    expect(useProjectState.getState().sectionImpls[implId]?.chatId).toBe(
+      chatId,
+    );
+    expect(
+      useAIStore.getState().pendingChatDetailsBySurfaceId[TARGET_SURFACE_ID],
+    ).toBeUndefined();
   });
 });
