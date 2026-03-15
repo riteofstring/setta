@@ -3454,13 +3454,13 @@ func TestRegisterAIRoutesAutoTranscriptionReturnsTypedMissingAPIKeyWithoutFallba
 	}
 }
 
-func TestRegisterAIRoutesAutoTranscriptionReturnsTypedProviderFailureWithoutFallback(t *testing.T) {
+func TestRegisterAIRoutesAutoTranscriptionFallsBackToFileOnRealtimeCapabilitySetupFailure(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte("Realtime setup forbidden by provider."))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"input_audio_transcription is not supported for this model."}}`))
 	}))
 	defer server.Close()
 
@@ -3517,18 +3517,96 @@ func TestRegisterAIRoutesAutoTranscriptionReturnsTypedProviderFailureWithoutFall
 
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusBadGateway {
-		t.Fatalf("expected 502, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload errorResponse
+	var payload StartTranscriptionSessionResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+		t.Fatalf("decode start response: %v", err)
 	}
-	if payload.Error.Code != "provider_failure" {
-		t.Fatalf("expected provider_failure, got %#v", payload)
+	if payload.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeFile {
+		t.Fatalf("expected file-mode fallback payload, got %#v", payload)
 	}
-	if payload.Error.Message != "Realtime setup forbidden by provider." {
-		t.Fatalf("unexpected error payload %#v", payload)
+	if payload.ChunkMs != 0 {
+		t.Fatalf("expected zero chunkMs for file-mode fallback, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesAutoTranscriptionFallsBackToFileForCapabilitySetupStatus(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"Realtime session setup failed."}}`))
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-auto",
+			Name:                          "Auto",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeAuto,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-auto"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload StartTranscriptionSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if payload.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeFile {
+		t.Fatalf("expected file-mode fallback, got %#v", payload)
+	}
+	if payload.ChunkMs != 0 {
+		t.Fatalf("expected file-mode chunkMs 0 after fallback, got %#v", payload)
 	}
 }
 

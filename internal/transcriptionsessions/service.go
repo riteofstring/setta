@@ -132,6 +132,7 @@ type fileUploader struct {
 type serviceError struct {
 	cause   error
 	message string
+	status  int
 }
 
 type AudioLimitExceededError struct {
@@ -450,9 +451,12 @@ func (s *Service) buildSessionEngine(
 				Language:   language,
 			})
 			if err != nil {
-				return nil, "", 0, err
+				if !isRealtimeFallbackError(err) {
+					return nil, "", 0, err
+				}
+			} else {
+				return realtimeRuntime, ResolvedTransportModeRealtime, profile.ChunkMs, nil
 			}
-			return realtimeRuntime, ResolvedTransportModeRealtime, profile.ChunkMs, nil
 		}
 		fileRuntime, err := newFileEngine(fileEngineOptions{
 			HTTPClient:         s.httpClient,
@@ -788,6 +792,14 @@ func newServiceError(cause error, message string) error {
 	}
 }
 
+func newServiceErrorWithStatus(cause error, message string, status int) error {
+	return &serviceError{
+		cause:   cause,
+		message: message,
+		status:  status,
+	}
+}
+
 func (e *serviceError) Error() string {
 	if e == nil {
 		return ""
@@ -800,6 +812,58 @@ func (e *serviceError) Unwrap() error {
 		return nil
 	}
 	return e.cause
+}
+
+func isRealtimeFallbackError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrMissingAPIKey) {
+		return false
+	}
+	if errors.Is(err, ErrRuntimeUnavailable) || errors.Is(err, ErrUnsupportedModel) {
+		return true
+	}
+
+	var serviceErr *serviceError
+	if errors.As(err, &serviceErr) && serviceErr.status != 0 {
+		switch serviceErr.status {
+		case http.StatusUnauthorized, http.StatusForbidden:
+			return false
+		case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
+			return true
+		default:
+			return false
+		}
+	}
+
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	if message == "" {
+		return false
+	}
+	for _, marker := range []string{
+		"missing api key",
+		"authentication",
+		"unauthorized",
+		"forbidden",
+		"permission denied",
+	} {
+		if strings.Contains(message, marker) {
+			return false
+		}
+	}
+	for _, marker := range []string{
+		"realtime transcription is unavailable",
+		"does not support realtime",
+		"realtime is not supported",
+		"input_audio_transcription",
+		"unsupported realtime",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *AudioLimitExceededError) Error() string {

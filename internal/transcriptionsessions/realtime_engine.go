@@ -143,7 +143,11 @@ func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realti
 	if err != nil {
 		if response != nil && response.Body != nil {
 			defer response.Body.Close()
-			return nil, newServiceError(ErrProviderFailure, readProviderErrorMessage(response.Body))
+			return nil, newServiceErrorWithStatus(
+				ErrProviderFailure,
+				readProviderErrorMessage(response.Body),
+				response.StatusCode,
+			)
 		}
 		return nil, newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 	}

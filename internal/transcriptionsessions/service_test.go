@@ -360,6 +360,102 @@ func TestServiceAutoProfilesResolveToFileMode(t *testing.T) {
 	}
 }
 
+func TestServiceAutoProfilesFallbackToFileForRealtimeCapabilitySetupFailures(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"input_audio_transcription is not supported for this model."}}`))
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-auto-fallback"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-auto", transcriptionprofiles.TransportModeAuto, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("expected file fallback, got %v", err)
+	}
+	if started.ResolvedTransportMode != ResolvedTransportModeFile || started.ChunkMs != 0 {
+		t.Fatalf("expected file-mode fallback result, got %#v", started)
+	}
+	if len(service.sessions) != 1 {
+		t.Fatalf("expected one fallback session, got %d", len(service.sessions))
+	}
+}
+
+func TestIsRealtimeFallbackErrorUsesStructuredStatusCodes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "bad request falls back",
+			err:  newServiceErrorWithStatus(ErrProviderFailure, "provider rejected realtime setup", http.StatusBadRequest),
+			want: true,
+		},
+		{
+			name: "not found falls back",
+			err:  newServiceErrorWithStatus(ErrProviderFailure, "provider rejected realtime setup", http.StatusNotFound),
+			want: true,
+		},
+		{
+			name: "unprocessable entity falls back",
+			err:  newServiceErrorWithStatus(ErrProviderFailure, "provider rejected realtime setup", http.StatusUnprocessableEntity),
+			want: true,
+		},
+		{
+			name: "unauthorized does not fall back",
+			err:  newServiceErrorWithStatus(ErrProviderFailure, "provider rejected realtime setup", http.StatusUnauthorized),
+			want: false,
+		},
+		{
+			name: "forbidden does not fall back",
+			err:  newServiceErrorWithStatus(ErrProviderFailure, "provider rejected realtime setup", http.StatusForbidden),
+			want: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := isRealtimeFallbackError(tc.err)
+			if got != tc.want {
+				t.Fatalf("isRealtimeFallbackError(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel(t *testing.T) {
 	t.Parallel()
 

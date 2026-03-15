@@ -2402,7 +2402,7 @@ func TestServiceStartSessionAcceptsTranscriptionSessionUpdatedAck(t *testing.T) 
 	}
 }
 
-func TestServiceAutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails(t *testing.T) {
+func TestServiceAutoProfilesFallbackToFileWhenRealtimeSetupReturnsCapabilityStatus(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2433,18 +2433,18 @@ func TestServiceAutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails(t *testing
 
 	resolved := resolvedProfile("profile-auto", transcriptionprofiles.TransportModeAuto, runtime, "openai-realtime")
 	resolved.Profile.SupportsRealtimeTranscription = true
-	_, err = service.StartSession(context.Background(), StartRequest{
+	started, err := service.StartSession(context.Background(), StartRequest{
 		ScopeID:         "scope-1",
 		ResolvedProfile: resolved,
 	})
-	if !errors.Is(err, ErrProviderFailure) {
-		t.Fatalf("expected provider failure, got %v", err)
+	if err != nil {
+		t.Fatalf("expected file fallback, got %v", err)
 	}
-	if err.Error() != "Realtime session setup failed." {
-		t.Fatalf("unexpected provider failure message %q", err.Error())
+	if started.ResolvedTransportMode != ResolvedTransportModeFile || started.ChunkMs != 0 {
+		t.Fatalf("expected file-mode fallback result, got %#v", started)
 	}
-	if len(service.sessions) != 0 {
-		t.Fatalf("expected no fallback session after realtime setup failure, got %d sessions", len(service.sessions))
+	if len(service.sessions) != 1 {
+		t.Fatalf("expected one fallback session after realtime setup failure, got %d sessions", len(service.sessions))
 	}
 }
 
