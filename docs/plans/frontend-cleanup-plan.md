@@ -87,6 +87,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation decode, resample, chunk, and upload orchestration.
 - `frontend/src/state/actions/aiTranscriptionSessions.ts` now owns provider session transport, request-error handling, and chunk-size policy.
 - `frontend/src/state/actions/aiTranscriptionProfiles.ts` now owns transcription-profile loading, websocket/store snapshot updates, and CRUD.
+- `frontend/src/state/actions/stateMachineDraftValidationGraph.ts` now owns machine-section and workflow-edge graph reads, `frontend/src/state/actions/stateMachineDraftValidationWarnings.ts` now owns draft warning detail/result assembly, and `frontend/src/state/actions/stateMachineDraftValidation.ts` now owns traversal/orchestration for workflow draft validation.
 - `frontend/src/state/actions/projectChatWindowingWriteState.ts` now owns
   layout-write permissions, current-windowing store access, optimistic apply
   helpers, and local active-chat sync, while

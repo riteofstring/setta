@@ -237,7 +237,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
@@ -245,19 +244,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
+  - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
   - `frontend/src/state/actions/aiChatStreaming.ts` at 391 lines
   - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
   - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
   - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` at 362 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
-  - `frontend/src/state/actions/keyShortcutUtils.ts` at 384 lines
-  - `frontend/src/state/actions/chatMergeUtils.ts` at 380 lines
-  - `frontend/src/state/actions/artifacts.ts` at 366 lines
+  - `frontend/src/state/actions/uiSettingReveal.ts` at 360 lines
+  - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
@@ -265,7 +262,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   create/update/delete/selection commands, and
   `frontend/src/state/actions/agenticEdges.ts` is now a thin compatibility
   facade.
-  - `frontend/src/state/actions/stateMachineDraftValidation.ts` at 392 lines
+- `frontend/src/state/actions/stateMachineDraftValidationGraph.ts` now owns
+  machine-section and workflow-edge graph reads,
+  `frontend/src/state/actions/stateMachineDraftValidationWarnings.ts` now owns
+  warning detail/result assembly, and
+  `frontend/src/state/actions/stateMachineDraftValidation.ts` now owns draft
+  traversal/orchestration.
 - `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry
   derivation and title normalization,
   `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical and

@@ -198,6 +198,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/stateMachineEdgeMutations.ts` owns optimistic workflow edge
     create/select/delete/replace commands.
 
+- Workflow draft validation
+
+  - `state/actions/stateMachineDraftValidationGraph.ts` owns machine-section
+    and workflow-edge graph reads used by draft validation.
+  - `state/actions/stateMachineDraftValidationWarnings.ts` owns draft warning
+    detail and result assembly.
+  - `state/actions/stateMachineDraftValidation.ts` now owns workflow draft
+    traversal and orchestration.
+
 - Section rendering and params
 
   - `components/Section/*` owns section containers, headers, layouts, and shared
