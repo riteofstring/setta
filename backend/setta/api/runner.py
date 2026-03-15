@@ -338,9 +338,10 @@ class SettaRunner:
         return f"{cookie_name}={cookie_value}"
 
     def _load_cookie_from_sessions(self) -> str | None:
-        registry = self._build_session_registry()
-        if registry is None:
+        sessions_root = resolve_sessions_root(self._workspace_root)
+        if sessions_root is None:
             return None
+        registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace(self._workspace_root)
         if not sessions:
             return None
@@ -369,12 +370,6 @@ class SettaRunner:
         secret = secret_path.read_bytes()
         token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
         return f"{auth_cookie_name(selected.id)}={token}"
-
-    def _build_session_registry(self) -> SessionRegistry | None:
-        sessions_root = resolve_sessions_root(self._workspace_root)
-        if sessions_root is None:
-            return None
-        return SessionRegistry(sessions_root=sessions_root)
 
     def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
         if workspace_root is None:
