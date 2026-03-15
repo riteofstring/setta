@@ -343,6 +343,18 @@ class SettaRunner:
         return f"{cookie_name}={cookie_value}"
 
     def _load_cookie_from_sessions(self) -> str | None:
+        def normalize_host(host: str | None) -> str | None:
+            if host is None:
+                return None
+            cleaned = host.strip()
+            if cleaned.startswith("[") and cleaned.endswith("]"):
+                cleaned = cleaned[1:-1]
+            if cleaned == "0.0.0.0" or cleaned == "localhost":
+                return "127.0.0.1"
+            if cleaned == "::":
+                return "::1"
+            return cleaned
+
         sessions_root = resolve_sessions_root(self._workspace_root)
         if sessions_root is None:
             return None
@@ -351,7 +363,7 @@ class SettaRunner:
         if not sessions:
             return None
         parsed_base_url = urlparse(self._base_url)
-        base_host = _normalize_host(parsed_base_url.hostname)
+        base_host = normalize_host(parsed_base_url.hostname)
         base_port = parsed_base_url.port
         if base_host is not None or base_port is not None:
             matching = [
@@ -361,7 +373,7 @@ class SettaRunner:
                     (base_port is None or session.port == base_port)
                     and (
                         base_host is None
-                        or _normalize_host(session.host) == base_host
+                        or normalize_host(session.host) == base_host
                     )
                 )
             ]
@@ -422,14 +434,3 @@ class SettaRunner:
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
         return self._project_configs
-def _normalize_host(host: str | None) -> str | None:
-    if host is None:
-        return None
-    cleaned = host.strip()
-    if cleaned.startswith("[") and cleaned.endswith("]"):
-        cleaned = cleaned[1:-1]
-    if cleaned == "0.0.0.0" or cleaned == "localhost":
-        return "127.0.0.1"
-    if cleaned == "::":
-        return "::1"
-    return cleaned
