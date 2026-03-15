@@ -43,7 +43,6 @@ import { shallow } from "zustand/shallow";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
-import { useProjectSurfaceGlobalListeners } from "./useProjectSurfaceGlobalListeners";
 
 type StandaloneSurfaceTarget =
   | {
@@ -275,7 +274,6 @@ export function StandaloneProjectSurfacePageWithLoadState({
   doneLoading,
   is404,
 }: StandaloneProjectSurfacePageLoadState) {
-  useProjectSurfaceGlobalListeners();
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
   const navigate = useNavigate();
