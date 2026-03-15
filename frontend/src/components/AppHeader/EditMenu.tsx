@@ -11,7 +11,7 @@ import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { setColorModePreference } from "state/actions/localStorage";
 import { restartLanguageServer } from "state/actions/lsp";
-import { resetAllSectionsToDefaultVersions } from "state/actions/sectionHierarchy";
+import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,
@@ -19,10 +19,13 @@ import {
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import { useShareSession } from "state/definitions";
+import {
+  type ColorModePreference,
+  useLocalStorage,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import type { ColorModePreference } from "state/stores/uiPreferenceState";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   APP_MENU_Z_INDEX_CLASS_NAME,
   PAGE_LOAD_TYPES,
