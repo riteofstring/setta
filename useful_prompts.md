@@ -69,7 +69,7 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-The backend/runtime rewrite is complete for the active scope, and the current phase is deleting unused Python safely. Start by reading `docs/plans/go-backend-rewrite/CURRENT.md`.
+In this branch we are rewriting the backend in Go. The backend/runtime rewrite is complete for the active scope, and the current phase is deleting unused Python safely. Start by reading `docs/plans/go-backend-rewrite/CURRENT.md`.
 
 Treat `CURRENT.md` as the router and read only the docs the task needs:
 - `caller-backed-backend-surface-checklist.md` for active caller reachability
