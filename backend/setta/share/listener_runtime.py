@@ -55,11 +55,6 @@ class ShareListenerRuntime:
         if self._runtime_root is not None:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self._runtime_root))
 
-    def _drop_handle(self, key: tuple[str, ID], handle: _ListenerHandle) -> None:
-        if key in self._session_handles:
-            del self._session_handles[key]
-        sys.modules.pop(handle.module.__name__, None)
-
     async def ensure_listener_for_session(
         self, session_id: str | None, project_config_id: ID
     ) -> None:
@@ -71,7 +66,8 @@ class ShareListenerRuntime:
         handle = self._session_handles.get(key)
         if handle is not None:
             if handle.task.done():
-                self._drop_handle(key, handle)
+                del self._session_handles[key]
+                sys.modules.pop(handle.module.__name__, None)
             else:
                 return
         if self._entrypoint_path is None:
@@ -128,7 +124,8 @@ class ShareListenerRuntime:
                 return
             if handle.task is not finished_task:
                 return
-            self._drop_handle(key, handle)
+            del self._session_handles[key]
+            sys.modules.pop(handle.module.__name__, None)
 
         task.add_done_callback(_drop_finished_handle)
         self._session_handles[key] = _ListenerHandle(
