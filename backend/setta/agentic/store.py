@@ -44,12 +44,37 @@ def load_agent_run(dbe: DBE, run_id: ID) -> AgentRun | None:
 
 def save_agent_run(dbe: DBE, run: AgentRun) -> None:
     dbe.write_agent_run(run.id, run.model_dump(mode="json"))
-    _update_agent_run_index(dbe, run)
+    index = _load_agent_run_index(dbe)
+    inputs = run.inputs if isinstance(run.inputs, dict) else {}
+    entry = {
+        "runType": inputs.get("runType")
+        if isinstance(inputs.get("runType"), str)
+        else None,
+        "chatId": inputs.get("chatId") if isinstance(inputs.get("chatId"), str) else None,
+        "projectConfigId": (
+            inputs.get("projectConfigId")
+            if isinstance(inputs.get("projectConfigId"), str)
+            else None
+        ),
+    }
+    raw_run_id = str(run.id)
+    if index.get(raw_run_id) == entry:
+        return
+    index[raw_run_id] = entry
+    _write_agent_run_index(dbe, index)
 
 
 def delete_agent_run(dbe: DBE, run_id: ID) -> None:
     dbe.delete_agent_run_file(run_id)
-    _remove_agent_run_index_entry(dbe, run_id)
+    payload = dbe.read_agent_run_index()
+    runs = payload.get("runs")
+    if not isinstance(runs, dict):
+        return
+    raw_run_id = str(run_id)
+    if raw_run_id not in runs:
+        return
+    del runs[raw_run_id]
+    _write_agent_run_index(dbe, runs)
 
 
 def list_agent_runs_by_metadata(
@@ -74,7 +99,17 @@ def list_agent_runs_by_metadata(
             continue
         runs.append(run)
     if missing_ids:
-        _remove_agent_run_index_entries(dbe, missing_ids)
+        payload = dbe.read_agent_run_index()
+        indexed_runs = payload.get("runs")
+        if isinstance(indexed_runs, dict):
+            updated = False
+            for missing_id in missing_ids:
+                raw_run_id = str(missing_id)
+                if raw_run_id in indexed_runs:
+                    del indexed_runs[raw_run_id]
+                    updated = True
+            if updated:
+                _write_agent_run_index(dbe, indexed_runs)
     return runs
 
 
@@ -100,47 +135,6 @@ def list_agent_run_ids_by_metadata(
             continue
         run_ids.append(ID(raw_run_id))
     return sorted(run_ids, key=lambda run_id: str(run_id))
-
-
-def _update_agent_run_index(dbe: DBE, run: AgentRun) -> None:
-    index = _load_agent_run_index(dbe)
-    entry = _build_agent_run_index_entry(run)
-    raw_run_id = str(run.id)
-    if index.get(raw_run_id) == entry:
-        return
-    index[raw_run_id] = entry
-    _write_agent_run_index(dbe, index)
-
-
-def _remove_agent_run_index_entry(dbe: DBE, run_id: ID) -> None:
-    payload = dbe.read_agent_run_index()
-    runs = payload.get("runs")
-    if not isinstance(runs, dict):
-        return
-    raw_run_id = str(run_id)
-    if raw_run_id not in runs:
-        return
-    del runs[raw_run_id]
-    _write_agent_run_index(dbe, runs)
-
-
-def _remove_agent_run_index_entries(dbe: DBE, run_ids: list[ID]) -> None:
-    if not run_ids:
-        return
-    payload = dbe.read_agent_run_index()
-    runs = payload.get("runs")
-    if not isinstance(runs, dict):
-        return
-    updated = False
-    for run_id in run_ids:
-        raw_run_id = str(run_id)
-        if raw_run_id in runs:
-            del runs[raw_run_id]
-            updated = True
-    if updated:
-        _write_agent_run_index(dbe, runs)
-
-
 def _load_agent_run_index(dbe: DBE) -> dict[str, dict[str, Any]]:
     payload = dbe.read_agent_run_index()
     runs = payload.get("runs")
@@ -183,24 +177,6 @@ def _rebuild_agent_run_index(dbe: DBE) -> dict[str, dict[str, Any]]:
         }
     _write_agent_run_index(dbe, runs)
     return runs
-
-
-def _build_agent_run_index_entry(run: AgentRun) -> dict[str, Any]:
-    inputs = run.inputs if isinstance(run.inputs, dict) else {}
-    run_type = inputs.get("runType")
-    if not isinstance(run_type, str):
-        run_type = None
-    chat_id = inputs.get("chatId")
-    if not isinstance(chat_id, str):
-        chat_id = None
-    project_config_id = inputs.get("projectConfigId")
-    if not isinstance(project_config_id, str):
-        project_config_id = None
-    return {
-        "runType": run_type,
-        "chatId": chat_id,
-        "projectConfigId": project_config_id,
-    }
 
 
 def load_prompt_template(dbe: DBE, prompt_id: ID) -> PromptTemplate | None:
