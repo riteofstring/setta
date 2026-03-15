@@ -78,6 +78,101 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 	}
 }
 
+func TestParseWorktreeListPorcelainMarksCurrentAndPrunable(t *testing.T) {
+	t.Parallel()
+
+	output := strings.Join([]string{
+		"worktree /tmp/setta",
+		"HEAD abc1234567890",
+		"branch refs/heads/main",
+		"",
+		"worktree /tmp/setta.feature-x",
+		"HEAD def0987654321",
+		"detached",
+		"prunable gitdir file points to non-existent location",
+		"",
+		"",
+	}, "\x00")
+
+	worktrees := parseWorktreeListPorcelain(output, "/tmp/setta.feature-x")
+	if len(worktrees) != 2 {
+		t.Fatalf("expected two worktrees, got %#v", worktrees)
+	}
+
+	if worktrees[0].Path != "/tmp/setta" || worktrees[0].DisplayName != "main" {
+		t.Fatalf("unexpected first worktree %#v", worktrees[0])
+	}
+	if worktrees[0].BranchName == nil || *worktrees[0].BranchName != "main" {
+		t.Fatalf("expected main branch, got %#v", worktrees[0].BranchName)
+	}
+	if worktrees[0].HeadCommit == nil || *worktrees[0].HeadCommit != "abc1234567890" {
+		t.Fatalf("expected first head commit, got %#v", worktrees[0].HeadCommit)
+	}
+	if worktrees[0].IsCurrent || worktrees[0].IsPrunable || worktrees[0].PrunableReason != nil {
+		t.Fatalf("unexpected first worktree flags %#v", worktrees[0])
+	}
+
+	if worktrees[1].Path != "/tmp/setta.feature-x" || worktrees[1].DisplayName != "feature-x" {
+		t.Fatalf("unexpected second worktree %#v", worktrees[1])
+	}
+	if worktrees[1].BranchName != nil {
+		t.Fatalf("expected detached branch, got %#v", worktrees[1].BranchName)
+	}
+	if worktrees[1].HeadCommit == nil || *worktrees[1].HeadCommit != "def0987654321" {
+		t.Fatalf("expected second head commit, got %#v", worktrees[1].HeadCommit)
+	}
+	if !worktrees[1].IsCurrent || !worktrees[1].IsPrunable {
+		t.Fatalf("expected current prunable worktree, got %#v", worktrees[1])
+	}
+	if worktrees[1].PrunableReason == nil || *worktrees[1].PrunableReason != "gitdir file points to non-existent location" {
+		t.Fatalf("unexpected prunable reason %#v", worktrees[1].PrunableReason)
+	}
+}
+
+func TestServiceStatusReturnsTypedWorktrees(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	worktreePath := filepath.Join(filepath.Dir(repoRoot), "setta.feature-extra")
+	runGitReadCommand(t, repoRoot, "worktree", "add", "-b", "feature-extra", worktreePath, "HEAD")
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	response, err := service.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if len(response.Worktrees) < 2 {
+		t.Fatalf("expected worktrees in status response, got %#v", response.Worktrees)
+	}
+
+	var foundCurrent bool
+	var foundExtra bool
+	for _, worktree := range response.Worktrees {
+		switch filepath.Clean(worktree.Path) {
+		case filepath.Clean(repoRoot):
+			foundCurrent = true
+			if !worktree.IsCurrent {
+				t.Fatalf("expected current repo worktree flag, got %#v", worktree)
+			}
+		case filepath.Clean(worktreePath):
+			foundExtra = true
+			if worktree.BranchName == nil || *worktree.BranchName != "feature-extra" {
+				t.Fatalf("expected feature-extra branch, got %#v", worktree)
+			}
+			if worktree.IsCurrent {
+				t.Fatalf("expected sibling worktree to be non-current, got %#v", worktree)
+			}
+		}
+	}
+	if !foundCurrent || !foundExtra {
+		t.Fatalf("expected current and extra worktrees, got %#v", response.Worktrees)
+	}
+}
+
 func TestServiceDiffReturnsStagedUnstagedAndSynthesizedUntrackedDiffs(t *testing.T) {
 	t.Parallel()
 

@@ -22,10 +22,21 @@ type GitStatusEntry struct {
 	Kind           string  `json:"kind"`
 }
 
+type GitWorktreeEntry struct {
+	Path           string  `json:"path"`
+	DisplayName    string  `json:"displayName"`
+	BranchName     *string `json:"branchName"`
+	HeadCommit     *string `json:"headCommit"`
+	IsCurrent      bool    `json:"isCurrent"`
+	IsPrunable     bool    `json:"isPrunable"`
+	PrunableReason *string `json:"prunableReason"`
+}
+
 type GetGitStatusResponse struct {
-	Repo        GitRepoInfo      `json:"repo"`
-	Entries     []GitStatusEntry `json:"entries"`
-	IsTruncated bool             `json:"isTruncated"`
+	Repo        GitRepoInfo       `json:"repo"`
+	Entries     []GitStatusEntry  `json:"entries"`
+	IsTruncated bool              `json:"isTruncated"`
+	Worktrees   []GitWorktreeEntry `json:"worktrees"`
 }
 
 type GetGitDiffRequestInput struct {

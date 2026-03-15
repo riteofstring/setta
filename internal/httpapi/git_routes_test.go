@@ -99,6 +99,55 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 	}
 }
 
+func TestRegisterGitRoutesReturnsTypedWorktrees(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	worktreePath := filepath.Join(filepath.Dir(repoRoot), "setta.feature-extra")
+	runGitRouteCommand(t, repoRoot, "worktree", "add", "-b", "feature-extra", worktreePath, "HEAD")
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	statusRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitStatus, strings.NewReader("null"))
+	statusRequest.Header.Set("Content-Type", "application/json")
+	statusResponse := httptest.NewRecorder()
+	handler.ServeHTTP(statusResponse, statusRequest)
+	if statusResponse.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", statusResponse.Code, statusResponse.Body.String())
+	}
+
+	var statusPayload gitread.StatusResponse
+	if err := json.Unmarshal(statusResponse.Body.Bytes(), &statusPayload); err != nil {
+		t.Fatalf("decode status payload: %v", err)
+	}
+	if len(statusPayload.Worktrees) < 2 {
+		t.Fatalf("expected worktrees in status payload, got %#v", statusPayload.Worktrees)
+	}
+
+	var foundCurrent bool
+	var foundExtra bool
+	for _, worktree := range statusPayload.Worktrees {
+		switch filepath.Clean(worktree.Path) {
+		case filepath.Clean(repoRoot):
+			foundCurrent = true
+			if !worktree.IsCurrent {
+				t.Fatalf("expected current repo worktree, got %#v", worktree)
+			}
+		case filepath.Clean(worktreePath):
+			foundExtra = true
+			if worktree.BranchName == nil || *worktree.BranchName != "feature-extra" {
+				t.Fatalf("expected feature-extra branch, got %#v", worktree)
+			}
+			if worktree.IsCurrent {
+				t.Fatalf("expected sibling worktree to be non-current, got %#v", worktree)
+			}
+		}
+	}
+	if !foundCurrent || !foundExtra {
+		t.Fatalf("expected current and extra worktrees, got %#v", statusPayload.Worktrees)
+	}
+}
+
 func TestRegisterGitRoutesUsesOldPathForRenameAndRejectsDirectories(t *testing.T) {
 	t.Parallel()
 

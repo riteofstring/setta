@@ -12,20 +12,24 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"setta/internal/devworktree"
 )
 
 const (
-	statusTimeout      = 2 * time.Second
-	diffTimeout        = 4 * time.Second
-	pathCheckTimeout   = 1500 * time.Millisecond
-	repoLookupTimeout  = 1500 * time.Millisecond
-	maxStatusBytes     = 2_000_000
-	maxDiffBytes       = 2_000_000
-	maxCommandErrBytes = 200_000
-	maxRepoLookupBytes = 4096
-	maxPathCheckBytes  = 8192
-	maxPathCheckStdout = 4096
-	maxUntrackedRead   = maxDiffBytes
+	statusTimeout       = 2 * time.Second
+	diffTimeout         = 4 * time.Second
+	pathCheckTimeout    = 1500 * time.Millisecond
+	repoLookupTimeout   = 1500 * time.Millisecond
+	worktreeListTimeout = 1500 * time.Millisecond
+	maxStatusBytes      = 2_000_000
+	maxDiffBytes        = 2_000_000
+	maxCommandErrBytes  = 200_000
+	maxRepoLookupBytes  = 4096
+	maxPathCheckBytes   = 8192
+	maxPathCheckStdout  = 4096
+	maxWorktreeBytes    = 32_000
+	maxUntrackedRead    = maxDiffBytes
 )
 
 type DiffMode string
@@ -83,10 +87,21 @@ type StatusEntry struct {
 	Kind           string  `json:"kind"`
 }
 
+type GitWorktreeEntry struct {
+	Path           string  `json:"path"`
+	DisplayName    string  `json:"displayName"`
+	BranchName     *string `json:"branchName"`
+	HeadCommit     *string `json:"headCommit"`
+	IsCurrent      bool    `json:"isCurrent"`
+	IsPrunable     bool    `json:"isPrunable"`
+	PrunableReason *string `json:"prunableReason"`
+}
+
 type StatusResponse struct {
-	Repo        RepoInfo      `json:"repo"`
-	Entries     []StatusEntry `json:"entries"`
-	IsTruncated bool          `json:"isTruncated"`
+	Repo        RepoInfo          `json:"repo"`
+	Entries     []StatusEntry     `json:"entries"`
+	IsTruncated bool              `json:"isTruncated"`
+	Worktrees   []GitWorktreeEntry `json:"worktrees"`
 }
 
 type DiffRequest struct {
@@ -136,6 +151,7 @@ func (s *Service) Status(ctx context.Context) (StatusResponse, error) {
 			},
 			Entries:     []StatusEntry{},
 			IsTruncated: false,
+			Worktrees:   []GitWorktreeEntry{},
 		}, nil
 	}
 
@@ -166,6 +182,7 @@ func (s *Service) Status(ctx context.Context) (StatusResponse, error) {
 	}
 	headBranch := optionalString(parsePorcelainHeadBranch(statusOutput))
 	headCommit := optionalString(parsePorcelainHeadCommit(statusOutput))
+	worktrees := s.listWorktrees(ctx, repoRoot)
 
 	return StatusResponse{
 		Repo: RepoInfo{
@@ -176,6 +193,7 @@ func (s *Service) Status(ctx context.Context) (StatusResponse, error) {
 		},
 		Entries:     parsePorcelainStatus(statusOutput),
 		IsTruncated: result.stdoutTruncated,
+		Worktrees:   worktrees,
 	}, nil
 }
 
@@ -662,6 +680,106 @@ func parsePorcelainStatus(output string) []StatusEntry {
 		}
 	}
 	return entries
+}
+
+func (s *Service) listWorktrees(ctx context.Context, repoRoot string) []GitWorktreeEntry {
+	result, err := s.runGit(
+		ctx,
+		repoRoot,
+		[]string{"worktree", "list", "--porcelain", "-z"},
+		worktreeListTimeout,
+		maxWorktreeBytes,
+		maxCommandErrBytes,
+	)
+	if err != nil || result.timedOut || result.returnCode != 0 {
+		return []GitWorktreeEntry{}
+	}
+	return parseWorktreeListPorcelain(result.stdout, repoRoot)
+}
+
+func parseWorktreeListPorcelain(output string, currentRepoRoot string) []GitWorktreeEntry {
+	currentComparable := comparablePath(currentRepoRoot)
+	worktrees := make([]GitWorktreeEntry, 0)
+	record := make([]string, 0)
+
+	flushRecord := func() {
+		if len(record) == 0 {
+			return
+		}
+		firstField := record[0]
+		const prefix = "worktree "
+		if !strings.HasPrefix(firstField, prefix) {
+			return
+		}
+		rawPath := strings.TrimSpace(strings.TrimPrefix(firstField, prefix))
+		if rawPath == "" {
+			return
+		}
+
+		var branchName *string
+		var headCommit *string
+		var prunableReason *string
+
+		for _, field := range record[1:] {
+			switch {
+			case strings.HasPrefix(field, "HEAD "):
+				headCommit = optionalString(strings.TrimSpace(strings.TrimPrefix(field, "HEAD ")))
+			case strings.HasPrefix(field, "branch "):
+				branchName = optionalString(parseWorktreeBranchName(strings.TrimSpace(strings.TrimPrefix(field, "branch "))))
+			case field == "detached":
+				branchName = nil
+			case strings.HasPrefix(field, "prunable"):
+				prunableReason = optionalString(strings.TrimSpace(strings.TrimPrefix(field, "prunable")))
+			}
+		}
+
+		worktrees = append(worktrees, GitWorktreeEntry{
+			Path:           rawPath,
+			DisplayName:    devworktree.DeriveName(rawPath),
+			BranchName:     branchName,
+			HeadCommit:     headCommit,
+			IsCurrent:      comparablePath(rawPath) == currentComparable,
+			IsPrunable:     prunableReason != nil,
+			PrunableReason: prunableReason,
+		})
+	}
+
+	for _, field := range strings.Split(output, "\x00") {
+		if field == "" {
+			flushRecord()
+			record = record[:0]
+			continue
+		}
+		record = append(record, field)
+	}
+
+	return worktrees
+}
+
+func parseWorktreeBranchName(raw string) string {
+	branch := strings.TrimSpace(raw)
+	if branch == "" {
+		return ""
+	}
+	const prefix = "refs/heads/"
+	if strings.HasPrefix(branch, prefix) {
+		return branch[len(prefix):]
+	}
+	return branch
+}
+
+func comparablePath(path string) string {
+	cleaned := filepath.Clean(strings.TrimSpace(path))
+	if cleaned == "" {
+		return ""
+	}
+	if resolved, err := filepath.EvalSymlinks(cleaned); err == nil {
+		return filepath.Clean(resolved)
+	}
+	if absolute, err := filepath.Abs(cleaned); err == nil {
+		return filepath.Clean(absolute)
+	}
+	return cleaned
 }
 
 func trimToLastCompleteNULRecord(output string) string {

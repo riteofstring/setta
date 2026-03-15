@@ -8292,10 +8292,26 @@ export function createGitStatusEntry(
   return options as GitStatusEntry;
 }
 
+export type GitWorktreeEntry = {
+  path: string;
+  displayName: string;
+  branchName: string | null;
+  headCommit: string | null;
+  isCurrent: boolean;
+  isPrunable: boolean;
+  prunableReason: string | null;
+};
+export function createGitWorktreeEntry(
+  options: Partial<GitWorktreeEntry> = {},
+): GitWorktreeEntry {
+  return options as GitWorktreeEntry;
+}
+
 export type GetGitStatusResponse = {
   repo: GitRepoInfo;
   entries: Array<GitStatusEntry>;
   isTruncated: boolean;
+  worktrees: Array<GitWorktreeEntry>;
 };
 export function createGetGitStatusResponse(
   options: Partial<GetGitStatusResponse> = {},
