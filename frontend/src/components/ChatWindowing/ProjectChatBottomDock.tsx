@@ -4,7 +4,18 @@ import {
   windowSurfaceRequiresManagedChat,
 } from "components/Chat/sharePolicyChatAccess";
 import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
-import { resolveDockStripReservedWidthPx } from "components/ChatWindowing/projectChatBottomDockLayout";
+import {
+  DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+  DOCK_SURFACE_MAX_WIDTH_PX,
+  DOCK_WINDOW_DEFAULT_HEIGHT_PX,
+  DOCK_WINDOW_DEFAULT_WIDTH_PX,
+  MIN_DOCK_CHAT_HEIGHT_PX,
+  MIN_DOCK_CHAT_WIDTH_PX,
+  resolveCycleVisibleCount,
+  resolveDockedWindowLayout,
+  resolvePillDisplayMode,
+  type PillDisplayMode,
+} from "components/ChatWindowing/projectChatBottomDockLayout";
 import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
@@ -58,10 +69,7 @@ import {
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
-import {
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
-} from "state/actions/projectChatWindowingDefaultBounds";
+import { resolveDefaultFloatingChatBounds } from "state/actions/projectChatWindowingDefaultBounds";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import {
   clearTrackedGitPaneGraphWindowIfMatches,
@@ -119,8 +127,6 @@ type ResolvedWindowPill = {
   sectionId: string | null;
   chatId: string | null;
 };
-
-type PillDisplayMode = "full" | "compact" | "cycle" | "menu";
 
 type WindowResizeDirection =
   | "left"
@@ -212,21 +218,7 @@ const VIEW_MODE_TABS_HEIGHT_PX = PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX;
 const SIDE_RAIL_WIDTH_PX = PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
 const FALLBACK_WORKSPACE_TOP_INSET_PX =
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
-const DOCK_SURFACE_MAX_WIDTH_PX = 1160;
 const DOCK_SURFACE_MIN_WIDTH_PX = 420;
-const DOCK_SURFACE_HORIZONTAL_MARGIN_PX = 20;
-const DOCK_WINDOW_DEFAULT_WIDTH_PX = 460;
-const DOCK_WINDOW_DEFAULT_HEIGHT_PX = 520;
-const DOCK_WINDOW_GAP_PX = 12;
-const DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX = 4;
-const MIN_DOCK_CHAT_WIDTH_PX = 280;
-const MIN_DOCK_CHAT_HEIGHT_PX = 220;
-const COMPACT_PILL_WIDTH_PX = 28;
-const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
-const PILL_GAP_PX = 4;
-const MENU_MODE_TRIGGER_WIDTH_PX = 28;
-const PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX =
-  MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
 const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
@@ -238,14 +230,6 @@ const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
 const CHAT_WINDOW_PILL_EXIT_DURATION_MS = 72;
 const FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
-const MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX = 16;
-const DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX =
-  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
-  CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
-  COMPACT_PILL_WIDTH_PX * 2 +
-  PILL_GAP_PX * 3 +
-  DOCK_WINDOW_GAP_PX;
-const NARROW_CHAT_MENU_BREAKPOINT_PX = 520;
 const FLOATING_WINDOW_MIN_WIDTH_PX = 380;
 const FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
 const FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
@@ -357,119 +341,6 @@ function clampNumber(
     return maxValue;
   }
   return value;
-}
-
-function resolveMaxVisibleDockWindowCount(
-  totalWindowCount: number,
-  availableWidthPx: number,
-): number {
-  for (let count = totalWindowCount; count >= 1; count -= 1) {
-    const minimumWidthPx =
-      count * MIN_DOCK_CHAT_WIDTH_PX +
-      Math.max(0, count - 1) * DOCK_WINDOW_GAP_PX +
-      DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
-    if (minimumWidthPx <= availableWidthPx + 0.5) {
-      return count;
-    }
-  }
-  return 0;
-}
-
-function resolveDockWindowWidthsToFit(
-  dockedPills: ResolvedWindowPill[],
-  desiredWidthsById: Record<string, number>,
-  availableWidthPx: number,
-): Record<string, number> {
-  if (dockedPills.length === 0) {
-    return {};
-  }
-  const gapWidthPx = Math.max(0, dockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
-  const availablePanelWidthPx =
-    availableWidthPx - DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2 - gapWidthPx;
-  if (availablePanelWidthPx <= 0) {
-    return {};
-  }
-  const nextWidthsById: Record<string, number> = {};
-  const resolvedWidths = dockedPills.map((pill) =>
-    clampNumber(
-      desiredWidthsById[pill.instanceId] ?? DOCK_WINDOW_DEFAULT_WIDTH_PX,
-      MIN_DOCK_CHAT_WIDTH_PX,
-      DOCK_SURFACE_MAX_WIDTH_PX,
-    ),
-  );
-  const totalDesiredWidthPx = resolvedWidths.reduce(
-    (sum, widthPx) => sum + widthPx,
-    0,
-  );
-  if (totalDesiredWidthPx <= availablePanelWidthPx + 0.5) {
-    dockedPills.forEach((pill, index) => {
-      nextWidthsById[pill.instanceId] =
-        resolvedWidths[index] ?? MIN_DOCK_CHAT_WIDTH_PX;
-    });
-    return nextWidthsById;
-  }
-  const minTotalWidthPx = dockedPills.length * MIN_DOCK_CHAT_WIDTH_PX;
-  if (minTotalWidthPx >= availablePanelWidthPx - 0.5) {
-    dockedPills.forEach((pill) => {
-      nextWidthsById[pill.instanceId] = MIN_DOCK_CHAT_WIDTH_PX;
-    });
-    return nextWidthsById;
-  }
-  const shrinkableEntries = resolvedWidths.map((widthPx, index) => ({
-    index,
-    widthPx,
-  }));
-  let remainingReductionPx = totalDesiredWidthPx - availablePanelWidthPx;
-  while (remainingReductionPx > 0.5) {
-    const shrinkableIndices = shrinkableEntries
-      .map((entry) => entry.index)
-      .filter(
-        (index) =>
-          (shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) >
-          MIN_DOCK_CHAT_WIDTH_PX + 0.5,
-      );
-    if (shrinkableIndices.length === 0) {
-      break;
-    }
-    const totalShrinkCapacityPx = shrinkableIndices.reduce((sum, index) => {
-      return (
-        sum +
-        ((shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) -
-          MIN_DOCK_CHAT_WIDTH_PX)
-      );
-    }, 0);
-    if (totalShrinkCapacityPx <= 0.5) {
-      break;
-    }
-    let appliedReductionPx = 0;
-    for (const index of shrinkableIndices) {
-      const entry = shrinkableEntries[index];
-      if (!entry) {
-        continue;
-      }
-      const capacityPx = entry.widthPx - MIN_DOCK_CHAT_WIDTH_PX;
-      const proportionalReductionPx =
-        remainingReductionPx * (capacityPx / totalShrinkCapacityPx);
-      const nextWidthPx = Math.max(
-        MIN_DOCK_CHAT_WIDTH_PX,
-        entry.widthPx - proportionalReductionPx,
-      );
-      appliedReductionPx += entry.widthPx - nextWidthPx;
-      entry.widthPx = nextWidthPx;
-    }
-    if (appliedReductionPx <= 0.5) {
-      break;
-    }
-    remainingReductionPx = Math.max(
-      0,
-      remainingReductionPx - appliedReductionPx,
-    );
-  }
-  dockedPills.forEach((pill, index) => {
-    nextWidthsById[pill.instanceId] =
-      shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX;
-  });
-  return nextWidthsById;
 }
 
 function resizeDirectionIncludesAxis(
@@ -1632,169 +1503,55 @@ export function ProjectChatBottomDock() {
     [snappedFloatingWindows],
   );
 
-  const dockAvailableHeightPx = useMemo(() => {
-    const fallbackViewportHeight = 900;
-    const resolvedViewportHeight =
-      viewportHeightPx > 0 ? viewportHeightPx : fallbackViewportHeight;
-    return Math.max(
-      MIN_DOCK_CHAT_HEIGHT_PX,
-      resolvedViewportHeight - workspaceTopInsetPx - dockBottomOffsetPx,
-    );
-  }, [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx]);
-  const defaultDockWindowHeightPx = useMemo(
-    () =>
-      resolveDefaultDockedChatHeightPx({
-        viewportHeightPx,
-        workspaceTopInsetPx,
-        bottomInsetPx: dockBottomOffsetPx,
-        minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
-      }),
-    [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx],
-  );
   const dockSurfaceRightPx =
     SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
   const showDockManagerMenu =
     canCreateManagedChatWindow || orderedPills.length > 0;
-  const dockStripReservedWidthPx = resolveDockStripReservedWidthPx({
-    nonClosedChatCount: nonClosedPills.length,
-    showManagerMenu: showDockManagerMenu,
-  });
-  const dockSurfaceAvailableWidthPx = useMemo(() => {
-    const fallbackViewportWidth =
-      DOCK_SURFACE_MAX_WIDTH_PX +
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 +
-      dockStripReservedWidthPx;
-    const resolvedViewportWidth =
-      viewportWidthPx > 0 ? viewportWidthPx : fallbackViewportWidth;
-    const usableViewportWidthPx =
-      resolvedViewportWidth -
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 -
-      dockStripReservedWidthPx;
-    return clampNumber(usableViewportWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
-  }, [dockStripReservedWidthPx, viewportWidthPx]);
-
-  const baseDockWindowWidthsById = useMemo(() => {
-    const nextWidthsById: Record<string, number> = {};
-    for (const pill of openDockedPills) {
-      const candidateWidthPx =
-        typeof pill.dockPreferredWidthPx === "number" &&
-        Number.isFinite(pill.dockPreferredWidthPx) &&
-        pill.dockPreferredWidthPx > 0
-          ? pill.dockPreferredWidthPx
-          : DOCK_WINDOW_DEFAULT_WIDTH_PX;
-      nextWidthsById[pill.instanceId] = clampNumber(
-        candidateWidthPx,
-        MIN_DOCK_CHAT_WIDTH_PX,
-        DOCK_SURFACE_MAX_WIDTH_PX,
-      );
-    }
-    return nextWidthsById;
-  }, [openDockedPills]);
-
-  const baseDockWindowHeightsById = useMemo(() => {
-    const nextHeightsById: Record<string, number> = {};
-    for (const pill of openDockedPills) {
-      const candidateHeightPx =
-        typeof pill.bounds.height === "number" &&
-        Number.isFinite(pill.bounds.height) &&
-        pill.bounds.height > 0
-          ? pill.bounds.height
-          : DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-      const shouldUseAutoFillHeight =
-        Math.abs(candidateHeightPx - DOCK_WINDOW_DEFAULT_HEIGHT_PX) <= 0.5;
-      const resolvedHeightPx = shouldUseAutoFillHeight
-        ? defaultDockWindowHeightPx
-        : candidateHeightPx;
-      nextHeightsById[pill.instanceId] = clampNumber(
-        resolvedHeightPx,
-        MIN_DOCK_CHAT_HEIGHT_PX,
-        dockAvailableHeightPx,
-      );
-    }
-    return nextHeightsById;
-  }, [defaultDockWindowHeightPx, dockAvailableHeightPx, openDockedPills]);
-
-  const resolvedDockWindowWidthsById = useMemo(() => {
-    const nextWidthsById: Record<string, number> = {
-      ...baseDockWindowWidthsById,
-    };
-    for (const [instanceId, previewWidthPx] of Object.entries(
-      dockPreviewWidthsById,
-    )) {
-      if (!nextWidthsById[instanceId]) {
-        continue;
-      }
-      nextWidthsById[instanceId] = clampNumber(
-        previewWidthPx,
-        MIN_DOCK_CHAT_WIDTH_PX,
-        DOCK_SURFACE_MAX_WIDTH_PX,
-      );
-    }
-    return nextWidthsById;
-  }, [baseDockWindowWidthsById, dockPreviewWidthsById]);
-
-  const resolvedDockWindowHeightsById = useMemo(() => {
-    const nextHeightsById: Record<string, number> = {
-      ...baseDockWindowHeightsById,
-    };
-    for (const [instanceId, previewHeightPx] of Object.entries(
-      dockPreviewHeightsById,
-    )) {
-      if (!nextHeightsById[instanceId]) {
-        continue;
-      }
-      nextHeightsById[instanceId] = clampNumber(
-        previewHeightPx,
-        MIN_DOCK_CHAT_HEIGHT_PX,
-        dockAvailableHeightPx,
-      );
-    }
-    return nextHeightsById;
-  }, [
-    baseDockWindowHeightsById,
+  const {
     dockAvailableHeightPx,
-    dockPreviewHeightsById,
-  ]);
+    resolvedDockWindowWidthsById,
+    resolvedDockWindowHeightsById,
+    maxVisibleDockedCount,
+    maxDockCycleOffset,
+    dockVisibleStartIndex,
+    visibleDockedPills,
+    responsiveHiddenDockedIds,
+    resolvedVisibleDockWindowWidthsById,
+    dockSurfaceWidthCss,
+    dockSurfaceHeightCss,
+  } = useMemo(
+    () =>
+      resolveDockedWindowLayout({
+        dockedPills: openDockedPills,
+        previewWidthsById: dockPreviewWidthsById,
+        previewHeightsById: dockPreviewHeightsById,
+        viewportWidthPx,
+        viewportHeightPx,
+        workspaceTopInsetPx,
+        dockBottomOffsetPx,
+        sideRailWidthPx: SIDE_RAIL_WIDTH_PX,
+        nonClosedChatCount: nonClosedPills.length,
+        showManagerMenu: showDockManagerMenu,
+        dockCycleOffsetFromEnd,
+      }),
+    [
+      dockBottomOffsetPx,
+      dockCycleOffsetFromEnd,
+      dockPreviewHeightsById,
+      dockPreviewWidthsById,
+      nonClosedPills.length,
+      openDockedPills,
+      showDockManagerMenu,
+      viewportHeightPx,
+      viewportWidthPx,
+      workspaceTopInsetPx,
+    ],
+  );
 
   const dockedWindowIdsKey = useMemo(
     () => openDockedPills.map((pill) => pill.instanceId).join("|"),
     [openDockedPills],
   );
-  const maxVisibleDockedCount = useMemo(
-    () =>
-      resolveMaxVisibleDockWindowCount(
-        openDockedPills.length,
-        dockSurfaceAvailableWidthPx,
-      ),
-    [dockSurfaceAvailableWidthPx, openDockedPills.length],
-  );
-  const maxDockCycleOffset = Math.max(
-    0,
-    openDockedPills.length - maxVisibleDockedCount,
-  );
-  const dockVisibleStartIndex =
-    maxVisibleDockedCount === 0
-      ? openDockedPills.length
-      : Math.max(0, maxDockCycleOffset - dockCycleOffsetFromEnd);
-  const visibleDockedPills = useMemo(() => {
-    if (maxVisibleDockedCount === 0) {
-      return [] as ResolvedWindowPill[];
-    }
-    return openDockedPills.slice(
-      dockVisibleStartIndex,
-      dockVisibleStartIndex + maxVisibleDockedCount,
-    );
-  }, [dockVisibleStartIndex, maxVisibleDockedCount, openDockedPills]);
-  const responsiveHiddenDockedIds = useMemo(() => {
-    const visibleIds = new Set(
-      visibleDockedPills.map((pill) => pill.instanceId),
-    );
-    return new Set(
-      openDockedPills
-        .filter((pill) => !visibleIds.has(pill.instanceId))
-        .map((pill) => pill.instanceId),
-    );
-  }, [openDockedPills, visibleDockedPills]);
   const stripPills = useMemo(
     () =>
       orderedPills.filter(
@@ -1802,19 +1559,6 @@ export function ProjectChatBottomDock() {
           pill.isMinimized || responsiveHiddenDockedIds.has(pill.instanceId),
       ),
     [orderedPills, responsiveHiddenDockedIds],
-  );
-  const resolvedVisibleDockWindowWidthsById = useMemo(
-    () =>
-      resolveDockWindowWidthsToFit(
-        visibleDockedPills,
-        resolvedDockWindowWidthsById,
-        dockSurfaceAvailableWidthPx,
-      ),
-    [
-      dockSurfaceAvailableWidthPx,
-      resolvedDockWindowWidthsById,
-      visibleDockedPills,
-    ],
   );
 
   const floatingWindowIdsKey = useMemo(
@@ -1898,58 +1642,6 @@ export function ProjectChatBottomDock() {
 
   const showDockedChatSurface =
     visibleDockedPills.length > 0 && !isCanvasVisibilitySuppressed;
-  const dockSurfaceTargetWidthPx = useMemo(() => {
-    if (visibleDockedPills.length === 0) {
-      return 0;
-    }
-    let totalWindowWidthsPx = 0;
-    for (const pill of visibleDockedPills) {
-      totalWindowWidthsPx +=
-        resolvedVisibleDockWindowWidthsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_WIDTH_PX;
-    }
-    const totalGapWidthPx =
-      Math.max(0, visibleDockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
-    const rowPaddingWidthPx = DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
-    const targetWidthPx =
-      totalWindowWidthsPx + totalGapWidthPx + rowPaddingWidthPx;
-    return clampNumber(targetWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
-  }, [resolvedVisibleDockWindowWidthsById, visibleDockedPills]);
-  const dockSurfaceTargetHeightPx = useMemo(() => {
-    if (visibleDockedPills.length === 0) {
-      return MIN_DOCK_CHAT_HEIGHT_PX;
-    }
-    let maxHeightPx = MIN_DOCK_CHAT_HEIGHT_PX;
-    for (const pill of visibleDockedPills) {
-      const nextHeightPx =
-        resolvedDockWindowHeightsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-      if (nextHeightPx > maxHeightPx) {
-        maxHeightPx = nextHeightPx;
-      }
-    }
-    return clampNumber(
-      maxHeightPx,
-      MIN_DOCK_CHAT_HEIGHT_PX,
-      dockAvailableHeightPx,
-    );
-  }, [
-    dockAvailableHeightPx,
-    resolvedDockWindowHeightsById,
-    visibleDockedPills,
-  ]);
-  const dockSurfaceWidthCss = useMemo(() => {
-    if (dockSurfaceTargetWidthPx <= 0) {
-      return "0px";
-    }
-    const insetPx =
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2;
-    return `min(${dockSurfaceTargetWidthPx}px, ${DOCK_SURFACE_MAX_WIDTH_PX}px, calc(100vw - ${insetPx + dockStripReservedWidthPx}px))`;
-  }, [dockStripReservedWidthPx, dockSurfaceTargetWidthPx]);
-  const dockSurfaceHeightCss = useMemo(() => {
-    const topBottomReservedPx = workspaceTopInsetPx + dockBottomOffsetPx;
-    return `min(${dockSurfaceTargetHeightPx}px, calc(100vh - ${topBottomReservedPx}px))`;
-  }, [dockBottomOffsetPx, dockSurfaceTargetHeightPx, workspaceTopInsetPx]);
   const showCanvasVisibilityToggle =
     isCanvasVisibilitySuppressed || openMaximizedWindow !== null;
   const showStandaloneMinimizedPills = !showDockedChatSurface;
@@ -3424,57 +3116,27 @@ export function ProjectChatBottomDock() {
     if (availableWidthPx <= 0) {
       return;
     }
-    const fullWidthPx = fullMeasureNode.scrollWidth;
-    const compactWidthPx = compactMeasureNode.scrollWidth;
-    const minimumCycleWidthPx =
-      CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
-      COMPACT_PILL_WIDTH_PX * 2 +
-      PILL_GAP_PX * 3;
-    let nextMode: PillDisplayMode = "full";
-    if (
-      stripPills.length > 1 &&
-      viewportWidthPx > 0 &&
-      viewportWidthPx <= NARROW_CHAT_MENU_BREAKPOINT_PX
-    ) {
-      nextMode = "menu";
-    } else if (fullWidthPx > availableWidthPx + 1) {
-      if (compactWidthPx <= availableWidthPx + 1) {
-        nextMode = "compact";
-      } else if (availableWidthPx <= minimumCycleWidthPx + 1) {
-        nextMode = "menu";
-      } else {
-        nextMode = "cycle";
-      }
-    }
+    const nextMode = resolvePillDisplayMode({
+      stripPillCount: stripPills.length,
+      availableWidthPx,
+      fullWidthPx: fullMeasureNode.scrollWidth,
+      compactWidthPx: compactMeasureNode.scrollWidth,
+      viewportWidthPx,
+    });
     if (nextMode !== pillDisplayMode) {
       setPillDisplayMode(nextMode);
     }
   }, [pillDisplayMode, pillViewportWidthPx, stripPills, viewportWidthPx]);
 
-  const cycleVisibleCount = useMemo(() => {
-    if (stripPills.length === 0) {
-      return 0;
-    }
-    if (pillDisplayMode !== "cycle") {
-      return stripPills.length;
-    }
-    if (pillViewportWidthPx <= 0) {
-      return 1;
-    }
-    const availablePillsWidthPx = Math.max(
-      0,
-      pillViewportWidthPx -
-        CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 -
-        PILL_GAP_PX * 2 -
-        COMPACT_PILL_WIDTH_PX -
-        PILL_GAP_PX,
-    );
-    const compactSlotWidthPx = COMPACT_PILL_WIDTH_PX + PILL_GAP_PX;
-    const nextVisibleCount = Math.floor(
-      (availablePillsWidthPx + PILL_GAP_PX) / compactSlotWidthPx,
-    );
-    return clampNumber(nextVisibleCount, 1, stripPills.length);
-  }, [pillDisplayMode, pillViewportWidthPx, stripPills.length]);
+  const cycleVisibleCount = useMemo(
+    () =>
+      resolveCycleVisibleCount({
+        pillDisplayMode,
+        pillViewportWidthPx,
+        stripPillCount: stripPills.length,
+      }),
+    [pillDisplayMode, pillViewportWidthPx, stripPills.length],
+  );
 
   useEffect(() => {
     const maxStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
