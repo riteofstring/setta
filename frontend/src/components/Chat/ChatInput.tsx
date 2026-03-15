@@ -25,45 +25,45 @@ import {
   IoSend,
   IoStop,
 } from "react-icons/io5";
-import { addTemporaryNotification } from "state/actions/notifications";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
-import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
-import { isImageAttachment } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
-  type ChatSlashCommandAction,
   type ChatSlashCommandDefinition,
   getSlashCommandSuggestions,
-  parseSlashCommand,
 } from "./chatComposerControls";
 import {
-  type DictationState,
-  type SpeechRecognitionLike,
-  getSpeechRecognitionConstructor,
-  insertTextAtSelection,
-  isDictationAvailable,
-  isNoSpeechDictationError,
-  mapDictationError,
-  pickProviderRecorderMimeType,
-} from "./dictation";
-import {
-  type DictationProviderFailureClass,
-  type DictationProviderFailurePhase,
-  classifyProviderDictationFailureClass,
-  shouldFallbackToBrowserAfterProviderFailure,
-} from "./dictationPolicy";
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+  type ChatSubmitOptions,
+  type ChatSubmitResult,
+  type QueuedChatDraft,
+  type SlashCommandExecutionOutcome,
+  buildQueuedDraftReplayInputsSignature,
+  buildQueuedDraftReplaySnapshot,
+  cloneChatAttachments,
+  cycleQueuedDraftSelection,
+  cycleSubmittedMessageHistorySelection,
+  enqueueQueuedDraft,
+  executeResolvedChatSlashCommand,
+  replayQueuedChatDraft,
+  runChatSlashCommand,
+  shouldAutoReplayQueuedDraft,
+  shouldRemoveQueuedDraft,
+  submitChatInputMessage,
+} from "./chatInputSubmission";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
+import {
+  type ProviderDictationTranscriptionResult,
+  useChatInputDictation,
+} from "./useChatInputDictation";
 
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
 const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
 const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
 const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
-const UNKNOWN_SLASH_COMMAND_FEEDBACK =
-  "Unknown or unavailable command. Use /help.";
 const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
   "left",
   "width",
@@ -135,44 +135,6 @@ export type ChatRuntimeActivityDetails = {
   activeBackgroundTerminals: ChatRuntimeActivityEntry[];
   activeSubagents: ChatRuntimeActivityEntry[];
 };
-
-export type ChatSlashCommand = {
-  command: string;
-  action: ChatSlashCommandAction;
-  args: string[];
-  rawSuffix?: string;
-  promptTemplate?: string;
-  appGenerationMode?: AppGenerationMode | null;
-  unavailableFeedback?: string;
-};
-
-export type ChatSlashCommandResult =
-  | boolean
-  | {
-      appGenerationMode?: AppGenerationMode | null;
-      handled?: boolean;
-      feedback?: string;
-      keepInput?: boolean;
-      retryLater?: boolean;
-      refreshedSlashCommands?: ChatSlashCommandDefinition[];
-      refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
-      submitPromptTemplate?: boolean;
-    };
-
-export type ChatSubmitOptions = {
-  appGeneration?: ChatAppGenerationContext | null;
-};
-
-export type ChatSubmitDispatchResult = "submitted" | "retry_later" | "failed";
-
-type ChatSubmitResult = boolean | ChatSubmitDispatchResult;
-
-type SlashCommandExecutionOutcome =
-  | "submitted"
-  | "handled_local"
-  | "retry_later"
-  | "failed"
-  | "not_handled";
 
 function formatCompactTokenCount(value: number): string {
   if (value >= 1_000_000) {
@@ -254,317 +216,6 @@ export function resolveEscapeComposerAction({
     return "clear";
   }
   return "none";
-}
-
-type QueuedChatDraft = {
-  id: string;
-  message: string;
-  attachments: ChatFileAttachment[];
-  replaySnapshot: QueuedDraftReplaySnapshot;
-  queuedAtMs: number;
-  replayState: "ready" | "retry_later" | "failed";
-  lastAutoReplayVersion: number | null;
-};
-
-type QueuedDraftReplaySnapshot =
-  | {
-      kind: "plain_message";
-    }
-  | {
-      kind: "slash_command";
-      availabilityPolicy: "fixed" | "current_registry";
-      command: ChatSlashCommand;
-    };
-
-export function resolveSlashCommandRequest({
-  message,
-  slashCommands,
-  recognizedSlashCommands,
-}: {
-  message: string;
-  slashCommands: ChatSlashCommandDefinition[];
-  recognizedSlashCommands: ChatSlashCommandDefinition[];
-}): {
-  parsed: ChatSlashCommand | null;
-  commandAvailable: boolean;
-} {
-  const parsed = parseSlashCommand(message, recognizedSlashCommands);
-  if (!parsed) {
-    return {
-      parsed: null,
-      commandAvailable: false,
-    };
-  }
-  return {
-    parsed,
-    commandAvailable: slashCommands.some(
-      (entry) => entry.command === parsed.command,
-    ),
-  };
-}
-
-export function resolveCustomPromptSlashCommandSubmission({
-  promptTemplate,
-  args,
-  rawSuffix,
-  attachments,
-}: {
-  promptTemplate: string | null | undefined;
-  args: string[];
-  rawSuffix?: string | null;
-  attachments: ChatFileAttachment[];
-}): { message: string; attachments: ChatFileAttachment[] } | null {
-  const trimmedPromptTemplate = promptTemplate?.trim() ?? "";
-  if (!trimmedPromptTemplate) {
-    return null;
-  }
-  const promptArgs = rawSuffix ?? args.join(" ").trim();
-  return {
-    message: promptArgs
-      ? `${trimmedPromptTemplate}\n\n${promptArgs}`
-      : trimmedPromptTemplate,
-    attachments: attachments.map((attachment) => ({ ...attachment })),
-  };
-}
-
-function buildUnavailableSlashCommandFeedback(
-  command: ChatSlashCommand,
-): string {
-  return (
-    command.unavailableFeedback ??
-    `${command.command} is unavailable in the current context. Use /help.`
-  );
-}
-
-function resolveSlashCommandSubmitOptions(
-  command: ChatSlashCommand,
-): ChatSubmitOptions | undefined {
-  if (command.appGenerationMode === undefined) {
-    return undefined;
-  }
-  if (command.appGenerationMode === null) {
-    return {
-      appGeneration: null,
-    };
-  }
-  return {
-    appGeneration: {
-      mode: command.appGenerationMode,
-    },
-  };
-}
-
-function requiresImageAttachmentForAppGenerationMode(
-  appGenerationMode: AppGenerationMode | null | undefined,
-): boolean {
-  return appGenerationMode === "json_render_with_image";
-}
-
-function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {
-  return attachments.some((attachment) => isImageAttachment(attachment));
-}
-
-function getSlashCommandImageAttachmentError({
-  command,
-  appGenerationMode,
-  attachments,
-  hasRetainedImageAttachmentForImageMode,
-}: {
-  command: ChatSlashCommand;
-  appGenerationMode: AppGenerationMode | null | undefined;
-  attachments: ChatFileAttachment[];
-  hasRetainedImageAttachmentForImageMode: boolean;
-}): string | null {
-  if (!requiresImageAttachmentForAppGenerationMode(appGenerationMode)) {
-    return null;
-  }
-  if (
-    hasImageAttachment(attachments) ||
-    hasRetainedImageAttachmentForImageMode
-  ) {
-    return null;
-  }
-  return `Attach at least one image before using ${command.command}.`;
-}
-
-function shouldRemoveQueuedDraft(
-  outcome: SlashCommandExecutionOutcome,
-): boolean {
-  return outcome === "submitted" || outcome === "handled_local";
-}
-
-function serializeSlashCommandsForReplaySignature(
-  commands: ChatSlashCommandDefinition[],
-): Array<{
-  action: ChatSlashCommandAction;
-  appGenerationMode: AppGenerationMode | null;
-  command: string;
-  promptTemplate: string | null;
-  summary: string;
-  unavailableFeedback: string | null;
-}> {
-  return commands.map((command) => ({
-    action: command.action,
-    appGenerationMode: command.appGenerationMode ?? null,
-    command: command.command,
-    promptTemplate: command.promptTemplate ?? null,
-    summary: command.summary,
-    unavailableFeedback: command.unavailableFeedback ?? null,
-  }));
-}
-
-function buildQueuedDraftReplayInputsSignature({
-  isSubmitDisabled,
-  recognizedSlashCommands,
-  slashCommands,
-  submitReadinessKey,
-  waitingForResponse,
-}: {
-  isSubmitDisabled: boolean;
-  recognizedSlashCommands: ChatSlashCommandDefinition[];
-  slashCommands: ChatSlashCommandDefinition[];
-  submitReadinessKey: string | null;
-  waitingForResponse: boolean;
-}): string {
-  return JSON.stringify({
-    isSubmitDisabled,
-    recognizedSlashCommands: serializeSlashCommandsForReplaySignature(
-      recognizedSlashCommands,
-    ),
-    slashCommands: serializeSlashCommandsForReplaySignature(slashCommands),
-    submitReadinessKey,
-    waitingForResponse,
-  });
-}
-
-function resolveChatSubmitDispatchResult(
-  result: ChatSubmitResult,
-  fallbackFailureResult: Exclude<ChatSubmitDispatchResult, "submitted">,
-): ChatSubmitDispatchResult {
-  if (result === true || result === "submitted") {
-    return "submitted";
-  }
-  if (result === "retry_later" || result === "failed") {
-    return result;
-  }
-  return fallbackFailureResult;
-}
-
-function cloneAttachments(
-  attachments: ChatFileAttachment[],
-): ChatFileAttachment[] {
-  return attachments.map((attachment) => ({ ...attachment }));
-}
-
-function cloneSlashCommand(command: ChatSlashCommand): ChatSlashCommand {
-  return {
-    ...command,
-    args: [...command.args],
-  };
-}
-
-function shouldUseCurrentRegistryForQueuedSlashCommand(
-  action: ChatSlashCommandAction,
-): boolean {
-  return action === "custom_prompt" || action === "native_prompt";
-}
-
-function buildQueuedDraftReplaySnapshot({
-  message,
-  recognizedSlashCommands,
-  slashCommands,
-}: {
-  message: string;
-  recognizedSlashCommands: ChatSlashCommandDefinition[];
-  slashCommands: ChatSlashCommandDefinition[];
-}): QueuedDraftReplaySnapshot {
-  const resolvedRequest = resolveSlashCommandRequest({
-    message,
-    slashCommands,
-    recognizedSlashCommands,
-  });
-  if (!resolvedRequest.parsed) {
-    return { kind: "plain_message" };
-  }
-  return {
-    kind: "slash_command",
-    availabilityPolicy: shouldUseCurrentRegistryForQueuedSlashCommand(
-      resolvedRequest.parsed.action,
-    )
-      ? "current_registry"
-      : "fixed",
-    command: cloneSlashCommand(resolvedRequest.parsed),
-  };
-}
-
-function shouldAutoReplayQueuedDraft(
-  draft: QueuedChatDraft,
-  queuedAutoReplayVersion: number,
-): boolean {
-  return (
-    draft.replayState !== "failed" &&
-    draft.lastAutoReplayVersion !== queuedAutoReplayVersion
-  );
-}
-
-type ProviderDictationTranscriptionResult =
-  | {
-      kind: "ok";
-      transcript: string;
-    }
-  | {
-      kind: "no_speech";
-    };
-
-export function enqueueQueuedDraft(
-  queue: QueuedChatDraft[],
-  draft: QueuedChatDraft,
-  prioritize: boolean,
-): QueuedChatDraft[] {
-  return prioritize ? [draft, ...queue] : [...queue, draft];
-}
-
-export function cycleQueuedDraftSelection(
-  queue: QueuedChatDraft[],
-  selectedId: string | null,
-  direction: "next" | "prev",
-): string | null {
-  if (queue.length === 0) {
-    return null;
-  }
-  const currentIndex = queue.findIndex((item) => item.id === selectedId);
-  if (currentIndex < 0) {
-    return queue[0]?.id ?? null;
-  }
-  if (direction === "next") {
-    const nextIndex = (currentIndex + 1) % queue.length;
-    return queue[nextIndex]?.id ?? null;
-  }
-  const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-  return queue[prevIndex]?.id ?? null;
-}
-
-export function cycleSubmittedMessageHistorySelection(
-  history: string[],
-  selectedIndex: number | null,
-  direction: "next" | "prev",
-): number | null {
-  if (history.length === 0) {
-    return null;
-  }
-  if (
-    selectedIndex === null ||
-    selectedIndex < 0 ||
-    selectedIndex >= history.length
-  ) {
-    return 0;
-  }
-  if (direction === "next") {
-    const nextIndex = (selectedIndex + 1) % history.length;
-    return nextIndex;
-  }
-  const prevIndex = (selectedIndex - 1 + history.length) % history.length;
-  return prevIndex;
 }
 
 type ChatInputProps = {
@@ -655,10 +306,6 @@ export const ChatInput = memo(function ChatInput({
   >(slashSuggestionsPlacement === "above" ? "above" : "below");
   const [slashSuggestionsPortalStyle, setSlashSuggestionsPortalStyle] =
     useState<CSSProperties | null>(null);
-  const [dictationState, setDictationState] = useState<DictationState>("idle");
-  const [dictationFeedback, setDictationFeedback] = useState<string | null>(
-    null,
-  );
   const [contextBadgeMode, setContextBadgeMode] = useState<
     "percentage" | "tokens"
   >("percentage");
@@ -675,11 +322,6 @@ export const ChatInput = memo(function ChatInput({
   const slashCommandRecognitionSet = recognizedSlashCommands ?? slashCommands;
   const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const providerRecorderRef = useRef<MediaRecorder | null>(null);
-  const providerStreamRef = useRef<MediaStream | null>(null);
-  const providerChunksRef = useRef<Array<BlobPart>>([]);
-  const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
   const queuedDraftIdRef = useRef(0);
   const queuedDispatchInFlightRef = useRef(false);
   const stopRequestedForCurrentResponseRef = useRef(false);
@@ -743,6 +385,23 @@ export const ChatInput = memo(function ChatInput({
     [isControlled, onChange],
   );
 
+  const {
+    canDictate,
+    dictationAriaLabel,
+    dictationFeedback,
+    dictationState,
+    handleDictationToggle,
+  } = useChatInputDictation({
+    disabled: isDisabled,
+    dictationMode,
+    onProviderDictationTranscribe,
+    dictationEnabledByProvider,
+    providerDictationLikelySupported,
+    textareaRef,
+    inputValueRef,
+    setInputValue,
+  });
+
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
       escClearedComposerDraftRef.current = null;
@@ -761,6 +420,12 @@ export const ChatInput = memo(function ChatInput({
     submittedHistoryDraftBeforeSelectionRef.current = null;
     setInputValue("");
   }, [setInputValue]);
+
+  const resetSubmittedComposer = useCallback(() => {
+    escClearedComposerDraftRef.current = null;
+    clearInput();
+    clearAttachments();
+  }, [clearAttachments, clearInput]);
 
   const submittedMessageHistoryEntries = useMemo(() => {
     const seen = new Set<string>();
@@ -838,7 +503,7 @@ export const ChatInput = memo(function ChatInput({
       const nextDraft: QueuedChatDraft = {
         id: getNextQueuedDraftId(),
         message,
-        attachments: cloneAttachments(draftAttachments),
+        attachments: cloneChatAttachments(draftAttachments),
         replaySnapshot: buildQueuedDraftReplaySnapshot({
           message,
           recognizedSlashCommands: slashCommandRecognitionSet,
@@ -884,7 +549,7 @@ export const ChatInput = memo(function ChatInput({
       );
       setSelectedQueuedDraftId(null);
       setInputValue(draft.message);
-      replaceAttachments(cloneAttachments(draft.attachments));
+      replaceAttachments(cloneChatAttachments(draft.attachments));
       setSlashFeedback("Editing queued message.");
       requestAnimationFrame(() => {
         const node = textareaRef.current;
@@ -952,7 +617,7 @@ export const ChatInput = memo(function ChatInput({
 
   const clearComposerByEscape = useCallback((): boolean => {
     const currentMessage = inputValueRef.current;
-    const nextAttachments = cloneAttachments(attachments);
+    const nextAttachments = cloneChatAttachments(attachments);
     const hasComposerDraft =
       currentMessage.trim().length > 0 || nextAttachments.length > 0;
     if (!hasComposerDraft) {
@@ -977,7 +642,7 @@ export const ChatInput = memo(function ChatInput({
     setSelectedSubmittedMessageIndex(null);
     submittedHistoryDraftBeforeSelectionRef.current = null;
     setInputValue(draft.message);
-    replaceAttachments(cloneAttachments(draft.attachments));
+    replaceAttachments(cloneChatAttachments(draft.attachments));
     setSlashFeedback("Restored cleared draft.");
     requestAnimationFrame(() => {
       const node = textareaRef.current;
@@ -1002,143 +667,23 @@ export const ChatInput = memo(function ChatInput({
       submittedAttachments: ChatFileAttachment[];
       parsed: ChatSlashCommand;
       commandAvailable: boolean;
-    }): Promise<SlashCommandExecutionOutcome> => {
-      if (!commandAvailable) {
-        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
-        return "retry_later";
-      }
-      if (parsed.action === "custom_prompt") {
-        const submission = resolveCustomPromptSlashCommandSubmission({
-          promptTemplate: parsed.promptTemplate,
-          args: parsed.args,
-          ...(parsed.rawSuffix === undefined
-            ? {}
-            : { rawSuffix: parsed.rawSuffix }),
-          attachments: submittedAttachments,
-        });
-        if (!submission) {
-          setSlashFeedback("Custom slash command has no prompt content.");
-          return "retry_later";
-        }
-        const imageAttachmentError = getSlashCommandImageAttachmentError({
-          command: parsed,
-          appGenerationMode: parsed.appGenerationMode,
-          attachments: submission.attachments,
-          hasRetainedImageAttachmentForImageMode,
-        });
-        if (imageAttachmentError) {
-          setSlashFeedback(imageAttachmentError);
-          return "failed";
-        }
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(
-            submission.message,
-            submission.attachments,
-            resolveSlashCommandSubmitOptions(parsed),
-          ),
-          "retry_later",
-        );
-        if (submitted !== "submitted") {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return submitted;
-        }
-        setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      if (parsed.action === "native_prompt") {
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(
-            message,
-            submittedAttachments,
-            resolveSlashCommandSubmitOptions(parsed),
-          ),
-          "retry_later",
-        );
-        if (submitted !== "submitted") {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return submitted;
-        }
-        setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      if (!onSlashCommand) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return "handled_local";
-      }
-      const result = await onSlashCommand(parsed);
-      if (result === false) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return "retry_later";
-      }
-      const slashResult =
-        result && typeof result === "object" ? result : undefined;
-      if (slashResult?.handled === false) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return "retry_later";
-      }
-      if (slashResult?.submitPromptTemplate) {
-        const submission = resolveCustomPromptSlashCommandSubmission({
-          promptTemplate: parsed.promptTemplate,
-          args: parsed.args,
-          ...(parsed.rawSuffix === undefined
-            ? {}
-            : { rawSuffix: parsed.rawSuffix }),
-          attachments: submittedAttachments,
-        });
-        if (!submission || !slashResult.appGenerationMode) {
-          setSlashFeedback("Built-in slash command has no prompt content.");
-          return "retry_later";
-        }
-        const imageAttachmentError = getSlashCommandImageAttachmentError({
-          command: parsed,
-          appGenerationMode: slashResult.appGenerationMode,
-          attachments: submission.attachments,
-          hasRetainedImageAttachmentForImageMode,
-        });
-        if (imageAttachmentError) {
-          setSlashFeedback(imageAttachmentError);
-          return "failed";
-        }
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(submission.message, submission.attachments, {
-            appGeneration: {
-              mode: slashResult.appGenerationMode,
-            },
-          }),
-          "retry_later",
-        );
-        if (submitted !== "submitted") {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return submitted;
-        }
-        setSlashFeedback(
-          slashResult.feedback ?? `Submitted ${parsed.command}.`,
-        );
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
-      if (!slashResult?.keepInput) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-      }
-      return slashResult?.retryLater === true ? "retry_later" : "handled_local";
-    },
+    }): Promise<SlashCommandExecutionOutcome> =>
+      executeResolvedChatSlashCommand({
+        message,
+        submittedAttachments,
+        parsed,
+        commandAvailable,
+        hasRetainedImageAttachmentForImageMode,
+        onSubmit,
+        onSlashCommand,
+        setSlashFeedback,
+        resetComposer: resetSubmittedComposer,
+      }),
     [
-      clearAttachments,
-      clearInput,
       hasRetainedImageAttachmentForImageMode,
       onSlashCommand,
       onSubmit,
+      resetSubmittedComposer,
     ],
   );
 
@@ -1146,64 +691,21 @@ export const ChatInput = memo(function ChatInput({
     async (
       message: string,
       submittedAttachments: ChatFileAttachment[],
-    ): Promise<SlashCommandExecutionOutcome> => {
-      const resolvedRequest = resolveSlashCommandRequest({
+    ): Promise<SlashCommandExecutionOutcome> =>
+      runChatSlashCommand({
         message,
+        submittedAttachments,
         slashCommands,
         recognizedSlashCommands: slashCommandRecognitionSet,
-      });
-      if (resolvedRequest.parsed) {
-        return executeResolvedSlashCommand({
-          message,
-          submittedAttachments,
-          parsed: resolvedRequest.parsed,
-          commandAvailable: resolvedRequest.commandAvailable,
-        });
-      }
-      if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
-        return "not_handled";
-      }
-      const result = await onUnknownSlashCommand(message, submittedAttachments);
-      if (result === false) {
-        return "not_handled";
-      }
-      const slashResult =
-        result && typeof result === "object" ? result : undefined;
-      if (slashResult?.handled === false) {
-        return "not_handled";
-      }
-      const refreshedSlashCommands =
-        slashResult?.refreshedSlashCommands ?? null;
-      const refreshedRecognizedSlashCommands =
-        slashResult?.refreshedRecognizedSlashCommands ?? null;
-      if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
-        const refreshedRequest = resolveSlashCommandRequest({
-          message,
-          slashCommands: refreshedSlashCommands,
-          recognizedSlashCommands: refreshedRecognizedSlashCommands,
-        });
-        if (refreshedRequest.parsed) {
-          return executeResolvedSlashCommand({
-            message,
-            submittedAttachments,
-            parsed: refreshedRequest.parsed,
-            commandAvailable: refreshedRequest.commandAvailable,
-          });
-        }
-      }
-      setSlashFeedback(slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK);
-      if (slashResult?.keepInput === false) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-      }
-      return slashResult?.retryLater === true ? "retry_later" : "handled_local";
-    },
+        onUnknownSlashCommand,
+        executeResolvedSlashCommand,
+        setSlashFeedback,
+        resetComposer: resetSubmittedComposer,
+      }),
     [
-      clearAttachments,
-      clearInput,
       executeResolvedSlashCommand,
       onUnknownSlashCommand,
+      resetSubmittedComposer,
       slashCommandRecognitionSet,
       slashCommands,
     ],
@@ -1213,77 +715,37 @@ export const ChatInput = memo(function ChatInput({
     async (
       submittedValue: string,
       submittedAttachments: ChatFileAttachment[],
-    ): Promise<SlashCommandExecutionOutcome> => {
-      if (waitingForResponse) {
-        const queued = enqueueDraft({
-          message: submittedValue,
-          draftAttachments: submittedAttachments,
-          prioritize: true,
-          interruptCurrentRun: true,
-          feedback: "Queued and stopping current response...",
-        });
-        if (queued) {
-          return "handled_local";
-        }
-        if (onStop) {
-          await onStop();
-        }
-        return "failed";
-      }
-      if (isSubmitDisabled) {
-        return "failed";
-      }
-      const slashOutcome = await runSlashCommand(
+    ): Promise<SlashCommandExecutionOutcome> =>
+      submitChatInputMessage({
+        waitingForResponse,
+        isSubmitDisabled,
         submittedValue,
         submittedAttachments,
-      );
-      if (slashOutcome !== "not_handled") {
-        return slashOutcome;
-      }
-      const trimmedInput = submittedValue.trim();
-      if (trimmedInput.length === 0 && submittedAttachments.length === 0) {
-        return "failed";
-      }
-      const result = await onSubmit(submittedValue, submittedAttachments);
-      const submitOutcome = resolveChatSubmitDispatchResult(result, "failed");
-      if (submitOutcome === "submitted") {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      return submitOutcome;
-    },
+        onStop,
+        enqueueDraft,
+        runSlashCommand,
+        onSubmit,
+        resetComposer: resetSubmittedComposer,
+      }),
     [
-      clearAttachments,
-      clearInput,
       enqueueDraft,
       isSubmitDisabled,
       onStop,
       onSubmit,
+      resetSubmittedComposer,
       runSlashCommand,
       waitingForResponse,
     ],
   );
 
   const replayQueuedDraft = useCallback(
-    async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> => {
-      if (draft.replaySnapshot.kind === "plain_message") {
-        return submitMessage(draft.message, draft.attachments);
-      }
-      const commandAvailable =
-        draft.replaySnapshot.availabilityPolicy === "fixed"
-          ? true
-          : slashCommands.some(
-              (entry) => entry.command === draft.replaySnapshot.command.command,
-            );
-      return executeResolvedSlashCommand({
-        message: draft.message,
-        submittedAttachments: draft.attachments,
-        parsed: draft.replaySnapshot.command,
-        commandAvailable,
-      });
-    },
+    async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> =>
+      replayQueuedChatDraft({
+        draft,
+        slashCommands,
+        submitMessage,
+        executeResolvedSlashCommand,
+      }),
     [executeResolvedSlashCommand, slashCommands, submitMessage],
   );
 
@@ -1798,32 +1260,6 @@ export const ChatInput = memo(function ChatInput({
     }
     return `${base} ${dragClass} cursor-auto opacity-100`;
   }, [isDisabled, isDragActive]);
-
-  const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = isDictationAvailable(dictationSupported);
-  const mediaRecorderSupported =
-    typeof window !== "undefined" &&
-    typeof window.MediaRecorder !== "undefined" &&
-    typeof navigator !== "undefined" &&
-    Boolean(navigator.mediaDevices?.getUserMedia);
-  const canProviderDictate = Boolean(
-    dictationEnabledByProvider &&
-      onProviderDictationTranscribe &&
-      mediaRecorderSupported,
-  );
-  const canAutoUseProviderDictation =
-    canProviderDictate && providerDictationLikelySupported;
-  const canDictate =
-    !isDisabled &&
-    (() => {
-      if (dictationMode === "provider") {
-        return canProviderDictate;
-      }
-      if (dictationMode === "browser") {
-        return canBrowserDictate;
-      }
-      return canAutoUseProviderDictation || canBrowserDictate;
-    })();
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
@@ -2004,15 +1440,6 @@ export const ChatInput = memo(function ChatInput({
       content: `Current mode: ${modeLabel}`,
     });
   }, [executionControls, showPermissionControl]);
-  const dictationAriaLabel = useMemo(() => {
-    if (dictationState === "listening") {
-      return "Stop Mic";
-    }
-    if (dictationState === "transcribing") {
-      return "Transcribing";
-    }
-    return "Mic";
-  }, [dictationState]);
   const dictationTooltipHandlers = useMemo(() => {
     if (!canDictate) {
       return null;
@@ -2091,437 +1518,6 @@ export const ChatInput = memo(function ChatInput({
     slashSuggestionsPortalStyle !== null &&
     typeof document !== "undefined" &&
     Boolean(document.body);
-
-  const cleanupProviderCapture = useCallback(() => {
-    const recorder = providerRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.onstop = null;
-      recorder.stop();
-    }
-    providerRecorderRef.current = null;
-    const stream = providerStreamRef.current;
-    if (stream) {
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-    }
-    providerStreamRef.current = null;
-    providerChunksRef.current = [];
-    dictationSourceRef.current = null;
-  }, []);
-
-  const stopProviderCapture = useCallback(() => {
-    const recorder = providerRecorderRef.current;
-    if (!recorder) {
-      return;
-    }
-    if (recorder.state !== "inactive") {
-      recorder.stop();
-    }
-    providerRecorderRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("transcribing");
-    setDictationFeedback("Transcribing...");
-  }, []);
-
-  const stopBrowserDictation = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      return;
-    }
-    recognition.stop();
-    recognitionRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, []);
-
-  const stopActiveDictationImmediately = useCallback(() => {
-    if (dictationSourceRef.current === "provider") {
-      cleanupProviderCapture();
-    } else {
-      stopBrowserDictation();
-    }
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, [cleanupProviderCapture, stopBrowserDictation]);
-
-  const insertTranscript = useCallback(
-    (transcript: string) => {
-      const node = textareaRef.current;
-      const current = inputValueRef.current;
-      const start = node?.selectionStart ?? current.length;
-      const end = node?.selectionEnd ?? current.length;
-      const result = insertTextAtSelection(current, transcript, start, end);
-      setInputValue(result.value);
-      requestAnimationFrame(() => {
-        if (!node) {
-          return;
-        }
-        node.focus();
-        node.setSelectionRange(result.nextCaret, result.nextCaret);
-      });
-    },
-    [setInputValue],
-  );
-
-  const startBrowserDictation = useCallback(() => {
-    if (!canBrowserDictate) {
-      setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
-      return;
-    }
-    const RecognitionCtor = getSpeechRecognitionConstructor();
-    if (!RecognitionCtor) {
-      setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
-      return;
-    }
-    const recognition = new RecognitionCtor();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognition.onresult = (event) => {
-      let transcript = "";
-      for (
-        let index = event.resultIndex;
-        index < event.results.length;
-        index += 1
-      ) {
-        const result = event.results[index];
-        if (!result || !result.isFinal) {
-          continue;
-        }
-        transcript += result[0]?.transcript ?? "";
-      }
-      const normalized = transcript.trim();
-      if (!normalized) {
-        return;
-      }
-      insertTranscript(`${normalized} `);
-      setDictationFeedback(null);
-    };
-    recognition.onerror = (event) => {
-      if (isNoSpeechDictationError(event.error)) {
-        setDictationState("idle");
-        setDictationFeedback(null);
-        addTemporaryNotification("No speech was detected.");
-      } else {
-        setDictationState("error");
-        setDictationFeedback(mapDictationError(event.error));
-      }
-      recognitionRef.current = null;
-      dictationSourceRef.current = null;
-    };
-    recognition.onend = () => {
-      const shouldContinueListening =
-        recognitionRef.current === recognition &&
-        dictationSourceRef.current === "browser";
-      if (!shouldContinueListening) {
-        return;
-      }
-      try {
-        recognition.start();
-        setDictationState("listening");
-        setDictationFeedback("Listening...");
-      } catch {
-        recognitionRef.current = null;
-        dictationSourceRef.current = null;
-        setDictationState("error");
-        setDictationFeedback(mapDictationError(undefined));
-      }
-    };
-    recognitionRef.current = recognition;
-    dictationSourceRef.current = "browser";
-    setDictationState("listening");
-    setDictationFeedback("Listening...");
-    try {
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      dictationSourceRef.current = null;
-      setDictationState("error");
-      setDictationFeedback(mapDictationError(undefined));
-    }
-  }, [canBrowserDictate, insertTranscript]);
-
-  const maybeFallbackToBrowserDictation = useCallback(
-    (allowFallback: boolean): boolean => {
-      if (!allowFallback || !canBrowserDictate) {
-        return false;
-      }
-      startBrowserDictation();
-      return true;
-    },
-    [canBrowserDictate, startBrowserDictation],
-  );
-
-  const maybeFallbackForProviderFailure = useCallback(
-    ({
-      phase,
-      failureClass,
-      allowBrowserFallback,
-    }: {
-      phase: DictationProviderFailurePhase;
-      failureClass: DictationProviderFailureClass;
-      allowBrowserFallback: boolean;
-    }): boolean => {
-      if (
-        !shouldFallbackToBrowserAfterProviderFailure({
-          mode: dictationMode,
-          phase,
-          failureClass,
-        })
-      ) {
-        return false;
-      }
-      return maybeFallbackToBrowserDictation(allowBrowserFallback);
-    },
-    [dictationMode, maybeFallbackToBrowserDictation],
-  );
-
-  const startProviderDictation = useCallback(
-    async (allowBrowserFallback: boolean) => {
-      if (!canProviderDictate || !onProviderDictationTranscribe) {
-        if (
-          maybeFallbackForProviderFailure({
-            phase: "capture_start",
-            failureClass: "unknown",
-            allowBrowserFallback,
-          })
-        ) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
-        return;
-      }
-      if (
-        typeof navigator === "undefined" ||
-        !navigator.mediaDevices?.getUserMedia ||
-        typeof MediaRecorder === "undefined"
-      ) {
-        if (
-          maybeFallbackForProviderFailure({
-            phase: "capture_start",
-            failureClass: "unknown",
-            allowBrowserFallback,
-          })
-        ) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        providerStreamRef.current = stream;
-        const mimeType = pickProviderRecorderMimeType(
-          MediaRecorder.isTypeSupported?.bind(MediaRecorder),
-        );
-        let recorder: MediaRecorder;
-        try {
-          recorder = mimeType
-            ? new MediaRecorder(stream, { mimeType })
-            : new MediaRecorder(stream);
-        } catch {
-          cleanupProviderCapture();
-          if (
-            maybeFallbackForProviderFailure({
-              phase: "capture_start",
-              failureClass: "unknown",
-              allowBrowserFallback,
-            })
-          ) {
-            return;
-          }
-          setDictationState("error");
-          setDictationFeedback("Provider dictation is not available.");
-          return;
-        }
-        providerRecorderRef.current = recorder;
-        providerChunksRef.current = [];
-        dictationSourceRef.current = "provider";
-        recorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            providerChunksRef.current.push(event.data);
-          }
-        };
-        recorder.onerror = () => {
-          cleanupProviderCapture();
-          if (
-            maybeFallbackForProviderFailure({
-              phase: "capture_runtime",
-              failureClass: "unknown",
-              allowBrowserFallback,
-            })
-          ) {
-            return;
-          }
-          setDictationState("error");
-          setDictationFeedback("Microphone input failed.");
-        };
-        recorder.onstop = () => {
-          providerRecorderRef.current = null;
-          dictationSourceRef.current = null;
-          const streamRef = providerStreamRef.current;
-          if (streamRef) {
-            for (const track of streamRef.getTracks()) {
-              track.stop();
-            }
-          }
-          providerStreamRef.current = null;
-          const chunks = providerChunksRef.current;
-          providerChunksRef.current = [];
-          let blobType = recorder.mimeType || mimeType || "audio/webm";
-          for (const chunk of chunks) {
-            if (chunk instanceof Blob && chunk.type) {
-              blobType = chunk.type;
-              break;
-            }
-          }
-          const blob = new Blob(chunks, { type: blobType });
-          if (blob.size === 0) {
-            setDictationState("idle");
-            setDictationFeedback(null);
-            addTemporaryNotification("No speech was detected.");
-            return;
-          }
-          setDictationState("transcribing");
-          setDictationFeedback("Transcribing...");
-          void (async () => {
-            try {
-              const result = await onProviderDictationTranscribe(blob);
-              if (result.kind === "no_speech") {
-                setDictationState("idle");
-                setDictationFeedback(null);
-                addTemporaryNotification("No speech was detected.");
-                return;
-              }
-              const normalized = result.transcript.trim();
-              if (!normalized) {
-                throw new Error(
-                  "Provider transcription returned an empty result.",
-                );
-              }
-              insertTranscript(`${normalized} `);
-              setDictationState("idle");
-              setDictationFeedback(null);
-            } catch (error) {
-              const failureClass = classifyProviderDictationFailureClass(error);
-              if (
-                maybeFallbackForProviderFailure({
-                  phase: "transcription",
-                  failureClass,
-                  allowBrowserFallback,
-                })
-              ) {
-                return;
-              }
-              setDictationState("error");
-              setDictationFeedback(
-                error instanceof Error && error.message
-                  ? error.message
-                  : "Provider transcription failed.",
-              );
-            }
-          })();
-        };
-        setDictationState("listening");
-        setDictationFeedback("Listening...");
-        recorder.start();
-      } catch {
-        cleanupProviderCapture();
-        if (
-          maybeFallbackForProviderFailure({
-            phase: "capture_start",
-            failureClass: "unknown",
-            allowBrowserFallback,
-          })
-        ) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Microphone access was denied.");
-      }
-    },
-    [
-      canProviderDictate,
-      cleanupProviderCapture,
-      insertTranscript,
-      maybeFallbackForProviderFailure,
-      onProviderDictationTranscribe,
-    ],
-  );
-
-  const startDictation = useCallback(() => {
-    if (!canDictate) {
-      setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
-      return;
-    }
-    if (dictationMode === "provider") {
-      void startProviderDictation(false);
-      return;
-    }
-    if (dictationMode === "browser") {
-      startBrowserDictation();
-      return;
-    }
-    if (canAutoUseProviderDictation) {
-      void startProviderDictation(true);
-      return;
-    }
-    startBrowserDictation();
-  }, [
-    canDictate,
-    canAutoUseProviderDictation,
-    dictationMode,
-    startBrowserDictation,
-    startProviderDictation,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-      recognitionRef.current = null;
-      cleanupProviderCapture();
-    };
-  }, [cleanupProviderCapture]);
-
-  useEffect(() => {
-    if (!isDisabled || dictationState !== "listening") {
-      return;
-    }
-    stopActiveDictationImmediately();
-  }, [dictationState, isDisabled, stopActiveDictationImmediately]);
-
-  const handleDictationToggle = useCallback(() => {
-    if (isDisabled) {
-      return;
-    }
-    if (dictationState === "listening") {
-      if (dictationSourceRef.current === "provider") {
-        stopProviderCapture();
-        return;
-      }
-      stopBrowserDictation();
-      return;
-    }
-    if (dictationState === "transcribing") {
-      return;
-    }
-    startDictation();
-  }, [
-    dictationState,
-    isDisabled,
-    startDictation,
-    stopBrowserDictation,
-    stopProviderCapture,
-  ]);
 
   const slashSuggestionsList = (
     <>

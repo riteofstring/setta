@@ -1,21 +1,13 @@
 import pytest
 
-from setta.api.listener import (
-    ListenerDependencyIds,
-    ListenerDependencyMetadata,
-    ListenerRuntimeState,
-)
+from setta.api.listener import ListenerDependencyIds, ListenerRuntimeState
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.types.code_obj_impls import CodeObjType
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.dependency_key import SectionParamDependencyKey, create_dep_key
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl2 import (
-    add_kwarg,
-    create_top_level_section,
-    get_meta_control_param_id,
-)
+from setta.types.helpers_lvl2 import add_kwarg, create_top_level_section
+from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
@@ -35,11 +27,12 @@ def _build_runtime_state(
     project_state: ProjectStateSingleConfig,
 ) -> ListenerRuntimeState:
     dependency_graph = DependencyGraph(project_state)
+    code_generator = PythonCodeGenerator(dependency_graph, "", "")
     return ListenerRuntimeState(
-        dependency_metadata=ListenerDependencyMetadata.from_dependency_graph(
-            dependency_graph
-        ),
+        project_state=project_state,
         dependency_graph=dependency_graph,
+        code_generator=code_generator,
+        s_instance=None,
     )
 
 
@@ -174,7 +167,9 @@ class TestListenerDependencyIds:
     def _setup(self) -> None:
         project_state, ids = _build_project_state_with_duplicate_sections()
         runtime_state = _build_runtime_state(project_state)
-        self.ids_helper = ListenerDependencyIds(runtime_state.dependency_metadata)
+        self.ids_helper = ListenerDependencyIds(
+            runtime_state.dependency_graph, runtime_state.project_state
+        )
         self.ids = ids
 
     def test_dependency_name_resolves_section(self) -> None:
@@ -193,34 +188,12 @@ class TestListenerDependencyIds:
         dependency_name = _find_param_dependency_name(
             runtime_state.dependency_graph, kwarg_id
         )
-        ids_helper = ListenerDependencyIds(runtime_state.dependency_metadata)
+        ids_helper = ListenerDependencyIds(
+            runtime_state.dependency_graph, runtime_state.project_state
+        )
         param_ids = ids_helper.param_ids(dependency_name)
         assert param_ids.sectionId == section_id
         assert param_ids.paramInfoId == kwarg_id
-
-    def test_meta_control_param_ids_resolve_from_dependency_graph(self) -> None:
-        settings = SettingsState()
-        project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="Meta Control Listener Project")
-        )
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.MetaControl,
-            Position(),
-            control_code_obj_type=CodeObjType.TextParam,
-        )
-        control_param_id = get_meta_control_param_id(project_state, section_id)
-        runtime_state = _build_runtime_state(project_state)
-        ids_helper = ListenerDependencyIds(runtime_state.dependency_metadata)
-        dependency_name = runtime_state.dependency_graph.graph[
-            create_dep_key(sectionId=section_id)
-        ].full_path_name
-
-        param_ids = ids_helper.meta_control_param_ids(dependency_name)
-
-        assert param_ids.sectionId == section_id
-        assert param_ids.paramInfoId == control_param_id
 
 
 def _find_param_dependency_name(
@@ -232,3 +205,4 @@ def _find_param_dependency_name(
             if dep_key.codeObjId == code_obj_id:
                 return name
     raise AssertionError(f"Missing dependency for param {code_obj_id}")
+
