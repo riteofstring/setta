@@ -54,11 +54,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1463 authored TS/TSX files under `frontend/src`.
-- There are 43 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 2000 lines.
+- There are 1469 authored TS/TSX files under `frontend/src`.
+- There are 42 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2091 lines after the local settings and engine-selection extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1848 lines after the local settings, engine-selection, and inline-thread layout extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1661 lines after the local slash-command extraction
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1658 lines after the local docked/floating/maximized surface extraction
   - `frontend/src/components/Chat/ChatInput.tsx` at 1606 lines after the local composer meta-controls extraction
@@ -89,8 +89,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   now delegates engine/model/config selection to
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts`
-  and the settings popover shell to
+  the settings popover shell to
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx`,
+  and inline-thread layout or resize ownership to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.ts`
+  plus
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts`,
   so the next default work in that cluster should continue from the remaining
   front-door hotspots instead of re-cutting those new local owners immediately.
 - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
@@ -183,17 +187,17 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   surfaces, not to more taxonomic splitting of already smaller
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
-- The remaining high-leverage work is now split between a few unresolved 2000+
+- The remaining high-leverage work is now split between a few unresolved large
   UI front doors and a small set of still-large cross-domain entry surfaces.
   Default to those before revisiting already-improved coordinators such as
   `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ChatInput.tsx`,
   `ChatMessages.tsx`, `FileBrowserPane.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
@@ -264,6 +268,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx` now owns history thread rows, unread/working indicators, row action chrome, and thread drop-zone rendering, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx` now owns grouped/ungrouped folder shells, inline group rename, and default new-group naming, and `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx` now owns the history toolbar/header shell, empty state, and grouped/ungrouped panel composition used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts` now owns preferred-engine selection, selected-thread engine reconciliation, engine-switch continuation guards, and LLM-unavailable messaging used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx` now owns the project-chat settings popover shell, dictation source options, tool quick-links, and activity-default toggles used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.ts` now owns inline-thread breakpoint visibility rules, stored-width parsing, viewport/max-width clamping, and resize-transition decisions used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` and `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts` now owns overview/chat-container width observation, inline-thread visibility sync, header-host sizing, and resize persistence used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx` now owns workspace-root polling, python-signal probing, create-project starter prompt adaptation, and the empty-chat render shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts` now owns project-chat hydration cache keys, managed/external runtime fetches, retry scheduling, and retry-cache pruning used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.ts` now owns default permission-mode selection, blocked-thread copy, submit preflight/readiness helpers, and provider-dictation gating used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` and `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.

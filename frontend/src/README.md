@@ -10,15 +10,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1466`
+- Authored TS/TSX files under `frontend/src`: `1469`
 - Non-generated TS/TSX files at `1000+` lines: `42`
 - Biggest current production hotspots:
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
   - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
   - `plugins/runtime.ts` (`1948`)
   - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
   - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1848`)
   - `components/App/appRegistry.tsx` (`1753`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`1661`)
@@ -139,6 +139,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns the project-chat settings popover shell, dictation source options,
     tool quick-links, and activity-default toggles used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatInlineThreadsLayout.ts`
+    owns inline-thread breakpoint visibility rules, stored-width parsing,
+    viewport/max-width clamping, and resize-transition decisions used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` and
+    `components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts`.
+  - `components/Panes/Overview/ProjectLevelAI/useProjectChatInlineThreadsLayout.ts`
+    owns overview/chat-container width observation, inline-thread visibility
+    sync, header-host sizing, and resize persistence used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx`
     owns workspace-root polling, python-signal probing, create-project starter
     prompt adaptation, and the project-chat empty-state shell used by
@@ -194,9 +203,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     focus/placement commands, floating-bounds or snap orchestration, and the
     top-level dock chrome over those local window-surface owners.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` now focuses on
-    project-chat surface orchestration, inline-thread layout, aux-view routing,
-    conversation-search state, and chat-core/history composition over those
-    local engine-selection, settings-popover, and hydration owners.
+    project-chat surface orchestration, aux-view routing, conversation-search
+    state, and chat-core/history composition over the local inline-thread
+    layout, engine-selection, settings-popover, and hydration owners.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` now focuses
     on chat-detail selection, hydration effect orchestration, slash-command
     dispatch, submission/edit/redo handlers, and chat surface composition over

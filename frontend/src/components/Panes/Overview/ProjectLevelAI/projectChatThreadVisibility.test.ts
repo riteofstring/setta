@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
-  resolveProjectChatThreadVisibilityFromResize,
-} from "./ProjectChat";
+import { resolveProjectChatThreadBlockedErrorCodeForSelectedChat } from "./ProjectChat";
 import {
   resolveProjectChatEngineConfigIdForSelectedChat,
   resolveProjectChatEngineSwitchContinuationAfterContextChange,
@@ -12,6 +9,7 @@ import {
   shouldProjectChatSkipEngineSyncForContinuation,
 } from "./projectChatEngineSelection";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
+import { resolveProjectChatThreadVisibilityFromResize } from "./projectChatInlineThreadsLayout";
 
 describe("resolveProjectChatThreadVisibilityFromResize", () => {
   it("defaults to chat-only on initial narrow layouts", () => {

@@ -58,8 +58,6 @@ import {
   EngineTypeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
-import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
-import { clamp } from "utils/utils";
 import { ProjectAISettings } from "./ProjectAISettings";
 import { ProjectChatCore } from "./ProjectChatCore";
 import {
@@ -78,6 +76,7 @@ import {
 } from "./projectChatExecutionSettings";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
+import { PROJECT_CHAT_INLINE_THREADS_MIN_WIDTH_PX } from "./projectChatInlineThreadsLayout";
 import {
   ProjectChatSettingsPopover,
   type ProjectDictationMode,
@@ -85,31 +84,17 @@ import {
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
+import { useProjectChatInlineThreadsLayout } from "./useProjectChatInlineThreadsLayout";
 
 export { resolveProjectChatThreadBlockedErrorCodeForSelectedChat } from "./projectChatHydrationAuthority";
 
 type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none">;
-const INLINE_THREADS_BREAKPOINT_PX = 760;
-const INLINE_THREADS_MIN_WIDTH_PX = 220;
-const INLINE_THREADS_DEFAULT_WIDTH_PX = 288;
-const INLINE_THREADS_MAX_WIDTH_PX = 520;
-const INLINE_THREADS_MIN_CHAT_WIDTH_PX = 420;
 const PROJECT_CHAT_CONTENT_SHELL_CLASS = "mx-auto w-full max-w-[72rem] px-2";
-const INLINE_THREADS_WIDTH_STORAGE_KEY =
-  "setta_project_ai_inline_threads_width";
 type DraftProjectThreadState =
   | { phase: "none" }
   | { phase: "idle" }
   | { phase: "pending_chat_id" }
   | { phase: "awaiting_title"; chatId: string };
-
-type ResolveProjectChatThreadVisibilityFromResizeInput = {
-  isInitialRun: boolean;
-  wasLargeEnoughForInlineThreads: boolean;
-  isLargeEnoughForInlineThreads: boolean;
-  viewThreads: boolean;
-  explicitlyClosedAtLargeWidth: boolean;
-};
 
 type ResolveProjectChatAuxViewByProjectConfigIdUpdateInput = {
   projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
@@ -131,40 +116,6 @@ type ProjectChatProps = {
     errorCode: ProjectChatBlockedErrorCode | null,
   ) => void;
 };
-
-export function resolveProjectChatThreadVisibilityFromResize({
-  isInitialRun,
-  wasLargeEnoughForInlineThreads,
-  isLargeEnoughForInlineThreads,
-  viewThreads,
-  explicitlyClosedAtLargeWidth,
-}: ResolveProjectChatThreadVisibilityFromResizeInput): boolean | null {
-  if (isInitialRun) {
-    if (!isLargeEnoughForInlineThreads) {
-      if (!viewThreads) {
-        return null;
-      }
-      return false;
-    }
-    if (viewThreads || explicitlyClosedAtLargeWidth) {
-      return null;
-    }
-    return true;
-  }
-  if (wasLargeEnoughForInlineThreads === isLargeEnoughForInlineThreads) {
-    return null;
-  }
-  if (!isLargeEnoughForInlineThreads) {
-    if (!viewThreads) {
-      return null;
-    }
-    return false;
-  }
-  if (viewThreads || explicitlyClosedAtLargeWidth) {
-    return null;
-  }
-  return true;
-}
 
 export function resolveProjectChatAuxViewByProjectConfigIdUpdate({
   projectChatAuxViewByProjectConfigId,
@@ -356,11 +307,6 @@ function ProjectChatSurface({
     useState(0);
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
-  const [chatContainerNode, setChatContainerNode] =
-    useState<HTMLDivElement | null>(null);
-  const [chatContainerWidth, setChatContainerWidth] = useState<number | null>(
-    null,
-  );
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
@@ -457,9 +403,6 @@ function ProjectChatSurface({
     }),
     _.isEqual,
   );
-  const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
-  const effectiveInlineThreadsViewportWidth =
-    chatContainerWidth ?? overviewPaneWidth;
   const { threadAssignments, threadGroups } = useLocalStorage(
     (state) => ({
       threadAssignments:
@@ -512,27 +455,11 @@ function ProjectChatSurface({
     },
     [projectConfigId],
   );
-  const inlineThreadsWidthStorage = useMemo(
-    () => getSafeLocalStorageAdapter("project-chat-inline-threads"),
-    [],
-  );
-  const [inlineThreadsWidth, setInlineThreadsWidth] = useState(() => {
-    const stored = Number(
-      inlineThreadsWidthStorage.getItem(INLINE_THREADS_WIDTH_STORAGE_KEY),
-    );
-    if (!Number.isFinite(stored)) {
-      return INLINE_THREADS_DEFAULT_WIDTH_PX;
-    }
-    return stored;
-  });
-
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
   const [selectedThreadGroupId, setSelectedThreadGroupId] = useState<
     string | null
   >(null);
-  const [inlineThreadsHeaderPortalTarget, setInlineThreadsHeaderPortalTarget] =
-    useState<HTMLDivElement | null>(null);
   const [engineSwitchContinuation, setEngineSwitchContinuation] =
     useState<ProjectChatEngineSwitchContinuation | null>(null);
   const [
@@ -540,12 +467,26 @@ function ProjectChatSurface({
     setDraftThreadContinuationSourceChatId,
   ] = useState<string | null>(null);
   const notifiedExternalEngineIssueRef = useRef<string | null>(null);
-  const inlineThreadsHeaderShellRef = useRef<HTMLDivElement | null>(null);
-  const inlineThreadsResizableColumnRef = useRef<HTMLDivElement | null>(null);
-  const hasInitializedInlineThreadsResizeSyncRef = useRef(false);
-  const previousLargeEnoughForInlineThreadsRef = useRef(
-    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX,
-  );
+  const {
+    handleChatContainerRef,
+    inlineThreadsHeaderPortalTarget,
+    handleInlineThreadsHeaderHostRef,
+    handleInlineThreadsHeaderShellRef,
+    handleInlineThreadsResizableColumnRef,
+    showInlineThreads,
+    showThreadsOnlyView,
+    isLargeEnoughForInlineThreads,
+    resolvedInlineThreadsWidth,
+    inlineThreadsMaxWidth,
+    canResizeInlineThreads,
+    handleInlineThreadsResize,
+    handleInlineThreadsResizeStop,
+  } = useProjectChatInlineThreadsLayout({
+    viewThreads,
+    hasAuxView: projectChatAuxView !== "none",
+    projectChatThreadsExplicitlyClosedAtLargeWidth,
+    setViewThreads,
+  });
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -1148,165 +1089,6 @@ function ProjectChatSurface({
   useEffect(() => {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
-
-  const handleChatContainerRef = useCallback((node: HTMLDivElement | null) => {
-    setChatContainerNode(node);
-  }, []);
-
-  useEffect(() => {
-    if (!chatContainerNode) {
-      return;
-    }
-
-    const syncChatContainerWidth = (nextWidth: number) => {
-      const roundedWidth = Math.max(0, Math.round(nextWidth));
-      setChatContainerWidth((currentWidth) => {
-        if (currentWidth === roundedWidth) {
-          return currentWidth;
-        }
-        return roundedWidth;
-      });
-    };
-
-    syncChatContainerWidth(chatContainerNode.getBoundingClientRect().width);
-
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const firstEntry = entries[0];
-      if (!firstEntry) {
-        return;
-      }
-      syncChatContainerWidth(firstEntry.contentRect.width);
-    });
-    resizeObserver.observe(chatContainerNode);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [chatContainerNode]);
-
-  useEffect(() => {
-    const isLargeEnoughForInlineThreads =
-      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
-    const nextVisibility = resolveProjectChatThreadVisibilityFromResize({
-      isInitialRun: !hasInitializedInlineThreadsResizeSyncRef.current,
-      wasLargeEnoughForInlineThreads:
-        previousLargeEnoughForInlineThreadsRef.current,
-      isLargeEnoughForInlineThreads,
-      viewThreads,
-      explicitlyClosedAtLargeWidth:
-        projectChatThreadsExplicitlyClosedAtLargeWidth,
-    });
-    previousLargeEnoughForInlineThreadsRef.current =
-      isLargeEnoughForInlineThreads;
-    hasInitializedInlineThreadsResizeSyncRef.current = true;
-    if (nextVisibility === null || nextVisibility === viewThreads) {
-      return;
-    }
-    setViewThreads(nextVisibility);
-  }, [
-    effectiveInlineThreadsViewportWidth,
-    projectChatThreadsExplicitlyClosedAtLargeWidth,
-    viewThreads,
-  ]);
-
-  const showInlineThreads =
-    viewThreads &&
-    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
-  const inlineThreadsMaxWidth = useMemo(() => {
-    const boundedMaxWidth = clamp(
-      effectiveInlineThreadsViewportWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
-      INLINE_THREADS_MIN_WIDTH_PX,
-      INLINE_THREADS_MAX_WIDTH_PX,
-    );
-    return boundedMaxWidth;
-  }, [effectiveInlineThreadsViewportWidth]);
-  const resolvedInlineThreadsWidth = useMemo(() => {
-    return clamp(
-      inlineThreadsWidth,
-      INLINE_THREADS_MIN_WIDTH_PX,
-      inlineThreadsMaxWidth,
-    );
-  }, [inlineThreadsMaxWidth, inlineThreadsWidth]);
-  const canResizeInlineThreads =
-    inlineThreadsMaxWidth > INLINE_THREADS_MIN_WIDTH_PX;
-
-  const updateInlineThreadsWidth = useCallback(
-    (nextWidth: number) => {
-      const resolvedWidth = clamp(
-        nextWidth,
-        INLINE_THREADS_MIN_WIDTH_PX,
-        inlineThreadsMaxWidth,
-      );
-      setInlineThreadsWidth((current) => {
-        if (current === resolvedWidth) {
-          return current;
-        }
-        return resolvedWidth;
-      });
-    },
-    [inlineThreadsMaxWidth],
-  );
-
-  useEffect(() => {
-    if (inlineThreadsWidth === resolvedInlineThreadsWidth) {
-      return;
-    }
-    setInlineThreadsWidth(resolvedInlineThreadsWidth);
-  }, [inlineThreadsWidth, resolvedInlineThreadsWidth]);
-  const syncInlineThreadsHeaderWidth = useCallback((nextWidth: number) => {
-    const inlineThreadsHeaderShellNode = inlineThreadsHeaderShellRef.current;
-    if (!inlineThreadsHeaderShellNode) {
-      return;
-    }
-    inlineThreadsHeaderShellNode.style.width = `${Math.max(
-      0,
-      Math.round(nextWidth),
-    )}px`;
-  }, []);
-  useEffect(() => {
-    if (!showInlineThreads) {
-      return;
-    }
-    syncInlineThreadsHeaderWidth(resolvedInlineThreadsWidth);
-  }, [
-    resolvedInlineThreadsWidth,
-    showInlineThreads,
-    syncInlineThreadsHeaderWidth,
-  ]);
-  useEffect(() => {
-    if (!showInlineThreads || typeof ResizeObserver === "undefined") {
-      return;
-    }
-    const inlineThreadsResizableColumnNode =
-      inlineThreadsResizableColumnRef.current;
-    if (!inlineThreadsResizableColumnNode) {
-      return;
-    }
-    const resizeObserver = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) {
-        return;
-      }
-      syncInlineThreadsHeaderWidth(entry.contentRect.width);
-    });
-    resizeObserver.observe(inlineThreadsResizableColumnNode);
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [showInlineThreads, syncInlineThreadsHeaderWidth]);
-  useEffect(() => {
-    inlineThreadsWidthStorage.setItem(
-      INLINE_THREADS_WIDTH_STORAGE_KEY,
-      String(inlineThreadsWidth),
-    );
-  }, [inlineThreadsWidth, inlineThreadsWidthStorage]);
-
-  const showThreadsOnlyView =
-    viewThreads && !showInlineThreads && projectChatAuxView === "none";
   const isAuxView = projectChatAuxView !== "none" || showThreadsOnlyView;
   const showConversationFilter = !isAuxView;
   const normalizedConversationSearchTerms = useMemo(
@@ -1393,8 +1175,6 @@ function ProjectChatSurface({
   }, [projectChatAuxView]);
   const handleToggleThreads = useCallback(() => {
     setProjectChatAuxView("none");
-    const isLargeEnoughForInlineThreads =
-      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
     setViewThreads((current) => {
       const nextViewThreads = !current;
       if (isLargeEnoughForInlineThreads) {
@@ -1402,7 +1182,7 @@ function ProjectChatSurface({
       }
       return nextViewThreads;
     });
-  }, [effectiveInlineThreadsViewportWidth]);
+  }, [isLargeEnoughForInlineThreads]);
   const handleOpenProjectSettingsAuxView = useCallback(() => {
     setProjectChatAuxView("ai_settings");
   }, [setProjectChatAuxView]);
@@ -1578,28 +1358,6 @@ function ProjectChatSurface({
       return { phase: "pending_chat_id" };
     });
   }, []);
-  const handleInlineThreadsHeaderHostRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      setInlineThreadsHeaderPortalTarget(node);
-    },
-    [],
-  );
-  const handleInlineThreadsHeaderShellRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      inlineThreadsHeaderShellRef.current = node;
-      if (!node) {
-        return;
-      }
-      node.style.width = `${Math.round(resolvedInlineThreadsWidth)}px`;
-    },
-    [resolvedInlineThreadsWidth],
-  );
-  const handleInlineThreadsResizableColumnRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      inlineThreadsResizableColumnRef.current = node;
-    },
-    [],
-  );
   const handleDraftThreadSettled = useCallback(
     (nextChatId: string | null, succeeded: boolean) => {
       if (succeeded && nextChatId && draftThreadTargetGroupId) {
@@ -1902,7 +1660,7 @@ function ProjectChatSurface({
             <Resizable
               className="h-full shrink-0"
               size={{ width: resolvedInlineThreadsWidth, height: "100%" }}
-              minWidth={INLINE_THREADS_MIN_WIDTH_PX}
+              minWidth={PROJECT_CHAT_INLINE_THREADS_MIN_WIDTH_PX}
               maxWidth={inlineThreadsMaxWidth}
               boundsByDirection
               enable={{
@@ -1924,11 +1682,10 @@ function ProjectChatSurface({
                 ),
               }}
               onResize={(_event, _direction, elementRef) => {
-                syncInlineThreadsHeaderWidth(elementRef.offsetWidth);
+                handleInlineThreadsResize(elementRef.offsetWidth);
               }}
               onResizeStop={(_event, _direction, elementRef) => {
-                syncInlineThreadsHeaderWidth(elementRef.offsetWidth);
-                updateInlineThreadsWidth(elementRef.offsetWidth);
+                handleInlineThreadsResizeStop(elementRef.offsetWidth);
               }}
             >
               <div
