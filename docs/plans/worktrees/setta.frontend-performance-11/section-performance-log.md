@@ -3662,3 +3662,46 @@ Append-only log for the section performance refactor.
     - the explicit shared-row compare against untouched `main`
     - the callable reorder/indent representative in `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
   - Do not move upward into `sectionChrome` until both gates are green.
+
+### 2026-03-17 100
+
+- Item: Reject the selection-mode pointer-suppression wrapper variant and restore the clean branch state.
+- Status: `needs_more_work`
+- Details:
+  - Continued from the same local wrapper path that had already restored the `GlobalVariables` shared-row geometry, but narrowed the interaction change to the direct key/value wrappers in:
+    - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - The narrowed variant:
+    - read `isSelectingParams` from `useMisc`
+    - disabled the key/value editors while param selection is active
+    - moved underline painting to wrapper pseudo-elements
+    - suppressed pointer ownership on the dummy/real CodeMirror surfaces during selection mode
+  - That narrower interaction variant still failed the callable reorder/indent representative:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+    - result under the variant: failed
+    - observed order after dragging `k` before `h`: `h > k > i > j`
+  - Focused verification observed under the reverted local variant:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+  - No production code from that variant was kept:
+    - reverted the local experiment
+    - restored the worktree to the clean committed branch state before continuing the tracker
+  - Explorer/code-read follow-up narrowed the likely owner seam:
+    - sortable ownership runs through `frontend/src/components/Params/ParamSwitch.tsx`, `frontend/src/components/Params/ParamContainer.tsx`, and `frontend/src/components/Params/ParamRowShell.tsx`
+    - the wrapper-local variant only changed descendant ownership in `frontend/src/components/Params/ParamItems/ParamNameInput.tsx` and `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - suppressing pointer events on the inner CodeMirror surfaces was therefore not a reliable transfer of drag ownership back to the row shell
+  - Recorded the dead end in:
+    - `perf/reports/frontend/2026-03-17_section-shell-s1-checkpoint1-selection-mode-pointer-suppression.md`
+  - Decision:
+    - do not land the selection-mode pointer-suppression wrapper variant
+    - checkpoint 1 stays open
+    - treat deeper row-owned drag/hit-testing coupling as the likely blocker rather than retrying another wrapper-local selection/pointer-events tweak
+- Next action:
+  - Keep the branch on the clean committed code state until a better lower-seam candidate exists.
+  - Investigate the shared row-contract owners with drag/hit-testing ownership in mind before trying another geometry correction:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamRowShell.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - Do not rerun the shared-row compare or move upward into `sectionChrome` until the callable reorder/indent representative is green on the next lower-seam candidate.
