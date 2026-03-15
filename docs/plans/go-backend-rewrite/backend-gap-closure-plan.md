@@ -126,3 +126,7 @@ categorize them.
   applies on the binary owner as on file browser: close the easy direct route
   proofs while they are near each other, then pivot once only broader setup
   remains
+- The artifact import missing-path versus directory-path transport split is now
+  proved too; keep using the matrix to spot these isolated typed-error rows on
+  already-open owners before switching back to the heavier deployment,
+  websocket, watch-code, external-agent, and packaged-CLI work
