@@ -212,6 +212,11 @@ categorize them.
 - Those two adjacent gitread proof rows are now closed too, so the next cheap
   queue should come from the remaining non-git proof-incomplete or missing
   owners instead of staying on this already-proved gitread cluster
+- The two remaining transcription-append transport/order rows are now proved
+  too, so the next cheap queue should likely come from similarly narrow
+  proof-only owners such as right-pane reveal precedence, managed-chat
+  whitespace frontend-affinity rejection, or the remote `stop` CLI forwarding
+  and conflicting-flag rows
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
