@@ -362,3 +362,64 @@ func TestResolveContextUsageIgnoresNonFiniteUsageValues(t *testing.T) {
 		t.Fatalf("expected invalid context window token to be ignored, got %#v", usage.ContextWindowTokens)
 	}
 }
+
+func TestResolveContextUsageAcceptsCodexAliasesAndPrefersExplicitContextUsedTokens(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+		"chatId":  "chat-usage-aliases",
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Outputs = map[string]any{
+		"usage": map[string]any{
+			"usedTokens":        88,
+			"contextUsedTokens": 24766,
+			"windowTokens":      258400,
+		},
+	}
+
+	usage := resolveContextUsage(run)
+	if usage == nil {
+		t.Fatal("expected usage from codex aliases")
+	}
+	if usage.ContextUsedTokens == nil || *usage.ContextUsedTokens != 24766 {
+		t.Fatalf("unexpected context used tokens %#v", usage.ContextUsedTokens)
+	}
+	if usage.ContextWindowTokens == nil || *usage.ContextWindowTokens != 258400 {
+		t.Fatalf("unexpected context window tokens %#v", usage.ContextWindowTokens)
+	}
+	if usage.Estimated {
+		t.Fatalf("expected explicit context window to disable estimation, got %#v", usage)
+	}
+}
+
+func TestResolveContextUsageRejectsFractionalValuesAndKeepsValidStringWindow(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": RunTypeExternalAgent,
+		"chatId":  "chat-usage-fractional",
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Outputs = map[string]any{
+		"usage": map[string]any{
+			"promptTokens":        -0.5,
+			"inputTokens":         "1.9",
+			"completionTokens":    1.9,
+			"contextWindowTokens": "4096",
+		},
+	}
+
+	usage := resolveContextUsage(run)
+	if usage == nil {
+		t.Fatal("expected valid context window usage")
+	}
+	if usage.ContextUsedTokens != nil {
+		t.Fatalf("expected invalid used token values to be ignored, got %#v", usage.ContextUsedTokens)
+	}
+	if usage.ContextWindowTokens == nil || *usage.ContextWindowTokens != 4096 {
+		t.Fatalf("unexpected context window tokens %#v", usage.ContextWindowTokens)
+	}
+	if usage.Estimated {
+		t.Fatalf("expected valid context window to disable estimation, got %#v", usage)
+	}
+}

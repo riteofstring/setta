@@ -358,6 +358,46 @@ func TestBuildSystemPromptUsesTemporaryProjectID(t *testing.T) {
 	}
 }
 
+func TestBuildSystemPromptRemovesCompletionContractWhenDisabledAndKeepsProfileContext(t *testing.T) {
+	t.Parallel()
+
+	prompt, err := buildSystemPrompt(
+		"Base prompt\n\n## Completion Reporting Contract\n- report status\n\n## Next Section\n- keep this",
+		agentprofiles.Profile{
+			Name:         "Alpha",
+			Description:  "Helper",
+			SystemPrompt: "Profile prompt",
+		},
+		"project-alpha",
+		nil,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("build system prompt: %v", err)
+	}
+	if strings.Contains(prompt, "Completion Reporting Contract") {
+		t.Fatalf("expected completion contract to be removed when disabled, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "## Next Section\n- keep this") {
+		t.Fatalf("expected other prompt sections to remain, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "## Active project config\n- id: project-alpha") {
+		t.Fatalf("expected active project config in prompt, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "## Agent profile") {
+		t.Fatalf("expected agent profile section, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "- name: Alpha") {
+		t.Fatalf("expected profile name in prompt, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "- description: Helper") {
+		t.Fatalf("expected profile description in prompt, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "Profile prompt") {
+		t.Fatalf("expected profile system prompt in prompt, got %q", prompt)
+	}
+}
+
 func buildServiceFixture(t *testing.T, execErr error) (*Service, *stubExecutor, *RunStore, *projectstate.Runtime) {
 	t.Helper()
 

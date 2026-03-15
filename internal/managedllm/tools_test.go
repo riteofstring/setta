@@ -1,11 +1,60 @@
 package managedllm
 
 import (
+	"reflect"
 	"testing"
 
 	"setta/internal/agentruns"
 	"setta/internal/mcpx"
 )
+
+func TestRequiredInternalToolNamesAddsCompletionStatusToolWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	got := requiredInternalToolNames(true)
+	want := []string{mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_completion_status")}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected required tool names %#v", got)
+	}
+}
+
+func TestRequiredInternalToolNamesOmitsCompletionStatusToolWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	if got := requiredInternalToolNames(false); got != nil {
+		t.Fatalf("expected no required tool names when completion guard is disabled, got %#v", got)
+	}
+}
+
+func TestIsSupportedCompletionStatusToolNameRequiresDefaultServerWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	if !isSupportedCompletionStatusToolName("setta__report_completion_status", true) {
+		t.Fatal("expected default completion status tool to be allowed")
+	}
+	if isSupportedCompletionStatusToolName("remote__report_completion_status", true) {
+		t.Fatal("expected non-default completion status tool to be rejected")
+	}
+	if !isSupportedCompletionStatusToolName("remote__report_completion_status", false) {
+		t.Fatal("expected completion status tool restrictions to relax when disabled")
+	}
+}
+
+func TestIsToolAllowedRejectsNonDefaultCompletionStatusToolEvenWhenAllowlisted(t *testing.T) {
+	t.Parallel()
+
+	allowlist := &toolAllowlist{
+		toolBasenames: map[string]struct{}{
+			"report_completion_status": {},
+		},
+	}
+	if isToolAllowed("remote__report_completion_status", allowlist, true) {
+		t.Fatal("expected non-default completion status tool to be rejected")
+	}
+	if !isToolAllowed("setta__report_completion_status", allowlist, true) {
+		t.Fatal("expected default completion status tool to remain allowed")
+	}
+}
 
 func TestBuildToolRequestMetaIncludesRunContextForWorkflowSignalTool(t *testing.T) {
 	t.Parallel()

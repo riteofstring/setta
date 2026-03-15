@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -449,8 +450,8 @@ func extractNonNegativeInt(raw any) *int {
 		if trimmed == "" {
 			return nil
 		}
-		var parsed int
-		if _, err := fmt.Sscanf(trimmed, "%d", &parsed); err != nil || parsed < 0 {
+		parsed, err := strconv.Atoi(trimmed)
+		if err != nil || parsed < 0 {
 			return nil
 		}
 		return &parsed
