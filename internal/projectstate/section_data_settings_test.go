@@ -68,6 +68,7 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 
 	todoColumnID := "todo"
+	doneColumnID := "done"
 	missingColumnID := "missing"
 	for _, viewMode := range []TaskBoardViewMode{
 		TaskBoardViewModeTaskList,
@@ -104,11 +105,63 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 					Completed:        true,
 					ColumnID:         &missingColumnID,
 					DueDateISO:       "",
-					Recurrence:       "daily",
+					Recurrence:       "hourly",
 					RecurrenceDays:   []string{},
 					RecurrenceMonths: []string{},
 					RecurrenceYears:  []int{},
 					SortIndex:        1,
+				},
+				{
+					ID:               "task-3",
+					Title:            "Task Three",
+					Description:      "",
+					Completed:        false,
+					ColumnID:         &doneColumnID,
+					DueDateISO:       "2026-01-14",
+					Recurrence:       "daily",
+					RecurrenceDays:   []string{},
+					RecurrenceMonths: []string{},
+					RecurrenceYears:  []int{},
+					SortIndex:        2,
+				},
+				{
+					ID:               "task-4",
+					Title:            "Task Four",
+					Description:      "Recurring on selected days",
+					Completed:        false,
+					ColumnID:         &doneColumnID,
+					DueDateISO:       "2026-01-15",
+					Recurrence:       "specified_days",
+					RecurrenceDays:   []string{"monday"},
+					RecurrenceMonths: []string{},
+					RecurrenceYears:  []int{},
+					SortIndex:        3,
+				},
+				{
+					ID:               "task-5",
+					Title:            "Task Five",
+					Description:      "Recurring in selected months",
+					Completed:        false,
+					ColumnID:         &doneColumnID,
+					DueDateISO:       "2026-01-16",
+					Recurrence:       "specified_months",
+					RecurrenceDays:   []string{},
+					RecurrenceMonths: []string{"january", "march"},
+					RecurrenceYears:  []int{},
+					SortIndex:        4,
+				},
+				{
+					ID:               "task-6",
+					Title:            "Task Six",
+					Description:      "Recurring in selected years",
+					Completed:        false,
+					ColumnID:         &doneColumnID,
+					DueDateISO:       "2026-01-17",
+					Recurrence:       "specified_years",
+					RecurrenceDays:   []string{},
+					RecurrenceMonths: []string{"january"},
+					RecurrenceYears:  []int{2026, 2028},
+					SortIndex:        5,
 				},
 			},
 		); err != nil {
@@ -163,8 +216,8 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 
 	rawTasks, ok := taskBoardPayload["tasks"].([]any)
-	if !ok || len(rawTasks) != 2 {
-		t.Fatalf("expected two task board tasks, got %#v", taskBoardPayload["tasks"])
+	if !ok || len(rawTasks) != 6 {
+		t.Fatalf("expected six task board tasks, got %#v", taskBoardPayload["tasks"])
 	}
 	secondTask, ok := rawTasks[1].(map[string]any)
 	if !ok {
@@ -172,6 +225,53 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 	if secondTask["columnId"] != nil {
 		t.Fatalf("expected unknown task columnId to normalize to nil, got %#v", secondTask["columnId"])
+	}
+	if got := payloadRawStringField(secondTask, "recurrence"); got != "hourly" {
+		t.Fatalf("expected hourly recurrence, got %q", got)
+	}
+	thirdTask, ok := rawTasks[2].(map[string]any)
+	if !ok {
+		t.Fatalf("expected third task board task object, got %#v", rawTasks[2])
+	}
+	if got := payloadRawStringField(thirdTask, "recurrence"); got != "daily" {
+		t.Fatalf("expected daily recurrence, got %q", got)
+	}
+	fourthTask, ok := rawTasks[3].(map[string]any)
+	if !ok {
+		t.Fatalf("expected fourth task board task object, got %#v", rawTasks[3])
+	}
+	if got := payloadRawStringField(fourthTask, "recurrence"); got != "specified_days" {
+		t.Fatalf("expected specified_days recurrence, got %q", got)
+	}
+	if got := payloadStringArrayField(fourthTask, "recurrenceDays"); len(got) != 1 || got[0] != "monday" {
+		t.Fatalf("expected recurrenceDays [monday], got %#v", got)
+	}
+	fifthTask, ok := rawTasks[4].(map[string]any)
+	if !ok {
+		t.Fatalf("expected fifth task board task object, got %#v", rawTasks[4])
+	}
+	if got := payloadRawStringField(fifthTask, "recurrence"); got != "specified_months" {
+		t.Fatalf("expected specified_months recurrence, got %q", got)
+	}
+	if got := payloadStringArrayField(fifthTask, "recurrenceMonths"); len(got) != 2 || got[0] != "january" || got[1] != "march" {
+		t.Fatalf("expected recurrenceMonths [january march], got %#v", got)
+	}
+	sixthTask, ok := rawTasks[5].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sixth task board task object, got %#v", rawTasks[5])
+	}
+	if got := payloadRawStringField(sixthTask, "recurrence"); got != "specified_years" {
+		t.Fatalf("expected specified_years recurrence, got %q", got)
+	}
+	if got := payloadStringArrayField(sixthTask, "recurrenceMonths"); len(got) != 1 || got[0] != "january" {
+		t.Fatalf("expected recurrenceMonths [january], got %#v", got)
+	}
+	rawYears, ok := sixthTask["recurrenceYears"].([]any)
+	if !ok || len(rawYears) != 2 {
+		t.Fatalf("expected recurrenceYears [2026 2028], got %#v", sixthTask["recurrenceYears"])
+	}
+	if rawYears[0] != float64(2026) || rawYears[1] != float64(2028) {
+		t.Fatalf("expected recurrenceYears [2026 2028], got %#v", rawYears)
 	}
 
 	imagePayload := projectPayload("image-section", "image-variant")

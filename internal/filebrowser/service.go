@@ -413,9 +413,6 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 			item.IsSettaInitialized = &value
 		}
 		items = append(items, item)
-		if len(items) >= maxEntries {
-			break
-		}
 	}
 
 	sort.Slice(items, func(i int, j int) bool {
@@ -426,6 +423,9 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 		}
 		return strings.ToLower(left.Name) < strings.ToLower(right.Name)
 	})
+	if len(items) > maxEntries {
+		items = append([]FolderContentItem(nil), items[:maxEntries]...)
+	}
 	return items, nil
 }
 

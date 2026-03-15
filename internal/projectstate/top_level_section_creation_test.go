@@ -755,6 +755,71 @@ func TestProjectCreateTopLevelSectionAppliesSettingsBackedTaskBoardDefaults(t *t
 	}
 }
 
+func TestProjectCreateTopLevelSectionPreservesExplicitEmptyTaskBoardColumnsOverride(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["TaskBoard"] = map[string]any{
+		"columns": nil,
+	}
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "TaskBoard",
+		ImplOverrides: map[string]any{
+			"columns": []any{},
+		},
+	}, settings)
+	if err != nil {
+		t.Fatalf("create task board top level section with explicit empty columns override: %v", err)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+	if err != nil {
+		t.Fatalf("effective task board payload: %v", err)
+	}
+	rawColumns, ok := payload["columns"].([]any)
+	if !ok {
+		t.Fatalf("expected task board columns array, got %#v", payload["columns"])
+	}
+	if len(rawColumns) != 0 {
+		t.Fatalf("expected explicit empty override to suppress default columns, got %#v", rawColumns)
+	}
+}
+
+func TestProjectCreateTopLevelSectionPreservesExplicitEmptyTaskBoardSettingsColumns(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["TaskBoard"] = map[string]any{
+		"viewMode": "task_list",
+		"columns":  []any{},
+	}
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "TaskBoard",
+	}, settings)
+	if err != nil {
+		t.Fatalf("create task board top level section with explicit empty settings columns: %v", err)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+	if err != nil {
+		t.Fatalf("effective task board payload: %v", err)
+	}
+	if got := payloadStringField(payload, "viewMode"); got != string(TaskBoardViewModeTaskList) {
+		t.Fatalf("expected task board viewMode %q, got %q", TaskBoardViewModeTaskList, got)
+	}
+	rawColumns, ok := payload["columns"].([]any)
+	if !ok {
+		t.Fatalf("expected task board columns array, got %#v", payload["columns"])
+	}
+	if len(rawColumns) != 0 {
+		t.Fatalf("expected explicit empty settings columns to remain empty, got %#v", rawColumns)
+	}
+}
+
 func TestProjectCreateTopLevelSectionAppliesSettingsBackedTextBlockHeadingName(t *testing.T) {
 	t.Parallel()
 

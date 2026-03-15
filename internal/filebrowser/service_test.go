@@ -148,6 +148,58 @@ func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 	}
 }
 
+func TestServiceListFolderAppliesEntryCapAfterFolderFirstCaseInsensitiveSortAndIncludesMtime(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	folderPath := filepath.Join(workspaceRoot, "z-folder")
+	if err := os.MkdirAll(folderPath, 0o755); err != nil {
+		t.Fatalf("mkdir folder: %v", err)
+	}
+	for _, name := range []string{"B-file.txt", "a-file.txt"} {
+		if err := os.WriteFile(filepath.Join(workspaceRoot, name), []byte(name), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	maxEntries := 2
+	items, err := service.ListFolder(context.Background(), ListFolderRequest{
+		FolderPath:     workspaceRoot,
+		MaxEntries:     &maxEntries,
+		IncludeMtime:   true,
+		IncludeSize:    false,
+		IgnorePatterns: []string{},
+	})
+	if err != nil {
+		t.Fatalf("list folder: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected two listed items, got %#v", items)
+	}
+
+	if items[0].Type != "folder" || items[0].Name != "z-folder" {
+		t.Fatalf("expected folder-first sort to keep z-folder first under cap, got %#v", items)
+	}
+	if items[0].FullPath != folderPath {
+		t.Fatalf("expected normalized folder fullPath %q, got %q", folderPath, items[0].FullPath)
+	}
+	if items[0].Mtime == nil {
+		t.Fatalf("expected folder mtime to be included, got %#v", items[0])
+	}
+
+	secondPath := filepath.Join(workspaceRoot, "a-file.txt")
+	if items[1].Type != "file" || items[1].Name != "a-file.txt" {
+		t.Fatalf("expected case-insensitive file sort to keep a-file.txt second, got %#v", items)
+	}
+	if items[1].FullPath != secondPath {
+		t.Fatalf("expected normalized file fullPath %q, got %q", secondPath, items[1].FullPath)
+	}
+	if items[1].Mtime == nil {
+		t.Fatalf("expected file mtime to be included, got %#v", items[1])
+	}
+}
+
 func TestServiceReadWriteAndDownloadFlow(t *testing.T) {
 	t.Parallel()
 
