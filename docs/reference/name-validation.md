@@ -54,7 +54,7 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 
 - `InvalidProjectName` is raised for violations.
 - Project rename/create routes translate this to HTTP 422 in
-  `backend/setta/routers/projects.py`.
+  `internal/httpapi/project_shell_routes.go`.
 
 ## View Mode Names
 
@@ -73,7 +73,7 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 
 - `InvalidViewModeName` is raised for violations.
 - View mode rename routes translate this to HTTP 422 in
-  `backend/setta/routers/project_manager.py`.
+  `internal/httpapi/project_routes.go`.
 
 ## Window Space Names
 
@@ -95,7 +95,7 @@ Applied by `validate_project_name_format` and `validate_section_name_format`:
 
 - `InvalidWindowSpaceName` is raised for violations.
 - Window-space rename/create routes translate this to HTTP 422 in
-  `backend/setta/routers/project_manager.py`.
+  `internal/httpapi/project_routes.go`.
 
 ## Section Names
 
@@ -135,7 +135,7 @@ against the same rules and reports errors as:
 
 - `InvalidSectionName` is raised for violations.
 - Section rename routes translate this to HTTP 422 in
-  `backend/setta/routers/project_manager.py`.
+  `internal/httpapi/project_routes.go`.
 
 ## Param Names
 
@@ -166,7 +166,7 @@ that param hierarchy. The check is exact-match after trimming.
 
 - `InvalidParamName` is raised for violations.
 - Param rename routes translate this to HTTP 422 in
-  `backend/setta/routers/project_manager.py`.
+  `internal/httpapi/project_routes.go`.
 
 ## Validation Flows
 
