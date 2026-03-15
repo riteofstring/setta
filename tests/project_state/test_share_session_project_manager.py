@@ -29,7 +29,9 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
 )
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -176,7 +178,7 @@ def _write_project_with_states(
     backend.defaultProjectConfigId = resolved_default_id
     dbe = DBE(root)
     dbe.write_project(backend)
-    backend.projectConfigs[resolved_default_id]
+    default_config = backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -219,9 +221,14 @@ class TestShareSessionProjectManager:
             share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_manager,
                 settings_file=settings_file,
+                python_script_sender=python_sender,
                 lsp_writers=None,
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),
@@ -267,9 +274,14 @@ class TestShareSessionProjectManager:
             share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_manager,
                 settings_file=settings_file,
+                python_script_sender=python_sender,
                 lsp_writers=None,
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),

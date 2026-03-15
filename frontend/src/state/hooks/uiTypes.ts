@@ -4,11 +4,8 @@ import {
   getCurrEffectiveCodeObjImplOfType,
   getCurrEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
-import {
-  useLocalStorage,
-  useProjectState,
-  ZustandProjectState,
-} from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabLocalStorage,
