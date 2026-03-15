@@ -1180,6 +1180,268 @@ func TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs(t *test
 	}
 }
 
+func TestRegisterProjectRoutesSectionVariantMutationsUseDeploymentOverlayWhenVariantChangesAllowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": sectionVariantRouteTestProject(t, true),
+					},
+				},
+				Policy: map[string]any{
+					"allowVariantChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			doRequest := func(route string, body string) *httptest.ResponseRecorder {
+				t.Helper()
+				request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				return response
+			}
+
+			createResponse := doRequest(
+				RouteCreateNewSectionVariant,
+				`{"projectConfigId":"project-alpha","sectionId":"source-section","frontendOpId":"frontend-op-create-variant"}`,
+			)
+			if createResponse.Code != http.StatusOK {
+				t.Fatalf("expected 200 for createNewSectionVariant, got %d with body %q", createResponse.Code, createResponse.Body.String())
+			}
+
+			var created CreateNewSectionVariantResponse
+			if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
+				t.Fatalf("decode createNewSectionVariant response: %v", err)
+			}
+			if strings.TrimSpace(created.VariantID) == "" {
+				t.Fatal("expected createNewSectionVariant to return a variant id")
+			}
+
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteSetSectionVariant,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-a","frontendOpId":"frontend-op-set-variant"}`,
+				},
+				{
+					route: RouteSetDefaultSectionVariant,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-a","frontendOpId":"frontend-op-set-default"}`,
+				},
+				{
+					route: RouteSetSectionVariantSortOrder,
+					body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","sectionId":"source-section","orderedVariantIds":["source-variant-a",%q,"source-variant-b"],"frontendOpId":"frontend-op-sort-variants"}`, created.VariantID),
+				},
+				{
+					route: RouteSetSectionVariantName,
+					body:  `{"projectConfigId":"project-alpha","variantId":"source-variant-a","name":"Renamed Variant","frontendOpId":"frontend-op-rename-variant"}`,
+				},
+				{
+					route: RouteToggleVariantFrozen,
+					body:  `{"projectConfigId":"project-alpha","variantId":"source-variant-a","frontendOpId":"frontend-op-freeze-variant"}`,
+				},
+				{
+					route: RouteToggleVariantJSONSource,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","frontendOpId":"frontend-op-toggle-json-source"}`,
+				},
+				{
+					route: RouteSetVariantJSONSourceKeys,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","jsonSourceKeys":["config","nested"],"frontendOpId":"frontend-op-json-source-keys"}`,
+				},
+			} {
+				response := doRequest(requestSpec.route, requestSpec.body)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+				}
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			if _, ok := overlayProject.SectionVariants[created.VariantID]; !ok {
+				t.Fatalf("expected created overlay variant %q to persist", created.VariantID)
+			}
+			if got := overlayProject.SectionVariantMap["source-section"]; got != "source-variant-a" {
+				t.Fatalf("expected overlay active variant source-variant-a, got %q", got)
+			}
+			if got := overlayProject.Sections["source-section"].DefaultVariantID; got != "source-variant-a" {
+				t.Fatalf("expected overlay default variant source-variant-a, got %q", got)
+			}
+			if got := overlayProject.Sections["source-section"].VariantIDs; len(got) != 3 || got[0] != "source-variant-a" || got[1] != created.VariantID || got[2] != "source-variant-b" {
+				t.Fatalf("expected overlay source-section variants [source-variant-a %s source-variant-b], got %#v", created.VariantID, got)
+			}
+			if got := overlayProject.SectionVariants["source-variant-a"].Name; got != "Renamed Variant" {
+				t.Fatalf("expected overlay source-variant-a name Renamed Variant, got %q", got)
+			}
+			if !overlayProject.SectionVariants["source-variant-a"].IsFrozen {
+				t.Fatal("expected overlay source-variant-a to be frozen after toggle")
+			}
+			overlayPayload, err := overlayProject.EffectiveSectionPayload("json-section", "json-variant-b")
+			if err != nil {
+				t.Fatalf("overlay effective payload after json-source mutations: %v", err)
+			}
+			overlayIsJSONSource, _ := overlayPayload["isJsonSource"].(bool)
+			if !overlayIsJSONSource {
+				t.Fatal("expected overlay json-variant-b payload to enable json source")
+			}
+			overlayConfigLanguage, _ := overlayPayload["configLanguage"].(string)
+			if overlayConfigLanguage != "json" {
+				t.Fatalf("expected overlay json-variant-b configLanguage json, got %q", overlayConfigLanguage)
+			}
+			overlayRawKeys, _ := overlayPayload["jsonSourceKeys"].([]any)
+			if len(overlayRawKeys) != 2 || overlayRawKeys[0] != "config" || overlayRawKeys[1] != "nested" {
+				t.Fatalf("expected overlay json-variant-b jsonSourceKeys [config nested], got %#v", overlayRawKeys)
+			}
+
+			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+			if _, ok := baseProject.SectionVariants[created.VariantID]; ok {
+				t.Fatalf("expected base project not to persist created variant %q", created.VariantID)
+			}
+			if got := baseProject.SectionVariantMap["source-section"]; got != "source-variant-b" {
+				t.Fatalf("expected base active variant source-variant-b, got %q", got)
+			}
+			if got := baseProject.Sections["source-section"].DefaultVariantID; got != "source-variant-b" {
+				t.Fatalf("expected base default variant source-variant-b, got %q", got)
+			}
+			if got := baseProject.Sections["source-section"].VariantIDs; len(got) != 2 || got[0] != "source-variant-a" || got[1] != "source-variant-b" {
+				t.Fatalf("expected base source-section variants unchanged, got %#v", got)
+			}
+			if got := baseProject.SectionVariants["source-variant-a"].Name; got != "" {
+				t.Fatalf("expected base source-variant-a name unchanged, got %q", got)
+			}
+			if baseProject.SectionVariants["source-variant-a"].IsFrozen {
+				t.Fatal("expected base source-variant-a frozen flag unchanged")
+			}
+			basePayload, err := baseProject.EffectiveSectionPayload("json-section", "json-variant-b")
+			if err != nil {
+				t.Fatalf("base effective payload after overlay json-source mutations: %v", err)
+			}
+			baseIsJSONSource, _ := basePayload["isJsonSource"].(bool)
+			if baseIsJSONSource {
+				t.Fatal("expected base json-variant-b payload to remain non-json-source")
+			}
+			baseConfigLanguage, _ := basePayload["configLanguage"].(string)
+			if baseConfigLanguage != "python" {
+				t.Fatalf("expected base json-variant-b configLanguage python, got %q", baseConfigLanguage)
+			}
+			baseRawKeys, _ := basePayload["jsonSourceKeys"].([]any)
+			if len(baseRawKeys) != 0 {
+				t.Fatalf("expected base json-variant-b jsonSourceKeys unchanged, got %#v", baseRawKeys)
+			}
+		})
+	}
+}
+
+func TestRegisterProjectRoutesSectionVariantMutationsRejectDeploymentPolicyWhenVariantChangesDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: mode,
+				Document: projectstate.Document{
+					SchemaVersion:    projectstate.CurrentSchemaVersion,
+					DefaultProjectID: "project-alpha",
+					Projects: map[string]projectstate.Project{
+						"project-alpha": sectionVariantRouteTestProject(t, true),
+					},
+				},
+				Policy: map[string]any{
+					"allowVariantChanges": false,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay before rejected variant mutations: %v", err)
+			}
+			before := overlay.Snapshot().Document.Projects["project-alpha"]
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			assertForbidden := func(t *testing.T, response *httptest.ResponseRecorder, route string) {
+				t.Helper()
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("expected 403 for %s, got %d with body %q", route, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"variant_changes_forbidden"`) {
+					t.Fatalf("expected variant_changes_forbidden body, got %q", response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment policy disallows variant changes.") {
+					t.Fatalf("expected deployment variant policy denial, got %q", response.Body.String())
+				}
+			}
+
+			for _, requestSpec := range []struct {
+				route string
+				body  string
+			}{
+				{
+					route: RouteCreateNewSectionVariant,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","frontendOpId":"frontend-op-create-variant"}`,
+				},
+				{
+					route: RouteSetSectionVariant,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-a","frontendOpId":"frontend-op-set-variant"}`,
+				},
+				{
+					route: RouteSetDefaultSectionVariant,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-a","frontendOpId":"frontend-op-set-default"}`,
+				},
+				{
+					route: RouteSetSectionVariantSortOrder,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","orderedVariantIds":["source-variant-a","source-variant-b"],"frontendOpId":"frontend-op-sort-variants"}`,
+				},
+				{
+					route: RouteSetSectionVariantName,
+					body:  `{"projectConfigId":"project-alpha","variantId":"source-variant-a","name":"Renamed Variant","frontendOpId":"frontend-op-rename-variant"}`,
+				},
+				{
+					route: RouteToggleVariantFrozen,
+					body:  `{"projectConfigId":"project-alpha","variantId":"source-variant-a","frontendOpId":"frontend-op-freeze-variant"}`,
+				},
+				{
+					route: RouteToggleVariantJSONSource,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","frontendOpId":"frontend-op-toggle-json-source"}`,
+				},
+				{
+					route: RouteSetVariantJSONSourceKeys,
+					body:  `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","jsonSourceKeys":["config","nested"],"frontendOpId":"frontend-op-json-source-keys"}`,
+				},
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				assertForbidden(t, response, requestSpec.route)
+			}
+
+			after := overlay.Snapshot().Document.Projects["project-alpha"]
+			if !reflect.DeepEqual(after, before) {
+				t.Fatalf("expected rejected overlay variant mutations to leave project unchanged, got %#v", after)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesReturnsCompletedFrontendOpIDsAfterMutation(t *testing.T) {
 	t.Parallel()
 

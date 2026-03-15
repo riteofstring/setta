@@ -1565,6 +1565,14 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteSetTopLevelSectionLayout, setTopLevelSectionLayoutHandler(deps))
 		router.With(shareGuard).Post(RouteAutoLayoutTopLevelSections, autoLayoutTopLevelSectionsHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionSizes, setSectionSizesHandler(deps))
+		router.With(shareGuard).Post(RouteCreateNewSectionVariant, createNewSectionVariantHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionVariant, setSectionVariantHandler(deps))
+		router.With(shareGuard).Post(RouteSetDefaultSectionVariant, setDefaultSectionVariantHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionVariantSortOrder, setSectionVariantSortOrderHandler(deps))
+		router.With(shareGuard).Post(RouteToggleVariantFrozen, toggleVariantFrozenHandler(deps))
+		router.With(shareGuard).Post(RouteToggleVariantJSONSource, toggleVariantJSONSourceHandler(deps))
+		router.With(shareGuard).Post(RouteSetVariantJSONSourceKeys, setVariantJSONSourceKeysHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionVariantName, setSectionVariantNameHandler(deps))
 		router.With(shareGuard).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 		router.With(shareGuard).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 		router.With(shareGuard).Post(RouteSetViewport, setViewportHandler(deps))
@@ -2097,12 +2105,17 @@ func createNewSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		_, result, err := deps.ProjectState.CreateNewSectionVariant(
+		_, result, err := runtime.CreateNewSectionVariant(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.CreateNewSectionVariantInput{SectionID: payload.SectionID},
@@ -2128,12 +2141,17 @@ func setSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionVariant(
+		if _, err := runtime.SetSectionVariant(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.SectionID,
@@ -2159,12 +2177,17 @@ func setDefaultSectionVariantHandler(deps ProjectRouteDependencies) http.Handler
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetDefaultSectionVariant(
+		if _, err := runtime.SetDefaultSectionVariant(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.SectionID,
@@ -2190,12 +2213,17 @@ func setSectionVariantSortOrderHandler(deps ProjectRouteDependencies) http.Handl
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionVariantSortOrder(
+		if _, err := runtime.SetSectionVariantSortOrder(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.SectionID,
@@ -2221,12 +2249,17 @@ func toggleVariantFrozenHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleVariantFrozen(
+		if _, err := runtime.ToggleVariantFrozen(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.VariantID,
@@ -2251,12 +2284,17 @@ func toggleVariantJSONSourceHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleVariantJSONSource(
+		if _, err := runtime.ToggleVariantJSONSource(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.SectionID,
@@ -2282,12 +2320,17 @@ func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.Handler
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetVariantJSONSourceKeys(
+		if _, err := runtime.SetVariantJSONSourceKeys(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.SectionID,
@@ -2314,12 +2357,17 @@ func setSectionVariantNameHandler(deps ProjectRouteDependencies) http.HandlerFun
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionVariantName(
+		if _, err := runtime.SetSectionVariantName(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.VariantID,
