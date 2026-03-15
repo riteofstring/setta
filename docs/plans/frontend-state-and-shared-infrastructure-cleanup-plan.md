@@ -96,7 +96,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   tool-preview cleanup; `frontend/src/state/actions/sectionInfos.ts` is now a
   thin compatibility facade over those dedicated surfaces.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
-  websocket payload dispatch, project/app snapshot routing, and
+  websocket payload parsing and feature-specific dispatch,
+  `frontend/src/state/actions/websocketIncomingProjectSnapshots.ts` now owns
+  project/app snapshot routing, and
+  `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` now owns
   `UISettingReveal` ACK handling that previously lived in
   `frontend/src/state/actions/websocketReceive.ts`; future cleanup should keep
   new incoming websocket event handlers on that dedicated module instead of
@@ -280,19 +283,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
+  - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/websocketIncomingMessages.ts` at 350 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
+  - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
-  - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
   `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
@@ -450,7 +452,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - reusable graph and cleared-selection state builders
 - `websocketIncomingMessages.ts` now owns:
   - frontend websocket payload parsing and feature-specific dispatch
+- `websocketIncomingProjectSnapshots.ts` now owns:
   - project/app snapshot routing for inbound websocket updates
+- `websocketIncomingUISettingReveal.ts` now owns:
   - `UISettingReveal` ACK validation and failure-status construction
 - `sectionInfos.ts` is now:
   - a thin compatibility facade that re-exports the narrower section helper owners

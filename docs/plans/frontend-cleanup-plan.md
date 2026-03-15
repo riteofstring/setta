@@ -237,9 +237,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/params/moveParams.ts` is down to 250 lines for
   public select/move/indent or unindent command orchestration.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
-  websocket payload dispatch, project/app snapshot routing, and
-  `UISettingReveal` ACK handling, reducing
-  the old websocket surface into a thin `websocketReceive.ts` facade plus
+  websocket payload parsing plus feature-specific dispatch,
+  `frontend/src/state/actions/websocketIncomingProjectSnapshots.ts` now owns
+  project/app snapshot routing, and
+  `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` now owns
+  `UISettingReveal` ACK handling, reducing the old websocket surface into a
+  thin `websocketReceive.ts` facade plus
   `frontend/src/state/actions/websocketLifecycle.ts` for transport wiring,
   `frontend/src/state/actions/websocketBootstrap.ts` for socket-open
   bootstrap, `frontend/src/state/actions/websocketAuthRecovery.ts` for auth
@@ -536,7 +539,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/websocketIncomingMessages.ts`, `state/actions/aiChatSubmissionPayload.ts`, `state/actions/windowSpacePersistence.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiChatSubmissionPayload.ts`, `state/actions/windowSpacePersistence.ts`, `state/actions/sections/createSectionCatalog.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

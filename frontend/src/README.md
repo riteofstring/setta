@@ -365,8 +365,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/artifacts.ts` is now a thin compatibility facade over the
     narrower artifact update and sync owners.
   - `state/actions/websocketIncomingMessages.ts` owns frontend websocket
-    payload dispatch, project/app snapshot routing, and `UISettingReveal` ACK
-    handling.
+    payload parsing and feature-specific dispatch.
+  - `state/actions/websocketIncomingProjectSnapshots.ts` owns project/app
+    snapshot routing for inbound websocket updates.
+  - `state/actions/websocketIncomingUISettingReveal.ts` owns inbound
+    `UISettingReveal` ACK validation, failure-status construction, and result
+    sends.
   - `state/actions/websocketReceive.ts` is now a thin compatibility facade.
   - `state/actions/websocketLifecycle.ts` owns socket transport lifecycle,
     active-socket listener wiring, replacement, and reconnect scheduling.
