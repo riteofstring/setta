@@ -761,3 +761,13 @@ dedicated plugin language-server Playwright coverage no longer present that
 path as an active product feature. That removes the last active plugin-worker
 language-server product/runtime surface even though the transitional Python
 worker implementation still remains in-tree for cleanup.
+
+A later follow-up rewrite step then removed the dead plugin-worker
+language-server registration machinery itself. The Python worker no longer
+advertises `host.register_language_server`, the Go worker host no longer
+accepts or normalizes language-server registrations, the old backend
+registration loader/runtime overlay was deleted, and plugin runtime/status now
+hardcode empty backend-registration arrays instead of loading worker-backed
+language-server data. After that slice, the remaining Python plugin-worker
+cleanup is no longer language-server related; it is limited to the separate
+codegen-target worker machinery that still exists in-tree.

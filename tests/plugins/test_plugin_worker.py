@@ -710,55 +710,6 @@ def test_worker_register_codegen_target_and_invoke_codegen_target(
         _stop_worker(worker)
 
 
-@pytest.mark.parametrize(
-    ("entrypoint_source", "expected_payload_label"),
-    [
-        (
-            "def register(plugin):\n"
-            "    class NotSerializable:\n"
-            "        pass\n\n"
-            "    plugin.register_language_server(\n"
-            "        {\n"
-            "            'language': 'typescript',\n"
-            "            'command': 'python',\n"
-            "            'args': ['agent.py'],\n"
-            "            'settingsKey': NotSerializable(),\n"
-            "        }\n"
-            "    )\n",
-            "language server payload",
-        ),
-    ],
-)
-def test_worker_register_rejects_non_json_serializable_registration_payloads(
-    tmp_path: Path,
-    entrypoint_source: str,
-    expected_payload_label: str,
-) -> None:
-    # Worker registration should reject non-JSON-serializable host registration payloads.
-    plugin_root = _copy_backend_fixture(tmp_path)
-    (plugin_root / "backend" / "entrypoint.py").write_text(
-        entrypoint_source,
-        encoding="utf-8",
-    )
-    worker = _start_worker(plugin_root)
-    try:
-        _ = _rpc_call(
-            worker,
-            request_id=1,
-            method="plugin.initialize",
-        )
-        register_response = _rpc_call(
-            worker,
-            request_id=2,
-            method="plugin.register",
-        )
-        assert register_response["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
-        assert "non-JSON-serializable" in register_response["error"]["message"]
-        assert expected_payload_label in register_response["error"]["message"]
-    finally:
-        _stop_worker(worker)
-
-
 def test_worker_register_rejects_async_register(tmp_path: Path) -> None:
     # Worker registration should reject async register(plugin) contracts in MVP.
     plugin_root = _copy_backend_fixture(tmp_path)

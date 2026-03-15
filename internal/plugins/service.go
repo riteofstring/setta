@@ -24,26 +24,24 @@ type CandidateProvider interface {
 type RestartCallback func(context.Context) (bool, error)
 
 type ServiceOptions struct {
-	Store                       *Store
-	DiscoveryService            *DiscoveryService
-	BackendRuntimeRegistrations BackendRegistrationSource
-	WorkspaceRoot               string
-	SettaFilesRoot              string
-	SettaHome                   string
-	ServerMode                  config.Mode
-	RestartCommand              string
-	RestartCallback             RestartCallback
-	SettaVersion                string
-	CandidateProvider           CandidateProvider
-	PackageManagerRuntime       *pythonenv.Runtime
-	PackageManagerSearchPaths   []string
+	Store                     *Store
+	DiscoveryService          *DiscoveryService
+	WorkspaceRoot             string
+	SettaFilesRoot            string
+	SettaHome                 string
+	ServerMode                config.Mode
+	RestartCommand            string
+	RestartCallback           RestartCallback
+	SettaVersion              string
+	CandidateProvider         CandidateProvider
+	PackageManagerRuntime     *pythonenv.Runtime
+	PackageManagerSearchPaths []string
 }
 
 type Service struct {
 	store             *Store
 	discoveryService  *DiscoveryService
 	candidateProvider CandidateProvider
-	backendRuntime    BackendRegistrationSource
 	restartCommand    string
 	restartCallback   RestartCallback
 	settaVersion      string
@@ -85,7 +83,6 @@ func NewService(options ServiceOptions) (*Service, error) {
 		store:                       store,
 		discoveryService:            discoveryService,
 		candidateProvider:           options.CandidateProvider,
-		backendRuntime:              options.BackendRuntimeRegistrations,
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
 		restartCallback:             options.RestartCallback,
 		settaVersion:                resolvedSettaVersion(options.SettaVersion),

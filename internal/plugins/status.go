@@ -81,13 +81,6 @@ type statusEntryRuntimeDigestPayload struct {
 	Errors                          []PluginErrorInfo                      `json:"errors"`
 }
 
-type pluginStatusRuntimeDetails struct {
-	registeredLanguageServers       []PluginRegisteredLanguageServer
-	registeredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter
-	registeredCodegenTargets        []PluginRegisteredCodegenTarget
-	errors                          []PluginErrorInfo
-}
-
 func (s *Service) Status() (StatusResponse, error) {
 	if s == nil {
 		return StatusResponse{}, ErrWorkspaceRootRequired
@@ -100,7 +93,7 @@ func (s *Service) Status() (StatusResponse, error) {
 	if err != nil {
 		return StatusResponse{}, err
 	}
-	return statusResponseFromSnapshot(snapshot, s.restartCapability(), s.loadStatusRuntimeDetailsLocked(snapshot)), nil
+	return statusResponseFromSnapshot(snapshot, s.restartCapability()), nil
 }
 
 func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
@@ -126,7 +119,7 @@ func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
 		if entry.State != PluginRuntimeStatePendingRestart {
 			continue
 		}
-		pendingPlugins = append(pendingPlugins, statusEntryFromDiscoveredPlugin(entry, pluginStatusRuntimeDetails{}))
+		pendingPlugins = append(pendingPlugins, statusEntryFromDiscoveredPlugin(entry))
 		pendingIDsFromStatus[entry.PluginID] = struct{}{}
 	}
 
@@ -190,10 +183,10 @@ func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
 	}, nil
 }
 
-func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCapability, detailsByPluginID map[string]pluginStatusRuntimeDetails) StatusResponse {
+func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCapability) StatusResponse {
 	entries := make([]StatusEntry, 0, len(snapshot.Plugins))
 	for _, entry := range snapshot.Plugins {
-		entries = append(entries, statusEntryFromDiscoveredPlugin(entry, detailsByPluginID[entry.PluginID]))
+		entries = append(entries, statusEntryFromDiscoveredPlugin(entry))
 	}
 	return StatusResponse{
 		SchemaVersion:     pluginStatusSchemaVersion,
@@ -203,9 +196,8 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCa
 	}
 }
 
-func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatusRuntimeDetails) StatusEntry {
-	errors := mergePluginErrorSlices(entry.Errors, details.errors)
-	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry, details)
+func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
+	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry)
 	return StatusEntry{
 		PluginID:                        entry.PluginID,
 		Name:                            entry.Name,
@@ -222,25 +214,25 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatu
 		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
 		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		RegisteredLanguageServers:       cloneRegisteredLanguageServersOrEmpty(details.registeredLanguageServers),
-		RegisteredExternalAgentAdapters: cloneRegisteredExternalAgentAdaptersOrEmpty(details.registeredExternalAgentAdapters),
-		RegisteredCodegenTargets:        cloneRegisteredCodegenTargetsOrEmpty(details.registeredCodegenTargets),
+		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
+		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
+		RegisteredCodegenTargets:        []PluginRegisteredCodegenTarget{},
 		EnablementSource:                cloneOptionalEnablementSource(entry.EnablementSource),
 		RestartRequired:                 entry.RestartRequired,
 		RuntimePayloadDigestSHA256:      runtimeDigest,
-		Errors:                          errors,
+		Errors:                          clonePluginErrorsOrEmpty(entry.Errors),
 	}
 }
 
-func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin, details pluginStatusRuntimeDetails) string {
+func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 	payload := statusEntryRuntimeDigestPayload{
 		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
 		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
 		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		RegisteredLanguageServers:       cloneRegisteredLanguageServersOrEmpty(details.registeredLanguageServers),
-		RegisteredExternalAgentAdapters: cloneRegisteredExternalAgentAdaptersOrEmpty(details.registeredExternalAgentAdapters),
-		RegisteredCodegenTargets:        cloneRegisteredCodegenTargetsOrEmpty(details.registeredCodegenTargets),
-		Errors:                          mergePluginErrorSlices(entry.Errors, details.errors),
+		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
+		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
+		RegisteredCodegenTargets:        []PluginRegisteredCodegenTarget{},
+		Errors:                          clonePluginErrorsOrEmpty(entry.Errors),
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -248,31 +240,6 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin, details plug
 	}
 	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:])
-}
-
-func (s *Service) loadStatusRuntimeDetailsLocked(snapshot DiscoverySnapshot) map[string]pluginStatusRuntimeDetails {
-	if s == nil || s.backendRuntime == nil {
-		return map[string]pluginStatusRuntimeDetails{}
-	}
-
-	detailsByPluginID := make(map[string]pluginStatusRuntimeDetails, len(snapshot.Plugins))
-	for _, entry := range snapshot.Plugins {
-		if !shouldLoadBackendRegistrations(entry) {
-			continue
-		}
-		snapshot := s.backendRuntime.SnapshotBackendRegistrations(context.Background(), entry)
-		if len(snapshot.LanguageServers) == 0 &&
-			len(snapshot.CodegenTargets) == 0 &&
-			len(snapshot.Errors) == 0 {
-			continue
-		}
-		detailsByPluginID[entry.PluginID] = pluginStatusRuntimeDetails{
-			registeredLanguageServers: cloneRegisteredLanguageServersOrEmpty(snapshot.LanguageServers),
-			registeredCodegenTargets:  cloneRegisteredCodegenTargetsOrEmpty(snapshot.CodegenTargets),
-			errors:                    clonePluginErrorsOrEmpty(snapshot.Errors),
-		}
-	}
-	return detailsByPluginID
 }
 
 func cloneStringSliceOrEmpty(values []string) []string {

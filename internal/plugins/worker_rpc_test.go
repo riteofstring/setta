@@ -107,13 +107,7 @@ func TestWorkerRPCClientCallWithPythonWorkerRegistersCodegenTarget(t *testing.T)
 
 // Nested host failures should surface back through the worker as a typed Go RPC error.
 func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing.T) {
-	host, err := NewWorkerHost(WorkerHostOptions{
-		LanguageServerRegistrar: NewLanguageServerRegistry(),
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
-
+	host := &WorkerHost{}
 	process := newWorkerRPCTestProcess(t, workerRPCTestProcessOptions{
 		Host: host,
 	})
@@ -126,6 +120,7 @@ func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing
 		t.Fatalf("initialize worker: %v\nstderr:\n%s", err, process.stderr.String())
 	}
 
+	var err error
 	_, err = process.client.Call(ctx, "plugin.register", nil)
 	if err == nil {
 		t.Fatal("expected register error")

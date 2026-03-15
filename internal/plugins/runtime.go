@@ -107,7 +107,6 @@ func (s *Service) Runtime(options RuntimeOptions) (RuntimeResponse, error) {
 	}
 
 	restartCapability := s.restartCapability()
-	statusRuntimeDetails := s.loadStatusRuntimeDetailsLocked(snapshot)
 	return RuntimeResponse{
 		SchemaVersion: pluginRuntimeSchemaVersion,
 		List: ListResponse{
@@ -127,7 +126,6 @@ func (s *Service) Runtime(options RuntimeOptions) (RuntimeResponse, error) {
 			restartCapability,
 			redactSourceDetails,
 			redactedSourcePathByPath,
-			statusRuntimeDetails,
 		),
 	}, nil
 }
@@ -379,11 +377,10 @@ func buildRuntimeStatusResponse(
 	capability RestartCapability,
 	redactSourceDetails bool,
 	redactedSourcePathByPath map[string]string,
-	detailsByPluginID map[string]pluginStatusRuntimeDetails,
 ) StatusResponse {
 	entries := make([]StatusEntry, 0, len(snapshot.Plugins))
 	for _, entry := range snapshot.Plugins {
-		entries = append(entries, buildRuntimeStatusEntry(entry, redactSourceDetails, redactedSourcePathByPath, detailsByPluginID[entry.PluginID]))
+		entries = append(entries, buildRuntimeStatusEntry(entry, redactSourceDetails, redactedSourcePathByPath))
 	}
 	return StatusResponse{
 		SchemaVersion:     pluginStatusSchemaVersion,
@@ -393,8 +390,8 @@ func buildRuntimeStatusResponse(
 	}
 }
 
-func buildRuntimeStatusEntry(entry DiscoveredPlugin, redactSourceDetails bool, redactedSourcePathByPath map[string]string, details pluginStatusRuntimeDetails) StatusEntry {
-	statusEntry := statusEntryFromDiscoveredPlugin(entry, details)
+func buildRuntimeStatusEntry(entry DiscoveredPlugin, redactSourceDetails bool, redactedSourcePathByPath map[string]string) StatusEntry {
+	statusEntry := statusEntryFromDiscoveredPlugin(entry)
 	if !redactSourceDetails {
 		return statusEntry
 	}

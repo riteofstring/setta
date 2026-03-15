@@ -16,12 +16,11 @@ var (
 	ErrWorkerHandshakeInvalid            = errors.New("plugins: worker handshake is invalid")
 	ErrWorkerHandshakeAPIVersionMismatch = errors.New("plugins: backend plugin API version mismatch")
 	requiredWorkerHandshakeMethods       = map[string]struct{}{
-		"plugin.initialize":             {},
-		"plugin.register":               {},
-		"plugin.shutdown":               {},
-		"plugin.invoke_codegen_target":  {},
-		"host.register_language_server": {},
-		"host.register_codegen_target":  {},
+		"plugin.initialize":            {},
+		"plugin.register":              {},
+		"plugin.shutdown":              {},
+		"plugin.invoke_codegen_target": {},
+		"host.register_codegen_target": {},
 	}
 )
 

@@ -287,17 +287,8 @@ func workerHostDispatchErrorCode(err error) string {
 		return workerRPCTransportErrorCode
 	case errors.Is(err, ErrWorkerHostCapabilityDenied):
 		return workerRPCCapabilityDeniedCode
-	case errors.Is(err, ErrWorkerHostLanguageServerRegistrarRequired),
-		errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
+	case errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
 		errors.Is(err, ErrWorkerHostPluginIDRequired),
-		errors.Is(err, ErrWorkerHostPluginRootRequired),
-		errors.Is(err, ErrWorkerHostLanguageServerRequired),
-		errors.Is(err, ErrWorkerHostLanguageServerLanguageRequired),
-		errors.Is(err, ErrWorkerHostLanguageServerLanguageInvalid),
-		errors.Is(err, ErrWorkerHostLanguageServerCommandRequired),
-		errors.Is(err, ErrWorkerHostLanguageServerCommandInvalid),
-		errors.Is(err, ErrWorkerHostLanguageServerArgsInvalid),
-		errors.Is(err, ErrWorkerHostLanguageServerSettingsKeyInvalid),
 		errors.Is(err, ErrWorkerHostCodegenTargetRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetIDRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetIDInvalid),
@@ -305,7 +296,6 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageNeeded),
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageInvalid),
 		errors.Is(err, ErrWorkerHostCodegenHandlerIDRequired),
-		errors.Is(err, ErrLanguageServerRegistrationConflict),
 		errors.Is(err, ErrCodegenTargetRegistrationConflict):
 		return workerRPCRegisterFailedCode
 	default:

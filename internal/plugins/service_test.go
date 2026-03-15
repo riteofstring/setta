@@ -660,13 +660,12 @@ func mustNewPluginMutationServiceWithStore(t *testing.T, roots filesystemResolve
 	t.Helper()
 
 	service, err := NewService(ServiceOptions{
-		Store:                       store,
-		WorkspaceRoot:               roots.workspaceRoot,
-		SettaFilesRoot:              roots.settaFilesRoot,
-		SettaHome:                   roots.settaHome,
-		ServerMode:                  mode,
-		CandidateProvider:           provider,
-		BackendRuntimeRegistrations: nil,
+		Store:             store,
+		WorkspaceRoot:     roots.workspaceRoot,
+		SettaFilesRoot:    roots.settaFilesRoot,
+		SettaHome:         roots.settaHome,
+		ServerMode:        mode,
+		CandidateProvider: provider,
 	})
 	if err != nil {
 		t.Fatalf("new plugin mutation service: %v", err)

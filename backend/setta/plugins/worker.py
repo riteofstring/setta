@@ -14,7 +14,6 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.register",
     "plugin.shutdown",
     "plugin.invoke_codegen_target",
-    "host.register_language_server",
     "host.register_codegen_target",
 )
 _PROTOCOL_STDOUT = sys.stdout
@@ -152,23 +151,6 @@ class _WorkerState:
             "backendPluginApiVersion": BACKEND_PLUGIN_API_VERSION,
             "supportedRpcMethods": list(SUPPORTED_RPC_METHODS),
         }
-
-    def _register_language_server(
-        self,
-        *,
-        provider: Any,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        host_call(
-            "host.register_language_server",
-            {
-                "provider": _ensure_json_serializable(
-                    provider,
-                    plugin_id=self.plugin_id,
-                    label="language server",
-                )
-            },
-        )
 
     def _register_codegen_target(
         self,
@@ -420,12 +402,6 @@ class _WorkerBackendPluginContext:
         self._state = state
         self._host_call = host_call
         self.plugin_id = state.plugin_id
-
-    def register_language_server(self, provider: Any) -> None:
-        self._state._register_language_server(
-            provider=provider,
-            host_call=self._host_call,
-        )
 
     def register_codegen_target(self, target: Any) -> None:
         self._state._register_codegen_target(
