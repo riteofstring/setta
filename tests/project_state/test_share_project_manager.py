@@ -558,6 +558,7 @@ class TestShareRuntimeState:
             run_request = RunCodeRequest(
                 projectConfigId=project_config_id,
                 sectionId=section_id,
+                cliId=None,
             )
 
             try:
@@ -611,6 +612,7 @@ class TestShareRuntimeState:
             run_request = RunCodeRequest(
                 projectConfigId=project_config_id,
                 sectionId=section_id,
+                cliId=None,
             )
 
             command = self._loop.run_until_complete(

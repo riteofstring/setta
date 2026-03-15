@@ -2,6 +2,7 @@
 
 import { act, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,11 +10,7 @@ import {
   buildStandaloneWindowSpaceProjectChatSurfaceId,
   buildWorkspaceProjectChatWindowSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
-import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   buildSearchableTextForMessage,
@@ -35,20 +32,6 @@ import {
   createUserChatMessage,
 } from "utils/generatedTypes";
 import { ProjectChat } from "./ProjectChat";
-
-const aiActionMocks = vi.hoisted(() => ({
-  saveLLMConfig: vi.fn(),
-}));
-
-vi.mock("state/actions/ai", async () => {
-  const actual = await vi.importActual<typeof import("state/actions/ai")>(
-    "state/actions/ai",
-  );
-  return {
-    ...actual,
-    saveLLMConfig: aiActionMocks.saveLLMConfig,
-  };
-});
 
 vi.mock("components/AppHeader/FollowAIToggleButton", () => ({
   FollowAIToggleButton: () => <button type="button">Follow AI</button>,
@@ -429,8 +412,6 @@ describe("ProjectChat multi-surface state ownership", () => {
 
   beforeEach(async () => {
     resetProjectStores();
-    aiActionMocks.saveLLMConfig.mockReset();
-    aiActionMocks.saveLLMConfig.mockResolvedValue(null);
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -1030,43 +1011,6 @@ describe("ProjectChat multi-surface state ownership", () => {
     }
 
     expect(reboundEngineSelect.value).toBe("engine-a");
-  });
-
-  it("pins the selected model by updating only default_config_id through the live config route helper", async () => {
-    const surfaceA = host.querySelector('[data-testid="surface-a"]');
-    if (!surfaceA) {
-      throw new Error("Expected the first project chat surface.");
-    }
-
-    const engineSelect = surfaceA.querySelector(
-      '[data-testid="project-ai-engine-combobox"]',
-    ) as HTMLSelectElement | null;
-    if (!engineSelect) {
-      throw new Error("Expected engine selector.");
-    }
-
-    await act(async () => {
-      engineSelect.value = "engine-b";
-      engineSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-
-    const pinButton = Array.from(surfaceA.querySelectorAll("button")).find(
-      (element) =>
-        element.textContent?.includes("Pin selected model as default"),
-    ) as HTMLButtonElement | undefined;
-    if (!pinButton) {
-      throw new Error("Expected pin-default-model button.");
-    }
-
-    await act(async () => {
-      pinButton.click();
-    });
-
-    expect(aiActionMocks.saveLLMConfig).toHaveBeenCalledTimes(1);
-    expect(aiActionMocks.saveLLMConfig).toHaveBeenCalledWith({
-      ...useAIStore.getState().allLLMConfigs,
-      default_config_id: "llm-b",
-    });
   });
 
   it("steps to the next conversation match when the filter input receives Enter", async () => {

@@ -14,6 +14,7 @@ from setta.llm.api_keys import (
     MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     read_managed_api_keys_with_status,
 )
+from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentEnvVarStatus,
@@ -44,6 +45,7 @@ class _PreflightCacheEntry:
     status: ExternalAgentPreflightStatus
     config_fingerprint: str
     env_fingerprint: tuple[tuple[str, ...], tuple[str, ...], str | None, str | None]
+    plugin_adapter_fingerprint: str | None
     created_at: float
 
 
@@ -89,15 +91,25 @@ def _prune_preflight_cache(*, now: float) -> None:
 def build_external_agent_preflight_status(
     dbe: DBE,
     config: ExternalAgentConfig,
+    plugin_external_agent_adapters: (
+        list[PluginRegisteredExternalAgentAdapter] | None
+    ) = None,
 ) -> ExternalAgentPreflightStatus:
+    plugin_adapter_by_id = _build_plugin_adapter_map(plugin_external_agent_adapters)
+    plugin_adapter = _resolve_plugin_adapter(config, plugin_adapter_by_id)
     env_status_result = _build_env_status(
         dbe,
-        list(config.envVarWhitelist),
+        _build_effective_env_var_whitelist(config, plugin_adapter),
     )
     env_status = env_status_result.status
+    plugin_adapter_fingerprint = _build_plugin_adapter_fingerprint(
+        config,
+        plugin_adapter,
+    )
     cached = _load_cached_preflight(
         config,
         env_status_result,
+        plugin_adapter_fingerprint=plugin_adapter_fingerprint,
     )
     if cached is not None:
         return cached
@@ -113,7 +125,21 @@ def build_external_agent_preflight_status(
     supported = _is_run_mode_supported(
         config.toolType,
         config.runMode,
+        plugin_adapter=plugin_adapter,
     )
+    plugin_adapter_resolution_issue: str | None = None
+    if config.toolType == ExternalAgentToolType.plugin:
+        if config.pluginAdapterId is None or config.pluginAdapterId.strip() == "":
+            plugin_adapter_resolution_issue = (
+                "pluginAdapterId is required for plugin external agents"
+            )
+        elif plugin_adapter is None:
+            plugin_adapter_resolution_issue = (
+                "Plugin external agent adapter is not registered: "
+                f"{config.pluginAdapterId}"
+            )
+        if plugin_adapter_resolution_issue is not None:
+            _add_issue(plugin_adapter_resolution_issue)
     managed_store_issue_blocks = _is_managed_store_issue_blocking(env_status)
     if env_status_result.corruption_issue is not None:
         _add_issue(
@@ -168,11 +194,23 @@ def build_external_agent_preflight_status(
     if working_dir_issue:
         _add_issue(working_dir_issue)
 
+    if (
+        config.toolType == ExternalAgentToolType.plugin
+        and plugin_adapter_resolution_issue is None
+    ):
+        command_issue = _check_plugin_command(
+            config.commandPath,
+            plugin_adapter=plugin_adapter,
+            working_dir=working_dir,
+        )
+        if command_issue:
+            _add_issue(command_issue)
+
     base_url_issue = _check_base_url(config)
     if base_url_issue:
         _add_issue(base_url_issue)
 
-    if not supported:
+    if not supported and plugin_adapter_resolution_issue is None:
         _add_issue(
             f"Run mode {config.runMode.value} not supported for {config.toolType.value}"
         )
@@ -198,6 +236,7 @@ def build_external_agent_preflight_status(
         config,
         env_status_result,
         status,
+        plugin_adapter_fingerprint=plugin_adapter_fingerprint,
     )
     return status
 
@@ -205,6 +244,8 @@ def build_external_agent_preflight_status(
 def _is_run_mode_supported(
     tool_type: ExternalAgentToolType,
     run_mode: ExternalAgentRunMode,
+    *,
+    plugin_adapter: PluginRegisteredExternalAgentAdapter | None,
 ) -> bool:
     if tool_type == ExternalAgentToolType.codex:
         return run_mode == ExternalAgentRunMode.app_server
@@ -212,11 +253,61 @@ def _is_run_mode_supported(
         return run_mode == ExternalAgentRunMode.sdk
     if tool_type == ExternalAgentToolType.opencode:
         return run_mode in (ExternalAgentRunMode.sdk, ExternalAgentRunMode.server)
+    if tool_type == ExternalAgentToolType.plugin:
+        if plugin_adapter is None:
+            return False
+        return run_mode.value in plugin_adapter.runModes
     return False
 
 
 def _is_managed_store_issue_blocking(env_status: ExternalAgentEnvVarStatus) -> bool:
     return len(env_status.missing) > 0
+
+
+def _build_plugin_adapter_map(
+    adapters: list[PluginRegisteredExternalAgentAdapter] | None,
+) -> dict[str, PluginRegisteredExternalAgentAdapter]:
+    if adapters is None:
+        return {}
+    by_id: dict[str, PluginRegisteredExternalAgentAdapter] = {}
+    for adapter in adapters:
+        by_id[adapter.adapterId] = adapter
+    return by_id
+
+
+def _resolve_plugin_adapter(
+    config: ExternalAgentConfig,
+    plugin_adapter_by_id: dict[str, PluginRegisteredExternalAgentAdapter],
+) -> PluginRegisteredExternalAgentAdapter | None:
+    if config.toolType != ExternalAgentToolType.plugin:
+        return None
+    plugin_adapter_id = (config.pluginAdapterId or "").strip()
+    if plugin_adapter_id == "":
+        return None
+    return plugin_adapter_by_id.get(plugin_adapter_id)
+
+
+def _build_effective_env_var_whitelist(
+    config: ExternalAgentConfig,
+    plugin_adapter: PluginRegisteredExternalAgentAdapter | None,
+) -> list[str]:
+    names: list[str] = list(config.envVarWhitelist)
+    if plugin_adapter is not None:
+        names.extend(plugin_adapter.envVarWhitelist)
+    normalized = sorted({name.strip() for name in names if name.strip()})
+    return normalized
+
+
+def _build_plugin_adapter_fingerprint(
+    config: ExternalAgentConfig,
+    plugin_adapter: PluginRegisteredExternalAgentAdapter | None,
+) -> str | None:
+    if config.toolType != ExternalAgentToolType.plugin:
+        return None
+    if plugin_adapter is None:
+        return f"missing:{config.pluginAdapterId or ''}"
+    payload = plugin_adapter.model_dump(mode="json")
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def _build_env_status(dbe: DBE, whitelist: list[str]) -> _EnvStatusResult:
@@ -336,6 +427,38 @@ def _check_opencode_cli() -> tuple[str | None, str | None]:
     return raw, None
 
 
+def _check_plugin_command(
+    command_path: str | None,
+    *,
+    plugin_adapter: PluginRegisteredExternalAgentAdapter | None,
+    working_dir: str | None,
+) -> str | None:
+    if plugin_adapter is None:
+        return "Plugin external agent adapter is not registered"
+    command_override = (command_path or "").strip()
+    command = command_override or plugin_adapter.command.strip()
+    if command == "":
+        return "Plugin external agent command is empty"
+    if is_path_like_command(command):
+        candidate_path = Path(command)
+        if not candidate_path.is_absolute():
+            if working_dir is None:
+                return (
+                    "Plugin external agent relative command requires an absolute "
+                    "path when using temp_dir workingDirStrategy "
+                    f"({command})"
+                )
+            candidate_path = Path(working_dir) / candidate_path
+        if candidate_path.is_file():
+            if os.access(candidate_path, os.X_OK):
+                return None
+            return f"Plugin external agent command is not executable ({command})"
+        return f"Plugin external agent command not found ({command})"
+    if shutil.which(command):
+        return None
+    return f"Plugin external agent command not found ({command})"
+
+
 def _codex_app_server_available(cli_path: str) -> tuple[bool, str | None]:
     result, issue = _run_cli([cli_path, "app-server", "--help"])
     if issue:
@@ -407,6 +530,8 @@ def _build_env_fingerprint(
 def _load_cached_preflight(
     config: ExternalAgentConfig,
     env_status_result: _EnvStatusResult,
+    *,
+    plugin_adapter_fingerprint: str | None,
 ) -> ExternalAgentPreflightStatus | None:
     now = time.monotonic()
     _prune_preflight_cache(now=now)
@@ -420,6 +545,8 @@ def _load_cached_preflight(
         return None
     if entry.env_fingerprint != _build_env_fingerprint(env_status_result):
         return None
+    if entry.plugin_adapter_fingerprint != plugin_adapter_fingerprint:
+        return None
     return entry.status
 
 
@@ -427,6 +554,8 @@ def _store_preflight_cache(
     config: ExternalAgentConfig,
     env_status_result: _EnvStatusResult,
     status: ExternalAgentPreflightStatus,
+    *,
+    plugin_adapter_fingerprint: str | None,
 ) -> None:
     now = time.monotonic()
     cache_key = str(config.id)
@@ -434,6 +563,7 @@ def _store_preflight_cache(
         status=status,
         config_fingerprint=_build_config_fingerprint(config),
         env_fingerprint=_build_env_fingerprint(env_status_result),
+        plugin_adapter_fingerprint=plugin_adapter_fingerprint,
         created_at=now,
     )
     _prune_preflight_cache(now=now)
@@ -465,6 +595,8 @@ def _resolve_working_dir(
 
 
 def _check_base_url(config: ExternalAgentConfig) -> str | None:
+    if config.toolType == ExternalAgentToolType.plugin:
+        return None
     if config.runMode != ExternalAgentRunMode.server:
         return None
     if not config.baseUrl:

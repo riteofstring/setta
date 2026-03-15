@@ -25,12 +25,14 @@ async def test_fixture_language_server_handles_diagnostics_and_completion(
     fixture_server_path = (
         Path(__file__).resolve().parents[1]
         / "fixtures"
-        / "lsp"
+        / "plugins"
+        / "backend-language-server-e2e"
+        / "backend"
         / "mini_language_server.py"
     )
     registration = RegisteredLanguageServer(
-        plugin_id="setta-fixture-lsp",
-        name="setta-fixture-lsp:fixturedsl",
+        plugin_id="setta-fixture-backend-language-server-e2e",
+        name="setta-fixture-backend-language-server-e2e:fixturedsl",
         language="fixturedsl",
         command=sys.executable,
         args=(str(fixture_server_path),),
