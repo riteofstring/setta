@@ -39,3 +39,7 @@ scenarios:
     kind: settings_project_existing_section_code_obj_backfill
     seed: none
     description: Restarting with a stale dedicated settings project missing a field inside an existing section should backfill that field without dropping the settings shell.
+  - name: settings_project_valid_view_mode_noop
+    kind: settings_project_valid_view_mode_noop
+    seed: none
+    description: Restarting and reloading an already-valid dedicated settings project should not rewrite the persisted settings shell.
