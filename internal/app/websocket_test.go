@@ -544,6 +544,184 @@ func TestAppSaveLLMConfigBroadcastsLLMUpdates(t *testing.T) {
 	}
 }
 
+func TestAppSaveLLMConfigBroadcastsCorruptManagedAPIKeySnapshot(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	if err := os.MkdirAll(cfg.Paths.WorkspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	if err := os.WriteFile(
+		llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
+		[]byte("ANTHROPIC_API_KEY=managed-secret\nSETTA_MANAGED_LLM_API_KEY_NAMES=not-json\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("seed corrupt managed api keys: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	payload, err := json.Marshal(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"anthropic-main": {
+				ID:        "anthropic-main",
+				Model:     "claude-sonnet",
+				Provider:  "anthropic",
+				APIKeyEnv: "ANTHROPIC_API_KEY",
+			},
+		},
+		MCPServers:      map[string]llmconfig.ServerConfig{},
+		DefaultConfigID: "anthropic-main",
+	})
+	if err != nil {
+		t.Fatalf("marshal llm config request: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLLMConfig, strings.NewReader(string(payload)))
+	if err != nil {
+		t.Fatalf("new llm config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post llm config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	apiKeysEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLLMAPIKeysUpdated, 4)
+	var apiKeysPayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.Unmarshal(apiKeysEnvelope.Content, &apiKeysPayload); err != nil {
+		t.Fatalf("decode llm api keys websocket payload: %v", err)
+	}
+	if !apiKeysPayload.Corrupt {
+		t.Fatalf("expected corrupt websocket snapshot, got %#v", apiKeysPayload)
+	}
+	if apiKeysPayload.ErrorCode == nil || *apiKeysPayload.ErrorCode != llmconfig.ManagedAPIKeysCorruptErrorCode {
+		t.Fatalf("expected corrupt error code, got %#v", apiKeysPayload)
+	}
+	if apiKeysPayload.Message == nil || *apiKeysPayload.Message != "Managed API key index in .env is not valid JSON." {
+		t.Fatalf("expected corrupt message to survive websocket broadcast, got %#v", apiKeysPayload)
+	}
+	if len(apiKeysPayload.APIKeys) != 0 || apiKeysPayload.Revision != 0 {
+		t.Fatalf("expected corrupt websocket snapshot to fail closed, got %#v", apiKeysPayload)
+	}
+}
+
+func TestAppSaveLLMConfigBroadcastsUnavailableManagedAPIKeySnapshot(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	if err := os.WriteFile(filepath.Join(cfg.Paths.RuntimeRoot, "file_locks"), []byte("occupied"), 0o644); err != nil {
+		t.Fatalf("occupy managed api key lock root: %v", err)
+	}
+
+	payload, err := json.Marshal(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"anthropic-main": {
+				ID:        "anthropic-main",
+				Model:     "claude-sonnet",
+				Provider:  "anthropic",
+				APIKeyEnv: "ANTHROPIC_API_KEY",
+			},
+		},
+		MCPServers:      map[string]llmconfig.ServerConfig{},
+		DefaultConfigID: "anthropic-main",
+	})
+	if err != nil {
+		t.Fatalf("marshal llm config request: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLLMConfig, strings.NewReader(string(payload)))
+	if err != nil {
+		t.Fatalf("new llm config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post llm config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	apiKeysEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLLMAPIKeysUpdated, 4)
+	var apiKeysPayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.Unmarshal(apiKeysEnvelope.Content, &apiKeysPayload); err != nil {
+		t.Fatalf("decode llm api keys websocket payload: %v", err)
+	}
+	if apiKeysPayload.Corrupt {
+		t.Fatalf("expected unavailable websocket snapshot without corrupt flag, got %#v", apiKeysPayload)
+	}
+	if apiKeysPayload.ErrorCode == nil || *apiKeysPayload.ErrorCode != llmconfig.ManagedAPIKeysUnavailableErrorCode {
+		t.Fatalf("expected unavailable error code, got %#v", apiKeysPayload)
+	}
+	if apiKeysPayload.Message == nil || !strings.Contains(*apiKeysPayload.Message, "Failed creating .env API key store lock directory:") {
+		t.Fatalf("expected unavailable read failure message to survive websocket broadcast, got %#v", apiKeysPayload)
+	}
+	if len(apiKeysPayload.APIKeys) != 0 || apiKeysPayload.Revision != 0 {
+		t.Fatalf("expected unavailable websocket snapshot to fail closed, got %#v", apiKeysPayload)
+	}
+}
+
 func TestAppSetLLMAPIKeysBroadcastsRevisionedSnapshot(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

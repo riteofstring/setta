@@ -8,6 +8,7 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/llmconfig"
 )
 
 func TestNewUpdateArtifactsMessage(t *testing.T) {
@@ -142,6 +143,38 @@ func TestNewAgentRunUpdatedMessageJSONIncludesEmptySlices(t *testing.T) {
 	}
 	if !strings.Contains(jsonText, `"events":[]`) {
 		t.Fatalf("expected events array in marshaled payload, got %s", jsonText)
+	}
+}
+
+func TestNewLLMAPIKeysUpdatedMessageJSONPreservesErrorFields(t *testing.T) {
+	t.Parallel()
+
+	errorCode := llmconfig.ManagedAPIKeysCorruptErrorCode
+	messageText := "Managed API key index in .env is not valid JSON."
+	message := NewLLMAPIKeysUpdatedMessage(llmconfig.ManagedAPIKeysSnapshot{
+		APIKeys:   map[string]string{},
+		Revision:  0,
+		Corrupt:   true,
+		ErrorCode: &errorCode,
+		Message:   &messageText,
+	})
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal llm api keys update message: %v", err)
+	}
+	jsonText := string(payload)
+	if !strings.Contains(jsonText, `"messageType":"LLMApiKeysUpdated"`) {
+		t.Fatalf("expected llm api keys update message type, got %s", jsonText)
+	}
+	if !strings.Contains(jsonText, `"corrupt":true`) {
+		t.Fatalf("expected corrupt flag in marshaled payload, got %s", jsonText)
+	}
+	if !strings.Contains(jsonText, `"errorCode":"managed_api_keys_store_corrupt"`) {
+		t.Fatalf("expected errorCode in marshaled payload, got %s", jsonText)
+	}
+	if !strings.Contains(jsonText, `"message":"Managed API key index in .env is not valid JSON."`) {
+		t.Fatalf("expected message in marshaled payload, got %s", jsonText)
 	}
 }
 
