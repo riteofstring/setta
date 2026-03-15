@@ -4787,3 +4787,27 @@ in `frontend/src/README.md` and the cleanup plans.
   - Split `frontend/src/state/actions/aiChatSubmissionPayload.ts` so
     app-generation request metadata and edited-message submission preparation
     stop sharing one action surface.
+
+## 2026-03-15 13:23:58 PDT
+
+- Slice completed: extracted assistant activity or timeline derivation out of `ChatMessages.tsx`
+- Why this slice now:
+  - `frontend/src/components/Chat/ChatMessages.tsx` remained the largest unresolved frontend hotspot, and the assistant activity model was already a mostly pure seam. That made it a higher-value cleanup than switching to `ProjectChatBottomDock.tsx` before reducing the biggest chat render surface.
+- Key files touched:
+  - `frontend/src/components/Chat/chatAssistantActivity.ts`
+  - `frontend/src/components/Chat/chatAssistantActivity.test.ts`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatAssistantActivity.test.ts src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/chatAssistantActivity.ts src/components/Chat/chatAssistantActivity.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added. This was a behavior-preserving helper extraction.
+  - CDP visual verification was done through a same-origin harness that imported `ChatMessageList` directly, because the normal app shell was already blank due to an unrelated `aiConfigurationCatalogLoads.ts` import error. The harness verified the assistant activity summary row, expanded thought row, and expanded tool input or output panels.
+- Commit hash:
+  - `1ded321e71983f49ffdb0eafc7bbf751a9cce298`
+- Next highest-value unblocked slice:
+  - Split structured output and tool-call rendering out of `frontend/src/components/Chat/ChatMessages.tsx` so the top-level chat surface keeps moving toward list assembly and row composition only.
