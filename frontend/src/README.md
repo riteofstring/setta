@@ -10,11 +10,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1426`
+- Authored TS/TSX files under `frontend/src`: `1429`
 - Non-generated TS/TSX files at `1000+` lines: `44`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2400`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
@@ -23,7 +22,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
-  - `components/App/appRegistry.tsx` (`1753`)
+  - `components/Git/GitGraphOverlay.tsx` (`2040`)
+  - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
 
 ## Module Map
 
@@ -113,6 +113,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns workspace-root polling, python-signal probing, create-project starter
     prompt adaptation, and the project-chat empty-state shell used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts`
+    owns custom slash-command draft reconciliation, namespace-authority
+    gating, and native-command status text used by
+    `components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx`
+    owns slash-command engine tabs, native-command polling, custom
+    slash-command draft state, and the slash-command form/list shell used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx`
     owns external-agent config selection state, tool-type/run-mode
     reconciliation, Claude or OpenCode validation, and the external-agent form
@@ -132,6 +140,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     focuses on polling, local toolbar state, search navigation, thread/group
     commands, DnD orchestration, and the history render shells over those
     local view-model and DnD owners.
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+    now focuses on skills filtering/selection, skill markdown loading or edit
+    shells, MCP runtime grouping, and aux-view routing over the local slash
+    commands owner.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, empty-state starter prompts, slash command selection,
     skill viewers, and project AI settings.

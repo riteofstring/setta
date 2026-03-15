@@ -54,16 +54,16 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1426 authored TS/TSX files under `frontend/src`.
+- There are 1429 authored TS/TSX files under `frontend/src`.
 - There are 44 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 2400 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 2297 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 2117 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2091 lines after the local settings and engine-selection extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2087 lines after the local empty-state extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 1661 lines after the local slash-command extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
@@ -94,16 +94,16 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `state/actions` modules and not to follow-up churn in files like
   `ChatMessages.tsx` unless that directly shortens a larger caller path.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
   - `frontend/src/plugins/runtime.ts`
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
@@ -145,6 +145,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts` now owns preferred-engine selection, selected-thread engine reconciliation, engine-switch continuation guards, and LLM-unavailable messaging used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx` now owns the project-chat settings popover shell, dictation source options, tool quick-links, and activity-default toggles used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEmptyState.tsx` now owns workspace-root polling, python-signal probing, create-project starter prompt adaptation, and the empty-chat render shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsViewState.ts` now owns custom slash-command draft reconciliation, namespace-authority gating, and native-command status text, while `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandsView.tsx` now owns slash-command engine tabs, agent-run polling, custom-command draft state, and the slash-command form/list shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx` now owns external-agent config selection state, tool-type/run-mode reconciliation, Claude/OpenCode validation, and the external-agent form shell used by `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
@@ -843,7 +844,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Chat/ChatMessages.tsx`, `components/ChatWindowing/ProjectChatBottomDock.tsx`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `components/Section/Layouts/BrowserArea.tsx`, `plugins/runtime.ts`, or `components/App/appRegistry.tsx`.
+2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `components/ChatWindowing/ProjectChatBottomDock.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `components/Section/Layouts/BrowserArea.tsx`, `plugins/runtime.ts`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/App/appRegistry.tsx`, or `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a direct prerequisite for simplifying one of those larger hotspots or when it deletes a now-unnecessary compatibility surface after callers have converged.
 4. Continue project chat windowing, file browser, section layout, page, pane, and runtime cleanup from the companion plans once the highest current hotspot in that area is clear.
 5. Add feature READMEs as each area stabilizes.
