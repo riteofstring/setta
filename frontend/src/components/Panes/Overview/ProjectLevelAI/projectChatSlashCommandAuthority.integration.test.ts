@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputSubmission";
 import { createAgentRun, EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {

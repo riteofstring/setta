@@ -9,17 +9,17 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   getCurrSectionVariantId,
-  getCurrShownParamIds,
-  getParamDisplayName,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,
 } from "state/actions/sectionInfos";
+import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import {
   usePendingOperations,

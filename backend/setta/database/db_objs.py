@@ -1,4 +1,5 @@
 import json
+import logging
 import tempfile
 from collections.abc import Callable
 from io import StringIO
@@ -9,11 +10,23 @@ import toml
 import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
+from pydantic import ValidationError
 
-from setta.types.id import ID
-from setta.types.project_state import ProjectStateBackend
+from setta.types.id import (
+    ID,
+    CanonicalToTemporaryIDMap,
+    TemporaryToCanonicalIDMap,
+)
+from setta.types.notifications import SettaNotification
+from setta.types.project_state import (
+    ProjectStateBackend,
+    ProjectStateSingleConfig,
+)
+from setta.types.share_deployment import DeploymentManifest
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import compute_md5_prefix
+
+logger = logging.getLogger(__name__)
 
 
 class DBE:
@@ -36,7 +49,22 @@ class DBE:
             else self.runtime_root
         )
         self.project = self.path / "project.json"
+        self.temporary_id_map = self.runtime_root / "temporary_id_map.json"
+        self.notifications = self.path / "notifications.json"
+        self.settings = self.path / "setta-settings.json"
+        self.settings_project = self.path / "setta-settings-project.json"
+        self.llm_config = self.path / "llm_config.json"
+        self.llm_config_example = self.path / "llm_config.example.json"
+        self.external_agents = self.path / "external_agents.json"
+        self.engine_configs = self.path / "engine_configs.json"
+        self.transcription_profiles = self.path / "transcription_profiles.json"
+        self.agent_profiles = self.path / "agent_profiles.json"
+        self.agent_runs = self.path / "agent_runs"
+        self.agent_run_index = self.path / "agent_run_index.json"
+        self.agentic_summary_cache = self.path / "agentic_summary_cache.json"
         self.prompts = self.path / "prompts"
+        self.prompts_example = self.path / "prompts.example.json"
+        self.deployment_manifest = self.path / "manifest.json"
         self.dot_env = normalize_workspace_path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
@@ -204,6 +232,136 @@ class DBE:
             raise TypeError("Project payload must be a JSON object.")
         return ProjectStateBackend.model_validate(payload)
 
+    def read_deployment_manifest(self) -> DeploymentManifest:
+        if not self.deployment_manifest.exists():
+            raise FileNotFoundError(
+                f"Deployment manifest not found: {self.deployment_manifest}"
+            )
+        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
+        if not payload:
+            raise ValueError(
+                f"Deployment manifest is empty: {self.deployment_manifest}"
+            )
+        return DeploymentManifest.model_validate(payload)
+
+    def read_deployment_manifest_optional(self) -> DeploymentManifest | None:
+        if not self.deployment_manifest.exists():
+            return None
+        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
+        if not payload:
+            return None
+        try:
+            return DeploymentManifest.model_validate(payload)
+        except ValidationError as exc:
+            logger.warning(
+                "Invalid deployment manifest at %s: %s",
+                self.deployment_manifest,
+                exc,
+            )
+            return None
+
+    def read_temporary_id_map(self):
+        raw_map = self.read_json(self.temporary_id_map)
+        canonical_to_temporary: CanonicalToTemporaryIDMap = {
+            ID(k): ID(v) for k, v in raw_map.items()
+        }
+        temporary_to_canonical: TemporaryToCanonicalIDMap = {
+            ID(v): ID(k) for k, v in raw_map.items()
+        }
+        return temporary_to_canonical, canonical_to_temporary
+
+    def write_temporary_id_map(self, canonical_to_temporary: CanonicalToTemporaryIDMap):
+        serializable_map = {str(k): str(v) for k, v in canonical_to_temporary.items()}
+        self.write_json(self.temporary_id_map, serializable_map)
+
+    def read_notifications(self, projectConfigId: ID | None = None):
+        data = self.read_jsonl(self.notifications)
+        data = [SettaNotification.model_validate(item) for item in data]
+        if projectConfigId:
+            return [s for s in data if s.projectConfigId == projectConfigId]
+        return data
+
+    def write_notifications(self, notifications: list[SettaNotification]):
+        data = [n.model_dump() for n in notifications]
+        self.write_jsonl(self.notifications, data)
+
+    def delete_notification(self, notification_id: ID):
+        data = self.read_notifications()
+        filtered = [item for item in data if item.id != notification_id]
+        self.write_notifications(filtered)
+
+    def read_settings_project(self):
+        return ProjectStateSingleConfig.model_validate(
+            self.read_json(self.settings_project)
+        )
+
+    def write_settings_project(self, settings_project: ProjectStateSingleConfig):
+        self.write_json(self.settings_project, settings_project.model_dump(mode="json"))
+
+    def read_llm_config(self) -> dict[str, Any]:
+        return self.read_json(self.llm_config)
+
+    def write_llm_config(self, payload: Any) -> None:
+        self.write_json(self.llm_config, payload)
+
+    def read_llm_config_example(self) -> dict[str, Any]:
+        return self.read_json(self.llm_config_example)
+
+    def write_llm_config_example(self, payload: Any) -> None:
+        self.write_json(self.llm_config_example, payload)
+
+    def read_external_agents(self) -> list[dict]:
+        payload = self.read_json(self.external_agents)
+        if not payload:
+            return []
+        if not isinstance(payload, list):
+            raise ValueError("external_agents.json must contain a list of configs")
+        return payload
+
+    def write_external_agents(self, payload: list[dict]) -> None:
+        self.write_json(self.external_agents, payload)
+
+    def read_engine_configs(self) -> list[dict]:
+        payload = self.read_json(self.engine_configs)
+        if not payload:
+            return []
+        if not isinstance(payload, list):
+            raise ValueError("engine_configs.json must contain a list of configs")
+        return payload
+
+    def write_engine_configs(self, payload: list[dict]) -> None:
+        self.write_json(self.engine_configs, payload)
+
+    def read_transcription_profiles(self) -> list[dict]:
+        payload = self.read_json(self.transcription_profiles)
+        if not payload:
+            return []
+        if not isinstance(payload, list):
+            raise ValueError(
+                "transcription_profiles.json must contain a list of profiles"
+            )
+        return payload
+
+    def write_transcription_profiles(self, payload: list[dict]) -> None:
+        self.write_json(self.transcription_profiles, payload)
+
+    def read_agent_run_index(self) -> dict[str, Any]:
+        payload = self.read_json(self.agent_run_index)
+        if not payload:
+            return {}
+        if not isinstance(payload, dict):
+            raise ValueError("agent_run_index.json must contain an object")
+        return payload
+
+    def write_agent_run_index(self, payload: dict[str, Any]) -> None:
+        self.write_json(self.agent_run_index, payload)
+
+    def read_prompts_example(self) -> Any:
+        return self.read_json(self.prompts_example)
+
+    def write_prompts_example(self, payload: Any) -> None:
+        self.write_json(self.prompts_example, payload)
+
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)
         if raw is None:
@@ -220,6 +378,44 @@ class DBE:
         if content:
             content += "\n"
         self.write(self.dot_env, content)
+
+    def read_agent_profiles(self) -> list[dict]:
+        payload = self.read_json(self.agent_profiles)
+        if not payload:
+            return []
+        if not isinstance(payload, list):
+            raise ValueError("agent_profiles.json must contain a list of profiles")
+        return payload
+
+    def write_agent_profiles(self, payload: list[dict]) -> None:
+        self.write_json(self.agent_profiles, payload)
+
+    def agent_run_path(self, run_id: ID) -> Path:
+        return self.agent_runs / f"{run_id}.json"
+
+    def read_agent_run(self, run_id: ID) -> dict | None:
+        path = self.agent_run_path(run_id)
+        if not path.exists():
+            return None
+        data = self.read_json(path)
+        if not data:
+            return None
+        return data
+
+    def write_agent_run(self, run_id: ID, payload: dict) -> None:
+        self.write_json(self.agent_run_path(run_id), payload)
+
+    def list_agent_run_paths(self) -> list[Path]:
+        if not self.agent_runs.exists():
+            return []
+        return sorted(self.agent_runs.glob("*.json"))
+
+    def delete_agent_run_file(self, run_id: ID) -> None:
+        path = self.agent_run_path(run_id)
+        lock = self.get_file_lock(path)
+        with lock:
+            if path.exists():
+                path.unlink()
 
     def prompt_path(self, prompt_id: ID) -> Path:
         return self.prompts / f"{prompt_id}.json"
