@@ -287,6 +287,101 @@ func TestPythonValueCodecFormatsSectionsByRepresentation(t *testing.T) {
 		}
 	})
 
+	t.Run("image file path", func(t *testing.T) {
+		t.Parallel()
+
+		codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{})
+		node := &PythonSectionNode{
+			PythonDependencyNodeBase: PythonDependencyNodeBase{
+				ID:               "image",
+				Name:             "Image",
+				FullPathName:     "image",
+				Deps:             map[PythonDependencyKey]bool{},
+				IncludeInCodegen: true,
+				Value:            LiteralDependencyValue{Payload: "artifacts/image.png"},
+			},
+			SectionType:    "Image",
+			Representation: projectstate.PythonSectionRepresentationFilePath,
+		}
+		rendered, handled, err := codec.FormatSection(node)
+		if err != nil {
+			t.Fatalf("format image section: %v", err)
+		}
+		if !handled {
+			t.Fatal("expected image section to be handled")
+		}
+		if rendered != "'artifacts/image.png'" {
+			t.Fatalf("unexpected image rendering %q", rendered)
+		}
+	})
+
+	t.Run("task board literal", func(t *testing.T) {
+		t.Parallel()
+
+		codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{})
+		payload := renderPythonLiteral(map[string]any{
+			"viewMode": "kanban",
+			"columns":  []any{map[string]any{"id": "col-1", "title": "Todo"}},
+			"tasks":    []any{map[string]any{"id": "task-1", "title": "Ship docs", "columnId": "col-1"}},
+		})
+		node := &PythonSectionNode{
+			PythonDependencyNodeBase: PythonDependencyNodeBase{
+				ID:               "task-board",
+				Name:             "Task Board",
+				FullPathName:     "task_board",
+				Deps:             map[PythonDependencyKey]bool{},
+				IncludeInCodegen: true,
+				Value:            LiteralDependencyValue{Payload: payload},
+			},
+			SectionType: "TaskBoard",
+		}
+		rendered, handled, err := codec.FormatSection(node)
+		if err != nil {
+			t.Fatalf("format task board section: %v", err)
+		}
+		if !handled {
+			t.Fatal("expected task board section to be handled")
+		}
+		if rendered != payload {
+			t.Fatalf("unexpected task board rendering %q", rendered)
+		}
+	})
+
+	t.Run("spreadsheet literal", func(t *testing.T) {
+		t.Parallel()
+
+		codec := NewPythonValueCodec(nil, nil, PythonValueCodecOptions{})
+		payload := renderPythonLiteral(map[string]any{
+			"filePath":                   "data/report.csv",
+			"activeSheet":                "Sheet 2",
+			"readOnly":                   true,
+			"showRowNumbers":             false,
+			"density":                    "compact",
+			"autoReloadOnExternalChange": true,
+		})
+		node := &PythonSectionNode{
+			PythonDependencyNodeBase: PythonDependencyNodeBase{
+				ID:               "sheet",
+				Name:             "Sheet",
+				FullPathName:     "sheet",
+				Deps:             map[PythonDependencyKey]bool{},
+				IncludeInCodegen: true,
+				Value:            LiteralDependencyValue{Payload: payload},
+			},
+			SectionType: "Spreadsheet",
+		}
+		rendered, handled, err := codec.FormatSection(node)
+		if err != nil {
+			t.Fatalf("format spreadsheet section: %v", err)
+		}
+		if !handled {
+			t.Fatal("expected spreadsheet section to be handled")
+		}
+		if rendered != payload {
+			t.Fatalf("unexpected spreadsheet rendering %q", rendered)
+		}
+	})
+
 	t.Run("meta control text", func(t *testing.T) {
 		t.Parallel()
 

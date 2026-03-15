@@ -403,6 +403,131 @@ func TestBuildPythonDependencyGraphSectionValueModes(t *testing.T) {
 			t.Fatalf("unexpected draw path %q", fileRead.Path)
 		}
 	})
+
+	t.Run("image file path fallback", func(t *testing.T) {
+		t.Parallel()
+
+		project := singleSectionProject(
+			t,
+			"Image Section",
+			mustRawJSON(
+				t,
+				`{"id":"section-impl-1","type":"Image"}`,
+			),
+			mustRawJSON(
+				t,
+				`{
+					"language":"python",
+					"sectionPolicy":{
+						"typePolicies":{
+							"Image":{"mode":"include","representation":"file_path"}
+						}
+					}
+				}`,
+			),
+			nil,
+		)
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build image graph: %v", err)
+		}
+		node := mustSectionNode(t, graph, PythonSectionDependencyKey("section-1"))
+		if node.Representation != projectstate.PythonSectionRepresentationExpression {
+			t.Fatalf("expected expression fallback, got %q", node.Representation)
+		}
+		literal, ok := node.Value.(LiteralDependencyValue)
+		if !ok {
+			t.Fatalf("expected literal image fallback, got %#v", node.Value)
+		}
+		if literal.Payload != "None" {
+			t.Fatalf("unexpected image fallback payload %q", literal.Payload)
+		}
+	})
+
+	t.Run("task board literal", func(t *testing.T) {
+		t.Parallel()
+
+		project := singleSectionProject(
+			t,
+			"Task Board",
+			mustRawJSON(
+				t,
+				`{
+					"id":"section-impl-1",
+					"type":"TaskBoard",
+					"viewMode":"kanban",
+					"columns":[{"id":"col-1","title":"Todo"}],
+					"tasks":[{"id":"task-1","title":"Ship docs","columnId":"col-1"}]
+				}`,
+			),
+			nil,
+			nil,
+		)
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build task board graph: %v", err)
+		}
+		node := mustSectionNode(t, graph, PythonSectionDependencyKey("section-1"))
+		literal, ok := node.Value.(LiteralDependencyValue)
+		if !ok {
+			t.Fatalf("expected literal task board value, got %#v", node.Value)
+		}
+		expected := renderPythonLiteral(map[string]any{
+			"viewMode": "kanban",
+			"columns":  []any{map[string]any{"id": "col-1", "title": "Todo"}},
+			"tasks":    []any{map[string]any{"id": "task-1", "title": "Ship docs", "columnId": "col-1"}},
+		})
+		if literal.Payload != expected {
+			t.Fatalf("unexpected task board payload %q", literal.Payload)
+		}
+	})
+
+	t.Run("spreadsheet literal", func(t *testing.T) {
+		t.Parallel()
+
+		project := singleSectionProject(
+			t,
+			"Sheet",
+			mustRawJSON(
+				t,
+				`{
+					"id":"section-impl-1",
+					"type":"Spreadsheet",
+					"filePath":"data/report.csv",
+					"activeSheet":"Sheet 2",
+					"readOnly":true,
+					"showRowNumbers":false,
+					"density":"compact",
+					"autoReloadOnExternalChange":true
+				}`,
+			),
+			nil,
+			nil,
+		)
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build spreadsheet graph: %v", err)
+		}
+		node := mustSectionNode(t, graph, PythonSectionDependencyKey("section-1"))
+		literal, ok := node.Value.(LiteralDependencyValue)
+		if !ok {
+			t.Fatalf("expected literal spreadsheet value, got %#v", node.Value)
+		}
+		expected := renderPythonLiteral(map[string]any{
+			"filePath":                   "data/report.csv",
+			"activeSheet":                "Sheet 2",
+			"readOnly":                   true,
+			"showRowNumbers":             false,
+			"density":                    "compact",
+			"autoReloadOnExternalChange": true,
+		})
+		if literal.Payload != expected {
+			t.Fatalf("unexpected spreadsheet payload %q", literal.Payload)
+		}
+	})
 }
 
 // Password params should only count as present when the graph builder is given a non-empty secret for that impl id.
