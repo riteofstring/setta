@@ -3104,3 +3104,37 @@ Append-only log for the section performance refactor.
   - If the rerun is still only mixed, stay in the same seam and target:
     - static-base extension caching in `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
     - a non-autocomplete tooltip/extension fast path in `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+
+### 2026-03-17 85
+
+- Item: Cache the static text-input extension path and split plain inputs away from autocomplete setup.
+- Status: `needs_more_work`
+- Details:
+  - Landed the next lower-seam activation slice in:
+    - `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+  - The follow-up changed the touched row-input contract by:
+    - caching the static prefix/suffix extension pieces in `getExtensions.ts` while keeping keymap, tooltip parent, completion source, and callback-driven behavior dynamic
+    - splitting the real text-input editor setup into plain and autocomplete branches so non-autocomplete inputs do not resolve tooltip parents or autocomplete wiring on activation
+    - adding focused branch coverage proving non-autocomplete text inputs skip tooltip-parent resolution while autocomplete-capable inputs still use that path
+  - Focused Vitest result:
+    - `12` files passed
+    - `31` tests passed
+  - Representative Playwright result:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+    - `6 passed`
+  - Chrome DevTools rerun status:
+    - retried `chrome-devtools-mcp` before the code slice
+    - the transport still closes immediately on `list_pages`
+    - no fresh untouched-`main` vs worktree activation trace could be captured in this pass
+  - Conclusion:
+    - the next tracker-directed local activation trim is landed and covered
+    - checkpoint 1 is still not accepted because the required untouched-`main` vs worktree cold-activation trace remains unavailable
+    - if the rerun is still mixed once CDP returns, the remaining likely local seam is the synchronous `getOnCreateEditor.ts` work rather than more extension/bootstrap splitting
+- Next action:
+  - Recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims.
+  - If the rerun is still only mixed, stay in the same seam and target:
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - narrower placeholder-cursor handling scoped to the mounted editor
+    - avoiding unnecessary first-click selection dispatch when no valid CodeMirror position is resolved

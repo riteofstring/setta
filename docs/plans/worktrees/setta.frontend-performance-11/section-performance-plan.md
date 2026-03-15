@@ -23,7 +23,7 @@ Current status:
 - Accepted history to preserve: `Phase S1`, `Phase S2`, and `Phase S3` through checkpoint 9
 - Active phase: `Phase S1` follow-up inside checkpoint 1 at the shared param-row grid contract below the section container cluster
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
-- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree); the row-input follow-up has restored visible underline/focus feedback parity and dummy-vs-real CodeMirror mono font parity on the touched `mode` field, the shared callable row-shell follow-up has restored hover/highlight parity plus resize-handle placement parity to within roughly a pixel against untouched `main`, and three more local activation trims now remove the extra dummy-to-real handoff render, slim the text-input CodeMirror bootstrap, and make activation commit synchronously while keeping the live extension/completion setup stable across ordinary value rerenders, but checkpoint 1 is still blocked because the fresh untouched-`main` vs worktree `mode` activation trace remains only mixed in the `+100ms` window and Chrome DevTools is still unavailable for the required rerun (`chrome-devtools-mcp` transport closes before a new worktree trace can be captured)
+- Current state: the shared param-row row-container shells are now flex-based across the callable/dict/global-variables stack, and the same-scene `busy_tide` callable compare against untouched `main` is materially flatter (`124` nodes / depth `12` on `main` versus `92` / `9` on the worktree); the row-input follow-up has restored visible underline/focus feedback parity and dummy-vs-real CodeMirror mono font parity on the touched `mode` field, the shared callable row-shell follow-up has restored hover/highlight parity plus resize-handle placement parity to within roughly a pixel against untouched `main`, and four more local activation trims now remove the extra dummy-to-real handoff render, slim the text-input CodeMirror bootstrap, make activation commit synchronously while keeping the live extension/completion setup stable across ordinary value rerenders, and split the plain text-input setup away from the autocomplete path while caching the static `getExtensions` pieces, but checkpoint 1 is still blocked because the fresh untouched-`main` vs worktree `mode` activation trace remains only mixed in the `+100ms` window and Chrome DevTools is still unavailable for the required rerun (`chrome-devtools-mcp` transport closes before a new worktree trace can be captured)
 - Deferred follow-up watch items after the current structural passes: callable column resizing and section resizing are still noticeably slow, but they should be treated as post-flattening trace targets rather than immediate checkpoint drivers
 - Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
@@ -137,9 +137,9 @@ Immediate next step:
   - immediate next action inside the checkpoint:
     - recover CDP and rerun the untouched-`main` vs worktree cold `mode` activation trace with the latest local activation trims
     - if the rerun is still only mixed, keep the work in the same seam and target:
-      - static-base extension caching in `frontend/src/components/Utils/CodeMirror/getExtensions.ts`
-      - a true non-autocomplete fast path in `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
-      - tooltip-parent avoidance for non-autocomplete text inputs
+      - the remaining synchronous activation work in `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+      - narrower placeholder-cursor handling scoped to the mounted editor instead of document-wide queries
+      - avoiding unnecessary selection dispatch on first activation when the pointer lookup cannot resolve a valid position
 
 Historical accepted checkpoint notes retained below:
 
