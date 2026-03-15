@@ -113,6 +113,8 @@ Validation checks:
 
 - manifest schema and capability vocabulary
 - file path safety and existence
+- Go backend entrypoint shape for backend plugins (`package main`, `func main()`)
+- successful `go build` of the backend entrypoint directory for backend plugins
 - manifest/package metadata identity consistency when package metadata exists
 
 ## 5. Build distribution artifacts

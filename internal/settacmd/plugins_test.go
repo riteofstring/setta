@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/plugins"
 )
 
 // Plugins list JSON should expose the Go-owned status payload over local plugin discovery.
@@ -336,6 +338,42 @@ func TestRunPluginsInitSupportsBackendTemplate(t *testing.T) {
 	}
 	if !strings.Contains(validateStdout, "Plugin manifest is valid: "+pluginRoot) {
 		t.Fatalf("expected validate output to mention plugin root, got %q", validateStdout)
+	}
+}
+
+// Plugins validate should fail when a backend plugin no longer builds as a Go command.
+func TestRunPluginsValidateRejectsInvalidGoBackend(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "init", "setta-cli-invalid-backend", "--template", "backend", "--out", cwd)
+	if err != nil {
+		t.Fatalf("run backend plugins init: %v", err)
+	}
+
+	pluginRoot := filepath.Join(cwd, "setta-cli-invalid-backend")
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "backend", "main.go"),
+		[]byte("package main\n\nfunc helper() {}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write invalid backend main.go: %v", err)
+	}
+
+	_, _, err = runPluginsSettaCommand(t, cwd, "plugins", "validate", pluginRoot)
+	if err == nil {
+		t.Fatal("expected plugins validate failure")
+	}
+	exitErr, ok := err.(*ExitError)
+	if !ok {
+		t.Fatalf("expected ExitError, got %T", err)
+	}
+	if exitErr.Code != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitErr.Code)
+	}
+	if !strings.Contains(exitErr.Error(), string(plugins.ServiceErrorCodeBackendBuildFailed)) {
+		t.Fatalf("expected backend build failure in error, got %v", err)
 	}
 }
 

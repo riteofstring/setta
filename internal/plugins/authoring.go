@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -153,6 +157,9 @@ func (s *Service) ValidateFolder(options ValidateFolderOptions) (string, error) 
 		return "", err
 	}
 	if err := s.validateMetadataIdentity(root, manifest); err != nil {
+		return "", err
+	}
+	if err := validateGoBackendAuthoring(root, manifest); err != nil {
 		return "", err
 	}
 	return root, nil
@@ -425,6 +432,90 @@ func validateManifestPathsForAuthoring(pluginRoot string, manifest PluginManifes
 		}
 	}
 	return nil
+}
+
+func validateGoBackendAuthoring(pluginRoot string, manifest PluginManifest) error {
+	if manifest.Backend == nil {
+		return nil
+	}
+
+	entrypointPath, err := resolveAuthoringPath(pluginRoot, manifest.Backend.Entrypoint, "Invalid backend entrypoint")
+	if err != nil {
+		return err
+	}
+	if filepath.Ext(entrypointPath) != ".go" {
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must be a Go source file: %s",
+			entrypointPath,
+		)
+	}
+
+	sourceSet := token.NewFileSet()
+	entrypointFile, err := parser.ParseFile(sourceSet, entrypointPath, nil, parser.SkipObjectResolution)
+	if err != nil {
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must be valid Go source: %s",
+			entrypointPath,
+		)
+	}
+	if entrypointFile.Name == nil || entrypointFile.Name.Name != "main" {
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must declare package main: %s",
+			entrypointPath,
+		)
+	}
+	if !goFileDeclaresMainFunction(entrypointFile) {
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must declare func main(): %s",
+			entrypointPath,
+		)
+	}
+
+	buildDir := filepath.Dir(entrypointPath)
+	buildRoot, err := os.MkdirTemp("", "setta-plugin-backend-build-*")
+	if err != nil {
+		return fmt.Errorf("create plugin backend build temp dir: %w", err)
+	}
+	defer os.RemoveAll(buildRoot)
+
+	outputPath := filepath.Join(buildRoot, "plugin-backend")
+	command := exec.Command("go", "build", "-o", outputPath, ".")
+	command.Dir = buildDir
+	command.Env = os.Environ()
+	output, err := command.CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		if message == "" {
+			message = err.Error()
+		}
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Go backend build failed for plugin %s: %s",
+			manifest.ID,
+			message,
+		)
+	}
+	return nil
+}
+
+func goFileDeclaresMainFunction(file *ast.File) bool {
+	if file == nil {
+		return false
+	}
+	for _, declaration := range file.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if !ok || function.Recv != nil || function.Name == nil {
+			continue
+		}
+		if function.Name.Name == "main" {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveAuthoringPath(pluginRoot string, relativePath string, messagePrefix string) (string, error) {

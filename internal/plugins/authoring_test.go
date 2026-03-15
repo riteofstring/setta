@@ -201,6 +201,45 @@ func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	}
 }
 
+// Validate should require backend plugins to be real Go commands, not just manifest-valid file paths.
+func TestServiceValidateFolderRejectsInvalidGoBackendAuthoring(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	nonMainPackageRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-invalid-backend-package", "backend")
+	if err := os.WriteFile(
+		filepath.Join(nonMainPackageRoot, "backend", "main.go"),
+		[]byte("package pluginbackend\n\nfunc main() {}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write invalid backend package: %v", err)
+	}
+	_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: nonMainPackageRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeBackendBuildFailed)
+
+	missingMainRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-missing-main-func", "backend")
+	if err := os.WriteFile(
+		filepath.Join(missingMainRoot, "backend", "main.go"),
+		[]byte("package main\n\nfunc helper() {}\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write missing main backend: %v", err)
+	}
+	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: missingMainRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeBackendBuildFailed)
+
+	buildFailureRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-backend-build-failure", "backend")
+	if err := os.WriteFile(
+		filepath.Join(buildFailureRoot, "backend", "main.go"),
+		[]byte("package main\n\nfunc main() { missingSymbol() }\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write backend build failure: %v", err)
+	}
+	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: buildFailureRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeBackendBuildFailed)
+}
+
 // Link should create a symlinked install with local metadata ownership and active runtime state.
 func TestServiceLinkCreatesSymlinkedInstallMetadata(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

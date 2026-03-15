@@ -281,6 +281,7 @@ Subcommands:
   - Ownership: Go.
 - `setta plugins validate <plugin_folder>`
   - Validate a plugin manifest/folder contract.
+  - Backend plugins must also pass Go command validation and `go build`.
   - Ownership: Go.
 - `setta plugins list [--json]`
   - List discovered plugin runtime status entries.

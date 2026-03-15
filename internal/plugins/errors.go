@@ -5,6 +5,7 @@ import "fmt"
 type ServiceErrorCode string
 
 const (
+	ServiceErrorCodeBackendBuildFailed      ServiceErrorCode = "PLUGIN_BACKEND_BUILD_FAILED"
 	ServiceErrorCodeAssetInvalidPath        ServiceErrorCode = "PLUGIN_ASSET_INVALID_PATH"
 	ServiceErrorCodeAssetNotFound           ServiceErrorCode = "PLUGIN_ASSET_NOT_FOUND"
 	ServiceErrorCodeConfigInvalid           ServiceErrorCode = "PLUGIN_CONFIG_INVALID"
