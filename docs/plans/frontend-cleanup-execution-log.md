@@ -5118,3 +5118,36 @@ in `frontend/src/README.md` and the cleanup plans.
   - `14c52dd34928403e01b2b4d526ba571b5fc8f56a`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/Chat/ChatInput.tsx`, which is now the top unresolved hotspot at about `3121` lines after `ProjectChatHistory.tsx` dropped to about `2933` lines.
+
+## 2026-03-15 16:52:56 PDT
+
+- Slice completed: extracted slash-command parsing, queued-draft replay snapshots, replay signatures, and the submit or replay state machine out of `ChatInput.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/Chat/ChatInput.tsx` was the top unresolved hotspot in `frontend/src/README.md`, and the slash-command plus queued-draft replay path was the clearest feature-local boundary with shared callers in both `ProjectChatCore.tsx` and `ChatArea.tsx`.
+  - This was higher value than jumping back to `ProjectChatHistory.tsx` immediately because it removed a whole composer submission state machine from the active chat surface without reopening a second giant UI file before the current chat seam stabilized.
+- Key files touched:
+  - `frontend/src/components/Chat/chatInputSubmission.ts`
+  - `frontend/src/components/Chat/chatInputSubmission.test.ts`
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Chat/ChatInput.test.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-input-submission-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatInputSubmission.test.ts src/components/Chat/ChatInput.test.tsx src/components/Chat/ChatInput.submit.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.workspaceRoot.integration.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-app-generation-slash-commands.spec.ts --grep "project ai chat replays queued /app-json through the same app-generation path"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatInput.tsx src/components/Chat/chatInputSubmission.ts src/components/Chat/ChatInput.test.tsx src/components/Chat/chatInputSubmission.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-input-submission-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-input-submission-2026-03-15.md` with same-origin harness before or after notes.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that the slash-suggestion path stayed at `49` harness DOM nodes with one `/app-json` suggestion button, and that the queued `/app-json dashboard for support ops` draft path still produced one queued draft row at `58` harness DOM nodes after pressing `Enter` while `waitingForResponse` stayed `true`.
+- Commit hash:
+  - `7531af18974c827204f650bd4e592d2ec42d8c98`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, which is now the top unresolved hotspot at about `2933` lines after `ChatInput.tsx` dropped to about `2597` lines.
