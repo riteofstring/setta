@@ -17,10 +17,10 @@ import {
 import { useMemo, useRef } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  CreateSectionsContextMenuInfo,
-  createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
-} from "state/actions/sections/createSectionsHelper";
+  type CreateSectionsContextMenuInfo,
+} from "state/actions/sections/createSectionCatalog";
+import { createTopLevelSectionFromImplSpecs } from "state/actions/sections/createSectionsHelper";
 import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useUpdateProjectSearch } from "state/hooks/search";

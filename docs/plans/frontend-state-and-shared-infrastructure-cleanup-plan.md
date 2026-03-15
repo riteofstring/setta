@@ -243,7 +243,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/createSectionsHelper.ts` at 375 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/sections/moveSections.ts` at 365 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
@@ -252,7 +251,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/stateMachineRuns.ts` at 354 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sections/createSectionsHelper.ts` at 375 lines
   - `frontend/src/state/actions/artifacts.ts` at 366 lines
   - `frontend/src/state/actions/sections/moveSections.ts` at 365 lines
   - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts` at 362 lines
@@ -522,11 +520,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingWrites.ts` now owns:
   - the thin public mutation facade that composes write-state, write-pipeline, and write-sync helpers
 - `sections/createSections.ts`, `sections/createSectionPlacement.ts`,
+  `sections/createSectionCatalog.ts`, `sections/createSectionsHelper.ts`,
   `sections/createSectionFileOpenShared.ts`,
   `sections/createSectionFileOpenCommands.ts`,
   `sections/createSectionFileDropRouting.ts`, and
   `sections/createSectionImplDefaults.ts` now split into:
   - `createSections.ts` for top-level create orchestration and empty-space add commands
+  - `createSectionCatalog.ts` for section creation menu types, grouped factory defaults, and `useCreateSectionsList`
+  - `createSectionsHelper.ts` for the narrowed post-create command path for `createTopLevelSectionFromImplSpecs`
   - `createSectionPlacement.ts` for smart placement context and empty-space positioning
   - `createSectionFileOpenShared.ts` for opened-file naming, reuse lookup, and shared rename/focus helpers
   - `createSectionFileOpenCommands.ts` for per-impl file-open commands

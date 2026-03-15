@@ -224,6 +224,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Params/*` owns param rendering and param-specific input controls.
   - `state/actions/sections/createSections.ts` now owns top-level section
     creation commands plus empty-space add actions.
+  - `state/actions/sections/createSectionCatalog.ts` owns section creation
+    menu types, grouped factory defaults, and `useCreateSectionsList`.
+  - `state/actions/sections/createSectionsHelper.ts` now owns the narrower
+    post-create command path for `createTopLevelSectionFromImplSpecs`.
   - `state/actions/sections/createSectionPlacement.ts` owns smart placement
     context and empty-space placement helpers for new sections.
   - `state/actions/sections/createSectionFileOpenShared.ts` owns opened-file
