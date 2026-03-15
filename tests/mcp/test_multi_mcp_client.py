@@ -610,7 +610,13 @@ class TestMultiMCPClientRuntimeStatus:
             error=RuntimeError("connect failed"),
             missing_env_var="GITHUB_TOKEN",
         )
-        client._mark_disabled("github")
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.disabled,
+            tool_count=0,
+            reset_failure_count=True,
+            clear_failure_metadata=True,
+        )
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.disabled

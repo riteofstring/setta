@@ -184,19 +184,16 @@ class MultiMCPClient:
             tool_count=0,
         )
 
-    def _mark_disabled(self, server_id: str) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.disabled,
-            tool_count=0,
-            reset_failure_count=True,
-            clear_failure_metadata=True,
-        )
-
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if self.disabled:
             for server_id in self._server_runtime_statuses:
-                self._mark_disabled(server_id)
+                self._mark_server_state(
+                    server_id,
+                    state=MCPServerRuntimeState.disabled,
+                    tool_count=0,
+                    reset_failure_count=True,
+                    clear_failure_metadata=True,
+                )
             return
         if self._connection_tasks:
             logger.warning("MCP client already running; skipping duplicate start")
@@ -290,7 +287,13 @@ class MultiMCPClient:
     async def stop(self) -> None:
         if self.disabled:
             for server_id in self._server_runtime_statuses:
-                self._mark_disabled(server_id)
+                self._mark_server_state(
+                    server_id,
+                    state=MCPServerRuntimeState.disabled,
+                    tool_count=0,
+                    reset_failure_count=True,
+                    clear_failure_metadata=True,
+                )
             return
         self._is_shutting_down = True
         tasks = list(self._connection_tasks.values())
@@ -307,7 +310,13 @@ class MultiMCPClient:
         self._server_tool_cache.clear()
         self._rebuild_tool_cache()
         for server_id in self._server_runtime_statuses:
-            self._mark_disabled(server_id)
+            self._mark_server_state(
+                server_id,
+                state=MCPServerRuntimeState.disabled,
+                tool_count=0,
+                reset_failure_count=True,
+                clear_failure_metadata=True,
+            )
         logger.info("MCP client resources cleaned up successfully")
 
     def init_tool_definitions_for_servers(
