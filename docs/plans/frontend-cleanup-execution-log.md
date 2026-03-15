@@ -2216,3 +2216,31 @@ module map and placement guide while this cleanup progresses.
     authored/shared state hotspot at 459 lines, by separating history paging
     fetches and selection reconciliation from the remaining persisted
     thread-history mutation helpers.
+
+## 2026-03-15 02:50:10 PDT
+
+- Slice completed: split chat history entry derivation away from chat
+  provenance lookup and shared run-filter helpers
+- Key files touched:
+  - `frontend/src/state/actions/chatHistory.ts`
+  - `frontend/src/state/actions/chatHistoryEntries.ts`
+  - `frontend/src/state/actions/chatHistoryProvenance.ts`
+  - `frontend/src/state/actions/chatHistoryShared.ts`
+  - `frontend/src/state/actions/chatHistoryTypes.ts`
+  - `frontend/src/state/actions/chatHistory.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/chatHistory.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts src/components/Section/Layouts/ChatArea.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/chatHistory.ts src/state/actions/chatHistoryTypes.ts src/state/actions/chatHistoryShared.ts src/state/actions/chatHistoryEntries.ts src/state/actions/chatHistoryProvenance.ts src/state/actions/chatHistory.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Section/Layouts/ChatArea.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `87abaa2be`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/agenticEdges.ts`, now the largest
+    authored/shared state hotspot at 448 lines, by separating agentic-edge
+    graph reads and canonicalization from optimistic mutation commands.
