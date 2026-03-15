@@ -47,7 +47,7 @@ export function InlineCodeMirrorInput({
   completionTriggerChars,
   tooltipParentDivId,
 }: InlineCodeMirrorInputProps) {
-  const theme = useCodeMirrorStyle();
+  const theme = useCodeMirrorStyle(undefined, { fontFamily: "inherit" });
   const tooltipParent = useCodeMirrorTooltipParent(tooltipParentDivId);
   const isBrowser = typeof window !== "undefined";
   const viewRef = useRef<EditorView | null>(null);
