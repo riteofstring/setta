@@ -11,7 +11,7 @@ This plan turns command discovery into a first-class capability (instead of pass
 ## Current State (Setta)
 - Setta already has local composer slash commands (`/new`, `/resume`, `/model`, `/permissions`, `/search`, `/help`) in `frontend/src/components/Chat/chatComposerControls.ts`.
 - External-agent native command metadata is currently best-effort and mostly sourced from Go-owned external-agent run/runtime metadata in `internal/externalagents` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
-- Codex adapter explicitly reports native slash commands as unsupported in app-server mode (`backend/setta/agentic/external_adapters/codex_app_server.py`).
+- The active Go Codex executor path still treats native slash-command enumeration as unsupported in app-server mode (`internal/externalagents/codex_executor.go`).
 - There is no dedicated backend API for command ingestion by selected engine/config.
 
 ## Scope
@@ -70,7 +70,7 @@ Extend the adapter protocol with explicit command discovery:
 - `list_commands(context, force_reload) -> AgentCommandDiscoveryResult`
 
 Implementation target:
-- `backend/setta/agentic/external_adapters/base.py`
+- `internal/externalagents` (new Go-side discovery abstraction alongside the executor/runtime path)
 
 Runner integration target:
 - `internal/externalagents/run_service.go`
