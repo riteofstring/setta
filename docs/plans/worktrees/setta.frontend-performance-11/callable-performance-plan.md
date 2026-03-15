@@ -17,6 +17,7 @@ Active goal now:
 - Prefer the simplest layout/rendering technique that preserves behavior and parity.
 - Treat performance wins as likely upside, but not as guaranteed proof before the shared section-shell work is complete.
 - Keep comparing untouched `main` vs this worktree in Chrome DevTools at each accepted checkpoint.
+- Work from the deepest nested structures outward/upward into the shared section shell.
 
 Historical callable-only phases below remain valid as an append-only record of the pilot work that already landed.
 
@@ -91,6 +92,10 @@ For the broadened sections-wide pass, treat these as the shared architecture clu
 - Default to the flattest DOM structure that preserves behavior.
 - Rule out `grid` for the active sections-wide refactor.
 - Do not add new `grid` or `subgrid` layout in the implementation path.
+- Work from deeply nested layout ownership outward/upward:
+  - remove or simplify the innermost wrappers first
+  - then simplify the row/group contracts that contain them
+  - then simplify the higher-level section shell once the inner contracts are stable
 - Reach for simpler techniques first:
   - plain block flow when it is sufficient
   - `relative` + `absolute` positioning for overlays, underlines, and visual chrome
@@ -515,6 +520,12 @@ The callable work already completed in this branch remains important because it 
 - flattening the subtree is possible without user-facing regression
 - the remaining layout contract is defined above the callable subtree, so a broader section-shell pass is justified
 
+Implementation order for the broadened pass:
+
+1. Start at the deepest nested layout ownership in the selected representative sections.
+2. Move outward/upward only after the inner contract for that slice is stable and screenshot-verified.
+3. Do not start by flattening the top-level section shell while the inner row/group contract is still noisy.
+
 ### Representative scenarios
 
 Keep the callable scenarios as required controls:
@@ -550,6 +561,7 @@ Tasks:
    - `sectionChrome`
    - shared edge-handle work
    - editor/chat chrome that fires during section resize
+4. For each representative section, identify the deepest nested DOM cluster that should be attacked first before moving outward/upward.
 
 Exit criteria:
 
@@ -574,6 +586,7 @@ Tasks:
 2. Replace visual-only grid usage with absolute positioning where it keeps parity and reduces coupling.
 3. Keep each checkpoint small and screenshot-gated.
 4. If a target cannot be completed without `grid`, stop and document the blocker instead of shipping a new grid-based solution.
+5. Keep the checkpoints moving from inner layout ownership outward/upward instead of starting at the top-level section frame.
 
 Exit criteria:
 
@@ -597,6 +610,7 @@ Tasks:
 2. Collapse nested row shells that still exist only to satisfy the old grid contract.
 3. Prefer a single shared non-grid row primitive instead of multiple similar wrappers.
 4. If a row/shell target cannot be reproduced without grid, stop and document the blocker rather than keeping grid as an exception.
+5. Continue moving outward/upward only after the inner row/group slice is stable under parity and DevTools checks.
 
 Exit criteria:
 
@@ -618,6 +632,7 @@ Tasks:
 1. Remove unnecessary frame/layout wrappers in the section shell.
 2. Reduce layout reads/writes in the resize path where a simpler shell makes them unnecessary.
 3. Keep parity on handles, selection, hover, and minimized/fullscreen behavior.
+4. Treat this phase as intentionally later than the inner-shell work, not as the starting point.
 
 Exit criteria:
 

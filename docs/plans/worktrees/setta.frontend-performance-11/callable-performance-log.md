@@ -1094,3 +1094,25 @@ Append-only log for the callable DOM-first performance refactor.
   - The active refactor is now a non-grid simplification effort, full stop.
 - Next action:
   - Continue the shared section-shell baseline under the hard non-grid rule.
+
+### 2026-03-16 45
+
+- Item: Made "deepest nested first, then outward/upward" explicit in the active sections-wide plan.
+- Status: `done`
+- Details:
+  - Updated the active plan so the broadened section-shell work now has an explicit execution order:
+    - start with the deepest nested DOM/layout ownership in the selected section slice
+    - stabilize that slice under screenshots and DevTools checks
+    - only then move outward/upward into the containing row/group shell
+    - leave the top-level section shell and resizable frame until the inner contract is already cleaner
+  - Added that rule to:
+    - the active goal
+    - layout principles
+    - the shared baseline phase
+    - the shared wrapper/row/shell phases
+    - the later section-shell phase
+- Interpretation:
+  - This keeps the broadened plan consistent with the original callable pilot strategy instead of flattening from the outside in.
+  - It should reduce the risk of redesigning the top-level shell around inner contracts that are still unstable.
+- Next action:
+  - Continue the shared section-shell baseline with the explicit deepest-first execution order.
