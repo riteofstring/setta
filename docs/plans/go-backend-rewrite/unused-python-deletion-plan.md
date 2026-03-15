@@ -269,12 +269,18 @@ Current tree note:
   `internal/wsapi/routes.go`, `internal/httpapi/terminal_routes.go`, and the
   Go `runs`/project-state runtime.
 - The superseded Python project-state manager/runtime cluster is also gone in
-  the current worktree: `backend/setta/project_state/*` now retains only
-  `project_manager_types.py`. The older Python
-  `project_state_summary_types.py` and `settings_project.py` helpers are also
-  gone because current summary shaping, settings-project materialization, and
-  view-mode normalization already live in Go under `internal/projectview`,
-  `internal/settingsstate`, `internal/projectstate`, and `internal/httpapi`.
+  the current worktree: `backend/setta/project_state/*` is now gone. The last
+  leftover `project_manager_types.py` file was deleted after moving the only
+  still-imported runner response DTOs into `backend/setta/api/runner.py`,
+  moving the only still-imported websocket payload DTOs into
+  `backend/setta/types/websocket.py`, and switching the listener router
+  endpoint test off the test-only `GetChatSectionChatIdRequest` model. The
+  older Python `project_state_summary_types.py` and `settings_project.py`
+  helpers were already gone because current summary shaping, settings-project
+  materialization, detached-run transport/runtime, websocket update payload
+  ownership, and view-mode normalization already live in Go under
+  `internal/projectview`, `internal/settingsstate`, `internal/projectstate`,
+  `internal/httpapi`, `internal/realtime`, and `internal/frontendbindings`.
 - The dead Python codegen renderer/metadata/contracts leaf batch is also gone
   in the current worktree:
   `backend/setta/code_gen/python/code_generator.py`,

@@ -1,14 +1,12 @@
 import asyncio
 
 import pytest
-
 from setta.api.listener import (
     ListenerDependencyMetadata,
     ListenerRuntimeState,
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.project_state.project_manager_types import GetChatSectionChatIdRequest
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -91,10 +89,11 @@ class TestListenerRouterEndpointCall:
             sent_payloads.append(payload)
 
         listener._send_websocket_payload = capture
-        request = GetChatSectionChatIdRequest(
-            projectConfigId=project_state.projectConfig.id,
-            sectionId=ID("chat-section"),
-        )
+        request = {
+            "frontendOpId": None,
+            "projectConfigId": project_state.projectConfig.id,
+            "sectionId": ID("chat-section"),
+        }
         call_task = asyncio.create_task(
             listener._call_router_endpoint(
                 "route_get_chat_section_chat_id",

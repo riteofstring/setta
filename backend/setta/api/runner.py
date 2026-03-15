@@ -1,19 +1,17 @@
 import itertools
 import random
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+from pydantic import BaseModel
 
 from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_name
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.project_state.project_manager_types import (
-    RunDetachedResponse,
-    RunStatusResponse,
-)
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
@@ -220,6 +218,35 @@ class RunPlan:
         for _ in range(count):
             expanded.extend(override.copy() for override in self._overrides)
         return RunPlan(expanded)
+
+
+class RunStatus(str, Enum):
+    queued = "queued"
+    running = "running"
+    exited = "exited"
+    failed = "failed"
+    canceled = "canceled"
+    lost = "lost"
+
+
+class RunDetachedResponse(BaseModel):
+    runId: str
+    status: RunStatus
+
+
+class RunStatusResponse(BaseModel):
+    runId: str
+    status: RunStatus
+    createdAtMs: int
+    startedAtMs: int | None
+    exitedAtMs: int | None
+    exitCode: int | None
+    pid: int | None
+    command: str
+    snapshotPath: str
+    projectConfigId: ID
+    entrySectionId: ID | None
+    tags: dict[str, str]
 
 
 class SettaRunner:
