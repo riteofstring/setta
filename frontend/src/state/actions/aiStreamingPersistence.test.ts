@@ -1,7 +1,5 @@
-import {
-  getCurrEffectiveSectionImplOfType,
-  processProjectStateUpdateFromBackend,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -34,7 +32,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("./aiChatStreaming").receiveLLMResponseChunk;
 
 const projectConfigId = "project-1";
 const sectionId = "section-1";
@@ -77,7 +75,8 @@ function seedChatSection() {
 
 describe("chat streaming persistence", () => {
   beforeAll(async () => {
-    receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
+    receiveLLMResponseChunk = (await import("./aiChatStreaming"))
+      .receiveLLMResponseChunk;
   });
 
   beforeEach(() => {

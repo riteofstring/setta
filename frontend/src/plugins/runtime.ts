@@ -1,12 +1,13 @@
 import throttle from "lodash/throttle";
 import { useEffect } from "react";
-import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketRealtime";
 import {
   useActiveSectionUI,
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
@@ -27,11 +28,10 @@ import {
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 import {
-	isPluginPaneIconName,
-	PluginPaneIconNameEnum,
-	type PluginPaneIconName,
+  isPluginPaneIconName,
+  PluginPaneIconNameEnum,
+  type PluginPaneIconName,
 } from "./paneIcons";
-import { buildPluginAssetUrl, buildPluginBackendFetchUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -702,8 +702,8 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
-  const styleUrl = buildPluginAssetUrl(plugin.frontend.styleUrl);
-  const entrypointUrl = buildPluginAssetUrl(plugin.frontend.entrypointUrl);
+  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
+  const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
@@ -1594,7 +1594,7 @@ function registerPluginModule({
         requestHeaders.set(key, value);
       }
       return fetch(
-        buildPluginBackendFetchUrl(plugin.pluginId, normalizedPath),
+        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
         {
           ...init,
           credentials: "include",
@@ -2000,6 +2000,19 @@ function ensurePluginStyleLoaded(
 
   styleElementByPluginId.set(pluginId, link);
   styleHrefByPluginId.set(pluginId, styleUrl);
+}
+
+function resolvePluginAssetUrl(url: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  if (url.startsWith("/")) {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${url}`;
+  }
+  return url;
 }
 
 function removeInactivePluginStyles(activePluginIds: Set<string>): void {

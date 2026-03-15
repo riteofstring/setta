@@ -29,6 +29,13 @@ class EmitListenerPayload(BaseModel):
     shareSessionId: str | None = None
 
 
+class ListenerEndpointPayload(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    payload: str
+    shareSessionId: str | None = None
+
+
 def register(plugin):
     router = APIRouter()
 
@@ -76,7 +83,29 @@ def register(plugin):
             "timestampMs": effective_timestamp,
         }
 
+    @router.post("/listener-endpoint")
+    def fixture_listener_endpoint(
+        payload: ListenerEndpointPayload,
+    ) -> dict[str, object]:
+        plugin.emit_listener_dependency_event(
+            project_config_id=payload.projectConfigId,
+            share_session_id=payload.shareSessionId,
+            dependency_events=[
+                _build_literal_dependency_event(
+                    section_id=payload.sectionId,
+                    payload=payload.payload,
+                    timestamp_ms=123,
+                )
+            ],
+        )
+        return {
+            "ok": True,
+            "projectConfigId": payload.projectConfigId,
+            "sectionId": payload.sectionId,
+        }
+
     plugin.register_router(router)
+    plugin.register_listener_endpoint("fixture_listener_endpoint")
 
     def setta_fixture_backend_echo(*, value: str) -> str:
         return f"{plugin.plugin_id}:{value}"
