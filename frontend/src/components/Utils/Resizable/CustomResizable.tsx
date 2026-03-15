@@ -9,20 +9,16 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
-import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { useSectionResizeController } from "./useSectionResizeController";
 
 export function CustomResizable({
   sectionId,
-  bgColor,
   isYouTube,
-  isMetaControl,
+  useMetaControlStyle = false,
   positionAndSizeLocked,
-  hasSectionStyleTheme = false,
   allowPointerEventsDuringDnd = false,
-  frameClassName = "before:border-white dark:before:border-setta-700",
-  layoutClassName,
+  surfaceClassName,
   children,
   as,
 }) {
@@ -52,11 +48,10 @@ export function CustomResizable({
     <CustomResizableSuperCore
       sectionId={sectionId}
       as={as}
-      bgColor={bgColor}
       isYouTube={isYouTube}
-      isMetaControl={isMetaControl}
-      hasSectionStyleTheme={hasSectionStyleTheme}
+      useMetaControlStyle={useMetaControlStyle}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
+      surfaceClassName={surfaceClassName}
       size={size}
       minHeight={minHeight}
       maxHeight={maxHeight}
@@ -65,8 +60,6 @@ export function CustomResizable({
       heightResizable={heightResizable}
       widthResizable={widthResizable}
       positionAndSizeLocked={positionAndSizeLocked}
-      frameClassName={frameClassName}
-      layoutClassName={layoutClassName}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
@@ -85,13 +78,10 @@ export function CustomResizable({
 function CustomResizableSuperCore({
   sectionId,
   as,
-  bgColor,
   isYouTube,
-  isMetaControl,
-  hasSectionStyleTheme,
+  useMetaControlStyle,
   allowPointerEventsDuringDnd,
-  frameClassName = "before:border-white dark:before:border-setta-700",
-  layoutClassName,
+  surfaceClassName,
   size,
   minHeight,
   maxHeight,
@@ -136,26 +126,13 @@ function CustomResizableSuperCore({
           topLeft: false,
           bottomLeft: false,
         };
-
-  const layoutClassNameToUse =
-    layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
-
-  // MetaControl sections render outboard controls near the agentic handles.
-  // On hover, raise the resizable stacking context above the handles so menus
-  // remain clickable.
-  const metaHoverZIndexClass = isMetaControl
-    ? "group-hover/card-section:z-[170]"
-    : "";
-  const inputClasses = getSectionSurfaceClassName({
-    bgColor,
-    hasSectionStyleTheme,
-    positionAndSizeLocked,
-    shouldDisablePointerEvents,
-    isYouTube,
-    frameClassName,
-    layoutClassName: layoutClassNameToUse,
-    metaHoverZIndexClassName: metaHoverZIndexClass,
-  });
+  const inputClasses = [
+    surfaceClassName,
+    shouldDisablePointerEvents && "pointer-events-none select-none",
+    isYouTube && "overflow-clip",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {
@@ -167,7 +144,7 @@ function CustomResizableSuperCore({
     "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
 
   function getMetaControlHandleActiveClassName(direction: string) {
-    if (!isMetaControl) {
+    if (!useMetaControlStyle) {
       return "";
     }
     if (activeResizeHandle !== direction) {
@@ -255,7 +232,7 @@ function CustomResizableSuperCore({
     }
   }
 
-  if (isMetaControl) {
+  if (useMetaControlStyle) {
     handleStyles = {
       right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
       bottom: {
