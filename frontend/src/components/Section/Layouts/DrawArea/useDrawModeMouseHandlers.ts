@@ -1,6 +1,6 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import cloneDeep from "lodash/cloneDeep";
-import { queueTransformsForSave } from "state/actions/artifacts";
+import { queueTransformsForSave } from "state/actions/artifactSyncQueue";
 import {
   useBrushStrokes,
   useDecodedImages,
