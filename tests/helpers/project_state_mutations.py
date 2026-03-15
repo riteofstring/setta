@@ -59,8 +59,8 @@ from setta.types.section_impls import (
     CallableSectionImpl,
     MetaControlSectionImpl,
 )
-from setta.utils.name_validation import validate_project_name, validate_section_name
 from tests.helpers.dropzone import normalize_dropzone_value
+from tests.helpers.name_validation import validate_project_name, validate_section_name
 from tests.helpers.password_store import set_password_secret
 from tests.helpers.project_state_core import compute_initial_nonPresetImpls
 from tests.helpers.project_state_effective_impls import (

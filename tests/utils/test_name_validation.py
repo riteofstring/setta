@@ -46,9 +46,9 @@ from setta.utils.errors import (
     InvalidProjectName,
     InvalidSectionName,
 )
+from tests.helpers.name_validation import validate_param_name
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
-    validate_param_name,
 )
 from setta.utils.paths import normalize_state_path
 from setta.utils.utils import build_project_sections_dir
