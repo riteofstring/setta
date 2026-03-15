@@ -9,8 +9,8 @@ import {
 } from "forks/dnd-kit/adapter/collision";
 import type { SettaCollision } from "forks/dnd-kit/adapter/types";
 import { useMemo, type ReactNode } from "react";
-import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
 import { useParamDndChildren } from "./paramDndChildren";
 import { useParamDndState } from "./paramDndState";

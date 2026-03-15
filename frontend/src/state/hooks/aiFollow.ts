@@ -7,13 +7,14 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getHighestAncestor } from "state/actions/sectionInfos";
+import { getHighestAncestor } from "state/actions/sectionHierarchy";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
 } from "state/aiFollowUtils";
-import { useAIFollow, useMisc, useProjectState } from "state/definitions";
+import { useAIFollow, useProjectState } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
