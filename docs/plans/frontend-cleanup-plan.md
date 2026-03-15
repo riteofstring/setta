@@ -60,16 +60,16 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
 - The next readability problem after file scope is oversized flat namespaces
   where too many sibling files compete as plausible entry points.
-- There are 1503 authored TS/TSX files under `frontend/src`.
-- There are 29 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1200 lines.
+- There are 1545 authored TS/TSX files under `frontend/src`.
+- There are 28 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1185 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 646 lines after the local engine-settings, hydration-selection, project-scoped aux-state, settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, conversation-search, and thread-session extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 912 lines after the local skills browser, markdown viewer, path-group header, and skills view-model extraction and is no longer a top-size hotspot
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 1197 lines after the local docked/floating/maximized surface extraction plus the local window lifecycle extraction and is no longer a top-size hotspot
   - `frontend/src/components/Chat/ChatInput.tsx` at 999 lines after the local composer meta-controls extraction plus the local draft-session and queued-draft-stack extraction and is no longer a top-size hotspot
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 63 lines after the local settings-section and manager extraction and is no longer a top-size hotspot
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1019 lines after the local hydration-runtime, slash-command-authority, execution-settings, conversation-model, and hydration-session extractions and is now a follow-through project-AI coordinator
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1019 lines after the local hydration-runtime, slash-command-authority, execution-settings, conversation-model, and hydration-session extractions and remains the top unresolved project-AI coordinator
 - `frontend/src/components/Chat/ChatMessages.tsx` is now 528 lines after delegating the message bubble shells to `frontend/src/components/Chat/chatMessageBubbles.tsx`, the action rail to `frontend/src/components/Chat/chatMessageActions.tsx`, and per-message render branches to `frontend/src/components/Chat/chatMessageSurface.tsx`, so it is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 646 lines after the local tree-data transport/view-model, list-surface, and search-filter extraction and is no longer a top-size hotspot
@@ -85,7 +85,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607 lines after the local plugin-card, config-editor, config-schema, and shared-shell extraction and is no longer a top-size hotspot.
 
-## Current Pivot (2026-03-15)
+## Current Pivot (2026-03-16)
 
 - Phase 0 documentation work is in place, and many of the old state monoliths
   have already been split into stable helper seams plus thin compatibility
@@ -94,8 +94,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   opens first, not the already-decomposed state layer and not the chat internals
   that have already been cut down substantially.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
-  now delegates engine/model/config selection to
-  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts`
+  now delegates engine/configuration state, provider-dictation readiness,
+  external-engine notifications, and settings-popover mutations to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/useProjectChatEngineSettings.ts`,
+  history-compatibility and hydration metadata selection to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationSelection.ts`,
+  project-scoped aux-view, draft-message, and thread-visibility writes to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.ts`,
+  engine/model/config selection helpers to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts`,
   the settings popover shell to
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx`,
   and inline-thread layout or resize ownership to
@@ -115,9 +122,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatThreadSession.ts`,
   and aux-tab/search tooltip or counter helpers to
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSurfaceViewModel.ts`,
-  so the next default work in that cluster should continue from the remaining
-  larger front-door hotspots unless a same-turn follow-through cut shortens the
-  remaining hydration-authority or engine-sync path.
+  so the next default work in that cluster should continue from
+  `ProjectChatCore.tsx` and the larger remaining front-door hotspots unless a
+  same-turn follow-through cut shortens one of those new local owners.
 - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
   now delegates root bootstrap, folder-request ownership, recursive-search
   crawl, preview URL refresh, and tree flatten/filter/sort state to
