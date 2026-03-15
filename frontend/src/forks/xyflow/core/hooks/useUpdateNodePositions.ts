@@ -1,6 +1,6 @@
 import { getNodes, updateNodePositions } from "state/actions/nodeInternals";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
 
 export const updatePositions = (params: {
