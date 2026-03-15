@@ -93,6 +93,49 @@ func TestMCPRuntimeStatusRouteReturnsCurrentStatuses(t *testing.T) {
 	}
 }
 
+// The runtime-status route should report a custom files location when the
+// active setta-files root is explicitly overridden away from the standard
+// local/global roots.
+func TestMCPRuntimeStatusRouteReportsCustomSettaFilesLocationForExplicitRoot(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Register: func(r chi.Router) {
+			if err := RegisterMCPRoutes(r, MCPRouteDependencies{
+				ModePolicy:               modes.NewPolicy(config.ModeIDE),
+				LLMConfigPath:            "/tmp/custom-setta-files/llm_config.json",
+				ActiveSettaFilesLocation: "custom",
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/mcpServerRuntimeStatus", bytes.NewBufferString(`{}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload MCPRuntimeStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if payload.ActiveSettaFilesLocation != "custom" {
+		t.Fatalf("expected custom files location, got %q", payload.ActiveSettaFilesLocation)
+	}
+	if payload.LLMConfigPath != "/tmp/custom-setta-files/llm_config.json" {
+		t.Fatalf("expected explicit custom llm config path, got %q", payload.LLMConfigPath)
+	}
+}
+
 func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
 	t.Parallel()
 
