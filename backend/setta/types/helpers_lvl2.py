@@ -3494,22 +3494,6 @@ def move_sections_to_parent_section(
         _set_code_section_attached_terminal(p, newParentId, sectionIds[0])
 
 
-def ungroup_group(p: "ProjectStateSingleConfig", groupId: ID):
-    impl = get_curr_effective_section_impl_with_type_guard(p, groupId, GroupSectionImpl)
-
-    parentId = p.parentSectionMap[groupId]
-    if not parentId:
-        for c in impl.children:
-            layout = p.projectConfig.topLevelSections[groupId]
-            move_section_to_pane(p, c, Position(x=layout.x, y=layout.y))
-    else:
-        groupIdx = get_curr_section_children_ids(p, parentId).index(groupId)
-        for i, c in enumerate(impl.children):
-            move_section_to_parent_section(p, parentId, c, groupIdx + i)
-
-    delete_sections(p, [groupId])
-
-
 def _get_section_param_root_id(
     p: "ProjectStateSingleConfig",
     section_id: ID,
