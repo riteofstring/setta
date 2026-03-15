@@ -130,3 +130,6 @@ categorize them.
   proved too; keep using the matrix to spot these isolated typed-error rows on
   already-open owners before switching back to the heavier deployment,
   websocket, watch-code, external-agent, and packaged-CLI work
+- The local-session registry row for missing `serverMode` metadata is now
+  proved too; the same small-proof workflow also applies to CLI/session
+  plumbing when the source contract is one narrow selection or omission branch
