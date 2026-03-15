@@ -8,6 +8,14 @@ from setta.logging.tasks import spawn_background_task
 CallbackExecutor = Callable[[dict[str, Any], list[Any]], Awaitable[None] | None]
 
 
+def _normalize_ms(value: int | None) -> float | None:
+    if value is None:
+        return None
+    if value <= 0:
+        return None
+    return value / 1000.0
+
+
 @dataclass(slots=True)
 class _CallbackEntry:
     callback_id: str
@@ -42,16 +50,8 @@ class ListenerCallbackScheduler:
         entry = _CallbackEntry(
             callback_id=callback_id,
             executor=executor,
-            debounce_seconds=(
-                None
-                if debounce_ms is None or debounce_ms <= 0
-                else debounce_ms / 1000.0
-            ),
-            throttle_seconds=(
-                None
-                if throttle_ms is None or throttle_ms <= 0
-                else throttle_ms / 1000.0
-            ),
+            debounce_seconds=_normalize_ms(debounce_ms),
+            throttle_seconds=_normalize_ms(throttle_ms),
         )
         self._callbacks[callback_id] = entry
 

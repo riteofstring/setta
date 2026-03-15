@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import { route_load_settings } from "utils/generatedEndpoints";
-import { type SettingsState } from "utils/generatedTypes";
+import { SettingsState } from "utils/generatedTypes";
 
 const SETTINGS_RETRY_DELAY_MS = 500;
 
 type LoadSettingsOptions = {
   enabled?: boolean;
 };
-
-type LoadSettingsRouteResponse = ResponseDataAndStatus<SettingsState>;
 
 export function useLoadSettings(options: LoadSettingsOptions = {}) {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -26,7 +24,7 @@ export function useLoadSettings(options: LoadSettingsOptions = {}) {
     let retryTimeout: number | undefined;
 
     async function loadSettings() {
-      const res: LoadSettingsRouteResponse = await route_load_settings();
+      const res = await route_load_settings();
 
       if (!isMounted) {
         return;
