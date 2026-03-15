@@ -13,8 +13,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Authored TS/TSX files under `frontend/src`: `1413`
 - Non-generated TS/TSX files at `1000+` lines: `44`
 - Biggest current production hotspots:
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2933`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`2860`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
@@ -82,6 +82,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Chat/ChatMessages.tsx` now focuses on list assembly, grouped
     activity-only message stitching, assistant/user/system bubble shells, and
     message-level interaction wiring across those local chat owners.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts`
+    owns grouped history derivation, master-search filtering and counts,
+    thread ordering, agent badge labels, and placeholder text used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now
+    focuses on polling, local toolbar state, search navigation, thread/group
+    commands, DnD handlers, and the history render shells over that local
+    view-model owner.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
