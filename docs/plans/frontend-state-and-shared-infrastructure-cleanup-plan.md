@@ -289,9 +289,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   behavior, and `frontend/src/state/actions/stateMachineRuns.ts` is now the
   thin compatibility facade.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
-  orchestration layer; `terminalSessions.ts` owns cached websocket session
-  reuse and transport wiring, and `terminalFit.ts` owns xterm
-  fit/fallback/reflow behavior.
+  orchestration layer; `terminalSessionTransport.ts` now owns websocket/session
+  bootstrap plus stdin/output transport wiring, `terminalSessions.ts` now owns
+  cached session lookup plus resize/lifecycle bookkeeping, and
+  `terminalFit.ts` owns xterm fit/fallback/reflow behavior.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
 - Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
 
@@ -301,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/hooks/terminals/terminalSessions.ts` at 353 lines
   - `frontend/src/state/hooks/sectionMinMaxDims.ts` at 316 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
   - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
+  - `frontend/src/state/actions/aiTranscription.ts` at 300 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -684,9 +685,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - mutation success and failure store updates
 - `aiConfigurationCatalogMutations.ts` now owns:
   - agent-profile, prompt-template, external-agent, and engine-config mutation transport
-- `terminal.ts`, `terminalSessions.ts`, and `terminalFit.ts` now split into:
+- `terminal.ts`, `terminalSessionTransport.ts`, `terminalSessions.ts`, and
+  `terminalFit.ts` now split into:
   - `terminal.ts` for React mount, ready/focus wiring, and resize observation
-  - `terminalSessions.ts` for cached websocket session reuse, stdin gating, and resize transport
+  - `terminalSessionTransport.ts` for websocket/session bootstrap plus stdin/output transport wiring
+  - `terminalSessions.ts` for cached session reuse, resize buffering, and lifecycle bookkeeping
   - `terminalFit.ts` for xterm fit-addon fallback logic and widen-reflow patching
 - `focusManager.ts`, `focusManagerRegistry.ts`, `focusManagerElements.ts`,
   `focusManagerNavigation.ts`, and `focusManagerSections.ts` now split into:

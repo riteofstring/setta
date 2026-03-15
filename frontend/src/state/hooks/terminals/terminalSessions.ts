@@ -1,27 +1,9 @@
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
-import { useShareSession } from "state/definitions";
-import { C } from "utils/c";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams } from "utils/endpointUtils";
-import { RouteEnum } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
-import { terminalTheme } from "./utils";
+import {
+  createBootstrappedTerminalSession,
+  type TerminalSession,
+} from "./terminalSessionTransport";
 
-export type TerminalSession = {
-  ws: WebSocket;
-  refCount: number;
-  closeTimeoutId: number | null;
-  isReady: boolean;
-  terminal: Terminal;
-  fitAddon: FitAddon;
-  inputDisposable: { dispose: () => void };
-  resizeDisposable: { dispose: () => void };
-  pendingResizeMessage: string | null;
-  pendingResizeTimeoutId: number | null;
-  lastSentResizeMessage: string | null;
-  lastSentResizeTs: number | null;
-};
+export type { TerminalSession } from "./terminalSessionTransport";
 
 type TerminalSessionKeyParams = {
   projectConfigId: string;
@@ -66,11 +48,10 @@ export function acquireTerminalSession({
 }: AcquireTerminalSessionParams): TerminalSession {
   const existing = TERMINAL_SESSIONS[sessionKey];
   if (existing) {
-    // If the websocket has already died and nothing is currently mounted,
-    // throw away the stale session so the next mount establishes a fresh one.
     if (
       existing.refCount === 0 &&
-      (existing.ws.readyState === 2 || existing.ws.readyState === 3)
+      (existing.ws.readyState === WebSocket.CLOSING ||
+        existing.ws.readyState === WebSocket.CLOSED)
     ) {
       disposeTerminalSession(sessionKey, existing);
     } else {
@@ -85,115 +66,18 @@ export function acquireTerminalSession({
     }
   }
 
-  const id = createNewId();
-  const terminal = new Terminal({
-    cursorBlink: true,
-    theme: terminalTheme,
-    disableStdin: isDeploymentMode,
+  const session = createBootstrappedTerminalSession({
+    sessionKey,
+    projectConfigId,
+    sectionId,
+    shareSessionId,
+    isDeploymentMode,
+    container,
+    getCurrentSession: (key) => TERMINAL_SESSIONS[key],
+    queueResize: queueTerminalResize,
+    flushResize: flushTerminalResize,
   });
-  const fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-  terminal.open(container);
-  const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
-    RouteEnum.TERMINAL,
-    { projectConfigId, sectionId, id },
-  )}`;
-  const wsTerminalAddress = shareSessionId
-    ? `${baseAddress}?shareSessionId=${encodeURIComponent(shareSessionId)}`
-    : baseAddress;
-  const ws = new WebSocket(wsTerminalAddress);
-
-  const session: TerminalSession = {
-    ws,
-    refCount: 1,
-    closeTimeoutId: null,
-    isReady: false,
-    terminal,
-    fitAddon,
-    inputDisposable: terminal.onData(() => {}),
-    resizeDisposable: terminal.onResize(() => {}),
-    pendingResizeMessage: null,
-    pendingResizeTimeoutId: null,
-    lastSentResizeMessage: null,
-    lastSentResizeTs: null,
-  };
   TERMINAL_SESSIONS[sessionKey] = session;
-
-  // Terminal -> backend input.
-  session.inputDisposable.dispose();
-  session.inputDisposable = terminal.onData((data) => {
-    const shareSession = useShareSession.getState();
-    if (shareSession.isDeploymentMode) {
-      return;
-    }
-    if (!session.isReady) {
-      return;
-    }
-    if (ws.readyState === 1) {
-      ws.send(data);
-    }
-  });
-
-  // Terminal -> backend resize (debounced, keep only the latest).
-  session.resizeDisposable.dispose();
-  session.resizeDisposable = terminal.onResize((size) => {
-    const message = JSON.stringify({
-      messageType: C.WS_TERMINAL_RESIZE,
-      cols: size.cols,
-      rows: size.rows,
-    });
-    queueTerminalResize(sessionKey, message);
-  });
-
-  ws.addEventListener("open", () => {
-    if (TERMINAL_SESSIONS[sessionKey] !== session) {
-      return;
-    }
-    flushTerminalResize(sessionKey);
-  });
-
-  ws.addEventListener("message", (event: MessageEvent) => {
-    if (TERMINAL_SESSIONS[sessionKey] !== session) {
-      return;
-    }
-    if (
-      typeof event.data === "string" &&
-      event.data === C.SETTA_TERMINAL_READY
-    ) {
-      session.isReady = true;
-      return;
-    }
-
-    const appendText = (text: string) => {
-      if (!text) {
-        return;
-      }
-      session.terminal.write(text);
-    };
-
-    if (typeof event.data === "string") {
-      appendText(event.data);
-      return;
-    }
-    if (event.data instanceof ArrayBuffer) {
-      appendText(new TextDecoder().decode(event.data));
-      return;
-    }
-    if (event.data instanceof Blob) {
-      event.data
-        .arrayBuffer()
-        .then((buffer) => {
-          if (TERMINAL_SESSIONS[sessionKey] !== session) {
-            return;
-          }
-          appendText(new TextDecoder().decode(buffer));
-        })
-        .catch(() => {
-          // Ignore decode errors.
-        });
-    }
-  });
-
   return session;
 }
 
@@ -241,7 +125,7 @@ function queueTerminalResize(sessionKey: string, message: string) {
   const now = Date.now();
   const lastSent = session.lastSentResizeTs;
   const canSendNow =
-    session.ws.readyState === 1 &&
+    session.ws.readyState === WebSocket.OPEN &&
     (lastSent === null || now - lastSent >= TERMINAL_RESIZE_THROTTLE_MS);
 
   if (canSendNow) {
@@ -280,7 +164,7 @@ function flushTerminalResize(sessionKey: string) {
   if (!message) {
     return;
   }
-  if (session.ws.readyState === 1) {
+  if (session.ws.readyState === WebSocket.OPEN) {
     session.ws.send(message);
     session.lastSentResizeMessage = message;
     session.lastSentResizeTs = Date.now();
@@ -301,16 +185,14 @@ function disposeTerminalSession(sessionKey: string, session: TerminalSession) {
   session.lastSentResizeMessage = null;
   session.lastSentResizeTs = null;
 
-  // If we're disposing while still mounted (e.g. stale ws on remount), remove
-  // the old terminal element so `terminal.open()` doesn't leave duplicates.
   const element = session.terminal.element;
   if (element && element.parentElement) {
     element.remove();
   }
 
-  if (session.ws.readyState === 1) {
+  if (session.ws.readyState === WebSocket.OPEN) {
     session.ws.close();
-  } else if (session.ws.readyState === 0) {
+  } else if (session.ws.readyState === WebSocket.CONNECTING) {
     session.ws.addEventListener("open", () => {
       session.ws.close();
     });
@@ -322,10 +204,7 @@ function disposeTerminalSession(sessionKey: string, session: TerminalSession) {
   delete TERMINAL_SESSIONS[sessionKey];
 }
 
-function deferTerminalDispose(terminal: Terminal) {
-  // Work around an xterm.js dispose race that can throw:
-  // "Cannot read properties of undefined (reading 'dimensions')".
-  // Defer disposal past the next refresh tick.
+function deferTerminalDispose(terminal: TerminalSession["terminal"]) {
   if (typeof requestAnimationFrame !== "function") {
     terminal.dispose();
     return;

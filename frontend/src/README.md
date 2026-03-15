@@ -516,8 +516,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/hooks/sectionSizes.ts` is now a thin compatibility surface that
     re-exports the narrower hook owners.
   - `state/hooks/terminals/terminal.ts` now just orchestrates terminal mount,
-    ready/focus wiring, and resize observation; `terminalSessions.ts` owns
-    cached terminal websocket sessions, and `terminalFit.ts` owns xterm
+    ready/focus wiring, and resize observation; `terminalSessionTransport.ts`
+    owns websocket/session bootstrap plus stdin/output transport wiring,
+    `terminalSessions.ts` owns cached session lookup, resize buffering, and
+    lifecycle bookkeeping, and `terminalFit.ts` owns xterm
     fit/fallback/reflow behavior.
   - `utils/focusManager.ts` is now just the compatibility entrypoint;
     `focusManagerRegistry.ts` owns tab-scope registration plus focus tracking,

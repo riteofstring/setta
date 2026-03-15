@@ -42,9 +42,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
 - Before starting a slice, re-measure the current file and check for nearby helper modules/tests.
 - Terminal hook ownership is no longer concentrated in one file: `frontend/src/state/hooks/terminals/terminal.ts`
-  now handles React mount/focus orchestration while `terminalSessions.ts`
-  owns websocket session reuse and `terminalFit.ts` owns xterm fit/fallback
-  sizing behavior.
+  now handles React mount/focus orchestration while
+  `terminalSessionTransport.ts` owns websocket/session bootstrap and transport
+  wiring, `terminalSessions.ts` owns cached session reuse plus resize/lifecycle
+  bookkeeping, and `terminalFit.ts` owns xterm fit/fallback sizing behavior.
 - public stop orchestration now lives in `frontend/src/state/actions/aiChatControls.ts`,
   while external-run lookup and external stop recovery now live in
   `frontend/src/state/actions/aiExternalAgentStop.ts`
@@ -322,8 +323,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/projectChatWindowing.ts` to a 28-line
   compatibility surface.
 - `frontend/src/state/hooks/terminals/terminal.ts` is down to 248 lines and now
-  delegates terminal websocket-session caching/transport to
-  `frontend/src/state/hooks/terminals/terminalSessions.ts` and xterm
+  delegates terminal websocket/session bootstrap and transport wiring to
+  `frontend/src/state/hooks/terminals/terminalSessionTransport.ts`, cached
+  session reuse plus resize/lifecycle bookkeeping to
+  `frontend/src/state/hooks/terminals/terminalSessions.ts`, and xterm
   fit/fallback/reflow behavior to
   `frontend/src/state/hooks/terminals/terminalFit.ts`.
 - `frontend/src/state/actions/keyActivations.ts` is down to 284 lines and now
@@ -559,7 +562,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/hooks/terminals/terminalSessions.ts`, `state/hooks/sectionMinMaxDims.ts`, `state/actions/aiLLMConfiguration.ts`, `state/actions/aiFollow.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/hooks/sectionMinMaxDims.ts`, `state/actions/aiLLMConfiguration.ts`, `state/actions/aiFollow.ts`, `state/actions/keyActivationHandlers.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
