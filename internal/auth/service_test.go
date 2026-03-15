@@ -48,6 +48,84 @@ func TestLoadCurrentSessionUsesRuntimeRootFallback(t *testing.T) {
 	}
 }
 
+func TestLoadCurrentSessionUsesSessionsRootOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	overrideRuntimeRoot := filepath.Join(tmpDir, "override-runtime")
+	sessionID := "abc123"
+	secret := []byte("test-secret")
+	metadata := writeSessionFixture(t, overrideRuntimeRoot, sessionID, secret)
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: filepath.Join(tmpDir, "unused-runtime"),
+		EnvLookup: envMap{
+			sessionIDEnv:    sessionID,
+			sessionsRootEnv: filepath.Join(overrideRuntimeRoot, "sessions"),
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session with sessions root override: %v", err)
+	}
+	if currentSession == nil {
+		t.Fatal("expected current session from sessions root override")
+	}
+
+	// The retained Python helpers rely on SETTA_SESSIONS_ROOT so auth helpers can
+	// resolve a session outside the current working/runtime root.
+	if currentSession.Metadata.ID != metadata.ID {
+		t.Fatalf("expected session id %q, got %q", metadata.ID, currentSession.Metadata.ID)
+	}
+	if string(currentSession.Secret) != string(secret) {
+		t.Fatalf("expected session secret %q, got %q", string(secret), string(currentSession.Secret))
+	}
+}
+
+func TestLoadCurrentSessionReturnsNilWithoutSessionID(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	writeSessionFixture(t, runtimeRoot, "abc123", []byte("test-secret"))
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup:   envMap{}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session without session id: %v", err)
+	}
+	if currentSession != nil {
+		t.Fatalf("expected nil current session without session id, got %#v", currentSession)
+	}
+}
+
+func TestLoadCurrentSessionReturnsNilWhenSecretMissing(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	sessionID := "abc123"
+	secret := []byte("test-secret")
+	metadata := writeSessionFixture(t, runtimeRoot, sessionID, secret)
+	if err := os.Remove(metadata.SecretPath); err != nil {
+		t.Fatalf("remove session secret: %v", err)
+	}
+
+	currentSession, err := LoadCurrentSession(LoadCurrentSessionOptions{
+		RuntimeRoot: runtimeRoot,
+		EnvLookup: envMap{
+			sessionIDEnv: sessionID,
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("load current session with missing secret: %v", err)
+	}
+	if currentSession != nil {
+		t.Fatalf("expected nil current session when secret is missing, got %#v", currentSession)
+	}
+}
+
 func TestServiceBootstrapTokenRoundTripRejectsReplay(t *testing.T) {
 	t.Parallel()
 
