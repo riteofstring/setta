@@ -287,11 +287,15 @@ func newCreatedChildSectionState(
 	if err != nil {
 		return createdChildSectionState{}, err
 	}
+	sectionName, err := nextAvailableCreatedChildSectionName(existingSiblingNames, implType)
+	if err != nil {
+		return createdChildSectionState{}, err
+	}
 
 	return createdChildSectionState{
 		section: Section{
 			ID:               sectionID,
-			Name:             nextAvailableCreatedChildSectionName(existingSiblingNames, implType),
+			Name:             sectionName,
 			ParentSectionID:  parentID,
 			VariantIDs:       []string{variantID},
 			DefaultVariantID: variantID,
@@ -387,17 +391,10 @@ func childSiblingNames(project Project, childIDs []string) ([]string, error) {
 	return names, nil
 }
 
-func nextAvailableCreatedChildSectionName(existingNames []string, implType string) string {
-	base := defaultCreatedTopLevelSectionName(implType)
-	if createdSectionNameAvailable(existingNames, base) {
-		return base
-	}
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s %d", base, suffix)
-		if createdSectionNameAvailable(existingNames, candidate) {
-			return candidate
-		}
-	}
+func nextAvailableCreatedChildSectionName(existingNames []string, _ string) (string, error) {
+	return nextAvailableMemorableName(func(candidate string) (bool, error) {
+		return createdSectionNameAvailable(existingNames, candidate), nil
+	})
 }
 
 func createdSectionNameAvailable(existingNames []string, candidate string) bool {

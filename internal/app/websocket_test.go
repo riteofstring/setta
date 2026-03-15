@@ -139,6 +139,105 @@ func TestAppServesFrontendWebsocketRouteForConfiguredDevFrontendOrigin(t *testin
 	}
 }
 
+func TestAppFrontendWebsocketSendsInitialNameValidationErrors(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	writeAppJSONBytes(
+		t,
+		filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.MainFileName),
+		appNameValidationTestDocument(t),
+	)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNameValidationErrors, 3)
+	payload := decodeAppNameValidationErrors(t, envelope.Content)
+	if payload.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha validation payload, got %#v", payload)
+	}
+	if len(payload.ProjectErrors) != 1 || payload.ProjectErrors[0] != "Project name cannot include path separators." {
+		t.Fatalf("unexpected project name validation payload: %#v", payload.ProjectErrors)
+	}
+	if got := payload.SectionErrors["section-a"]; len(got) != 1 || got[0] != "Section name cannot include path separators." {
+		t.Fatalf("unexpected section name validation payload: %#v", payload.SectionErrors)
+	}
+}
+
+func TestAppSaveBroadcastsNameValidationErrors(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	writeAppJSONBytes(
+		t,
+		filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.MainFileName),
+		appNameValidationTestDocument(t),
+	)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNameValidationErrors, 3)
+
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save project runtime: %v", err)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNameValidationErrors, 2)
+	payload := decodeAppNameValidationErrors(t, envelope.Content)
+	if payload.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha validation payload after save, got %#v", payload)
+	}
+	if got := payload.SectionErrors["section-a"]; len(got) != 1 || got[0] != "Section name cannot include path separators." {
+		t.Fatalf("unexpected section name validation payload after save: %#v", payload.SectionErrors)
+	}
+}
+
 func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -1196,6 +1295,66 @@ func websocketStateMachineTestRawJSON(t *testing.T, payload map[string]any) proj
 		t.Fatalf("marshal workflow test payload: %v", err)
 	}
 	return projectstate.RawJSON(raw)
+}
+
+func appNameValidationTestDocument(t *testing.T) projectstate.Document {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				SectionVariantMap: map[string]string{
+					"section-a": "section-a-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"section-a": {
+						ID:               "section-a",
+						Name:             "Section A",
+						VariantIDs:       []string{"section-a-variant"},
+						DefaultVariantID: "section-a-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"section-a-variant": {
+						ID:     "section-a-variant",
+						ImplID: "section-a-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"section-a-impl": {
+						ID:      "section-a-impl",
+						Kind:    projectstate.SectionKind("frontend"),
+						Payload: websocketStateMachineTestRawJSON(t, map[string]any{"id": "section-a-impl", "type": "TextBlock"}),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize app name validation test document: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	project.Name = "bad/name"
+	section := project.Sections["section-a"]
+	section.Name = "bad/name"
+	project.Sections[section.ID] = section
+	document.Projects[project.ID] = project
+	return document
+}
+
+func decodeAppNameValidationErrors(t *testing.T, raw json.RawMessage) projectstate.NameValidationErrors {
+	t.Helper()
+
+	var payload projectstate.NameValidationErrors
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode name validation errors payload: %v", err)
+	}
+	return payload
 }
 
 func TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory(t *testing.T) {

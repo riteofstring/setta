@@ -232,11 +232,15 @@ func newCreatedTopLevelSectionState(project Project, input CreateTopLevelSection
 	if err != nil {
 		return createdTopLevelSectionState{}, err
 	}
+	sectionName, err := nextAvailableCreatedTopLevelSectionName(project, input.ImplType)
+	if err != nil {
+		return createdTopLevelSectionState{}, err
+	}
 
 	return createdTopLevelSectionState{
 		section: Section{
 			ID:               sectionID,
-			Name:             nextAvailableCreatedTopLevelSectionName(project, input.ImplType),
+			Name:             sectionName,
 			VariantIDs:       []string{variantID},
 			DefaultVariantID: variantID,
 		},
@@ -589,9 +593,13 @@ func newMetaControlParam(controlType string) (CodeObject, CodeObjectVariant, Cod
 	if err != nil {
 		return CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
+	name, err := generateMemorableString()
+	if err != nil {
+		return CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
+	}
 	return CodeObject{
 			ID:               codeObjID,
-			Name:             "control",
+			Name:             name,
 			VariantIDs:       []string{variantID},
 			DefaultVariantID: variantID,
 		},
@@ -1161,38 +1169,10 @@ func (p *Project) pruneTopLevelCreationViewState() {
 	}
 }
 
-func nextAvailableCreatedTopLevelSectionName(project Project, implType string) string {
-	base := defaultCreatedTopLevelSectionName(implType)
-	if createTopLevelSectionNameAvailable(project, base) {
-		return base
-	}
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s %d", base, suffix)
-		if createTopLevelSectionNameAvailable(project, candidate) {
-			return candidate
-		}
-	}
-}
-
-func defaultCreatedTopLevelSectionName(implType string) string {
-	switch implType {
-	case "Code":
-		return "Code"
-	case "Dict":
-		return "Dict"
-	case "Group":
-		return "Group"
-	case "MetaControl":
-		return "Meta Control"
-	case "Terminal":
-		return "Terminal"
-	case "TextBlock":
-		return "Text Block"
-	case "Chat":
-		return "Chat"
-	default:
-		return "Section"
-	}
+func nextAvailableCreatedTopLevelSectionName(project Project, _ string) (string, error) {
+	return nextAvailableMemorableName(func(candidate string) (bool, error) {
+		return createTopLevelSectionNameAvailable(project, candidate), nil
+	})
 }
 
 func createTopLevelSectionNameAvailable(project Project, candidate string) bool {

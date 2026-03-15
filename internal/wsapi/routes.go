@@ -192,6 +192,21 @@ func serveFrontendConnection(
 	if err := deps.WebsocketHub.SendFrontendIdentity(ctx, connection.ID); err != nil {
 		return err
 	}
+	if !info.Modes.Policy.IsDeployment() && deps.ProjectState != nil {
+		validationErrors, err := projectstate.CollectAllNameValidationErrors(deps.ProjectState.Snapshot().Document)
+		if err != nil {
+			return err
+		}
+		for _, validationError := range validationErrors {
+			if _, err := deps.WebsocketHub.SendJSON(
+				ctx,
+				realtime.NewNameValidationErrorsMessage(validationError),
+				connection.ID,
+			); err != nil {
+				return err
+			}
+		}
+	}
 
 	for {
 		messageType, payload, err := conn.Read(ctx)

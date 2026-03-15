@@ -592,8 +592,8 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve added callable param after route add_kwarg: %v", err)
 	}
-	if addedCallableParam.Name != "param" {
-		t.Fatalf("expected added callable param placeholder name param, got %q", addedCallableParam.Name)
+	if addedCallableParam.Name == "" {
+		t.Fatal("expected added callable param name")
 	}
 	if got := callableCodeObjPayload["value"]; got != "" {
 		t.Fatalf("expected added callable param value to start empty, got %#v", got)

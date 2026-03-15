@@ -32,8 +32,11 @@ func TestProjectAddKwargAppendsCallableParam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created callable param: %v", err)
 	}
-	if createdCodeObj.Name != "param" {
-		t.Fatalf("expected placeholder callable param name param, got %q", createdCodeObj.Name)
+	if createdCodeObj.Name == "" {
+		t.Fatal("expected created callable param name")
+	}
+	if _, err := validateCodeObjectNameForSection(project, "callable-section", result.CodeObjID, createdCodeObj.Name); err != nil {
+		t.Fatalf("expected created callable param name to remain valid, got %q with error %v", createdCodeObj.Name, err)
 	}
 	if createdImpl.Type != codeParamType {
 		t.Fatalf("expected created callable param type CodeParam, got %q", createdImpl.Type)
@@ -73,8 +76,11 @@ func TestProjectAddKwargSharesDictParamAcrossSections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created dict param from dict-a: %v", err)
 	}
-	if dictACodeObj.Name != "param" {
-		t.Fatalf("expected placeholder dict param name param, got %q", dictACodeObj.Name)
+	if dictACodeObj.Name == "" {
+		t.Fatal("expected created dict param name")
+	}
+	if _, err := validateCodeObjectNameForSection(project, "dict-a", result.CodeObjID, dictACodeObj.Name); err != nil {
+		t.Fatalf("expected created dict param name to remain valid, got %q with error %v", dictACodeObj.Name, err)
 	}
 	if dictAImpl.Type != codeParamType {
 		t.Fatalf("expected created dict param type CodeParam, got %q", dictAImpl.Type)
@@ -122,8 +128,11 @@ func TestProjectAddKwargSupportsGlobalVariables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve created global param: %v", err)
 	}
-	if createdCodeObj.Name != "param" {
-		t.Fatalf("expected placeholder global param name param, got %q", createdCodeObj.Name)
+	if createdCodeObj.Name == "" {
+		t.Fatal("expected created global param name")
+	}
+	if _, err := validateCodeObjectNameForSection(project, "global-section", result.CodeObjID, createdCodeObj.Name); err != nil {
+		t.Fatalf("expected created global param name to remain valid, got %q with error %v", createdCodeObj.Name, err)
 	}
 	if createdImpl.Type != codeParamType {
 		t.Fatalf("expected created global param type CodeParam, got %q", createdImpl.Type)

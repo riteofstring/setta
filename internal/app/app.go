@@ -394,6 +394,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					if err := lspDiagnostics.PruneDocument(snapshot.Document); err != nil {
 						return err
 					}
+					validationErrors, err := projectstate.CollectAllNameValidationErrors(snapshot.Document)
+					if err != nil {
+						return err
+					}
+					for _, validationError := range validationErrors {
+						if _, err := websocketHub.BroadcastJSON(
+							ctx,
+							realtime.NewNameValidationErrorsMessage(validationError),
+							realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+						); err != nil {
+							return err
+						}
+					}
 					return nil
 				},
 			},

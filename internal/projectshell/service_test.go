@@ -497,8 +497,8 @@ func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *
 	if err != nil {
 		t.Fatalf("CreateProjectConfig returned error: %v", err)
 	}
-	if createdName != "Project" {
-		t.Fatalf("expected created name Project, got %q", createdName)
+	if createdName == "" {
+		t.Fatal("expected non-empty created name")
 	}
 	if hookCalls != 1 {
 		t.Fatalf("expected metadata hook once, got %d", hookCalls)
@@ -512,6 +512,9 @@ func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *
 		t.Fatalf("expected one persisted project, got %#v", reloaded.Projects)
 	}
 	project := reloaded.Projects[reloaded.DefaultProjectID]
+	if project.Name != createdName {
+		t.Fatalf("expected persisted project name %q, got %q", createdName, project.Name)
+	}
 	if len(project.ViewModes) != 1 {
 		t.Fatalf("expected one initial view mode, got %#v", project.ViewModes)
 	}

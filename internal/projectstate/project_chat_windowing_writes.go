@@ -410,25 +410,15 @@ func (p Project) resolveWindowSpaceCreateName(name *string) (string, error) {
 		return validateWindowSpaceName(p, "", *name)
 	}
 
-	baseName := "Window Space"
-	candidate := baseName
-	usedSlugs := make(map[string]struct{}, len(p.WindowSpaces))
-	for _, windowSpace := range p.WindowSpaces {
-		slug := sanitizeProjectSlug(windowSpace.Name)
-		if slug == "" {
-			continue
+	return nextAvailableMemorableName(func(candidate string) (bool, error) {
+		if _, err := validateWindowSpaceName(p, "", candidate); err == nil {
+			return true, nil
+		} else if IsInvalidWindowSpaceNameError(err) {
+			return false, nil
+		} else {
+			return false, err
 		}
-		usedSlugs[slug] = struct{}{}
-	}
-	if _, exists := usedSlugs[sanitizeProjectSlug(candidate)]; !exists {
-		return candidate, nil
-	}
-	for suffix := 2; ; suffix++ {
-		candidate = fmt.Sprintf("%s %d", baseName, suffix)
-		if _, exists := usedSlugs[sanitizeProjectSlug(candidate)]; !exists {
-			return candidate, nil
-		}
-	}
+	})
 }
 
 func validateProjectChatThreadBindingsUnchanged(

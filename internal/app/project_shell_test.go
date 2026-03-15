@@ -490,8 +490,8 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	if err := json.NewDecoder(createResponse.Body).Decode(&createdName); err != nil {
 		t.Fatalf("decode create response: %v", err)
 	}
-	if createdName != "Project" {
-		t.Fatalf("expected created name Project, got %q", createdName)
+	if createdName == "" {
+		t.Fatal("expected non-empty created name")
 	}
 
 	persistedStore, err := projectstate.NewStore(app.ProjectStates().Paths().Main, projectstate.StoreOptions{})
@@ -505,7 +505,7 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 
 	createdProjectID := ""
 	for projectID, project := range persistedDocument.Projects {
-		if project.Name == "Project" {
+		if project.Name == createdName {
 			createdProjectID = projectID
 			if len(project.ViewModes) != 1 {
 				t.Fatalf("expected created project to have one view mode, got %#v", project.ViewModes)

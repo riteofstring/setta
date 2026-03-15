@@ -14,7 +14,6 @@ var (
 )
 
 const (
-	addKwargDefaultName    = "param"
 	addKwargDictRootName   = "params"
 	nestedParamCodeObjType = "NestedParam"
 )
@@ -247,15 +246,10 @@ func (p Project) nextAvailableAddKwargName(childIDs []string) (string, error) {
 		}
 		used[name] = struct{}{}
 	}
-	if _, exists := used[addKwargDefaultName]; !exists {
-		return addKwargDefaultName, nil
-	}
-	for index := 2; ; index++ {
-		candidate := fmt.Sprintf("%s_%d", addKwargDefaultName, index)
-		if _, exists := used[candidate]; !exists {
-			return candidate, nil
-		}
-	}
+	return nextAvailableMemorableName(func(candidate string) (bool, error) {
+		_, exists := used[candidate]
+		return !exists, nil
+	})
 }
 
 func (p *Project) storeCreatedCodeObject(core CodeObject, variant CodeObjectVariant, impl CodeObjectImpl) {

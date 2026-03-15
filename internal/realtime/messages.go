@@ -22,6 +22,7 @@ const (
 	MessageTypeUISettingReveal             = "UISettingReveal"
 	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
+	MessageTypeNameValidationErrors        = "NameValidationErrors"
 	MessageTypeLLMConfigUpdated            = "LLMConfigUpdated"
 	MessageTypeLLMAPIKeysUpdated           = "LLMApiKeysUpdated"
 	MessageTypeAgentRunUpdated             = "AgentRunUpdated"
@@ -248,6 +249,11 @@ type LSPDiagnosticsMessage struct {
 	Content     projectstate.LSPDiagnosticsPayload `json:"content"`
 }
 
+type NameValidationErrorsMessage struct {
+	MessageType string                            `json:"messageType"`
+	Content     projectstate.NameValidationErrors `json:"content"`
+}
+
 type LLMConfigUpdatedMessage struct {
 	MessageType string               `json:"messageType"`
 	Content     llmconfig.AllConfigs `json:"content"`
@@ -391,6 +397,13 @@ func NewAllConnectionsMessage(connections []Connection) AllConnectionsMessage {
 func NewLSPDiagnosticsMessage(content projectstate.LSPDiagnosticsPayload) LSPDiagnosticsMessage {
 	return LSPDiagnosticsMessage{
 		MessageType: MessageTypeLSPDiagnostics,
+		Content:     content,
+	}
+}
+
+func NewNameValidationErrorsMessage(content projectstate.NameValidationErrors) NameValidationErrorsMessage {
+	return NameValidationErrorsMessage{
+		MessageType: MessageTypeNameValidationErrors,
 		Content:     content,
 	}
 }

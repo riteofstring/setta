@@ -254,8 +254,8 @@ func TestRegisterProjectShellRoutesCreatesProjectConfig(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &createdName); err != nil {
 		t.Fatalf("decode created project payload: %v", err)
 	}
-	if createdName != "Project" {
-		t.Fatalf("expected created name Project, got %q", createdName)
+	if createdName == "" {
+		t.Fatal("expected non-empty created name")
 	}
 	if len(projectRuntime.Snapshot().Document.Projects) != 1 {
 		t.Fatalf("expected one created project, got %#v", projectRuntime.Snapshot().Document.Projects)

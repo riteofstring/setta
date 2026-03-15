@@ -1478,8 +1478,8 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	if err != nil {
 		t.Fatalf("resolve added callable param after add_kwarg: %v", err)
 	}
-	if addedCallableParam.Name != "param" {
-		t.Fatalf("expected added callable param placeholder name param, got %q", addedCallableParam.Name)
+	if addedCallableParam.Name == "" {
+		t.Fatal("expected added callable param name")
 	}
 	if got := addedCallableParamPayload["value"]; got != "" {
 		t.Fatalf("expected added callable param value to start empty, got %#v", got)

@@ -139,11 +139,19 @@ func TestProjectCreateChildSectionsInsertsAtIndexAndSetsParentIDs(t *testing.T) 
 			t.Fatalf("expected width 640, got width=%v err=%v payload=%#v", width, err, size)
 		}
 	}
-	if project.Sections[result.SectionIDs[0]].Name != "Text Block 2" {
-		t.Fatalf("expected sibling-safe name Text Block 2, got %q", project.Sections[result.SectionIDs[0]].Name)
+	firstName := project.Sections[result.SectionIDs[0]].Name
+	secondName := project.Sections[result.SectionIDs[1]].Name
+	if firstName == "" || secondName == "" {
+		t.Fatalf("expected created child section names, got %q and %q", firstName, secondName)
 	}
-	if project.Sections[result.SectionIDs[1]].Name != "Text Block 3" {
-		t.Fatalf("expected sibling-safe name Text Block 3, got %q", project.Sections[result.SectionIDs[1]].Name)
+	if firstName == secondName {
+		t.Fatalf("expected distinct created child names, got %q", firstName)
+	}
+	if _, err := validateSectionName(project, result.SectionIDs[0], firstName); err != nil {
+		t.Fatalf("expected first child name to remain valid, got %q with error %v", firstName, err)
+	}
+	if _, err := validateSectionName(project, result.SectionIDs[1], secondName); err != nil {
+		t.Fatalf("expected second child name to remain valid, got %q with error %v", secondName, err)
 	}
 }
 

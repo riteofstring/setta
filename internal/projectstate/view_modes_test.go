@@ -84,6 +84,12 @@ func TestRuntimeCreateAndSwitchViewModesSwapLayoutAndViewportState(t *testing.T)
 	}
 
 	createdViewMode := projectAfterCreate.ViewModes[secondViewModeID]
+	if createdViewMode.Name == "" {
+		t.Fatal("expected created view mode name")
+	}
+	if _, err := validateViewModeName(projectAfterCreate, createdViewMode.ID, createdViewMode.Name); err != nil {
+		t.Fatalf("expected created view mode name to remain valid, got %q with error %v", createdViewMode.Name, err)
+	}
 	if !reflect.DeepEqual(createdViewMode.TopLevelSections, projectAfterCreate.TopLevelSections) {
 		t.Fatalf("expected created view mode layouts to clone current layouts, got %#v vs %#v", createdViewMode.TopLevelSections, projectAfterCreate.TopLevelSections)
 	}

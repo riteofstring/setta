@@ -47,6 +47,13 @@ func TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicP
 	if layout.ZIndex != 3 {
 		t.Fatalf("expected next z-index 3, got %#v", layout)
 	}
+	if createdSection, ok := project.Sections[result.SectionID]; !ok {
+		t.Fatalf("expected created section %q in project state", result.SectionID)
+	} else if createdSection.Name == "" {
+		t.Fatal("expected created top-level section name")
+	} else if _, err := validateSectionName(project, result.SectionID, createdSection.Name); err != nil {
+		t.Fatalf("expected created top-level section name to remain valid, got %q with error %v", createdSection.Name, err)
+	}
 
 	for _, viewModeID := range []string{"focus", "secondary"} {
 		viewMode := project.ViewModes[viewModeID]
@@ -96,8 +103,11 @@ func TestProjectCreateTopLevelSectionCreatesMetaControlParamAndHonorsExplicitPos
 	if !ok {
 		t.Fatalf("expected created meta control code object, got %#v", project.CodeObjs)
 	}
-	if codeObj.Name != "control" {
-		t.Fatalf("expected control code object name, got %#v", codeObj)
+	if codeObj.Name == "" {
+		t.Fatalf("expected created meta control code object name, got %#v", codeObj)
+	}
+	if _, err := validateCodeObjectNameForSection(project, result.SectionID, codeObj.ID, codeObj.Name); err != nil {
+		t.Fatalf("expected meta control code object name to remain valid, got %q with error %v", codeObj.Name, err)
 	}
 
 	sectionPayload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])

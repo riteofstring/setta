@@ -2,11 +2,8 @@ package projectstate
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
-
-const defaultCreatedProjectName = "Project"
 
 func (d *Document) CreateProject(previewImgColor string) (string, string, error) {
 	if d == nil {
@@ -176,18 +173,20 @@ func (d *Document) reconcileDefaultProjectID() {
 }
 
 func nextAvailableProjectName(document Document) (string, error) {
-	if _, err := validateProjectName(document, "new-project", defaultCreatedProjectName, false); err == nil {
-		return defaultCreatedProjectName, nil
-	} else if !IsInvalidProjectNameError(err) {
-		return "", err
-	}
+	return nextAvailableProjectNameWithGenerator(document, generateMemorableString)
+}
 
-	for suffix := 2; ; suffix++ {
-		candidate := fmt.Sprintf("%s %d", defaultCreatedProjectName, suffix)
+func nextAvailableProjectNameWithGenerator(
+	document Document,
+	generate func() (string, error),
+) (string, error) {
+	return nextAvailableGeneratedName(generate, func(candidate string) (bool, error) {
 		if _, err := validateProjectName(document, "new-project", candidate, false); err == nil {
-			return candidate, nil
-		} else if !IsInvalidProjectNameError(err) {
-			return "", err
+			return true, nil
+		} else if IsInvalidProjectNameError(err) {
+			return false, nil
+		} else {
+			return false, err
 		}
-	}
+	})
 }

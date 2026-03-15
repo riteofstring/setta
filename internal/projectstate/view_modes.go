@@ -127,12 +127,15 @@ func (p *Project) CreateViewMode() (string, error) {
 
 	viewMode := ViewMode{
 		ID:                    viewModeID,
-		Name:                  nextAvailableViewModeName(*p),
 		SortIndex:             nextSortIndex,
 		VisibilityBySectionID: map[string]bool{},
 		TopLevelSections:      cloneTopLevelSectionsMap(p.TopLevelSections),
 		Viewport:              cloneViewport(p.Viewport),
 		ViewportInitialized:   p.ViewportInitialized,
+	}
+	viewMode.Name, err = nextAvailableViewModeName(*p)
+	if err != nil {
+		return "", err
 	}
 	for sectionID := range p.Sections {
 		viewMode.VisibilityBySectionID[sectionID] = true
@@ -565,26 +568,16 @@ func validateViewModeName(project Project, viewModeID string, name string) (stri
 	return normalized, nil
 }
 
-func nextAvailableViewModeName(project Project) string {
-	baseName := "View Mode"
-	candidate := baseName
-	usedSlugs := make(map[string]struct{}, len(project.ViewModes))
-	for _, viewMode := range project.ViewModes {
-		slug := sanitizeViewModeSlug(viewMode.Name)
-		if slug == "" {
-			continue
+func nextAvailableViewModeName(project Project) (string, error) {
+	return nextAvailableMemorableName(func(candidate string) (bool, error) {
+		if _, err := validateViewModeName(project, "", candidate); err == nil {
+			return true, nil
+		} else if IsInvalidViewModeNameError(err) {
+			return false, nil
+		} else {
+			return false, err
 		}
-		usedSlugs[slug] = struct{}{}
-	}
-	if _, exists := usedSlugs[sanitizeViewModeSlug(candidate)]; !exists {
-		return candidate
-	}
-	for suffix := 2; ; suffix++ {
-		candidate = fmt.Sprintf("%s %d", baseName, suffix)
-		if _, exists := usedSlugs[sanitizeViewModeSlug(candidate)]; !exists {
-			return candidate
-		}
-	}
+	})
 }
 
 func sortedViewModeIDs(viewModes map[string]ViewMode) []string {

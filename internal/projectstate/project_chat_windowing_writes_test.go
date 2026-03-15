@@ -158,6 +158,33 @@ func TestRuntimeCreateWindowSpacePersistsNormalizedState(t *testing.T) {
 	}
 }
 
+func TestRuntimeCreateWindowSpaceGeneratesValidDefaultName(t *testing.T) {
+	t.Parallel()
+
+	runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+	snapshot, createdWindowSpace, err := runtime.CreateWindowSpace(
+		context.Background(),
+		"project-alpha",
+		WindowSpaceState{
+			WindowsByID: map[string]WindowSpaceWindow{},
+			Order:       []string{},
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("CreateWindowSpace returned error: %v", err)
+	}
+	if createdWindowSpace.Name == "" {
+		t.Fatal("expected generated window space name")
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if _, err := validateWindowSpaceName(project, createdWindowSpace.ID, createdWindowSpace.Name); err != nil {
+		t.Fatalf("expected generated window space name to remain valid, got %q with error %v", createdWindowSpace.Name, err)
+	}
+}
+
 func TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner(t *testing.T) {
 	t.Parallel()
 

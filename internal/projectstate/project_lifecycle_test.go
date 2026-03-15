@@ -11,11 +11,14 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 	if err != nil {
 		t.Fatalf("CreateProject returned error: %v", err)
 	}
-	if projectName != "Project" {
-		t.Fatalf("expected created project name Project, got %q", projectName)
+	if projectName == "" {
+		t.Fatal("expected non-empty created project name")
 	}
 	if document.DefaultProjectID != projectID {
 		t.Fatalf("expected default project %q, got %q", projectID, document.DefaultProjectID)
+	}
+	if _, err := validateProjectName(document, projectID, projectName, false); err != nil {
+		t.Fatalf("expected created project name to remain valid, got %q with error %v", projectName, err)
 	}
 
 	project, err := document.ProjectByID(projectID)
@@ -39,25 +42,40 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 	if !ok {
 		t.Fatalf("expected active view mode %q to exist", project.ActiveViewModeID)
 	}
-	if viewMode.Name != "View Mode" {
-		t.Fatalf("expected initial view mode name View Mode, got %q", viewMode.Name)
+	if viewMode.Name == "" {
+		t.Fatal("expected initial view mode name")
+	}
+	if _, err := validateViewModeName(project, project.ActiveViewModeID, viewMode.Name); err != nil {
+		t.Fatalf("expected created view mode name to remain valid, got %q with error %v", viewMode.Name, err)
 	}
 }
 
-func TestDocumentCreateProjectUsesNextAvailableProjectName(t *testing.T) {
+func TestNextAvailableProjectNameRetriesGeneratedNamesUntilOneIsValid(t *testing.T) {
 	t.Parallel()
 
 	document := NewDocument()
-	document.Projects["project-1"] = Project{ID: "project-1", Name: "Project"}
-	document.Projects["project-2"] = Project{ID: "project-2", Name: "Project 2"}
-	document.DefaultProjectID = "project-1"
+	document.Projects["project-1"] = Project{ID: "project-1", Name: "happy_bear"}
 
-	_, projectName, err := document.CreateProject("bg-orange-500/60 dark:bg-orange-600/30")
+	attempts := 0
+	projectName, err := nextAvailableProjectNameWithGenerator(document, func() (string, error) {
+		attempts++
+		switch attempts {
+		case 1:
+			return "happy_bear", nil
+		case 2:
+			return "home", nil
+		default:
+			return "calm_fox", nil
+		}
+	})
 	if err != nil {
-		t.Fatalf("CreateProject returned error: %v", err)
+		t.Fatalf("nextAvailableProjectNameWithGenerator returned error: %v", err)
 	}
-	if projectName != "Project 3" {
-		t.Fatalf("expected Project 3, got %q", projectName)
+	if projectName != "calm_fox" {
+		t.Fatalf("expected calm_fox after retries, got %q", projectName)
+	}
+	if attempts != 3 {
+		t.Fatalf("expected 3 attempts, got %d", attempts)
 	}
 }
 
@@ -85,6 +103,7 @@ func TestDocumentCloneProjectCreatesIndependentCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectByID source returned error: %v", err)
 	}
+	sourceViewModeName := sourceProject.ViewModes[sourceProject.ActiveViewModeID].Name
 	clonedProject, err := document.ProjectByID(clonedProjectID)
 	if err != nil {
 		t.Fatalf("ProjectByID clone returned error: %v", err)
@@ -105,7 +124,7 @@ func TestDocumentCloneProjectCreatesIndependentCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectByID source after mutation returned error: %v", err)
 	}
-	if sourceAfterMutation.ViewModes[sourceAfterMutation.ActiveViewModeID].Name != "View Mode" {
+	if sourceAfterMutation.ViewModes[sourceAfterMutation.ActiveViewModeID].Name != sourceViewModeName {
 		t.Fatalf("expected source project to remain unchanged, got %#v", sourceAfterMutation.ViewModes)
 	}
 }
