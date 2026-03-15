@@ -663,8 +663,8 @@ function ColorPickerParamConfigured({
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
-      colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+      wrapperClassName="section-value relative flex min-h-0 h-[calc(100%_-_4px)] w-[calc(100%_-_2px)] min-w-0 justify-self-start self-center items-stretch"
+      colorPickerChoicesClasses="colorpicker relative flex h-full min-h-0 w-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-lg text-white"
       isDisabled={isDisabled}
     />
   );
