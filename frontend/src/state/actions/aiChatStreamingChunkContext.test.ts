@@ -12,7 +12,7 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolveStreamingChunkContext } from "./aiChatStreamingRouting";
+import { resolveStreamingChunkContext } from "./aiChatStreamingChunkContext";
 
 const projectConfigId = "project-1";
 const sectionId = "section-1";
@@ -53,7 +53,7 @@ function seedChatSection(initialChatId: string | null): void {
   });
 }
 
-describe("chat streaming routing", () => {
+describe("aiChatStreamingChunkContext", () => {
   beforeEach(() => {
     resetProjectStores();
     seedChatSection(chatId);

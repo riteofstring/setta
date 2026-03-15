@@ -10,6 +10,7 @@ import {
 } from "utils/generatedTypes";
 import { updateChatDetails } from "./aiChatState";
 import { maybeApplyAppDefinitionToolResult } from "./aiChatStreamingAppDefinition";
+import { resolveStreamingChunkContext } from "./aiChatStreamingChunkContext";
 import { applyMessageDeltaToChatMessages } from "./aiChatStreamingMessageDeltas";
 import {
   applyFinalizedMessageToChatMessages,
@@ -19,8 +20,7 @@ import {
   applyStreamingChunkRoutingSideEffects,
   clearStreamingFollowToolArguments,
   handleAgenticScopeViolation,
-  resolveStreamingChunkContext,
-} from "./aiChatStreamingRouting";
+} from "./aiChatStreamingSectionRouting";
 import {
   applyToolCallDelta,
   handleToolCallDelta,

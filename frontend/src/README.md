@@ -57,9 +57,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     and project AI settings.
   - `state/actions/aiChatStreaming.ts` owns the public streaming entrypoint
     plus managed-chat detail updates.
-  - `state/actions/aiChatStreamingRouting.ts` owns placeholder filtering,
-    chatId-to-section routing, stream-active tracking, section persistence, and
+  - `state/actions/aiChatStreamingChunkContext.ts` owns placeholder filtering,
+    project/section context resolution, and chatId-to-section lookup caching.
+  - `state/actions/aiChatStreamingSectionRouting.ts` owns stream-active
+    tracking, managed section persistence, tool-preview cleanup, and
     scope-violation side effects for streaming chunks.
+  - `state/actions/aiChatStreamingRouting.ts` is now a thin compatibility
+    facade over the narrower streaming routing owners.
   - `state/actions/aiChatStreamingMessageDeltas.ts` owns assistant placeholder
     creation plus shared text/thinking delta reducers.
   - `state/actions/aiChatStreamingMessageUpserts.ts` owns finalized-assistant
