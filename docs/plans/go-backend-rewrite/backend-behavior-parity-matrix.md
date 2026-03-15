@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`b0f818d8a3e060ed375a18255e9ecb1b061c9941`
+`3d2182eb2e3de0fafacb71a64eda388f3c0115e5`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -51,6 +51,9 @@ It currently covers:
 - app-spec patch-stream behavior and legacy stream-app-spec transport
 - app-gen skill discovery/content/upsert behavior
 - Project AI viewer support routes for setta-home info, MCP runtime status, and path reveal
+- backend init/auth refresh/server-mode status routes
+- launcher home recent-workspace/directory/open-workspace behavior
+- launcher management status/setup/repair/remove/update behavior
 - surviving MCP init-tool behavior for project metadata, installed packages, and runtime status
 - provider dictation transcription-session file/realtime transport and runtime behavior
 - managed/external chat hydration, managed stop, and external-agent approval/question transport behavior
@@ -90,7 +93,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Fifteen concrete parity gaps are already visible:
+- Sixteen concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -142,6 +145,10 @@ Rows outside these slices are still pending.
     anywhere LLM access is allowed, including share/deployment reads
   - current Go hard-gates every agent-profile route to IDE mode even though
     current share/deployment UI still hydrates profile reads
+  - source-baseline `setupLauncher` rejects unknown extra JSON fields with
+    FastAPI/Pydantic `422` validation
+  - current Go launcher setup strict-decode path returns `400 invalid_json`
+    for the same unknown-field payloads
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -223,6 +230,10 @@ Rows outside these slices are still pending.
     websocket broadcast proof (`WS-02`, `WS-05`)
 - The agent-profile slice mostly closes with proofs, but it adds one concrete
   share-read gap (`AP-02`) plus one dormant realtime watcher row (`AP-04`).
+- The status/server-mode/launcher slice mostly closes with proofs, but it
+  adds one concrete launcher-management validation gap (`LM-02`), two
+  broader proof-gap rows (`ST-03`, `LM-01`), and two dormant mode-guard rows
+  (`LM-03`, `LH-04`).
 
 ## Project Names
 
@@ -623,11 +634,27 @@ Rows outside these slices are still pending.
 | `AP-03` | MCP read tools `list_agent_profiles` and `get_agent_profile` list/fetch persisted profiles with read access metadata. | Source tools: `backend/setta/mcp/tools/agentic_tools.py::{list_agent_profiles,get_agent_profile}`. | Proof: `internal/mcpx/server_test.go::TestServerListAgentProfilesAndGetAgentProfile`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsAgentProfileReadToolsOverAuthenticatedSSE`. | `Proved` | |
 | `AP-04` | External edits to the stored agent-profile file push `AgentProfilesUpdated` websocket messages so connected frontends can refresh without an explicit reload. | Source watcher/broadcast path: `backend/setta/agentic/profile_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_agent_profiles_update`; source/current frontend receiver: `frontend/src/state/actions/websocketReceive.ts`. | Current Go evidence only retains the websocket enum in `internal/frontendbindings/websocket_support.go`; current frontend still has the receiver in `frontend/src/state/actions/websocketReceive.ts`, but current Go app/runtime has no equivalent watcher or broadcaster. | `Dormant / unproven caller` | Current frontend already hydrates profiles on load and applies optimistic create/update/delete updates locally, so this slice does not yet prove that external file-edit realtime remains required in the Go-era product. |
 
+## Status, Server Mode, And Launcher Surfaces
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `ST-01` | `authRefreshStatus` returns `authCookieRefreshWindowSeconds` so the frontend can keep IDE sessions fresh while websocket-connected. | `docs/reference/auth-and-sessions.md` refresh-behavior section; source route: `backend/setta/routers/status.py::route_get_auth_refresh_status`; source utility test: `tests/utils/test_init_status.py::test_auth_refresh_status_includes_refresh_window`. | Impl: `internal/httpapi/status_routes.go::getAuthRefreshStatusHandler`; proof: `internal/httpapi/status_routes_test.go::TestRegisterStatusRoutesReturnsAuthRefreshStatus`; current caller: `frontend/src/state/actions/websocketReceive.ts`. | `Proved` | |
+| `ST-02` | `serverMode` returns the current runtime mode as one of `ide`, `share`, `app`, or `launcher`, and the frontend caches that response to drive mode-boundary routing. | Source route: `backend/setta/routers/status.py::route_get_server_mode`; source tests: `tests/routers/test_status_server_mode.py::{test_route_get_server_mode_returns_ide,test_route_get_server_mode_returns_share,test_route_get_server_mode_returns_app,test_route_get_server_mode_returns_launcher}`. | Impl: `internal/httpapi/httpapi.go` foundation `/api/serverMode` route; proof: `internal/httpapi/httpapi_test.go::TestHandlerServesFoundationRoutes`; current caller proof: `frontend/src/state/actions/serverMode.ts`; `frontend/src/state/actions/serverMode.test.ts`. | `Proved` | |
+| `ST-03` | `backendInitStatus` exposes the typed init-status payload used by the loading UI and worktree hint, including `events`, `isReady`, `error`, refresh-window, and optional `worktreeName` fields. | Source route: `backend/setta/routers/status.py::route_get_backend_init_status`; source init-state owner: `backend/setta/utils/init_status.py::{BackendInitializationStatus,BackendInitStatusResponse}`; source tests: `tests/utils/test_init_status.py::{test_snapshot_includes_auth_refresh_window,test_snapshot_reads_active_worktree_name}`; current caller evidence: `frontend/src/components/Pages/GlobalWrapper.tsx`; `frontend/src/components/AppHeader/WorktreeHint.tsx`. | Impl: `internal/httpapi/status_routes.go::getBackendInitStatusHandler`; proof: `internal/httpapi/status_routes_test.go::TestRegisterStatusRoutesReturnsBackendInitStatus`. | `Implemented, proof incomplete` | Current Go directly proves the stable ready payload, but this slice does not yet classify whether source multi-event or in-error initialization snapshots remain required in the rewrite architecture. |
+| `LM-01` | `launcherStatus`, `setupLauncher`, `repairLauncher`, `removeLauncher`, and `updateLauncher` resolve scoped `setta_home`, expose metadata-only installs versus managed-artifact installs, and preserve the IDE-facing desktop-launcher status/update contract. | Source routes: `backend/setta/routers/status.py::{route_get_launcher_status,route_setup_launcher,route_repair_launcher,route_remove_launcher,route_update_launcher}`; source scope helper: `backend/setta/routers/launcher_scope.py::resolve_launcher_setta_home`; source tests: `tests/routers/test_launcher_management_routes.py::{test_launcher_status_route_reports_not_installed,test_launcher_status_route_honors_setta_home_query,test_launcher_status_route_blank_setta_home_uses_backend_default,test_setup_and_remove_launcher_routes_roundtrip,test_setup_launcher_route_preserves_existing_identity_when_fields_omitted,test_setup_launcher_route_preserves_no_artifact_mode_when_install_flag_omitted,test_setup_launcher_route_clears_artifact_options_when_explicitly_empty,test_repair_launcher_route_rebinds_missing_target,test_update_launcher_route_reports_installer_managed_channel}`. | Impl: `internal/httpapi/launcher_management_routes.go`; `internal/launcher/management.go`; proof: `internal/httpapi/launcher_management_routes_test.go::{TestRegisterLauncherManagementRoutesReportsNotInstalled,TestRegisterLauncherManagementRoutesHonorsScopedSettaHome,TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly,TestRegisterLauncherManagementRoutesSetupInstallsManagedArtifacts}`; service proof: `internal/launcher/management_test.go::{TestManagementServiceCollectStatusReportsNotInstalled,TestManagementServiceSetupDefaultsFreshInstallToMetadataOnly,TestManagementServiceSetupPreservesExistingMetadataOnlyIdentityWhenFieldsOmitted,TestManagementServiceRepairRebindsMissingTargetForMetadataOnlyInstall,TestManagementServiceUpdateRunsUVAndRebindsMetadataOnlyUVToolInstall}`; current frontend transport proof: `frontend/src/utils/generatedEndpoints.test.ts` launcher-status query tests; active caller: `frontend/src/components/Launcher/DesktopLauncherSettingsSection.tsx`. | `Implemented, proof incomplete` | Current Go owner covers the main launcher-management contract, but this slice does not yet cite direct Go route proof for blank-scope default-home reads, omitted-installArtifacts preservation, empty artifact-option clearing, or the installer-managed `UpdateUnavailable` response branch. |
+| `LM-02` | `setupLauncher` rejects unknown extra JSON fields with FastAPI/Pydantic `422` validation rather than collapsing them into a generic bad-JSON transport error. | Source request model: `backend/setta/routers/status.py::SetupLauncherRequest` (`extra=\"forbid\"`); source test: `tests/routers/test_launcher_management_routes.py::test_setup_launcher_route_rejects_unknown_managed_artifacts_field`. | Current Go strict decoder: `internal/httpapi/launcher_management_routes.go::decodeStrictJSONBody`; proof of current behavior: `internal/httpapi/launcher_management_routes_test.go::TestRegisterLauncherManagementRoutesRejectUnknownSetupFields`. | `Missing` | This is a concrete launcher-management transport gap: source returns framework validation `422`, current Go maps the same payload to `400 invalid_json`. |
+| `LM-03` | Launcher-management routes stay mounted and return `403` outside IDE mode. | Source tests: `tests/routers/test_launcher_management_routes.py::{test_launcher_management_routes_blocked_in_deployment_mode,test_launcher_management_routes_blocked_in_launcher_mode}`; source routes use `Depends(require_ide_mode)` in `backend/setta/routers/status.py`. | Current Go wiring: `internal/httpapi/launcher_management_routes.go::RegisterLauncherManagementRoutes` returns without mounting when `!deps.ModePolicy.IsIDE()`; current frontend suppresses the surface outside IDE via `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx` and `frontend/src/utils/serverModeCapabilities.test.ts::it("enables desktop-launcher management only in ide mode", ...)`. | `Dormant / unproven caller` | Current active UI avoids the path outside IDE, so this slice records the source/current transport delta without yet treating it as an active Go-era product requirement. |
+| `LH-01` | Launcher recent-workspace reads/writes roundtrip persisted entries, honor query/body `setta_home`, use the backend default home when scope is blank, and prune stored entries outside allowed roots on read. | Source routes: `backend/setta/routers/launcher_home.py::{route_get_launcher_recent_workspaces,route_add_launcher_recent_workspace,route_remove_launcher_recent_workspace,route_pin_launcher_recent_workspace}`; source scope helper: `backend/setta/routers/launcher_scope.py::resolve_launcher_setta_home`; source tests: `tests/routers/test_launcher_home_routes.py::{test_launcher_recent_workspaces_add_pin_remove_roundtrip,test_get_launcher_recent_workspaces_honors_setta_home_query,test_get_launcher_recent_workspaces_blank_scope_uses_backend_default_home,test_get_launcher_recent_workspaces_prunes_outside_allowed_roots}`. | Impl: `internal/httpapi/launcher_home_routes.go`; `internal/launcher/home.go`; proof: `internal/httpapi/launcher_home_routes_test.go::{TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces,TestRegisterLauncherHomeRoutesUsesDefaultSettaHomeWhenScopeBlank}`; service proof: `internal/launcher/home_test.go::{TestHomeServiceRecentWorkspaceRoundtrip,TestHomeServiceLoadRecentWorkspacesPrunesOutsideAllowedRoots}`; frontend transport proof: `frontend/src/utils/generatedEndpoints.test.ts` launcher recent-workspaces query tests; active caller: `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx`. | `Proved` | |
+| `LH-02` | Launcher filesystem-root and directory-list routes enforce allowed roots, filter escaped symlinks before entry caps, support cursor pagination, and report explicit truncation when scan budget is reached. | Source routes: `backend/setta/routers/launcher_home.py::{route_get_launcher_filesystem_roots,route_list_launcher_directory}`; source tests: `tests/routers/test_launcher_home_routes.py::{test_launcher_directory_listing_rejects_outside_allowed_roots,test_launcher_directory_listing_filters_before_applying_entry_cap,test_launcher_directory_listing_cap_counts_only_valid_entries,test_launcher_directory_listing_supports_cursor_pagination,test_launcher_directory_listing_rejects_invalid_cursor,test_launcher_directory_listing_scan_cap_reports_explicit_truncation}`. | Impl: `internal/httpapi/launcher_home_routes.go::{getLauncherFilesystemRootsHandler,listLauncherDirectoryHandler}`; `internal/launcher/home.go::{AllowedRoots,ListDirectory}`; proof: `internal/httpapi/launcher_home_routes_test.go::{TestRegisterLauncherHomeRoutesListsDirectoriesWithPagination,TestRegisterLauncherHomeRoutesListsFilesystemRoots}`; service proof: `internal/launcher/home_test.go::{TestHomeServiceListDirectoryFiltersEscapesBeforeApplyingEntryCapAndSupportsPagination,TestHomeServiceListDirectoryReportsExplicitTruncationWhenScanBudgetReached}`. | `Proved` | Current launcher page still drives these endpoints through `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx`. |
+| `LH-03` | `openLauncherWorkspace` creates missing workspaces when requested, returns a bootstrap URL fragment plus normalized launch-path payload, uses backend default `settaHome` when omitted, rejects dot-segment create requests, and preserves the source `settaFilesLocation` / `profile` transport rules. | Source route: `backend/setta/routers/launcher_home.py::route_open_launcher_workspace`; source tests: `tests/routers/test_launcher_home_routes.py::{test_open_launcher_workspace_returns_bootstrap_fragment,test_open_launcher_workspace_uses_backend_setta_home_when_scope_is_omitted,test_open_launcher_workspace_rejects_dot_segments_for_create,test_open_launcher_workspace_profile_preserves_omitted_setta_files_location,test_open_launcher_workspace_explicit_auto_overrides_profile}`. | Impl: `internal/httpapi/launcher_home_routes.go::openLauncherWorkspaceHandler`; `internal/launcher/open_workspace.go::{OpenWorkspace,NormalizeSettaFilesLocationForLaunch}`; proof: `internal/httpapi/launcher_home_routes_test.go::{TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment,TestRegisterLauncherHomeRoutesOpenWorkspaceProfilePreservesOmittedSettaFilesLocation,TestRegisterLauncherHomeRoutesOpenWorkspaceExplicitAutoOverridesProfile}`; service proof: `internal/launcher/open_workspace_test.go::{TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState,TestOpenWorkspaceServiceRejectsDotSegmentsWhenCreateRequested,TestOpenWorkspaceServiceProfilePreservesOmittedSettaFilesLocation,TestOpenWorkspaceServiceExplicitAutoOverridesProfile}`. | `Proved` | This row only claims the local happy-path and normalization contract. Source trust-persistence and rollback-failure branches are left for a later workspace-launch boundary audit. |
+| `LH-04` | Launcher-home routes stay mounted and return `403` outside launcher mode. | Source test: `tests/routers/test_launcher_home_routes.py::test_launcher_home_routes_are_blocked_outside_launcher_mode`; source router uses `Depends(require_launcher_mode)` in `backend/setta/routers/launcher_home.py`. | Current Go wiring: `internal/httpapi/launcher_home_routes.go::RegisterLauncherHomeRoutes` returns without mounting outside launcher mode; proof: `internal/httpapi/launcher_home_routes_test.go::TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode`; current routing only serves the launcher page in launcher mode through `frontend/src/components/Pages/router.tsx`. | `Dormant / unproven caller` | Current active routing suppresses the path outside launcher mode, so this slice records the source/current transport delta without yet treating it as an active product gap. |
+
 ## Current Findings
 
-1. The matrix now contains fifteen concrete source-parity gaps:
+1. The matrix now contains sixteen concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
-   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, and `AP-02`.
+   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, and
+   `LM-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -686,33 +713,37 @@ Rows outside these slices are still pending.
     more proof-gap clusters (`WS-02`, `WS-05`).
 19. The agent-profile slice mostly closes with proofs, but it adds one real
     behavior gap (`AP-02`) plus one dormant realtime row (`AP-04`).
-20. Git route behavior is now largely proved, including literal pathspec
+20. The status/server-mode/launcher slice mostly closes with proofs, but it
+    adds one real launcher-management validation gap (`LM-02`), two broader
+    proof-gap rows (`ST-03`, `LM-01`), and two dormant mode-guard rows
+    (`LM-03`, `LH-04`).
+21. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-21. The remaining issues in the naming slice are still mostly proof gaps rather
+22. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-22. The next high-value steps are:
+23. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
-      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, and `AP-02`
-      should be restored or documented as intentional divergences
+      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, and
+      `LM-02` should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `AP-04`, `AS-02`, and `SM-04` can be treated as fully
-      dead legacy or share-only transports, or still need explicit
-      retained-boundary decisions
+    - decide whether `AP-04`, `LM-03`, `LH-04`, `AS-02`, and `SM-04` can be
+      treated as fully dead legacy or share-only transports, or still need
+      explicit retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
       `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
       binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
       `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
-      `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), and the new
-      transcription proof gaps (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the
-      new chat/managed-stop proof gaps (`AH-02`, `MS-02`), plus the new
-      managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
-      proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
-      (`WS-02`, `WS-05`)
+      `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
+      proof gaps (`ST-03`, `LM-01`), and the new transcription proof gaps
+      (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new chat/managed-stop
+      proof gaps (`AH-02`, `MS-02`), plus the new managed-agent-run proof gap
+      (`MA-05`), plus the new state-machine-run proof gap (`SM-05`), plus
+      the new workflow-signal/websocket proof gaps (`WS-02`, `WS-05`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
