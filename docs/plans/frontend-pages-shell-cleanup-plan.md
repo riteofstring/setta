@@ -20,33 +20,46 @@ Make page-level code easy to follow by giving routing, page loading, page shells
 ## Status Refresh (2026-03-15)
 
 - `router.tsx` is no longer the only routing boundary. `routeConfig.ts` and `modeRouteResolver.ts` already exist and should be treated as the first stable seams for continued cleanup.
-- The main page-shell work left on this branch is still `HomePage.tsx` plus the standalone project/window-space surfaces. Those areas have not been split to the same degree yet.
+- `HomePage.tsx` is no longer the main page-shell hotspot. It now owns
+  metadata bootstrap, selection/favorites state, and layout decisions while
+  nearby local owners handle gallery rendering, side panes, selected-project
+  details, and shared path/count helpers.
 - This domain is now secondary to the larger unresolved project-chat, git,
   pane, section-layout, runtime, and app-mode front doors. When page work is
-  the right next slice, `HomePage.tsx` is the default starting point rather
-  than router-only churn.
+  the right next slice, default to the standalone project/window-space
+  surfaces rather than router-only churn or another immediate re-cut of the
+  smaller home-page coordinators.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Pages` totals about 10.5k lines of authored code.
 - The main hotspots are:
-  - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
   - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` at 985 lines
   - `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx` at 751 lines
   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` at 644 lines
   - `frontend/src/components/Pages/router.tsx` at 489 lines
+  - `frontend/src/components/Pages/Home/homeProjectGallery.tsx` at 719 lines
+- `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after
+  delegating project gallery/list rendering to `homeProjectGallery.tsx`,
+  workspace/browser plus side-pane shells to `homeWorkspaceSidePanes.tsx`,
+  selected-project metadata rendering to `homeSelectedProjectDetails.tsx`, and
+  shared path/count helpers to `homeProjectNavigation.ts`.
 - `router.tsx` currently mixes:
   - server-mode initialization and retry UI
   - lazy imports
   - route element assembly
   - redirects
   - wrapper composition for IDE/share/app/launcher modes
-- `HomePage.tsx` mixes:
+- `homeProjectGallery.tsx` is now the main home-page render surface and still
+  mixes:
+  - gallery/list presentation
+  - grid/list item navigation behavior
+  - favorite/default toggles
+  - empty-state chrome
+- `HomePage.tsx` now mostly owns:
   - project metadata loading
   - project creation flow
-  - search and favorites
-  - gallery/list presentation
-  - workspace file browser behavior
+  - search/favorites filtering state
   - compact-layout rules
   - local-storage driven pane state
 - `StandaloneProjectSurfacePage.tsx` mixes:
@@ -69,15 +82,18 @@ Make page-level code easy to follow by giving routing, page loading, page shells
 
 1. Split the home-page front door before router-only cleanup
 
-- Break `HomePage.tsx` into:
+- Keep `HomePage.tsx` focused on:
   - metadata bootstrap/load path
   - selection and favorites model
   - layout mode calculation
-  - project list/gallery rendering
-  - workspace/file-browser side pane
-- Add a small home-page domain subfolder only after those boundaries stabilize
-  and only if grep, names, and tests still leave the home-page boundary
-  ambiguous.
+- Keep home-page rendering ownership in the local page-domain files:
+  - `homeProjectGallery.tsx`
+  - `homeWorkspaceSidePanes.tsx`
+  - `homeSelectedProjectDetails.tsx`
+  - `homeProjectNavigation.ts`
+- Revisit those local owners only when one of them becomes the real first-hop
+  bottleneck. Do not add a home-page subfolder or directory `README.md` unless
+  grep and naming stop being sufficient.
 
 2. Split route assembly from route behavior
 

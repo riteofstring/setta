@@ -61,7 +61,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The next readability problem after file scope is oversized flat namespaces
   where too many sibling files compete as plausible entry points.
 - There are 1503 authored TS/TSX files under `frontend/src`.
-- There are 36 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
+- There are 35 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1600 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1377 lines after the local settings, engine-selection, inline-thread layout, aux-surface content, surface chrome/body, and conversation-search extractions
@@ -78,7 +78,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
-  - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
+- `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after delegating gallery/list rendering to `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace/browser plus side-pane shells to `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`, selected-project metadata rendering to `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and shared path/count helpers to `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so it is no longer a top-size hotspot.
 - `frontend/src/components/App/appRegistry.tsx` is now 888 lines after the local param-input, param-controls, and param-model extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555 lines after the local codegen sections, codegen policy content, and codegen model extraction and is no longer a top-size hotspot.
 - `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
@@ -226,6 +226,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   default work in that domain should continue from the remaining higher-value
   front-door surfaces unless a same-turn slice directly shortens one of those
   paths through `ChatInput.tsx`.
+- `frontend/src/components/Pages/Home/HomePage.tsx` now delegates project
+  gallery/list rendering to
+  `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace file
+  browser and side-pane shells to
+  `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`,
+  selected-project metadata rendering to
+  `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and
+  shared path/count helpers to
+  `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so page-domain
+  follow-through should continue from the standalone project/window-space
+  surfaces unless a same-turn slice directly shortens one of those new local
+  home owners.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` now delegates
   task due or recurrence summary formatting to
   `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts`,
@@ -254,7 +266,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - In practice that means the next default priority order is:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
@@ -945,17 +956,17 @@ Notes:
 
 - Once the phase-1 roots are smaller, continue into:
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
-  - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
   - task/column commands vs DnD math vs board shells in `TaskBoardArea.tsx`
-  - data bootstrap vs search/favorites model vs presentational shells in
-    `HomePage.tsx`
   - search/indexing vs virtualization vs detail panes in `GitGraphOverlay.tsx`
   - provider routing vs settings groups vs override editors in
     `ProjectAISettings.tsx`
+  - standalone window focus/z-index vs bounds/snap math vs page shell rendering
+    in `StandaloneWindowSpaceSurface.tsx`
 
 ## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 

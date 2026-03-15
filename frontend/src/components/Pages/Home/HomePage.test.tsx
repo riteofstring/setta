@@ -1,18 +1,24 @@
 import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+
 import { RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME } from "../../Utils/paneTitleSpacing";
 import {
-  HOME_RIGHT_PANE_TITLE_CLASS_NAME,
-  HOME_SIDE_RAIL_CLASS_NAME,
-  getHomeProjectConfigsSectionTitle,
-  getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
-  shouldApplyHomeFileBrowserPath,
-  shouldOpenProjectOnListRowSpace,
   shouldShowCompactHomeSettingsButton,
   shouldUseCompactHomeLayout,
 } from "./HomePage";
+import {
+  getHomeProjectConfigsSectionTitle,
+  shouldOpenProjectOnListRowSpace,
+} from "./homeProjectGallery";
+import { getProjectTopLevelSectionCount } from "./homeProjectNavigation";
+import {
+  HOME_RIGHT_PANE_TITLE_CLASS_NAME,
+  HOME_SIDE_RAIL_CLASS_NAME,
+  resolveHomeMiddleInsetPx,
+  shouldApplyHomeFileBrowserPath,
+} from "./homeWorkspaceSidePanes";
 
 describe("HomePage", () => {
   it("uses the shared app chrome layer for desktop side rails", () => {
@@ -114,5 +120,29 @@ describe("HomePage", () => {
         currentRootPath: "/workspace",
       }),
     ).toBe(true);
+  });
+
+  it("keeps compact layouts flush and collapsed panes at the shared closed width", () => {
+    expect(
+      resolveHomeMiddleInsetPx({
+        showSidePanes: false,
+        paneVisible: true,
+        paneWidth: 320,
+      }),
+    ).toBe(0);
+    expect(
+      resolveHomeMiddleInsetPx({
+        showSidePanes: true,
+        paneVisible: false,
+        paneWidth: 320,
+      }),
+    ).toBe(40);
+    expect(
+      resolveHomeMiddleInsetPx({
+        showSidePanes: true,
+        paneVisible: true,
+        paneWidth: 320,
+      }),
+    ).toBe(320);
   });
 });
