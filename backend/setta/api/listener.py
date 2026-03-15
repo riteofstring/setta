@@ -3,7 +3,6 @@ import contextlib
 import inspect
 import logging
 import os
-import re
 from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
@@ -107,15 +106,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
-
-_COOKIE_TOKEN_SANITIZE_RE = re.compile(r"[^A-Za-z0-9_]")
-
-
-def _sanitize_cookie_token(value: str) -> str:
-    sanitized = _COOKIE_TOKEN_SANITIZE_RE.sub("_", value.strip())
-    sanitized = re.sub(r"_+", "_", sanitized).strip("_")
-    return sanitized
-
 
 def _hosts_equivalent(left: str, right: str) -> bool:
     if left == right:
