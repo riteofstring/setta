@@ -3634,3 +3634,9 @@ module map and placement guide while this cleanup progresses.
     authored/shared hotspot at 268 lines, by separating shared response-send
     plus hydration-refresh handling from pending-chat lifecycle orchestration
     and edited-section chatId reset or restore behavior.
+
+## 2026-03-15 09:15:00 PDT
+
+- Correction:
+  - The slice commit hash for the AI chat streaming routing split is
+    `cfc51918b3f393425e1cd8494b7cda2c9dcc1eae`.
