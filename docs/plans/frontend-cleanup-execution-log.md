@@ -4086,3 +4086,28 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/websocketLifecycle.ts` so websocket
     connection lifecycle, reconnect timing, and listener/status coordination
     stop living in one shared file.
+
+## 2026-03-15 10:54:49 PDT
+
+- Slice completed: split websocket lifecycle state from handlers
+- Key files touched:
+  - `frontend/src/state/actions/websocketLifecycle.ts`
+  - `frontend/src/state/actions/websocketLifecycleHandlers.ts`
+  - `frontend/src/state/actions/websocketLifecycleState.ts`
+  - `frontend/src/state/actions/websocketLifecycleState.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/websocketReceive.test.ts src/state/actions/websocketLifecycleState.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/websocketLifecycle.ts src/state/actions/websocketLifecycleHandlers.ts src/state/actions/websocketLifecycleState.ts src/state/actions/websocketLifecycleState.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `98ff6884eeb74f71e275c378f00ea0123c1f06e1`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionDisplayQueries.ts` so top-level
+    section display filtering and node-map construction stop living beside
+    view-mode visibility and ancestor-visibility queries.
