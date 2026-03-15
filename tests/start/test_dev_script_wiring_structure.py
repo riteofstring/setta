@@ -19,12 +19,12 @@ def test_backend_start_uses_shared_setta_path_flag_parser() -> None:
     assert "setta_path_flags_seed_from_env" in backend_start
 
 
-def test_backend_start_uses_explicit_python_module_boundaries() -> None:
+def test_backend_start_uses_go_entrypoint() -> None:
     root = repo_root()
     backend_start = (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
-    assert 'SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")' in backend_start
-    assert '"setta.dev_start"' not in backend_start
-    assert 'SETTA_BIN="${SETTA_BIN:-setta}"' not in backend_start
+    assert 'SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")' in backend_start
+    assert "SETTA_PYTHON_BIN" not in backend_start
+    assert ". ./activate.sh" not in backend_start
 
 
 def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
@@ -34,6 +34,16 @@ def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     )
     assert "scripts/lib/setta_path_flags.sh" in reset_script
     assert "setta_path_flags_try_parse" in reset_script
+    assert "paths --env" in reset_script
+    assert ". ./activate.sh" not in reset_script
+
+
+def test_frontend_postinstall_uses_node_xterm_patch() -> None:
+    root = repo_root()
+    package_json = json.loads((root / "frontend" / "package.json").read_text())
+    postinstall = package_json["scripts"]["postinstall"]
+    assert "node ./scripts/fix_xterm.mjs" in postinstall
+    assert "python fix_xterm.py" not in postinstall
 
 
 def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:

@@ -28,7 +28,8 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
-- `dev_install.sh`: install deps for local dev, including the repo-local Python `source`, `dev`, and `gemini` extras, then install frontend deps, sidecars, and clean build artifacts.
+- `dev_install.sh`: install the default Go-first local dev deps (ensure the pinned Go toolchain is available, then install frontend deps, sidecars, and clean build artifacts).
+- `dev_install_python.sh`: opt into the repo-local Python `source`, `dev`, and `gemini` extras, then run the default Go-first dev install.
 - `build.sh`: build the frontend bundle, stage built assets, then package the backend through the shared `./scripts/build_python_distribution_with_go_binaries.sh` helper.
 - `verify_install.sh`: dedicated sdist-completeness smoke (runs the full `./build.sh` path, installs the resulting sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to catch missing packaged-source files or other sdist-only packaging regressions.

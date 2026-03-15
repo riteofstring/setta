@@ -49,6 +49,7 @@ func writeRootUsage(w io.Writer) error {
 	}
 	for _, line := range []string{
 		"  version       Print the installed Setta version.",
+		"  paths         Resolve active workspace/runtime paths.",
 		"  export-db     Export project state in readable YAML.",
 		"  backups       List and restore local backups.",
 		"  plugins       Manage plugin authoring and install state.",

@@ -1,6 +1,5 @@
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
-. ./activate.sh
 
 SETTA_PATH_FLAGS_HELPER="${ROOT_DIR}/scripts/lib/setta_path_flags.sh"
 if [[ ! -f "${SETTA_PATH_FLAGS_HELPER}" ]]; then
@@ -15,7 +14,6 @@ LOG_FILE="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
 mkdir -p "$(dirname "${LOG_FILE}")"
 : > "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
-SETTA_PYTHON_BIN="${SETTA_PYTHON_BIN:-python}"
 SETTA_CMD=()
 
 HOST_ARGS=(--host "${SETTA_HOST:-127.0.0.1}")
@@ -96,8 +94,10 @@ fi
 if [[ -n "${SETTA_BIN:-}" ]]; then
   SETTA_CMD=("${SETTA_BIN}")
 else
-  # Avoid the stale venv `setta` shim and route through the current Go-dispatch entrypoint.
-  SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")
+  if [[ -z "${SETTA_SERVER_BIN:-}" && -x "${ROOT_DIR}/scripts/run_setta_server.sh" ]]; then
+    export SETTA_SERVER_BIN="${ROOT_DIR}/scripts/run_setta_server.sh"
+  fi
+  SETTA_CMD=("${ROOT_DIR}/scripts/go.sh" "run" "./cmd/setta")
 fi
 
 SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" \

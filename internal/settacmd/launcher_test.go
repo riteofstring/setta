@@ -518,6 +518,38 @@ func TestResolveLauncherServerExecutableUsesSiblingBinary(t *testing.T) {
 	}
 }
 
+func TestResolveLauncherServerExecutableUsesSourceCheckoutServerWrapper(t *testing.T) {
+	repoRoot := t.TempDir()
+	t.Chdir(repoRoot)
+
+	currentExecutable := writeExecutableForTest(t, filepath.Join(t.TempDir(), "bin", "setta"))
+	expectedServer := writeExecutableForTest(t, filepath.Join(repoRoot, "scripts", "run_setta_server.sh"))
+	for _, rel := range []string{
+		"go.mod",
+		"scripts/go.sh",
+		"cmd/setta/main.go",
+		"cmd/setta-server/main.go",
+	} {
+		path := filepath.Join(repoRoot, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir source checkout path: %v", err)
+		}
+		if err := os.WriteFile(path, []byte("placeholder\n"), 0o644); err != nil {
+			t.Fatalf("write source checkout file: %v", err)
+		}
+	}
+
+	resolved, err := resolveLauncherServerExecutable(currentExecutable, func(string) (string, bool) {
+		return "", false
+	})
+	if err != nil {
+		t.Fatalf("resolve server executable: %v", err)
+	}
+	if resolved != expectedServer {
+		t.Fatalf("expected source checkout server executable %q, got %q", expectedServer, resolved)
+	}
+}
+
 type launcherRootTestOptions struct {
 	settaHome                string
 	metadata                 *launcher.LauncherInstallMetadata

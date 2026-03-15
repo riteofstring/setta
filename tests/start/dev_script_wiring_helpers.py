@@ -2,19 +2,13 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
 def ensure_dev_dependencies_or_skip() -> None:
-    root = repo_root()
-    if not (root / ".venv" / "bin" / "activate").exists():
-        pytest.skip("Dev script wiring tests require repo .venv activation script.")
-    if not (root / "frontend" / "node_modules").exists():
-        pytest.skip("Dev script wiring tests require frontend/node_modules.")
+    return None
 
 
 def write_stub_executable(path: Path, body: str) -> None:
@@ -72,6 +66,14 @@ env | sort > "{ai_capture_env}"
 echo "$*" > "{ai_capture_args}"
 """,
     )
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
 
     return sandbox_root
 
@@ -91,21 +93,13 @@ def build_backend_start_sandbox(tmp_path: Path) -> Path:
     )
     backend_start.chmod(0o755)
     copy_script_libs(scripts_dir, "setta_path_flags.sh")
-
-    activate_script = sandbox_root / "activate.sh"
-    activate_script.write_text(". .venv/bin/activate\n", encoding="utf-8")
-    activate_script.chmod(0o755)
-
-    venv_activate = sandbox_root / ".venv" / "bin" / "activate"
-    venv_activate.parent.mkdir(parents=True, exist_ok=True)
-    venv_activate.write_text(
-        (
-            "export VIRTUAL_ENV='sandbox-venv'\n"
-            f'export PATH="{sandbox_root / ".venv" / "bin"}:${{PATH}}"\n'
-        ),
-        encoding="utf-8",
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
     )
-    venv_activate.chmod(0o755)
 
     return sandbox_root
 
@@ -129,11 +123,14 @@ def build_run_dev_instance_sandbox(tmp_path: Path) -> Path:
         "setta_path_flags.sh",
         "setta_port_selection.sh",
     )
-
-    activate = sandbox_root / ".venv" / "bin" / "activate"
-    activate.parent.mkdir(parents=True, exist_ok=True)
-    activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
     (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
 
     return sandbox_root
 
@@ -157,11 +154,14 @@ def build_ai_sandbox(tmp_path: Path) -> Path:
         "setta_path_flags.sh",
         "setta_port_selection.sh",
     )
-
-    activate = sandbox_root / ".venv" / "bin" / "activate"
-    activate.parent.mkdir(parents=True, exist_ok=True)
-    activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
     (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
 
     return sandbox_root
 

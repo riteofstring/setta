@@ -44,75 +44,44 @@ echo "$*" > "{capture_args}"
     assert "--log-level debug" in args
 
 
-def test_backend_start_default_non_reload_uses_python_module_entrypoint(
-    tmp_path: Path,
-) -> None:
+def test_backend_start_default_non_reload_uses_go_entrypoint(tmp_path: Path) -> None:
     sandbox_root = build_backend_start_sandbox(tmp_path)
-    capture_args = tmp_path / "python_args.txt"
-    legacy_shim_args = tmp_path / "legacy_shim_args.txt"
-    python_stub = tmp_path / "python-stub.sh"
+    capture_args = tmp_path / "go_args.txt"
 
     write_stub_executable(
-        python_stub,
+        sandbox_root / "scripts" / "go.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" > "{capture_args}"
 """,
     )
-    write_stub_executable(
-        sandbox_root / ".venv" / "bin" / "setta",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "$*" > "{legacy_shim_args}"
-exit 23
-""",
-    )
-
-    env = os.environ.copy()
-    env["SETTA_PYTHON_BIN"] = str(python_stub)
-    env["SETTA_BACKEND_LOG_FILE"] = str(tmp_path / "backend.log")
 
     result = run_script(
         ["bash", str(sandbox_root / "frontend" / "backendStart.sh"), "--no-open"],
         cwd=sandbox_root,
-        env=env,
+        env={
+            **os.environ.copy(),
+            "SETTA_BACKEND_LOG_FILE": str(tmp_path / "backend.log"),
+        },
     )
 
     assert result.returncode == 0, result.stderr
     args = capture_args.read_text(encoding="utf-8")
-    assert args.startswith("-m setta ")
+    assert args.startswith("run ./cmd/setta ")
     assert "--no-open" in args
     assert "--log-level debug" in args
-    assert not legacy_shim_args.exists()
 
-
-def test_backend_start_reload_uses_python_module_entrypoint(
-    tmp_path: Path,
-) -> None:
+def test_backend_start_reload_uses_go_entrypoint(tmp_path: Path) -> None:
     sandbox_root = build_backend_start_sandbox(tmp_path)
-    capture_args = tmp_path / "python_args.txt"
-    legacy_shim_args = tmp_path / "legacy_shim_args.txt"
-    python_stub = tmp_path / "python-stub.sh"
+    capture_args = tmp_path / "go_args.txt"
 
     write_stub_executable(
-        python_stub,
+        sandbox_root / "scripts" / "go.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" > "{capture_args}"
 """,
     )
-    write_stub_executable(
-        sandbox_root / ".venv" / "bin" / "setta",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "$*" > "{legacy_shim_args}"
-exit 23
-""",
-    )
-
-    env = os.environ.copy()
-    env["SETTA_PYTHON_BIN"] = str(python_stub)
-    env["SETTA_BACKEND_LOG_FILE"] = str(tmp_path / "backend.log")
 
     result = run_script(
         [
@@ -122,16 +91,18 @@ exit 23
             "--no-open",
         ],
         cwd=sandbox_root,
-        env=env,
+        env={
+            **os.environ.copy(),
+            "SETTA_BACKEND_LOG_FILE": str(tmp_path / "backend.log"),
+        },
     )
 
     assert result.returncode == 0, result.stderr
     args = capture_args.read_text(encoding="utf-8")
-    assert args.startswith("-m setta ")
+    assert args.startswith("run ./cmd/setta ")
     assert "--reload" in args
     assert "--no-open" in args
     assert "--log-level debug" in args
-    assert not legacy_shim_args.exists()
 
 
 def test_backend_start_rejects_conflicting_env_root_and_location(

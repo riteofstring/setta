@@ -33,6 +33,7 @@ another host.
 | Command | Local workspace | Remote helper | Notes |
 | --- | --- | --- | --- |
 | `setta` | yes | no | Start the server in the current workspace. |
+| `setta paths` | yes | no | Resolve the active workspace/runtime paths without starting the server. |
 | `setta share` | yes | no | Start the server in share deployment mode. |
 | `setta app` | yes | no | Start the server in app deployment mode. |
 | `setta version` | yes | no | Prints the local install version. |
@@ -171,6 +172,24 @@ Prints the installed Setta version.
 Example:
 ```sh
 setta version
+```
+
+## `setta paths`
+
+Resolves the active workspace/runtime paths using the same config/profile/env
+logic as normal startup, but does not start the server.
+
+Options:
+- `--env` emits `KEY=value` lines for scripts.
+- `--json` emits JSON explicitly (default output is JSON when no mode flag is passed).
+- Global runtime path flags are shared with `setta`: `--workspace`, `--profile`,
+  `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
+  `--setta-files-location`, and `--runtime-root`.
+
+Examples:
+```sh
+setta paths
+setta paths --env --setta-files-location local
 ```
 
 ## `setta export-db`

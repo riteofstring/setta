@@ -783,6 +783,14 @@ func resolveLauncherServerExecutable(currentExecutable string, envLookup func(st
 	if resolvedSibling, err := resolveRunnableExecutable(siblingCandidate); err == nil {
 		return resolvedSibling, nil
 	}
+	if cwd, err := os.Getwd(); err == nil {
+		if sourceCheckoutRoot, rootErr := resolveReloadSourceCheckoutRoot(cwd); rootErr == nil {
+			sourceCheckoutCandidate := filepath.Join(sourceCheckoutRoot, "scripts", "run_setta_server.sh")
+			if resolvedSourceCheckout, sourceErr := resolveRunnableExecutable(sourceCheckoutCandidate); sourceErr == nil {
+				return resolvedSourceCheckout, nil
+			}
+		}
+	}
 
 	return "", fmt.Errorf(
 		"Could not resolve the Setta server companion executable. Install %s alongside the setta binary or set SETTA_SERVER_BIN.",

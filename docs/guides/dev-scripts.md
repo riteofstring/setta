@@ -63,8 +63,9 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop local setup (repo-local Python `source`, `dev`, and `gemini`
-    extras + frontend deps + sidecars).
+  - One-stop default local setup for the Go-first dev loop (Go toolchain readiness + frontend deps + sidecars).
+- `./dev_install_python.sh`
+  - Opt-in setup for Python tooling, then runs the default Go-first dev install.
 - `./init_env.sh`
   - Creates/updates the Python environment.
   - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync` with
@@ -150,7 +151,7 @@ Useful when you need to debug a specific subsystem.
 
 ## Notes
 
-- **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop no longer requires Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).
