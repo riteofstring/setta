@@ -1,4 +1,3 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   canUseManagedChatLLM,
   windowSurfaceRequiresManagedChat,
@@ -11,11 +10,12 @@ import {
   DOCK_WINDOW_DEFAULT_WIDTH_PX,
   MIN_DOCK_CHAT_HEIGHT_PX,
   MIN_DOCK_CHAT_WIDTH_PX,
-  resolveCycleVisibleCount,
   resolveDockedWindowLayout,
-  resolvePillDisplayMode,
-  type PillDisplayMode,
 } from "components/ChatWindowing/projectChatBottomDockLayout";
+import {
+  MinimizedPillStrip,
+  type ChatWindowPillExitAnimationKind,
+} from "components/ChatWindowing/projectChatBottomDockPillStrip";
 import { useProjectChatDockResize } from "components/ChatWindowing/projectChatDockResize";
 import {
   FLOATING_WINDOW_MIN_HEIGHT_PX,
@@ -39,7 +39,6 @@ import {
   PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX,
   resolveProjectChatFloatingBoundaryInsets,
 } from "components/ChatWindowing/projectChatViewport";
-import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
 import {
   ProjectChatWindowSurface,
   SECTION_WINDOW_ACTION_BUTTON_CLASS,
@@ -49,7 +48,6 @@ import {
 import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectChatWindowTitles";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
-import { ProjectChatManager } from "components/Panes/Overview/ProjectLevelAI/ProjectChatManager";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import {
   getWindowControlQuickInfoHandlers,
@@ -66,14 +64,12 @@ import {
 } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
-  MdAdd,
   MdChevronLeft,
   MdChevronRight,
   MdFlipToFront,
   MdOpenInNew,
   MdVerticalAlignBottom,
 } from "react-icons/md";
-import { RiChat3Line } from "react-icons/ri";
 import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import { resolveDefaultFloatingChatBounds } from "state/actions/projectChatWindowingDefaultBounds";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
@@ -149,7 +145,6 @@ function canMoveProjectChatWindowToCanvas(
 
 type ChatWindowExitAnimationKind = "minimize" | "close";
 type ChatWindowEnterAnimationKind = "restore_from_minimize";
-type ChatWindowPillExitAnimationKind = "restore_from_minimize";
 
 const DOCK_BAR_HEIGHT_PX = 40;
 const DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX = 0;
@@ -165,7 +160,6 @@ const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 1;
 const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 2;
 const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
 const CHAT_WINDOW_ENTER_DURATION_MS = 110;
-const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
 const CHAT_WINDOW_PILL_EXIT_DURATION_MS = 72;
 const FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
@@ -288,13 +282,6 @@ function getViewportDimensions(): { width: number; height: number } | null {
   return { width, height };
 }
 
-function buildPillBaseClass(isActive: boolean): string {
-  if (isActive) {
-    return "border-setta-400 bg-white text-setta-900 dark:border-setta-500 dark:bg-setta-900 dark:text-setta-100";
-  }
-  return "border-setta-300 bg-setta-100 text-setta-700 hover:bg-setta-200 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
-}
-
 const DOCKED_CHAT_WINDOW_SHADOW_CLASS =
   "shadow-[0_-1px_6px_rgba(15,23,42,0.08)] dark:shadow-[0_-1px_6px_rgba(0,0,0,0.18)]";
 const FLOATING_CHAT_WINDOW_SHADOW_CLASS =
@@ -340,435 +327,6 @@ function getChatWindowEnterAnimationClass(
         ? "origin-bottom-right"
         : "origin-top-right";
   return `${originClassName} transform-gpu will-change-[transform,opacity] transition-[transform,opacity] duration-[110ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none translate-y-5 scale-[0.985] opacity-0`;
-}
-
-type MinimizedPillStripProps = {
-  pills: ResolvedWindowPill[];
-  visiblePills: ResolvedWindowPill[];
-  pillExitAnimationsById: Record<string, ChatWindowPillExitAnimationKind>;
-  useCompactPills: boolean;
-  canCreateWindow: boolean;
-  showManagerMenu: boolean;
-  canCycleBackward: boolean;
-  canCycleForward: boolean;
-  maxCycleStartIndex: number;
-  pillDisplayMode: PillDisplayMode;
-  pillViewportRef: React.RefObject<HTMLDivElement | null>;
-  fullMeasureRowRef: React.RefObject<HTMLDivElement | null>;
-  compactMeasureRowRef: React.RefObject<HTMLDivElement | null>;
-  onCycleBackward: () => void;
-  onCycleForward: () => void;
-  onOpenWindow: (instanceId: string, source: "pill" | "menu") => void;
-  onCreateWindow: () => void;
-};
-
-function MinimizedPillStrip({
-  pills,
-  visiblePills,
-  pillExitAnimationsById,
-  useCompactPills,
-  canCreateWindow,
-  showManagerMenu,
-  canCycleBackward,
-  canCycleForward,
-  maxCycleStartIndex,
-  pillDisplayMode,
-  pillViewportRef,
-  fullMeasureRowRef,
-  compactMeasureRowRef,
-  onCycleBackward,
-  onCycleForward,
-  onOpenWindow,
-  onCreateWindow,
-}: MinimizedPillStripProps) {
-  const minimizedTabBaseClassName = `pointer-events-auto relative inline-flex h-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent text-xs shadow-sm transition-colors will-change-transform ${buildPillBaseClass(false)}`;
-  const createTabClassName = `${minimizedTabBaseClassName} w-7`;
-  const chatMenuTriggerClassName = `${minimizedTabBaseClassName} w-7`;
-  const [isManagerMenuOpen, setIsManagerMenuOpen] = useState(false);
-  const stripItemNodesRef = useRef<Record<string, HTMLElement | null>>({});
-  const previousStripItemRectsRef = useRef<Record<string, DOMRect>>({});
-  const stripItemAnimationTimeoutsRef = useRef<Record<string, number>>({});
-  const stripItemAnimationFrameRef = useRef<number | null>(null);
-  const hasStripMountedRef = useRef(false);
-
-  const clearStripItemAnimation = useCallback((itemKey: string) => {
-    const activeTimeoutId = stripItemAnimationTimeoutsRef.current[itemKey];
-    if (activeTimeoutId !== undefined) {
-      window.clearTimeout(activeTimeoutId);
-      delete stripItemAnimationTimeoutsRef.current[itemKey];
-    }
-    const node = stripItemNodesRef.current[itemKey];
-    if (!node) {
-      return;
-    }
-    delete node.dataset.chatPillLayoutAnimation;
-    node.style.transition = "";
-    node.style.transform = "";
-  }, []);
-
-  const setStripItemNode = useCallback(
-    (itemKey: string) => (node: HTMLElement | null) => {
-      if (node) {
-        stripItemNodesRef.current[itemKey] = node;
-        return;
-      }
-      delete stripItemNodesRef.current[itemKey];
-      delete previousStripItemRectsRef.current[itemKey];
-    },
-    [],
-  );
-
-  const renderedStripItemKeys = useMemo(() => {
-    const nextKeys: string[] = [];
-    if (pillDisplayMode === "cycle") {
-      nextKeys.push("cycle-left");
-    }
-    nextKeys.push("create");
-    if (showManagerMenu) {
-      nextKeys.push("manager");
-    }
-    if (pillDisplayMode !== "menu") {
-      for (const pill of visiblePills) {
-        nextKeys.push(`pill:${pill.instanceId}`);
-      }
-    }
-    if (pillDisplayMode === "cycle") {
-      nextKeys.push("cycle-right");
-    }
-    return nextKeys;
-  }, [pillDisplayMode, showManagerMenu, visiblePills]);
-
-  useEffect(() => {
-    return () => {
-      if (stripItemAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(stripItemAnimationFrameRef.current);
-        stripItemAnimationFrameRef.current = null;
-      }
-      for (const timeoutId of Object.values(
-        stripItemAnimationTimeoutsRef.current,
-      )) {
-        window.clearTimeout(timeoutId);
-      }
-      stripItemAnimationTimeoutsRef.current = {};
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    const nextRects: Record<string, DOMRect> = {};
-    const animations: Array<{
-      itemKey: string;
-      node: HTMLElement;
-      startingTransform: string;
-      startingOpacity: string;
-    }> = [];
-
-    for (const itemKey of renderedStripItemKeys) {
-      const node = stripItemNodesRef.current[itemKey];
-      if (!node) {
-        continue;
-      }
-      const nextRect = node.getBoundingClientRect();
-      nextRects[itemKey] = nextRect;
-      const previousRect = previousStripItemRectsRef.current[itemKey];
-      if (previousRect) {
-        const deltaX = previousRect.left - nextRect.left;
-        const deltaY = previousRect.top - nextRect.top;
-        if (Math.abs(deltaX) <= 0.5 && Math.abs(deltaY) <= 0.5) {
-          continue;
-        }
-        clearStripItemAnimation(itemKey);
-        node.dataset.chatPillLayoutAnimation = "active";
-        node.style.transition = "none";
-        node.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        animations.push({
-          itemKey,
-          node,
-          startingTransform: "translate(0px, 0px)",
-        });
-        continue;
-      }
-      if (!hasStripMountedRef.current) {
-        continue;
-      }
-      clearStripItemAnimation(itemKey);
-      node.dataset.chatPillLayoutAnimation = "active";
-      node.style.transition = "none";
-      node.style.transform = "translateY(8px) scale(0.96)";
-      animations.push({
-        itemKey,
-        node,
-        startingTransform: "translateY(0px) scale(1)",
-      });
-    }
-
-    previousStripItemRectsRef.current = nextRects;
-
-    if (!hasStripMountedRef.current) {
-      hasStripMountedRef.current = true;
-      return;
-    }
-    if (animations.length === 0) {
-      return;
-    }
-    if (stripItemAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(stripItemAnimationFrameRef.current);
-    }
-    stripItemAnimationFrameRef.current = window.requestAnimationFrame(() => {
-      stripItemAnimationFrameRef.current = null;
-      for (const animation of animations) {
-        const { itemKey, node, startingTransform } = animation;
-        node.style.transition = `transform ${CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS}ms cubic-bezier(0.16,1,0.3,1)`;
-        node.style.transform = startingTransform;
-        const activeTimeoutId = stripItemAnimationTimeoutsRef.current[itemKey];
-        if (activeTimeoutId !== undefined) {
-          window.clearTimeout(activeTimeoutId);
-        }
-        stripItemAnimationTimeoutsRef.current[itemKey] = window.setTimeout(
-          () => {
-            delete stripItemAnimationTimeoutsRef.current[itemKey];
-            if (stripItemNodesRef.current[itemKey] !== node) {
-              return;
-            }
-            clearStripItemAnimation(itemKey);
-          },
-          CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS,
-        );
-      }
-    });
-  }, [clearStripItemAnimation, renderedStripItemKeys]);
-
-  return (
-    <div
-      ref={pillViewportRef}
-      className="relative ml-auto flex min-w-0 max-w-full items-end justify-end gap-1 px-2"
-    >
-      <div
-        className="pointer-events-none absolute left-0 top-0 h-0 overflow-hidden opacity-0"
-        aria-hidden="true"
-      >
-        <div ref={fullMeasureRowRef} className="flex w-max items-center gap-1">
-          <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
-            <MdAdd size={14} />
-          </div>
-          {showManagerMenu ? (
-            <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
-              <RiChat3Line size={14} />
-            </div>
-          ) : null}
-          {pills.map((pill) => (
-            <div
-              key={`measure-full-${pill.instanceId}`}
-              className="inline-flex h-7 shrink-0 items-center gap-1 rounded-b-none rounded-t-md border border-b-transparent bg-setta-100 px-2 text-xs"
-            >
-              <ProjectChatWindowIcon
-                mode={pill.mode}
-                instanceId={pill.instanceId}
-                sectionId={pill.sectionId}
-                className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
-              />
-              <span className="max-w-[9.5rem] truncate">{pill.title}</span>
-            </div>
-          ))}
-        </div>
-        <div
-          ref={compactMeasureRowRef}
-          className="mt-1 flex w-max items-center gap-1"
-        >
-          <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
-            <MdAdd size={14} />
-          </div>
-          {showManagerMenu ? (
-            <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
-              <RiChat3Line size={14} />
-            </div>
-          ) : null}
-          {pills.map((pill) => (
-            <div
-              key={`measure-compact-${pill.instanceId}`}
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100"
-            >
-              <ProjectChatWindowIcon
-                mode={pill.mode}
-                instanceId={pill.instanceId}
-                sectionId={pill.sectionId}
-                className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-      {pillDisplayMode === "cycle" ? (
-        <button
-          type="button"
-          className="pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 bg-setta-50 text-setta-700 shadow-sm transition-colors enabled:hover:bg-setta-100 enabled:hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-45 dark:border-setta-700 dark:bg-setta-860 dark:text-setta-200 dark:enabled:hover:bg-setta-800 dark:enabled:hover:text-setta-50"
-          ref={setStripItemNode("cycle-left")}
-          onClick={onCycleBackward}
-          disabled={!canCycleBackward}
-          aria-label={getWindowControlQuickInfoText({
-            action: "show_previous_chat_windows",
-          })}
-          data-testid="project-chat-bottom-dock-cycle-left"
-          {...getWindowControlQuickInfoHandlers({
-            action: "show_previous_chat_windows",
-          })}
-        >
-          <MdChevronLeft size={14} />
-        </button>
-      ) : null}
-      <div className="flex min-w-0 items-end justify-end gap-1 overflow-hidden">
-        {canCreateWindow ? (
-          <button
-            type="button"
-            className={createTabClassName}
-            ref={setStripItemNode("create")}
-            onClick={onCreateWindow}
-            aria-label={getWindowControlQuickInfoText({
-              action: "create_chat_window",
-            })}
-            data-testid="project-chat-bottom-dock-create"
-            title={getWindowControlQuickInfoText({
-              action: "create_chat_window",
-            })}
-            {...getWindowControlQuickInfoHandlers({
-              action: "create_chat_window",
-            })}
-          >
-            <MdAdd size={14} />
-          </button>
-        ) : null}
-        {showManagerMenu ? (
-          <DropdownMenu.Root
-            modal={false}
-            open={isManagerMenuOpen}
-            onOpenChange={setIsManagerMenuOpen}
-          >
-            <DropdownMenu.Trigger asChild>
-              <button
-                type="button"
-                className={chatMenuTriggerClassName}
-                ref={setStripItemNode("manager")}
-                aria-label={getWindowControlQuickInfoText({
-                  action: "show_chat_windows",
-                })}
-                title={getWindowControlQuickInfoText({
-                  action: "show_chat_windows",
-                })}
-                data-testid="project-chat-bottom-dock-menu-trigger"
-                {...getWindowControlQuickInfoHandlers({
-                  action: "show_chat_windows",
-                })}
-              >
-                <RiChat3Line size={14} />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                align="end"
-                side="top"
-                sideOffset={6}
-                className="bg-white/98 shadow-slate-950/12 dark:bg-setta-930/98 z-[80] min-w-[15rem] rounded-xl border border-setta-200 p-1 shadow-xl backdrop-blur-md dark:border-setta-800"
-                data-testid="project-chat-bottom-dock-menu-content"
-              >
-                <ProjectChatManager
-                  onAfterAction={() => {
-                    setIsManagerMenuOpen(false);
-                  }}
-                />
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        ) : null}
-        {pillDisplayMode !== "menu"
-          ? visiblePills.map((pill) => {
-              const baseClass = minimizedTabBaseClassName;
-              if (useCompactPills) {
-                const pillExitAnimation =
-                  pillExitAnimationsById[pill.instanceId];
-                return (
-                  <button
-                    key={pill.instanceId}
-                    type="button"
-                    className={`${baseClass} w-7 ${pill.isClosed ? "opacity-65" : ""} ${
-                      pillExitAnimation
-                        ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      onOpenWindow(pill.instanceId, "pill");
-                    }}
-                    ref={setStripItemNode(`pill:${pill.instanceId}`)}
-                    title={pill.title}
-                    aria-label={pill.title}
-                    data-testid="project-chat-bottom-dock-pill"
-                    data-chat-window-instance-id={pill.instanceId}
-                    data-chat-window-pill-exit-animation={
-                      pillExitAnimationsById[pill.instanceId] ?? undefined
-                    }
-                  >
-                    <ProjectChatWindowIcon
-                      mode={pill.mode}
-                      instanceId={pill.instanceId}
-                      sectionId={pill.sectionId}
-                      className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
-                      dataTestId="project-chat-bottom-dock-pill-icon"
-                    />
-                  </button>
-                );
-              }
-              const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
-              return (
-                <button
-                  key={pill.instanceId}
-                  type="button"
-                  className={`${baseClass} min-w-0 gap-1 px-2 ${pill.isClosed ? "opacity-65" : ""} ${
-                    pillExitAnimation
-                      ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    onOpenWindow(pill.instanceId, "pill");
-                  }}
-                  ref={setStripItemNode(`pill:${pill.instanceId}`)}
-                  title={pill.title}
-                  data-testid="project-chat-bottom-dock-pill"
-                  data-chat-window-instance-id={pill.instanceId}
-                  data-chat-window-pill-exit-animation={
-                    pillExitAnimationsById[pill.instanceId] ?? undefined
-                  }
-                >
-                  <ProjectChatWindowIcon
-                    mode={pill.mode}
-                    instanceId={pill.instanceId}
-                    sectionId={pill.sectionId}
-                    className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
-                    dataTestId="project-chat-bottom-dock-pill-icon"
-                  />
-                  <span className="max-w-[9.5rem] truncate">{pill.title}</span>
-                </button>
-              );
-            })
-          : null}
-      </div>
-      {pillDisplayMode === "cycle" ? (
-        <button
-          type="button"
-          className="pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 bg-setta-50 text-setta-700 shadow-sm transition-colors enabled:hover:bg-setta-100 enabled:hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-45 dark:border-setta-700 dark:bg-setta-860 dark:text-setta-200 dark:enabled:hover:bg-setta-800 dark:enabled:hover:text-setta-50"
-          ref={setStripItemNode("cycle-right")}
-          onClick={onCycleForward}
-          disabled={!canCycleForward || maxCycleStartIndex === 0}
-          aria-label={getWindowControlQuickInfoText({
-            action: "show_more_chat_windows",
-          })}
-          data-testid="project-chat-bottom-dock-cycle-right"
-          {...getWindowControlQuickInfoHandlers({
-            action: "show_more_chat_windows",
-          })}
-        >
-          <MdChevronRight size={14} />
-        </button>
-      ) : null}
-    </div>
-  );
 }
 
 export function ProjectChatBottomDock() {
@@ -868,11 +426,7 @@ export function ProjectChatBottomDock() {
     () => getTrackedGitPaneGraphWindowInstanceIdForProject(projectConfigId),
     [projectConfigId, trackedGitPaneGraphWindowInstanceKey],
   );
-  const [pillDisplayMode, setPillDisplayMode] =
-    useState<PillDisplayMode>("full");
-  const [pillCycleStartIndex, setPillCycleStartIndex] = useState(0);
   const [dockCycleOffsetFromEnd, setDockCycleOffsetFromEnd] = useState(0);
-  const [pillViewportWidthPx, setPillViewportWidthPx] = useState(0);
   const [viewportWidthPx, setViewportWidthPx] = useState(0);
   const [viewportHeightPx, setViewportHeightPx] = useState(0);
   const [workspaceTopInsetPx, setWorkspaceTopInsetPx] = useState(
@@ -895,9 +449,6 @@ export function ProjectChatBottomDock() {
     useState<PaneTrackedRect | null>(null);
   const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
   const floatingBottomInsetPx = dockBottomOffsetPx;
-  const pillViewportRef = useRef<HTMLDivElement | null>(null);
-  const fullMeasureRowRef = useRef<HTMLDivElement | null>(null);
-  const compactMeasureRowRef = useRef<HTMLDivElement | null>(null);
   const autoCreateProjectConfigIdRef = useRef<string | null>(null);
   const windowExitTimeoutsRef = useRef<Record<string, number>>({});
   const pillExitTimeoutsRef = useRef<Record<string, number>>({});
@@ -935,24 +486,6 @@ export function ProjectChatBottomDock() {
     order.length,
     projectConfigId,
   ]);
-
-  useEffect(() => {
-    const viewportNode = pillViewportRef.current;
-    if (!viewportNode) {
-      return;
-    }
-    const observer = new ResizeObserver((entries) => {
-      const nextWidthPx = entries[0]?.contentRect.width;
-      if (!nextWidthPx) {
-        return;
-      }
-      setPillViewportWidthPx(nextWidthPx);
-    });
-    observer.observe(viewportNode);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
 
   useEffect(() => {
     let frameRequestId: number | null = null;
@@ -2098,61 +1631,6 @@ export function ProjectChatBottomDock() {
     onSnapPreset: snapWindowTargetByPreset,
   });
 
-  useLayoutEffect(() => {
-    const viewportNode = pillViewportRef.current;
-    const fullMeasureNode = fullMeasureRowRef.current;
-    const compactMeasureNode = compactMeasureRowRef.current;
-    if (!viewportNode || !fullMeasureNode || !compactMeasureNode) {
-      return;
-    }
-    const availableWidthPx = viewportNode.clientWidth;
-    if (availableWidthPx <= 0) {
-      return;
-    }
-    const nextMode = resolvePillDisplayMode({
-      stripPillCount: stripPills.length,
-      availableWidthPx,
-      fullWidthPx: fullMeasureNode.scrollWidth,
-      compactWidthPx: compactMeasureNode.scrollWidth,
-      viewportWidthPx,
-    });
-    if (nextMode !== pillDisplayMode) {
-      setPillDisplayMode(nextMode);
-    }
-  }, [pillDisplayMode, pillViewportWidthPx, stripPills, viewportWidthPx]);
-
-  const cycleVisibleCount = useMemo(
-    () =>
-      resolveCycleVisibleCount({
-        pillDisplayMode,
-        pillViewportWidthPx,
-        stripPillCount: stripPills.length,
-      }),
-    [pillDisplayMode, pillViewportWidthPx, stripPills.length],
-  );
-
-  useEffect(() => {
-    const maxStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
-    setPillCycleStartIndex((current) => clampNumber(current, 0, maxStartIndex));
-  }, [cycleVisibleCount, stripPills.length]);
-
-  const visiblePills = useMemo(() => {
-    if (pillDisplayMode !== "cycle") {
-      return stripPills;
-    }
-    return stripPills.slice(
-      pillCycleStartIndex,
-      pillCycleStartIndex + cycleVisibleCount,
-    );
-  }, [cycleVisibleCount, pillCycleStartIndex, pillDisplayMode, stripPills]);
-
-  const maxCycleStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
-  const canCycleBackward =
-    pillDisplayMode === "cycle" && pillCycleStartIndex > 0;
-  const canCycleForward =
-    pillDisplayMode === "cycle" && pillCycleStartIndex < maxCycleStartIndex;
-  const useCompactPills =
-    pillDisplayMode === "compact" || pillDisplayMode === "cycle";
   const showDockHeaderCycleControls =
     openDockedPills.length > visibleDockedPills.length &&
     visibleDockedPills.length > 0;
@@ -2191,26 +1669,10 @@ export function ProjectChatBottomDock() {
             <div className="pointer-events-auto flex min-w-0 max-w-[28rem] items-end justify-end">
               <MinimizedPillStrip
                 pills={stripPills}
-                visiblePills={visiblePills}
                 pillExitAnimationsById={pillExitAnimationsById}
-                useCompactPills={useCompactPills}
                 canCreateWindow={canCreateManagedChatWindow}
                 showManagerMenu={showDockManagerMenu}
-                canCycleBackward={canCycleBackward}
-                canCycleForward={canCycleForward}
-                maxCycleStartIndex={maxCycleStartIndex}
-                pillDisplayMode={pillDisplayMode}
-                pillViewportRef={pillViewportRef}
-                fullMeasureRowRef={fullMeasureRowRef}
-                compactMeasureRowRef={compactMeasureRowRef}
-                onCycleBackward={() => {
-                  setPillCycleStartIndex((current) => Math.max(0, current - 1));
-                }}
-                onCycleForward={() => {
-                  setPillCycleStartIndex((current) =>
-                    Math.min(maxCycleStartIndex, current + 1),
-                  );
-                }}
+                viewportWidthPx={viewportWidthPx}
                 onOpenWindow={handleOpenWindow}
                 onCreateWindow={handleCreate}
               />
@@ -3338,26 +2800,10 @@ export function ProjectChatBottomDock() {
         >
           <MinimizedPillStrip
             pills={stripPills}
-            visiblePills={visiblePills}
             pillExitAnimationsById={pillExitAnimationsById}
-            useCompactPills={useCompactPills}
             canCreateWindow={canCreateManagedChatWindow}
             showManagerMenu={showDockManagerMenu}
-            canCycleBackward={canCycleBackward}
-            canCycleForward={canCycleForward}
-            maxCycleStartIndex={maxCycleStartIndex}
-            pillDisplayMode={pillDisplayMode}
-            pillViewportRef={pillViewportRef}
-            fullMeasureRowRef={fullMeasureRowRef}
-            compactMeasureRowRef={compactMeasureRowRef}
-            onCycleBackward={() => {
-              setPillCycleStartIndex((current) => Math.max(0, current - 1));
-            }}
-            onCycleForward={() => {
-              setPillCycleStartIndex((current) =>
-                Math.min(maxCycleStartIndex, current + 1),
-              );
-            }}
+            viewportWidthPx={viewportWidthPx}
             onOpenWindow={handleOpenWindow}
             onCreateWindow={handleCreate}
           />
