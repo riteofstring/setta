@@ -254,6 +254,53 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	}
 }
 
+func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish(t *testing.T) {
+	t.Parallel()
+
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	tests := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "share publish",
+			path: "/api" + RouteShareDeployments,
+			body: `{"deploymentName":"demo-share","projectConfigId":"project-alpha","unexpected":true}`,
+		},
+		{
+			name: "app publish",
+			path: "/api" + RouteAppDeployments,
+			body: `{"deploymentName":"demo-app","projectConfigId":"project-alpha","unexpected":true}`,
+		},
+	}
+
+	for _, testCase := range tests {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, testCase.path, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected invalid publish payload 400, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode invalid publish response: %v", err)
+			}
+			if payload.Error.Code != "invalid_json" {
+				t.Fatalf("expected invalid_json error code, got %#v", payload)
+			}
+		})
+	}
+}
+
 func TestRegisterDeploymentIDERoutesIsNotMountedOutsideIDEMode(t *testing.T) {
 	t.Parallel()
 

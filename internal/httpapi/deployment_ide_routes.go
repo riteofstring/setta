@@ -123,7 +123,7 @@ func latestDeploymentMetadataHandler(catalog *deployments.Catalog, deploymentTyp
 
 func publishShareDeploymentHandler(projectState *projectstate.Runtime, publisher *deployments.SharePublisher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[publishShareDeploymentRequest](r)
+		payload, err := decodeStrictJSONBody[publishShareDeploymentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -154,7 +154,7 @@ func publishShareDeploymentHandler(projectState *projectstate.Runtime, publisher
 
 func publishAppDeploymentHandler(projectState *projectstate.Runtime, publisher *deployments.AppPublisher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[publishAppDeploymentRequest](r)
+		payload, err := decodeStrictJSONBody[publishAppDeploymentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return

@@ -356,6 +356,74 @@ func TestRegisterDeploymentRoutesShareProjectConfigRejectsUnknownConfig(t *testi
 	}
 }
 
+func TestRegisterDeploymentRoutesRejectUnknownFieldsOnProjectConfigLoad(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name           string
+		mode           config.Mode
+		sessionID      string
+		path           string
+		deploymentName string
+		body           string
+	}{
+		{
+			name:           "share project config",
+			mode:           config.ModeShare,
+			sessionID:      "share-a",
+			path:           "/api/share/deployments/demo-share/v1/project_config",
+			deploymentName: "demo-share",
+			body:           `{"projectConfigId":"project-alpha","unexpected":true}`,
+		},
+		{
+			name:           "app project config",
+			mode:           config.ModeApp,
+			sessionID:      "app-a",
+			path:           "/api/app/deployments/demo-app/v1/project_config",
+			deploymentName: "demo-app",
+			body:           `{"projectConfigId":"project-alpha","unexpected":true}`,
+		},
+	}
+
+	for _, testCase := range tests {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:           testCase.mode,
+				Now:            &now,
+				GeneratedID:    "generated-" + string(testCase.mode),
+				DeploymentName: testCase.deploymentName,
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID(testCase.sessionID); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newDeploymentRouteTestHandler(t, testCase.mode, deploymentRuntime)
+
+			request := httptest.NewRequest(http.MethodPost, testCase.path, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, testCase.sessionID)
+			request = setDeploymentRouteParams(request, testCase.deploymentName, "v1")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected invalid project-config payload 400, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode invalid project-config response: %v", err)
+			}
+			if payload.Error.Code != "invalid_json" {
+				t.Fatalf("expected invalid_json error code, got %#v", payload)
+			}
+		})
+	}
+}
+
 func TestRegisterDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec(t *testing.T) {
 	t.Parallel()
 

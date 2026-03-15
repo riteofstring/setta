@@ -206,7 +206,7 @@ func shareDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Hand
 			return
 		}
 
-		payload, err := decodeJSONBody[loadDeploymentProjectConfigRequest](r)
+		payload, err := decodeStrictJSONBody[loadDeploymentProjectConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -270,7 +270,7 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			return
 		}
 
-		payload, err := decodeJSONBody[loadDeploymentProjectConfigRequest](r)
+		payload, err := decodeStrictJSONBody[loadDeploymentProjectConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
