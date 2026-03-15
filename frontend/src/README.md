@@ -10,12 +10,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1412`
+- Authored TS/TSX files under `frontend/src`: `1418`
 - Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
-  - `components/Chat/ChatInput.tsx` (`2597`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
@@ -24,6 +23,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
+  - `components/Chat/ChatInput.tsx` (`2117`)
 
 ## Module Map
 
@@ -83,10 +83,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Chat/chatInputSubmission.ts` owns slash-command parsing,
     queued-draft replay snapshots, queued-draft replay signatures, and the
     submit or replay state machine used by `components/Chat/ChatInput.tsx`.
+  - `components/Chat/useChatInputDictation.ts` owns browser/provider dictation
+    availability, recorder lifecycle, provider fallback policy, transcript
+    insertion, and dictation state used by `components/Chat/ChatInput.tsx`.
   - `components/Chat/ChatInput.tsx` now focuses on composer state, attachment
-    manager wiring, draft restore or history selection, dictation or
-    transcription controls, execution settings, and the composer render shells
-    over that local submission owner.
+    manager wiring, draft restore or history selection, execution settings,
+    and the composer render shells over the local submission and dictation
+    owners.
   - `components/Chat/ChatMessages.tsx` now focuses on list assembly, grouped
     activity-only message stitching, assistant/user/system bubble shells, and
     message-level interaction wiring across those local chat owners.
