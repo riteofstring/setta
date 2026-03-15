@@ -517,3 +517,30 @@ Append-only log for the callable DOM-first performance refactor.
     - visible param rows: `7` on both `main` and the worktree
 - Next action:
   - Continue Phase 2 only if the next step deepens another real row-tree boundary, with the best remaining candidate being the duplicated sortable placeholder/real-row shell seam in `ParamSwitch`.
+
+### 2026-03-16 31
+
+- Item: Phase 2 checkpoint 5 DnD root-child lookup moved into `GetParamSwitch`.
+- Status: `done`
+- Details:
+  - Removed the shallow `ParamDndListBody` component from `frontend/src/components/Params/ParamDndList.tsx`.
+  - Moved the provider-bound root-child lookup into `frontend/src/components/Params/GetParamSwitch.tsx` via a new optional `dndParentId` input.
+  - `ParamDndList` now hands the tree root id directly to `GetParamSwitch` instead of crossing the provider boundary through an extra wrapper component.
+  - This keeps the DnD-aware row selection path behaviorally identical while deepening the row-tree ownership boundary around `GetParamSwitch`.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the provider-bound lookup move.
+  - Live control-scene read:
+    - callable subtree nodes:
+      - `main`: `125`
+      - worktree: `100`
+    - visible param rows: `7` on both `main` and the worktree
+- Next action:
+  - Continue Phase 2 only if the next step removes another duplicated row-tree contract, with the strongest remaining candidate now being the separate temp-placeholder row shell in `ParamSwitch`.

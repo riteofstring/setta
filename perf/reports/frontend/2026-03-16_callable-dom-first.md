@@ -450,3 +450,30 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this checkpoint is a React-boundary reduction, not a DOM reduction
   - the row/tree cluster is slightly deeper because `ParamSwitch` no longer exposes an extra shallow wrapper layer before steady-state rows reach `ParamContainer`
+
+### Phase 2 checkpoint 5: DnD root-child lookup moved into `GetParamSwitch`
+
+- Date/time: 2026-03-16
+- Scope:
+  - removed the shallow `ParamDndListBody` component from `frontend/src/components/Params/ParamDndList.tsx`
+  - moved the provider-bound root-child lookup into `frontend/src/components/Params/GetParamSwitch.tsx` through an optional `dndParentId`
+  - `ParamDndList` now hands the tree root id directly to `GetParamSwitch` instead of bridging the provider boundary through a dedicated wrapper component
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable surface remained visually aligned after the provider-bound lookup move
+- Live control-scene read:
+  - callable subtree nodes:
+    - `main`: `125`
+    - worktree: `100`
+  - visible param rows: `7` on both `main` and the worktree
+- Interpretation:
+  - this checkpoint removes another shallow React boundary rather than a DOM node
+  - the DnD-aware row selection path is slightly deeper because `GetParamSwitch` now owns the provider-bound root-child expansion directly
