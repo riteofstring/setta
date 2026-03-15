@@ -693,10 +693,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.
 - `state/actions/agenticEdgeConnections.ts` now owns agentic-edge handle
-  normalization, connection validation, and kind resolution, while
-  `state/actions/agenticEdgeMutations.ts` now owns optimistic create/update/
-  delete/selection commands; follow-up cleanup there should stay local to one
-  of those owners instead of regrowing `state/actions/agenticEdges.ts`.
+  normalization, connection validation, and kind resolution,
+  `state/actions/agenticEdgeShapeMutations.ts` now owns optimistic
+  create/update shape mutations, `state/actions/agenticEdgeSelectionMutations.ts`
+  now owns selection/delete flows, and
+  `state/actions/agenticEdgeMutations.ts` plus `state/actions/agenticEdges.ts`
+  are now thin compatibility facades; follow-up cleanup there should stay
+  local to one of those owners instead of regrowing
+  `state/actions/agenticEdges.ts`.
 - `state/actions/uiSettingRevealMutationCapture.ts` now owns reveal snapshot
   capture plus failure-result assembly, while
   `state/actions/uiSettingRevealMutationApply.ts` now owns high-level reveal

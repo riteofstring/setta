@@ -4,7 +4,7 @@ import {
   isValidAgenticEdgeConnection,
   normalizeAgenticConnectionHandles,
 } from "./agenticEdgeConnections";
-import { createAgenticEdgeFromConnection } from "./agenticEdgeMutations";
+import { createAgenticEdgeFromConnection } from "./agenticEdgeShapeMutations";
 import {
   SHARED_CHAT_EDGE_HANDLE_IDS,
   type ChatSharedEdgeMode,

@@ -8,7 +8,7 @@ import {
   AGENTIC_EDGE_HANDLE_IDS,
   isValidAgenticEdgeConnection,
 } from "state/actions/agenticEdgeConnections";
-import { createAgenticEdgeFromConnection } from "state/actions/agenticEdgeMutations";
+import { createAgenticEdgeFromConnection } from "state/actions/agenticEdgeShapeMutations";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {

@@ -6,7 +6,7 @@ import {
   createAgenticEdgeFromConnection,
   createAgenticEdgeFromSections,
   updateAgenticEdgeContextMode,
-} from "state/actions/agenticEdgeMutations";
+} from "state/actions/agenticEdgeShapeMutations";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";

@@ -37,7 +37,7 @@ import {
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
-import { deleteSelectedAgenticEdges } from "./agenticEdgeMutations";
+import { deleteSelectedAgenticEdges } from "./agenticEdgeSelectionMutations";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
 import { formatActiveCodeSection } from "./formatCode";

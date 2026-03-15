@@ -12,7 +12,7 @@ vi.mock("./edges", () => ({
   deleteSelectedEdges: edgeMutationMocks.deleteSelectedEdges,
 }));
 
-vi.mock("./agenticEdgeMutations", () => ({
+vi.mock("./agenticEdgeSelectionMutations", () => ({
   deleteSelectedAgenticEdges: edgeMutationMocks.deleteSelectedAgenticEdges,
 }));
 

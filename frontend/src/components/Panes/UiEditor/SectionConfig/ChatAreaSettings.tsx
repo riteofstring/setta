@@ -13,11 +13,11 @@ import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReduce
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { deleteAgenticEdgesById } from "state/actions/agenticEdgeSelectionMutations";
 import {
   createAgenticEdgeFromSections,
-  deleteAgenticEdgesById,
   updateAgenticEdgeContextMode,
-} from "state/actions/agenticEdgeMutations";
+} from "state/actions/agenticEdgeShapeMutations";
 import { updateEngineConfig } from "state/actions/aiConfigurationCatalogMutations";
 import { setProjectChatWindowModeForSection } from "state/actions/projectChatWindowSectionCommands";
 import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowingSelectors";

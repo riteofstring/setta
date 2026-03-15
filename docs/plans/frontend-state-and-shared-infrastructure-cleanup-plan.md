@@ -363,11 +363,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/agenticEdgeMutations.ts` at 253 lines
-  - `frontend/src/state/actions/params/moveParams.ts` at 250 lines
-  - `frontend/src/state/actions/chatBranches.ts` at 250 lines
-  - `frontend/src/state/actions/websocketRealtime.ts` at 249 lines
-  - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` at 249 lines
+  - `frontend/src/state/actions/chatBranches.ts` at 251 lines
+  - `frontend/src/state/actions/params/moveParams.ts` at 251 lines
+  - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` at 250 lines
+  - `frontend/src/state/actions/websocketRealtime.ts` at 250 lines
+  - `frontend/src/state/actions/projectChatWindowingState.ts` at 249 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -392,10 +392,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   compatibility facade.
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,
-  `frontend/src/state/actions/agenticEdgeMutations.ts` now owns optimistic
-  create/update/delete/selection commands, and
-  `frontend/src/state/actions/agenticEdges.ts` is now a thin compatibility
-  facade.
+  `frontend/src/state/actions/agenticEdgeShapeMutations.ts` now owns
+  optimistic create/update shape mutations,
+  `frontend/src/state/actions/agenticEdgeSelectionMutations.ts` now owns
+  selection/delete flows,
+  `frontend/src/state/actions/agenticEdgeMutations.ts` is now a thin
+  compatibility facade, and `frontend/src/state/actions/agenticEdges.ts` is
+  now a thin compatibility facade.
 - `frontend/src/state/actions/stateMachineDraftValidationGraph.ts` now owns
   machine-section and workflow-edge graph reads,
   `frontend/src/state/actions/stateMachineDraftValidationWarnings.ts` now owns
