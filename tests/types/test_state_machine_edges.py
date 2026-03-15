@@ -2,7 +2,6 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from setta.agentic.store import save_prompt_template
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.types.generated.settings_state import SettingsState
@@ -360,14 +359,12 @@ class TestStateMachineEdges:
 
         with TemporaryDirectory() as tmpdir:
             dbe = DBE(tmpdir)
-            save_prompt_template(
-                dbe,
-                PromptTemplate(
-                    id=prompt_template_id,
-                    name="Greeting",
-                    template="Hello {{ name }}",
-                ),
+            template = PromptTemplate(
+                id=prompt_template_id,
+                name="Greeting",
+                template="Hello {{ name }}",
             )
+            dbe.write_prompt(template.id, template.model_dump(mode="json"))
             set_prompt_section_template_link(
                 self.project_state,
                 prompt_section_id,
@@ -376,14 +373,12 @@ class TestStateMachineEdges:
                 PromptFormat.Jinja,
             )
 
-            save_prompt_template(
-                dbe,
-                PromptTemplate(
-                    id=prompt_template_id,
-                    name="Greeting",
-                    template="Hello there.",
-                ),
+            template = PromptTemplate(
+                id=prompt_template_id,
+                name="Greeting",
+                template="Hello there.",
             )
+            dbe.write_prompt(template.id, template.model_dump(mode="json"))
 
             edge = StateMachineEdge(
                 id=create_new_id(),

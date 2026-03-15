@@ -57,53 +57,46 @@ import {
   MdVerticalAlignBottom,
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
-import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import {
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
-} from "state/actions/projectChatWindowingDefaultBounds";
-import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
-import {
+  bootProjectChatWindowToCanvasSection,
   clearTrackedGitPaneGraphWindowIfMatches,
-  getTrackedGitPaneGraphWindowInstanceIdForProject,
-} from "state/actions/projectChatWindowingTrackedGitPaneState";
-import {
-  setProjectChatWindowBounds,
-  setProjectChatWindowBoundsById,
-  setProjectChatWindowDockFractions,
-  setProjectChatWindowPlacement,
-} from "state/actions/projectChatWindowLayoutCommands";
-import {
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-  unmaximizeProjectChatWindow,
-} from "state/actions/projectChatWindowLifecycleCommands";
-import {
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+  setProjectChatWindowBounds,
+  setProjectChatWindowBoundsById,
   setProjectChatWindowChatId,
+  setProjectChatWindowDockFractions,
+  setProjectChatWindowPlacement,
   setProjectChatWindowTitle,
-} from "state/actions/projectChatWindowMetadataCommands";
-import { showSectionInProjectChatWindow } from "state/actions/projectChatWindowSectionCommands";
+  showSectionInProjectChatWindow,
+  unmaximizeProjectChatWindow,
+} from "state/actions/projectChatWindowing";
+import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,
+  useLocalStorage,
+  useMisc,
   useProjectState,
+  useSettings,
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { useMisc } from "state/stores/layoutInteractionStores";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   type ChatWindowBounds,
 } from "utils/generatedTypes";
+import { isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import { useProjectChatWindowShortcuts } from "./projectChatWindowShortcuts";
 
 type ResolvedWindowPill = {
   instanceId: string;
@@ -259,6 +252,14 @@ const SNAP_TOP_RIGHT_SHORTCUT = "Mod + Alt + Shift + W";
 const SNAP_BOTTOM_LEFT_SHORTCUT = "Mod + Alt + Shift + A";
 const SNAP_BOTTOM_RIGHT_SHORTCUT = "Mod + Alt + Shift + S";
 
+type ParsedShortcut = {
+  mod: boolean;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  keys: Set<string>;
+};
+
 type ResizeHandleConfig = {
   direction: WindowResizeDirection;
   className: string;
@@ -333,6 +334,143 @@ const FLOATING_WINDOW_RESIZE_HANDLES: Array<ResizeHandleConfig> = [
       "h-3 w-3 rounded-tl border-l border-t border-setta-300 bg-setta-100 dark:border-setta-700 dark:bg-setta-800",
   },
 ];
+
+const SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE: Record<string, string> = {
+  ".": "Period",
+  ",": "Comma",
+  "/": "Slash",
+  "\\": "Backslash",
+  "'": "Quote",
+  ";": "Semicolon",
+  "[": "BracketLeft",
+  "]": "BracketRight",
+  "-": "Minus",
+  "=": "Equal",
+  "`": "Backquote",
+  arrowright: "ArrowRight",
+  arrowleft: "ArrowLeft",
+  arrowup: "ArrowUp",
+  arrowdown: "ArrowDown",
+  esc: "Escape",
+};
+
+function parseShortcut(shortcut: string): ParsedShortcut {
+  const parts = shortcut
+    .split("+")
+    .map((x) => x.trim().toLowerCase())
+    .filter((x) => x.length > 0);
+  const keys = new Set(
+    parts
+      .filter((x) => !["ctrl", "shift", "alt", "mod"].includes(x))
+      .map((part) => {
+        if (/^[a-z]$/.test(part)) {
+          return `Key${part.toUpperCase()}`;
+        }
+        if (/^[0-9]$/.test(part)) {
+          return `Digit${part}`;
+        }
+        const special = SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE[part];
+        if (special) {
+          return special;
+        }
+        return part[0].toUpperCase() + part.slice(1);
+      }),
+  );
+  return {
+    mod: parts.includes("mod"),
+    ctrl: parts.includes("ctrl"),
+    shift: parts.includes("shift"),
+    alt: parts.includes("alt"),
+    keys,
+  };
+}
+
+function getNormalizedEventCode(event: KeyboardEvent): string | null {
+  if (event.code && event.code !== "Unidentified") {
+    return event.code;
+  }
+  if (!event.key) {
+    return null;
+  }
+  if (event.key === " ") {
+    return "Space";
+  }
+  if (event.key === "Shift") {
+    return "ShiftLeft";
+  }
+  if (event.key === "Control") {
+    return "ControlLeft";
+  }
+  if (event.key === "Alt") {
+    return "AltLeft";
+  }
+  if (event.key === "Meta") {
+    return "MetaLeft";
+  }
+  const lower = event.key.toLowerCase();
+  const special = SPECIAL_SHORTCUT_KEY_TO_EVENT_CODE[lower];
+  if (special) {
+    return special;
+  }
+  if (/^[a-z]$/i.test(event.key)) {
+    return `Key${event.key.toUpperCase()}`;
+  }
+  if (/^[0-9]$/.test(event.key)) {
+    return `Digit${event.key}`;
+  }
+  if (event.key.length > 1) {
+    return event.key[0].toUpperCase() + event.key.slice(1);
+  }
+  return event.key;
+}
+
+function isShortcutPressed(
+  event: KeyboardEvent,
+  eventCode: string | null,
+  parsedShortcut: ParsedShortcut,
+  macOs: boolean,
+): boolean {
+  if (macOs) {
+    if (
+      event.metaKey !== parsedShortcut.mod ||
+      event.ctrlKey !== parsedShortcut.ctrl ||
+      event.shiftKey !== parsedShortcut.shift ||
+      event.altKey !== parsedShortcut.alt
+    ) {
+      return false;
+    }
+  } else if (
+    event.ctrlKey !== (parsedShortcut.ctrl || parsedShortcut.mod) ||
+    event.shiftKey !== parsedShortcut.shift ||
+    event.altKey !== parsedShortcut.alt
+  ) {
+    return false;
+  }
+  if (parsedShortcut.keys.size === 0) {
+    return true;
+  }
+  if (!eventCode || parsedShortcut.keys.size !== 1) {
+    return false;
+  }
+  return parsedShortcut.keys.has(eventCode);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    return true;
+  }
+  if (target.isContentEditable) {
+    return true;
+  }
+  return Boolean(target.closest("[contenteditable='true']"));
+}
 
 function isInteractiveWindowHeaderTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -2566,53 +2704,145 @@ export function ProjectChatBottomDock() {
     ],
   );
 
-  const toggleCanvasVisibility = useCallback(() => {
-    setIsCanvasVisibilitySuppressed((current) => !current);
-  }, []);
+  useEffect(() => {
+    const parsedCanvasToggle = parseShortcut(
+      chatWindowingShortcuts.canvasToggle,
+    );
+    const parsedMaximizeFocused = parseShortcut(
+      chatWindowingShortcuts.maximizeFocused,
+    );
+    const parsedMinimizeFocused = parseShortcut(
+      chatWindowingShortcuts.minimizeFocused,
+    );
+    const parsedSnapLeft = parseShortcut(chatWindowingShortcuts.snapLeft);
+    const parsedSnapRight = parseShortcut(chatWindowingShortcuts.snapRight);
+    const parsedSnapTop = parseShortcut(chatWindowingShortcuts.snapTop);
+    const parsedSnapBottom = parseShortcut(chatWindowingShortcuts.snapBottom);
+    const parsedSnapTopLeft = parseShortcut(SNAP_TOP_LEFT_SHORTCUT);
+    const parsedSnapTopRight = parseShortcut(SNAP_TOP_RIGHT_SHORTCUT);
+    const parsedSnapBottomLeft = parseShortcut(SNAP_BOTTOM_LEFT_SHORTCUT);
+    const parsedSnapBottomRight = parseShortcut(SNAP_BOTTOM_RIGHT_SHORTCUT);
+    const macOs = isMacOs();
 
-  const maximizeFocusedVisibleWindow = useCallback(() => {
-    if (!activeVisibleWindowId) {
-      return;
-    }
-    maximizeProjectChatWindow(activeVisibleWindowId);
-    focusProjectChatWindow(activeVisibleWindowId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, [activeVisibleWindowId]);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        isEditableTarget(event.target)
+      ) {
+        return;
+      }
+      const eventCode = getNormalizedEventCode(event);
 
-  const minimizeFocusedVisibleWindow = useCallback(() => {
-    if (!activeVisibleWindowId) {
-      return;
-    }
-    startWindowExitAnimation(activeVisibleWindowId, "minimize", {
-      focusAfterClose: true,
-    });
-  }, [activeVisibleWindowId, startWindowExitAnimation]);
+      if (
+        hasOverlayWindows &&
+        isShortcutPressed(event, eventCode, parsedCanvasToggle, macOs)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsCanvasVisibilitySuppressed((current) => !current);
+        return;
+      }
 
-  useProjectChatWindowShortcuts({
-    shortcuts: {
-      canvasToggle: chatWindowingShortcuts.canvasToggle,
-      maximizeFocused: chatWindowingShortcuts.maximizeFocused,
-      minimizeFocused: chatWindowingShortcuts.minimizeFocused,
-      snapLeft: chatWindowingShortcuts.snapLeft,
-      snapRight: chatWindowingShortcuts.snapRight,
-      snapTop: chatWindowingShortcuts.snapTop,
-      snapBottom: chatWindowingShortcuts.snapBottom,
-      snapTopLeft: SNAP_TOP_LEFT_SHORTCUT,
-      snapTopRight: SNAP_TOP_RIGHT_SHORTCUT,
-      snapBottomLeft: SNAP_BOTTOM_LEFT_SHORTCUT,
-      snapBottomRight: SNAP_BOTTOM_RIGHT_SHORTCUT,
-    },
+      if (
+        activeVisibleWindowId &&
+        isShortcutPressed(event, eventCode, parsedMaximizeFocused, macOs)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        maximizeProjectChatWindow(activeVisibleWindowId);
+        focusProjectChatWindow(activeVisibleWindowId);
+        setIsCanvasVisibilitySuppressed(false);
+        return;
+      }
+
+      if (
+        activeVisibleWindowId &&
+        isShortcutPressed(event, eventCode, parsedMinimizeFocused, macOs)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        startWindowExitAnimation(activeVisibleWindowId, "minimize", {
+          focusAfterClose: true,
+        });
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapLeft, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("left");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapRight, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("right");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapTop, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("top");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapBottom, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("bottom");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapTopLeft, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("top_left");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapTopRight, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("top_right");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapBottomLeft, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("bottom_left");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapBottomRight, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("bottom_right");
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [
+    activeSectionId,
+    activeVisibleWindowId,
+    chatWindowingShortcuts.canvasToggle,
+    chatWindowingShortcuts.maximizeFocused,
+    chatWindowingShortcuts.minimizeFocused,
+    chatWindowingShortcuts.snapBottom,
+    chatWindowingShortcuts.snapLeft,
+    chatWindowingShortcuts.snapRight,
+    chatWindowingShortcuts.snapTop,
     hasOverlayWindows,
-    hasActiveVisibleWindow: Boolean(activeVisibleWindowId),
-    onToggleCanvasVisibility: toggleCanvasVisibility,
-    onMaximizeFocusedWindow: activeVisibleWindowId
-      ? maximizeFocusedVisibleWindow
-      : null,
-    onMinimizeFocusedWindow: activeVisibleWindowId
-      ? minimizeFocusedVisibleWindow
-      : null,
-    onSnapPreset: snapWindowTargetByPreset,
-  });
+    instancesById,
+    snapWindowTargetByPreset,
+    startWindowExitAnimation,
+  ]);
 
   const commitQueuedFloatingPreviewBounds = useCallback(() => {
     floatingPreviewAnimationFrameRef.current = null;
