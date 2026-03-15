@@ -4184,3 +4184,36 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/projectChatWindowingNormalization.ts`
     so canonical windowing normalization stops living beside storage reads,
     pane projection, and layout merge helpers.
+
+## 2026-03-15 11:15:39 PDT
+
+- Slice completed: split project chat windowing default bounds from state normalization
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingDefaultBounds.ts`
+  - `frontend/src/state/actions/projectChatWindowingStateNormalization.ts`
+  - `frontend/src/state/actions/projectChatWindowingNormalization.ts`
+  - `frontend/src/state/actions/projectChatWindowingDefaultBounds.test.ts`
+  - `frontend/src/state/actions/projectChatWindowingStateNormalization.test.ts`
+  - `frontend/src/state/actions/projectChatWindowingInstanceState.ts`
+  - `frontend/src/state/actions/projectChatWindowingSelectors.ts`
+  - `frontend/src/state/actions/projectChatWindowingPlacementState.ts`
+  - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowingDefaultBounds.test.ts src/state/actions/projectChatWindowingStateNormalization.test.ts src/state/actions/projectChatWindowingInstanceState.test.ts src/state/actions/windowSpaceWorkspaceRestoreRemap.test.ts src/state/actions/windowSpaceWorkspaceRestorePlan.test.ts src/state/actions/projectChatWindowing.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowingDefaultBounds.ts src/state/actions/projectChatWindowingStateNormalization.ts src/state/actions/projectChatWindowingNormalization.ts src/state/actions/projectChatWindowingDefaultBounds.test.ts src/state/actions/projectChatWindowingStateNormalization.test.ts src/state/actions/projectChatWindowingInstanceState.ts src/state/actions/projectChatWindowingSelectors.ts src/state/actions/projectChatWindowingPlacementState.ts src/state/actions/windowSpaceSnapshotRestore.ts src/state/actions/windowSpaceWorkspaceRestoreLayout.ts src/state/actions/windowSpaceWorkspaceRestoreRemap.ts src/components/ChatWindowing/ProjectChatBottomDock.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `1c3b65692fd0fb071227f36eff9f68595a0f95ef`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/stateMachineRunSelection.ts` so
+    active-run candidate reads stop living beside selection and clear
+    mutations.
