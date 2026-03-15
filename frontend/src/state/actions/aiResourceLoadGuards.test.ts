@@ -28,7 +28,7 @@ vi.mock("utils/generatedEndpoints", async () => {
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let loadAgentRuns: typeof import("state/actions/aiAgentRuns").loadAgentRuns;
-let loadLLMApiKeys: typeof import("state/actions/aiLLMConfiguration").loadLLMApiKeys;
+let loadLLMApiKeys: typeof import("state/actions/aiManagedApiKeys").loadLLMApiKeys;
 let loadLLMConfig: typeof import("state/actions/aiLLMConfiguration").loadLLMConfig;
 let memoryStorage: Storage;
 
@@ -57,9 +57,10 @@ describe("AI resource load guards", () => {
     useAIStore = definitions.useAIStore;
     const aiAgentRuns = await import("state/actions/aiAgentRuns");
     const aiLLMConfiguration = await import("state/actions/aiLLMConfiguration");
+    const aiManagedApiKeys = await import("state/actions/aiManagedApiKeys");
     loadAgentRuns = aiAgentRuns.loadAgentRuns;
     loadLLMConfig = aiLLMConfiguration.loadLLMConfig;
-    loadLLMApiKeys = aiLLMConfiguration.loadLLMApiKeys;
+    loadLLMApiKeys = aiManagedApiKeys.loadLLMApiKeys;
   });
 
   beforeEach(() => {

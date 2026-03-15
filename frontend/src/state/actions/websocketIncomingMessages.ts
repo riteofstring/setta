@@ -20,10 +20,8 @@ import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
 } from "./aiFollow";
-import {
-  receiveLLMApiKeysSnapshotUpdate,
-  receiveLLMConfigUpdate,
-} from "./aiLLMConfiguration";
+import { receiveLLMConfigUpdate } from "./aiLLMConfiguration";
+import { receiveLLMApiKeysSnapshotUpdate } from "./aiManagedApiKeys";
 import { receiveTranscriptionProfilesUpdate } from "./aiTranscriptionProfiles";
 import { updateArtifacts } from "./artifactStoreUpdates";
 import { applyListenerCoverageSnapshot } from "./listenerCoverage";
