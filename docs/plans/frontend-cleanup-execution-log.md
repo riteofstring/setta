@@ -6193,3 +6193,46 @@ schedule settings` button still appears on the live task row.
     `frontend/src/components/App/appRegistry.tsx` dropped to about 888 lines
     and delegated its app param binding, edit gating, mutation, and control
     rendering ownership into feature-local modules.
+
+## 2026-03-16 00:46:02 PDT
+
+- Slice completed: extracted TaskBoardArea model and surface owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
+  because `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` was
+  still the top unresolved front-door hotspot at the start of the turn and it
+  still mixed task/column mutations, DnD math, and both list/kanban board
+  shells into one first-hop file.
+- Key files touched:
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardAreaModel.ts`
+  - `frontend/src/components/Section/Layouts/taskBoardAreaToolbar.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardAreaTaskListView.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardAreaKanbanView.tsx`
+  - `frontend/src/components/Section/Layouts/taskBoardAreaModel.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `perf/reports/frontend/task-board-area-surface-owners-2026-03-16.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/taskBoardAreaModel.test.ts src/components/Section/Layouts/taskBoardTaskScheduleModel.test.ts src/components/Section/Layouts/taskBoardTaskSchedule.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "task board and spreadsheet sections are visible and interactive"`
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/TaskBoardArea.tsx src/components/Section/Layouts/taskBoardAreaModel.ts src/components/Section/Layouts/taskBoardAreaToolbar.tsx src/components/Section/Layouts/taskBoardAreaTaskListView.tsx src/components/Section/Layouts/taskBoardAreaKanbanView.tsx src/components/Section/Layouts/taskBoardAreaModel.test.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../perf/reports/frontend/task-board-area-surface-owners-2026-03-16.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/task-board-area-surface-owners-2026-03-16.md`
+    with before/after task-list DOM metrics plus kanban surface checks.
+  - CDP visual verification was run on `http://127.0.0.1:3002/knowing_tight`;
+    task-list metrics kept the same row/header ordering with document nodes
+    dropping from `783` to `774`, and kanban still rendered `3` lanes, `2`
+    task cards, `2` resize handles, `240px` default lane width, and no
+    document horizontal overflow.
+- Commit hash:
+  - `98b8090e23b068d40cb1c59245737891aafc064a`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`,
+    which is now the top unresolved front-door hotspot after
+    `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` dropped to
+    about 614 lines and delegated task-board mutations, DnD math, toolbar
+    chrome, and list/kanban surface rendering into feature-local modules.
