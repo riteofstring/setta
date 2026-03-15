@@ -357,7 +357,12 @@ class ListenerDependencyIds:
 
     def dependency_id(self, dependency_name: str) -> ListenerDependencyId:
         dep_key = self.dependency_key(dependency_name)
-        return _dependency_id_from_key(dep_key)
+        if isinstance(dep_key, SectionParamDependencyKey):
+            return ListenerDependencyId(
+                sectionId=dep_key.sectionId,
+                paramInfoId=dep_key.codeObjId,
+            )
+        return ListenerDependencyId(sectionId=dep_key.sectionId)
 
     def dependency_name(
         self, section_id: "ID", param_info_id: "ID | None" = None
@@ -498,17 +503,6 @@ ListenerDependencySpec = str | ListenerDependencyId | BaseDependencyKeyUnion
 
 def dep_id(section_id: "ID", param_id: "ID | None" = None) -> ListenerDependencyId:
     return ListenerDependencyId(sectionId=section_id, paramInfoId=param_id)
-
-
-def _dependency_id_from_key(
-    dep_key: BaseDependencyKeyUnion,
-) -> ListenerDependencyId:
-    if isinstance(dep_key, SectionParamDependencyKey):
-        return ListenerDependencyId(
-            sectionId=dep_key.sectionId,
-            paramInfoId=dep_key.codeObjId,
-        )
-    return ListenerDependencyId(sectionId=dep_key.sectionId)
 
 
 class SettaListener:
@@ -2419,7 +2413,15 @@ class SettaListener:
                 raise KeyError(
                     f"Unknown dependency name {dependency_name!r} for project {self._log_identifier}"
                 ) from error
-            changed_by_id[_dependency_id_from_key(dep_key)] = value
+            if isinstance(dep_key, SectionParamDependencyKey):
+                changed_by_id[
+                    ListenerDependencyId(
+                        sectionId=dep_key.sectionId,
+                        paramInfoId=dep_key.codeObjId,
+                    )
+                ] = value
+                continue
+            changed_by_id[ListenerDependencyId(sectionId=dep_key.sectionId)] = value
         return changed_by_id
 
     def _get_router_endpoint_api(self) -> RouterEndpointAPI:
