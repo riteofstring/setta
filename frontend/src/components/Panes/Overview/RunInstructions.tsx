@@ -5,14 +5,14 @@ import _ from "lodash";
 import { usePluginStatusEntries } from "plugins/runtime";
 import React from "react";
 import { RiLoopRightFill, RiPlayMiniFill } from "react-icons/ri";
+import { runCustomRun } from "state/actions/customRunExecution";
 import {
   addOrGetCustomRunForCodeBlock,
   deleteCustomRun,
   ensureDefaultCustomRuns,
-  runCustomRun,
   setCustomRunMode,
   toggleCustomRunInDropdown,
-} from "state/actions/customRuns";
+} from "state/actions/customRunStorage";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,

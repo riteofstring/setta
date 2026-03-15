@@ -477,6 +477,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     minimap previews, and embedded project-chat git panes.
   - `state/stores/projectStatusStores.ts` owns run-control and project-loading
     status shared across run actions and route/deployment loading flows.
+  - `state/actions/customRunStorage.ts` owns local custom-run reads and
+    persisted mutation writes, including default run seeding and per-run
+    authoring updates.
+  - `state/actions/customRunQueries.ts` owns custom-run filtered list and
+    lookup helpers used by run controls and authoring surfaces.
+  - `state/actions/customRunExecution.ts` owns once/continuous custom-run
+    execution plus run-control coordination.
+  - `state/actions/customRuns.ts` is now the thin compatibility facade over
+    those custom-run owners.
   - `state/stores/searchStores.ts` owns home-page search plus project search
     state used by the header search surfaces and param search highlighting.
   - `state/stores/sessionStores.ts` owns share-session, server-mode, and
@@ -820,6 +829,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   hydration or reset, bootstrap or recovery entrypoints, run-count persistence,
   and compatibility re-exports, so follow-up app-mode cleanup should stay local
   to those owners instead of regrowing the old shared session module.
+- `state/actions/customRunStorage.ts`,
+  `state/actions/customRunQueries.ts`,
+  `state/actions/customRunExecution.ts`, and
+  `state/actions/customRuns.ts` now split local custom-run persistence, run
+  list derivation, execution or continuous-run control, and compatibility
+  re-exports, so follow-up run-surface cleanup should stay local to those
+  owners instead of regrowing the old shared custom-run module.
 - `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
   authority and param display-name selectors instead of regrowing
   `state/actions/sectionEffectiveImplSelectors.ts`.

@@ -180,6 +180,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   increments plus persisted session snapshot updates, and
   `frontend/src/state/actions/appSessionState.ts` is now the thin
   compatibility facade.
+- `frontend/src/state/actions/customRunStorage.ts` now owns local custom-run
+  reads plus persisted mutation writes that previously lived in
+  `frontend/src/state/actions/customRuns.ts`,
+  `frontend/src/state/actions/customRunQueries.ts` now owns filtered-list and
+  lookup helpers,
+  `frontend/src/state/actions/customRunExecution.ts` now owns once or
+  continuous custom-run execution plus run-control coordination, and
+  `frontend/src/state/actions/customRuns.ts` is now the thin compatibility
+  facade.
 - `frontend/src/state/actions/activeSectionSync.ts` now owns durable
   active-section selection scheduling, flush, backend send, and authoritative
   restore behavior that previously lived in
@@ -417,7 +426,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/customRuns.ts` at 227 lines
   - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
   - `frontend/src/state/actions/sections/sectionSizes.ts` at 218 lines
@@ -430,6 +438,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -447,6 +456,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/appDeploymentState.ts` now owns app deployment
   load/reset plus app-config cache hydration, and
   `frontend/src/state/actions/app.ts` is now a thin compatibility facade.
+- `frontend/src/state/actions/customRunStorage.ts` now owns local custom-run
+  reads plus persisted mutation writes,
+  `frontend/src/state/actions/customRunQueries.ts` now owns filtered-list and
+  lookup helpers,
+  `frontend/src/state/actions/customRunExecution.ts` now owns once or
+  continuous custom-run execution plus run-control coordination, and
+  `frontend/src/state/actions/customRuns.ts` is now the thin compatibility
+  facade.
 - `frontend/src/state/actions/aiPendingChatAppGenerationState.ts` now owns
   pending-surface app-generation detail reads/writes,
   `frontend/src/state/actions/aiPendingChatMessageLifecycle.ts` now owns
