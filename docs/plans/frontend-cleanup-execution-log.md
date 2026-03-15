@@ -5335,3 +5335,52 @@ in `frontend/src/README.md` and the cleanup plans.
     which is now the next unresolved default-priority front-door hotspot in the
     same project-AI path after `ProjectChatCore.tsx` delegated empty-state
     workspace preflight to a local owner.
+
+## 2026-03-15 18:33:38 PDT
+
+- Slice completed: extracted the external-agent settings surface out of
+  `ProjectAISettings.tsx`
+- Why this slice now:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+    was still the next unresolved project-AI front-door surface after the
+    `ProjectChatCore.tsx` empty-state extraction.
+  - The external-agent branch was its largest cohesive mixed responsibility: it
+    combined per-config selection state, tool-type/run-mode reconciliation,
+    Claude/OpenCode-specific validation, managed-settings assembly, and a
+    render-heavy form shell inside the same entry surface that also owns
+    accordion composition, deployment-mode gating, guardrails, and the other
+    settings managers.
+  - This was higher value than jumping ahead to
+    `ProjectChatSkillsMcpViewer.tsx` or `FileBrowserPane.tsx` because it
+    removed one whole settings subsystem from the active project-AI front door,
+    cut `ProjectAISettings.tsx` from about `2444` lines to about `1471`, and
+    made the external-agent owner obvious from the caller.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsFormControls.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectAISettingsFormUtils.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/plugins/plugin-external-agent.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsExternalAgents.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsFormControls.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsFormUtils.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this slice was a behavior-preserving
+    ownership extraction without meaningful render-path changes.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`.
+  - Verified that the Project AI Settings surface still opens from the project
+    chat toolbar, that the `EXTERNAL AGENTS` accordion still renders the
+    existing agent list plus full Claude form fields, that `New External Agent`
+    still opens a blank draft form, and that switching the new draft to
+    `opencode` still reveals the OpenCode permission and MCP JSON fields.
+- Commit hash:
+  - `aadaf0a572d95c24281781abeb7e508fdacf8389`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`,
+    which is now the largest unresolved project-AI front-door hotspot after
+    `ProjectAISettings.tsx` delegated external-agent settings to a local owner.
