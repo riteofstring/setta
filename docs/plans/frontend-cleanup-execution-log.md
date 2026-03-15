@@ -4111,3 +4111,47 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sectionDisplayQueries.ts` so top-level
     section display filtering and node-map construction stop living beside
     view-mode visibility and ancestor-visibility queries.
+
+## 2026-03-15 11:01:59 PDT
+
+- Slice completed: split section display structure from visibility queries
+- Key files touched:
+  - `frontend/src/state/actions/sectionDisplayQueries.ts`
+  - `frontend/src/state/actions/sectionDisplayStructure.ts`
+  - `frontend/src/state/actions/sectionViewModeVisibility.ts`
+  - `frontend/src/state/actions/sectionViewModeVisibility.test.ts`
+  - `frontend/src/state/actions/activeSectionCommands.ts`
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/state/hooks/search.ts`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/forks/dnd-kit/useDropType.ts`
+  - `frontend/src/forks/dnd-kit/useMoveSection.ts`
+  - `frontend/src/forks/dnd-kit/dndState.ts`
+  - `frontend/src/utils/focusManagerElements.ts`
+  - `frontend/src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/Section/Container/ContainerWrappers.tsx`
+  - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - `frontend/src/components/Section/Header/DeleteOrHideButton.tsx`
+  - `frontend/src/components/Section/Layouts/TerminalArea.tsx`
+  - `frontend/src/components/Section/Layouts/TerminalArea.test.tsx`
+  - `frontend/src/components/Utils/ContextMenus/SelectionContextMenu.tsx`
+  - `frontend/src/state/actions/sectionInfos.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sectionViewModeVisibility.test.ts src/components/Section/Layouts/TerminalArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionDisplayQueries.ts src/state/actions/sectionDisplayStructure.ts src/state/actions/sectionViewModeVisibility.ts src/state/actions/sectionViewModeVisibility.test.ts src/state/actions/activeSectionCommands.ts src/state/actions/project/loadProject.ts src/state/actions/sectionProjectStateSync.ts src/state/hooks/search.ts src/state/subscriptions.ts src/forks/dnd-kit/useDropType.ts src/forks/dnd-kit/useMoveSection.ts src/forks/dnd-kit/dndState.ts src/utils/focusManagerElements.ts src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx src/components/Section/Header/DeleteOrHideButton.tsx src/components/Panes/Overview/RunInstructions.tsx src/components/Section/Layouts/TerminalArea.tsx src/components/Section/Layouts/TerminalArea.test.tsx src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/ContainerWrappers.tsx src/components/Utils/ContextMenus/SelectionContextMenu.tsx src/state/actions/sectionInfos.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `943020e412b08315f778e31c33f46b1552a95014`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatThreadStorageUndo.ts` so
+    undo-stack bookkeeping and target-entry lookup stop living beside
+    thread/group inverse-apply restoration writes.
