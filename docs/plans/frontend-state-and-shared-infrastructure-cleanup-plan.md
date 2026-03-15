@@ -114,13 +114,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   lived in `frontend/src/state/actions/websocketLifecycle.ts`; future cleanup
   should keep websocket bootstrap and recovery flows on those dedicated
   surfaces instead of mixing them back into lifecycle wiring.
-- `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
-  window-space sort/name/delete/create mutations plus optimistic persistence,
+- `frontend/src/state/actions/windowSpaceCrud.ts` now owns saved window-space
+  sort/name/delete mutations plus optimistic persistence and layout rollback,
+  `frontend/src/state/actions/windowSpaceSave.ts` now owns current-floating-window
+  save flow plus authoritative pre-save sync,
   `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` now owns floating
   snapshot building, and
   `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` now owns
   conversion back into project-chat windowing state that previously lived in
-  `frontend/src/state/actions/windowSpaces.ts`.
+  `frontend/src/state/actions/windowSpaces.ts`; `frontend/src/state/actions/windowSpacePersistence.ts`
+  is now the thin compatibility facade over the narrowed owners.
 - `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns
   floating-window reuse, owner-key resolution, and superseded-floating
   selection that previously lived in
@@ -283,17 +286,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
   - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
   - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
+  - `frontend/src/state/actions/uiSettingRevealActivation.ts` at 307 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
   - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
+  - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
   - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
@@ -512,9 +515,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `chatMessageMerge.ts` for generic message completeness scoring and message merge normalization
   - `chatHydrationMerge.ts` for hydration-time local-vs-backend chat reconciliation and preserved assistant streaming content
   - `chatMergeUtils.ts` as the thin compatibility facade
-- `windowSpacePersistence.ts` now owns:
-  - saved window-space sort/name/delete/create mutations
+- `windowSpaceCrud.ts` now owns:
+  - saved window-space sort/name/delete mutations
   - optimistic persistence and layout-mutation rollback
+- `windowSpaceSave.ts` now owns:
+  - current-floating-window save flow
+  - authoritative pre-save resync and saved window-space persistence
+- `windowSpacePersistence.ts` is now:
+  - a thin compatibility facade over the narrowed window-space CRUD and save owners
 - `windowSpaceSnapshotCapture.ts` now owns:
   - floating window-space snapshot building
 - `windowSpaceSnapshotRestore.ts` now owns:

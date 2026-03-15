@@ -5,7 +5,7 @@ import { addTemporaryNotification } from "./notifications";
 import {
   canMutateWindowSpaceLayout,
   getProjectWindowSpaces,
-} from "./windowSpacePersistence";
+} from "./windowSpaceCrud";
 import {
   buildWorkspaceRestoreThreadState,
   getBlockedWindowSpaceRestoreMessage,

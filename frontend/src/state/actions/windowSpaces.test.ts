@@ -62,12 +62,12 @@ import {
 import { replaceProjectChatWindowingState } from "./projectChatWindowingWrites";
 import {
   applyWindowSpaceSortOrder,
-  createWindowSpaceFromCurrentFloatingWindows,
   deleteWindowSpace,
   persistWindowSpaceSortOrder,
   setWindowSpaceName,
-} from "./windowSpacePersistence";
+} from "./windowSpaceCrud";
 import { restoreWindowSpaceInWorkspace } from "./windowSpaces";
+import { createWindowSpaceFromCurrentFloatingWindows } from "./windowSpaceSave";
 import {
   createProjectChatWindowingStateFromWindowSpace,
   snapshotFloatingWindowsForWindowSpace,

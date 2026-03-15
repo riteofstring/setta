@@ -418,8 +418,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     selection plus layout snapshot building from current node internals.
   - `state/actions/topLevelLayoutPersistence.ts` owns pending-op reconciliation
     and debounced backend persistence for top-level section layout writes.
-  - `state/actions/windowSpacePersistence.ts` owns saved window-space sort/name/
-    delete/create mutations plus optimistic persistence flow.
+  - `state/actions/windowSpaceCrud.ts` owns saved window-space sort/name/delete
+    mutations plus optimistic persistence and layout-mutation rollback.
+  - `state/actions/windowSpaceSave.ts` owns current-floating-window save flow,
+    authoritative pre-save resync, and saved window-space snapshot
+    persistence.
+  - `state/actions/windowSpacePersistence.ts` is now a thin compatibility
+    facade over the narrowed window-space CRUD and save owners.
   - `state/actions/windowSpaceSnapshotCapture.ts` owns floating window-space
     snapshot building.
   - `state/actions/windowSpaceSnapshotRestore.ts` owns conversion from saved
