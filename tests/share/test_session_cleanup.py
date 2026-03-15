@@ -21,7 +21,9 @@ from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.types.id import ID
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -80,6 +82,12 @@ class TestShareSessionCleanup:
             )
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
+            listener_registry = ListenerRegistry()
+            python_script_sender = WMHPythonScriptSender(
+                websocket_manager,
+                listener_registry,
+                None,
+            )
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_runtime_state = ShareRuntimeState(
                 dbe,
@@ -95,6 +103,7 @@ class TestShareSessionCleanup:
             switcher = ProjectManagerSwitcher(
                 share_runtime_state=share_runtime_state,
                 settings_file=settings_file,
+                python_script_sender=python_script_sender,
                 lsp_writers=None,
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),
