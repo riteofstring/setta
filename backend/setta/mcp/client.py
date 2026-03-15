@@ -669,6 +669,21 @@ class MultiMCPClient:
 
 async def run_stdio_bridge(config: BridgeConfig) -> None:
     logger.debug("Starting stdio bridge with config: %s", config)
+
+    async def forward_stream(
+        label: str,
+        source: MemoryObjectReceiveStream[SessionMessage | Exception],
+        destination: MemoryObjectSendStream[SessionMessage],
+    ) -> None:
+        async with source:
+            async for payload in source:
+                if isinstance(payload, Exception):
+                    logger.error("[%s] transport exception: %s", label, payload)
+                    continue
+                await destination.send(payload)
+        await destination.aclose()
+        logger.info("[%s] stream closed", label)
+
     async with AsyncExitStack() as stack:
         token: str | None = None
         if config.bootstrap_token:
@@ -712,47 +727,19 @@ async def run_stdio_bridge(config: BridgeConfig) -> None:
         logger.info("Connected to Setta backend at %s", config.backend_url)
         async with asyncio.TaskGroup() as tg:
             tg.create_task(
-                _forward_stdio_to_backend(
+                forward_stream(
+                    "stdio->backend",
                     stdio_read,
                     backend_write,
                 )
             )
             tg.create_task(
-                _forward_messages(
+                forward_stream(
                     "backend->stdio",
                     backend_read,
                     stdio_write,
                 )
             )
-
-
-async def _forward_messages(
-    label: str,
-    source: MemoryObjectReceiveStream[SessionMessage | Exception],
-    destination: MemoryObjectSendStream[SessionMessage],
-) -> None:
-    async with source:
-        async for payload in source:
-            if isinstance(payload, Exception):
-                logger.error("[%s] transport exception: %s", label, payload)
-                continue
-            await destination.send(payload)
-    await destination.aclose()
-    logger.info("[%s] stream closed", label)
-
-
-async def _forward_stdio_to_backend(
-    source: MemoryObjectReceiveStream[SessionMessage | Exception],
-    destination: MemoryObjectSendStream[SessionMessage],
-) -> None:
-    async with source:
-        async for payload in source:
-            if isinstance(payload, Exception):
-                logger.error("[stdio->backend] transport exception: %s", payload)
-                continue
-            await destination.send(payload)
-    await destination.aclose()
-    logger.info("[stdio->backend] stream closed")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

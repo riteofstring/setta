@@ -1,10 +1,13 @@
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
 import anyio
 import httpx
+import mcp.types as mcp_types
 import pytest
+from mcp.shared.message import SessionMessage
 from mcp.types import Tool, ToolAnnotations
 
 import setta.mcp.client as client_mod
@@ -59,26 +62,40 @@ class _RecordingSession:
 
 @dataclass
 class _BridgeStreams:
+    stdio_input_send: Any
     stdio_read: Any
     stdio_write: Any
+    stdio_output_read: Any
+    backend_input_send: Any
     backend_read: Any
     backend_write: Any
+    backend_output_read: Any
 
 
 def _create_bridge_streams() -> _BridgeStreams:
-    stdio_send, stdio_read = anyio.create_memory_object_stream(1)
-    stdio_recv_send, stdio_write = anyio.create_memory_object_stream(1)
-    backend_send, backend_read = anyio.create_memory_object_stream(1)
-    backend_recv_send, backend_write = anyio.create_memory_object_stream(1)
-    stdio_send.close()
-    stdio_recv_send.close()
-    backend_send.close()
-    backend_recv_send.close()
+    stdio_input_send, stdio_read = anyio.create_memory_object_stream(1)
+    stdio_write, stdio_output_read = anyio.create_memory_object_stream(1)
+    backend_input_send, backend_read = anyio.create_memory_object_stream(1)
+    backend_write, backend_output_read = anyio.create_memory_object_stream(1)
     return _BridgeStreams(
+        stdio_input_send=stdio_input_send,
         stdio_read=stdio_read,
         stdio_write=stdio_write,
+        stdio_output_read=stdio_output_read,
+        backend_input_send=backend_input_send,
         backend_read=backend_read,
         backend_write=backend_write,
+        backend_output_read=backend_output_read,
+    )
+
+
+def _build_session_message(method: str, message_id: int) -> SessionMessage:
+    return SessionMessage(
+        mcp_types.JSONRPCRequest(
+            jsonrpc="2.0",
+            id=message_id,
+            method=method,
+        )
     )
 
 
@@ -173,7 +190,8 @@ class TestRunStdioBridge:
         )
         streams = _create_bridge_streams()
         sse_calls: list[tuple[str, dict[str, str]]] = []
-        forwarded: list[str] = []
+        streams.stdio_input_send.close()
+        streams.backend_input_send.close()
 
         @asynccontextmanager
         async def _stdio_server():
@@ -184,19 +202,6 @@ class TestRunStdioBridge:
             sse_calls.append((url, headers))
             yield streams.backend_read, streams.backend_write
 
-        async def _record_stdio_to_backend(source: Any, destination: Any) -> None:
-            assert source is streams.stdio_read
-            assert destination is streams.backend_write
-            forwarded.append("stdio")
-
-        async def _record_forward_messages(
-            label: str, source: Any, destination: Any
-        ) -> None:
-            assert label == "backend->stdio"
-            assert source is streams.backend_read
-            assert destination is streams.stdio_write
-            forwarded.append("backend")
-
         monkeypatch.setattr(client_mod, "load_current_session_secret", lambda: (session_metadata, b"secret"))
         monkeypatch.setattr(
             client_mod.AUTH_COOKIE_MANAGER,
@@ -205,8 +210,6 @@ class TestRunStdioBridge:
         )
         monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
         monkeypatch.setattr(client_mod, "sse_client", _sse_client)
-        monkeypatch.setattr(client_mod, "_forward_stdio_to_backend", _record_stdio_to_backend)
-        monkeypatch.setattr(client_mod, "_forward_messages", _record_forward_messages)
 
         await client_mod.run_stdio_bridge(
             BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
@@ -220,7 +223,6 @@ class TestRunStdioBridge:
                 },
             )
         ]
-        assert forwarded == ["stdio", "backend"]
 
     @pytest.mark.asyncio
     async def test_prefers_trimmed_bootstrap_token_over_session_secret(
@@ -229,6 +231,8 @@ class TestRunStdioBridge:
         streams = _create_bridge_streams()
         sse_calls: list[tuple[str, dict[str, str]]] = []
         http_calls: list[tuple[str, dict[str, str]]] = []
+        streams.stdio_input_send.close()
+        streams.backend_input_send.close()
 
         @asynccontextmanager
         async def _stdio_server():
@@ -238,14 +242,6 @@ class TestRunStdioBridge:
         async def _sse_client(*, url: str, headers: dict[str, str]):
             sse_calls.append((url, headers))
             yield streams.backend_read, streams.backend_write
-
-        async def _ignore_stdio_to_backend(source: Any, destination: Any) -> None:
-            del source, destination
-
-        async def _ignore_forward_messages(
-            label: str, source: Any, destination: Any
-        ) -> None:
-            del label, source, destination
 
         class _RecordingHTTPClient:
             async def post(self, url: str, json: dict[str, str]) -> httpx.Response:
@@ -271,8 +267,6 @@ class TestRunStdioBridge:
         monkeypatch.setattr(client_mod, "create_mcp_http_client", _create_mcp_http_client)
         monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
         monkeypatch.setattr(client_mod, "sse_client", _sse_client)
-        monkeypatch.setattr(client_mod, "_forward_stdio_to_backend", _ignore_stdio_to_backend)
-        monkeypatch.setattr(client_mod, "_forward_messages", _ignore_forward_messages)
 
         await client_mod.run_stdio_bridge(
             BridgeConfig(
@@ -310,6 +304,66 @@ class TestRunStdioBridge:
             await client_mod.run_stdio_bridge(
                 BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
             )
+
+    @pytest.mark.asyncio
+    async def test_forwards_messages_between_stdio_and_backend(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session_metadata = SessionMetadata(
+            id="sess-forward",
+            workspacePath="/tmp/workspace",
+            workspacePathCanonical="/tmp/workspace",
+            host="127.0.0.1",
+            port=8000,
+            pid=123,
+            secretPath="/tmp/secret",
+            serverMode="ide",
+        )
+        streams = _create_bridge_streams()
+
+        @asynccontextmanager
+        async def _stdio_server():
+            yield streams.stdio_read, streams.stdio_write
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str]):
+            del url, headers
+            yield streams.backend_read, streams.backend_write
+
+        monkeypatch.setattr(
+            client_mod,
+            "load_current_session_secret",
+            lambda: (session_metadata, b"secret"),
+        )
+        monkeypatch.setattr(
+            client_mod.AUTH_COOKIE_MANAGER,
+            "mint",
+            lambda _session_id, _secret: "cookie-value",
+        )
+        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
+
+        bridge_task = asyncio.create_task(
+            client_mod.run_stdio_bridge(
+                BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
+            )
+        )
+        await asyncio.sleep(0)
+
+        stdio_message = _build_session_message("stdio.method", 1)
+        backend_message = _build_session_message("backend.method", 2)
+        await streams.stdio_input_send.send(stdio_message)
+        await streams.backend_input_send.send(backend_message)
+
+        forwarded_to_backend = await streams.backend_output_read.receive()
+        forwarded_to_stdio = await streams.stdio_output_read.receive()
+
+        assert forwarded_to_backend is stdio_message
+        assert forwarded_to_stdio is backend_message
+
+        streams.stdio_input_send.close()
+        streams.backend_input_send.close()
+        await bridge_task
 
 
 class TestMultiMCPClientCallTool:
