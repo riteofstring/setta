@@ -306,6 +306,117 @@ func TestRegisterAIRoutesStartsManagedChat(t *testing.T) {
 	}
 }
 
+func TestRegisterAIRoutesStartsManagedBranchEditWithFilteredAppGenerationProvenance(t *testing.T) {
+	t.Parallel()
+
+	managedStarter := &aiRouteStubManagedStarter{}
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	parentRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-parent-branch",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+		"messages": []any{
+			map[string]any{
+				"id":   "source-user",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Original prompt"},
+				},
+				"attachments": []any{},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	parentRun.Status = agentruns.RunStatusCompleted
+	finishedAt := time.Date(2026, 3, 8, 12, 0, 5, 0, time.UTC)
+	parentRun.FinishedAt = &finishedAt
+	parentRun.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{
+				"id":   "source-user",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Original prompt"},
+				},
+				"attachments": []any{},
+			},
+			map[string]any{
+				"id":   "assistant-parent",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Original reply"},
+				},
+				"attachments": []any{},
+				"tool_calls":  nil,
+			},
+		},
+	}
+	if err := fixture.store.Save(parentRun); err != nil {
+		t.Fatalf("save parent managed run: %v", err)
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"edited-user","role":"user","content":[{"type":"text","text":"Edited prompt"}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"branchParentChatId":"chat-parent-branch",
+			"branchFromMessageId":"source-user",
+			"appGenerationMode":"prompt_builder",
+			"appGenerationByMessageId":{"source-user":"prompt_builder"},
+			"permissionMode":"minimal",
+			"searchEnabled":true
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if fixture.managedStarter.lastInputs == nil {
+		t.Fatal("expected managed starter to receive branch-edit inputs")
+	}
+	if got := fixture.managedStarter.lastInputs["branchParentChatId"]; got != "chat-parent-branch" {
+		t.Fatalf("expected branchParentChatId to persist, got %#v", got)
+	}
+	if got := fixture.managedStarter.lastInputs["branchFromMessageId"]; got != "source-user" {
+		t.Fatalf("expected branchFromMessageId to persist, got %#v", got)
+	}
+	if got := fixture.managedStarter.lastInputs["branchRootChatId"]; got != "chat-parent-branch" {
+		t.Fatalf("expected branchRootChatId to resolve from parent chat, got %#v", got)
+	}
+	if got := fixture.managedStarter.lastInputs["branchCreatedAt"]; got == nil {
+		t.Fatal("expected branchCreatedAt to persist")
+	}
+	appGenerationByMessageID, ok := fixture.managedStarter.lastInputs["appGenerationByMessageId"].(map[string]string)
+	if !ok || len(appGenerationByMessageID) != 1 || appGenerationByMessageID["source-user"] != agentruns.ChatAppGenerationMessageModePromptBuilder {
+		t.Fatalf("expected filtered branch-edit app-generation provenance, got %#v", fixture.managedStarter.lastInputs["appGenerationByMessageId"])
+	}
+	rawMessages, ok := fixture.managedStarter.lastInputs["messages"].([]any)
+	if !ok || len(rawMessages) != 1 {
+		t.Fatalf("expected one edited branch message, got %#v", fixture.managedStarter.lastInputs["messages"])
+	}
+	editedMessage, ok := rawMessages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected branch message object, got %#v", rawMessages[0])
+	}
+	if editedMessage["id"] != "source-user" {
+		t.Fatalf("expected edited branch message to reuse source id, got %#v", editedMessage["id"])
+	}
+}
+
 func TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend(t *testing.T) {
 	t.Parallel()
 

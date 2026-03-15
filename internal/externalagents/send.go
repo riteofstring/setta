@@ -455,16 +455,22 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
 		switch externalConfig.ToolType {
 		case externalagentconfigs.ToolTypeCodex:
-			if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
-				inputs["threadId"] = threadID
+			if !hasNonBlankStringInput(inputs, "threadId") {
+				if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
+					inputs["threadId"] = threadID
+				}
 			}
 		case externalagentconfigs.ToolTypeClaudeCode:
-			if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
-				inputs["sessionId"] = sessionID
+			if !hasNonBlankStringInput(inputs, "sessionId") {
+				if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
+					inputs["sessionId"] = sessionID
+				}
 			}
 		case externalagentconfigs.ToolTypeOpenCode:
-			if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
-				inputs["sessionId"] = sessionID
+			if !hasNonBlankStringInput(inputs, "sessionId") {
+				if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
+					inputs["sessionId"] = sessionID
+				}
 			}
 		}
 	}
@@ -524,6 +530,18 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		ChatID: chatID,
 		Run:    persisted,
 	}, nil
+}
+
+func hasNonBlankStringInput(inputs map[string]any, key string) bool {
+	if inputs == nil {
+		return false
+	}
+	raw, ok := inputs[key]
+	if !ok {
+		return false
+	}
+	value, ok := raw.(string)
+	return ok && strings.TrimSpace(value) != ""
 }
 
 func (s *SendService) markRunFailed(run agentruns.Run, runErr error) (agentruns.Run, error) {
@@ -600,6 +618,7 @@ func (s *SendService) getPriorMessagesForExternalChat(chatID string, projectConf
 
 func (s *SendService) getPriorMessagesForSeedChat(chatID string, projectConfigID string) ([]map[string]any, error) {
 	runs, err := s.runs.ListByMetadata(agentruns.RunFilter{
+		RunType:         stringPtr(RunTypeExternalAgent),
 		ChatID:          stringPtr(chatID),
 		ProjectConfigID: stringPtr(projectConfigID),
 	})
