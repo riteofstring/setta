@@ -10,14 +10,12 @@ import {
   useListRef,
   type RowComponentProps,
 } from "react-window";
-import {
-  loadMoreGitGraphCommits,
-  setGitGraphFilterText,
-} from "state/actions/gitGraphLoadState";
+import { setGitGraphFilterText } from "state/actions/gitGraphFilterState";
 import {
   refreshGitGraphOverlay,
   toggleGitGraphAllRefs,
 } from "state/actions/gitGraphOverlayActions";
+import { loadMoreGitGraphCommits } from "state/actions/gitGraphPaginationState";
 import {
   clearGitGraphSelectedCommit,
   selectGitCommit,

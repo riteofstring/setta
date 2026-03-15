@@ -310,11 +310,16 @@ feature-local adapters around them when the consuming surface is non-trivial.
     diff overlay, graph overlay, and embedded graph window UI.
   - `state/actions/gitStatusAndDiff.ts` owns git status refresh, diff
     availability, diff overlay opening, and diff-mode switching.
-  - `state/actions/gitGraphLoadState.ts` owns git graph/log loading,
-    pagination, and graph filter writes.
+  - `state/actions/gitGraphRefreshState.ts` owns git graph/log refresh and
+    initial page loading, `state/actions/gitGraphPaginationState.ts` owns
+    load-more gating plus pagination merge/error writes,
+    `state/actions/gitGraphFilterState.ts` owns graph filter writes, and
+    `state/actions/gitGraphRequestTracker.ts` owns shared git-graph request-id
+    sequencing plus stale-request suppression.
   - `state/actions/gitGraphOverlayActions.ts` owns git graph overlay boot,
     graph-state seeding, manual refresh, and all-refs toggling.
-  - `state/actions/gitGraphLog.ts` is now the thin compatibility facade.
+  - `state/actions/gitGraphLoadState.ts` and `state/actions/gitGraphLog.ts`
+    are now thin compatibility facades.
   - `state/actions/gitGraphSelection.ts` owns selected-commit clearing plus
     commit details/file-diff selection behavior.
   - `state/actions/gitGraphState.ts` owns current project-config lookup plus

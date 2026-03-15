@@ -1,7 +1,7 @@
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowingTrackedGitPane";
 import { useGitStore } from "state/git";
 
-import { refreshGitGraphData } from "./gitGraphLoadState";
+import { refreshGitGraphData } from "./gitGraphRefreshState";
 import {
   createInitialGitGraphState,
   getCurrentGitGraphProjectConfigId,
