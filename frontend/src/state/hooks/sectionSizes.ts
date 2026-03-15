@@ -45,12 +45,6 @@ const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
 // Accounts for the fixed top + bottom gutters in the section grid.
 const SECTION_GRID_GUTTER_HEIGHT = 8;
-const DRAW_AREA_DEFAULT_CANVAS_WIDTH = 500;
-const DRAW_AREA_DEFAULT_CANVAS_HEIGHT = 500;
-const DRAW_AREA_FALLBACK_CANVAS_WIDTH = 300;
-const DRAW_AREA_FALLBACK_CANVAS_HEIGHT = 150;
-const DRAW_AREA_EXTRA_HEIGHT = 120;
-const DRAW_AREA_EXTRA_WIDTH = 24;
 
 function getMetaControlSizingPolicyEntry({
   projectState,
@@ -463,7 +457,9 @@ export function setDrawAreaSectionSize(
   sectionSize: SectionSize,
   state: ZustandProjectState,
 ) {
-  const canvasSize = getDrawAreaCanvasSize(sectionSize);
+  let canvasSize = { height: 0, width: 0 };
+  const extraHeight = 120;
+  const extraWidth = 24;
   const { width: sWidth, height: sHeight } = sectionSize;
 
   // if (imgSize) {
@@ -500,12 +496,16 @@ export function setDrawAreaSectionSize(
   //     });
   //   }
   // } else {
+  const [defaultWidth, defaultHeight] = [500, 500];
+  canvasSize.width = sWidth === "auto" ? defaultWidth : sWidth - extraWidth;
+  canvasSize.height =
+    sHeight === "auto" ? defaultHeight : sHeight - extraHeight;
   if (sWidth === "auto" || sHeight === "auto") {
     setSectionSize(
       sectionId,
       {
-        width: canvasSize.width + DRAW_AREA_EXTRA_WIDTH,
-        height: canvasSize.height + DRAW_AREA_EXTRA_HEIGHT,
+        width: canvasSize.width + extraWidth,
+        height: canvasSize.height + extraHeight,
       },
       state,
     );
@@ -513,31 +513,6 @@ export function setDrawAreaSectionSize(
   // }
 
   return canvasSize;
-}
-
-export function getDrawAreaCanvasSize(sectionSize: SectionSize): {
-  width: number;
-  height: number;
-} {
-  const rawWidth =
-    sectionSize.width === "auto"
-      ? DRAW_AREA_DEFAULT_CANVAS_WIDTH
-      : sectionSize.width - DRAW_AREA_EXTRA_WIDTH;
-  const rawHeight =
-    sectionSize.height === "auto"
-      ? DRAW_AREA_DEFAULT_CANVAS_HEIGHT
-      : sectionSize.height - DRAW_AREA_EXTRA_HEIGHT;
-
-  return {
-    width:
-      Number.isFinite(rawWidth) && rawWidth > 0
-        ? rawWidth
-        : DRAW_AREA_FALLBACK_CANVAS_WIDTH,
-    height:
-      Number.isFinite(rawHeight) && rawHeight > 0
-        ? rawHeight
-        : DRAW_AREA_FALLBACK_CANVAS_HEIGHT,
-  };
 }
 
 export function useYouTubeSectionSize(sectionId: string) {
