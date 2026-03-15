@@ -18,10 +18,10 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImpl,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,

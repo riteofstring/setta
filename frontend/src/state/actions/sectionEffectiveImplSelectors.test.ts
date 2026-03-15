@@ -10,10 +10,7 @@ import {
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import {
-  getCurrEffectiveSectionImplWithTypeGuard,
-  isManagedChatSection,
-} from "./sectionEffectiveImplSelectors";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "./sectionEffectiveImplSelectors";
 
 function buildChatState(managed: boolean): ZustandProjectState {
   const sectionId = "section-1";
@@ -77,12 +74,5 @@ describe("section effective impl selectors", () => {
     );
 
     expect(impl.type).toBe(SectionTypeEnum.Chat);
-  });
-
-  it("detects managed chat sections from the authoritative state", () => {
-    expect(isManagedChatSection(buildChatState(true), "section-1")).toBe(true);
-    expect(isManagedChatSection(buildChatState(false), "section-1")).toBe(
-      false,
-    );
   });
 });

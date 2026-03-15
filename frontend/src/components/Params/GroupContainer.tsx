@@ -14,10 +14,8 @@ import {
   isValidDataEdgeConnection,
 } from "state/actions/edges";
 import { toggleParamSelected } from "state/actions/projectStateCommands";
-import {
-  getCurrEffectiveSectionImplWithTypeGuard,
-  getParamDisplayName,
-} from "state/actions/sectionInfos";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { getCurrShownParamIds } from "state/actions/sectionShownParams";
 import { useProjectState, useResizeEvent } from "state/definitions";

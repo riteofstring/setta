@@ -306,10 +306,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/sectionEffectiveImplCore.ts` owns effective section/code-object
     derivation, cache invalidation, and low-level entity lookups.
   - `state/actions/sectionEffectiveImplSelectors.ts` owns typed current-section
-    and current-code-object selectors, managed-chat checks, and param
-    display-name helpers built on the effective-impl core.
+    and current-code-object selectors built on the effective-impl core.
+  - `state/actions/sectionFeatureSelectors.ts` owns managed-chat authority
+    checks and param display-name selectors derived from the effective-impl
+    selector surface.
   - `state/actions/sectionEffectiveImpls.ts` is now a thin compatibility facade
-    over the effective-impl core and selector owners.
+    over the effective-impl core, typed selector, and feature-selector owners.
   - `state/actions/sectionLayoutQueries.ts` owns terminal attachment, section
     orientation, section type, and section-child queries that still depend on
     effective-impl selectors but no longer live beside the core derivation
@@ -436,16 +438,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
   router or `state/actions/sections/createSections.ts`.
-- `state/actions/sectionEffectiveImplSelectors.ts` now owns the largest
-  remaining typed effective-impl selector cluster, so follow-up cleanup there
-  should stay local to selector helpers instead of regrowing the effective-impl
-  core or compatibility facade.
+- `state/actions/projectChatWindowCommands.ts` now owns the largest remaining
+  public project-chat window command cluster, so follow-up cleanup there should
+  stay local to window lifecycle/focus/bounds commands instead of regrowing the
+  section/window transition or write-coordination modules.
 - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
   reuse-owner matching rules, so any follow-up there should stay local to
   restore owner-key helpers instead of regrowing the remap or layout planners.
 - `state/actions/sectionEffectiveImplSelectors.ts` should keep owning typed
   current-section/current-code-object reads instead of regrowing
   `state/actions/sectionEffectiveImplCore.ts` or the compatibility facade.
+- `state/actions/sectionFeatureSelectors.ts` should keep owning managed-chat
+  authority and param display-name selectors instead of regrowing
+  `state/actions/sectionEffectiveImplSelectors.ts`.
 - `state/actions/sectionStreamingMerge.ts`,
   `state/actions/sectionShownParams.ts`, `state/actions/sectionHierarchy.ts`,
   and `state/actions/sectionToolArgumentPreview.ts` should stay feature-local

@@ -5,13 +5,13 @@ import type {
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
 import React from "react";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  getParamDisplayName,
   getSectionCore,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";

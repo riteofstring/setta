@@ -172,8 +172,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/sectionEffectiveImplCore.ts` now owns effective
   section/code-object derivation, cache invalidation, and low-level
   entity lookups, while `frontend/src/state/actions/sectionEffectiveImplSelectors.ts`
-  now owns typed current-section/current-code-object selectors, managed-chat
-  checks, and param display-name helpers, reducing
+  now owns typed current-section/current-code-object selectors, while
+  `frontend/src/state/actions/sectionFeatureSelectors.ts` now owns managed-chat
+  checks and param display-name helpers, reducing
   `frontend/src/state/actions/sectionEffectiveImpls.ts` to a 29-line
   compatibility facade; meanwhile,
   `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal

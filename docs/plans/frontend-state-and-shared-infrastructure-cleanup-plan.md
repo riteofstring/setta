@@ -65,8 +65,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/sectionEffectiveImplCore.ts` now owns effective
   section/code-object derivation, cache invalidation, and low-level entity
   lookups, while `frontend/src/state/actions/sectionEffectiveImplSelectors.ts`
-  now owns typed current-section/current-code-object selectors, managed-chat
-  checks, and param display-name helpers; `frontend/src/state/actions/sectionEffectiveImpls.ts`
+  now owns typed current-section/current-code-object selectors, while
+  `frontend/src/state/actions/sectionFeatureSelectors.ts` now owns
+  managed-chat checks and param display-name helpers; `frontend/src/state/actions/sectionEffectiveImpls.ts`
   is now a thin compatibility facade over those owners, while
   `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal
   attachment, section orientation, section type, and section-child queries that
@@ -207,8 +208,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 204 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
   - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
@@ -216,8 +217,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 160 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 204 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
   - `frontend/src/state/actions/projectChatWindowingWriteQueue.ts` at 175 lines
@@ -319,9 +320,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - low-level section/code-object entity lookups
 - `sectionEffectiveImplSelectors.ts` now owns:
   - typed current-section and current-code-object selectors
-  - managed-chat authority checks and param display-name helpers
+- `sectionFeatureSelectors.ts` now owns:
+  - managed-chat authority checks
+  - param display-name helpers
 - `sectionEffectiveImpls.ts` is now:
-  - a thin compatibility facade over the effective-impl core and selector owners
+  - a thin compatibility facade over the effective-impl core, typed selector, and feature-selector owners
 - `sectionLayoutQueries.ts` now owns:
   - terminal attachment helpers for embedded code/terminal relationships
   - section-orientation, section-type, and section-child queries
@@ -537,13 +540,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `sectionEffectiveImplSelectors.ts` into narrower selector helpers
+2. Split `projectChatWindowCommands.ts` into narrower window command helpers
 
-- Separate typed current-section/current-code-object selectors from the
-  remaining managed-chat and param display-name helpers.
-- Keep naming explicit so agents can tell whether they are calling an
-  effective-impl core helper, a typed selector, or a local impl mutation
-  helper.
+- Separate public window lifecycle/focus commands from the remaining floating
+  bounds and tracked git-pane coordination helpers.
+- Keep naming explicit so agents can tell whether they are calling a public
+  window command, a windowing state reducer, or a write-coordination helper.
 
 3. Normalize optimistic mutation infrastructure
 

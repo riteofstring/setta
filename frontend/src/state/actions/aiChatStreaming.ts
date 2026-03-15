@@ -4,10 +4,8 @@ import {
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  getCurrProjectConfigId,
-  isManagedChatSection,
-} from "state/actions/sectionEffectiveImplSelectors";
+import { getCurrProjectConfigId } from "state/actions/sectionEffectiveImplSelectors";
+import { isManagedChatSection } from "state/actions/sectionFeatureSelectors";
 import {
   clearChatStreamActive,
   markChatStreamActive,

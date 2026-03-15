@@ -9,12 +9,12 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   getCurrSectionVariantId,
-  getParamDisplayName,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,

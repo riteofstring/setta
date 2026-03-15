@@ -9,7 +9,7 @@ import {
   getDisplayedSectionIdToChildren,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionDisplayQueries";
-import { getParamDisplayName } from "state/actions/sectionInfos";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import {

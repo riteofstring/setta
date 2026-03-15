@@ -22,8 +22,10 @@ export {
   getCurrProjectConfigId,
   getCurrSectionVariant,
   getCurrSectionVariantId,
-  getParamDisplayName,
   getVariantBaseAndEffectiveSectionImpl,
+} from "./sectionEffectiveImplSelectors";
+export {
+  getParamDisplayName,
   isManagedChatSection,
   type ManagedChatSectionAuthorityState,
-} from "./sectionEffectiveImplSelectors";
+} from "./sectionFeatureSelectors";

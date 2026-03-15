@@ -1,4 +1,4 @@
-import { getParamDisplayName } from "state/actions/sectionInfos";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import { useProjectState } from "state/definitions";
 import { useMisc } from "state/stores/layoutInteractionStores";
 
