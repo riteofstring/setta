@@ -566,20 +566,15 @@ class MultiMCPClient:
         combined_headers: dict[str, str] = {}
         if config.http_headers:
             combined_headers.update(config.http_headers)
-        auth_headers = self._build_setta_auth_headers(server_id)
-        if auth_headers:
-            combined_headers.update(auth_headers)
+        if server_id == SETTA_MCP_SERVER_ID:
+            session_info = load_current_session_secret()
+            if session_info is not None:
+                session_metadata, secret = session_info
+                cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+                combined_headers["Cookie"] = (
+                    f"{auth_cookie_name(session_metadata.id)}={cookie_value}"
+                )
         return combined_headers or None
-
-    def _build_setta_auth_headers(self, server_id: str) -> dict[str, str] | None:
-        if server_id != SETTA_MCP_SERVER_ID:
-            return None
-        session_info = load_current_session_secret()
-        if session_info is None:
-            return None
-        session_metadata, secret = session_info
-        cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
 
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)

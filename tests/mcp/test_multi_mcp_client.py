@@ -602,6 +602,16 @@ class TestMultiMCPClientHTTPHeaders:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        session_metadata = SessionMetadata(
+            id="sess-http",
+            workspacePath="/tmp/workspace",
+            workspacePathCanonical="/tmp/workspace",
+            host="127.0.0.1",
+            port=8000,
+            pid=123,
+            secretPath="/tmp/secret",
+            serverMode="ide",
+        )
         client = MultiMCPClient(
             {
                 SETTA_MCP_SERVER_ID: MCPServerConfig(
@@ -613,16 +623,21 @@ class TestMultiMCPClientHTTPHeaders:
         )
         config = client.server_configs[SETTA_MCP_SERVER_ID]
         monkeypatch.setattr(
-            client,
-            "_build_setta_auth_headers",
-            lambda _server_id: {"Cookie": "setta_session=cookie-value"},
+            client_mod,
+            "load_current_session_secret",
+            lambda: (session_metadata, b"secret"),
+        )
+        monkeypatch.setattr(
+            client_mod.AUTH_COOKIE_MANAGER,
+            "mint",
+            lambda _session_id, _secret: "cookie-value",
         )
 
         headers = client._build_http_headers(SETTA_MCP_SERVER_ID, config)
 
         assert headers == {
             "Authorization": "Bearer custom-token",
-            "Cookie": "setta_session=cookie-value",
+            "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value",
         }
 
     def test_build_http_headers_excludes_setta_auth_for_non_setta_server(
@@ -639,14 +654,14 @@ class TestMultiMCPClientHTTPHeaders:
             }
         )
         config = client.server_configs["github"]
+
+        def _unexpected_session_lookup() -> None:
+            raise AssertionError("non-Setta server should not read Setta session auth")
+
         monkeypatch.setattr(
-            client,
-            "_build_setta_auth_headers",
-            lambda server_id: (
-                {"Cookie": "should-not-apply"}
-                if server_id == SETTA_MCP_SERVER_ID
-                else None
-            ),
+            client_mod,
+            "load_current_session_secret",
+            _unexpected_session_lookup,
         )
 
         headers = client._build_http_headers("github", config)
