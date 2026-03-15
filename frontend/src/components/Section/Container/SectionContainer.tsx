@@ -3,10 +3,12 @@ import _ from "lodash";
 import React from "react";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveSectionImpl,
-  getEmbeddedAttachedTerminalForCodeSection,
   getSectionShouldRender,
   getSectionViewModeVisibility,
+} from "state/actions/sectionDisplayQueries";
+import {
+  getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalForCodeSection,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
