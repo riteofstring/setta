@@ -26,6 +26,7 @@ VENV_BIN_DIR = REPO_ROOT / ".venv" / "bin"
 DEFAULT_MANIFEST_PATH = SCRIPT_DIR / "backend-differential-parity-scenarios.yaml"
 PROJECT_FILE_NAME = "project.json"
 SETTINGS_FILE_NAME = "settings.json"
+SETTINGS_PROJECT_FILE_NAME = "setta-settings-project.json"
 BOOTSTRAP_TOKEN_LINE_RE = re.compile(r"^\s*Token:\s+(\S+)\s*$", re.MULTILINE)
 BOOTSTRAP_URL_RE = re.compile(r"https?://\S+/__setta__/bootstrap#token=(\S+)")
 GO_FRONTEND_WEBSOCKET_ROUTE_RE = re.compile(
@@ -48,6 +49,7 @@ ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_TOGGLE_IS_EDITING_VIEW_MODE = "/api/toggleIsEditingViewMode"
+ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
 
 
 class ParityHarnessError(RuntimeError):
@@ -349,6 +351,27 @@ def start_backend(target: RefTarget, scenario: ScenarioConfig) -> BackendSession
     setta_home.mkdir(parents=True, exist_ok=True)
     seed_setta_files(setta_files_root, scenario)
 
+    return open_backend_session(
+        target=target,
+        temp_root=temp_root,
+        workspace_root=workspace_root,
+        setta_home=setta_home,
+        setta_files_root=setta_files_root,
+        log_path=log_path,
+    )
+
+
+def open_backend_session(
+    target: RefTarget,
+    temp_root: Path,
+    workspace_root: Path,
+    setta_home: Path,
+    setta_files_root: Path,
+    log_path: Path,
+) -> BackendSession:
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    setta_home.mkdir(parents=True, exist_ok=True)
+
     host = "127.0.0.1"
     port = find_free_port()
     frontend_port = find_free_port(exclude_ports={port})
@@ -401,6 +424,25 @@ def start_backend(target: RefTarget, scenario: ScenarioConfig) -> BackendSession
         log_path=log_path,
         temp_root=temp_root,
     )
+
+
+def restart_backend(backend: BackendSession) -> None:
+    backend.session.close()
+    terminate_process(backend.process)
+
+    restarted = open_backend_session(
+        target=backend.target,
+        temp_root=backend.temp_root,
+        workspace_root=backend.workspace_root,
+        setta_home=backend.setta_home,
+        setta_files_root=backend.setta_files_root,
+        log_path=backend.log_path,
+    )
+    backend.process = restarted.process
+    backend.session = restarted.session
+    backend.base_url = restarted.base_url
+    backend.websocket_url = restarted.websocket_url
+    backend.frontend_origin = restarted.frontend_origin
 
 
 def seed_setta_files(setta_files_root: Path, scenario: ScenarioConfig) -> None:
@@ -685,6 +727,8 @@ def execute_scenario(
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
         return execute_settings_project_live_hydration(backend)
+    if scenario.kind == "settings_project_required_view_mode_repair":
+        return execute_settings_project_required_view_mode_repair(backend)
     if scenario.kind == "latest_state_empty_callable_shown_param_ids":
         return execute_latest_state_empty_callable_shown_param_ids(backend)
     raise ParityHarnessError(
@@ -981,6 +1025,114 @@ def execute_settings_project_live_hydration(
         if latest_response is None
         else latest_response.status_code,
         "latestProjectState": latest_payload,
+    }
+
+
+def execute_settings_project_required_view_mode_repair(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    initial_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    initial_load_payload = normalize_response_json_allow_status(initial_load_response)
+    if initial_load_response.status_code != 200 or not isinstance(initial_load_payload, dict):
+        summary = {
+            "initialLoadHttpStatus": initial_load_response.status_code,
+            "deleteHttpStatus": None,
+            "restartLoadHttpStatus": None,
+        }
+        return summary, {
+            "initialLoadProjectConfigStatus": initial_load_response.status_code,
+            "initialLoadProjectConfig": initial_load_payload,
+        }
+
+    project_config = object_field(initial_load_payload, "projectConfig")
+    project_id = expect_non_empty_string(project_config.get("id"), "projectConfig.id")
+    deleted_view_mode_id = find_settings_view_mode_id(
+        initial_load_payload,
+        "All Settings",
+    )
+
+    delete_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_DELETE_VIEW_MODE,
+        payload={
+            "projectConfigId": project_id,
+            "viewModeId": deleted_view_mode_id,
+        },
+    )
+    delete_payload = normalize_response_json_allow_status(delete_response)
+
+    pre_restart_latest_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_GET_LATEST_PROJECT_STATE,
+        payload={"projectConfigId": project_id},
+    )
+    pre_restart_latest_payload = normalize_response_json_allow_status(
+        pre_restart_latest_response
+    )
+
+    restart_backend(backend)
+
+    restart_load_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_LOAD_PROJECT_CONFIG,
+        payload={"projectConfigName": "settings"},
+    )
+    restart_load_payload = normalize_response_json_allow_status(restart_load_response)
+
+    restart_latest_response = None
+    restart_latest_payload = None
+    if restart_load_response.status_code == 200 and isinstance(restart_load_payload, dict):
+        restarted_project_config = object_field(restart_load_payload, "projectConfig")
+        restarted_project_id = expect_non_empty_string(
+            restarted_project_config.get("id"),
+            "projectConfig.id",
+        )
+        restart_latest_response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_GET_LATEST_PROJECT_STATE,
+            payload={"projectConfigId": restarted_project_id},
+        )
+        restart_latest_payload = normalize_response_json_allow_status(
+            restart_latest_response
+        )
+
+    persisted_payload = read_persisted_settings_project_document(backend)
+    summary = summarize_settings_project_required_view_mode_repair(
+        initial_load_http_status=initial_load_response.status_code,
+        delete_http_status=delete_response.status_code,
+        pre_restart_latest_http_status=pre_restart_latest_response.status_code,
+        pre_restart_latest_payload=pre_restart_latest_payload,
+        restart_load_http_status=restart_load_response.status_code,
+        restart_load_payload=restart_load_payload,
+        restart_latest_http_status=None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        restart_latest_payload=restart_latest_payload,
+        persisted_payload=persisted_payload,
+    )
+    return summary, {
+        "initialLoadProjectConfigStatus": initial_load_response.status_code,
+        "initialLoadProjectConfig": initial_load_payload,
+        "deleteViewModeStatus": delete_response.status_code,
+        "deleteViewMode": delete_payload,
+        "preRestartLatestProjectStateStatus": pre_restart_latest_response.status_code,
+        "preRestartLatestProjectState": pre_restart_latest_payload,
+        "restartLoadProjectConfigStatus": restart_load_response.status_code,
+        "restartLoadProjectConfig": restart_load_payload,
+        "restartLatestProjectStateStatus": None
+        if restart_latest_response is None
+        else restart_latest_response.status_code,
+        "restartLatestProjectState": restart_latest_payload,
+        "persistedSettingsProjectDocument": persisted_payload,
     }
 
 
@@ -1401,6 +1553,48 @@ def summarize_settings_project_live_hydration(
     return summary
 
 
+def summarize_settings_project_required_view_mode_repair(
+    initial_load_http_status: int,
+    delete_http_status: int,
+    pre_restart_latest_http_status: int,
+    pre_restart_latest_payload: Any,
+    restart_load_http_status: int,
+    restart_load_payload: Any,
+    restart_latest_http_status: int | None,
+    restart_latest_payload: Any,
+    persisted_payload: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "initialLoadHttpStatus": initial_load_http_status,
+        "deleteHttpStatus": delete_http_status,
+        "restartLoadHttpStatus": restart_load_http_status,
+        "restartLatestHttpStatus": restart_latest_http_status,
+    }
+
+    if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
+        restart_view_mode_names = settings_payload_view_mode_names(restart_load_payload)
+        summary["restartLoadViewModeCount"] = len(restart_view_mode_names)
+        summary["restartLoadViewModeNames"] = restart_view_mode_names
+        summary["restartLoadHasAllSettings"] = "All Settings" in restart_view_mode_names
+
+    if restart_latest_http_status == 200 and isinstance(restart_latest_payload, dict):
+        latest_project_state = object_field(restart_latest_payload, "projectState")
+        restart_latest_view_mode_names = settings_payload_view_mode_names(
+            latest_project_state
+        )
+        summary["restartLatestViewModeCount"] = len(restart_latest_view_mode_names)
+        summary["restartLatestViewModeNames"] = restart_latest_view_mode_names
+        summary["restartLatestHasAllSettings"] = (
+            "All Settings" in restart_latest_view_mode_names
+        )
+
+    persisted_view_mode_names = settings_store_view_mode_names(persisted_payload)
+    summary["persistedViewModeCount"] = len(persisted_view_mode_names)
+    summary["persistedViewModeNames"] = persisted_view_mode_names
+    summary["persistedHasAllSettings"] = "All Settings" in persisted_view_mode_names
+    return summary
+
+
 def extract_settings_project_param_value(
     payload: dict[str, Any],
     section_name: str,
@@ -1589,6 +1783,60 @@ def find_child_code_object_id(
     )
 
 
+def settings_payload_view_mode_names(payload: dict[str, Any]) -> list[str]:
+    project_config = object_field(payload, "projectConfig")
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    return ordered_view_mode_names(view_modes)
+
+
+def settings_store_view_mode_names(payload: dict[str, Any]) -> list[str]:
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            "Persisted settings project document must be a JSON object, "
+            f"got {type(payload).__name__}"
+        )
+
+    if "projectConfig" in payload:
+        return settings_payload_view_mode_names(payload)
+
+    projects = object_field(payload, "projects", allow_missing=True)
+    settings_project = expect_object(
+        projects.get("settings"),
+        "projects.settings",
+        allow_missing=True,
+    )
+    if not settings_project:
+        raise ParityHarnessError("Persisted settings project document missing projects.settings")
+    view_modes = object_field(settings_project, "viewModes", allow_missing=True)
+    return ordered_view_mode_names(view_modes)
+
+
+def ordered_view_mode_names(view_modes: dict[str, Any]) -> list[str]:
+    ordered: list[dict[str, Any]] = []
+    for view_mode_id, raw_view_mode in view_modes.items():
+        ordered.append(expect_object(raw_view_mode, f"viewModes.{view_mode_id}"))
+    ordered.sort(
+        key=lambda view_mode: (
+            int(view_mode.get("sortIndex") or 0),
+            normalized_string(view_mode.get("name")),
+            normalized_string(view_mode.get("id")),
+        )
+    )
+    return [normalized_string(view_mode.get("name")) for view_mode in ordered]
+
+
+def find_settings_view_mode_id(payload: dict[str, Any], view_mode_name: str) -> str:
+    project_config = object_field(payload, "projectConfig")
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    for view_mode_id, raw_view_mode in view_modes.items():
+        view_mode = expect_object(raw_view_mode, f"viewModes.{view_mode_id}")
+        if normalized_string(view_mode.get("name")) == view_mode_name:
+            return view_mode_id
+    raise ParityHarnessError(
+        f"Unable to find settings view mode named {view_mode_name!r}"
+    )
+
+
 def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:
     project_path = backend.setta_files_root / PROJECT_FILE_NAME
     try:
@@ -1604,6 +1852,26 @@ def read_persisted_project_document(backend: BackendSession) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ParityHarnessError(
             "Persisted project document must be a JSON object, "
+            f"got {type(payload).__name__}"
+        )
+    return payload
+
+
+def read_persisted_settings_project_document(backend: BackendSession) -> dict[str, Any]:
+    project_path = backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME
+    try:
+        payload = json.loads(project_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ParityHarnessError(
+            f"Persisted settings project document missing at {project_path}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ParityHarnessError(
+            f"Persisted settings project document is not valid JSON at {project_path}: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ParityHarnessError(
+            "Persisted settings project document must be a JSON object, "
             f"got {type(payload).__name__}"
         )
     return payload

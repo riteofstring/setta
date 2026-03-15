@@ -27,3 +27,7 @@ scenarios:
     kind: settings_project_live_hydration
     seed: none
     description: Direct live settings saves should rehydrate the dedicated /settings shell before the next load/readback.
+  - name: settings_project_required_view_mode_repair
+    kind: settings_project_required_view_mode_repair
+    seed: none
+    description: Reloading /settings after a required built-in tab is deleted should repair the dedicated settings shell and persist the repaired view-mode set.

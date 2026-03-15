@@ -303,6 +303,121 @@ func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testin
 	}
 }
 
+func TestAppSettingsProjectLoadRoutesRepairAndPersistMissingRequiredViewMode(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	authCookie := newAppTestAuthCookie(t, app)
+
+	loadSettingsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
+	if err != nil {
+		t.Fatalf("new settings load request: %v", err)
+	}
+	loadSettingsRequest.Header.Set("Content-Type", "application/json")
+	loadSettingsRequest.AddCookie(authCookie)
+
+	loadSettingsResponse, err := http.DefaultClient.Do(loadSettingsRequest)
+	if err != nil {
+		t.Fatalf("load settings project config: %v", err)
+	}
+	defer loadSettingsResponse.Body.Close()
+	if loadSettingsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(loadSettingsResponse.Body)
+		t.Fatalf("expected settings project config 200, got %d with body %q", loadSettingsResponse.StatusCode, string(body))
+	}
+
+	deleteViewModeRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteViewMode, strings.NewReader(`{"projectConfigId":"settings","viewModeId":"settings-all"}`))
+	if err != nil {
+		t.Fatalf("new delete view mode request: %v", err)
+	}
+	deleteViewModeRequest.Header.Set("Content-Type", "application/json")
+	deleteViewModeRequest.AddCookie(authCookie)
+
+	deleteViewModeResponse, err := http.DefaultClient.Do(deleteViewModeRequest)
+	if err != nil {
+		t.Fatalf("delete settings view mode: %v", err)
+	}
+	defer deleteViewModeResponse.Body.Close()
+	if deleteViewModeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(deleteViewModeResponse.Body)
+		t.Fatalf("expected delete view mode 200, got %d with body %q", deleteViewModeResponse.StatusCode, string(body))
+	}
+
+	server.Close()
+	if err := app.Shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown app after delete: %v", err)
+	}
+
+	restartedApp, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new restarted app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := restartedApp.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown restarted app: %v", err)
+		}
+	})
+
+	restartedServer := httptest.NewServer(restartedApp.Handler())
+	defer restartedServer.Close()
+
+	restartedAuthCookie := newAppTestAuthCookie(t, restartedApp)
+
+	restartedLoadRequest, err := http.NewRequest(http.MethodPost, restartedServer.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
+	if err != nil {
+		t.Fatalf("new restarted settings load request: %v", err)
+	}
+	restartedLoadRequest.Header.Set("Content-Type", "application/json")
+	restartedLoadRequest.AddCookie(restartedAuthCookie)
+
+	restartedLoadResponse, err := http.DefaultClient.Do(restartedLoadRequest)
+	if err != nil {
+		t.Fatalf("load restarted settings project config: %v", err)
+	}
+	defer restartedLoadResponse.Body.Close()
+	if restartedLoadResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartedLoadResponse.Body)
+		t.Fatalf("expected restarted settings project config 200, got %d with body %q", restartedLoadResponse.StatusCode, string(body))
+	}
+
+	var restartedLoadPayload projectview.SingleConfig
+	if err := json.NewDecoder(restartedLoadResponse.Body).Decode(&restartedLoadPayload); err != nil {
+		t.Fatalf("decode restarted settings project payload: %v", err)
+	}
+	if len(restartedLoadPayload.ProjectConfig.ViewModes) != 5 {
+		t.Fatalf("expected 5 settings view modes after repair, got %d", len(restartedLoadPayload.ProjectConfig.ViewModes))
+	}
+	if _, ok := restartedLoadPayload.ProjectConfig.ViewModes["settings-all"]; !ok {
+		t.Fatal("expected restarted settings payload to restore settings-all view mode")
+	}
+
+	persistedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted settings project store: %v", err)
+	}
+	persistedDocument, err := persistedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted settings project document: %v", err)
+	}
+	persistedProject, err := persistedDocument.ProjectByID(settingsstate.SettingsProjectID)
+	if err != nil {
+		t.Fatalf("persisted settings project by id: %v", err)
+	}
+	if len(persistedProject.ViewModes) != 5 {
+		t.Fatalf("expected persisted repaired settings project to have 5 view modes, got %d", len(persistedProject.ViewModes))
+	}
+	if _, ok := persistedProject.ViewModes["settings-all"]; !ok {
+		t.Fatal("expected persisted repaired settings project to restore settings-all view mode")
+	}
+}
+
 func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleConfig, implID string) string {
 	t.Helper()
 

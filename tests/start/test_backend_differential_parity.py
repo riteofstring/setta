@@ -492,6 +492,120 @@ class Route:
             },
         )
 
+    def test_settings_store_view_mode_names_supports_go_store_shape(self) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "viewModes": {
+                        "settings-all": {
+                            "id": "settings-all",
+                            "name": "All Settings",
+                            "sortIndex": 4,
+                        },
+                        "settings-core": {
+                            "id": "settings-core",
+                            "name": "Core",
+                            "sortIndex": 0,
+                        },
+                    }
+                }
+            }
+        }
+
+        self.assertEqual(
+            harness.settings_store_view_mode_names(payload),
+            ["Core", "All Settings"],
+        )
+
+    def test_summarize_settings_project_required_view_mode_repair_detects_restored_tab(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        restart_load_payload = {
+            "projectConfig": {
+                "viewModes": {
+                    "settings-all": {
+                        "id": "settings-all",
+                        "name": "All Settings",
+                        "sortIndex": 4,
+                    },
+                    "settings-core": {
+                        "id": "settings-core",
+                        "name": "Core",
+                        "sortIndex": 0,
+                    },
+                }
+            }
+        }
+        restart_latest_payload = {
+            "projectState": restart_load_payload,
+        }
+        persisted_payload = {
+            "projects": {
+                "settings": {
+                    "viewModes": {
+                        "settings-all": {
+                            "id": "settings-all",
+                            "name": "All Settings",
+                            "sortIndex": 4,
+                        },
+                        "settings-core": {
+                            "id": "settings-core",
+                            "name": "Core",
+                            "sortIndex": 0,
+                        },
+                    }
+                }
+            }
+        }
+        pre_restart_latest_payload = {
+            "projectState": {
+                "projectConfig": {
+                    "viewModes": {
+                        "settings-core": {
+                            "id": "settings-core",
+                            "name": "Core",
+                            "sortIndex": 0,
+                        }
+                    }
+                }
+            }
+        }
+
+        summary = harness.summarize_settings_project_required_view_mode_repair(
+            initial_load_http_status=200,
+            delete_http_status=200,
+            pre_restart_latest_http_status=200,
+            pre_restart_latest_payload=pre_restart_latest_payload,
+            restart_load_http_status=200,
+            restart_load_payload=restart_load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload=restart_latest_payload,
+            persisted_payload=persisted_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "deleteHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadViewModeCount": 2,
+                "restartLoadViewModeNames": ["Core", "All Settings"],
+                "restartLoadHasAllSettings": True,
+                "restartLatestViewModeCount": 2,
+                "restartLatestViewModeNames": ["Core", "All Settings"],
+                "restartLatestHasAllSettings": True,
+                "persistedViewModeCount": 2,
+                "persistedViewModeNames": ["Core", "All Settings"],
+                "persistedHasAllSettings": True,
+            },
+        )
+
     def test_summarize_persisted_project_windowing_after_create_detects_defaults(
         self,
     ) -> None:

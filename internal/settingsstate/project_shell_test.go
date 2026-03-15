@@ -188,6 +188,82 @@ func TestRefreshProjectRuntimeFromSettingsHydratesLiveValuesAndPreservesActiveVi
 	}
 }
 
+func TestRefreshProjectRuntimeFromSettingsRepairsMissingRequiredViewMode(t *testing.T) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		delete(project.ViewModes, "settings-all")
+		project.ActiveViewModeID = "settings-param-defaults"
+		project.IsEditingViewMode = true
+		project.Viewport = &projectstate.Viewport{X: 80, Y: 40, Zoom: 1.3}
+		project.ViewportInitialized = true
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("delete required view mode: %v", err)
+	}
+
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("refresh settings project runtime: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+	if len(project.ViewModes) != 5 {
+		t.Fatalf("expected 5 repaired settings view modes, got %d", len(project.ViewModes))
+	}
+	if _, ok := project.ViewModes["settings-all"]; !ok {
+		t.Fatal("expected missing required settings-all view mode to be restored")
+	}
+	if project.ActiveViewModeID != "settings-param-defaults" {
+		t.Fatalf("expected active view mode settings-param-defaults, got %q", project.ActiveViewModeID)
+	}
+	if project.IsEditingViewMode {
+		t.Fatal("expected view-edit mode to reset to false after repair")
+	}
+	if project.Viewport != nil {
+		t.Fatalf("expected repaired project viewport to be reset from rebuilt active tab, got %#v", project.Viewport)
+	}
+	if project.ViewportInitialized {
+		t.Fatal("expected repaired project viewportInitialized to be false")
+	}
+	activeViewMode := project.ViewModes[project.ActiveViewModeID]
+	if !reflect.DeepEqual(project.TopLevelSections, activeViewMode.TopLevelSections) {
+		t.Fatalf("expected active view mode layout to be reprojected onto project layout")
+	}
+}
+
 func settingsProjectCodeObjValue(t *testing.T, project projectstate.Project, implID string) string {
 	t.Helper()
 

@@ -250,10 +250,18 @@ func RefreshProjectRuntimeFromSettings(
 		if buildErr != nil {
 			return buildErr
 		}
-		builtDocument.Projects[SettingsProjectID] = overlayProjectShellState(
+		mergedProject := overlayProjectShellState(
 			builtProject,
 			currentProject,
 		)
+		repairedProject, repairErr := repairSettingsProjectShellViewModes(
+			mergedProject,
+			builtProject,
+		)
+		if repairErr != nil {
+			return repairErr
+		}
+		builtDocument.Projects[SettingsProjectID] = repairedProject
 	}
 
 	_, err = projectRuntime.MutateAndSave(
@@ -308,6 +316,106 @@ func overlayProjectShellState(
 	}
 
 	return merged
+}
+
+func repairSettingsProjectShellViewModes(
+	current projectstate.Project,
+	canonical projectstate.Project,
+) (projectstate.Project, error) {
+	sectionIDByName := settingsSectionIDsByName(current)
+	sectionNames := orderedSettingsSectionNamesForProject(sectionIDByName)
+	allSectionIDs := resolveOrderedSettingsSectionIDs(sectionNames, sectionIDByName)
+	if len(allSectionIDs) == 0 {
+		return current, nil
+	}
+
+	requiredViewModeNames := map[string]struct{}{}
+	for _, spec := range settingsViewModeSpecs {
+		requiredViewModeNames[spec.Name] = struct{}{}
+	}
+
+	viewModesByName := make(map[string]projectstate.ViewMode, len(current.ViewModes))
+	for _, viewMode := range current.ViewModes {
+		viewModesByName[viewMode.Name] = viewMode
+	}
+
+	needsReset := len(current.TopLevelSections) == 0
+	if !needsReset {
+		for _, sectionID := range allSectionIDs {
+			if _, ok := current.TopLevelSections[sectionID]; !ok {
+				needsReset = true
+				break
+			}
+		}
+	}
+	if !needsReset {
+		for requiredName := range requiredViewModeNames {
+			viewMode, ok := viewModesByName[requiredName]
+			if !ok {
+				needsReset = true
+				break
+			}
+			if len(viewMode.VisibilityBySectionID) == 0 {
+				needsReset = true
+				break
+			}
+			visibleIDs := map[string]struct{}{}
+			for sectionID, visible := range viewMode.VisibilityBySectionID {
+				if visible {
+					visibleIDs[sectionID] = struct{}{}
+				}
+			}
+			if len(visibleIDs) == 0 || len(viewMode.TopLevelSections) == 0 {
+				needsReset = true
+				break
+			}
+			for sectionID := range visibleIDs {
+				if _, ok := viewMode.TopLevelSections[sectionID]; !ok {
+					needsReset = true
+					break
+				}
+			}
+			if needsReset {
+				break
+			}
+		}
+	}
+	if !needsReset {
+		return current, nil
+	}
+
+	activeName := ""
+	if activeViewMode, ok := current.ViewModes[current.ActiveViewModeID]; ok {
+		activeName = activeViewMode.Name
+	}
+
+	baseLayouts := cloneTopLevelLayouts(current.TopLevelSections)
+	if len(baseLayouts) == 0 {
+		baseLayouts = cloneTopLevelLayouts(canonical.TopLevelSections)
+	}
+	rebuiltViewModes, defaultActiveViewModeID := rebuildSettingsViewModesFromBase(
+		sectionNames,
+		sectionIDByName,
+		baseLayouts,
+	)
+
+	repaired := current.Clone()
+	repaired.ViewModes = rebuiltViewModes
+	repaired.IsEditingViewMode = false
+	repaired.ActiveViewModeID = defaultActiveViewModeID
+	if activeName != "" {
+		for _, viewMode := range rebuiltViewModes {
+			if viewMode.Name == activeName {
+				repaired.ActiveViewModeID = viewMode.ID
+				break
+			}
+		}
+	}
+	activeViewMode := rebuiltViewModes[repaired.ActiveViewModeID]
+	repaired.TopLevelSections = cloneTopLevelLayouts(activeViewMode.TopLevelSections)
+	repaired.Viewport = cloneSettingsViewport(activeViewMode.Viewport)
+	repaired.ViewportInitialized = activeViewMode.ViewportInitialized
+	return repaired, nil
 }
 
 func addSettingsSection(project *projectstate.Project, sectionName string, rawValue any) (string, error) {
@@ -450,31 +558,14 @@ func populateSettingsViewModes(
 		}
 	}
 	allLayouts := settingsLayoutsForSectionIDs(allSectionIDs)
-
-	activeViewModeID := settingsViewModeSpecs[0].ID
-	for index, spec := range settingsViewModeSpecs {
-		orderedSectionIDs := resolveSettingsViewModeSectionIDs(spec, sectionNames, sectionIDByName)
-		visibility := make(map[string]bool, len(allSectionIDs))
-		visibleSet := make(map[string]struct{}, len(orderedSectionIDs))
-		for _, sectionID := range orderedSectionIDs {
-			visibleSet[sectionID] = struct{}{}
-		}
-		for _, sectionID := range allSectionIDs {
-			_, visible := visibleSet[sectionID]
-			visibility[sectionID] = visible
-		}
-
-		project.ViewModes[spec.ID] = projectstate.ViewMode{
-			ID:                    spec.ID,
-			Name:                  spec.Name,
-			SortIndex:             index,
-			IsUserFacing:          true,
-			IsTab:                 true,
-			VisibilityBySectionID: visibility,
-			TopLevelSections:      cloneTopLevelLayouts(allLayouts),
-		}
-	}
-	return activeViewModeID, cloneTopLevelLayouts(allLayouts)
+	viewModes, activeViewModeID := rebuildSettingsViewModesFromBase(
+		sectionNames,
+		sectionIDByName,
+		allLayouts,
+	)
+	project.ViewModes = viewModes
+	activeViewMode := viewModes[activeViewModeID]
+	return activeViewModeID, cloneTopLevelLayouts(activeViewMode.TopLevelSections)
 }
 
 func resolveSettingsViewModeSectionIDs(
@@ -511,6 +602,115 @@ func settingsLayoutsForSectionIDs(sectionIDs []string) map[string]projectstate.T
 			Y:      float64(row) * settingsViewGridSpacing,
 			ZIndex: index,
 		}
+	}
+	return layouts
+}
+
+func rebuildSettingsViewModesFromBase(
+	sectionNames []string,
+	sectionIDByName map[string]string,
+	baseLayouts map[string]projectstate.TopLevelSectionLayout,
+) (map[string]projectstate.ViewMode, string) {
+	allSectionIDs := resolveOrderedSettingsSectionIDs(sectionNames, sectionIDByName)
+	viewModes := make(map[string]projectstate.ViewMode, len(settingsViewModeSpecs))
+	activeViewModeID := settingsViewModeSpecs[0].ID
+
+	for index, spec := range settingsViewModeSpecs {
+		visibleSectionIDs := resolveSettingsViewModeSectionIDs(spec, sectionNames, sectionIDByName)
+		visibility := make(map[string]bool, len(allSectionIDs))
+		visibleSet := make(map[string]struct{}, len(visibleSectionIDs))
+		for _, sectionID := range visibleSectionIDs {
+			visibleSet[sectionID] = struct{}{}
+		}
+		for _, sectionID := range allSectionIDs {
+			_, visible := visibleSet[sectionID]
+			visibility[sectionID] = visible
+		}
+
+		orderedSectionIDs := append([]string{}, visibleSectionIDs...)
+		for _, sectionID := range allSectionIDs {
+			if _, ok := visibleSet[sectionID]; ok {
+				continue
+			}
+			orderedSectionIDs = append(orderedSectionIDs, sectionID)
+		}
+
+		viewModes[spec.ID] = projectstate.ViewMode{
+			ID:                    spec.ID,
+			Name:                  spec.Name,
+			SortIndex:             index,
+			IsUserFacing:          true,
+			IsTab:                 true,
+			VisibilityBySectionID: visibility,
+			TopLevelSections:      settingsViewLayoutForOrderedSectionIDs(baseLayouts, orderedSectionIDs),
+		}
+	}
+	return viewModes, activeViewModeID
+}
+
+func resolveOrderedSettingsSectionIDs(
+	sectionNames []string,
+	sectionIDByName map[string]string,
+) []string {
+	ordered := make([]string, 0, len(sectionNames))
+	for _, sectionName := range sectionNames {
+		sectionID, ok := sectionIDByName[sectionName]
+		if !ok {
+			continue
+		}
+		ordered = append(ordered, sectionID)
+	}
+	return ordered
+}
+
+func orderedSettingsSectionNamesForProject(sectionIDByName map[string]string) []string {
+	ordered := make([]string, 0, len(sectionIDByName))
+	seen := make(map[string]struct{}, len(sectionIDByName))
+	for _, sectionName := range settingsSectionOrder {
+		if _, ok := sectionIDByName[sectionName]; !ok {
+			continue
+		}
+		ordered = append(ordered, sectionName)
+		seen[sectionName] = struct{}{}
+	}
+	extraNames := make([]string, 0, len(sectionIDByName)-len(ordered))
+	for sectionName := range sectionIDByName {
+		if _, ok := seen[sectionName]; ok {
+			continue
+		}
+		extraNames = append(extraNames, sectionName)
+	}
+	sort.Strings(extraNames)
+	return append(ordered, extraNames...)
+}
+
+func settingsSectionIDsByName(project projectstate.Project) map[string]string {
+	sectionIDByName := make(map[string]string, len(project.Sections))
+	for sectionID, section := range project.Sections {
+		sectionIDByName[section.Name] = sectionID
+	}
+	return sectionIDByName
+}
+
+func settingsViewLayoutForOrderedSectionIDs(
+	baseLayouts map[string]projectstate.TopLevelSectionLayout,
+	orderedSectionIDs []string,
+) map[string]projectstate.TopLevelSectionLayout {
+	layouts := cloneTopLevelLayouts(baseLayouts)
+	for index, sectionID := range orderedSectionIDs {
+		x := float64(index%settingsViewGridColumns) * settingsViewGridSpacing
+		y := float64(index/settingsViewGridColumns) * settingsViewGridSpacing
+		layout, ok := layouts[sectionID]
+		if !ok {
+			layouts[sectionID] = projectstate.TopLevelSectionLayout{
+				X: x,
+				Y: y,
+			}
+			continue
+		}
+		layout.X = x
+		layout.Y = y
+		layouts[sectionID] = layout
 	}
 	return layouts
 }
@@ -618,6 +818,14 @@ func cloneTopLevelLayouts(
 		cloned[sectionID] = layout.Clone()
 	}
 	return cloned
+}
+
+func cloneSettingsViewport(viewport *projectstate.Viewport) *projectstate.Viewport {
+	if viewport == nil {
+		return nil
+	}
+	cloned := *viewport
+	return &cloned
 }
 
 func humanizeSettingsIdentifier(identifier string) string {
