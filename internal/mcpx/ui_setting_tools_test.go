@@ -1429,6 +1429,120 @@ func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKe
 	}
 }
 
+func TestServerUISettingToolsRejectPersistedCorruptPluginConfigRootWithoutRewrite(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	pluginsStatePath := filepath.Join(roots.settaFilesRoot, "plugins_state.json")
+	pluginsStatePayload, err := os.ReadFile(pluginsStatePath)
+	if err != nil {
+		t.Fatalf("read plugins state: %v", err)
+	}
+	var pluginsState map[string]any
+	if err := json.Unmarshal(pluginsStatePayload, &pluginsState); err != nil {
+		t.Fatalf("decode plugins state: %v", err)
+	}
+	pluginsState["pluginConfigById"] = map[string]any{
+		string(plugins.PluginScopeWorkspace) + ":setta-fixture-full": "invalid-root",
+	}
+	encodedState, err := json.MarshalIndent(pluginsState, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugins state: %v", err)
+	}
+	encodedState = append(encodedState, '\n')
+	if err := os.WriteFile(pluginsStatePath, encodedState, 0o644); err != nil {
+		t.Fatalf("write corrupt plugins state: %v", err)
+	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan plugin runtime after corrupt config root injection: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call corrupt-root plugin get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected structured corrupt-root get response, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	getError := mustStructuredMap(t, getPayload["error"])
+	if getError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for corrupt-root get, got %#v", getError["code"])
+	}
+	if getError["message"] != "Plugin setta-fixture-full is unavailable (state=invalid)." {
+		t.Fatalf("expected invalid-state message for corrupt-root get, got %#v", getError["message"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call corrupt-root plugin set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected structured corrupt-root set response, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	setError := mustStructuredMap(t, setPayload["error"])
+	if setError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for corrupt-root set, got %#v", setError["code"])
+	}
+	if setError["message"] != getError["message"] {
+		t.Fatalf("expected corrupt-root get/set to share the same error, got get=%#v set=%#v", getError, setError)
+	}
+
+	persistedStatePayload, err := os.ReadFile(pluginsStatePath)
+	if err != nil {
+		t.Fatalf("read plugins state after failed write: %v", err)
+	}
+	var persistedState map[string]any
+	if err := json.Unmarshal(persistedStatePayload, &persistedState); err != nil {
+		t.Fatalf("decode plugins state after failed write: %v", err)
+	}
+	pluginConfigByID, ok := persistedState["pluginConfigById"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pluginConfigById object after failed write, got %#v", persistedState["pluginConfigById"])
+	}
+	if pluginConfigByID[string(plugins.PluginScopeWorkspace)+":setta-fixture-full"] != "invalid-root" {
+		t.Fatalf("expected corrupt persisted root to remain unchanged, got %#v", pluginConfigByID)
+	}
+}
+
 func TestServerUISettingToolsReturnPluginUnavailableForReadWriteWhenRegisterPaneCapabilityNotEffective(t *testing.T) {
 	t.Parallel()
 

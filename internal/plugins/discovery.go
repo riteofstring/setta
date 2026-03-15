@@ -334,6 +334,14 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 	entry.RequestedCapabilities = requestedCapabilities
 	entry.EffectiveCapabilities = effectiveCapabilities
 	entry.BlockedCapabilities = blockedCapabilities
+	if err := validatePersistedPluginConfigRoot(entry, pluginsState); err != nil {
+		entry.Errors = append(entry.Errors, PluginErrorInfo{
+			Code:    string(ServiceErrorCodeConfigInvalid),
+			Message: err.Error(),
+		})
+		entry.State = PluginRuntimeStateInvalid
+		return
+	}
 
 	if containsString(pluginsState.PendingRestartBackendPluginIDs, entry.PluginID) {
 		entry.State = PluginRuntimeStatePendingRestart
@@ -357,6 +365,20 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 
 	entry.State = PluginRuntimeStateActive
 	entry.RestartRequired = false
+}
+
+func validatePersistedPluginConfigRoot(entry *DiscoveredPlugin, pluginsState PluginsStateFile) error {
+	if entry == nil || pluginsState.PluginConfigByID == nil {
+		return nil
+	}
+	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
+	if !ok || rawValue == nil {
+		return nil
+	}
+	if _, ok := rawValue.(map[string]any); ok {
+		return nil
+	}
+	return newServiceError(ServiceErrorCodeConfigInvalid, "Plugin config for %s must be a JSON object.", entry.PluginID)
 }
 
 func (s *DiscoveryService) populateBackendRegistrations(entry *DiscoveredPlugin) error {

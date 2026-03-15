@@ -156,6 +156,45 @@ func TestDiscoveryServiceRescanKeepsInvalidEntriesAndMetadataCanonicalSourceKey(
 	}
 }
 
+func TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		delete(payload, "backend")
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pluginConfigById": map[string]any{
+			string(PluginScopeWorkspace) + ":setta-fixture-full": "invalid-root",
+		},
+	})
+
+	service := mustNewDiscoveryService(t, roots, config.ModeIDE)
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins: %v", err)
+	}
+	if snapshot.InstalledPlugins != 1 {
+		t.Fatalf("expected 1 installed invalid plugin, got %d", snapshot.InstalledPlugins)
+	}
+	if snapshot.ActivePlugins != 0 {
+		t.Fatalf("expected 0 active plugins, got %d", snapshot.ActivePlugins)
+	}
+
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-full", PluginScopeWorkspace)
+	if entry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid plugin state, got %q", entry.State)
+	}
+	if len(entry.Errors) != 1 {
+		t.Fatalf("expected one config-root error, got %#v", entry.Errors)
+	}
+	if entry.Errors[0].Code != string(ServiceErrorCodeConfigInvalid) {
+		t.Fatalf("expected config invalid error code, got %#v", entry.Errors[0])
+	}
+	if entry.Errors[0].Message != "Plugin config for setta-fixture-full must be a JSON object." {
+		t.Fatalf("expected config-root error message, got %#v", entry.Errors[0].Message)
+	}
+}
+
 // Package-manager discovery should surface environment-managed plugins in setta_files precedence ahead of global Setta-managed copies.
 func TestDiscoveryServiceRescanIncludesPackageManagerEntriesAndPrecedence(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
