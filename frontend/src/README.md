@@ -532,8 +532,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/uiSettingRevealRequests.ts` owns request-level reveal
     project/context gating plus the per-request reveal loop.
   - `state/actions/uiSettingRevealExecution.ts` owns single-target reveal
-    mutation application, plugin-handler fallback polling, anchor lookup, and
-    lease rollback/finalization behavior.
+    orchestration plus mutation-lease rollback/finalization,
+    `uiSettingRevealPluginHandler.ts` owns plugin-handler timeout polling and
+    invocation, and `uiSettingRevealFallbackAnchor.ts` owns fallback anchor
+    lookup, scrolling, and highlight application.
   - `state/actions/uiSettingReveal.ts` is now the thin compatibility facade
     for reveal requests, while `uiSettingRevealMutations.ts` owns the mutation
     lock plus high-level reveal orchestration,

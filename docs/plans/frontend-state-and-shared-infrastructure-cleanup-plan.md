@@ -263,8 +263,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/uiSettingRevealRequests.ts` now owns
   request-level reveal project/context gating plus the per-request reveal loop,
   `frontend/src/state/actions/uiSettingRevealExecution.ts` now owns
-  single-target mutation, plugin fallback, anchor lookup, and lease cleanup,
-  and `frontend/src/state/actions/uiSettingReveal.ts` is now the thin
+  single-target orchestration plus mutation-lease cleanup,
+  `frontend/src/state/actions/uiSettingRevealPluginHandler.ts` now owns
+  plugin-handler timeout polling and invocation,
+  `frontend/src/state/actions/uiSettingRevealFallbackAnchor.ts` now owns
+  fallback anchor lookup, scrolling, and highlight application, and
+  `frontend/src/state/actions/uiSettingReveal.ts` is now the thin
   compatibility facade. `uiSettingRevealMutations.ts` still owns the mutation
   lock plus high-level reveal orchestration,
   `uiSettingRevealMutationOwnership.ts` still owns lease sequence and touched-field
@@ -319,12 +323,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/uiSettingRevealExecution.ts` at 287 lines
   - `frontend/src/state/actions/keyActivations.ts` at 286 lines
   - `frontend/src/state/actions/aiChatStreamingRouting.ts` at 278 lines
   - `frontend/src/state/actions/aiChatSubmission.ts` at 268 lines
-  - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts` at 186 lines
   - `frontend/src/state/actions/gitGraphPaginationState.ts` at 204 lines
+  - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 187 lines
+  - `frontend/src/state/actions/keyShortcutWorkspaceRegistrations.ts` at 186 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -575,7 +579,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - debounced backend layout persistence and optimistic layout snapshot writes
 - `uiSettingReveal.ts` and adjacent helpers now split into:
   - `uiSettingRevealRequests.ts` for request-level reveal project/context gating and the per-request reveal loop
-  - `uiSettingRevealExecution.ts` for single-target reveal mutation, plugin fallback polling, anchor lookup, and lease cleanup
+  - `uiSettingRevealExecution.ts` for single-target orchestration and mutation-lease cleanup
+  - `uiSettingRevealPluginHandler.ts` for plugin-handler timeout polling and invocation
+  - `uiSettingRevealFallbackAnchor.ts` for fallback anchor lookup, scrolling, and highlight application
   - `uiSettingReveal.ts` as the thin compatibility facade
   - `uiSettingRevealMutations.ts` for reveal mutation lock and high-level orchestration
   - `uiSettingRevealMutationOwnership.ts` for lease sequence and touched-field ownership
