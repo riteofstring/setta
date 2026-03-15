@@ -3,7 +3,7 @@ import {
   ensureAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
 } from "state/actions/app";
-import { useProjectLoading } from "state/definitions";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import { resetProjectStores } from "state/utils";
 
 export function useLoadAppDeployment() {
