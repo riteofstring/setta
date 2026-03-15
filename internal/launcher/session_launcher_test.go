@@ -1,0 +1,462 @@
+package launcher
+
+import (
+	"encoding/json"
+	"errors"
+	"net"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"setta/internal/auth"
+	"setta/internal/config"
+	"setta/internal/localsessions"
+)
+
+func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.T) {
+	t.Parallel()
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	auto := "auto"
+	args := launcher.buildLaunchArgs(IDELaunchInput{
+		WorkspaceRoot:      "/tmp/workspace",
+		SettaHome:          "/tmp/.setta",
+		ProfileLookupHome:  "/tmp/.setta-profiles",
+		Profile:            "dev",
+		SettaFilesLocation: &auto,
+		RuntimeRoot:        "/tmp/runtime",
+	})
+	if len(args) == 0 || args[0] != "/tmp/setta-server" {
+		t.Fatalf("expected executable path to lead launch args, got %#v", args)
+	}
+	foundLookupHome := false
+	for index := 0; index < len(args)-1; index++ {
+		if args[index] == "--profile-lookup-home" && args[index+1] == "/tmp/.setta-profiles" {
+			foundLookupHome = true
+		}
+	}
+	if !foundLookupHome {
+		t.Fatalf("expected launch args to include profile lookup home, got %#v", args)
+	}
+}
+
+func TestLocalIDESessionLauncherBuildLaunchArgsUseLauncherModeWhenRequested(t *testing.T) {
+	t.Parallel()
+
+	launcherRuntime, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	args := launcherRuntime.buildLaunchArgs(IDELaunchInput{
+		WorkspaceRoot: "/tmp/workspace",
+		SettaHome:     "/tmp/.setta",
+		ServerMode:    config.ModeLauncher,
+	})
+
+	foundMode := false
+	for index := 0; index < len(args)-1; index++ {
+		if args[index] == "--mode" && args[index+1] == string(config.ModeLauncher) {
+			foundMode = true
+		}
+	}
+	if !foundMode {
+		t.Fatalf("expected launch args to include launcher mode, got %#v", args)
+	}
+}
+
+func TestLocalIDESessionLauncherLaunchEnvClearsInheritedAuthCookieName(t *testing.T) {
+	t.Parallel()
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		Env: []string{
+			"PATH=/usr/bin",
+			"SETTA_AUTH_COOKIE_NAME=stale-cookie",
+			"SETTA_RUNTIME_ROOT=/tmp/runtime",
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	env := launcher.launchEnv()
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "SETTA_AUTH_COOKIE_NAME=") {
+			t.Fatalf("expected auth cookie name to be cleared from launch env, got %#v", env)
+		}
+	}
+	if len(env) != 1 || env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected only unrelated env entries to remain, got %#v", env)
+	}
+}
+
+func TestLocalIDESessionLauncherLaunchEnvClearsInheritedRuntimeIdentityVars(t *testing.T) {
+	t.Parallel()
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		Env: []string{
+			"PATH=/usr/bin",
+			"SETTA_WORKSPACE_ROOT=/tmp/workspace",
+			"SETTA_HOME=/tmp/.setta",
+			"SETTA_PROFILE_LOOKUP_HOME=/tmp/.profiles",
+			"SETTA_RUNTIME_ROOT=/tmp/runtime",
+			"SETTA_FILES_ROOT=/tmp/files",
+			"SETTA_FILES_LOCATION=local",
+			"SETTA_PROFILE=dev",
+			"SETTA_SERVER_MODE=launcher",
+			"SETTA_SESSION_ID=session-a",
+			"SETTA_SESSIONS_ROOT=/tmp/runtime/sessions",
+			"OTHER=value",
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	env := launcher.launchEnv()
+	if len(env) != 2 {
+		t.Fatalf("expected only unrelated env entries to remain, got %#v", env)
+	}
+	if env[0] != "PATH=/usr/bin" || env[1] != "OTHER=value" {
+		t.Fatalf("unexpected filtered env %#v", env)
+	}
+}
+
+func TestLocalIDESessionLauncherEnsureSessionReusesOnlyMatchingModeAndRuntimeIdentity(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	profileLookupHome := settaHome
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, settaHome, profileLookupHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+	writeSessionLauncherProfile(t, profileLookupHome, workspaceRoot, settaHome)
+
+	location := "local"
+	input := IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		ProfileLookupHome:  profileLookupHome,
+		Profile:            "dev",
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+		ServerMode:         config.ModeIDE,
+	}
+	cfg, err := loadIDELaunchConfig(input)
+	if err != nil {
+		t.Fatalf("load launch config: %v", err)
+	}
+
+	now := time.Date(2026, time.March, 18, 12, 0, 0, 0, time.UTC)
+	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot: filepath.Join(cfg.Paths.RuntimeRoot, "sessions"),
+		Now: func() time.Time {
+			now = now.Add(time.Second)
+			return now
+		},
+		PIDCreateTime: func(int) *float64 { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new session registry: %v", err)
+	}
+
+	matchingSession := createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeIDE),
+	})
+	createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeLauncher),
+	})
+	createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		Profile:            "prod",
+		ServerMode:         string(config.ModeIDE),
+	})
+	createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          filepath.Join(root, ".setta-other"),
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeIDE),
+	})
+	createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		SettaFilesRoot:     filepath.Join(root, "other-setta-files"),
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeIDE),
+	})
+	createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaFilesLocation: "global",
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeIDE),
+	})
+	createConnectableLauncherSession(t, registry, localsessions.CreateSessionInput{
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaHome:          cfg.Paths.SettaHome,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+		RuntimeRoot:        filepath.Join(root, "other-runtime"),
+		Profile:            cfg.Paths.ProfileName,
+		ServerMode:         string(config.ModeIDE),
+	})
+
+	processStarterCalled := false
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		RegistryFactory: func(string) (*localsessions.Registry, error) {
+			return registry, nil
+		},
+		ProcessStarter: func(processStartRequest) (startedProcess, error) {
+			processStarterCalled = true
+			return nil, errors.New("unexpected process start")
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	result, err := launcher.EnsureSession(input)
+	if err != nil {
+		t.Fatalf("ensure session: %v", err)
+	}
+	if result.StartedNew {
+		t.Fatalf("expected existing session reuse, got %#v", result)
+	}
+	if processStarterCalled {
+		t.Fatal("expected reuse to avoid starting a new process")
+	}
+	if result.Session.ID != matchingSession.ID {
+		t.Fatalf("expected reused session id %q, got %#v", matchingSession.ID, result)
+	}
+	if result.Paths.RuntimeRoot != cfg.Paths.RuntimeRoot {
+		t.Fatalf("expected runtime root %q, got %#v", cfg.Paths.RuntimeRoot, result.Paths.RuntimeRoot)
+	}
+	if result.Paths.ActiveSettaFilesLocation() != cfg.Paths.ActiveSettaFilesLocation() {
+		t.Fatalf("expected settaFilesLocation %q, got %q", cfg.Paths.ActiveSettaFilesLocation(), result.Paths.ActiveSettaFilesLocation())
+	}
+	if len(result.Secret) == 0 {
+		t.Fatal("expected reused session secret")
+	}
+}
+
+func TestLocalIDESessionLauncherEnsureSessionSurfacesLaunchFailureTailAndLogPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaHome := filepath.Join(root, ".setta")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, path := range []string{workspaceRoot, settaHome, runtimeRoot} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", path, err)
+		}
+	}
+
+	sessionsRoot := filepath.Join(runtimeRoot, "sessions")
+	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
+		SessionsRoot:  sessionsRoot,
+		PIDCreateTime: func(int) *float64 { return nil },
+	})
+	if err != nil {
+		t.Fatalf("new session registry: %v", err)
+	}
+
+	logPath := filepath.Join(root, "launch.log")
+	logContent := "HEAD-MARKER\n" + strings.Repeat("x", 9000) + "\nTAIL-MARKER\n"
+	if err := os.WriteFile(logPath, []byte(logContent), 0o644); err != nil {
+		t.Fatalf("write launch log: %v", err)
+	}
+
+	launcher, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+		RegistryFactory: func(string) (*localsessions.Registry, error) {
+			return registry, nil
+		},
+		ProcessStarter: func(processStartRequest) (startedProcess, error) {
+			return &testStartedProcess{exited: true, logPath: logPath}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	location := "local"
+	_, err = launcher.EnsureSession(IDELaunchInput{
+		WorkspaceRoot:      workspaceRoot,
+		SettaHome:          settaHome,
+		SettaFilesLocation: &location,
+		RuntimeRoot:        runtimeRoot,
+	})
+	if err == nil {
+		t.Fatal("expected launch failure")
+	}
+	var launchErr *SessionLaunchError
+	if !errors.As(err, &launchErr) {
+		t.Fatalf("expected SessionLaunchError, got %T: %v", err, err)
+	}
+	if launchErr.Code != "LaunchFailed" {
+		t.Fatalf("expected LaunchFailed, got %q (%v)", launchErr.Code, err)
+	}
+	if strings.Contains(launchErr.Message, "HEAD-MARKER") {
+		t.Fatalf("expected truncated log tail to omit head marker, got %q", launchErr.Message)
+	}
+	if !strings.Contains(launchErr.Message, "TAIL-MARKER") {
+		t.Fatalf("expected tail marker in launch failure, got %q", launchErr.Message)
+	}
+	if !strings.Contains(launchErr.Message, logPath) {
+		t.Fatalf("expected log path in launch failure, got %q", launchErr.Message)
+	}
+}
+
+func TestStartLauncherProcessCreatesRuntimeLogFile(t *testing.T) {
+	t.Parallel()
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	process, err := startLauncherProcess(processStartRequest{
+		Args:        launchLogTestCommand(t),
+		CWD:         t.TempDir(),
+		RuntimeRoot: runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("start launcher process: %v", err)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for !process.Exited() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !process.Exited() {
+		_ = process.Kill()
+		t.Fatal("expected launch process to exit")
+	}
+
+	logPath := process.LogPath()
+	expectedDir := filepath.Join(runtimeRoot, "logs") + string(os.PathSeparator)
+	if !strings.HasPrefix(logPath, expectedDir) {
+		t.Fatalf("expected launch log under %q, got %q", expectedDir, logPath)
+	}
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read launch log: %v", err)
+	}
+	logOutput := string(content)
+	if !strings.Contains(logOutput, "stdout-line") {
+		t.Fatalf("expected stdout in launch log, got %q", logOutput)
+	}
+	if !strings.Contains(logOutput, "stderr-line") {
+		t.Fatalf("expected stderr in launch log, got %q", logOutput)
+	}
+}
+
+type testStartedProcess struct {
+	exited  bool
+	logPath string
+}
+
+func (p *testStartedProcess) Exited() bool {
+	return p.exited
+}
+
+func (p *testStartedProcess) Kill() error {
+	return nil
+}
+
+func (p *testStartedProcess) LogPath() string {
+	return p.logPath
+}
+
+func createConnectableLauncherSession(t *testing.T, registry *localsessions.Registry, input localsessions.CreateSessionInput) auth.SessionMetadata {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for test session: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = listener.Close()
+	})
+	addr := listener.Addr().(*net.TCPAddr)
+
+	input.Host = "127.0.0.1"
+	input.Port = addr.Port
+	input.PID = os.Getpid()
+	session, err := registry.CreateSession(input)
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	return session
+}
+
+func launchLogTestCommand(t *testing.T) []string {
+	t.Helper()
+
+	switch runtime.GOOS {
+	case "windows":
+		return []string{"cmd.exe", "/c", "(echo stdout-line) & (echo stderr-line 1>&2)"}
+	default:
+		return []string{"/bin/sh", "-c", "printf 'stdout-line\\n'; printf 'stderr-line\\n' >&2"}
+	}
+}
+
+func writeSessionLauncherProfile(t *testing.T, profileLookupHome string, workspaceRoot string, settaHome string) {
+	t.Helper()
+
+	profilesDir := filepath.Join(profileLookupHome, "profiles")
+	if err := os.MkdirAll(profilesDir, 0o755); err != nil {
+		t.Fatalf("mkdir profiles dir: %v", err)
+	}
+	payload, err := json.Marshal(map[string]any{
+		"name":               "dev",
+		"workspaceRoot":      workspaceRoot,
+		"settaHome":          settaHome,
+		"settaFilesLocation": "local",
+	})
+	if err != nil {
+		t.Fatalf("marshal profile payload: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(profilesDir, "dev.json"), payload, 0o644); err != nil {
+		t.Fatalf("write profile config: %v", err)
+	}
+}
