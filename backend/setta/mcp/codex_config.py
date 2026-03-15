@@ -205,11 +205,23 @@ def _parse_codex_mcp_server_entry(
     if command and url:
         raise ValueError(f"server '{server_id}' cannot declare both command and url")
 
-    http_headers = _parse_http_headers_payload(
-        raw_entry.get("http_headers"),
-        server_id=server_id,
-        field_name="http_headers",
-    )
+    raw_http_headers = raw_entry.get("http_headers")
+    if raw_http_headers is None:
+        http_headers = None
+    else:
+        if not isinstance(raw_http_headers, dict):
+            raise ValueError(f"server '{server_id}' http_headers must be an object")
+        normalized_headers: dict[str, str] = {}
+        for header_name, header_value in raw_http_headers.items():
+            if not isinstance(header_name, str) or not isinstance(header_value, str):
+                raise ValueError(
+                    f"server '{server_id}' http_headers values must be string key/value pairs"
+                )
+            normalized_name = header_name.strip()
+            if not normalized_name:
+                continue
+            normalized_headers[normalized_name] = header_value
+        http_headers = normalized_headers or None
 
     resolved_transport = transport
     if not resolved_transport:
@@ -229,11 +241,70 @@ def _parse_codex_mcp_server_entry(
             raise ValueError(
                 f"server '{server_id}' stdio transport cannot define http_headers"
             )
+        args: list[str] = []
+        raw_args = raw_entry.get("args")
+        if raw_args is not None:
+            if not isinstance(raw_args, list):
+                raise ValueError(
+                    f"server '{server_id}' args must be an array of strings"
+                )
+            for index, item in enumerate(raw_args):
+                if not isinstance(item, str):
+                    raise ValueError(
+                        f"server '{server_id}' has invalid args[{index}] value (expected string)"
+                    )
+                normalized_item = item.strip()
+                if normalized_item:
+                    args.append(normalized_item)
+        raw_env = raw_entry.get("env")
+        if raw_env is None:
+            env = None
+        else:
+            if not isinstance(raw_env, dict):
+                raise ValueError(
+                    f"server '{server_id}' env must be an object of string key/value pairs"
+                )
+            normalized_env: dict[str, str] = {}
+            for raw_env_key, raw_env_value in raw_env.items():
+                if not isinstance(raw_env_key, str):
+                    raise ValueError(
+                        f"server '{server_id}' has invalid env key {raw_env_key!r} "
+                        "(expected string)"
+                    )
+                if not isinstance(raw_env_value, str):
+                    raise ValueError(
+                        f"server '{server_id}' has invalid env.{raw_env_key} value "
+                        "(expected string)"
+                    )
+                normalized_key = raw_env_key.strip()
+                if not normalized_key:
+                    raise ValueError(f"server '{server_id}' has an empty env key")
+                normalized_env[normalized_key] = raw_env_value
+            env = normalized_env or None
+        raw_error_handler = raw_entry.get("encoding_error_handler")
+        if raw_error_handler is None:
+            encoding_error_handler = "strict"
+        else:
+            if not isinstance(raw_error_handler, str):
+                raise ValueError(
+                    f"server '{server_id}' encoding_error_handler must be a string"
+                )
+            normalized_error_handler = raw_error_handler.strip().lower()
+            if not normalized_error_handler:
+                raise ValueError(
+                    f"server '{server_id}' encoding_error_handler cannot be empty"
+                )
+            if normalized_error_handler not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
+                raise ValueError(
+                    f"server '{server_id}' has unsupported encoding_error_handler "
+                    f"'{normalized_error_handler}'"
+                )
+            encoding_error_handler = normalized_error_handler
         return MCPServerConfig(
             transport="stdio",
             command=command,
-            args=_parse_args(raw_entry, server_id=server_id),
-            env=_parse_env(raw_entry, server_id=server_id),
+            args=args,
+            env=env,
             cwd=_parse_optional_nonempty_string_field(
                 raw_entry,
                 server_id=server_id,
@@ -247,10 +318,7 @@ def _parse_codex_mcp_server_entry(
                 )
                 or "utf-8"
             ),
-            encoding_error_handler=_parse_encoding_error_handler(
-                raw_entry,
-                server_id=server_id,
-            ),
+            encoding_error_handler=encoding_error_handler,
         )
 
     if command is not None:
@@ -266,93 +334,6 @@ def _parse_codex_mcp_server_entry(
         url=url,
         http_headers=http_headers,
     )
-def _parse_http_headers_payload(
-    raw_http_headers: Any,
-    *,
-    server_id: str,
-    field_name: str,
-) -> dict[str, str] | None:
-    if raw_http_headers is None:
-        return None
-    if not isinstance(raw_http_headers, dict):
-        raise ValueError(f"server '{server_id}' {field_name} must be an object")
-    normalized_headers: dict[str, str] = {}
-    for header_name, header_value in raw_http_headers.items():
-        if not isinstance(header_name, str) or not isinstance(header_value, str):
-            raise ValueError(
-                f"server '{server_id}' {field_name} values must be string key/value pairs"
-            )
-        normalized_name = header_name.strip()
-        if not normalized_name:
-            continue
-        normalized_headers[normalized_name] = header_value
-    if not normalized_headers:
-        return None
-    return normalized_headers
-
-
-def _parse_args(raw_entry: dict[str, Any], *, server_id: str) -> list[str]:
-    args: list[str] = []
-    raw_args = raw_entry.get("args")
-    if raw_args is None:
-        return args
-    if not isinstance(raw_args, list):
-        raise ValueError(f"server '{server_id}' args must be an array of strings")
-    for index, item in enumerate(raw_args):
-        if not isinstance(item, str):
-            raise ValueError(
-                f"server '{server_id}' has invalid args[{index}] value (expected string)"
-            )
-        normalized_item = item.strip()
-        if normalized_item:
-            args.append(normalized_item)
-    return args
-
-
-def _parse_env(raw_entry: dict[str, Any], *, server_id: str) -> dict[str, str] | None:
-    raw_env = raw_entry.get("env")
-    if raw_env is None:
-        return None
-    if not isinstance(raw_env, dict):
-        raise ValueError(
-            f"server '{server_id}' env must be an object of string key/value pairs"
-        )
-    normalized_env: dict[str, str] = {}
-    for raw_env_key, raw_env_value in raw_env.items():
-        if not isinstance(raw_env_key, str):
-            raise ValueError(
-                f"server '{server_id}' has invalid env key {raw_env_key!r} "
-                "(expected string)"
-            )
-        if not isinstance(raw_env_value, str):
-            raise ValueError(
-                f"server '{server_id}' has invalid env.{raw_env_key} value "
-                "(expected string)"
-            )
-        normalized_key = raw_env_key.strip()
-        if not normalized_key:
-            raise ValueError(f"server '{server_id}' has an empty env key")
-        normalized_env[normalized_key] = raw_env_value
-    if not normalized_env:
-        return None
-    return normalized_env
-def _parse_encoding_error_handler(raw_entry: dict[str, Any], *, server_id: str) -> str:
-    raw_value = raw_entry.get("encoding_error_handler")
-    if raw_value is None:
-        return "strict"
-    if not isinstance(raw_value, str):
-        raise ValueError(
-            f"server '{server_id}' encoding_error_handler must be a string"
-        )
-    normalized_value = raw_value.strip().lower()
-    if not normalized_value:
-        raise ValueError(f"server '{server_id}' encoding_error_handler cannot be empty")
-    if normalized_value not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
-        raise ValueError(
-            f"server '{server_id}' has unsupported encoding_error_handler "
-            f"'{normalized_value}'"
-        )
-    return normalized_value
 
 
 def _parse_optional_nonempty_string_field(
