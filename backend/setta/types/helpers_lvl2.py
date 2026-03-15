@@ -117,7 +117,6 @@ from setta.types.project_chat_windowing import (
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.prompt_section_resolution import (
     build_prompt_section_preview,
-    load_prompt_template,
     resolve_prompt_section_source,
 )
 from setta.types.section_impls import (
@@ -3007,6 +3006,8 @@ def _ensure_state_machine_send_prompt_action_valid(
             raise ValueError(
                 f"State machine edge {edge_id} promptTemplateId validation requires a database."
             )
+        from setta.agentic.store import load_prompt_template
+
         prompt_template = load_prompt_template(dbe, target_action.promptTemplateId)
         if prompt_template is None:
             raise KeyError(
