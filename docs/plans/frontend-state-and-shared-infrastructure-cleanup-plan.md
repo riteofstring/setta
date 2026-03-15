@@ -302,11 +302,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/utils/chatAppGeneration.ts` at 319 lines
   - `frontend/src/state/actions/aiLLMConfiguration.ts` at 306 lines
   - `frontend/src/state/actions/aiFollow.ts` at 304 lines
   - `frontend/src/state/actions/keyActivationHandlers.ts` at 301 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 300 lines
+  - `frontend/src/state/actions/projectChatWindowingEphemeral.ts` at 299 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -460,6 +460,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `activeSectionUI.ts` is now the thin compatibility facade over
   `activeSectionSelection.ts`, `activeSectionBackendSync.ts`, and
   `storeDefinitions.ts`.
+- `chatAppGenerationDetails.ts` now owns:
+  - chat app-generation message-state derivation
+  - app-generation context normalization
+  - per-message serialization and deserialization helpers
+- `chatAppGenerationAgentRuns.ts` now owns:
+  - agent-run hydration into per-chat app-generation details
+  - run input parsing for app-generation provenance
+- `chatAppGeneration.ts` is now the thin compatibility facade over
+  `chatAppGenerationDetails.ts` and `chatAppGenerationAgentRuns.ts`.
 - `sectionEffectiveImplCore.ts` now owns:
   - effective-impl derivation and caching
   - low-level section/code-object entity lookups

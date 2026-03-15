@@ -329,6 +329,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     ownership, pending sync bookkeeping, and backend reconciliation helpers.
   - `state/activeSectionUI.ts` is now the thin compatibility facade over those
     narrower active-section owners plus `state/storeDefinitions.ts`.
+  - `state/utils/chatAppGenerationDetails.ts` owns chat app-generation
+    message-state derivation, normalization, and serialization, while
+    `state/utils/chatAppGenerationAgentRuns.ts` owns agent-run hydration back
+    into per-chat app-generation details and `state/utils/chatAppGeneration.ts`
+    is now the thin compatibility facade over both.
   - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
     store types such as `ChatDetails`, `ChatBranchInfo`, and
     `ProjectChatCustomSlashCommand`.

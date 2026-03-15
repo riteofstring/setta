@@ -2,7 +2,7 @@ import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAff
 import { addTemporaryNotification } from "state/actions/notifications";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
+import type { ChatAppGenerationContext } from "state/utils/chatAppGenerationDetails";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_llm_response,

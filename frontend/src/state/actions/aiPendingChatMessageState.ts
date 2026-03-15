@@ -7,7 +7,7 @@ import {
   setChatAppGenerationForMessage,
   type ChatAppGenerationContext,
   type ChatAppGenerationDetails,
-} from "state/utils/chatAppGeneration";
+} from "state/utils/chatAppGenerationDetails";
 import { type BaseChatMessageUnion } from "utils/generatedTypes";
 
 import { getDefaultChatDetails } from "./aiChatDetails";

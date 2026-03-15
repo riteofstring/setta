@@ -2,7 +2,7 @@ import { useAIStore } from "state/stores/aiStores";
 import {
   getDefaultChatAppGenerationDetails,
   type ChatAppGenerationDetails,
-} from "state/utils/chatAppGeneration";
+} from "state/utils/chatAppGenerationDetails";
 
 import { requirePendingChatSurfaceId } from "./aiChatState";
 

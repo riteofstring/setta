@@ -1,8 +1,6 @@
 import { useAIStore } from "state/stores/aiStores";
-import {
-  collectChatAppGenerationDetailsByChatId,
-  mergeChatAppGenerationDetailsByChatId,
-} from "state/utils/chatAppGeneration";
+import { collectChatAppGenerationDetailsByChatId } from "state/utils/chatAppGenerationAgentRuns";
+import { mergeChatAppGenerationDetailsByChatId } from "state/utils/chatAppGenerationDetails";
 import { res200 } from "utils/endpointUtils";
 import { route_get_agent_runs } from "utils/generatedEndpoints";
 import { type AgentRun } from "utils/generatedTypes";

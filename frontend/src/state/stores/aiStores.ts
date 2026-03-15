@@ -1,6 +1,6 @@
 import type { AIFollowMode } from "state/types/aiFollow";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
+import type { ChatAppGenerationDetails } from "state/utils/chatAppGenerationDetails";
 import {
   AgenticEdgeKindEnum,
   AgentProfile,

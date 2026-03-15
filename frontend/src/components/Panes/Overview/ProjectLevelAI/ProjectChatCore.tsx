@@ -74,7 +74,7 @@ import {
   resolveChatAppGenerationContextFromMessageState,
   type ChatAppGenerationContext,
   type ChatAppGenerationMessageState,
-} from "state/utils/chatAppGeneration";
+} from "state/utils/chatAppGenerationDetails";
 import { isImageAttachment } from "utils/attachmentPreview";
 import {
   hasPendingToolInteraction,

@@ -10,7 +10,7 @@ import { useAIStore } from "state/stores/aiStores";
 import {
   buildChatAppGenerationDetails,
   deserializeChatAppGenerationByMessageId,
-} from "state/utils/chatAppGeneration";
+} from "state/utils/chatAppGenerationDetails";
 import {
   type BaseChatMessageUnion,
   type ChatSectionState,

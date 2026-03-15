@@ -62,7 +62,7 @@ import {
   type ProjectChatAuxView,
 } from "state/definitions";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
-import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
+import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGenerationDetails";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   AllLLMConfigs,
