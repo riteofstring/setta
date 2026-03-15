@@ -1,4 +1,4 @@
-import { getLatestStateMachineRun } from "state/actions/stateMachineRuns";
+import { getLatestStateMachineRun } from "state/actions/stateMachineRunQueries";
 import {
   AgentRunStatusEnum,
   SectionTypeEnum,
@@ -277,7 +277,7 @@ function getRecentActivityItems({
     return [];
   }
   const failureSummaryLabel = getFailureSummaryLabel(latestRun);
-  const events = Array.isArray(latestRun.events) ? latestRun.events : [];
+  const events = latestRun.events;
   const activityItems: StateMachineActivityItem[] = [];
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
@@ -521,12 +521,9 @@ function getRunOutputs(run: AgentRun | null): Record<string, unknown> | null {
 }
 
 function getPayloadString(
-  payload: Record<string, unknown> | null | undefined,
+  payload: Record<string, unknown>,
   key: string,
 ): string | null {
-  if (payload === null || payload === undefined || Array.isArray(payload)) {
-    return null;
-  }
   const rawValue = payload[key];
   if (typeof rawValue !== "string" || rawValue.trim() === "") {
     return null;
@@ -535,12 +532,9 @@ function getPayloadString(
 }
 
 function getPayloadArrayLength(
-  payload: Record<string, unknown> | null | undefined,
+  payload: Record<string, unknown>,
   key: string,
 ): number | null {
-  if (payload === null || payload === undefined || Array.isArray(payload)) {
-    return null;
-  }
   const rawValue = payload[key];
   if (!Array.isArray(rawValue)) {
     return null;

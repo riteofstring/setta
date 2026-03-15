@@ -1,7 +1,6 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { route_get_folder_contents } from "utils/generatedEndpoints";
-import { createFolderContentItem } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDynamicFolderPathCompletionSource } from "./folderPathCompletions";
 
@@ -24,23 +23,13 @@ describe("folder path completions integration", () => {
   it("refreshes completion cache across mode toggles and supports Windows absolute outside-root paths", async () => {
     mockedGetFolderContents
       .mockResolvedValueOnce({
-        data: [
-          createFolderContentItem({
-            name: "alpha",
-            type: "folder",
-            fullPath: "/root/alpha",
-          }),
-        ],
+        data: [{ name: "alpha", type: "folder", fullPath: "/root/alpha" }],
         status: 200,
         hasResponse: true,
       })
       .mockResolvedValueOnce({
         data: [
-          createFolderContentItem({
-            name: "projects",
-            type: "folder",
-            fullPath: "C:/Users/projects",
-          }),
+          { name: "projects", type: "folder", fullPath: "C:/Users/projects" },
         ],
         status: 200,
         hasResponse: true,
