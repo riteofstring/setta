@@ -570,6 +570,48 @@ func TestEngineStoreCreatePersistsConfig(t *testing.T) {
 	}
 }
 
+func TestEngineStoreCreateAndUpdateAllowBlankNames(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+
+	created, err := store.Create(EngineConfig{
+		ID:         "engine-created",
+		Name:       "  ",
+		EngineType: EngineTypeSettaLLM,
+	})
+	if err != nil {
+		t.Fatalf("create engine config: %v", err)
+	}
+	if created.Name != "  " {
+		t.Fatalf("expected created blank name to roundtrip exactly, got %#v", created)
+	}
+
+	updated, err := store.Update(EngineConfig{
+		ID:         "engine-created",
+		Name:       "",
+		EngineType: EngineTypeSettaLLM,
+	})
+	if err != nil {
+		t.Fatalf("update engine config: %v", err)
+	}
+	if updated.Name != "" {
+		t.Fatalf("expected updated blank name to roundtrip exactly, got %#v", updated)
+	}
+
+	loaded, err := store.Get("engine-created")
+	if err != nil {
+		t.Fatalf("load blank-name engine config: %v", err)
+	}
+	if loaded.Name != "" {
+		t.Fatalf("expected persisted blank name, got %#v", loaded)
+	}
+}
+
 func TestEngineStoreDeleteRemovesPersistedConfig(t *testing.T) {
 	t.Parallel()
 

@@ -40,11 +40,21 @@ type createEngineConfigRequest struct {
 }
 
 type updateEngineConfigRequest struct {
-	Config *agentruns.EngineConfig `json:"config"`
+	Config *updateEngineConfigPayload `json:"config"`
 }
 
 type deleteEngineConfigRequest struct {
 	ConfigID string `json:"configId"`
+}
+
+type updateEngineConfigPayload struct {
+	ID                    *string                         `json:"id"`
+	Name                  *string                         `json:"name"`
+	EngineType            *agentruns.EngineType           `json:"engineType"`
+	SettaLLMConfigID      *string                         `json:"settaLlmConfigId"`
+	ExternalAgentConfigID *string                         `json:"externalAgentConfigId"`
+	Defaults              *agentruns.EngineConfigDefaults `json:"defaults"`
+	RuntimeSupport        *agentruns.EngineRuntimeSupport `json:"runtimeSupport"`
 }
 
 type engineConfigRouteError struct {
@@ -163,7 +173,12 @@ func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			return
 		}
 
-		config, err := store.Update(*payload.Config)
+		config, routeErr := buildUpdatedEngineConfig(payload.Config)
+		if routeErr != nil {
+			writeError(w, r, routeErr.Status, routeErr.Code, routeErr.Message)
+			return
+		}
+		updated, err := store.Update(config)
 		if err != nil {
 			if !writeEngineConfigStoreError(w, r, err) {
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -171,7 +186,7 @@ func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			return
 		}
 
-		writeJSON(w, http.StatusOK, enrichEngineConfig(config, llm))
+		writeJSON(w, http.StatusOK, enrichEngineConfig(updated, llm))
 	}
 }
 
@@ -205,7 +220,7 @@ func deleteEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
 }
 
 func buildCreatedEngineConfig(payload createEngineConfigRequest) (agentruns.EngineConfig, *engineConfigRouteError) {
-	if payload.Name == nil || strings.TrimSpace(*payload.Name) == "" {
+	if payload.Name == nil {
 		return agentruns.EngineConfig{}, &engineConfigRouteError{
 			Status:  http.StatusBadRequest,
 			Code:    "engine_config_name_required",
@@ -224,6 +239,42 @@ func buildCreatedEngineConfig(payload createEngineConfigRequest) (agentruns.Engi
 		ID:         newEngineConfigID(),
 		Name:       *payload.Name,
 		EngineType: *payload.EngineType,
+	}
+	if payload.SettaLLMConfigID != nil {
+		config.SettaLLMConfigID = cloneOptionalString(payload.SettaLLMConfigID)
+	}
+	if payload.ExternalAgentConfigID != nil {
+		config.ExternalAgentConfigID = cloneOptionalString(payload.ExternalAgentConfigID)
+	}
+	if payload.Defaults != nil {
+		config.Defaults = *payload.Defaults
+	}
+	return config, nil
+}
+
+func buildUpdatedEngineConfig(payload *updateEngineConfigPayload) (agentruns.EngineConfig, *engineConfigRouteError) {
+	if payload == nil {
+		return agentruns.EngineConfig{}, &engineConfigRouteError{
+			Status:  http.StatusBadRequest,
+			Code:    "engine_config_required",
+			Message: "Engine config is required.",
+		}
+	}
+	if payload.Name == nil {
+		return agentruns.EngineConfig{}, &engineConfigRouteError{
+			Status:  http.StatusBadRequest,
+			Code:    "invalid_engine_config",
+			Message: fmt.Sprintf("%v: engine config name is required", agentruns.ErrInvalidEngineConfig),
+		}
+	}
+	config := agentruns.EngineConfig{
+		Name: *payload.Name,
+	}
+	if payload.ID != nil {
+		config.ID = *payload.ID
+	}
+	if payload.EngineType != nil {
+		config.EngineType = *payload.EngineType
 	}
 	if payload.SettaLLMConfigID != nil {
 		config.SettaLLMConfigID = cloneOptionalString(payload.SettaLLMConfigID)

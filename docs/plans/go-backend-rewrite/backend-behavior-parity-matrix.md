@@ -192,16 +192,13 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Forty-six concrete parity gaps are already visible:
+- Forty-five concrete parity gaps are already visible:
   - source-baseline prompt-template updates refresh linked prompt-section
     cached state
   - current Go does not run an equivalent linked-section refresh
   - source-baseline prompt-template delete blocks workflow-edge references
     with `409`
   - current Go deletes referenced workflow templates without that guard
-  - source-baseline engine-config create/update accepts blank names when the
-    field is present
-  - current Go trims and rejects blank engine-config names
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
@@ -570,7 +567,7 @@ It covers:
 | `EC-02` | Engine-config create/update/delete round-trips persist ids and defaults and delete returns `null`. | `backend/setta/types/agentic.py::EngineConfig`; `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`; `backend/setta/routers/agentic.py::route_delete_engine_config`. | Impl: `internal/httpapi/engine_config_routes.go`; `internal/agentruns/store.go`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesCreatesConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesUpdatesConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesDeletesConfig`; `internal/agentruns/service_test.go::TestEngineStoreCreateUpdateDeleteRoundTrip`. | `Proved` | |
 | `EC-03` | `getEngineConfig`, update, and delete require the config to exist and return `404` when it does not. | `backend/setta/routers/agentic.py::route_get_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`; `backend/setta/routers/agentic.py::route_delete_engine_config`. | Impl: `internal/httpapi/engine_config_routes.go`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsNotFoundForMissingGetConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsNotFoundForMissingConfig`; `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesReturnsNotFoundForMissingDeleteConfig`. | `Proved` | |
 | `EC-04` | Source-baseline engine-config reads are LLM-gated rather than IDE-only; current Go intentionally narrows both list and single-item reads to the IDE settings surface. | `backend/setta/routers/agentic.py::route_get_engine_configs`; `backend/setta/routers/agentic.py::route_get_engine_config`. | Current Go guard: `internal/httpapi/engine_config_routes.go::RegisterEngineConfigRoutes`; proof: `internal/httpapi/engine_config_routes_test.go::TestRegisterEngineConfigRoutesBlocksShareMode`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-read-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-agentic-single-item-read-transport.md`. | `Intentional divergence` | The rewrite docs explicitly kept engine-config reads inside the IDE-only settings boundary because no concrete share/deployment caller was found. |
-| `EC-05` | Source-baseline engine-config create/update accepts blank names when the field is present. | `backend/setta/types/agentic.py::EngineConfig`; `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`. | Current Go validation: `internal/httpapi/engine_config_routes.go::buildCreatedEngineConfig`; `internal/agentruns/types.go::EngineConfig.normalized`. | `Missing` | Source `main` only required field presence through Pydantic. Current Go trims and rejects blank names on create and update, which is a real behavioral tightening that is not documented as an intentional break. |
+| `EC-05` | Source-baseline engine-config create/update accepts blank names when the field is present. | `backend/setta/types/agentic.py::EngineConfig`; `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`. | Impl: `internal/httpapi/engine_config_routes.go::{buildCreatedEngineConfig,buildUpdatedEngineConfig}`; `internal/agentruns/types.go::EngineConfig.normalized`; proof: `internal/httpapi/engine_config_routes_test.go::{TestRegisterEngineConfigRoutesCreateAllowsBlankName,TestRegisterEngineConfigRoutesUpdateAllowsBlankName}`; `internal/agentruns/service_test.go::TestEngineStoreCreateAndUpdateAllowBlankNames`. | `Proved` | Current Go now accepts explicit blank engine-config names on both create and update while still requiring the field to be present on the surviving transport. |
 | `EC-06` | Engine-config mutations broadcast `EngineConfigsUpdated` after create/update/delete. | `backend/setta/routers/agentic.py::route_create_engine_config`; `backend/setta/routers/agentic.py::route_update_engine_config`; `backend/setta/routers/agentic.py::route_delete_engine_config`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_engine_configs_update`. | Current same-tab update path: `frontend/src/state/actions/ai.ts::{createEngineConfig,updateEngineConfig,deleteEngineConfig}`; rewrite defer: `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-read-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-update-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-engine-config-create-delete-transport.md`. | `Intentional divergence` | The route family is Go-owned, but realtime fan-out remains explicitly deferred because current direct callers already update local engine-config state from route results. |
 
 ## Listener Bootstrap, Coverage, And Frontend Emits
@@ -1242,8 +1239,8 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty-six concrete source-parity gaps:
-   `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
+1. The matrix now contains forty-five concrete source-parity gaps:
+   `PT-06`, `PT-08`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
@@ -1405,8 +1402,8 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `PT-06`, `PT-08`, `EC-05`, `LD-03`, `FB-02`, `US-05`,
-      `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
+    - decide whether `PT-06`, `PT-08`, `LD-03`, `FB-02`, `US-05`, `RV-02`,
+      `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
       `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,

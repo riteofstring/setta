@@ -106,16 +106,13 @@ func NewRunEvent(eventType string, payload map[string]any, now time.Time) RunEve
 func (c EngineConfig) normalized() (EngineConfig, error) {
 	normalized := EngineConfig{
 		ID:             strings.TrimSpace(c.ID),
-		Name:           strings.TrimSpace(c.Name),
+		Name:           c.Name,
 		EngineType:     EngineType(strings.TrimSpace(string(c.EngineType))),
 		Defaults:       c.Defaults,
 		RuntimeSupport: nil,
 	}
 	if normalized.ID == "" {
 		return EngineConfig{}, fmt.Errorf("engine config id is required")
-	}
-	if normalized.Name == "" {
-		return EngineConfig{}, fmt.Errorf("engine config %q name is required", normalized.ID)
 	}
 	switch normalized.EngineType {
 	case EngineTypeSettaLLM, EngineTypeExternalAgent:

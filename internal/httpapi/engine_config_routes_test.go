@@ -320,6 +320,39 @@ func TestRegisterEngineConfigRoutesCreatesConfig(t *testing.T) {
 	}
 }
 
+func TestRegisterEngineConfigRoutesCreateAllowsBlankName(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateEngineConfig,
+		strings.NewReader(`{"name":"  ","engineType":"setta_llm","settaLlmConfigId":"claude-sonnet"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var created agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created config: %v", err)
+	}
+	if created.Name != "  " {
+		t.Fatalf("expected blank name to roundtrip exactly, got %#v", created)
+	}
+	persisted, err := store.Get(created.ID)
+	if err != nil {
+		t.Fatalf("load created config: %v", err)
+	}
+	if persisted.Name != "  " {
+		t.Fatalf("expected persisted blank name, got %#v", persisted)
+	}
+}
+
 func TestRegisterEngineConfigRoutesUpdatesConfig(t *testing.T) {
 	t.Parallel()
 
@@ -366,6 +399,51 @@ func TestRegisterEngineConfigRoutesUpdatesConfig(t *testing.T) {
 	}
 	if persisted.Name != "Codex" || persisted.EngineType != agentruns.EngineTypeExternalAgent {
 		t.Fatalf("unexpected persisted engine config %#v", persisted)
+	}
+}
+
+func TestRegisterEngineConfigRoutesUpdateAllowsBlankName(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	settaConfigID := "claude-sonnet"
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-1",
+			Name:             "Claude",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateEngineConfig,
+		strings.NewReader(`{"config":{"id":"engine-1","name":"","engineType":"setta_llm","settaLlmConfigId":"claude-sonnet","runtimeSupport":{"thinking":true}}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var updated agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode updated config: %v", err)
+	}
+	if updated.Name != "" {
+		t.Fatalf("expected blank name to roundtrip exactly, got %#v", updated)
+	}
+	persisted, err := store.Get("engine-1")
+	if err != nil {
+		t.Fatalf("load persisted engine config: %v", err)
+	}
+	if persisted.Name != "" {
+		t.Fatalf("expected persisted blank name, got %#v", persisted)
 	}
 }
 
