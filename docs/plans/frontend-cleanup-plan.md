@@ -197,10 +197,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
   `frontend/src/state/actions/windowSpaceSnapshots.ts` owns floating
-  snapshot/restore conversion, `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts`
-  now owns restored-instance remapping, floating-window reuse, and deduped
-  restore merge policy, `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`
-  now owns workspace-restore planning plus the combined next-windowing result,
+  snapshot/restore conversion, `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts`
+  now owns floating-window reuse plus owner-key/supersede matching,
+  `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` now owns
+  restored-instance remapping and deduped restore merge policy, and
+  `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns
+  workspace-restore planning plus the combined next-windowing result,
   `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts` now owns
   restored git-pane visibility reconciliation, and
   `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` is now a thin

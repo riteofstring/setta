@@ -325,9 +325,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
     delete/create mutations plus optimistic persistence flow.
   - `state/actions/windowSpaceSnapshots.ts` owns floating window-space snapshot
     building and conversion back into project-chat windowing state.
+  - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` owns floating-window
+    reuse, owner-key resolution, and superseded-floating selection for saved
+    window-space restores.
   - `state/actions/windowSpaceWorkspaceRestoreRemap.ts` owns restored-instance
-    remapping, floating-window reuse, section-host collision drops, and deduped
-    merge policy for saved window-space restores.
+    remapping, section-host collision drops, and deduped restore merge policy.
   - `state/actions/windowSpaceWorkspaceRestoreLayout.ts` owns workspace-restore
     planning and the combined next-windowing result for saved window spaces.
   - `state/actions/windowSpaceWorkspaceRestoreVisibility.ts` owns restored
@@ -420,10 +422,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/windowSpaceWorkspaceRestoreRemap.ts` now owns the remaining
-  restore remapping and reuse policy for saved window spaces, so any follow-up
-  there should stay local to saved-layout remap helpers instead of regrowing
-  `state/actions/windowSpaces.ts` or the restore planner.
 - `state/actions/sections/createSectionFileOpenCommands.ts` now owns the
   remaining per-impl file-open command cluster, so any follow-up there should
   stay local to opened-file section commands instead of regrowing the drop
@@ -432,6 +430,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
   remaining project-chat windowing coordination surface, so follow-up windowing
   cleanup should stay local to the write pipeline or the new command modules
   instead of regrowing the reducer owners
+- `state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns the saved-layout
+  reuse-owner matching rules, so any follow-up there should stay local to
+  restore owner-key helpers instead of regrowing the remap or layout planners.
 - `state/actions/sectionEffectiveImplSelectors.ts` should keep owning typed
   current-section/current-code-object reads instead of regrowing
   `state/actions/sectionEffectiveImplCore.ts` or the compatibility facade.

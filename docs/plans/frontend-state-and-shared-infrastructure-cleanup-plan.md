@@ -108,14 +108,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
   snapshot building plus conversion back into project-chat windowing state that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
-- `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` now owns
-  restored-instance remapping, floating-window reuse, section-host collision
-  drops, and deduped merge policy that previously lived in
-  `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`, while
-  `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts` now owns
-  the remaining workspace-restore planning and combined next-windowing result,
-  `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts` now
-  owns restored git-pane visibility planning, and
+- `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns
+  floating-window reuse, owner-key resolution, and superseded-floating
+  selection that previously lived in
+  `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts`, while
+  `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` now owns
+  restored-instance remapping, section-host collision drops, and deduped merge
+  policy, `frontend/src/state/actions/windowSpaceWorkspaceRestoreLayout.ts`
+  now owns the remaining workspace-restore planning and combined
+  next-windowing result, `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts`
+  now owns restored git-pane visibility planning, and
   `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` is the thin
   composition entrypoint for those restore helpers.
 - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` now owns
@@ -196,21 +198,21 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 321 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
   - `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` at 195 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 321 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 288 lines
   - `frontend/src/state/actions/stateMachineEdgeGraph.ts` at 286 lines
   - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 270 lines
   - `frontend/src/state/actions/projectChatWindowCommands.ts` at 255 lines
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreRemap.ts` at 198 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -380,8 +382,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `windowSpaceSnapshots.ts` now owns:
   - floating window-space snapshot building
   - conversion from saved window-space state back into project-chat windowing state
+- `windowSpaceWorkspaceRestoreReuse.ts` now owns:
+  - floating-window reuse and owner-key resolution
+  - superseded-floating selection for saved window-space restores
 - `windowSpaceWorkspaceRestoreRemap.ts` now owns:
-  - restored-instance remapping, floating-window reuse, and merge policy
+  - restored-instance remapping, section-host collision drops, and merge policy
 - `windowSpaceWorkspaceRestoreLayout.ts` now owns:
   - workspace-restore planning and combined next-windowing assembly
 - `windowSpaceWorkspaceRestoreVisibility.ts` now owns:
@@ -511,12 +516,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - share/session state
 - Keep a minimal index only if it improves discovery without hiding ownership.
 
-2. Split `windowSpaceWorkspaceRestoreRemap.ts` into narrower restore helpers
+2. Split `projectChatWindowingWritePipeline.ts` into narrower write helpers
 
-- Separate floating-window reuse and owner-key resolution from the remaining
-  instance-remapping helpers.
-- Keep naming explicit so agents can tell whether they are calling a reuse
-  helper, a remapping helper, or a restore merge-policy function.
+- Separate pending-mutation queueing from authoritative publish/replay and
+  explicit sync/flush coordination.
+- Keep naming explicit so agents can tell whether they are calling a local
+  write barrier, a publish/replay helper, or a sync/flush helper.
 
 3. Normalize optimistic mutation infrastructure
 
