@@ -12,6 +12,16 @@ const devFrontendPortEnv = "SETTA_DEV_FRONTEND_PORT"
 const devFrontendSchemeEnv = "SETTA_DEV_FRONTEND_SCHEME"
 const defaultDevFrontendScheme = "http"
 
+func HasTrustedFrontendOrigin(r *http.Request, trustedOrigins *Service, sessionID string) bool {
+	if r == nil {
+		return false
+	}
+	if isTrustedFrontendOriginForRequest(r, r.Header.Get("Origin"), trustedOrigins, sessionID) {
+		return true
+	}
+	return isTrustedFrontendOriginForRequest(r, refererOrigin(r.Header.Get("Referer")), trustedOrigins, sessionID)
+}
+
 func IsAllowedOriginForRequest(r *http.Request, rawOrigin string, trustedOrigins *Service, sessionID string) bool {
 	normalizedOrigin := NormalizeOrigin(rawOrigin)
 	if normalizedOrigin == "" {
@@ -91,4 +101,29 @@ func configuredFrontendOriginsForRequest(r *http.Request) []string {
 		addOrigin(rawOrigin)
 	}
 	return origins
+}
+
+func isTrustedFrontendOriginForRequest(r *http.Request, rawOrigin string, trustedOrigins *Service, sessionID string) bool {
+	normalizedOrigin := NormalizeOrigin(rawOrigin)
+	if normalizedOrigin == "" {
+		return false
+	}
+	for _, configuredOrigin := range configuredFrontendOriginsForRequest(r) {
+		if configuredOrigin == normalizedOrigin {
+			return true
+		}
+	}
+	normalizedSessionID := normalizeSessionID(sessionID)
+	if trustedOrigins == nil || normalizedSessionID == "" {
+		return false
+	}
+	return trustedOrigins.IsTrustedOrigin(normalizedOrigin, normalizedSessionID)
+}
+
+func refererOrigin(rawReferer string) string {
+	parsedReferer, err := url.Parse(strings.TrimSpace(rawReferer))
+	if err != nil || parsedReferer.Scheme == "" || parsedReferer.Host == "" {
+		return ""
+	}
+	return NormalizeOrigin(parsedReferer.Scheme + "://" + parsedReferer.Host)
 }

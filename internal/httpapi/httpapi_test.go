@@ -115,6 +115,7 @@ func TestHandlerAddsCORSHeadersToUnauthorizedDevFrontendRequests(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/api/serverMode", nil)
 	request.Header.Set("Origin", "http://127.0.0.1:3000")
+	request.RemoteAddr = "10.0.0.5:1234"
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
@@ -125,6 +126,93 @@ func TestHandlerAddsCORSHeadersToUnauthorizedDevFrontendRequests(t *testing.T) {
 	}
 	if got := response.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
 		t.Fatalf("expected credentials CORS header, got %q", got)
+	}
+}
+
+func TestHandlerAutoAuthsLocalDevFrontendOriginRequests(t *testing.T) {
+	t.Setenv(devFrontendPortEnv, "3000")
+	t.Setenv(devFrontendSchemeEnv, "http")
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/api/runtimeInfo", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:3000")
+	request.RemoteAddr = "127.0.0.1:1234"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if len(response.Result().Cookies()) != 1 {
+		t.Fatalf("expected one auto-minted auth cookie, got %d", len(response.Result().Cookies()))
+	}
+}
+
+func TestHandlerAutoAuthsLocalDevFrontendRefererRequests(t *testing.T) {
+	t.Setenv(devFrontendPortEnv, "3000")
+	t.Setenv(devFrontendSchemeEnv, "http")
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/api/runtimeInfo", nil)
+	request.Header.Set("Origin", "http://evil.local")
+	request.Header.Set("Referer", "http://127.0.0.1:3000/chat")
+	request.RemoteAddr = "127.0.0.1:1234"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if len(response.Result().Cookies()) != 1 {
+		t.Fatalf("expected one auto-minted auth cookie, got %d", len(response.Result().Cookies()))
+	}
+}
+
+func TestHandlerAutoAuthsLocalDevFrontendRequestsForAuthenticatedRootRoutes(t *testing.T) {
+	t.Setenv(devFrontendPortEnv, "3000")
+	t.Setenv(devFrontendSchemeEnv, "http")
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			r.Get("/mcp", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000/mcp", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:3000")
+	request.RemoteAddr = "127.0.0.1:1234"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if len(response.Result().Cookies()) != 1 {
+		t.Fatalf("expected one auto-minted auth cookie, got %d", len(response.Result().Cookies()))
 	}
 }
 

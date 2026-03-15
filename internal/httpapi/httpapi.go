@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -258,58 +259,59 @@ func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.S
 
 			now := time.Now().UTC()
 			cookieValue, ok := authService.ReadAuthCookie(r)
-			if !ok {
-				writeUnauthorizedAuthResponse(w, r)
-				return
-			}
-
-			requestInfo, err := authService.ValidateAuthCookie(cookieValue, now)
-			if err != nil {
-				writeUnauthorizedAuthResponse(w, r)
-				return
-			}
-
-			if strings.HasPrefix(r.URL.Path, apiPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
-				token, payload, err := authService.MintAuthCookie(now)
-				if err != nil {
-					if errors.Is(err, auth.ErrMissingCurrentSession) {
-						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
-						return
-					}
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-					return
-				}
-				if trustedOrigins != nil {
-					if err := trustedOrigins.RefreshSessionExpiry(requestInfo.SessionID, payload.Exp); err != nil {
-						var unavailable *frontendorigins.StoreUnavailableError
-						if !errors.As(err, &unavailable) {
-							writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			if ok {
+				requestInfo, err := authService.ValidateAuthCookie(cookieValue, now)
+				if err == nil {
+					if strings.HasPrefix(r.URL.Path, apiPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
+						requestInfo, err = mintAndAttachSessionAuthCookie(w, r, authService, trustedOrigins, requestInfo.SessionID, now)
+						if err != nil {
+							writeAuthMiddlewareError(w, r, err)
 							return
 						}
 					}
-				}
-				if err := authService.SetAuthCookie(w, r, token); err != nil {
-					if errors.Is(err, auth.ErrMissingCurrentSession) {
-						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
-						return
-					}
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-					return
-				}
-				requestInfo, err = authService.ValidateAuthCookie(token, now)
-				if err != nil {
-					if errors.Is(err, auth.ErrMissingCurrentSession) {
-						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
-						return
-					}
-					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
 					return
 				}
 			}
 
-			next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
+			if shouldAutoAuthDevRequest(r, trustedOrigins, currentSessionID(authService)) {
+				requestInfo, err := mintAndAttachSessionAuthCookie(w, r, authService, trustedOrigins, currentSessionID(authService), now)
+				if err != nil {
+					writeAuthMiddlewareError(w, r, err)
+					return
+				}
+				next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
+				return
+			}
+			writeUnauthorizedAuthResponse(w, r)
 		})
 	}
+}
+
+func mintAndAttachSessionAuthCookie(
+	w http.ResponseWriter,
+	r *http.Request,
+	authService *auth.Service,
+	trustedOrigins *frontendorigins.Service,
+	sessionID string,
+	now time.Time,
+) (auth.RequestInfo, error) {
+	token, payload, err := authService.MintAuthCookie(now)
+	if err != nil {
+		return auth.RequestInfo{}, err
+	}
+	if trustedOrigins != nil && strings.TrimSpace(sessionID) != "" {
+		if err := trustedOrigins.RefreshSessionExpiry(sessionID, payload.Exp); err != nil {
+			var unavailable *frontendorigins.StoreUnavailableError
+			if !errors.As(err, &unavailable) {
+				return auth.RequestInfo{}, err
+			}
+		}
+	}
+	if err := authService.SetAuthCookie(w, r, token); err != nil {
+		return auth.RequestInfo{}, err
+	}
+	return authService.ValidateAuthCookie(token, now)
 }
 
 func writeUnauthorizedAuthResponse(w http.ResponseWriter, r *http.Request) {
@@ -318,6 +320,36 @@ func writeUnauthorizedAuthResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeUnauthorizedBootstrapHTML(w)
+}
+
+func writeAuthMiddlewareError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, auth.ErrMissingCurrentSession) {
+		writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+		return
+	}
+	writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+}
+
+func shouldAutoAuthDevRequest(r *http.Request, trustedOrigins *frontendorigins.Service, sessionID string) bool {
+	if strings.TrimSpace(os.Getenv(devFrontendPortEnv)) == "" {
+		return false
+	}
+	clientHost := requestClientHost(r)
+	if clientHost != "127.0.0.1" && clientHost != "::1" {
+		return false
+	}
+	return frontendorigins.HasTrustedFrontendOrigin(r, trustedOrigins, sessionID)
+}
+
+func requestClientHost(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil {
+		return host
+	}
+	return strings.TrimSpace(r.RemoteAddr)
 }
 
 func modeContextMiddleware(policy modes.Policy) func(http.Handler) http.Handler {
