@@ -33,12 +33,14 @@ Non-negotiable constraints:
 - Remove all remaining live `grid` and `subgrid` usage from the section container level downward in the active implementation path.
 - Use the simplest rendering/layout technique that preserves parity.
 - Preserve all existing user-facing behavior, features, and interactions.
+- Treat untouched `main` as the visual and interaction source of truth for every touched section path; the refactored branch must be pixel-perfect against `main` unless the user explicitly approves a visual change.
 - The intended user-visible outcome is performance gain only, not redesign.
 - Work from the deepest nested layout ownership outward/upward.
 - Expect multiple passes; after removing a top shared grid layer, re-analyze before deciding the next pass.
 - Use Chrome DevTools performance testing and compare untouched `main` vs this worktree.
 - Check every touched section type, not only the earlier representative controls.
 - For every touched text/code input path, explicitly verify underline/focus feedback, dummy-vs-real CodeMirror font and spacing parity, and activation responsiveness.
+- For every touched param-row path, explicitly verify hover styling, resize-handle visibility and placement, live resize behavior, and pixel-perfect row geometry against untouched `main`.
 - Do not promote callable column resize or section resize work above the active structural simplification passes unless a fresh untouched-`main` vs worktree trace shows they are blocking the current checkpoint.
 - For any performance test that touches panning, zooming, resizing, or another section-shell interaction path, capture a Chrome DevTools `Performance` trace on that path. Playwright metrics or ad hoc timings can support the read, but they do not replace the DevTools profile.
 - If a target truly cannot be achieved without `grid`, stop and report the blocker instead of introducing `grid`.
@@ -101,6 +103,10 @@ Immediate next step:
      - dummy-vs-real CodeMirror mono font parity on the touched `mode` field
      - persistent live-editor mounting after first activation so repeated focus no longer pays a blur-triggered remount
    - checkpoint 1 is still not accepted because the cold first-activation trace is only mixed against untouched `main`
+   - the callable row-shell follow-up also has a new hard visual gate:
+     - every callable arg row must keep the same hover/highlight behavior as untouched `main` unless the user explicitly requests an additive visual treatment
+     - resize handles must sit in the same place and behave the same way as untouched `main`
+     - the recreated flex layout must stay pixel-perfect against untouched `main`, not just approximately aligned
    - the next fix slice stays in the same lower seam and should target the cold activation path under the newly flattened row shell:
      - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
      - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
@@ -111,9 +117,16 @@ Immediate next step:
      - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx`
      - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
      - the mirrored param-input affordance copies in `frontend/src/components/App/appRegistry.tsx`
+     - plus the shared row/handle recreation seam in:
+       - `frontend/src/components/Params/ParamContainer.tsx`
+       - `frontend/src/components/Params/ParamRowShell.tsx`
+       - `frontend/src/components/Params/ResizeHandle.tsx`
+       - `frontend/src/components/Params/GroupContainer.tsx`
+       - `frontend/index.css`
    - acceptance remains blocked until the same-scene callable compare regains:
      - a clearly non-regressing cold row-activation trace on untouched `main` vs this worktree
      - the same visual/input parity across every touched section type after the activation-path changes land
+     - pixel-perfect callable row recreation for hover, handle placement, and live resize behavior against untouched `main`
 
 Historical accepted checkpoint notes retained below:
 

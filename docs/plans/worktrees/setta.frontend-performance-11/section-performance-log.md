@@ -278,6 +278,26 @@ Append-only log for the section performance refactor.
     - edge inputs `a` through `d` appeared
     - the row body reintroduced `x`
     - the node screenshot showed a red validation/error row instead of the expected pinned and unpinned stacks
+
+### 2026-03-17 38
+
+- Item: Tighten the reopened section plan around pixel-perfect row recreation and resize-handle parity.
+- Status: `done`
+- Details:
+  - Updated the reopened plan so untouched `main` is the explicit pixel-perfect visual and interaction source of truth for every touched section path.
+  - Added a hard param-row verification requirement for:
+    - hover styling
+    - resize-handle visibility and placement
+    - live resize behavior
+    - pixel-perfect row geometry against untouched `main`
+  - Recorded that the active callable row-shell follow-up now includes the shared row/handle recreation seam in:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamRowShell.tsx`
+    - `frontend/src/components/Params/ResizeHandle.tsx`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/index.css`
+- Next action:
+  - Fix the callable row/resize-handle regression under the tighter pixel-perfect parity gate, then rerun CDP and automated verification before resuming the cold-activation checkpoint read.
   - Because the required `main` vs worktree screenshot parity check failed on the minimum regression scene, this checkpoint is not accepted yet.
 - Next action:
   - Investigate why untouched `main` cannot hold the required `math.sqrt` `a` through `k` scene cleanly before making more callable layout edits or checkpoint commits.
