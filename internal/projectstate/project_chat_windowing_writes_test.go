@@ -442,26 +442,96 @@ func TestRuntimeCreateWindowSpaceGeneratesValidDefaultName(t *testing.T) {
 func TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner(t *testing.T) {
 	t.Parallel()
 
-	runtime := openProjectChatWindowingWriteTestRuntime(t)
-
-	_, _, err := runtime.CreateWindowSpace(
-		context.Background(),
-		"project-alpha",
-		WindowSpaceState{
-			WindowsByID: map[string]WindowSpaceWindow{
-				"window-a": {
-					SurfaceKind:     WindowSpaceSurfaceKindSection,
-					SectionIDOrNull: stringPointer("section-a"),
-					Mode:            ChatWindowModeSection,
-					ChatID:          stringPointer("stale-chat"),
+	tests := []struct {
+		name    string
+		state   WindowSpaceState
+		message string
+	}{
+		{
+			name: "section without section binding",
+			state: WindowSpaceState{
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-a": {
+						SurfaceKind: WindowSpaceSurfaceKindSection,
+						Mode:        ChatWindowModeSection,
+					},
 				},
+				Order: []string{"window-a"},
 			},
-			Order: []string{"window-a"},
+			message: "Section window-space windows require sectionIdOrNull.",
 		},
-		stringPointer("Focused Layout"),
-	)
-	if err == nil || err.Error() != "Window-space windows must use project_ai_mode to bind chatId." {
-		t.Fatalf("expected invalid owner error, got %v", err)
+		{
+			name: "project chat carrying section binding",
+			state: WindowSpaceState{
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-a": {
+						SurfaceKind:     WindowSpaceSurfaceKindProjectChat,
+						SectionIDOrNull: stringPointer("section-a"),
+						Mode:            ChatWindowModeProjectAI,
+					},
+				},
+				Order: []string{"window-a"},
+			},
+			message: "Project-chat window-space windows cannot carry sectionIdOrNull.",
+		},
+		{
+			name: "section git graph mode",
+			state: WindowSpaceState{
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-a": {
+						SurfaceKind:     WindowSpaceSurfaceKindSection,
+						SectionIDOrNull: stringPointer("section-a"),
+						Mode:            ChatWindowModeGitGraph,
+					},
+				},
+				Order: []string{"window-a"},
+			},
+			message: "Section window-space windows cannot use git_graph_mode.",
+		},
+		{
+			name: "project chat section mode",
+			state: WindowSpaceState{
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-a": {
+						SurfaceKind: WindowSpaceSurfaceKindProjectChat,
+						Mode:        ChatWindowModeSection,
+					},
+				},
+				Order: []string{"window-a"},
+			},
+			message: "Project-chat window-space windows cannot use section_mode.",
+		},
+		{
+			name: "non project ai chat id",
+			state: WindowSpaceState{
+				WindowsByID: map[string]WindowSpaceWindow{
+					"window-a": {
+						SurfaceKind:     WindowSpaceSurfaceKindSection,
+						SectionIDOrNull: stringPointer("section-a"),
+						Mode:            ChatWindowModeSection,
+						ChatID:          stringPointer("stale-chat"),
+					},
+				},
+				Order: []string{"window-a"},
+			},
+			message: "Window-space windows must use project_ai_mode to bind chatId.",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+			_, _, err := runtime.CreateWindowSpace(
+				context.Background(),
+				"project-alpha",
+				tc.state,
+				stringPointer("Focused Layout"),
+			)
+			if err == nil || err.Error() != tc.message {
+				t.Fatalf("expected invalid owner error %q, got %v", tc.message, err)
+			}
+		})
 	}
 }
 

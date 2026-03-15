@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -48,6 +49,7 @@ ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
 ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE = "/api/setProjectChatWindowingState"
 ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID = "/api/setProjectChatWindowChatId"
+ROUTE_CREATE_WINDOW_SPACE = "/api/createWindowSpace"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
 ROUTE_SAVE_PROJECT = "/api/saveProject"
@@ -816,6 +818,8 @@ def execute_scenario(
         return execute_project_chat_windowing_state_invalid_owner_mode_write_contract(
             backend
         )
+    if scenario.kind == "window_space_create_invalid_owner_mode_write_contract":
+        return execute_window_space_create_invalid_owner_mode_write_contract(backend)
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1644,6 +1648,121 @@ def execute_project_chat_windowing_state_invalid_owner_mode_write_contract(
         "gitGraphSectionPayload": git_graph_section_payload,
         "gitGraphCanvasStatus": git_graph_canvas_response.status_code,
         "gitGraphCanvasPayload": git_graph_canvas_payload,
+    }
+
+
+def execute_window_space_create_invalid_owner_mode_write_contract(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    project_config = object_field(loaded, "projectConfig")
+    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    if not top_level_sections:
+        raise ParityHarnessError(
+            f"Expected created project {project_id!r} to have at least one top-level section."
+        )
+    section_id = next(iter(top_level_sections))
+
+    def post_invalid_window_space(state: dict[str, Any]) -> tuple[int, Any]:
+        response = post_json_allow_status(
+            session=backend.session,
+            base_url=backend.base_url,
+            route=ROUTE_CREATE_WINDOW_SPACE,
+            payload={
+                "projectConfigId": project_id,
+                "name": "Focused Layout",
+                "state": state,
+            },
+        )
+        return response.status_code, normalize_response_json_allow_status(response)
+
+    section_missing_status, section_missing_payload = post_invalid_window_space(
+        {
+            "windowsById": {
+                "section-missing-binding": {
+                    "surfaceKind": "section",
+                    "mode": "section_mode",
+                }
+            },
+            "order": ["section-missing-binding"],
+        }
+    )
+    project_chat_section_status, project_chat_section_payload = post_invalid_window_space(
+        {
+            "windowsById": {
+                "project-chat-section-window": {
+                    "surfaceKind": "project_chat",
+                    "sectionIdOrNull": section_id,
+                    "mode": "project_ai_mode",
+                }
+            },
+            "order": ["project-chat-section-window"],
+        }
+    )
+    section_git_graph_status, section_git_graph_payload = post_invalid_window_space(
+        {
+            "windowsById": {
+                "section-git-graph-window": {
+                    "surfaceKind": "section",
+                    "sectionIdOrNull": section_id,
+                    "mode": "git_graph_mode",
+                }
+            },
+            "order": ["section-git-graph-window"],
+        }
+    )
+    project_chat_section_mode_status, project_chat_section_mode_payload = post_invalid_window_space(
+        {
+            "windowsById": {
+                "project-chat-section-mode-window": {
+                    "surfaceKind": "project_chat",
+                    "mode": "section_mode",
+                }
+            },
+            "order": ["project-chat-section-mode-window"],
+        }
+    )
+    non_project_ai_chat_id_status, non_project_ai_chat_id_payload = post_invalid_window_space(
+        {
+            "windowsById": {
+                "section-chat-id-window": {
+                    "surfaceKind": "section",
+                    "sectionIdOrNull": section_id,
+                    "mode": "section_mode",
+                    "chatId": "stale-chat",
+                }
+            },
+            "order": ["section-chat-id-window"],
+        }
+    )
+
+    summary = summarize_window_space_create_invalid_owner_mode_write_contract(
+        section_missing_http_status=section_missing_status,
+        section_missing_payload=section_missing_payload,
+        project_chat_section_http_status=project_chat_section_status,
+        project_chat_section_payload=project_chat_section_payload,
+        section_git_graph_http_status=section_git_graph_status,
+        section_git_graph_payload=section_git_graph_payload,
+        project_chat_section_mode_http_status=project_chat_section_mode_status,
+        project_chat_section_mode_payload=project_chat_section_mode_payload,
+        non_project_ai_chat_id_http_status=non_project_ai_chat_id_status,
+        non_project_ai_chat_id_payload=non_project_ai_chat_id_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "sectionMissingStatus": section_missing_status,
+        "sectionMissingPayload": section_missing_payload,
+        "projectChatSectionStatus": project_chat_section_status,
+        "projectChatSectionPayload": project_chat_section_payload,
+        "sectionGitGraphStatus": section_git_graph_status,
+        "sectionGitGraphPayload": section_git_graph_payload,
+        "projectChatSectionModeStatus": project_chat_section_mode_status,
+        "projectChatSectionModePayload": project_chat_section_mode_payload,
+        "nonProjectAIChatIDStatus": non_project_ai_chat_id_status,
+        "nonProjectAIChatIDPayload": non_project_ai_chat_id_payload,
     }
 
 
@@ -3070,6 +3189,51 @@ def summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
         "gitGraphCanvasErrorCode": normalize_error_code(git_graph_canvas_payload),
         "gitGraphCanvasErrorSummary": normalize_error_summary(
             git_graph_canvas_payload
+        ),
+    }
+
+
+def summarize_window_space_create_invalid_owner_mode_write_contract(
+    section_missing_http_status: int,
+    section_missing_payload: Any,
+    project_chat_section_http_status: int,
+    project_chat_section_payload: Any,
+    section_git_graph_http_status: int,
+    section_git_graph_payload: Any,
+    project_chat_section_mode_http_status: int,
+    project_chat_section_mode_payload: Any,
+    non_project_ai_chat_id_http_status: int,
+    non_project_ai_chat_id_payload: Any,
+) -> dict[str, Any]:
+    return {
+        "sectionMissingHttpStatus": section_missing_http_status,
+        "sectionMissingErrorCode": normalize_error_code(section_missing_payload),
+        "sectionMissingErrorSummary": normalize_error_summary(section_missing_payload),
+        "projectChatSectionHttpStatus": project_chat_section_http_status,
+        "projectChatSectionErrorCode": normalize_error_code(
+            project_chat_section_payload
+        ),
+        "projectChatSectionErrorSummary": normalize_error_summary(
+            project_chat_section_payload
+        ),
+        "sectionGitGraphHttpStatus": section_git_graph_http_status,
+        "sectionGitGraphErrorCode": normalize_error_code(section_git_graph_payload),
+        "sectionGitGraphErrorSummary": normalize_error_summary(
+            section_git_graph_payload
+        ),
+        "projectChatSectionModeHttpStatus": project_chat_section_mode_http_status,
+        "projectChatSectionModeErrorCode": normalize_error_code(
+            project_chat_section_mode_payload
+        ),
+        "projectChatSectionModeErrorSummary": normalize_error_summary(
+            project_chat_section_mode_payload
+        ),
+        "nonProjectAIChatIDHttpStatus": non_project_ai_chat_id_http_status,
+        "nonProjectAIChatIDErrorCode": normalize_error_code(
+            non_project_ai_chat_id_payload
+        ),
+        "nonProjectAIChatIDErrorSummary": normalize_error_summary(
+            non_project_ai_chat_id_payload
         ),
     }
 
@@ -5761,10 +5925,16 @@ def normalize_error_summary(payload: Any) -> str:
         raw_text = normalized_string(payload.get("_rawText"))
         if raw_text:
             return raw_text
+        message = payload.get("message")
+        if isinstance(message, str):
+            normalized_validation_message = normalize_python_validation_message(
+                message
+            )
+            if normalized_validation_message:
+                return normalized_validation_message
         detail = payload.get("detail")
         if isinstance(detail, str):
             return detail.strip()
-        message = payload.get("message")
         if isinstance(message, str):
             return message.strip()
         code = payload.get("code")
@@ -5784,7 +5954,50 @@ def normalize_error_code(payload: Any) -> str:
     code = payload.get("code")
     if isinstance(code, str):
         return code.strip()
+    message = payload.get("message")
+    if isinstance(message, str):
+        normalized_validation_message = normalize_python_validation_message(message)
+        if normalized_validation_message:
+            return normalized_validation_message
     return normalize_error_summary(payload)
+
+
+PYTHON_VALUE_ERROR_RE = re.compile(r"ValueError\((?P<quoted>'(?:[^'\\\\]|\\\\.)*')\)")
+
+
+def normalize_python_validation_message(message: str) -> str | None:
+    stripped_message = normalized_string(message)
+    if not stripped_message:
+        return None
+    sanitized_message = PYTHON_VALUE_ERROR_RE.sub(
+        lambda match: match.group("quoted"),
+        stripped_message,
+    )
+    try:
+        parsed_message = ast.literal_eval(sanitized_message)
+    except (SyntaxError, ValueError):
+        return None
+    return extract_python_validation_message(parsed_message)
+
+
+def extract_python_validation_message(payload: Any) -> str | None:
+    if isinstance(payload, dict):
+        raw_message = payload.get("msg")
+        if isinstance(raw_message, str):
+            normalized_message = normalized_string(raw_message)
+            if normalized_message.startswith("Value error, "):
+                return normalized_string(
+                    normalized_message[len("Value error, ") :]
+                )
+            return normalized_message
+        return None
+    if isinstance(payload, list):
+        for entry in payload:
+            normalized_message = extract_python_validation_message(entry)
+            if normalized_message:
+                return normalized_message
+        return None
+    return None
 
 
 def normalize_backend_error_summary(error_text: str) -> str:

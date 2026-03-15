@@ -2437,6 +2437,74 @@ class Route:
             },
         )
 
+    def test_summarize_window_space_create_invalid_owner_mode_write_contract(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "detail": "Window-space write rejected."
+        }
+
+        self.assertEqual(
+            harness.summarize_window_space_create_invalid_owner_mode_write_contract(
+                section_missing_http_status=422,
+                section_missing_payload=payload,
+                project_chat_section_http_status=422,
+                project_chat_section_payload=payload,
+                section_git_graph_http_status=422,
+                section_git_graph_payload=payload,
+                project_chat_section_mode_http_status=422,
+                project_chat_section_mode_payload=payload,
+                non_project_ai_chat_id_http_status=422,
+                non_project_ai_chat_id_payload=payload,
+            ),
+            {
+                "sectionMissingHttpStatus": 422,
+                "sectionMissingErrorCode": "Window-space write rejected.",
+                "sectionMissingErrorSummary": "Window-space write rejected.",
+                "projectChatSectionHttpStatus": 422,
+                "projectChatSectionErrorCode": "Window-space write rejected.",
+                "projectChatSectionErrorSummary": "Window-space write rejected.",
+                "sectionGitGraphHttpStatus": 422,
+                "sectionGitGraphErrorCode": "Window-space write rejected.",
+                "sectionGitGraphErrorSummary": "Window-space write rejected.",
+                "projectChatSectionModeHttpStatus": 422,
+                "projectChatSectionModeErrorCode": "Window-space write rejected.",
+                "projectChatSectionModeErrorSummary": "Window-space write rejected.",
+                "nonProjectAIChatIDHttpStatus": 422,
+                "nonProjectAIChatIDErrorCode": "Window-space write rejected.",
+                "nonProjectAIChatIDErrorSummary": "Window-space write rejected.",
+            },
+        )
+
+    def test_normalize_python_validation_message_extracts_value_error_detail(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "status_code": 10422,
+            "message": (
+                "[{'type': 'value_error', 'loc': ('body', 'state', 'windowsById', "
+                "'section-missing-binding'), 'msg': 'Value error, Section "
+                "window-space windows require sectionIdOrNull.', 'input': "
+                "{'surfaceKind': 'section', 'mode': 'section_mode'}, 'ctx': "
+                "{'error': ValueError('Section window-space windows require "
+                "sectionIdOrNull.')}}]"
+            ),
+            "data": None,
+        }
+
+        self.assertEqual(
+            harness.normalize_error_summary(payload),
+            "Section window-space windows require sectionIdOrNull.",
+        )
+        self.assertEqual(
+            harness.normalize_error_code(payload),
+            "Section window-space windows require sectionIdOrNull.",
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

@@ -314,24 +314,50 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 		}
 	}
 
-	windowSpaceRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteCreateWindowSpace,
-		strings.NewReader(`{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"section","sectionIdOrNull":"section-a","mode":"section_mode","chatId":"stale-chat"}},"order":["window-a"]}}`),
-	)
-	windowSpaceRequest.Header.Set("Content-Type", "application/json")
-	windowSpaceResponse := httptest.NewRecorder()
-	handler.ServeHTTP(windowSpaceResponse, windowSpaceRequest)
-	if windowSpaceResponse.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 window-space response, got %d with body %q", windowSpaceResponse.Code, windowSpaceResponse.Body.String())
-	}
+	for _, testCase := range []struct {
+		payload        string
+		expectedDetail string
+	}{
+		{
+			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"section","mode":"section_mode"}},"order":["window-a"]}}`,
+			expectedDetail: "Section window-space windows require sectionIdOrNull.",
+		},
+		{
+			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"project_chat","sectionIdOrNull":"section-a","mode":"project_ai_mode"}},"order":["window-a"]}}`,
+			expectedDetail: "Project-chat window-space windows cannot carry sectionIdOrNull.",
+		},
+		{
+			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"section","sectionIdOrNull":"section-a","mode":"git_graph_mode"}},"order":["window-a"]}}`,
+			expectedDetail: "Section window-space windows cannot use git_graph_mode.",
+		},
+		{
+			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"project_chat","mode":"section_mode"}},"order":["window-a"]}}`,
+			expectedDetail: "Project-chat window-space windows cannot use section_mode.",
+		},
+		{
+			payload:        `{"projectConfigId":"project-alpha","name":"Focused Layout","state":{"windowsById":{"window-a":{"surfaceKind":"section","sectionIdOrNull":"section-a","mode":"section_mode","chatId":"stale-chat"}},"order":["window-a"]}}`,
+			expectedDetail: "Window-space windows must use project_ai_mode to bind chatId.",
+		},
+	} {
+		windowSpaceRequest := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteCreateWindowSpace,
+			strings.NewReader(testCase.payload),
+		)
+		windowSpaceRequest.Header.Set("Content-Type", "application/json")
+		windowSpaceResponse := httptest.NewRecorder()
+		handler.ServeHTTP(windowSpaceResponse, windowSpaceRequest)
+		if windowSpaceResponse.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("expected 422 window-space response, got %d with body %q", windowSpaceResponse.Code, windowSpaceResponse.Body.String())
+		}
 
-	var windowSpaceError map[string]string
-	if err := json.Unmarshal(windowSpaceResponse.Body.Bytes(), &windowSpaceError); err != nil {
-		t.Fatalf("decode window-space error response: %v", err)
-	}
-	if windowSpaceError["detail"] != "Window-space windows must use project_ai_mode to bind chatId." {
-		t.Fatalf("expected invalid window-space detail, got %#v", windowSpaceError)
+		var windowSpaceError map[string]string
+		if err := json.Unmarshal(windowSpaceResponse.Body.Bytes(), &windowSpaceError); err != nil {
+			t.Fatalf("decode window-space error response: %v", err)
+		}
+		if windowSpaceError["detail"] != testCase.expectedDetail {
+			t.Fatalf("expected invalid window-space detail %q, got %#v", testCase.expectedDetail, windowSpaceError)
+		}
 	}
 }
 
