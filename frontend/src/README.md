@@ -105,8 +105,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     that re-exports the thread-group, thread, and undo owners.
   - `state/actions/aiHydrationOutcome.ts` owns managed/external hydration route
     probes, outcome typing, and failure classification.
-  - `state/actions/aiHydrationApply.ts` owns managed/external chat hydration
-    store reconciliation plus chat-section persistence sync.
+  - `state/actions/aiHydrationChatState.ts` owns managed/external chat-detail
+    reconciliation plus app-generation detail hydration.
+  - `state/actions/aiHydrationSectionState.ts` owns managed/external
+    chat-section reconciliation plus section-state persistence sync.
+  - `state/actions/aiHydrationApply.ts` is now the thin hydration-apply
+    orchestration facade over those narrower owners.
   - `state/actions/aiHydration.ts` is now the thin public hydration facade that
     composes the outcome and apply owners.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
@@ -434,6 +438,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
     used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
     helpers split across `aiHydration.ts`, `aiHydrationApply.ts`,
+    `aiHydrationChatState.ts`, `aiHydrationSectionState.ts`,
     `aiHydrationOutcome.ts`, `aiAgentRuns.ts`,
     `aiChatSubmissionMessages.ts`, `aiChatSubmissionEdits.ts`,
     `aiChatSubmissionResponse.ts`, `aiChatSubmission.ts`,
