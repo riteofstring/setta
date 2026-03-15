@@ -4355,3 +4355,125 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the full `sectionChrome` `windowFlow` baseline in place.
   - Re-read the lower MetaControl shell and choose the deepest removable `single-cell-container` / `single-cell-child` ownership seam next.
+
+### 2026-03-18 116
+
+- Item: Restore the accepted `sectionChrome` `windowFlow` baseline in the tracked helper and reverify it after code drift.
+- Status: `done`
+- Details:
+  - After the checkpoint paperwork landed, the tracked `sectionChrome` helper and focused shell tests were still sitting on the older grid implementation:
+    - `getWindowSectionChrome(...)` had drifted back to the shared grid path
+    - `getCanvasSectionChrome(...)` still kept the true-meta `grid-cols-1 grid-rows-1` override
+    - the focused tests in `sectionChrome.test.ts` and `SectionContainerCoreResizabe.test.tsx` had matching stale grid expectations
+  - Restored the accepted helper baseline in:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+  - Restored the focused expectations in:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - Final helper behavior after the restoration:
+    - window surfaces: `surfaceLayout: "windowFlow"`
+    - non-meta canvas surfaces: `surfaceLayout: "windowFlow"`
+    - true canvas `MetaControl`: `surfaceLayout: "windowFlow"`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx`
+      - result: `4` files passed, `24` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts frontend/tests/e2e/sections/section-sizing.spec.ts --grep "section pop-out opens above existing floating windows by default|standalone section routes stay bound to their section thread and keep workspace project chat isolated|meta control time defaults to display and can switch to input mode|meta control calendar renders calendar UI|meta control slider only shows width resize handle"`
+      - result: `5` passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `2` passed
+    - combined shared-surface rerun note:
+      - a broader `7`-test combined Playwright command hit a timeout during the dark callable cleanup path after the screenshot/reorder assertions had already run
+      - the callable canary then passed cleanly when rerun in isolation, so the final verification set above is the kept read
+  - CDP recheck:
+    - reran the disposable true-meta compare after restoring the helper on disk
+    - untouched `main` still reads the disposable MetaControl slider shell as `display:grid`
+    - the worktree now reads the same disposable MetaControl slider shell as `display:flex` with no `section-grid-*`
+    - normalized node, surface, and outboard-menu geometry still resolves to the same `202 x 34`, `200 x 32`, and `22 x 22` contract, with the same right-handle-only resize behavior
+  - Interpretation:
+    - the accepted `sectionChrome` `windowFlow` baseline is now true in the tracked production code, not just in the plan/log history
+    - the next active target remains the lower MetaControl `single-cell-container` / `single-cell-child` seam
+- Next action:
+  - Keep the restored `sectionChrome` helper baseline.
+  - Do not fold unrelated in-progress changes from the lower MetaControl shell into this checkpoint without a fresh read of those files.
+
+### 2026-03-18 117
+
+- Item: Repair the post-`windowFlow` section-shell parity regressions without reintroducing grid.
+- Status: `done`
+- Details:
+  - User-reported regressions reopened the higher shell only as a parity repair:
+    - resize artifacts on the `GenPythonCode` section
+    - section bodies could be resized too small without preserving the old overflow/min-size contract
+    - inline title editing changed section width during edit
+    - section headers drifted off the old height
+  - The accepted `windowFlow` split itself stays in place; the fix is not a return to `grid`.
+  - Traced the parity gap to the first bare flex shell:
+    - `flex min-h-0 flex-col` alone did not recreate the old sizing contract for the surviving section area classes
+    - live section bodies still depend on classes such as `section-title`, `section-main`, and `section-full-no-title`
+  - Landed the shared repair in:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+      - every `windowFlow` shell now also carries `section-windowflow-shell`
+    - `frontend/index.css`
+      - recreated the old title/body sizing contract with flex rules for the surviving area classes instead of grid
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+      - restored the stable `22px` header/min-height contract
+      - kept the inline title input stretched to the existing header width while editing
+    - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
+      - restored the fill-path `min-h-0` / `flex-1` behavior under the repaired shell
+  - Added a direct guardrail in:
+    - `frontend/tests/e2e/sections/section-sizing.spec.ts`
+      - `Code` section title editing now asserts stable section width and header height during inline edit
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Header/SectionHeader.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `7` files passed, `46` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-sizing.spec.ts frontend/tests/e2e/params/meta-control-date-time-modes.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "meta control|title editing keeps section width and header height stable|workspace and standalone callable routes preserve reorder and tab indent behavior|standalone section routes stay bound to their section thread and keep workspace project chat isolated"`
+      - result: `7` passed
+  - CDP compare:
+    - untouched `main`: `http://127.0.0.1:3087/deep_flowing`
+    - worktree: `http://127.0.0.1:3011/young_huge`
+    - representative section: `GenPythonCode`
+    - worktree viewport scale still differs from untouched `main` (`0.772755` versus `1`)
+    - after normalizing the worktree read by viewport scale, the section shell contract resolves to the same geometry as untouched `main`:
+      - section width: `502`
+      - header width: `484`
+      - article width: `500`
+      - header height: `22`
+  - Interpretation:
+    - keep the accepted `windowFlow` split
+    - keep the repaired `section-windowflow-shell` sizing contract with it
+    - do not reopen grid for this higher seam
+- Next action:
+  - Keep `sectionChrome` closed on the repaired `windowFlow` shell.
+  - Move the next live structural pass back down into the lower MetaControl `single-cell-container` / `single-cell-child` seam.
+
+### 2026-03-18 118
+
+- Item: Remove gesture-time section-shell compositor promotion after the pan/zoom blur report.
+- Status: `done`
+- Details:
+  - User-reported behavior:
+    - when panning or zooming, section content dropped to visibly low resolution until motion stopped
+  - Traced the blur to `frontend/src/components/Section/Container/SectionContainerCore.tsx`:
+    - the shell was adding gesture-scoped compositor-promotion styles while `viewportInteractionActive === true`
+    - active styles were:
+      - `willChange: transform`
+      - `transform: translateZ(0)`
+      - `backfaceVisibility: hidden`
+      - `isolation: isolate`
+  - Removed that gesture-scoped shell promotion from the live section path.
+  - Added a focused regression test in:
+    - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+      - verifies viewport interaction no longer injects those shell styles
+  - Verification:
+    - reused the same focused Vitest and Playwright suites from entry `117`
+    - CDP live-shell inspection on `http://127.0.0.1:3011/young_huge` now reads:
+      - `willChange: ""`
+      - `transform: ""`
+      - `backfaceVisibility: ""`
+      - `isolation: ""`
+  - Interpretation:
+    - the branch no longer accepts gesture-time shell raster degradation as part of viewport motion
+    - any future pan/zoom performance work must prove a replacement approach without reintroducing temporary blur
+- Next action:
+  - Keep gesture-time shell compositor promotion out of `SectionContainerCore.tsx`.
+  - If pan/zoom performance is revisited later, capture a fresh untouched-`main` versus worktree trace before trying any replacement.
