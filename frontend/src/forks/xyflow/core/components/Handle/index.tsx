@@ -1,11 +1,11 @@
 import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import type { HTMLAttributes } from "react";
 import { memo, useLayoutEffect, useRef } from "react";
+import { updateEdgeHandlePosition } from "state/actions/edgeHandlePositionState";
 import {
   registerEdgeHandle,
   unregisterEdgeHandle,
-  updateEdgeHandlePosition,
-} from "state/actions/edgeHandles";
+} from "state/actions/edgeHandleRegistration";
 import { useReactFlow } from "../../store";
 import type { Connection, HandleProps } from "../../types";
 import { isMouseEvent } from "../../utils";

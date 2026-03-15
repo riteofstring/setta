@@ -7,7 +7,7 @@ import { TbBell, TbBellOff, TbSortDescending2 } from "react-icons/tb";
 import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
-} from "state/actions/lspDiagnostics";
+} from "state/actions/lspDiagnosticsCommands";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
@@ -16,12 +16,12 @@ import {
 import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
   useAIFollow,
-  useLspDiagnostics,
   useProjectState,
   useShareSession,
-  useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {

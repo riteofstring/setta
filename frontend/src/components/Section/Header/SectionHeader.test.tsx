@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useAIFollow,
-  useLspDiagnostics,
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
 import { resetProjectStores } from "state/utils";
 import {
   CodeLanguageEnum,

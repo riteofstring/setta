@@ -10,11 +10,8 @@ import {
   type RefObject,
 } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import {
-  useActiveSectionUI,
-  useLocalStorage,
-  useNodeInternals,
-} from "state/definitions";
+import { useActiveSectionUI, useNodeInternals } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import type {
