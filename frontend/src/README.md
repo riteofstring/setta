@@ -14,8 +14,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4994`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4996`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3330`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
@@ -551,8 +551,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     invocation, and `uiSettingRevealFallbackAnchor.ts` owns fallback anchor
     lookup, scrolling, and highlight application.
   - `state/actions/uiSettingReveal.ts` is now the thin compatibility facade
-    for reveal requests, while `uiSettingRevealMutations.ts` owns the mutation
-    lock plus high-level reveal orchestration,
+    for reveal requests, while `uiSettingRevealMutations.ts` is now the thin
+    mutation compatibility facade, `uiSettingRevealMutationApply.ts` owns
+    high-level reveal mutation orchestration plus mismatch/failure handling,
+    `uiSettingRevealMutationLeaseLifecycle.ts` owns mutation-lease rollback
+    and finalize behavior, `uiSettingRevealMutationLock.ts` owns serialized
+    reveal mutation locking,
     `uiSettingRevealMutationOwnership.ts` owns lease sequence and touched-field
     ownership, `uiSettingRevealMutationCapture.ts` owns snapshot capture plus
     failure-result assembly,
@@ -662,6 +666,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   of those owners instead of regrowing `state/actions/agenticEdges.ts`.
 - `state/actions/uiSettingRevealMutationCapture.ts` now owns reveal snapshot
   capture plus failure-result assembly, while
+  `state/actions/uiSettingRevealMutationApply.ts` now owns high-level reveal
+  mutation orchestration plus mismatch/failure handling,
+  `state/actions/uiSettingRevealMutationLeaseLifecycle.ts` now owns
+  mutation-lease rollback/finalization, and
+  `state/actions/uiSettingRevealMutationLock.ts` now owns serialized reveal
+  mutation locking. `state/actions/uiSettingRevealMutations.ts` is now a thin
+  compatibility facade over those owners, while
   `state/actions/uiSettingRevealMutationLocalStorageRestore.ts`,
   `state/actions/uiSettingRevealMutationProjectStateRestore.ts`, and
   `state/actions/uiSettingRevealMutationRecordRestore.ts` now own the narrowed
