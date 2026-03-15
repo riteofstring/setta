@@ -58,17 +58,12 @@ import {
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
 import {
-  bootProjectChatWindowToCanvasSection,
-  clearTrackedGitPaneGraphWindowIfMatches,
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,
   setProjectChatWindowChatId,
@@ -78,18 +73,26 @@ import {
   showSectionInProjectChatWindow,
   unmaximizeProjectChatWindow,
 } from "state/actions/projectChatWindowing";
-import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
+import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
+import {
+  clearTrackedGitPaneGraphWindowIfMatches,
+  getTrackedGitPaneGraphWindowInstanceIdForProject,
+} from "state/actions/projectChatWindowingEphemeral";
+import {
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+} from "state/actions/projectChatWindowingSelectors";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,
-  useLocalStorage,
-  useMisc,
   useProjectState,
-  useSettings,
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
+import { useMisc } from "state/stores/layoutInteractionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

@@ -40,6 +40,9 @@ from setta.ui_settings.registry import (
     UISettingRegistry,
     UISettingValidationError,
     build_ui_settings_registry,
+    describe_plugin_runtime_states,
+    parse_plugin_setting_id,
+    resolve_plugin_runtime_availability,
     validate_ui_setting_value,
 )
 from setta.ui_settings.reveal_coordinator import UISettingRevealCoordinator
@@ -440,10 +443,56 @@ def _resolve_section_id_for_reveal(
 
 def _resolve_missing_setting_error(
     *,
-    ctx: Context,  # noqa: ARG001 - legacy Python tools no longer resolve plugin state
+    ctx: Context,
     setting_id: str,
     registry: UISettingRegistry | None = None,
 ) -> UISettingToolError:
+    parsed_plugin_setting = parse_plugin_setting_id(setting_id)
+    if parsed_plugin_setting is None:
+        return UISettingToolError(
+            code="setting_not_found",
+            message=f"Unknown setting id: {setting_id}",
+        )
+
+    plugin_id, local_setting_id = parsed_plugin_setting
+    if registry is not None:
+        if not registry.has_known_plugin(plugin_id):
+            return UISettingToolError(
+                code="setting_not_found",
+                message=f"Unknown setting id: {setting_id}",
+            )
+        plugin_errors_by_plugin_and_local_setting_id = getattr(
+            registry,
+            "pluginErrorsByPluginAndLocalSettingId",
+            {},
+        )
+        plugin_registry_error = plugin_errors_by_plugin_and_local_setting_id.get(
+            (plugin_id, local_setting_id)
+        )
+        if plugin_registry_error is not None:
+            return UISettingToolError(
+                code="plugin_unavailable",
+                message=(
+                    f"Plugin {plugin_id} ui setting metadata is invalid: "
+                    f"{plugin_registry_error}"
+                ),
+            )
+    plugin_runtime_error = _resolve_plugin_runtime_support_error(
+        ctx=ctx,
+        plugin_id=plugin_id,
+    )
+    if registry is not None and not registry.has_known_plugin_setting(
+        plugin_id, local_setting_id
+    ):
+        if plugin_runtime_error is not None:
+            return plugin_runtime_error
+        return UISettingToolError(
+            code="setting_not_found",
+            message=f"Unknown setting id: {setting_id}",
+        )
+    if plugin_runtime_error is not None:
+        return plugin_runtime_error
+
     return UISettingToolError(
         code="setting_not_found",
         message=f"Unknown setting id: {setting_id}",
@@ -681,6 +730,71 @@ async def _reveal_settings(
             )
         ],
     )
+
+
+def _resolve_plugin_runtime_support_error(
+    *,
+    ctx: Context,
+    plugin_id: str,
+) -> UISettingToolError | None:
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=f"Plugin {plugin_id} is unavailable.",
+        )
+
+    runtime_response = plugin_manager.get_runtime_response()
+    availability = resolve_plugin_runtime_availability(
+        runtime_response=runtime_response,
+        plugin_id=plugin_id,
+    )
+    if not availability.hasOperationalState:
+        observed_state = describe_plugin_runtime_states(
+            observed_states=availability.observedStates
+        )
+        if observed_state is None:
+            return UISettingToolError(
+                code="plugin_unavailable",
+                message=f"Plugin {plugin_id} is unavailable.",
+            )
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=f"Plugin {plugin_id} is unavailable (state={observed_state}).",
+        )
+
+    plugin_entry = availability.pluginEntry
+    if plugin_entry is None:
+        observed_state = (
+            describe_plugin_runtime_states(observed_states=availability.observedStates)
+            or "unknown"
+        )
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=(
+                f"Plugin {plugin_id} is unavailable "
+                f"(state={observed_state}, runtime entry missing)."
+            ),
+        )
+    if "registerPane" not in plugin_entry.effectiveCapabilities:
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=(
+                f"Plugin {plugin_id} is unavailable for UI setting reveal "
+                "(registerPane capability not effective)."
+            ),
+        )
+
+    entrypoint_url = plugin_entry.frontend.entrypointUrl
+    if not isinstance(entrypoint_url, str) or entrypoint_url.strip() == "":
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=(
+                f"Plugin {plugin_id} is unavailable for UI setting reveal "
+                "(frontend entrypoint not available)."
+            ),
+        )
+    return None
 
 
 def _resolve_right_pane_incompatible_tab_error(
