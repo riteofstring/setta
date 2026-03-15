@@ -5,8 +5,8 @@ import type {
 import type { StoreApi } from "zustand";
 
 import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
-import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
-import { useEdgeHandleRegistry } from "state/definitions";
+import { recomputeEdgeHandlePositions } from "state/actions/edgeHandlePositionState";
+import { useEdgeHandleRegistry } from "state/stores/layoutInteractionStores";
 import type { Connection, HandleType, ReactFlowState } from "../../types";
 import { calcAutoPan, getEventPosition, getHostForElement } from "../../utils";
 import { pointToRendererPoint, rendererPointToPoint } from "../../utils/graph";

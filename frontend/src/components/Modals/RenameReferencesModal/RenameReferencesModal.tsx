@@ -7,7 +7,7 @@ import {
   declineRenameRefactor,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { route_save_settings } from "utils/generatedEndpoints";
 import {
   RenameRefactorMode,

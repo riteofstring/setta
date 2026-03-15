@@ -13,9 +13,6 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { BiSolidBrain } from "react-icons/bi";
-import { FiCpu, FiTerminal } from "react-icons/fi";
-import { IoMdKey } from "react-icons/io";
 import {
   IoAdd,
   IoAttach,
@@ -25,45 +22,48 @@ import {
   IoSend,
   IoStop,
 } from "react-icons/io5";
-import { addTemporaryNotification } from "state/actions/notifications";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
-import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
-import { isImageAttachment } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
-  type ChatPermissionModeValue,
-  type ChatSlashCommandAction,
   type ChatSlashCommandDefinition,
   getSlashCommandSuggestions,
-  parseSlashCommand,
 } from "./chatComposerControls";
 import {
-  type DictationState,
-  type SpeechRecognitionLike,
-  getSpeechRecognitionConstructor,
-  insertTextAtSelection,
-  isDictationAvailable,
-  isNoSpeechDictationError,
-  mapDictationError,
-  pickProviderRecorderMimeType,
-} from "./dictation";
+  isRestoreClearedDraftKey,
+  isStopEscapeKey,
+  resolveEscapeComposerAction,
+  useChatInputDraftSession,
+} from "./chatInputDraftSession";
 import {
-  type DictationProviderFailureClass,
-  type DictationProviderFailurePhase,
-  classifyProviderDictationFailureClass,
-  shouldFallbackToBrowserAfterProviderFailure,
-} from "./dictationPolicy";
+  type ChatExecutionControlVisibility,
+  type ChatExecutionControls,
+  ChatInputMetaControls,
+  type ChatRuntimeActivityCounts,
+  type ChatRuntimeActivityDetails,
+  DEFAULT_RUNTIME_ACTIVITY_COUNTS,
+  DEFAULT_RUNTIME_ACTIVITY_DETAILS,
+} from "./ChatInputMetaControls";
+import { ChatInputQueuedDraftStack } from "./ChatInputQueuedDraftStack";
+import {
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+  type ChatSubmitOptions,
+  type ChatSubmitResult,
+} from "./chatInputSubmission";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
+import {
+  type ProviderDictationTranscriptionResult,
+  useChatInputDictation,
+} from "./useChatInputDictation";
+
+export type { ChatRuntimeActivityDetails } from "./ChatInputMetaControls";
 
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
 const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
 const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
 const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
-const UNKNOWN_SLASH_COMMAND_FEEDBACK =
-  "Unknown or unavailable command. Use /help.";
 const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
   "left",
   "width",
@@ -71,22 +71,6 @@ const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
   "top",
   "bottom",
 ] as const;
-const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
-  activeBackgroundTerminals: 0,
-  activeSubagents: 0,
-};
-const DEFAULT_RUNTIME_ACTIVITY_DETAILS: ChatRuntimeActivityDetails = {
-  activeBackgroundTerminals: [],
-  activeSubagents: [],
-};
-
-function normalizeNonNegativeCount(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(0, Math.floor(value));
-}
-
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
   next: CSSProperties | null,
@@ -103,468 +87,6 @@ export function areSlashSuggestionsPortalStylesEqual(
     }
   }
   return true;
-}
-
-type ChatExecutionControls = {
-  thinkingEnabled?: boolean;
-  onThinkingEnabledChange?: (next: boolean) => void;
-  permissionMode: ChatPermissionModeValue;
-  searchEnabled?: boolean;
-  onPermissionModeChange: (next: ChatPermissionModeValue) => void;
-  onSearchEnabledChange?: (next: boolean) => void;
-};
-
-type ChatExecutionControlVisibility = {
-  thinking?: boolean;
-  permissionMode?: boolean;
-  search?: boolean;
-};
-
-type ChatRuntimeActivityCounts = {
-  activeBackgroundTerminals: number;
-  activeSubagents: number;
-};
-
-type ChatRuntimeActivityEntry = {
-  id: string;
-  label: string;
-  toolName: string;
-};
-
-export type ChatRuntimeActivityDetails = {
-  activeBackgroundTerminals: ChatRuntimeActivityEntry[];
-  activeSubagents: ChatRuntimeActivityEntry[];
-};
-
-export type ChatSlashCommand = {
-  command: string;
-  action: ChatSlashCommandAction;
-  args: string[];
-  rawSuffix?: string;
-  promptTemplate?: string;
-  appGenerationMode?: AppGenerationMode | null;
-  unavailableFeedback?: string;
-};
-
-export type ChatSlashCommandResult =
-  | boolean
-  | {
-      appGenerationMode?: AppGenerationMode | null;
-      handled?: boolean;
-      feedback?: string;
-      keepInput?: boolean;
-      retryLater?: boolean;
-      refreshedSlashCommands?: ChatSlashCommandDefinition[];
-      refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
-      submitPromptTemplate?: boolean;
-    };
-
-export type ChatSubmitOptions = {
-  appGeneration?: ChatAppGenerationContext | null;
-};
-
-export type ChatSubmitDispatchResult = "submitted" | "retry_later" | "failed";
-
-type ChatSubmitResult = boolean | ChatSubmitDispatchResult;
-
-type SlashCommandExecutionOutcome =
-  | "submitted"
-  | "handled_local"
-  | "retry_later"
-  | "failed"
-  | "not_handled";
-
-function formatCompactTokenCount(value: number): string {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    const digits = millions >= 10 ? 0 : 1;
-    return `${millions.toFixed(digits).replace(/\.0$/u, "")}m`;
-  }
-  if (value >= 1_000) {
-    const thousands = value / 1_000;
-    const digits = thousands >= 10 ? 0 : 1;
-    return `${thousands.toFixed(digits).replace(/\.0$/u, "")}k`;
-  }
-  return `${value}`;
-}
-
-type StopEscapeKeyEventLike = {
-  key: string;
-  shiftKey: boolean;
-  altKey: boolean;
-  metaKey: boolean;
-  ctrlKey: boolean;
-};
-
-export function isStopEscapeKey(event: StopEscapeKeyEventLike): boolean {
-  return (
-    event.key === "Escape" &&
-    !event.shiftKey &&
-    !event.altKey &&
-    !event.metaKey &&
-    !event.ctrlKey
-  );
-}
-
-type RestoreClearedDraftKeyEventLike = {
-  key: string;
-  shiftKey: boolean;
-  altKey: boolean;
-  metaKey: boolean;
-  ctrlKey: boolean;
-};
-
-export function isRestoreClearedDraftKey(
-  event: RestoreClearedDraftKeyEventLike,
-): boolean {
-  const normalizedKey = event.key.toLowerCase();
-  if (normalizedKey !== "z") {
-    return false;
-  }
-  if (event.shiftKey || event.altKey) {
-    return false;
-  }
-  return (event.metaKey || event.ctrlKey) && !(event.metaKey && event.ctrlKey);
-}
-
-export function resolveEscapeComposerAction({
-  waitingForResponse,
-  onStopAvailable,
-  stopRequestedForCurrentResponse,
-  selectedSubmittedMessageIndex,
-  hasComposerDraft,
-}: {
-  waitingForResponse: boolean;
-  onStopAvailable: boolean;
-  stopRequestedForCurrentResponse: boolean;
-  selectedSubmittedMessageIndex: number | null;
-  hasComposerDraft: boolean;
-}): "stop" | "restore_history_draft" | "clear" | "none" {
-  if (
-    waitingForResponse &&
-    onStopAvailable &&
-    !stopRequestedForCurrentResponse
-  ) {
-    return "stop";
-  }
-  if (selectedSubmittedMessageIndex !== null) {
-    return "restore_history_draft";
-  }
-  if (hasComposerDraft) {
-    return "clear";
-  }
-  return "none";
-}
-
-type QueuedChatDraft = {
-  id: string;
-  message: string;
-  attachments: ChatFileAttachment[];
-  replaySnapshot: QueuedDraftReplaySnapshot;
-  queuedAtMs: number;
-  replayState: "ready" | "retry_later" | "failed";
-  lastAutoReplayVersion: number | null;
-};
-
-type QueuedDraftReplaySnapshot =
-  | {
-      kind: "plain_message";
-    }
-  | {
-      kind: "slash_command";
-      availabilityPolicy: "fixed" | "current_registry";
-      command: ChatSlashCommand;
-    };
-
-export function resolveSlashCommandRequest({
-  message,
-  slashCommands,
-  recognizedSlashCommands,
-}: {
-  message: string;
-  slashCommands: ChatSlashCommandDefinition[];
-  recognizedSlashCommands: ChatSlashCommandDefinition[];
-}): {
-  parsed: ChatSlashCommand | null;
-  commandAvailable: boolean;
-} {
-  const parsed = parseSlashCommand(message, recognizedSlashCommands);
-  if (!parsed) {
-    return {
-      parsed: null,
-      commandAvailable: false,
-    };
-  }
-  return {
-    parsed,
-    commandAvailable: slashCommands.some(
-      (entry) => entry.command === parsed.command,
-    ),
-  };
-}
-
-export function resolveCustomPromptSlashCommandSubmission({
-  promptTemplate,
-  args,
-  rawSuffix,
-  attachments,
-}: {
-  promptTemplate: string | null | undefined;
-  args: string[];
-  rawSuffix?: string | null;
-  attachments: ChatFileAttachment[];
-}): { message: string; attachments: ChatFileAttachment[] } | null {
-  const trimmedPromptTemplate = promptTemplate?.trim() ?? "";
-  if (!trimmedPromptTemplate) {
-    return null;
-  }
-  const promptArgs = rawSuffix ?? args.join(" ").trim();
-  return {
-    message: promptArgs
-      ? `${trimmedPromptTemplate}\n\n${promptArgs}`
-      : trimmedPromptTemplate,
-    attachments: attachments.map((attachment) => ({ ...attachment })),
-  };
-}
-
-function buildUnavailableSlashCommandFeedback(
-  command: ChatSlashCommand,
-): string {
-  return (
-    command.unavailableFeedback ??
-    `${command.command} is unavailable in the current context. Use /help.`
-  );
-}
-
-function resolveSlashCommandSubmitOptions(
-  command: ChatSlashCommand,
-): ChatSubmitOptions | undefined {
-  if (command.appGenerationMode === undefined) {
-    return undefined;
-  }
-  if (command.appGenerationMode === null) {
-    return {
-      appGeneration: null,
-    };
-  }
-  return {
-    appGeneration: {
-      mode: command.appGenerationMode,
-    },
-  };
-}
-
-function requiresImageAttachmentForAppGenerationMode(
-  appGenerationMode: AppGenerationMode | null | undefined,
-): boolean {
-  return appGenerationMode === "json_render_with_image";
-}
-
-function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {
-  return attachments.some((attachment) => isImageAttachment(attachment));
-}
-
-function getSlashCommandImageAttachmentError({
-  command,
-  appGenerationMode,
-  attachments,
-  hasRetainedImageAttachmentForImageMode,
-}: {
-  command: ChatSlashCommand;
-  appGenerationMode: AppGenerationMode | null | undefined;
-  attachments: ChatFileAttachment[];
-  hasRetainedImageAttachmentForImageMode: boolean;
-}): string | null {
-  if (!requiresImageAttachmentForAppGenerationMode(appGenerationMode)) {
-    return null;
-  }
-  if (
-    hasImageAttachment(attachments) ||
-    hasRetainedImageAttachmentForImageMode
-  ) {
-    return null;
-  }
-  return `Attach at least one image before using ${command.command}.`;
-}
-
-function shouldRemoveQueuedDraft(
-  outcome: SlashCommandExecutionOutcome,
-): boolean {
-  return outcome === "submitted" || outcome === "handled_local";
-}
-
-function serializeSlashCommandsForReplaySignature(
-  commands: ChatSlashCommandDefinition[],
-): Array<{
-  action: ChatSlashCommandAction;
-  appGenerationMode: AppGenerationMode | null;
-  command: string;
-  promptTemplate: string | null;
-  summary: string;
-  unavailableFeedback: string | null;
-}> {
-  return commands.map((command) => ({
-    action: command.action,
-    appGenerationMode: command.appGenerationMode ?? null,
-    command: command.command,
-    promptTemplate: command.promptTemplate ?? null,
-    summary: command.summary,
-    unavailableFeedback: command.unavailableFeedback ?? null,
-  }));
-}
-
-function buildQueuedDraftReplayInputsSignature({
-  isSubmitDisabled,
-  recognizedSlashCommands,
-  slashCommands,
-  submitReadinessKey,
-  waitingForResponse,
-}: {
-  isSubmitDisabled: boolean;
-  recognizedSlashCommands: ChatSlashCommandDefinition[];
-  slashCommands: ChatSlashCommandDefinition[];
-  submitReadinessKey: string | null;
-  waitingForResponse: boolean;
-}): string {
-  return JSON.stringify({
-    isSubmitDisabled,
-    recognizedSlashCommands: serializeSlashCommandsForReplaySignature(
-      recognizedSlashCommands,
-    ),
-    slashCommands: serializeSlashCommandsForReplaySignature(slashCommands),
-    submitReadinessKey,
-    waitingForResponse,
-  });
-}
-
-function resolveChatSubmitDispatchResult(
-  result: ChatSubmitResult,
-  fallbackFailureResult: Exclude<ChatSubmitDispatchResult, "submitted">,
-): ChatSubmitDispatchResult {
-  if (result === true || result === "submitted") {
-    return "submitted";
-  }
-  if (result === "retry_later" || result === "failed") {
-    return result;
-  }
-  return fallbackFailureResult;
-}
-
-function cloneAttachments(
-  attachments: ChatFileAttachment[],
-): ChatFileAttachment[] {
-  return attachments.map((attachment) => ({ ...attachment }));
-}
-
-function cloneSlashCommand(command: ChatSlashCommand): ChatSlashCommand {
-  return {
-    ...command,
-    args: [...command.args],
-  };
-}
-
-function shouldUseCurrentRegistryForQueuedSlashCommand(
-  action: ChatSlashCommandAction,
-): boolean {
-  return action === "custom_prompt" || action === "native_prompt";
-}
-
-function buildQueuedDraftReplaySnapshot({
-  message,
-  recognizedSlashCommands,
-  slashCommands,
-}: {
-  message: string;
-  recognizedSlashCommands: ChatSlashCommandDefinition[];
-  slashCommands: ChatSlashCommandDefinition[];
-}): QueuedDraftReplaySnapshot {
-  const resolvedRequest = resolveSlashCommandRequest({
-    message,
-    slashCommands,
-    recognizedSlashCommands,
-  });
-  if (!resolvedRequest.parsed) {
-    return { kind: "plain_message" };
-  }
-  return {
-    kind: "slash_command",
-    availabilityPolicy: shouldUseCurrentRegistryForQueuedSlashCommand(
-      resolvedRequest.parsed.action,
-    )
-      ? "current_registry"
-      : "fixed",
-    command: cloneSlashCommand(resolvedRequest.parsed),
-  };
-}
-
-function shouldAutoReplayQueuedDraft(
-  draft: QueuedChatDraft,
-  queuedAutoReplayVersion: number,
-): boolean {
-  return (
-    draft.replayState !== "failed" &&
-    draft.lastAutoReplayVersion !== queuedAutoReplayVersion
-  );
-}
-
-type ProviderDictationTranscriptionResult =
-  | {
-      kind: "ok";
-      transcript: string;
-    }
-  | {
-      kind: "no_speech";
-    };
-
-export function enqueueQueuedDraft(
-  queue: QueuedChatDraft[],
-  draft: QueuedChatDraft,
-  prioritize: boolean,
-): QueuedChatDraft[] {
-  return prioritize ? [draft, ...queue] : [...queue, draft];
-}
-
-export function cycleQueuedDraftSelection(
-  queue: QueuedChatDraft[],
-  selectedId: string | null,
-  direction: "next" | "prev",
-): string | null {
-  if (queue.length === 0) {
-    return null;
-  }
-  const currentIndex = queue.findIndex((item) => item.id === selectedId);
-  if (currentIndex < 0) {
-    return queue[0]?.id ?? null;
-  }
-  if (direction === "next") {
-    const nextIndex = (currentIndex + 1) % queue.length;
-    return queue[nextIndex]?.id ?? null;
-  }
-  const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-  return queue[prevIndex]?.id ?? null;
-}
-
-export function cycleSubmittedMessageHistorySelection(
-  history: string[],
-  selectedIndex: number | null,
-  direction: "next" | "prev",
-): number | null {
-  if (history.length === 0) {
-    return null;
-  }
-  if (
-    selectedIndex === null ||
-    selectedIndex < 0 ||
-    selectedIndex >= history.length
-  ) {
-    return 0;
-  }
-  if (direction === "next") {
-    const nextIndex = (selectedIndex + 1) % history.length;
-    return nextIndex;
-  }
-  const prevIndex = (selectedIndex - 1 + history.length) % history.length;
-  return prevIndex;
 }
 
 type ChatInputProps = {
@@ -609,11 +131,6 @@ type ChatInputProps = {
   runtimeActivityDetails?: ChatRuntimeActivityDetails;
 };
 
-type EscClearedComposerDraft = {
-  message: string;
-  attachments: ChatFileAttachment[];
-};
-
 export const ChatInput = memo(function ChatInput({
   placeholderText,
   waitingForResponse,
@@ -647,7 +164,6 @@ export const ChatInput = memo(function ChatInput({
   runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
   runtimeActivityDetails = DEFAULT_RUNTIME_ACTIVITY_DETAILS,
 }: ChatInputProps) {
-  const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
   const [activeSlashIndex, setActiveSlashIndex] = useState(0);
   const [resolvedSlashPlacement, setResolvedSlashPlacement] = useState<
@@ -655,56 +171,9 @@ export const ChatInput = memo(function ChatInput({
   >(slashSuggestionsPlacement === "above" ? "above" : "below");
   const [slashSuggestionsPortalStyle, setSlashSuggestionsPortalStyle] =
     useState<CSSProperties | null>(null);
-  const [dictationState, setDictationState] = useState<DictationState>("idle");
-  const [dictationFeedback, setDictationFeedback] = useState<string | null>(
-    null,
-  );
-  const [contextBadgeMode, setContextBadgeMode] = useState<
-    "percentage" | "tokens"
-  >("percentage");
-  const [queuedDrafts, setQueuedDrafts] = useState<QueuedChatDraft[]>([]);
-  const [queuedAutoReplayVersion, setQueuedAutoReplayVersion] = useState(0);
-  const [selectedQueuedDraftId, setSelectedQueuedDraftId] = useState<
-    string | null
-  >(null);
-  const [selectedSubmittedMessageIndex, setSelectedSubmittedMessageIndex] =
-    useState<number | null>(null);
-  const submittedHistoryDraftBeforeSelectionRef = useRef<string | null>(null);
-  const isControlled = typeof value === "string" && Boolean(onChange);
-  const inputValue = isControlled ? value : internalValue;
-  const slashCommandRecognitionSet = recognizedSlashCommands ?? slashCommands;
-  const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const providerRecorderRef = useRef<MediaRecorder | null>(null);
-  const providerStreamRef = useRef<MediaStream | null>(null);
-  const providerChunksRef = useRef<Array<BlobPart>>([]);
-  const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
-  const queuedDraftIdRef = useRef(0);
-  const queuedDispatchInFlightRef = useRef(false);
-  const stopRequestedForCurrentResponseRef = useRef(false);
-  const escClearedComposerDraftRef = useRef<EscClearedComposerDraft | null>(
-    null,
-  );
-  const componentMountedRef = useRef(true);
-  const queuedReplayInputsSignatureRef = useRef<string | null>(null);
   const isDisabled = disabled;
-
-  useEffect(() => {
-    inputValueRef.current = inputValue;
-  }, [inputValue]);
-
-  useEffect(() => {
-    return () => {
-      componentMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!waitingForResponse) {
-      stopRequestedForCurrentResponseRef.current = false;
-    }
-  }, [waitingForResponse]);
+  const slashCommandRecognitionSet = recognizedSlashCommands ?? slashCommands;
 
   const {
     attachments,
@@ -731,626 +200,69 @@ export const ChatInput = memo(function ChatInput({
   } = useChatAttachmentManager({ disabled: isDisabled });
   const isSubmitDisabled = submitDisabled || isDisabled || isUploading;
 
-  const setInputValue = useCallback(
-    (nextValue: string) => {
-      if (isControlled) {
-        onChange?.(nextValue);
-        return;
-      }
-      setInternalValue(nextValue);
-      onChange?.(nextValue);
-    },
-    [isControlled, onChange],
-  );
+  const {
+    clearComposerByEscape,
+    enqueueDraft,
+    handleComposerValueChange,
+    inputValue,
+    inputValueRef,
+    queuedDrafts,
+    restoreDraftFromSubmittedHistorySelection,
+    restoreEscClearedComposerDraft,
+    restoreQueuedDraftToComposer,
+    selectedQueuedDraftId,
+    selectedSubmittedMessageIndex,
+    setInputValue,
+    setSelectedQueuedDraftId,
+    stepQueuedDraftSelection,
+    stepSubmittedMessageHistorySelection,
+    stopRequestedForCurrentResponseRef,
+    submittedMessageHistoryEntries,
+    submitMessage,
+  } = useChatInputDraftSession({
+    attachments,
+    clearAttachments,
+    hasRetainedImageAttachmentForImageMode,
+    isSubmitDisabled,
+    onChange,
+    onSubmit,
+    onSlashCommand,
+    onStop,
+    onUnknownSlashCommand,
+    recognizedSlashCommands: slashCommandRecognitionSet,
+    replaceAttachments,
+    setSlashFeedback,
+    slashCommands,
+    submitReadinessKey,
+    submittedMessageHistory,
+    textareaRef,
+    value,
+    waitingForResponse,
+  });
+
+  const {
+    canDictate,
+    dictationAriaLabel,
+    dictationFeedback,
+    dictationState,
+    handleDictationToggle,
+  } = useChatInputDictation({
+    disabled: isDisabled,
+    dictationMode,
+    onProviderDictationTranscribe,
+    dictationEnabledByProvider,
+    providerDictationLikelySupported,
+    textareaRef,
+    inputValueRef,
+    setInputValue,
+  });
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
-      escClearedComposerDraftRef.current = null;
-      if (selectedSubmittedMessageIndex !== null) {
-        setSelectedSubmittedMessageIndex(null);
-        submittedHistoryDraftBeforeSelectionRef.current = null;
-      }
-      setInputValue(event.target.value);
-      setSlashFeedback(null);
+      handleComposerValueChange(event.target.value);
     },
-    [selectedSubmittedMessageIndex, setInputValue],
+    [handleComposerValueChange],
   );
-
-  const clearInput = useCallback(() => {
-    setSelectedSubmittedMessageIndex(null);
-    submittedHistoryDraftBeforeSelectionRef.current = null;
-    setInputValue("");
-  }, [setInputValue]);
-
-  const submittedMessageHistoryEntries = useMemo(() => {
-    const seen = new Set<string>();
-    const entries: string[] = [];
-    for (const submittedMessage of submittedMessageHistory) {
-      const trimmed = submittedMessage.trim();
-      if (!trimmed) {
-        continue;
-      }
-      if (seen.has(trimmed)) {
-        continue;
-      }
-      seen.add(trimmed);
-      entries.push(trimmed);
-    }
-    return entries;
-  }, [submittedMessageHistory]);
-
-  const getNextQueuedDraftId = useCallback(() => {
-    queuedDraftIdRef.current += 1;
-    return `queued-draft-${queuedDraftIdRef.current}`;
-  }, []);
-
-  const queuedDraftReplayInputsSignature = useMemo(
-    () =>
-      buildQueuedDraftReplayInputsSignature({
-        isSubmitDisabled,
-        recognizedSlashCommands: slashCommandRecognitionSet,
-        slashCommands,
-        submitReadinessKey,
-        waitingForResponse,
-      }),
-    [
-      isSubmitDisabled,
-      slashCommandRecognitionSet,
-      slashCommands,
-      submitReadinessKey,
-      waitingForResponse,
-    ],
-  );
-
-  useEffect(() => {
-    if (queuedReplayInputsSignatureRef.current === null) {
-      queuedReplayInputsSignatureRef.current = queuedDraftReplayInputsSignature;
-      return;
-    }
-    if (
-      queuedReplayInputsSignatureRef.current ===
-      queuedDraftReplayInputsSignature
-    ) {
-      return;
-    }
-    queuedReplayInputsSignatureRef.current = queuedDraftReplayInputsSignature;
-    setQueuedAutoReplayVersion((current) => current + 1);
-  }, [queuedDraftReplayInputsSignature]);
-
-  const enqueueDraft = useCallback(
-    ({
-      message,
-      draftAttachments,
-      prioritize,
-      interruptCurrentRun,
-      feedback,
-    }: {
-      message: string;
-      draftAttachments: ChatFileAttachment[];
-      prioritize: boolean;
-      interruptCurrentRun: boolean;
-      feedback: string;
-    }): boolean => {
-      const trimmed = message.trim();
-      if (trimmed.length === 0 && draftAttachments.length === 0) {
-        return false;
-      }
-      const nextDraft: QueuedChatDraft = {
-        id: getNextQueuedDraftId(),
-        message,
-        attachments: cloneAttachments(draftAttachments),
-        replaySnapshot: buildQueuedDraftReplaySnapshot({
-          message,
-          recognizedSlashCommands: slashCommandRecognitionSet,
-          slashCommands,
-        }),
-        queuedAtMs: Date.now(),
-        replayState: "ready",
-        lastAutoReplayVersion: null,
-      };
-      escClearedComposerDraftRef.current = null;
-      setQueuedDrafts((current) =>
-        enqueueQueuedDraft(current, nextDraft, prioritize),
-      );
-      setSelectedQueuedDraftId(nextDraft.id);
-      setSlashFeedback(feedback);
-      clearInput();
-      clearAttachments();
-      if (interruptCurrentRun && onStop) {
-        stopRequestedForCurrentResponseRef.current = true;
-        void onStop();
-      }
-      return true;
-    },
-    [
-      clearAttachments,
-      clearInput,
-      getNextQueuedDraftId,
-      onStop,
-      slashCommandRecognitionSet,
-      slashCommands,
-    ],
-  );
-
-  const restoreQueuedDraftToComposer = useCallback(
-    (draftId: string) => {
-      const draft = queuedDrafts.find((item) => item.id === draftId);
-      if (!draft) {
-        return;
-      }
-      escClearedComposerDraftRef.current = null;
-      setQueuedDrafts((current) =>
-        current.filter((item) => item.id !== draftId),
-      );
-      setSelectedQueuedDraftId(null);
-      setInputValue(draft.message);
-      replaceAttachments(cloneAttachments(draft.attachments));
-      setSlashFeedback("Editing queued message.");
-      requestAnimationFrame(() => {
-        const node = textareaRef.current;
-        if (!node) {
-          return;
-        }
-        node.focus();
-        const end = draft.message.length;
-        node.setSelectionRange(end, end);
-      });
-    },
-    [queuedDrafts, replaceAttachments, setInputValue],
-  );
-
-  useEffect(() => {
-    if (queuedDrafts.length === 0) {
-      if (selectedQueuedDraftId !== null) {
-        setSelectedQueuedDraftId(null);
-      }
-      return;
-    }
-    if (!selectedQueuedDraftId) {
-      setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
-      return;
-    }
-    const hasSelection = queuedDrafts.some(
-      (item) => item.id === selectedQueuedDraftId,
-    );
-    if (!hasSelection) {
-      setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
-    }
-  }, [queuedDrafts, selectedQueuedDraftId]);
-
-  useEffect(() => {
-    if (selectedSubmittedMessageIndex === null) {
-      return;
-    }
-    if (
-      submittedMessageHistoryEntries.length === 0 ||
-      selectedSubmittedMessageIndex >= submittedMessageHistoryEntries.length
-    ) {
-      setSelectedSubmittedMessageIndex(null);
-      submittedHistoryDraftBeforeSelectionRef.current = null;
-    }
-  }, [selectedSubmittedMessageIndex, submittedMessageHistoryEntries.length]);
-
-  const restoreDraftFromSubmittedHistorySelection = useCallback(() => {
-    const draftToRestore =
-      submittedHistoryDraftBeforeSelectionRef.current ?? "";
-    submittedHistoryDraftBeforeSelectionRef.current = null;
-    escClearedComposerDraftRef.current = null;
-    setSelectedSubmittedMessageIndex(null);
-    setInputValue(draftToRestore);
-    setSlashFeedback(null);
-    requestAnimationFrame(() => {
-      const node = textareaRef.current;
-      if (!node) {
-        return;
-      }
-      const end = draftToRestore.length;
-      node.focus();
-      node.setSelectionRange(end, end);
-    });
-  }, [setInputValue]);
-
-  const clearComposerByEscape = useCallback((): boolean => {
-    const currentMessage = inputValueRef.current;
-    const nextAttachments = cloneAttachments(attachments);
-    const hasComposerDraft =
-      currentMessage.trim().length > 0 || nextAttachments.length > 0;
-    if (!hasComposerDraft) {
-      return false;
-    }
-    escClearedComposerDraftRef.current = {
-      message: currentMessage,
-      attachments: nextAttachments,
-    };
-    clearInput();
-    clearAttachments();
-    setSlashFeedback(null);
-    return true;
-  }, [attachments, clearAttachments, clearInput]);
-
-  const restoreEscClearedComposerDraft = useCallback((): boolean => {
-    const draft = escClearedComposerDraftRef.current;
-    if (!draft) {
-      return false;
-    }
-    escClearedComposerDraftRef.current = null;
-    setSelectedSubmittedMessageIndex(null);
-    submittedHistoryDraftBeforeSelectionRef.current = null;
-    setInputValue(draft.message);
-    replaceAttachments(cloneAttachments(draft.attachments));
-    setSlashFeedback("Restored cleared draft.");
-    requestAnimationFrame(() => {
-      const node = textareaRef.current;
-      if (!node) {
-        return;
-      }
-      const end = draft.message.length;
-      node.focus();
-      node.setSelectionRange(end, end);
-    });
-    return true;
-  }, [replaceAttachments, setInputValue]);
-
-  const executeResolvedSlashCommand = useCallback(
-    async ({
-      message,
-      submittedAttachments,
-      parsed,
-      commandAvailable,
-    }: {
-      message: string;
-      submittedAttachments: ChatFileAttachment[];
-      parsed: ChatSlashCommand;
-      commandAvailable: boolean;
-    }): Promise<SlashCommandExecutionOutcome> => {
-      if (!commandAvailable) {
-        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
-        return "retry_later";
-      }
-      if (parsed.action === "custom_prompt") {
-        const submission = resolveCustomPromptSlashCommandSubmission({
-          promptTemplate: parsed.promptTemplate,
-          args: parsed.args,
-          ...(parsed.rawSuffix === undefined
-            ? {}
-            : { rawSuffix: parsed.rawSuffix }),
-          attachments: submittedAttachments,
-        });
-        if (!submission) {
-          setSlashFeedback("Custom slash command has no prompt content.");
-          return "retry_later";
-        }
-        const imageAttachmentError = getSlashCommandImageAttachmentError({
-          command: parsed,
-          appGenerationMode: parsed.appGenerationMode,
-          attachments: submission.attachments,
-          hasRetainedImageAttachmentForImageMode,
-        });
-        if (imageAttachmentError) {
-          setSlashFeedback(imageAttachmentError);
-          return "failed";
-        }
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(
-            submission.message,
-            submission.attachments,
-            resolveSlashCommandSubmitOptions(parsed),
-          ),
-          "retry_later",
-        );
-        if (submitted !== "submitted") {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return submitted;
-        }
-        setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      if (parsed.action === "native_prompt") {
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(
-            message,
-            submittedAttachments,
-            resolveSlashCommandSubmitOptions(parsed),
-          ),
-          "retry_later",
-        );
-        if (submitted !== "submitted") {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return submitted;
-        }
-        setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      if (!onSlashCommand) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return "handled_local";
-      }
-      const result = await onSlashCommand(parsed);
-      if (result === false) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return "retry_later";
-      }
-      const slashResult =
-        result && typeof result === "object" ? result : undefined;
-      if (slashResult?.handled === false) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return "retry_later";
-      }
-      if (slashResult?.submitPromptTemplate) {
-        const submission = resolveCustomPromptSlashCommandSubmission({
-          promptTemplate: parsed.promptTemplate,
-          args: parsed.args,
-          ...(parsed.rawSuffix === undefined
-            ? {}
-            : { rawSuffix: parsed.rawSuffix }),
-          attachments: submittedAttachments,
-        });
-        if (!submission || !slashResult.appGenerationMode) {
-          setSlashFeedback("Built-in slash command has no prompt content.");
-          return "retry_later";
-        }
-        const imageAttachmentError = getSlashCommandImageAttachmentError({
-          command: parsed,
-          appGenerationMode: slashResult.appGenerationMode,
-          attachments: submission.attachments,
-          hasRetainedImageAttachmentForImageMode,
-        });
-        if (imageAttachmentError) {
-          setSlashFeedback(imageAttachmentError);
-          return "failed";
-        }
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(submission.message, submission.attachments, {
-            appGeneration: {
-              mode: slashResult.appGenerationMode,
-            },
-          }),
-          "retry_later",
-        );
-        if (submitted !== "submitted") {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return submitted;
-        }
-        setSlashFeedback(
-          slashResult.feedback ?? `Submitted ${parsed.command}.`,
-        );
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
-      if (!slashResult?.keepInput) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-      }
-      return slashResult?.retryLater === true ? "retry_later" : "handled_local";
-    },
-    [
-      clearAttachments,
-      clearInput,
-      hasRetainedImageAttachmentForImageMode,
-      onSlashCommand,
-      onSubmit,
-    ],
-  );
-
-  const runSlashCommand = useCallback(
-    async (
-      message: string,
-      submittedAttachments: ChatFileAttachment[],
-    ): Promise<SlashCommandExecutionOutcome> => {
-      const resolvedRequest = resolveSlashCommandRequest({
-        message,
-        slashCommands,
-        recognizedSlashCommands: slashCommandRecognitionSet,
-      });
-      if (resolvedRequest.parsed) {
-        return executeResolvedSlashCommand({
-          message,
-          submittedAttachments,
-          parsed: resolvedRequest.parsed,
-          commandAvailable: resolvedRequest.commandAvailable,
-        });
-      }
-      if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
-        return "not_handled";
-      }
-      const result = await onUnknownSlashCommand(message, submittedAttachments);
-      if (result === false) {
-        return "not_handled";
-      }
-      const slashResult =
-        result && typeof result === "object" ? result : undefined;
-      if (slashResult?.handled === false) {
-        return "not_handled";
-      }
-      const refreshedSlashCommands =
-        slashResult?.refreshedSlashCommands ?? null;
-      const refreshedRecognizedSlashCommands =
-        slashResult?.refreshedRecognizedSlashCommands ?? null;
-      if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
-        const refreshedRequest = resolveSlashCommandRequest({
-          message,
-          slashCommands: refreshedSlashCommands,
-          recognizedSlashCommands: refreshedRecognizedSlashCommands,
-        });
-        if (refreshedRequest.parsed) {
-          return executeResolvedSlashCommand({
-            message,
-            submittedAttachments,
-            parsed: refreshedRequest.parsed,
-            commandAvailable: refreshedRequest.commandAvailable,
-          });
-        }
-      }
-      setSlashFeedback(slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK);
-      if (slashResult?.keepInput === false) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-      }
-      return slashResult?.retryLater === true ? "retry_later" : "handled_local";
-    },
-    [
-      clearAttachments,
-      clearInput,
-      executeResolvedSlashCommand,
-      onUnknownSlashCommand,
-      slashCommandRecognitionSet,
-      slashCommands,
-    ],
-  );
-
-  const submitMessage = useCallback(
-    async (
-      submittedValue: string,
-      submittedAttachments: ChatFileAttachment[],
-    ): Promise<SlashCommandExecutionOutcome> => {
-      if (waitingForResponse) {
-        const queued = enqueueDraft({
-          message: submittedValue,
-          draftAttachments: submittedAttachments,
-          prioritize: true,
-          interruptCurrentRun: true,
-          feedback: "Queued and stopping current response...",
-        });
-        if (queued) {
-          return "handled_local";
-        }
-        if (onStop) {
-          await onStop();
-        }
-        return "failed";
-      }
-      if (isSubmitDisabled) {
-        return "failed";
-      }
-      const slashOutcome = await runSlashCommand(
-        submittedValue,
-        submittedAttachments,
-      );
-      if (slashOutcome !== "not_handled") {
-        return slashOutcome;
-      }
-      const trimmedInput = submittedValue.trim();
-      if (trimmedInput.length === 0 && submittedAttachments.length === 0) {
-        return "failed";
-      }
-      const result = await onSubmit(submittedValue, submittedAttachments);
-      const submitOutcome = resolveChatSubmitDispatchResult(result, "failed");
-      if (submitOutcome === "submitted") {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return "submitted";
-      }
-      return submitOutcome;
-    },
-    [
-      clearAttachments,
-      clearInput,
-      enqueueDraft,
-      isSubmitDisabled,
-      onStop,
-      onSubmit,
-      runSlashCommand,
-      waitingForResponse,
-    ],
-  );
-
-  const replayQueuedDraft = useCallback(
-    async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> => {
-      if (draft.replaySnapshot.kind === "plain_message") {
-        return submitMessage(draft.message, draft.attachments);
-      }
-      const commandAvailable =
-        draft.replaySnapshot.availabilityPolicy === "fixed"
-          ? true
-          : slashCommands.some(
-              (entry) => entry.command === draft.replaySnapshot.command.command,
-            );
-      return executeResolvedSlashCommand({
-        message: draft.message,
-        submittedAttachments: draft.attachments,
-        parsed: draft.replaySnapshot.command,
-        commandAvailable,
-      });
-    },
-    [executeResolvedSlashCommand, slashCommands, submitMessage],
-  );
-
-  const nextQueuedDraft = queuedDrafts[0] ?? null;
-
-  useEffect(() => {
-    if (!nextQueuedDraft) {
-      return;
-    }
-    if (waitingForResponse || isSubmitDisabled) {
-      return;
-    }
-    if (queuedDispatchInFlightRef.current) {
-      return;
-    }
-    if (
-      !shouldAutoReplayQueuedDraft(nextQueuedDraft, queuedAutoReplayVersion)
-    ) {
-      return;
-    }
-    const draftToSend = nextQueuedDraft;
-    queuedDispatchInFlightRef.current = true;
-    setQueuedDrafts((current) =>
-      current.filter((item) => item.id !== draftToSend.id),
-    );
-    setSelectedQueuedDraftId((current) =>
-      current === draftToSend.id ? null : current,
-    );
-    void (async () => {
-      let outcome: SlashCommandExecutionOutcome = "failed";
-      try {
-        outcome = await replayQueuedDraft(draftToSend);
-      } catch {
-        outcome = "failed";
-      }
-      if (!componentMountedRef.current) {
-        queuedDispatchInFlightRef.current = false;
-        return;
-      }
-      queuedDispatchInFlightRef.current = false;
-      if (shouldRemoveQueuedDraft(outcome)) {
-        return;
-      }
-      setQueuedDrafts((current) =>
-        enqueueQueuedDraft(
-          current,
-          {
-            ...draftToSend,
-            replayState: outcome === "retry_later" ? "retry_later" : "failed",
-            lastAutoReplayVersion: queuedAutoReplayVersion,
-          },
-          true,
-        ),
-      );
-      setSelectedQueuedDraftId(draftToSend.id);
-      if (outcome === "failed") {
-        setSlashFeedback("Queued message failed. Edit it and retry.");
-      }
-    })();
-  }, [
-    isSubmitDisabled,
-    nextQueuedDraft,
-    queuedAutoReplayVersion,
-    replayQueuedDraft,
-    waitingForResponse,
-  ]);
-
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -1674,13 +586,7 @@ export const ChatInput = memo(function ChatInput({
       ) {
         if (event.key === "ArrowUp" || event.key === "ArrowDown") {
           event.preventDefault();
-          setSelectedQueuedDraftId((current) =>
-            cycleQueuedDraftSelection(
-              queuedDrafts,
-              current,
-              event.key === "ArrowUp" ? "prev" : "next",
-            ),
-          );
+          stepQueuedDraftSelection(event.key === "ArrowUp" ? "up" : "down");
           return;
         }
         if (event.key === "Enter" && !event.shiftKey && selectedQueuedDraftId) {
@@ -1702,37 +608,9 @@ export const ChatInput = memo(function ChatInput({
         (event.key === "ArrowUp" || event.key === "ArrowDown")
       ) {
         event.preventDefault();
-        if (event.key === "ArrowDown" && selectedSubmittedMessageIndex === 0) {
-          restoreDraftFromSubmittedHistorySelection();
-          return;
-        }
-        if (selectedSubmittedMessageIndex === null) {
-          submittedHistoryDraftBeforeSelectionRef.current = inputValue;
-        }
-        const nextSelectedIndex = cycleSubmittedMessageHistorySelection(
-          submittedMessageHistoryEntries,
-          selectedSubmittedMessageIndex,
-          event.key === "ArrowUp" ? "next" : "prev",
+        stepSubmittedMessageHistorySelection(
+          event.key === "ArrowUp" ? "older" : "newer",
         );
-        if (nextSelectedIndex === null) {
-          return;
-        }
-        const nextMessage = submittedMessageHistoryEntries[nextSelectedIndex];
-        if (typeof nextMessage !== "string") {
-          return;
-        }
-        setSelectedSubmittedMessageIndex(nextSelectedIndex);
-        setInputValue(nextMessage);
-        setSlashFeedback(null);
-        requestAnimationFrame(() => {
-          const node = textareaRef.current;
-          if (!node) {
-            return;
-          }
-          const end = nextMessage.length;
-          node.focus();
-          node.setSelectionRange(end, end);
-        });
         return;
       }
 
@@ -1762,6 +640,8 @@ export const ChatInput = memo(function ChatInput({
       selectedSubmittedMessageIndex,
       selectedQueuedDraftId,
       setInputValue,
+      stepQueuedDraftSelection,
+      stepSubmittedMessageHistorySelection,
       shouldShowSlashSuggestions,
       slashSuggestions,
       slashSuggestions.length,
@@ -1798,163 +678,6 @@ export const ChatInput = memo(function ChatInput({
     }
     return `${base} ${dragClass} cursor-auto opacity-100`;
   }, [isDisabled, isDragActive]);
-
-  const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = isDictationAvailable(dictationSupported);
-  const mediaRecorderSupported =
-    typeof window !== "undefined" &&
-    typeof window.MediaRecorder !== "undefined" &&
-    typeof navigator !== "undefined" &&
-    Boolean(navigator.mediaDevices?.getUserMedia);
-  const canProviderDictate = Boolean(
-    dictationEnabledByProvider &&
-      onProviderDictationTranscribe &&
-      mediaRecorderSupported,
-  );
-  const canAutoUseProviderDictation =
-    canProviderDictate && providerDictationLikelySupported;
-  const canDictate =
-    !isDisabled &&
-    (() => {
-      if (dictationMode === "provider") {
-        return canProviderDictate;
-      }
-      if (dictationMode === "browser") {
-        return canBrowserDictate;
-      }
-      return canAutoUseProviderDictation || canBrowserDictate;
-    })();
-  const showPermissionControl = Boolean(
-    executionControls && executionControlVisibility.permissionMode !== false,
-  );
-  const showThinkingControl = Boolean(
-    executionControls &&
-      executionControlVisibility.thinking !== false &&
-      typeof executionControls.onThinkingEnabledChange === "function",
-  );
-  const showSearchControl = Boolean(
-    executionControls &&
-      executionControlVisibility.search !== false &&
-      typeof executionControls.onSearchEnabledChange === "function",
-  );
-  const showExecutionControls =
-    showThinkingControl || showPermissionControl || showSearchControl;
-  const permissionModeIconClassName = useMemo(() => {
-    if (!executionControls) {
-      return "text-setta-600 dark:text-setta-300";
-    }
-    if (executionControls.permissionMode === "yolo") {
-      return "text-orange-500 dark:text-orange-400";
-    }
-    if (executionControls.permissionMode === "config_toml_custom") {
-      return "text-amber-500 dark:text-amber-300";
-    }
-    return "text-setta-600 dark:text-setta-300";
-  }, [executionControls?.permissionMode]);
-  const thinkingIconClassName = useMemo(() => {
-    if (!executionControls?.thinkingEnabled) {
-      return "text-setta-600 dark:text-setta-300";
-    }
-    return "text-blue-600 dark:text-blue-400";
-  }, [executionControls?.thinkingEnabled]);
-  const normalizedContextWindowTokens = useMemo(() => {
-    if (
-      typeof contextWindowTokens !== "number" ||
-      !Number.isFinite(contextWindowTokens)
-    ) {
-      return null;
-    }
-    return Math.max(0, Math.floor(contextWindowTokens));
-  }, [contextWindowTokens]);
-  const normalizedContextUsedTokens = useMemo(() => {
-    if (
-      typeof contextUsedTokens !== "number" ||
-      !Number.isFinite(contextUsedTokens)
-    ) {
-      return null;
-    }
-    return Math.max(0, Math.floor(contextUsedTokens));
-  }, [contextUsedTokens]);
-  const remainingContextTokens = useMemo(() => {
-    if (
-      normalizedContextWindowTokens === null ||
-      normalizedContextUsedTokens === null
-    ) {
-      return null;
-    }
-    return Math.max(
-      0,
-      normalizedContextWindowTokens - normalizedContextUsedTokens,
-    );
-  }, [normalizedContextUsedTokens, normalizedContextWindowTokens]);
-  const remainingContextPercentage = useMemo(() => {
-    if (remainingContextTokens === null) {
-      return null;
-    }
-    if (
-      normalizedContextWindowTokens === null ||
-      normalizedContextWindowTokens <= 0
-    ) {
-      return 0;
-    }
-    const rawPercentage = Math.round(
-      (remainingContextTokens / normalizedContextWindowTokens) * 100,
-    );
-    return Math.max(0, Math.min(100, rawPercentage));
-  }, [normalizedContextWindowTokens, remainingContextTokens]);
-  const contextRemainingValue = useMemo(() => {
-    if (remainingContextTokens === null) {
-      return null;
-    }
-    if (contextBadgeMode === "tokens") {
-      return `~${formatCompactTokenCount(remainingContextTokens)}`;
-    }
-    if (remainingContextPercentage === null) {
-      return null;
-    }
-    return `${remainingContextPercentage}%`;
-  }, [contextBadgeMode, remainingContextPercentage, remainingContextTokens]);
-  const contextLabelPrefixFull = contextUsageIsEstimated
-    ? "est. context left"
-    : "context left";
-  const contextLabelPrefixCompact = contextUsageIsEstimated
-    ? "est. context"
-    : "context";
-  const showContextUnavailableBadge =
-    contextRemainingValue === null && contextUsageUnavailable;
-  const activeBackgroundTerminalEntries =
-    runtimeActivityDetails.activeBackgroundTerminals;
-  const activeSubagentEntries = runtimeActivityDetails.activeSubagents;
-  const activeBackgroundTerminals = useMemo(
-    () =>
-      Math.max(
-        normalizeNonNegativeCount(
-          runtimeActivityCounts.activeBackgroundTerminals,
-        ),
-        activeBackgroundTerminalEntries.length,
-      ),
-    [
-      activeBackgroundTerminalEntries.length,
-      runtimeActivityCounts.activeBackgroundTerminals,
-    ],
-  );
-  const activeSubagents = useMemo(
-    () =>
-      Math.max(
-        normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
-        activeSubagentEntries.length,
-      ),
-    [activeSubagentEntries.length, runtimeActivityCounts.activeSubagents],
-  );
-  const showBackgroundTerminalDropdown =
-    activeBackgroundTerminalEntries.length > 0;
-  const showSubagentDropdown = activeSubagentEntries.length > 0;
-  const showRuntimeActivityCounters =
-    activeBackgroundTerminals > 0 || activeSubagents > 0;
-  const showContextBadge =
-    contextRemainingValue !== null || showContextUnavailableBadge;
-  const shouldShowComposerMetaRow =
-    showExecutionControls || showContextBadge || showRuntimeActivityCounters;
   const attachmentTooltipHandlers = useMemo(
     () =>
       getFloatingBoxHandlers({
@@ -1983,36 +706,6 @@ export const ChatInput = memo(function ChatInput({
       content: "Submit this message.",
     });
   }, [isSubmitDisabled, waitingForResponse]);
-  const thinkingTooltipHandlers = useMemo(() => {
-    if (!showThinkingControl || !executionControls) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Thinking",
-      content: executionControls.thinkingEnabled
-        ? "Reasoning is enabled for new messages."
-        : "Reasoning is disabled for new messages.",
-    });
-  }, [executionControls, showThinkingControl]);
-  const permissionTooltipHandlers = useMemo(() => {
-    if (!executionControls || !showPermissionControl) {
-      return null;
-    }
-    const modeLabel = executionControls.permissionMode.replaceAll("_", " ");
-    return getFloatingBoxHandlers({
-      title: "Permissions",
-      content: `Current mode: ${modeLabel}`,
-    });
-  }, [executionControls, showPermissionControl]);
-  const dictationAriaLabel = useMemo(() => {
-    if (dictationState === "listening") {
-      return "Stop Mic";
-    }
-    if (dictationState === "transcribing") {
-      return "Transcribing";
-    }
-    return "Mic";
-  }, [dictationState]);
   const dictationTooltipHandlers = useMemo(() => {
     if (!canDictate) {
       return null;
@@ -2022,66 +715,6 @@ export const ChatInput = memo(function ChatInput({
       content: dictationAriaLabel,
     });
   }, [canDictate, dictationAriaLabel]);
-  const backgroundTerminalTooltipHandlers = useMemo(() => {
-    if (!showRuntimeActivityCounters) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Background terminals",
-      content: showBackgroundTerminalDropdown
-        ? `${activeBackgroundTerminals} active. Click to view running terminals.`
-        : `${activeBackgroundTerminals} active`,
-    });
-  }, [
-    activeBackgroundTerminals,
-    showBackgroundTerminalDropdown,
-    showRuntimeActivityCounters,
-  ]);
-  const subagentTooltipHandlers = useMemo(() => {
-    if (!showRuntimeActivityCounters) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Subagents",
-      content: showSubagentDropdown
-        ? `${activeSubagents} active. Click to view running subagents.`
-        : `${activeSubagents} active`,
-    });
-  }, [activeSubagents, showRuntimeActivityCounters, showSubagentDropdown]);
-  const contextTooltipHandlers = useMemo(() => {
-    if (!showContextBadge) {
-      return null;
-    }
-    if (showContextUnavailableBadge) {
-      return getFloatingBoxHandlers({
-        title: "Context unavailable",
-        content: "Context usage telemetry is unavailable for this chat run.",
-      });
-    }
-    return getFloatingBoxHandlers({
-      title: "Context",
-      content:
-        contextBadgeMode === "tokens"
-          ? "Click to show remaining context percentage."
-          : "Click to show remaining context tokens.",
-    });
-  }, [contextBadgeMode, showContextBadge, showContextUnavailableBadge]);
-  const searchTooltipHandlers = useMemo(() => {
-    if (!showSearchControl || !executionControls) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Search",
-      content: executionControls.searchEnabled
-        ? "Search is enabled for new messages."
-        : "Search is disabled for new messages.",
-    });
-  }, [executionControls, showSearchControl]);
-  const handleContextBadgeToggle = useCallback(() => {
-    setContextBadgeMode((current) =>
-      current === "percentage" ? "tokens" : "percentage",
-    );
-  }, []);
   const slashSuggestionsPositionClass =
     resolvedSlashPlacement === "below"
       ? "top-[calc(100%+4px)]"
@@ -2091,437 +724,6 @@ export const ChatInput = memo(function ChatInput({
     slashSuggestionsPortalStyle !== null &&
     typeof document !== "undefined" &&
     Boolean(document.body);
-
-  const cleanupProviderCapture = useCallback(() => {
-    const recorder = providerRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.onstop = null;
-      recorder.stop();
-    }
-    providerRecorderRef.current = null;
-    const stream = providerStreamRef.current;
-    if (stream) {
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-    }
-    providerStreamRef.current = null;
-    providerChunksRef.current = [];
-    dictationSourceRef.current = null;
-  }, []);
-
-  const stopProviderCapture = useCallback(() => {
-    const recorder = providerRecorderRef.current;
-    if (!recorder) {
-      return;
-    }
-    if (recorder.state !== "inactive") {
-      recorder.stop();
-    }
-    providerRecorderRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("transcribing");
-    setDictationFeedback("Transcribing...");
-  }, []);
-
-  const stopBrowserDictation = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      return;
-    }
-    recognition.stop();
-    recognitionRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, []);
-
-  const stopActiveDictationImmediately = useCallback(() => {
-    if (dictationSourceRef.current === "provider") {
-      cleanupProviderCapture();
-    } else {
-      stopBrowserDictation();
-    }
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, [cleanupProviderCapture, stopBrowserDictation]);
-
-  const insertTranscript = useCallback(
-    (transcript: string) => {
-      const node = textareaRef.current;
-      const current = inputValueRef.current;
-      const start = node?.selectionStart ?? current.length;
-      const end = node?.selectionEnd ?? current.length;
-      const result = insertTextAtSelection(current, transcript, start, end);
-      setInputValue(result.value);
-      requestAnimationFrame(() => {
-        if (!node) {
-          return;
-        }
-        node.focus();
-        node.setSelectionRange(result.nextCaret, result.nextCaret);
-      });
-    },
-    [setInputValue],
-  );
-
-  const startBrowserDictation = useCallback(() => {
-    if (!canBrowserDictate) {
-      setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
-      return;
-    }
-    const RecognitionCtor = getSpeechRecognitionConstructor();
-    if (!RecognitionCtor) {
-      setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
-      return;
-    }
-    const recognition = new RecognitionCtor();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognition.onresult = (event) => {
-      let transcript = "";
-      for (
-        let index = event.resultIndex;
-        index < event.results.length;
-        index += 1
-      ) {
-        const result = event.results[index];
-        if (!result || !result.isFinal) {
-          continue;
-        }
-        transcript += result[0]?.transcript ?? "";
-      }
-      const normalized = transcript.trim();
-      if (!normalized) {
-        return;
-      }
-      insertTranscript(`${normalized} `);
-      setDictationFeedback(null);
-    };
-    recognition.onerror = (event) => {
-      if (isNoSpeechDictationError(event.error)) {
-        setDictationState("idle");
-        setDictationFeedback(null);
-        addTemporaryNotification("No speech was detected.");
-      } else {
-        setDictationState("error");
-        setDictationFeedback(mapDictationError(event.error));
-      }
-      recognitionRef.current = null;
-      dictationSourceRef.current = null;
-    };
-    recognition.onend = () => {
-      const shouldContinueListening =
-        recognitionRef.current === recognition &&
-        dictationSourceRef.current === "browser";
-      if (!shouldContinueListening) {
-        return;
-      }
-      try {
-        recognition.start();
-        setDictationState("listening");
-        setDictationFeedback("Listening...");
-      } catch {
-        recognitionRef.current = null;
-        dictationSourceRef.current = null;
-        setDictationState("error");
-        setDictationFeedback(mapDictationError(undefined));
-      }
-    };
-    recognitionRef.current = recognition;
-    dictationSourceRef.current = "browser";
-    setDictationState("listening");
-    setDictationFeedback("Listening...");
-    try {
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      dictationSourceRef.current = null;
-      setDictationState("error");
-      setDictationFeedback(mapDictationError(undefined));
-    }
-  }, [canBrowserDictate, insertTranscript]);
-
-  const maybeFallbackToBrowserDictation = useCallback(
-    (allowFallback: boolean): boolean => {
-      if (!allowFallback || !canBrowserDictate) {
-        return false;
-      }
-      startBrowserDictation();
-      return true;
-    },
-    [canBrowserDictate, startBrowserDictation],
-  );
-
-  const maybeFallbackForProviderFailure = useCallback(
-    ({
-      phase,
-      failureClass,
-      allowBrowserFallback,
-    }: {
-      phase: DictationProviderFailurePhase;
-      failureClass: DictationProviderFailureClass;
-      allowBrowserFallback: boolean;
-    }): boolean => {
-      if (
-        !shouldFallbackToBrowserAfterProviderFailure({
-          mode: dictationMode,
-          phase,
-          failureClass,
-        })
-      ) {
-        return false;
-      }
-      return maybeFallbackToBrowserDictation(allowBrowserFallback);
-    },
-    [dictationMode, maybeFallbackToBrowserDictation],
-  );
-
-  const startProviderDictation = useCallback(
-    async (allowBrowserFallback: boolean) => {
-      if (!canProviderDictate || !onProviderDictationTranscribe) {
-        if (
-          maybeFallbackForProviderFailure({
-            phase: "capture_start",
-            failureClass: "unknown",
-            allowBrowserFallback,
-          })
-        ) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
-        return;
-      }
-      if (
-        typeof navigator === "undefined" ||
-        !navigator.mediaDevices?.getUserMedia ||
-        typeof MediaRecorder === "undefined"
-      ) {
-        if (
-          maybeFallbackForProviderFailure({
-            phase: "capture_start",
-            failureClass: "unknown",
-            allowBrowserFallback,
-          })
-        ) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        providerStreamRef.current = stream;
-        const mimeType = pickProviderRecorderMimeType(
-          MediaRecorder.isTypeSupported?.bind(MediaRecorder),
-        );
-        let recorder: MediaRecorder;
-        try {
-          recorder = mimeType
-            ? new MediaRecorder(stream, { mimeType })
-            : new MediaRecorder(stream);
-        } catch {
-          cleanupProviderCapture();
-          if (
-            maybeFallbackForProviderFailure({
-              phase: "capture_start",
-              failureClass: "unknown",
-              allowBrowserFallback,
-            })
-          ) {
-            return;
-          }
-          setDictationState("error");
-          setDictationFeedback("Provider dictation is not available.");
-          return;
-        }
-        providerRecorderRef.current = recorder;
-        providerChunksRef.current = [];
-        dictationSourceRef.current = "provider";
-        recorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            providerChunksRef.current.push(event.data);
-          }
-        };
-        recorder.onerror = () => {
-          cleanupProviderCapture();
-          if (
-            maybeFallbackForProviderFailure({
-              phase: "capture_runtime",
-              failureClass: "unknown",
-              allowBrowserFallback,
-            })
-          ) {
-            return;
-          }
-          setDictationState("error");
-          setDictationFeedback("Microphone input failed.");
-        };
-        recorder.onstop = () => {
-          providerRecorderRef.current = null;
-          dictationSourceRef.current = null;
-          const streamRef = providerStreamRef.current;
-          if (streamRef) {
-            for (const track of streamRef.getTracks()) {
-              track.stop();
-            }
-          }
-          providerStreamRef.current = null;
-          const chunks = providerChunksRef.current;
-          providerChunksRef.current = [];
-          let blobType = recorder.mimeType || mimeType || "audio/webm";
-          for (const chunk of chunks) {
-            if (chunk instanceof Blob && chunk.type) {
-              blobType = chunk.type;
-              break;
-            }
-          }
-          const blob = new Blob(chunks, { type: blobType });
-          if (blob.size === 0) {
-            setDictationState("idle");
-            setDictationFeedback(null);
-            addTemporaryNotification("No speech was detected.");
-            return;
-          }
-          setDictationState("transcribing");
-          setDictationFeedback("Transcribing...");
-          void (async () => {
-            try {
-              const result = await onProviderDictationTranscribe(blob);
-              if (result.kind === "no_speech") {
-                setDictationState("idle");
-                setDictationFeedback(null);
-                addTemporaryNotification("No speech was detected.");
-                return;
-              }
-              const normalized = result.transcript.trim();
-              if (!normalized) {
-                throw new Error(
-                  "Provider transcription returned an empty result.",
-                );
-              }
-              insertTranscript(`${normalized} `);
-              setDictationState("idle");
-              setDictationFeedback(null);
-            } catch (error) {
-              const failureClass = classifyProviderDictationFailureClass(error);
-              if (
-                maybeFallbackForProviderFailure({
-                  phase: "transcription",
-                  failureClass,
-                  allowBrowserFallback,
-                })
-              ) {
-                return;
-              }
-              setDictationState("error");
-              setDictationFeedback(
-                error instanceof Error && error.message
-                  ? error.message
-                  : "Provider transcription failed.",
-              );
-            }
-          })();
-        };
-        setDictationState("listening");
-        setDictationFeedback("Listening...");
-        recorder.start();
-      } catch {
-        cleanupProviderCapture();
-        if (
-          maybeFallbackForProviderFailure({
-            phase: "capture_start",
-            failureClass: "unknown",
-            allowBrowserFallback,
-          })
-        ) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Microphone access was denied.");
-      }
-    },
-    [
-      canProviderDictate,
-      cleanupProviderCapture,
-      insertTranscript,
-      maybeFallbackForProviderFailure,
-      onProviderDictationTranscribe,
-    ],
-  );
-
-  const startDictation = useCallback(() => {
-    if (!canDictate) {
-      setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
-      return;
-    }
-    if (dictationMode === "provider") {
-      void startProviderDictation(false);
-      return;
-    }
-    if (dictationMode === "browser") {
-      startBrowserDictation();
-      return;
-    }
-    if (canAutoUseProviderDictation) {
-      void startProviderDictation(true);
-      return;
-    }
-    startBrowserDictation();
-  }, [
-    canDictate,
-    canAutoUseProviderDictation,
-    dictationMode,
-    startBrowserDictation,
-    startProviderDictation,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-      recognitionRef.current = null;
-      cleanupProviderCapture();
-    };
-  }, [cleanupProviderCapture]);
-
-  useEffect(() => {
-    if (!isDisabled || dictationState !== "listening") {
-      return;
-    }
-    stopActiveDictationImmediately();
-  }, [dictationState, isDisabled, stopActiveDictationImmediately]);
-
-  const handleDictationToggle = useCallback(() => {
-    if (isDisabled) {
-      return;
-    }
-    if (dictationState === "listening") {
-      if (dictationSourceRef.current === "provider") {
-        stopProviderCapture();
-        return;
-      }
-      stopBrowserDictation();
-      return;
-    }
-    if (dictationState === "transcribing") {
-      return;
-    }
-    startDictation();
-  }, [
-    dictationState,
-    isDisabled,
-    startDictation,
-    stopBrowserDictation,
-    stopProviderCapture,
-  ]);
 
   const slashSuggestionsList = (
     <>
@@ -2562,93 +764,12 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {queuedDrafts.length > 0 ? (
-            <div
-              className="mb-1 flex flex-col gap-1"
-              data-chat-queued-draft-stack="true"
-            >
-              {queuedDrafts.map((draft, index) => {
-                const isSelected = draft.id === selectedQueuedDraftId;
-                const previewText = draft.message.trim();
-                const attachmentCount = draft.attachments.length;
-                const attachmentLabel =
-                  attachmentCount === 1
-                    ? "1 attachment"
-                    : `${attachmentCount} attachments`;
-                const queuedDraftTooltipHandlers = getFloatingBoxHandlers({
-                  title: "Queued draft",
-                  content:
-                    previewText.length > 0
-                      ? previewText
-                      : "Queued attachment message",
-                });
-                return (
-                  <button
-                    key={draft.id}
-                    type="button"
-                    className={`grid w-full grid-cols-[1.75rem_minmax(0,1fr)] overflow-hidden rounded-md border text-left transition-colors ${
-                      isSelected
-                        ? "border-blue-400/90 bg-blue-200 text-setta-950 dark:border-blue-700/80 dark:bg-blue-950 dark:text-white"
-                        : "border-blue-300/75 bg-blue-100/85 text-setta-900 hover:border-blue-400/80 hover:bg-blue-200/80 dark:border-blue-800/70 dark:bg-blue-950/70 dark:text-blue-100 dark:hover:border-blue-700 dark:hover:bg-blue-900/80"
-                    }`}
-                    data-chat-queued-draft="true"
-                    data-selected={isSelected ? "true" : "false"}
-                    onClick={() => setSelectedQueuedDraftId(draft.id)}
-                    onDoubleClick={() => restoreQueuedDraftToComposer(draft.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        restoreQueuedDraftToComposer(draft.id);
-                        return;
-                      }
-                      if (
-                        event.key === "ArrowUp" ||
-                        event.key === "ArrowDown"
-                      ) {
-                        event.preventDefault();
-                        setSelectedQueuedDraftId((current) =>
-                          cycleQueuedDraftSelection(
-                            queuedDrafts,
-                            current,
-                            event.key === "ArrowUp" ? "prev" : "next",
-                          ),
-                        );
-                      }
-                    }}
-                    {...queuedDraftTooltipHandlers}
-                  >
-                    <div
-                      className={`flex h-full items-center justify-center text-[10px] font-semibold ${
-                        isSelected
-                          ? "bg-blue-300/75 text-blue-900 dark:bg-blue-900/80 dark:text-blue-100"
-                          : "bg-blue-200/75 text-blue-900 dark:bg-blue-900/65 dark:text-blue-200"
-                      }`}
-                      data-chat-queued-draft-rail="true"
-                    >
-                      <span className="inline-flex h-4 min-w-4 items-center justify-center">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div className="min-w-0 px-2 py-1">
-                      <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
-                        <span>Queued</span>
-                        {attachmentCount > 0 ? (
-                          <span className="truncate opacity-80">
-                            {attachmentLabel}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 truncate text-[11px] font-medium">
-                        {previewText.length > 0
-                          ? previewText
-                          : "(Attachment message)"}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
+          <ChatInputQueuedDraftStack
+            queuedDrafts={queuedDrafts}
+            selectedQueuedDraftId={selectedQueuedDraftId}
+            onRestoreQueuedDraft={restoreQueuedDraftToComposer}
+            onSelectedQueuedDraftIdChange={setSelectedQueuedDraftId}
+          />
           <div className="group relative my-1 w-full">
             <input
               ref={fileInputRef}
@@ -2792,260 +913,17 @@ export const ChatInput = memo(function ChatInput({
               </span>
             ) : null}
           </div>
-          {shouldShowComposerMetaRow ? (
-            <div className="mb-0.5 flex items-center justify-between gap-2 [&_button]:cursor-pointer">
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {showThinkingControl && executionControls ? (
-                  <button
-                    type="button"
-                    aria-label="Thinking"
-                    aria-pressed={Boolean(executionControls.thinkingEnabled)}
-                    disabled={isDisabled}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                    onClick={() =>
-                      executionControls.onThinkingEnabledChange?.(
-                        !Boolean(executionControls.thinkingEnabled),
-                      )
-                    }
-                    {...(thinkingTooltipHandlers ?? {})}
-                  >
-                    <BiSolidBrain size={12} className={thinkingIconClassName} />
-                  </button>
-                ) : null}
-                {executionControls &&
-                executionControlVisibility.permissionMode !== false ? (
-                  <DropdownMenu.Root modal={false}>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        type="button"
-                        disabled={isDisabled}
-                        aria-label={`${executionControls.permissionMode} permissions`}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                        {...(permissionTooltipHandlers ?? {})}
-                      >
-                        <IoMdKey
-                          size={12}
-                          className={permissionModeIconClassName}
-                        />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        align="start"
-                        sideOffset={6}
-                        className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
-                      >
-                        {[
-                          { value: "minimal", label: "minimal" },
-                          { value: "yolo", label: "yolo" },
-                          {
-                            value: "config_toml_custom",
-                            label: "config.toml custom",
-                          },
-                        ].map((mode) => (
-                          <DropdownMenu.Item
-                            key={mode.value}
-                            className={`cursor-pointer rounded px-2 py-1.5 transition-colors ${
-                              executionControls.permissionMode === mode.value
-                                ? "bg-blue-600 text-white"
-                                : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-800"
-                            }`}
-                            onSelect={() =>
-                              executionControls.onPermissionModeChange(
-                                mode.value as ChatPermissionModeValue,
-                              )
-                            }
-                          >
-                            {mode.label}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-                ) : null}
-                {showRuntimeActivityCounters ? (
-                  <div className="inline-flex items-center gap-1">
-                    {showBackgroundTerminalDropdown ? (
-                      <DropdownMenu.Root modal={false}>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            type="button"
-                            data-chat-runtime-active-background-terminals="true"
-                            className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                            aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
-                            {...(backgroundTerminalTooltipHandlers ?? {})}
-                          >
-                            <FiTerminal size={10} />
-                            <span className="font-mono leading-none">
-                              {activeBackgroundTerminals}
-                            </span>
-                          </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            align="start"
-                            sideOffset={6}
-                            className="z-30 min-w-[240px] max-w-[360px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
-                          >
-                            <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
-                              Background terminals
-                            </DropdownMenu.Label>
-                            <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
-                            <div className="max-h-52 overflow-y-auto pb-1">
-                              {activeBackgroundTerminalEntries.map((entry) => (
-                                <div
-                                  key={entry.id}
-                                  className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
-                                >
-                                  <p
-                                    className="truncate text-[11px] font-medium"
-                                    title={entry.label}
-                                  >
-                                    {entry.label}
-                                  </p>
-                                  <p
-                                    className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-setta-400 dark:text-setta-500"
-                                    title={`${entry.toolName} | ${entry.id}`}
-                                  >
-                                    {entry.toolName} | {entry.id}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
-                    ) : (
-                      <span
-                        data-chat-runtime-active-background-terminals="true"
-                        className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                        aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
-                        {...(backgroundTerminalTooltipHandlers ?? {})}
-                      >
-                        <FiTerminal size={10} />
-                        <span className="font-mono leading-none">
-                          {activeBackgroundTerminals}
-                        </span>
-                      </span>
-                    )}
-                    {showSubagentDropdown ? (
-                      <DropdownMenu.Root modal={false}>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            type="button"
-                            data-chat-runtime-active-subagents="true"
-                            className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                            aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
-                            {...(subagentTooltipHandlers ?? {})}
-                          >
-                            <FiCpu size={10} />
-                            <span className="font-mono leading-none">
-                              {activeSubagents}
-                            </span>
-                          </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            align="start"
-                            sideOffset={6}
-                            className="z-30 min-w-[240px] max-w-[360px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
-                          >
-                            <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
-                              Subagents
-                            </DropdownMenu.Label>
-                            <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
-                            <div className="max-h-52 overflow-y-auto pb-1">
-                              {activeSubagentEntries.map((entry) => (
-                                <div
-                                  key={entry.id}
-                                  className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
-                                >
-                                  <p
-                                    className="truncate text-[11px] font-medium"
-                                    title={entry.label}
-                                  >
-                                    {entry.label}
-                                  </p>
-                                  <p
-                                    className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-setta-400 dark:text-setta-500"
-                                    title={`${entry.toolName} | ${entry.id}`}
-                                  >
-                                    {entry.toolName} | {entry.id}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
-                    ) : (
-                      <span
-                        data-chat-runtime-active-subagents="true"
-                        className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                        aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
-                        {...(subagentTooltipHandlers ?? {})}
-                      >
-                        <FiCpu size={10} />
-                        <span className="font-mono leading-none">
-                          {activeSubagents}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                ) : null}
-                {executionControls &&
-                executionControlVisibility.search !== false &&
-                typeof executionControls.onSearchEnabledChange ===
-                  "function" ? (
-                  <button
-                    type="button"
-                    aria-pressed={Boolean(executionControls.searchEnabled)}
-                    disabled={isDisabled}
-                    className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      executionControls.searchEnabled
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={() =>
-                      executionControls.onSearchEnabledChange?.(
-                        !Boolean(executionControls.searchEnabled),
-                      )
-                    }
-                    {...(searchTooltipHandlers ?? {})}
-                  >
-                    Search
-                  </button>
-                ) : null}
-              </div>
-              {contextRemainingValue ? (
-                <button
-                  type="button"
-                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-600 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-300"
-                  aria-label={`${contextLabelPrefixFull} ${contextRemainingValue}`}
-                  onClick={handleContextBadgeToggle}
-                  {...(contextTooltipHandlers ?? {})}
-                >
-                  <span className="hidden @[30rem]:inline" aria-hidden="true">
-                    {contextLabelPrefixFull}
-                  </span>
-                  <span className="@[30rem]:hidden" aria-hidden="true">
-                    {contextLabelPrefixCompact}
-                  </span>
-                  <span className="ml-1" aria-hidden="true">
-                    {contextRemainingValue}
-                  </span>
-                </button>
-              ) : showContextUnavailableBadge ? (
-                <span
-                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-600 dark:text-amber-300"
-                  aria-label="context unavailable"
-                  {...(contextTooltipHandlers ?? {})}
-                >
-                  context unavailable
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          <ChatInputMetaControls
+            disabled={isDisabled}
+            executionControls={executionControls}
+            executionControlVisibility={executionControlVisibility}
+            contextWindowTokens={contextWindowTokens}
+            contextUsedTokens={contextUsedTokens}
+            contextUsageIsEstimated={contextUsageIsEstimated}
+            contextUsageUnavailable={contextUsageUnavailable}
+            runtimeActivityCounts={runtimeActivityCounts}
+            runtimeActivityDetails={runtimeActivityDetails}
+          />
           {attachments.length > 0 ? (
             <div className="mb-0.5 flex flex-wrap gap-1.5 [&_button]:cursor-pointer">
               {attachments.map((attachment) => {
