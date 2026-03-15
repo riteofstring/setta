@@ -1,10 +1,5 @@
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_binary_upload } from "utils/generatedEndpoints";
-import type { BinaryContentRef } from "utils/generatedTypes";
 
 type UploadBinaryPayloadResult =
   | {
@@ -15,7 +10,6 @@ type UploadBinaryPayloadResult =
       status: "failed";
       error: string;
     };
-type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
 
 export async function uploadBinaryPayload({
   bytes,
@@ -37,7 +31,7 @@ export async function uploadBinaryPayload({
     fileName,
   );
   form.append("durable", durable ? "true" : "false");
-  const response: BinaryUploadRouteResponse = await route_binary_upload(form);
+  const response = await route_binary_upload(form);
   if (!res200(response)) {
     return {
       status: "failed",

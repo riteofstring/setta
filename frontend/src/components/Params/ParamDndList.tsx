@@ -2,10 +2,11 @@ import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
 import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
-import { buildParamTreeView } from "state/actions/params/paramTree";
+import { buildParamTreeView } from "state/actions/params/paramTreeStructure";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
-import { useMisc, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,

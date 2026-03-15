@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProjectChatDeleteRecoveryTooltipContent } from "./ProjectChatHistory";
+import { getProjectChatDeleteRecoveryTooltipContent } from "./projectChatHistoryCopy";
 
 describe("project chat delete tooltip copy", () => {
   it("uses Undo Delete guidance for thread deletion", () => {

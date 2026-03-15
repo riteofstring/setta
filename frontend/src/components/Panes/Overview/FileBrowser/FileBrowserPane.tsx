@@ -9,7 +9,11 @@ import {
 } from "components/Utils/FileBrowserPathControls";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useReactFlow } from "forks/xyflow/core/store";
-import type { CSSProperties } from "react";
+import type {
+  CSSProperties,
+  MouseEventHandler,
+  KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   useCallback,
   useEffect,
@@ -23,237 +27,49 @@ import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder, TbFolders } from "react-icons/tb";
 import { List, useListRef } from "react-window";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { openFileInCodeSection } from "state/actions/sections/createSections";
-import { useFileBrowserState } from "state/definitions";
+import { openFileInCodeSection } from "state/actions/sections/createSectionFileOpenCommands";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
+import { useFileBrowserState } from "state/stores/fileBrowserStores";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
-import { normalizeBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   getFileBrowserDragPayload,
   setFileBrowserDragPayload,
   type FileBrowserDragPayload,
 } from "utils/fileBrowserDragPayload";
 import {
-  matchesFileBrowserNameFilter,
-  matchesFileBrowserPathFilter,
-  normalizeFileBrowserPathForFilter,
-  parseFileBrowserFilterText,
-} from "utils/fileBrowserFilter";
-import {
-  buildFileBrowserBreadcrumbs,
-  getFileBrowserParentPath,
-} from "utils/fileBrowserNavigation";
-import {
   isSameOrDescendantBrowserPath,
   normalizeFileBrowserPathForComparison,
 } from "utils/fileBrowserPathRelation";
-import {
-  filterFileBrowserItemsByTypeFilters,
-  type FileBrowserSearchScope,
-} from "utils/fileBrowserTypes";
-import {
-  route_check_workspace_initialized,
-  route_get_file_browser_download_urls,
-  route_get_file_browser_root,
-  route_get_folder_contents,
-  route_transfer_file_browser_entry,
-} from "utils/generatedEndpoints";
-import {
-  CheckWorkspaceInitializedResponse,
-  FileBrowserDownloadURLEntry,
-  FileBrowserRootResponse,
-  GetFileBrowserDownloadURLsResponse,
-  GetFolderContentsResponse,
-  SettaNotificationTypeEnum,
-  TransferFileBrowserEntryResponse,
-} from "utils/generatedTypes";
+import { route_transfer_file_browser_entry } from "utils/generatedEndpoints";
+import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
+import {
+  formatBrowserPathTooltip,
+  formatModifiedAt,
+  getBaseNameFromPath,
+  shouldShowSettaInitializedFolderIcon,
+  type FileNode,
+  type FileUrlEntry,
+  type FlattenedNode,
+  type NodeKind,
+} from "./fileBrowserPaneTreeModel";
+import { useFileBrowserPaneTreeData } from "./useFileBrowserPaneTreeData";
 
 const ROW_HEIGHT = 24;
 const HEADER_HEIGHT = 28;
 export const FILE_BROWSER_DATE_COLUMN_MIN_WIDTH = 96;
 export const FILE_BROWSER_FILE_COLUMN_MIN_WIDTH = 120;
 const FILE_COLUMN_CSS_VAR = "--file-browser-column-width";
-const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "2-digit",
-  year: "numeric",
-});
 const FILTER_DEBOUNCE_MS = 150;
-const MAX_ENTRIES = 5000;
-const FILTER_RECURSIVE_MIN_CHARS = 2;
-const FILTER_RECURSIVE_MAX_FOLDERS = 600;
-const FILE_URL_REFRESH_BUFFER_MS = 30_000;
-const SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT = 8;
-
-type NodeKind = "folder" | "file";
 type FileBrowserClipboardEntry = {
   sourcePath: string;
   sourceType: NodeKind;
   operation: "copy" | "move";
 };
-
-type SortKey = "name" | "modified";
-type SortDirection = "asc" | "desc";
-
-type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
-type CheckWorkspaceInitializedRouteResponse =
-  ResponseDataAndStatus<CheckWorkspaceInitializedResponse>;
-type FileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
-type FolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
-type FileBrowserDownloadURLsRouteResponse =
-  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
-type TransferFileBrowserEntryRouteResponse =
-  ResponseDataAndStatus<TransferFileBrowserEntryResponse>;
-
-export type FileNode = {
-  name: string;
-  fullPath: string;
-  type: NodeKind;
-  parentPath: string | null;
-  mtime?: number | null;
-  isSettaInitialized?: boolean;
-};
-
-type FlattenedNode = FileNode & {
-  depth: number;
-};
-
-type FlattenedFileNode = FlattenedNode;
-
-export function getSettaBadgeRefreshFolderPaths({
-  rootPath,
-  expandedPaths,
-  nodesByPath,
-}: {
-  rootPath: string;
-  expandedPaths: Record<string, boolean>;
-  nodesByPath: Record<string, FileNode>;
-}): string[] {
-  const paths = new Set<string>([rootPath]);
-  for (const [path, isExpanded] of Object.entries(expandedPaths)) {
-    if (!isExpanded) {
-      continue;
-    }
-    const node = nodesByPath[path];
-    if (node?.type === "folder") {
-      paths.add(path);
-    }
-  }
-  return Array.from(paths);
-}
-
-export function shouldRefreshSettaBadgeDataOnToggleChange({
-  previousIncludeSettaInitializedFolders,
-  nextIncludeSettaInitializedFolders,
-}: {
-  previousIncludeSettaInitializedFolders: boolean;
-  nextIncludeSettaInitializedFolders: boolean;
-}): boolean {
-  return (
-    !previousIncludeSettaInitializedFolders &&
-    nextIncludeSettaInitializedFolders
-  );
-}
-
-export function shouldShowSettaInitializedFolderIcon({
-  isFolder,
-  isSettaInitialized,
-}: {
-  isFolder: boolean;
-  isSettaInitialized: boolean;
-}): boolean {
-  return isFolder && isSettaInitialized;
-}
-
-export function shouldCheckRootWorkspaceInitialization({
-  folderPath,
-  rootPath,
-}: {
-  folderPath: string;
-  rootPath: string | null;
-}): boolean {
-  return rootPath !== null && folderPath === rootPath;
-}
-
-export function shouldLoadRootWorkspaceInitializationMetadata({
-  includeSettaInitializedFolders,
-  folderPath,
-  rootPath,
-}: {
-  includeSettaInitializedFolders: boolean;
-  folderPath: string;
-  rootPath: string | null;
-}): boolean {
-  return (
-    includeSettaInitializedFolders &&
-    shouldCheckRootWorkspaceInitialization({ folderPath, rootPath })
-  );
-}
-
-export function buildFileBrowserLoadingPathOwner({
-  rootRequestId,
-  folderRequestId,
-}: {
-  rootRequestId: number;
-  folderRequestId: number;
-}): string {
-  return `${rootRequestId}:${folderRequestId}`;
-}
-
-export function isOwnedFileBrowserLoadingPath({
-  loadingPathOwnerByPath,
-  folderPath,
-  requestOwner,
-}: {
-  loadingPathOwnerByPath: Record<string, string>;
-  folderPath: string;
-  requestOwner: string;
-}): boolean {
-  return loadingPathOwnerByPath[folderPath] === requestOwner;
-}
-
-export async function forEachWithConcurrencyLimit<T>({
-  items,
-  limit,
-  run,
-}: {
-  items: T[];
-  limit: number;
-  run: (item: T) => Promise<unknown>;
-}): Promise<void> {
-  if (limit < 1) {
-    throw new RangeError("Concurrency limit must be at least 1.");
-  }
-  const workerCount = Math.min(limit, items.length);
-  if (workerCount === 0) {
-    return;
-  }
-  let nextIndex = 0;
-  const workers: Promise<void>[] = [];
-  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(
-      (async () => {
-        while (nextIndex < items.length) {
-          const currentIndex = nextIndex;
-          nextIndex += 1;
-          await run(items[currentIndex]);
-        }
-      })(),
-    );
-  }
-  await Promise.all(workers);
-}
 
 export function isEditableFileBrowserTarget(
   target: EventTarget | null,
@@ -357,155 +173,6 @@ export function shouldRefreshMovedExpandedFolder(args: {
   );
 }
 
-export function flattenFileBrowserTree({
-  rootPath,
-  nodesByPath,
-  expandedPaths,
-  filterText,
-  searchScope = "recursive",
-  getChildPaths,
-}: {
-  rootPath: string | null;
-  nodesByPath: Record<string, FileNode>;
-  expandedPaths: Record<string, boolean>;
-  filterText: string;
-  searchScope?: FileBrowserSearchScope;
-  getChildPaths: (path: string) => string[];
-}): FlattenedFileNode[] {
-  if (!rootPath) {
-    return [];
-  }
-  const rootNode = nodesByPath[rootPath];
-  if (!rootNode) {
-    return [];
-  }
-
-  const query = parseFileBrowserFilterText(filterText);
-  if (query.kind === "none") {
-    const result: FlattenedFileNode[] = [];
-    const walk = (path: string, depth: number) => {
-      const node = nodesByPath[path];
-      if (!node) {
-        return;
-      }
-      result.push({ ...node, depth });
-      const isExpanded = expandedPaths[path] === true;
-      if (node.type === "folder" && isExpanded) {
-        const children = getChildPaths(path);
-        for (const childPath of children) {
-          walk(childPath, depth + 1);
-        }
-      }
-    };
-    walk(rootPath, 0);
-    return result;
-  }
-
-  const normalizedRootPath = normalizeFileBrowserPathForFilter(rootPath);
-  if (searchScope === "local") {
-    const root = nodesByPath[rootPath];
-    if (!root) {
-      return [];
-    }
-    const result: FlattenedFileNode[] = [{ ...root, depth: 0 }];
-    const children = getChildPaths(rootPath);
-    for (const childPath of children) {
-      const node = nodesByPath[childPath];
-      if (!node) {
-        continue;
-      }
-      let matched = false;
-      if (query.kind === "path") {
-        const normalizedFullPath = normalizeFileBrowserPathForFilter(
-          node.fullPath,
-        );
-        let normalizedRelativePath: string | null = null;
-        if (normalizedFullPath.startsWith(normalizedRootPath)) {
-          normalizedRelativePath = normalizedFullPath.slice(
-            normalizedRootPath.length,
-          );
-          if (normalizedRelativePath.startsWith("/")) {
-            normalizedRelativePath = normalizedRelativePath.slice(1);
-          }
-        }
-        matched = matchesFileBrowserPathFilter(
-          query,
-          normalizedFullPath,
-          normalizedRelativePath,
-        );
-      } else {
-        matched = matchesFileBrowserNameFilter(
-          query,
-          node.name.toLowerCase(),
-          node.type,
-        );
-      }
-      if (matched) {
-        result.push({ ...node, depth: 1 });
-      }
-    }
-    return result;
-  }
-
-  const collectFiltered = (path: string, depth: number) => {
-    const node = nodesByPath[path];
-    if (!node) {
-      return { matched: false, items: [] as FlattenedFileNode[] };
-    }
-
-    let matched = false;
-    if (query.kind === "path") {
-      const normalizedFullPath = normalizeFileBrowserPathForFilter(
-        node.fullPath,
-      );
-      let normalizedRelativePath: string | null = null;
-      if (normalizedFullPath.startsWith(normalizedRootPath)) {
-        normalizedRelativePath = normalizedFullPath.slice(
-          normalizedRootPath.length,
-        );
-        if (normalizedRelativePath.startsWith("/")) {
-          normalizedRelativePath = normalizedRelativePath.slice(1);
-        }
-      }
-      matched = matchesFileBrowserPathFilter(
-        query,
-        normalizedFullPath,
-        normalizedRelativePath,
-      );
-    } else {
-      matched = matchesFileBrowserNameFilter(
-        query,
-        node.name.toLowerCase(),
-        node.type,
-      );
-    }
-
-    const children = getChildPaths(path);
-    if (children.length === 0) {
-      return matched
-        ? { matched: true, items: [{ ...node, depth }] }
-        : { matched: false, items: [] as FlattenedFileNode[] };
-    }
-
-    const childItems: FlattenedFileNode[] = [];
-    for (const childPath of children) {
-      const childResult = collectFiltered(childPath, depth + 1);
-      if (childResult.matched) {
-        matched = true;
-        childItems.push(...childResult.items);
-      }
-    }
-    if (!matched) {
-      return { matched: false, items: [] as FlattenedFileNode[] };
-    }
-    return {
-      matched: true,
-      items: [{ ...node, depth }, ...childItems],
-    };
-  };
-  return collectFiltered(rootPath, 0).items;
-}
-
 type RowData = {
   items: FlattenedNode[];
   expandedPaths: Record<string, boolean>;
@@ -548,7 +215,7 @@ type FileBrowserPaneProps = {
   listInsetLeft?: number;
   columnWidthConfig?: {
     columnWidth: string;
-    onResizeStart: React.MouseEventHandler<HTMLDivElement>;
+    onResizeStart: MouseEventHandler<HTMLDivElement>;
   };
 };
 
@@ -568,72 +235,46 @@ export function FileBrowserPane({
 }: FileBrowserPaneProps = {}) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
   const {
-    rootPath,
+    breadcrumbs,
+    childrenByPath,
+    displayedItems,
+    errorByPath,
     expandedPaths,
-    selectedPath,
+    fetchFolderContents,
+    fileUrlMap,
     filterText,
-    typeFilters,
-    searchScope,
-  } = fileBrowserState((state) => ({
-    rootPath: state.rootPath,
-    expandedPaths: state.expandedPaths,
-    selectedPath: state.selectedPath,
-    filterText: state.filterText,
-    typeFilters: state.typeFilters,
-    searchScope: state.searchScope,
-  }));
+    handleNavigateToPath,
+    handleNavigateUp,
+    handleSelect,
+    handleSort,
+    handleToggle,
+    loadingPaths,
+    nodesByPath,
+    parentPath,
+    pathCompletionSource,
+    requestFileUrls,
+    rootError,
+    rootPath,
+    selectedIndex,
+    selectedPath,
+    sortDirection,
+    sortKey,
+  } = useFileBrowserPaneTreeData({
+    allowOutsideWorkspaceRoot,
+    fileBrowserState,
+    includeSettaInitializedFolders,
+    onSelectionChange,
+    showPathNavigation,
+  });
   const [isTooltipKeyHeld, setIsTooltipKeyHeld] = useState(false);
-  const [nodesByPath, setNodesByPath] = useState<Record<string, FileNode>>({});
-  const nodesByPathRef = useRef(nodesByPath);
-  useEffect(() => {
-    nodesByPathRef.current = nodesByPath;
-  }, [nodesByPath]);
-  const [childrenByPath, setChildrenByPath] = useState<
-    Record<string, string[]>
-  >({});
-  const childrenByPathRef = useRef(childrenByPath);
-  useEffect(() => {
-    childrenByPathRef.current = childrenByPath;
-  }, [childrenByPath]);
-  const [loadingPaths, setLoadingPaths] = useState<Record<string, boolean>>({});
-  const loadingPathOwnerByPathRef = useRef<Record<string, string>>({});
-  const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
-  const [browserRootPath, setBrowserRootPath] = useState<string | null>(null);
-  const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
-  const [pathSeparator, setPathSeparator] = useState("/");
-  const [rootError, setRootError] = useState<string | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
   const clipboardEntryRef = useRef<FileBrowserClipboardEntry | null>(null);
   const [dragTargetFolderPath, setDragTargetFolderPath] = useState<
     string | null
   >(null);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [fileUrlMap, setFileUrlMap] = useState<Record<string, FileUrlEntry>>(
-    {},
-  );
-  const fileUrlMapRef = useRef(fileUrlMap);
-  useEffect(() => {
-    fileUrlMapRef.current = fileUrlMap;
-  }, [fileUrlMap]);
-  const fileUrlRequests = useRef<Set<string>>(new Set());
   const listRef = useListRef();
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const pathInputId = useId();
-  const didLoadRootRef = useRef(false);
-  const rootRequestIdRef = useRef(0);
-  const folderRequestIdRef = useRef<Record<string, number>>({});
-  const filterRequestIdRef = useRef(0);
-  const appliedRootRef = useRef<string | null>(null);
-  const includeSettaInitializedRef = useRef(includeSettaInitializedFolders);
-  const applyRootPathRef =
-    useRef<
-      (
-        nextRoot: string,
-        separatorOverride?: string,
-        ignoreOverride?: string[],
-      ) => void
-    >();
 
   useEffect(() => {
     const wrapper = listWrapperRef.current;
@@ -683,550 +324,6 @@ export function FileBrowserPane({
     };
   }, []);
 
-  const fetchFolderContents = useCallback(
-    async (
-      folderPath: string,
-      ignoreOverride?: string[],
-      rootRequestId?: number,
-    ): Promise<FileNode[] | null> => {
-      const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
-      const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
-      const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
-      const requestOwner = buildFileBrowserLoadingPathOwner({
-        rootRequestId: activeRootRequestId,
-        folderRequestId: nextRequestId,
-      });
-      folderRequestIdRef.current[folderPath] = nextRequestId;
-      loadingPathOwnerByPathRef.current[folderPath] = requestOwner;
-      setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
-      const clearLoadingPathForRequest = () => {
-        if (
-          !isOwnedFileBrowserLoadingPath({
-            loadingPathOwnerByPath: loadingPathOwnerByPathRef.current,
-            folderPath,
-            requestOwner,
-          })
-        ) {
-          return;
-        }
-        delete loadingPathOwnerByPathRef.current[folderPath];
-        setLoadingPaths((prev) => {
-          if (!(folderPath in prev)) {
-            return prev;
-          }
-          const next = { ...prev };
-          delete next[folderPath];
-          return next;
-        });
-      };
-      try {
-        const res: FolderContentsRouteResponse =
-          await route_get_folder_contents({
-            folderPath,
-            ignorePatterns: activeIgnorePatterns,
-            maxEntries: MAX_ENTRIES,
-            includeMtime: true,
-            includeSettaInitialized: includeSettaInitializedRef.current,
-            allowOutsideWorkspaceRoot,
-            missingFolderBehavior: "empty",
-          });
-        if (rootRequestIdRef.current !== activeRootRequestId) {
-          return null;
-        }
-        if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
-          return null;
-        }
-        let loadedNodes: FileNode[] | null = null;
-        if (res200(res)) {
-          const items = res.data;
-          loadedNodes = items.map((item) => ({
-            name: item.name,
-            fullPath: item.fullPath,
-            type: item.type,
-            parentPath: folderPath,
-            mtime: item.mtime ?? null,
-            isSettaInitialized: item.isSettaInitialized ?? false,
-          }));
-          const childPaths = loadedNodes.map((node) => node.fullPath);
-          setNodesByPath((prev) => {
-            const next = { ...prev };
-            for (const node of loadedNodes ?? []) {
-              next[node.fullPath] = node;
-            }
-            return next;
-          });
-          setChildrenByPath((prev) => ({
-            ...prev,
-            [folderPath]: childPaths,
-          }));
-          setErrorByPath((prev) => {
-            if (!(folderPath in prev)) {
-              return prev;
-            }
-            const next = { ...prev };
-            delete next[folderPath];
-            return next;
-          });
-          const activeRootPath = fileBrowserState.getState().rootPath;
-          if (activeRootPath === folderPath) {
-            setRootError(null);
-          }
-          if (
-            shouldLoadRootWorkspaceInitializationMetadata({
-              includeSettaInitializedFolders:
-                includeSettaInitializedRef.current,
-              folderPath,
-              rootPath: activeRootPath,
-            })
-          ) {
-            const initializationRes: CheckWorkspaceInitializedRouteResponse =
-              await route_check_workspace_initialized({
-                folderPath,
-                allowOutsideWorkspaceRoot,
-              });
-            if (rootRequestIdRef.current !== activeRootRequestId) {
-              return null;
-            }
-            if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
-              return null;
-            }
-            if (res200(initializationRes)) {
-              const isSettaInitialized = initializationRes.data === true;
-              setNodesByPath((prev) => {
-                const folderNode = prev[folderPath];
-                if (!folderNode || folderNode.type !== "folder") {
-                  return prev;
-                }
-                if (folderNode.isSettaInitialized === isSettaInitialized) {
-                  return prev;
-                }
-                return {
-                  ...prev,
-                  [folderPath]: {
-                    ...folderNode,
-                    isSettaInitialized,
-                  },
-                };
-              });
-            }
-          }
-        } else {
-          let errorMessage = "Failed to load folder contents.";
-          const detail = getErrorDetail(res.data);
-          if (detail) {
-            errorMessage = detail;
-          } else if (res.hasResponse && res.status !== undefined) {
-            errorMessage = `Failed to load folder contents (${res.status}).`;
-          }
-          setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
-          const activeRootPath = fileBrowserState.getState().rootPath;
-          if (activeRootPath === folderPath) {
-            setRootError(errorMessage);
-          }
-        }
-        return loadedNodes;
-      } finally {
-        clearLoadingPathForRequest();
-      }
-    },
-    [allowOutsideWorkspaceRoot, fileBrowserState, ignorePatterns],
-  );
-
-  const applyRootPath = useCallback(
-    (
-      nextRoot: string,
-      separatorOverride?: string,
-      ignoreOverride?: string[],
-    ) => {
-      const trimmed = nextRoot.trim();
-      if (!trimmed) {
-        setRootError("Root path is required.");
-        return;
-      }
-      appliedRootRef.current = trimmed;
-      const separator = separatorOverride ?? pathSeparator;
-      const displayName = getDisplayNameFromPath(trimmed, separator);
-      rootRequestIdRef.current += 1;
-      const rootRequestId = rootRequestIdRef.current;
-      folderRequestIdRef.current = {};
-      loadingPathOwnerByPathRef.current = {};
-      setRootError(null);
-      fileBrowserState.setState({
-        rootPath: trimmed,
-        selectedPath: trimmed,
-        expandedPaths: { [trimmed]: true },
-      });
-      setNodesByPath({
-        [trimmed]: {
-          name: displayName,
-          fullPath: trimmed,
-          type: "folder",
-          parentPath: null,
-        },
-      });
-      setChildrenByPath({});
-      setErrorByPath({});
-      setLoadingPaths({});
-      void fetchFolderContents(trimmed, ignoreOverride, rootRequestId);
-    },
-    [fetchFolderContents, fileBrowserState, pathSeparator],
-  );
-
-  const refreshLoadedFoldersForSettaBadges = useCallback(async () => {
-    if (!rootPath) {
-      return;
-    }
-    rootRequestIdRef.current += 1;
-    const refreshRequestId = rootRequestIdRef.current;
-    folderRequestIdRef.current = {};
-    const folderPaths = getSettaBadgeRefreshFolderPaths({
-      rootPath,
-      expandedPaths,
-      nodesByPath: nodesByPathRef.current,
-    });
-    await forEachWithConcurrencyLimit({
-      items: folderPaths,
-      limit: SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT,
-      run: async (path) => {
-        await fetchFolderContents(path, undefined, refreshRequestId);
-      },
-    });
-  }, [expandedPaths, fetchFolderContents, rootPath]);
-
-  const handleSort = useCallback((nextKey: SortKey) => {
-    setSortKey((prevKey) => {
-      if (prevKey === nextKey) {
-        setSortDirection((prevDirection) =>
-          prevDirection === "asc" ? "desc" : "asc",
-        );
-        return prevKey;
-      }
-      setSortDirection(nextKey === "modified" ? "desc" : "asc");
-      return nextKey;
-    });
-  }, []);
-
-  const sortedChildrenByPath = useMemo(() => {
-    const next: Record<string, string[]> = {};
-    for (const [path, childPaths] of Object.entries(childrenByPath)) {
-      next[path] = sortChildPaths({
-        paths: childPaths,
-        nodesByPath,
-        sortKey,
-        sortDirection,
-      });
-    }
-    return next;
-  }, [childrenByPath, nodesByPath, sortDirection, sortKey]);
-
-  const getSortedChildPaths = useCallback(
-    (path: string) => sortedChildrenByPath[path] ?? [],
-    [sortedChildrenByPath],
-  );
-  const navigationRootPath =
-    allowOutsideWorkspaceRoot && showPathNavigation
-      ? rootPath
-      : browserRootPath ?? rootPath;
-  const pathCompletionSource = useMemo(
-    () =>
-      createFolderPathCompletionSource({
-        rootPath: navigationRootPath,
-        pathSeparator,
-        ignorePatterns,
-        allowOutsideWorkspaceRoot,
-      }),
-    [
-      allowOutsideWorkspaceRoot,
-      ignorePatterns,
-      navigationRootPath,
-      pathSeparator,
-    ],
-  );
-  const breadcrumbs = useMemo(() => {
-    if (!rootPath) {
-      return [];
-    }
-    return buildFileBrowserBreadcrumbs({
-      rootPath: navigationRootPath,
-      currentPath: rootPath,
-    });
-  }, [navigationRootPath, rootPath]);
-  const parentPath = useMemo(() => {
-    if (!rootPath) {
-      return null;
-    }
-    return getFileBrowserParentPath({
-      rootPath: navigationRootPath,
-      currentPath: rootPath,
-    });
-  }, [navigationRootPath, rootPath]);
-
-  useEffect(() => {
-    applyRootPathRef.current = applyRootPath;
-  }, [applyRootPath]);
-
-  useEffect(() => {
-    if (!rootPath) {
-      return;
-    }
-    if (appliedRootRef.current === rootPath) {
-      return;
-    }
-    applyRootPath(rootPath, pathSeparator, ignorePatterns);
-  }, [applyRootPath, ignorePatterns, pathSeparator, rootPath]);
-
-  useEffect(() => {
-    if (!rootPath) {
-      includeSettaInitializedRef.current = includeSettaInitializedFolders;
-      return;
-    }
-    const previousIncludeSettaInitializedFolders =
-      includeSettaInitializedRef.current;
-    if (
-      previousIncludeSettaInitializedFolders === includeSettaInitializedFolders
-    ) {
-      return;
-    }
-    includeSettaInitializedRef.current = includeSettaInitializedFolders;
-    if (
-      !shouldRefreshSettaBadgeDataOnToggleChange({
-        previousIncludeSettaInitializedFolders,
-        nextIncludeSettaInitializedFolders: includeSettaInitializedFolders,
-      })
-    ) {
-      return;
-    }
-    void refreshLoadedFoldersForSettaBadges();
-  }, [
-    includeSettaInitializedFolders,
-    refreshLoadedFoldersForSettaBadges,
-    rootPath,
-  ]);
-
-  useEffect(() => {
-    if (didLoadRootRef.current) {
-      return;
-    }
-    didLoadRootRef.current = true;
-    const loadRoot = async () => {
-      const res: FileBrowserRootRouteResponse =
-        await route_get_file_browser_root();
-      if (!res200(res)) {
-        let errorMessage = "Failed to load file browser root.";
-        if (res.hasResponse && res.status !== undefined) {
-          errorMessage = `Failed to load file browser root (${res.status}).`;
-        }
-        setRootError(errorMessage);
-        return;
-      }
-      setBrowserRootPath(res.data.rootPath);
-      setIgnorePatterns(res.data.ignorePatterns);
-      setPathSeparator(res.data.pathSeparator);
-      fileBrowserState.setState({
-        pathSeparator: res.data.pathSeparator,
-        ignorePatterns: res.data.ignorePatterns,
-      });
-      const preferredRoot =
-        fileBrowserState.getState().rootPath ?? res.data.rootPath;
-      applyRootPathRef.current?.(
-        preferredRoot,
-        res.data.pathSeparator,
-        res.data.ignorePatterns,
-      );
-    };
-    void loadRoot();
-  }, []);
-
-  useEffect(() => {
-    if (searchScope !== "recursive") {
-      filterRequestIdRef.current += 1;
-      return;
-    }
-    const query = parseFileBrowserFilterText(filterText);
-    if (query.kind === "none") {
-      filterRequestIdRef.current += 1;
-      return;
-    }
-    if (
-      query.kind === "name" &&
-      query.needle.length < FILTER_RECURSIVE_MIN_CHARS
-    ) {
-      filterRequestIdRef.current += 1;
-      return;
-    }
-    if (!rootPath) {
-      return;
-    }
-
-    const requestId = filterRequestIdRef.current + 1;
-    filterRequestIdRef.current = requestId;
-    const rootRequestId = rootRequestIdRef.current;
-
-    const queue: string[] = [rootPath];
-    const visited = new Set<string>();
-    const crawl = async () => {
-      while (
-        queue.length > 0 &&
-        visited.size < FILTER_RECURSIVE_MAX_FOLDERS &&
-        filterRequestIdRef.current === requestId
-      ) {
-        const folder = queue.shift();
-        if (!folder) {
-          continue;
-        }
-        if (visited.has(folder)) {
-          continue;
-        }
-        visited.add(folder);
-
-        const cachedChildren = childrenByPathRef.current[folder];
-        if (cachedChildren !== undefined) {
-          for (const childPath of cachedChildren) {
-            const childNode = nodesByPathRef.current[childPath];
-            if (childNode?.type === "folder") {
-              queue.push(childPath);
-            }
-          }
-          continue;
-        }
-
-        const loaded = await fetchFolderContents(
-          folder,
-          undefined,
-          rootRequestId,
-        );
-        if (filterRequestIdRef.current !== requestId) {
-          return;
-        }
-        if (!loaded) {
-          continue;
-        }
-        for (const node of loaded) {
-          if (node.type === "folder") {
-            queue.push(node.fullPath);
-          }
-        }
-      }
-    };
-
-    void crawl();
-  }, [fetchFolderContents, filterText, rootPath, searchScope]);
-
-  const requestFileUrls = useCallback(async (paths: string[]) => {
-    if (paths.length === 0) {
-      return;
-    }
-    const now = Date.now();
-    const pending = paths.filter((path) => {
-      const existing = fileUrlMapRef.current[path];
-      if (
-        existing &&
-        existing.expiresAt * 1000 - FILE_URL_REFRESH_BUFFER_MS > now
-      ) {
-        return false;
-      }
-      if (fileUrlRequests.current.has(path)) {
-        return false;
-      }
-      return true;
-    });
-    if (pending.length === 0) {
-      return;
-    }
-    for (const path of pending) {
-      fileUrlRequests.current.add(path);
-    }
-    const res: FileBrowserDownloadURLsRouteResponse =
-      await route_get_file_browser_download_urls({ paths: pending });
-    for (const path of pending) {
-      fileUrlRequests.current.delete(path);
-    }
-    if (!res200(res)) {
-      const detail = getErrorDetail(res.data);
-      console.warn("Failed to load file preview URLs", detail ?? pending);
-      return;
-    }
-    const nextEntries: Record<string, FileUrlEntry> = {};
-    for (const entry of res.data) {
-      nextEntries[entry.path] = { url: entry.url, expiresAt: entry.expiresAt };
-    }
-    setFileUrlMap((prev) => ({ ...prev, ...nextEntries }));
-  }, []);
-
-  const flattenedItems = useMemo(() => {
-    return flattenFileBrowserTree({
-      rootPath,
-      nodesByPath,
-      expandedPaths,
-      filterText,
-      searchScope,
-      getChildPaths: getSortedChildPaths,
-    });
-  }, [
-    expandedPaths,
-    filterText,
-    getSortedChildPaths,
-    nodesByPath,
-    rootPath,
-    searchScope,
-  ]);
-
-  const displayedItems = useMemo(
-    () => filterFileBrowserItemsByTypeFilters(flattenedItems, typeFilters),
-    [flattenedItems, typeFilters],
-  );
-
-  const selectedIndex = useMemo(() => {
-    if (!selectedPath) {
-      return -1;
-    }
-    return displayedItems.findIndex((item) => item.fullPath === selectedPath);
-  }, [displayedItems, selectedPath]);
-
-  const handleToggle = useCallback(
-    (path: string) => {
-      const node = nodesByPath[path];
-      if (!node) {
-        return;
-      }
-      if (node.type !== "folder") {
-        return;
-      }
-      const isExpanded = expandedPaths[path] === true;
-      fileBrowserState.setState((state) => {
-        const next = { ...state.expandedPaths };
-        if (isExpanded) {
-          delete next[path];
-        } else {
-          next[path] = true;
-        }
-        return { expandedPaths: next };
-      });
-      if (!isExpanded && childrenByPath[path] === undefined) {
-        void fetchFolderContents(path);
-      }
-    },
-    [
-      childrenByPath,
-      expandedPaths,
-      fetchFolderContents,
-      fileBrowserState,
-      nodesByPath,
-    ],
-  );
-
-  const handleSelect = useCallback(
-    (path: string) => {
-      fileBrowserState.setState({ selectedPath: path });
-      if (!onSelectionChange) {
-        return;
-      }
-      const node = nodesByPath[path];
-      onSelectionChange(node ?? null);
-    },
-    [fileBrowserState, nodesByPath, onSelectionChange],
-  );
-
   const handleOpen = useCallback(
     (path: string) => {
       const node = nodesByPath[path];
@@ -1275,7 +372,7 @@ export function FileBrowserPane({
       if (!normalizedSourcePath || !normalizedDestinationFolderPath) {
         return null;
       }
-      const sourceNode = nodesByPathRef.current[normalizedSourcePath];
+      const sourceNode = nodesByPath[normalizedSourcePath];
       const sourceParentPath = sourceNode?.parentPath;
       if (
         shouldSkipFileBrowserTransfer({
@@ -1299,12 +396,11 @@ export function FileBrowserPane({
         );
         return null;
       }
-      const response: TransferFileBrowserEntryRouteResponse =
-        await route_transfer_file_browser_entry({
-          sourcePath: normalizedSourcePath,
-          destinationFolderPath: normalizedDestinationFolderPath,
-          operation,
-        });
+      const response = await route_transfer_file_browser_entry({
+        sourcePath: normalizedSourcePath,
+        destinationFolderPath: normalizedDestinationFolderPath,
+        operation,
+      });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         addTemporaryNotification(
@@ -1387,7 +483,7 @@ export function FileBrowserPane({
       });
       return destinationPath;
     },
-    [fetchFolderContents, fileBrowserState, rootPath],
+    [fetchFolderContents, fileBrowserState, nodesByPath, rootPath],
   );
 
   const handleDropIntoFolder = useCallback(
@@ -1401,29 +497,6 @@ export function FileBrowserPane({
     },
     [transferEntryToFolder],
   );
-  const handleNavigateToPath = useCallback(
-    (nextPath: string) => {
-      const trimmed = nextPath.trim();
-      if (!trimmed) {
-        setRootError("Root path is required.");
-        return;
-      }
-      if (
-        normalizeFileBrowserPathForComparison(trimmed) ===
-        normalizeFileBrowserPathForComparison(rootPath ?? "")
-      ) {
-        return;
-      }
-      applyRootPath(trimmed);
-    },
-    [applyRootPath, rootPath],
-  );
-  const handleNavigateUp = useCallback(() => {
-    if (!parentPath) {
-      return;
-    }
-    handleNavigateToPath(parentPath);
-  }, [handleNavigateToPath, parentPath]);
 
   const handlePasteClipboard = useCallback(() => {
     const activeClipboardEntry = clipboardEntryRef.current;
@@ -1454,7 +527,7 @@ export function FileBrowserPane({
   }, [nodesByPath, rootPath, selectedPath, transferEntryToFolder]);
 
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (displayedItems.length === 0) {
         return;
       }
@@ -2085,60 +1158,6 @@ function FileBrowserRow({
   );
 }
 
-function getDisplayNameFromPath(path: string, separator: string): string {
-  if (!path) {
-    return "";
-  }
-  const parts = path.split(separator).filter((part) => part.length > 0);
-  if (parts.length > 0) {
-    return parts[parts.length - 1];
-  }
-  return path;
-}
-
-function getBaseNameFromPath(path: string): string {
-  if (!path) {
-    return "";
-  }
-  const parts = path.split(/[/\\]/).filter((part) => part.length > 0);
-  if (parts.length > 0) {
-    return parts[parts.length - 1];
-  }
-  return path;
-}
-
-function formatBrowserPathTooltip(
-  fullPath: string,
-  rootPath: string | null,
-): string {
-  const normalizedFull = normalizeBrowserPath(fullPath).replace(/\/+$/, "");
-  if (!rootPath) {
-    return normalizedFull;
-  }
-  const normalizedRoot = normalizeBrowserPath(rootPath).replace(/\/+$/, "");
-  if (!normalizedRoot) {
-    return normalizedFull;
-  }
-  if (normalizedFull === normalizedRoot) {
-    return normalizedFull;
-  }
-  if (normalizedFull.startsWith(`${normalizedRoot}/`)) {
-    return normalizedFull.slice(normalizedRoot.length + 1);
-  }
-  return normalizedFull;
-}
-
-function formatModifiedAt(mtime?: number | null): string {
-  if (!mtime) {
-    return "";
-  }
-  const date = new Date(mtime * 1000);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return DATE_FORMATTER.format(date);
-}
-
 export function FileBrowserFilter({
   useFileBrowserStateHook,
   className,
@@ -2377,51 +1396,4 @@ export function FileBrowserFilter({
       </div>
     </search>
   );
-}
-
-export function sortChildPaths({
-  paths,
-  nodesByPath,
-  sortKey,
-  sortDirection,
-}: {
-  paths: string[];
-  nodesByPath: Record<string, FileNode>;
-  sortKey: SortKey;
-  sortDirection: SortDirection;
-}): string[] {
-  if (paths.length <= 1) {
-    return paths;
-  }
-  const sorted = [...paths];
-  sorted.sort((pathA, pathB) => {
-    const nodeA = nodesByPath[pathA];
-    const nodeB = nodesByPath[pathB];
-    const typeRankA = nodeA?.type === "folder" ? 0 : 1;
-    const typeRankB = nodeB?.type === "folder" ? 0 : 1;
-    if (typeRankA !== typeRankB) {
-      return typeRankA - typeRankB;
-    }
-    const nameA = (nodeA?.name ?? "").toLowerCase();
-    const nameB = (nodeB?.name ?? "").toLowerCase();
-    const mtimeA = nodeA?.mtime ?? 0;
-    const mtimeB = nodeB?.mtime ?? 0;
-    let result = 0;
-    if (sortKey === "modified") {
-      result = mtimeA - mtimeB;
-      if (result === 0) {
-        result = nameA.localeCompare(nameB);
-      }
-    } else {
-      result = nameA.localeCompare(nameB);
-      if (result === 0) {
-        result = mtimeA - mtimeB;
-      }
-    }
-    if (sortDirection === "desc") {
-      return result * -1;
-    }
-    return result;
-  });
-  return sorted;
 }
