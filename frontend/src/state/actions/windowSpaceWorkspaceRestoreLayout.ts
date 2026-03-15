@@ -5,7 +5,7 @@ import {
   type ProjectChatWindowingState,
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
-import { createProjectChatWindowingStateFromWindowSpace } from "./windowSpaceSnapshotRestore";
+import { createProjectChatWindowingStateFromWindowSpace } from "./windowSpaceSnapshotRestoreConversion";
 import { prepareWorkspaceRestoredFloatingWindowing } from "./windowSpaceWorkspaceRestoreRemap";
 
 export type WorkspaceRestoreSourceState = Pick<

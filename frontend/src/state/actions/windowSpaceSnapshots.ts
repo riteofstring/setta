@@ -3,9 +3,9 @@ export type {
   AuthoringFloatingViewport,
   WindowSpaceSnapshotState,
 } from "./windowSpaceSnapshotCapture";
+export { createProjectChatWindowingStateFromWindowSpace } from "./windowSpaceSnapshotRestoreConversion";
 export {
   allocateFreshProjectChatWindowInstanceId,
   buildOrderedProjectChatWindowInstanceIds,
-  createProjectChatWindowingStateFromWindowSpace,
-  dedupeRestoredSectionBindings,
-} from "./windowSpaceSnapshotRestore";
+} from "./windowSpaceSnapshotRestoreInstanceIds";
+export { dedupeRestoredSectionBindings } from "./windowSpaceSnapshotRestoreSectionBindings";

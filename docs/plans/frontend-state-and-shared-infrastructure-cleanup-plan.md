@@ -144,11 +144,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/windowSpaceSave.ts` now owns current-floating-window
   save flow plus authoritative pre-save sync,
   `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` now owns floating
-  snapshot building, and
-  `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` now owns
+  snapshot building,
+  `frontend/src/state/actions/windowSpaceSnapshotRestoreConversion.ts` now owns
   conversion back into project-chat windowing state that previously lived in
-  `frontend/src/state/actions/windowSpaces.ts`; `frontend/src/state/actions/windowSpacePersistence.ts`
-  is now the thin compatibility facade over the narrowed owners.
+  `frontend/src/state/actions/windowSpaces.ts`,
+  `frontend/src/state/actions/windowSpaceSnapshotRestoreSectionBindings.ts`
+  now owns restored section-binding dedupe,
+  `frontend/src/state/actions/windowSpaceSnapshotRestoreInstanceIds.ts` now
+  owns restored instance-id allocation plus stable ordering helpers,
+  `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` is now the thin
+  compatibility facade, and
+  `frontend/src/state/actions/windowSpacePersistence.ts` is now the thin
+  compatibility facade over the narrowed owners.
 - `frontend/src/state/actions/windowSpaceWorkspaceRestoreReuse.ts` now owns
   floating-window reuse, owner-key resolution, and superseded-floating
   selection that previously lived in
@@ -426,7 +433,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` at 226 lines
   - `frontend/src/state/actions/windowSpaceCrud.ts` at 221 lines
   - `frontend/src/state/actions/sections/sectionSizes.ts` at 218 lines
   - `frontend/src/state/actions/websocketIncomingUISettingReveal.ts` at 216 lines
@@ -439,6 +445,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
+  - `frontend/src/state/actions/websocketLifecycleHandlers.ts` at 208 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -464,6 +471,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   continuous custom-run execution plus run-control coordination, and
   `frontend/src/state/actions/customRuns.ts` is now the thin compatibility
   facade.
+- `frontend/src/state/actions/windowSpaceSnapshotRestoreConversion.ts` now owns
+  saved-window-space conversion back into project-chat windowing state,
+  `frontend/src/state/actions/windowSpaceSnapshotRestoreSectionBindings.ts`
+  now owns restored section-binding dedupe,
+  `frontend/src/state/actions/windowSpaceSnapshotRestoreInstanceIds.ts` now
+  owns restored instance-id allocation plus stable ordering helpers, and
+  `frontend/src/state/actions/windowSpaceSnapshotRestore.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/actions/aiPendingChatAppGenerationState.ts` now owns
   pending-surface app-generation detail reads/writes,
   `frontend/src/state/actions/aiPendingChatMessageLifecycle.ts` now owns
@@ -817,8 +832,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - a thin compatibility facade over the narrowed window-space CRUD and save owners
 - `windowSpaceSnapshotCapture.ts` now owns:
   - floating window-space snapshot building
-- `windowSpaceSnapshotRestore.ts` now owns:
+- `windowSpaceSnapshotRestoreConversion.ts` now owns:
   - conversion from saved window-space state back into project-chat windowing state
+- `windowSpaceSnapshotRestoreSectionBindings.ts` now owns:
+  - restored section-binding dedupe for saved window-space restores
+- `windowSpaceSnapshotRestoreInstanceIds.ts` now owns:
+  - restored instance-id allocation and stable ordering helpers
+- `windowSpaceSnapshotRestore.ts` is now:
+  - a thin compatibility facade over the narrowed restore owners
 - `windowSpaceSnapshots.ts` is now:
   - a thin compatibility facade over the snapshot capture and restore owners
 - `windowSpaceWorkspaceRestoreReuse.ts` now owns:

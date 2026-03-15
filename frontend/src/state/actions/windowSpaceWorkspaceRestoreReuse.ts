@@ -4,7 +4,7 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { buildOrderedProjectChatWindowInstanceIds } from "./windowSpaceSnapshotRestore";
+import { buildOrderedProjectChatWindowInstanceIds } from "./windowSpaceSnapshotRestoreInstanceIds";
 
 export type WorkspaceRestoreFloatingReusePlan = {
   preferredRestoredInstanceIdByOriginalId: Record<string, string>;

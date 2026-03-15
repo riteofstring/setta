@@ -4,10 +4,8 @@ import {
   createProjectChatWindowingState,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import {
-  allocateFreshProjectChatWindowInstanceId,
-  dedupeRestoredSectionBindings,
-} from "./windowSpaceSnapshotRestore";
+import { allocateFreshProjectChatWindowInstanceId } from "./windowSpaceSnapshotRestoreInstanceIds";
+import { dedupeRestoredSectionBindings } from "./windowSpaceSnapshotRestoreSectionBindings";
 import { buildWorkspaceRestoreFloatingReusePlan } from "./windowSpaceWorkspaceRestoreReuse";
 
 export type PreparedWorkspaceRestoredFloatingWindowing = {

@@ -612,8 +612,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
     facade over the narrowed window-space CRUD and save owners.
   - `state/actions/windowSpaceSnapshotCapture.ts` owns floating window-space
     snapshot building.
-  - `state/actions/windowSpaceSnapshotRestore.ts` owns conversion from saved
-    window-space state back into project-chat windowing state.
+  - `state/actions/windowSpaceSnapshotRestoreConversion.ts` owns conversion
+    from saved window-space state back into project-chat windowing state.
+  - `state/actions/windowSpaceSnapshotRestoreSectionBindings.ts` owns restored
+    section-binding dedupe for saved window-space restores.
+  - `state/actions/windowSpaceSnapshotRestoreInstanceIds.ts` owns restored
+    project-chat window instance-id allocation and stable instance ordering
+    helpers.
+  - `state/actions/windowSpaceSnapshotRestore.ts` is now the thin
+    compatibility facade over those restore owners.
   - `state/actions/windowSpaceSnapshots.ts` is now a thin compatibility facade
     over the narrower snapshot owners.
   - `state/actions/windowSpaceWorkspaceRestoreReuse.ts` owns floating-window
@@ -813,8 +820,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   edited-chat engine fallback resolution; follow-up cleanup there should stay
   local to one of those owners instead of regrowing the old `ai.ts` surface.
 - `state/actions/windowSpaceSnapshotCapture.ts` and
+  `state/actions/windowSpaceSnapshotRestoreConversion.ts`,
+  `state/actions/windowSpaceSnapshotRestoreSectionBindings.ts`,
+  `state/actions/windowSpaceSnapshotRestoreInstanceIds.ts`, and
   `state/actions/windowSpaceSnapshotRestore.ts` now split saved workspace
-  snapshot building from restore conversion helpers, so follow-up cleanup there
+  snapshot building, restore conversion, section-binding dedupe, instance-id
+  restore helpers, and compatibility re-exports, so follow-up cleanup there
   should stay local to those owners instead of regrowing
   `state/actions/windowSpaces.ts`.
 - `state/actions/params/paramTreeStructure.ts`,
