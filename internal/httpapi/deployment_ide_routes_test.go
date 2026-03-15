@@ -73,6 +73,16 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 	if firstManifest.Listener == nil || firstManifest.Listener.Enabled {
 		t.Fatalf("expected disabled listener config in first manifest, got %#v", firstManifest.Listener)
 	}
+	if firstManifest.Listener.Entrypoint != "listener/app.py" {
+		t.Fatalf("expected first share listener entrypoint listener/app.py, got %q", firstManifest.Listener.Entrypoint)
+	}
+	firstListenerContent, err := os.ReadFile(filepath.Join(firstPayload.DeploymentRoot, "listener", "app.py"))
+	if err != nil {
+		t.Fatalf("read first copied share listener entrypoint: %v", err)
+	}
+	if string(firstListenerContent) != "print('listener')\n" {
+		t.Fatalf("unexpected first copied share listener content %q", string(firstListenerContent))
+	}
 	firstPolicy, err := deployments.LoadPolicy(firstPayload.DeploymentRoot)
 	if err != nil {
 		t.Fatalf("load first share policy: %v", err)
@@ -212,6 +222,16 @@ func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	}
 	if manifest.Listener == nil || !manifest.Listener.Enabled {
 		t.Fatalf("expected enabled app listener config, got %#v", manifest.Listener)
+	}
+	if manifest.Listener.Entrypoint != "listener/app.py" {
+		t.Fatalf("expected app listener entrypoint listener/app.py, got %q", manifest.Listener.Entrypoint)
+	}
+	listenerContent, err := os.ReadFile(filepath.Join(payload.DeploymentRoot, "listener", "app.py"))
+	if err != nil {
+		t.Fatalf("read copied app listener entrypoint: %v", err)
+	}
+	if string(listenerContent) != "print('listener')\n" {
+		t.Fatalf("unexpected copied app listener content %q", string(listenerContent))
 	}
 
 	policy, err := deployments.LoadPolicy(payload.DeploymentRoot)
