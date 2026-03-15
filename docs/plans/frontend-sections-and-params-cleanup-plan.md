@@ -108,9 +108,17 @@ Make section chrome and param rendering easy to change without touching measurem
   `frontend/src/components/Section/Layouts/taskBoardTaskScheduleModel.ts` and
   the schedule dropdown shell plus local recurrence editor state to
   `frontend/src/components/Section/Layouts/taskBoardTaskSchedule.tsx`.
+- `frontend/src/components/Section/Layouts/ChatArea.tsx` is no longer the
+  section-chat front door on this branch: it now routes between
+  `frontend/src/components/Section/Layouts/chatAreaScriptableSurface.tsx` for
+  scriptable section-chat state, branch, and composer ownership,
+  `frontend/src/components/Section/Layouts/chatAreaManagedSurface.tsx` plus
+  `frontend/src/components/Section/Layouts/chatAreaManagedHistory.tsx` for
+  managed section-chat, history, and config-gating ownership, and
+  `frontend/src/components/Section/Layouts/chatAreaRealtimeEvents.ts` for
+  shared send/stop realtime dependency telemetry.
 - The next default work in this domain should now start from the remaining
   layout front doors that contributors open first:
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
 - Shared section/param infrastructure such as `GroupContainer.tsx`,
@@ -132,7 +140,6 @@ Make section chrome and param rendering easy to change without touching measurem
   - `frontend/src/state/actions/sections/createSectionPlacement.ts` is 72
     lines for smart placement helpers
 - Main shared hotspots include:
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines
   - `frontend/src/components/Params/GroupContainer.tsx` at 999 lines
@@ -141,8 +148,10 @@ Make section chrome and param rendering easy to change without touching measurem
   - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` at 736 lines
   - `frontend/src/components/Section/Header/SectionHeader.tsx` at 735 lines
   - `frontend/src/components/Section/Layouts/DrawArea/useDrawModeMouseHandlers.ts` at 1039 lines
-- `ChatArea.tsx` now represents the main section-level chat front door and
-  should usually beat shared param infrastructure as a default cleanup target.
+- `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines and
+  acts as a thin managed-vs-scriptable branch router over
+  `chatAreaManagedSurface.tsx`, `chatAreaManagedHistory.tsx`,
+  `chatAreaScriptableSurface.tsx`, and `chatAreaRealtimeEvents.ts`.
 - `TaskBoardArea.tsx` still mixes:
   - task/column command orchestration
   - DnD state and drop-target math
@@ -187,12 +196,13 @@ Make section chrome and param rendering easy to change without touching measurem
 1. Simplify the layout-heavy front doors first
 
 - Start with:
-  - `ChatArea.tsx`
   - `TaskBoardArea.tsx`
   - `BrowserArea.tsx` only after the first two or when it is the clearest
     same-turn seam
+- Continue through `chatAreaManagedSurface.tsx` or
+  `chatAreaScriptableSurface.tsx` only when a same-turn slice directly
+  shortens one of those local section-chat owners.
 - Move clearly named responsibilities out of those files:
-  - section-chat orchestration vs render shells
   - task/column commands vs DnD math vs board presentation
   - preview/data loading vs render shells
 - Keep new owners feature-local to the layout surface instead of routing through

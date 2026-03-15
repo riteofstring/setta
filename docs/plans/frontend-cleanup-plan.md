@@ -54,8 +54,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1474 authored TS/TSX files under `frontend/src`.
-- There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
+- There are 1479 authored TS/TSX files under `frontend/src`.
+- There are 40 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1848 lines after the local settings, engine-selection, and inline-thread layout extraction
@@ -64,12 +64,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Chat/ChatInput.tsx` at 1606 lines after the local composer meta-controls extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 1471 lines after the local external-agent extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 1225 lines after the local hydration-runtime, slash-command-authority, execution-settings, and conversation-model extractions and is no longer a top-size hotspot
-- `frontend/src/components/Chat/ChatMessages.tsx` is now 1237 lines after the local chat-owner extractions and is no longer a top-size hotspot.
+- `frontend/src/components/Chat/ChatMessages.tsx` is now 1236 lines after the local chat-owner extractions and is no longer a top-size hotspot.
 - The file/browser and section layout path has similar coupling:
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data transport/view-model extraction
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1399 lines after the local tree-data transport/view-model extraction
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 1302 lines after the local preview-surface and preview-state extraction
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1972 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
+- `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 1948 lines after the local project-state bridge extraction
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
@@ -118,6 +118,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   the next default work in that domain should continue from the remaining
   larger pane and runtime entry surfaces instead of re-cutting those new local
   plugin owners.
+- `frontend/src/components/Section/Layouts/ChatArea.tsx` now delegates
+  scriptable section-chat state, branch reconciliation, slash-command
+  handling, and composer/message rendering to
+  `frontend/src/components/Section/Layouts/chatAreaScriptableSurface.tsx`,
+  managed section-chat selector scope, zero-scope banner/history/config
+  gating, and managed composer/message rendering to
+  `frontend/src/components/Section/Layouts/chatAreaManagedSurface.tsx` plus
+  `frontend/src/components/Section/Layouts/chatAreaManagedHistory.tsx`, and
+  shared send/stop realtime dependency telemetry to
+  `frontend/src/components/Section/Layouts/chatAreaRealtimeEvents.ts`, so the
+  next default work in that domain should continue from the remaining larger
+  section-layout roots instead of re-cutting those new local chat-area owners.
 - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` now
   delegates shared action-spec builders and placement animation helpers to
   `frontend/src/components/ChatWindowing/projectChatBottomDockSurfaceHelpers.tsx`,
@@ -202,10 +214,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - The remaining high-leverage work is now split between a few unresolved large
   UI front doors and a small set of still-large cross-domain entry surfaces.
   Default to those before revisiting already-improved coordinators such as
-  `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`, `ChatInput.tsx`,
-  `ChatMessages.tsx`, `FileBrowserPane.tsx`, or `BrowserArea.tsx`.
+  `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`,
+  `ChatInput.tsx`, `ChatMessages.tsx`, `FileBrowserPane.tsx`, or
+  `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
@@ -883,7 +895,6 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
   - `frontend/src/plugins/runtime.ts`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
@@ -987,8 +998,7 @@ Notes:
 1. Refresh or add the module map, placement rules, and execution log only if
    they are missing, stale, or changed by your slice.
 2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
-   usually `components/Section/Layouts/ChatArea.tsx`,
-   `plugins/runtime.ts`,
+   usually `plugins/runtime.ts`,
    `components/Panes/Overview/RunInstructions.tsx`,
    `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
    `components/App/appRegistry.tsx`,

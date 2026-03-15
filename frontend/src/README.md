@@ -10,10 +10,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1474`
-- Non-generated TS/TSX files at `1000+` lines: `41`
+- Authored TS/TSX files under `frontend/src`: `1479`
+- Non-generated TS/TSX files at `1000+` lines: `40`
 - Biggest current front-door hotspots:
-  - `components/Section/Layouts/ChatArea.tsx` (`1972`)
   - `plugins/runtime.ts` (`1948`)
   - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1848`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`1658`)
   - `components/Pages/Home/HomePage.tsx` (`1620`)
   - `components/Git/GitGraphOverlay.tsx` (`1550`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`1471`)
 
 ## Module Map
 
@@ -601,6 +601,23 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/Panes/Overview/FileBrowser/*` owns file browsing panes and file
     browser editors.
+  - `components/Section/Layouts/chatAreaManagedHistory.tsx` owns managed
+    section-chat history polling rules, run refresh keys, zero-scope banner
+    session keys, sorted history-entry derivation, and the managed history
+    panel used by `components/Section/Layouts/chatAreaManagedSurface.tsx`.
+  - `components/Section/Layouts/chatAreaRealtimeEvents.ts` owns shared section-
+    chat realtime dependency event payloads for send or stop actions used by
+    the local chat-area surfaces.
+  - `components/Section/Layouts/chatAreaManagedSurface.tsx` owns managed
+    section-chat selector scope, zero-scope banner lifecycle, engine/config or
+    profile resolution, history-toggle flow, and managed composer/message
+    rendering used by `components/Section/Layouts/ChatArea.tsx`.
+  - `components/Section/Layouts/chatAreaScriptableSurface.tsx` owns scriptable
+    section-chat selector scope, branch-state reconciliation, draft buffering,
+    slash-command handling, and scriptable composer/message rendering used by
+    `components/Section/Layouts/ChatArea.tsx`.
+  - `components/Section/Layouts/ChatArea.tsx` now focuses on managed-vs-
+    scriptable surface routing over those local chat-area owners.
   - `components/Section/Layouts/BrowserArea.tsx` now coordinates browser-section
     navigation, root bootstrap, filter persistence, and file-open commands.
   - `components/Section/Layouts/BrowserAreaContentView.tsx` owns the browser
