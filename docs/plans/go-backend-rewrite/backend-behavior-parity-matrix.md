@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`af5149a875e18f625d4cd104f1930cf52b8b95de`
+`25450bb574445739f19b06a8f014de2f8a65740f`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -58,6 +58,7 @@ It currently covers:
 - code editing, formatter, LSP diagnostics/admin, and watch-code behavior
 - docstring markdown, LSP completion helper, and callable signature-help /
   `setCallable` behavior
+- password reveal helper and password-secret store behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -309,6 +310,9 @@ Rows outside these slices are still pending.
   gap, but it does add one proof-gap row around completion edge-case fallbacks
   (`CP-02`) plus one dormant transport delta around
   `clearTextFieldCompletion` validation (`CP-04`).
+- The password-reveal slice adds no new concrete parity gap, but it does add
+  one dormant mode-boundary row around share/deployment password-reveal
+  mounting (`PW-04`).
 
 ## Project Names
 
@@ -811,6 +815,15 @@ Rows outside these slices are still pending.
 | `CS-01` | Callable signature-help resolution builds a generated Python snapshot, issues a real LSP `signatureHelp` request, parses ordered parameter proposals plus documentation/type/default metadata, and returns typed `matched` versus `no_match` status instead of guessing params. | Source signature parser: `backend/setta/project_state/lsp_response_handlers/signatureHelp.py`; source set-callable path: `backend/setta/project_state/project_code.py::set_callable`; source tests: `tests/project_state/test_signature_help_type_annotations.py`; `tests/project_state/test_lsp_diagnostics_processing.py::{test_hook_not_called_when_set_callable_skips,test_hook_called_on_clear_callable}`. | Impl: `internal/lspsignature/service.go`; proof: `internal/lspsignature/service_test.go::{TestServiceResolveCallableSignatureFromSnapshot,TestServiceResolveCallableSignatureReturnsNoMatch,TestParseParamLabelSupportsRangeOffsets}`. | `Proved` | Current Go temp-snapshot proof also verifies signature snapshot files are removed after the request. |
 | `CS-02` | `setCallable` reuses prior selections when refetch is skipped, clears the callable binding when the name becomes blank, applies matched signature metadata while preserving existing child param values by name, skips mutation when signature context is unavailable, and returns `lspStatus` plus ordered `childCodeObjs` over HTTP. | Source route: `backend/setta/routers/project_manager.py::route_set_callable`; source runtime: `backend/setta/project_state/project_code.py::set_callable`; source frontend caller: `frontend/src/components/Section/Layouts/CodeArea.tsx`; source docs: `docs/reference/watch-code.md` callable-signature warning note. | Impl: `internal/projectstate/callable.go`; route transport: `internal/httpapi/project_routes.go::setCallableHandler`; proof: `internal/projectstate/callable_test.go::{TestProjectSetCallableClearsCurrentCallable,TestProjectSetCallableReusesPreviousSelectionWithoutRefetch,TestProjectSetCallableAppliesMatchedSignatureAndPreservesExistingValues,TestProjectSetCallableSkipsWhenSignatureContextUnavailable}`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesSetCallableUpdatesCallableChildrenAndLatestState`. | `Proved` | Current Go `SetCallableResponse` still carries the source-facing `lspStatus` and ordered child metadata consumed by the UI. |
 
+## Password Reveal Helper And Secret-Store Behavior
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `PW-01` | `getPasswordParamValue` returns the stored secret for the active password param while normal project-state payloads stay redacted until the user explicitly reveals the value. | Source docs: `docs/reference/meta-controls.md`; source route: `backend/setta/routers/project_manager.py::route_get_password_param_value`; source tests: `tests/types/test_password_param_secrets.py::test_password_param_stores_secret_by_impl_id`; source callers: `frontend/src/components/Params/ParamItems/ParamInput.tsx`; `frontend/src/components/App/appRegistry.tsx`. | Impl: `internal/httpapi/project_routes.go::getPasswordParamValueHandler`; `internal/projectstate/password_param_reads.go`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesGetsPasswordParamValue,TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState}`; state proof: `internal/projectstate/password_param_reads_test.go::{TestProjectGetPasswordParamValueReadsStoredSecret,TestRuntimeGetPasswordParamValueUsesConfiguredSecretStore}`; current caller proof: `frontend/src/utils/generatedEndpoints.test.ts`; `frontend/src/components/Params/ParamItems/ParamInput.tsx`; `frontend/src/components/App/appRegistry.tsx`. | `Proved` | Current frontend still only requests a reveal when the visible password value is blank. |
+| `PW-02` | Password reveals reject non-password params instead of exposing arbitrary current param values through the secret-store path. | Source route/type guard: `backend/setta/routers/project_manager.py::route_get_password_param_value`; `backend/setta/types/helpers_lvl1.py::get_curr_effective_code_obj_impl_with_type_guard`. | Impl: `internal/projectstate/password_param_reads.go::GetPasswordParamValue`; route error mapping: `internal/httpapi/project_routes.go::writeGetPasswordParamValueError`; proof: `internal/projectstate/password_param_reads_test.go::TestProjectGetPasswordParamValueRejectsNonPasswordParams`; `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesGetPasswordParamValueRejectsNonPasswordParam`. | `Proved` | Current Go tightens the failure into an explicit `422 password_param_required` caller error. |
+| `PW-03` | Password-param secrets are keyed by impl id, hydrated project-state payloads keep `value`/`defaultVal` blank while tracking `hasSecret`, and changing a text param to `PasswordParam` migrates the existing entered value into the secret store. | Source docs: `docs/reference/meta-controls.md`; `docs/reference/listener-flows.md`; source helper: `backend/setta/project_state/secret_values.py::strip_password_values`; source tests: `tests/types/test_password_param_secrets.py::{test_password_param_stores_secret_by_impl_id,test_text_param_value_moves_to_secret_on_password_switch,test_strip_password_values_sets_has_secret}`. | Impl: `internal/projectstate/password_param_reads.go::PasswordSecretsSnapshot`; `internal/projectstate/change_param_impl.go`; proof: `internal/projectstate/password_param_reads_test.go::TestProjectPasswordSecretsSnapshotIncludesStoredSecretsByImplID`; `internal/projectstate/change_param_impl_test.go::TestProjectChangeParamImplMigratesPasswordSecretsAndSupportsFollowOnWrites`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState,TestRegisterProjectRoutesChangeParamImplPersistsAndHydrates}`. | `Proved` | This row is scoped to live IDE/runtime state. Published share/app snapshots were already covered in the deployment slice. |
+| `PW-04` | Source share-mode deployments keep `getPasswordParamValue` mounted but blocked with `403`, including when share policy still allows param changes. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; source route guard: `backend/setta/routers/project_manager.py::route_get_password_param_value`; source test: `tests/routers/test_share_policy_routes.py::test_password_reveal_blocked_when_param_changes_allowed`. | Current Go only mounts the route in IDE mode via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; published share/app snapshots also force `hasSecret=false` via `internal/deployments/share_publish.go::stripPasswordValues`, proved in `internal/deployments/share_publish_test.go::TestSharePublisherPublishWritesManifestPolicyProjectAndStripsPasswords`; current caller-backed surface only proves IDE callers in `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but current share/app snapshots no longer expose reveal affordances, so this slice does not yet classify it as an active Go-era product gap. |
+
 ## Current Findings
 
 1. The matrix now contains twenty-five concrete source-parity gaps:
@@ -900,12 +913,14 @@ Rows outside these slices are still pending.
 26. The docstring/completion/signature-help slice adds no new real behavior
     gap, but it does add one broader completion proof gap (`CP-02`) plus one
     dormant transport row (`CP-04`).
-27. Git route behavior is now largely proved, including literal pathspec
+27. The password-reveal slice adds no new real behavior gap, but it does add
+    one dormant mode-boundary row (`PW-04`).
+28. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-28. The remaining issues in the naming slice are still mostly proof gaps rather
+29. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-29. The next high-value steps are:
+30. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
@@ -915,9 +930,9 @@ Rows outside these slices are still pending.
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
-    - decide whether `CP-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`, `LH-04`,
-      `WL-05`, `AS-02`, and `SM-04` can be treated as fully dead legacy or
-      share-only transports, or still need explicit retained-boundary
+    - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
+      `LH-04`, `WL-05`, `AS-02`, and `SM-04` can be treated as fully dead
+      legacy or share-only transports, or still need explicit retained-boundary
       decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
