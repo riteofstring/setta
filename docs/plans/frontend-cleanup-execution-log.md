@@ -5644,3 +5644,35 @@ in `frontend/src/README.md` and the cleanup plans.
   - Simplify `frontend/src/plugins/runtime.ts`, which is now the top unresolved
     default-priority front-door hotspot in the README and cleanup plan after
     `BrowserArea.tsx` delegated its preview surface and preview-state owners.
+
+## 2026-03-15 20:25:33 PDT
+
+- Slice completed: extracted plugin runtime derived views
+- This was higher value than jumping straight to `frontend/src/components/Chat/ChatInput.tsx`
+  because `frontend/src/plugins/runtime.ts` was still the highest unresolved
+  front-door hotspot at turn start, and stable plugin/status reference reuse
+  plus sorted registry view derivation were the largest pure responsibilities
+  still mixed into that runtime coordinator.
+- Key files touched:
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/plugins/runtimeDerivedViews.ts`
+  - `frontend/src/plugins/runtimeDerivedViews.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/plugins/runtimeDerivedViews.test.ts src/plugins/runtime.test.ts`
+  - `pnpm -C frontend exec vite build`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/plugins/plugin-ui-settings-tools.spec.ts frontend/tests/e2e/overview/plugins/plugins-pane.spec.ts --grep "plugin UI settings tools mutate and reveal plugin settings|opening plugins tab does not trigger redundant plugin runtime refresh"`
+  - `pnpm -C frontend exec prettier --check src/plugins/runtime.ts src/plugins/runtimeDerivedViews.ts src/plugins/runtimeDerivedViews.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added and no CDP visual check was run because this
+    slice only moved non-visual runtime derivation logic into a local pure
+    owner without changing UI layout or interaction behavior directly.
+- Commit hash:
+  - `cb2030d6debbcd1cf021e9cacd1b202f7ac0d962`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`,
+    which is now the largest unresolved front-door hotspot in the README after
+    `frontend/src/plugins/runtime.ts` delegated its derived-view owner.
