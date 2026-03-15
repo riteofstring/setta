@@ -23,8 +23,8 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
-import * as websocketRealtime from "state/actions/websocketRealtime";
+import * as realtimeDependencySend from "state/actions/realtimeDependencySend";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
@@ -63,6 +63,8 @@ function buildPluginStatusEntry(
     state: PluginRuntimeStateEnum.active,
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
     sourcePath: "/tmp/acme.plugin",
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
@@ -70,6 +72,10 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
+    registeredLanguageServers: [],
+    registeredExternalAgentAdapters: [],
+    registeredCodegenTargets: [],
+    enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],
@@ -86,6 +92,8 @@ function buildPluginListEntry(
     version: "1.0.0",
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
     frontend: {
@@ -99,9 +107,13 @@ function buildPluginListEntry(
     },
     config: {
       hasSchema: false,
-      schemaJson: null,
+      schemaJson: {},
+      schemaJsonDigestSha256: null,
+      currentConfig: {},
+      currentConfigDigestSha256: null,
     },
     effectiveCapabilities: [],
+    enablementSource: null,
     restartRequired: false,
     ...overrides,
   });
@@ -339,6 +351,56 @@ function seedRuntimePluginSectionState(sectionId: string): void {
   });
 }
 
+class RuntimeTestWebSocket extends EventTarget {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+
+  static instances: RuntimeTestWebSocket[] = [];
+
+  readonly url: string;
+  readyState = RuntimeTestWebSocket.CONNECTING;
+  sentMessages: string[] = [];
+
+  constructor(url: string | URL) {
+    super();
+    this.url = String(url);
+    RuntimeTestWebSocket.instances.push(this);
+  }
+
+  send(data: string): void {
+    this.sentMessages.push(data);
+  }
+
+  close(code?: number, reason?: string): void {
+    this.readyState = RuntimeTestWebSocket.CLOSED;
+    this.dispatchEvent(
+      new CloseEvent("close", {
+        code: code ?? 1000,
+        reason: reason ?? "",
+      }),
+    );
+  }
+
+  open(): void {
+    this.readyState = RuntimeTestWebSocket.OPEN;
+    this.dispatchEvent(new Event("open"));
+  }
+
+  receiveJson(payload: unknown): void {
+    this.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify(payload),
+      }),
+    );
+  }
+
+  static reset(): void {
+    RuntimeTestWebSocket.instances = [];
+  }
+}
+
 function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
   const state = useProjectState.getState();
   return {
@@ -467,6 +529,7 @@ describe("plugin runtime helpers", () => {
       isDeploymentMode: false,
       shareSessionId: null,
     });
+    RuntimeTestWebSocket.reset();
   });
 
   afterEach(() => {
@@ -499,6 +562,7 @@ describe("plugin runtime helpers", () => {
       isDeploymentMode: false,
       shareSessionId: null,
     });
+    RuntimeTestWebSocket.reset();
   });
 
   it("builds deterministic section-kind keys", () => {
@@ -2434,7 +2498,7 @@ describe("plugin runtime helpers", () => {
 
   it("emits realtime dependency events through websocket action helpers", async () => {
     const realtimeSpy = vi
-      .spyOn(websocketRealtime, "sendRealtimeDependencyEvent")
+      .spyOn(realtimeDependencySend, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +
@@ -2526,7 +2590,7 @@ describe("plugin runtime helpers", () => {
 
   it("rejects non-object payloads for emitSectionRealtimeValue", async () => {
     const realtimeSpy = vi
-      .spyOn(websocketRealtime, "sendRealtimeDependencyEvent")
+      .spyOn(realtimeDependencySend, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +

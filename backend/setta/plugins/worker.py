@@ -27,15 +27,11 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.invoke_route",
     "plugin.invoke_mcp_tool",
     "plugin.invoke_codegen_target",
-    "plugin.invoke_ui_setting_handler",
     "host.register_router",
-    "host.register_listener_endpoint",
-    "host.register_static_dir",
     "host.register_mcp_tool",
     "host.register_language_server",
     "host.register_external_agent_adapter",
     "host.register_codegen_target",
-    "host.register_ui_setting",
     "host.read_project_state",
     "host.emit_listener_dependency_event",
 )
@@ -159,22 +155,11 @@ class _WorkerRouteHandler:
 class _WorkerState:
     plugin_id: str
     plugin_version: str
-    plugin_root: Path
     entrypoint_path: Path
-    server_mode: Literal["ide", "share", "app", "launcher"] = "ide"
-    requested_capabilities: list[str] = field(default_factory=list)
-    effective_capabilities: list[str] = field(default_factory=list)
     module: Any | None = None
     route_handlers: dict[str, _WorkerRouteHandler] = field(default_factory=dict)
-    route_ids_by_endpoint_name: dict[str, list[str]] = field(default_factory=dict)
     mcp_tools_by_name: dict[str, Callable[..., Any]] = field(default_factory=dict)
     codegen_target_generators: dict[str, Callable[..., Any]] = field(
-        default_factory=dict
-    )
-    ui_setting_read_handlers: dict[str, Callable[..., Any]] = field(
-        default_factory=dict
-    )
-    ui_setting_write_handlers: dict[str, Callable[..., Any]] = field(
         default_factory=dict
     )
     _next_route_counter: int = 0
@@ -204,29 +189,12 @@ class _WorkerState:
         return module
 
     def _build_handshake_payload(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {
+        return {
             "pluginId": self.plugin_id,
             "pluginVersion": self.plugin_version,
             "backendPluginApiVersion": BACKEND_PLUGIN_API_VERSION,
             "supportedRpcMethods": list(SUPPORTED_RPC_METHODS),
         }
-        override_path = self.plugin_root / "backend" / "handshake.override.json"
-        if not override_path.exists() or not override_path.is_file():
-            return payload
-        try:
-            override_payload = json.loads(override_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            raise WorkerError(
-                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
-                f"Invalid handshake override JSON for {self.plugin_id}: {exc}",
-            ) from exc
-        if not isinstance(override_payload, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
-                f"Handshake override payload must be an object for {self.plugin_id}.",
-            )
-        payload.update(override_payload)
-        return payload
 
     def _allocate_route_id(self) -> str:
         route_id = f"route_{self._next_route_counter}"
@@ -268,10 +236,6 @@ class _WorkerState:
                 endpoint=route.endpoint,
                 needs_raw_body=needs_raw_body,
             )
-            endpoint_name = route.endpoint.__name__
-            if endpoint_name not in self.route_ids_by_endpoint_name:
-                self.route_ids_by_endpoint_name[endpoint_name] = []
-            self.route_ids_by_endpoint_name[endpoint_name].append(route_id)
             route_descriptors.append(
                 {
                     "routeId": route_id,
@@ -285,85 +249,6 @@ class _WorkerState:
             {
                 "prefix": prefix,
                 "routes": route_descriptors,
-            },
-        )
-
-    def _register_static_dir(
-        self,
-        *,
-        url_prefix: str,
-        path: str | Path,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        host_call(
-            "host.register_static_dir",
-            {
-                "urlPrefix": url_prefix,
-                "path": str(path),
-            },
-        )
-
-    def _register_listener_endpoint(
-        self,
-        *,
-        endpoint_name: str,
-        route_id: str | None,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        if not isinstance(endpoint_name, str) or endpoint_name.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} listener endpoint name must be "
-                    "a non-empty string."
-                ),
-            )
-        normalized_endpoint_name = endpoint_name.strip()
-
-        resolved_route_id = route_id
-        if resolved_route_id is None:
-            route_ids = self.route_ids_by_endpoint_name.get(normalized_endpoint_name)
-            if route_ids is None or len(route_ids) == 0:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} listener endpoint "
-                        f"{normalized_endpoint_name!r} does not match any "
-                        "registered route endpoint names."
-                    ),
-                )
-            if len(route_ids) > 1:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} listener endpoint "
-                        f"{normalized_endpoint_name!r} is ambiguous; pass route_id "
-                        "explicitly."
-                    ),
-                )
-            resolved_route_id = route_ids[0]
-        if not isinstance(resolved_route_id, str) or resolved_route_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} listener endpoint route_id must be "
-                    "a non-empty string when provided."
-                ),
-            )
-        normalized_route_id = resolved_route_id.strip()
-        if normalized_route_id not in self.route_handlers:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} listener endpoint references unknown "
-                    f"route id: {normalized_route_id}."
-                ),
-            )
-        host_call(
-            "host.register_listener_endpoint",
-            {
-                "endpointName": normalized_endpoint_name,
-                "routeId": normalized_route_id,
             },
         )
 
@@ -387,21 +272,210 @@ class _WorkerState:
                 f"Plugin {self.plugin_id} provided an invalid MCP tool name.",
             )
         self.mcp_tools_by_name[tool_name] = func
-        payload: dict[str, Any] = {
-            "toolName": tool_name,
-        }
+        normalized_annotations: dict[str, Any] | None = None
         if annotations is not None:
             if not isinstance(annotations, dict):
                 raise WorkerError(
                     "PLUGIN_BACKEND_REGISTER_FAILED",
                     f"Plugin {self.plugin_id} provided invalid MCP annotations payload.",
                 )
-            payload["annotations"] = _ensure_json_serializable(
+            normalized_annotations = _ensure_json_serializable(
                 annotations,
                 plugin_id=self.plugin_id,
                 label="MCP annotations",
             )
-        host_call("host.register_mcp_tool", payload)
+        host_call(
+            "host.register_mcp_tool",
+            {
+                "tool": self._build_mcp_tool_registration_payload(
+                    func=func,
+                    tool_name=tool_name,
+                    annotations=normalized_annotations,
+                )
+            },
+        )
+
+    def _build_mcp_tool_registration_payload(
+        self,
+        *,
+        func: Callable[..., Any],
+        tool_name: str,
+        annotations: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        from mcp.server.fastmcp.tools import ToolManager
+
+        from setta.mcp.tool_metadata import (
+            SettaToolType,
+            ToolAccessMetadata,
+            attach_tool_access,
+        )
+        from setta.mcp.tool_registry import register_setta_tool
+
+        tool_fn = self._wrap_mcp_tool_with_name(func, tool_name)
+        if annotations is not None:
+            access_type = annotations.get("accessType")
+            if access_type in {"read", "write", "structural"}:
+                attach_tool_access(
+                    tool_fn,
+                    ToolAccessMetadata(accessType=access_type),
+                )
+
+        tool_manager = ToolManager()
+        tool = register_setta_tool(tool_manager, tool_fn, SettaToolType.discoverable)
+
+        annotations_payload: dict[str, Any] = {}
+        if isinstance(tool.annotations, BaseModel):
+            annotations_payload = tool.annotations.model_dump(
+                by_alias=True,
+                exclude_none=True,
+            )
+
+        payload: dict[str, Any] = {
+            "name": tool.name,
+            "description": tool.description or "",
+            "inputSchema": _ensure_json_serializable(
+                tool.parameters,
+                plugin_id=self.plugin_id,
+                label="MCP input schema",
+            ),
+            "metadata": self._build_mcp_tool_metadata_payload(annotations_payload),
+        }
+        if isinstance(tool.output_schema, dict):
+            payload["outputSchema"] = _ensure_json_serializable(
+                tool.output_schema,
+                plugin_id=self.plugin_id,
+                label="MCP output schema",
+            )
+        return payload
+
+    def _build_mcp_tool_metadata_payload(
+        self,
+        annotations_payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        raw_result_metadata = annotations_payload.get("aiFollowToolResult")
+        result_id_paths_by_type: dict[str, list[str]] = {}
+        if isinstance(raw_result_metadata, dict):
+            result_id_paths_by_type = self._normalize_mcp_tool_id_paths(
+                raw_result_metadata.get("pathsByIdType"),
+            )
+
+        metadata = {
+            "kind": self._read_mcp_tool_string_metadata(
+                annotations_payload,
+                "settaToolType",
+                fallback="discoverable",
+            ),
+            "accessType": self._read_mcp_tool_string_metadata(
+                annotations_payload,
+                "accessType",
+                fallback="structural",
+            ),
+            "idPathsByType": self._normalize_mcp_tool_id_paths(
+                annotations_payload.get("idPathsByType"),
+            ),
+            "resultIdPathsByType": result_id_paths_by_type,
+            "searchTags": self._normalize_mcp_tool_string_list(
+                annotations_payload.get("searchTags"),
+            ),
+        }
+        default_target_singleton_section = self._read_mcp_tool_string_metadata(
+            annotations_payload,
+            "defaultTargetSingletonSection",
+        )
+        if default_target_singleton_section is not None:
+            metadata["defaultTargetSingletonSection"] = default_target_singleton_section
+        result_filter = self._read_mcp_tool_string_metadata(
+            annotations_payload,
+            "resultFilter",
+        )
+        if result_filter is not None:
+            metadata["resultFilter"] = result_filter
+        search_category = self._read_mcp_tool_string_metadata(
+            annotations_payload,
+            "searchCategory",
+        )
+        if search_category is not None:
+            metadata["searchCategory"] = search_category
+        return metadata
+
+    def _normalize_mcp_tool_id_paths(
+        self,
+        raw_value: Any,
+    ) -> dict[str, list[str]]:
+        if not isinstance(raw_value, dict):
+            return {}
+        normalized: dict[str, list[str]] = {}
+        for raw_id_type, raw_paths in raw_value.items():
+            if not isinstance(raw_id_type, str):
+                continue
+            id_type = raw_id_type.strip()
+            if id_type == "" or not isinstance(raw_paths, list):
+                continue
+            paths: list[str] = []
+            for raw_path in raw_paths:
+                if not isinstance(raw_path, str):
+                    continue
+                path = raw_path.strip()
+                if path:
+                    paths.append(path)
+            if paths:
+                normalized[id_type] = paths
+        return normalized
+
+    def _normalize_mcp_tool_string_list(self, raw_value: Any) -> list[str]:
+        if not isinstance(raw_value, list):
+            return []
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw_entry in raw_value:
+            if not isinstance(raw_entry, str):
+                continue
+            entry = raw_entry.strip()
+            if entry == "" or entry in seen:
+                continue
+            seen.add(entry)
+            normalized.append(entry)
+        return normalized
+
+    def _read_mcp_tool_string_metadata(
+        self,
+        payload: dict[str, Any],
+        key: str,
+        *,
+        fallback: str | None = None,
+    ) -> str | None:
+        raw_value = payload.get(key)
+        if isinstance(raw_value, str):
+            normalized = raw_value.strip()
+            if normalized != "":
+                return normalized
+        return fallback
+
+    def _wrap_mcp_tool_with_name(
+        self,
+        func: Callable[..., Any],
+        tool_name: str,
+    ) -> Callable[..., Any]:
+        from functools import wraps
+
+        if getattr(func, "__name__", None) == tool_name:
+            return func
+
+        if inspect.iscoroutinefunction(func):
+
+            @wraps(func)
+            async def named_tool(*args: Any, **kwargs: Any) -> Any:
+                return await func(*args, **kwargs)
+
+        else:
+
+            @wraps(func)
+            def named_tool(*args: Any, **kwargs: Any) -> Any:
+                return func(*args, **kwargs)
+
+        named_tool.__name__ = tool_name
+        named_tool.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
+        return named_tool
 
     def _register_external_agent_adapter(
         self,
@@ -535,207 +609,6 @@ class _WorkerState:
             "host.register_codegen_target",
             {"target": target_payload},
         )
-
-    def _register_ui_setting(
-        self,
-        *,
-        setting: Any,
-        host_call: Callable[[str, dict[str, Any]], Any],
-    ) -> None:
-        if not isinstance(setting, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (f"Plugin {self.plugin_id} ui setting registration must be an object."),
-            )
-        allowed_keys = {
-            "id",
-            "title",
-            "description",
-            "paneId",
-            "revealKey",
-            "synonyms",
-            "mutability",
-            "valueSchema",
-            "read",
-            "write",
-        }
-        unknown_keys = sorted(set(setting.keys()) - allowed_keys)
-        if len(unknown_keys) > 0:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting registration has "
-                    f"unsupported keys: {', '.join(unknown_keys)}"
-                ),
-            )
-        raw_local_id = setting.get("id")
-        if not isinstance(raw_local_id, str) or raw_local_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin {self.plugin_id} ui setting id must be a non-empty string.",
-            )
-        local_id = raw_local_id.strip()
-        if "::" in local_id:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting id cannot contain "
-                    "'::' in worker mode."
-                ),
-            )
-        raw_title = setting.get("title")
-        if not isinstance(raw_title, str) or raw_title.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin {self.plugin_id} ui setting title must be a non-empty string.",
-            )
-        raw_description = setting.get("description")
-        if not isinstance(raw_description, str) or raw_description.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting description must be "
-                    "a non-empty string."
-                ),
-            )
-        raw_pane_id = setting.get("paneId")
-        if not isinstance(raw_pane_id, str) or raw_pane_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin {self.plugin_id} ui setting paneId must be a non-empty string.",
-            )
-        pane_id = raw_pane_id.strip()
-        raw_reveal_key = setting.get("revealKey")
-        if not isinstance(raw_reveal_key, str) or raw_reveal_key.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting revealKey must be "
-                    "a non-empty string."
-                ),
-            )
-        reveal_key = raw_reveal_key.strip()
-        raw_synonyms = setting.get("synonyms")
-        synonyms: list[str] = []
-        if raw_synonyms is not None:
-            if not isinstance(raw_synonyms, list):
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} ui setting synonyms must be "
-                        "a string array."
-                    ),
-                )
-            for index, raw_synonym in enumerate(raw_synonyms):
-                if not isinstance(raw_synonym, str) or raw_synonym.strip() == "":
-                    raise WorkerError(
-                        "PLUGIN_BACKEND_REGISTER_FAILED",
-                        (
-                            f"Plugin {self.plugin_id} ui setting synonym at index "
-                            f"{index} must be a non-empty string."
-                        ),
-                    )
-                synonyms.append(raw_synonym.strip())
-        raw_mutability = setting.get("mutability")
-        if raw_mutability is None:
-            mutability: Literal["readOnly", "writable"] = "writable"
-        elif raw_mutability in {"readOnly", "writable"}:
-            mutability = raw_mutability
-        else:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting mutability must be "
-                    "readOnly or writable."
-                ),
-            )
-
-        raw_value_schema = setting.get("valueSchema")
-        if not isinstance(raw_value_schema, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (f"Plugin {self.plugin_id} ui setting valueSchema must be an object."),
-            )
-        value_schema_payload = _ensure_json_serializable(
-            raw_value_schema,
-            plugin_id=self.plugin_id,
-            label="ui setting valueSchema",
-        )
-        if not isinstance(value_schema_payload, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting valueSchema must remain "
-                    "an object after serialization."
-                ),
-            )
-
-        read_handler = setting.get("read")
-        if not callable(read_handler):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Plugin {self.plugin_id} ui setting read handler must be callable.",
-            )
-        if local_id in self.ui_setting_read_handlers:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} registered duplicate ui setting id: "
-                    f"{local_id}"
-                ),
-            )
-
-        write_handler_id: str | None = None
-        write_handler: Callable[..., Any] | None = None
-        if mutability == "writable":
-            raw_write_handler = setting.get("write")
-            if not callable(raw_write_handler):
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} writable ui setting requires "
-                        "a callable write handler."
-                    ),
-                )
-            if local_id in self.ui_setting_write_handlers:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin {self.plugin_id} registered duplicate ui setting "
-                        f"write handler id: {local_id}"
-                    ),
-                )
-            write_handler = raw_write_handler
-            write_handler_id = local_id
-        elif setting.get("write") is not None:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} readOnly ui setting cannot define "
-                    "a write handler."
-                ),
-            )
-
-        host_call(
-            "host.register_ui_setting",
-            {
-                "setting": {
-                    "id": local_id,
-                    "title": raw_title.strip(),
-                    "description": raw_description.strip(),
-                    "paneId": pane_id,
-                    "revealKey": reveal_key,
-                    "synonyms": synonyms,
-                    "mutability": mutability,
-                    "valueSchema": value_schema_payload,
-                    "readHandlerId": local_id,
-                    "writeHandlerId": write_handler_id,
-                }
-            },
-        )
-        self.ui_setting_read_handlers[local_id] = read_handler
-        if write_handler is not None:
-            self.ui_setting_write_handlers[local_id] = write_handler
 
     def _build_route_call_kwargs(
         self,
@@ -1493,115 +1366,6 @@ class _WorkerState:
             label="codegen target result",
         )
 
-    def _invoke_ui_setting_handler(self, params: Any) -> dict[str, Any]:
-        if not isinstance(params, dict):
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                "plugin.invoke_ui_setting_handler params must be an object.",
-            )
-        raw_handler_id = params.get("handlerId")
-        if not isinstance(raw_handler_id, str) or raw_handler_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "plugin.invoke_ui_setting_handler missing handlerId.",
-            )
-        handler_id = raw_handler_id.strip()
-        raw_operation = params.get("operation")
-        if raw_operation not in {"read", "write"}:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "plugin.invoke_ui_setting_handler operation must be read or write.",
-            )
-        operation: Literal["read", "write"] = raw_operation
-        raw_project_config_id = params.get("projectConfigId")
-        if (
-            not isinstance(raw_project_config_id, str)
-            or raw_project_config_id.strip() == ""
-        ):
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "plugin.invoke_ui_setting_handler missing projectConfigId.",
-            )
-        project_config_id = raw_project_config_id.strip()
-
-        if operation == "read":
-            handler = self.ui_setting_read_handlers.get(handler_id)
-            if handler is None:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (f"Plugin ui setting read handler not found: {handler_id}"),
-                )
-            try:
-                result = handler(project_config_id=project_config_id)
-            except TypeError as exc:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        "Plugin ui setting read handler rejected call signature for "
-                        f"{handler_id}: {exc}"
-                    ),
-                ) from exc
-            except Exception as exc:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        f"Plugin ui setting read handler {handler_id} failed for "
-                        f"{self.plugin_id}: {exc}"
-                    ),
-                ) from exc
-            if inspect.isawaitable(result):
-                result = self._run_awaitable(
-                    result,
-                    code="PLUGIN_BACKEND_REGISTER_FAILED",
-                    message_prefix=(
-                        "Async plugin ui setting read handler failed for "
-                        f"{self.plugin_id}:{handler_id}"
-                    ),
-                )
-            return {
-                "value": _ensure_json_serializable(
-                    result,
-                    plugin_id=self.plugin_id,
-                    label="ui setting read result",
-                )
-            }
-
-        handler = self.ui_setting_write_handlers.get(handler_id)
-        if handler is None:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (f"Plugin ui setting write handler not found: {handler_id}"),
-            )
-        value = params.get("value")
-        try:
-            result = handler(project_config_id=project_config_id, value=value)
-        except TypeError as exc:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting write handler rejected call signature for "
-                    f"{handler_id}: {exc}"
-                ),
-            ) from exc
-        except Exception as exc:
-            raise WorkerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin ui setting write handler {handler_id} failed for "
-                    f"{self.plugin_id}: {exc}"
-                ),
-            ) from exc
-        if inspect.isawaitable(result):
-            result = self._run_awaitable(
-                result,
-                code="PLUGIN_BACKEND_REGISTER_FAILED",
-                message_prefix=(
-                    "Async plugin ui setting write handler failed for "
-                    f"{self.plugin_id}:{handler_id}"
-                ),
-            )
-        return {"ok": True}
-
     def _run_awaitable(
         self,
         awaitable: Any,
@@ -1686,8 +1450,6 @@ class _WorkerState:
             return self._invoke_mcp_tool(params)
         if method == "plugin.invoke_codegen_target":
             return self._invoke_codegen_target(params)
-        if method == "plugin.invoke_ui_setting_handler":
-            return self._invoke_ui_setting_handler(params)
         raise WorkerError(
             "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
             f"Unsupported worker method: {method}",
@@ -1703,24 +1465,9 @@ class _WorkerBackendPluginContext:
         self._state = state
         self._host_call = host_call
         self.plugin_id = state.plugin_id
-        self.plugin_root = state.plugin_root
-        self.server_mode: Literal["ide", "share", "app", "launcher"] = state.server_mode
-        self.requested_capabilities: list[str] = list(state.requested_capabilities)
-        self.effective_capabilities: list[str] = list(state.effective_capabilities)
-
-    @property
-    def deployment_mode(self) -> bool:
-        return self.server_mode in {"share", "app"}
 
     def register_router(self, router: Any, *, prefix: str | None = None) -> None:
         self._state._register_router(router, prefix=prefix, host_call=self._host_call)
-
-    def register_static_dir(self, url_prefix: str, path: str | Path) -> None:
-        self._state._register_static_dir(
-            url_prefix=url_prefix,
-            path=path,
-            host_call=self._host_call,
-        )
 
     def register_mcp_tool(
         self,
@@ -1751,21 +1498,6 @@ class _WorkerBackendPluginContext:
     def register_codegen_target(self, target: Any) -> None:
         self._state._register_codegen_target(
             target=target,
-            host_call=self._host_call,
-        )
-
-    def register_ui_setting(self, setting: Any) -> None:
-        self._state._register_ui_setting(
-            setting=setting,
-            host_call=self._host_call,
-        )
-
-    def register_listener_endpoint(
-        self, endpoint_name: str, *, route_id: str | None = None
-    ) -> None:
-        self._state._register_listener_endpoint(
-            endpoint_name=endpoint_name,
-            route_id=route_id,
             host_call=self._host_call,
         )
 
@@ -1854,24 +1586,6 @@ class _WorkerBackendPluginContext:
             params["shareSessionId"] = share_session_id.strip()
         self._host_call("host.emit_listener_dependency_event", params)
 
-    def register_startup_task(self, _coro_fn: Any) -> None:
-        raise WorkerError(
-            "PLUGIN_BACKEND_REGISTER_FAILED",
-            (
-                f"Plugin {self.plugin_id} register_startup_task is not supported "
-                "in isolated worker mode."
-            ),
-        )
-
-    def register_shutdown_task(self, _coro_fn: Any) -> None:
-        raise WorkerError(
-            "PLUGIN_BACKEND_REGISTER_FAILED",
-            (
-                f"Plugin {self.plugin_id} register_shutdown_task is not supported "
-                "in isolated worker mode."
-            ),
-        )
-
 
 def _emit_response(payload: dict[str, Any]) -> None:
     try:
@@ -1898,30 +1612,17 @@ def _redirect_plugin_stdout_to_stderr() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Setta plugin backend worker")
-    parser.add_argument("--plugin-id", required=True)
-    parser.add_argument("--plugin-version", required=True)
-    parser.add_argument("--plugin-root", required=True)
-    parser.add_argument("--entrypoint", required=True)
-    parser.add_argument(
-        "--server-mode",
-        choices=["ide", "share", "app", "launcher"],
-        default="ide",
-    )
-    parser.add_argument(
-        "--requested-capability",
-        action="append",
-        default=[],
-    )
-    parser.add_argument(
-        "--effective-capability",
-        action="append",
-        default=[],
-    )
+    parser.add_argument("--probe", action="store_true")
+    parser.add_argument("--plugin-id")
+    parser.add_argument("--plugin-version")
+    parser.add_argument("--entrypoint")
     args = parser.parse_args()
+
+    if args.probe:
+        return 0
 
     plugin_id = str(args.plugin_id).strip()
     plugin_version = str(args.plugin_version).strip()
-    plugin_root = Path(args.plugin_root).expanduser().resolve(strict=False)
     entrypoint_path = Path(args.entrypoint).expanduser().resolve(strict=False)
 
     if not plugin_id:
@@ -1966,11 +1667,7 @@ def main() -> int:
     state = _WorkerState(
         plugin_id=plugin_id,
         plugin_version=plugin_version,
-        plugin_root=plugin_root,
         entrypoint_path=entrypoint_path,
-        server_mode=args.server_mode,
-        requested_capabilities=list(args.requested_capability),
-        effective_capabilities=list(args.effective_capability),
     )
     host_rpc_caller = _HostRpcCaller()
 
