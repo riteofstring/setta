@@ -1507,8 +1507,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
-				ModePolicy: modePolicy,
-				Templates:  promptTemplateStore,
+				ModePolicy:   modePolicy,
+				Templates:    promptTemplateStore,
+				ProjectState: projectRuntime,
 			}); err != nil {
 				panic(err)
 			}

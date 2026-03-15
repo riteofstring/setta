@@ -553,7 +553,7 @@ It covers:
 | `PT-05` | Source-baseline `POST /getPromptTemplate` is also LLM-gated rather than IDE-only. | `backend/setta/routers/agentic.py::route_get_prompt_template`; `tests/routers/test_share_mode_blocks_ide_routes.py::test_share_mode_blocks_prompt_template_mutations` does not cover single-item reads. | Current Go guard: `internal/httpapi/prompt_template_routes.go::RegisterPromptTemplateRoutes`; proof: `internal/httpapi/prompt_template_routes_test.go::TestRegisterPromptTemplateRoutesBlocksShareModeMutations`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-13-agentic-single-item-read-transport.md`. | `Intentional divergence` | The later single-item-read cleanup explicitly kept these dormant settings reads inside the same IDE-only surface as the rest of the landed Go settings transport. |
 | `PT-06` | Updating a saved prompt template automatically refreshes every linked Prompt section's cached `template`, `format`, and preview state. | `backend/setta/routers/agentic.py::route_update_prompt_template`; `docs/reference/prompt-sections.md` linked-template mode. | Current Go link model: `internal/projectstate/prompt_sections.go::SetPromptTemplateLink`; link proof: `internal/httpapi/project_prompt_routes_test.go::TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejectsMissingTemplate`; current frontend read path: `frontend/src/utils/promptSectionSource.ts`; `frontend/src/components/Section/Layouts/PromptArea.tsx`. | `Missing` | Current Go resolves and caches the template when the link is created, but there is no Go equivalent of `refresh_linked_prompt_sections_for_template(...)`. The frontend can display the latest template text from the prompt-template store, but cached project-state preview fields still go stale until another prompt-section mutation happens. |
 | `PT-07` | Prompt-template mutations refresh the prompt-template watcher and broadcast `PromptTemplatesUpdated` over the frontend websocket. | `backend/setta/routers/agentic.py::route_create_prompt_template`; `backend/setta/routers/agentic.py::route_update_prompt_template`; `backend/setta/routers/agentic.py::route_delete_prompt_template`; `backend/setta/agentic/prompt_watcher.py`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_prompt_templates_update`. | Current same-tab update path: `frontend/src/state/actions/ai.ts::{createPromptTemplate,updatePromptTemplate,deletePromptTemplate}`; websocket handler remains in `frontend/src/state/actions/websocketReceive.ts`; rewrite defer: `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-crud-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-13-prompt-template-read-transport.md`. | `Intentional divergence` | The rewrite docs explicitly deferred watcher refresh and websocket fan-out because current direct callers already update local prompt-template state from route results. |
-| `PT-08` | Deleting a prompt template that is still referenced by workflow edges is blocked with `409`, while prompt-section links do not block deletion. | `backend/setta/routers/agentic.py::route_delete_prompt_template`; `docs/reference/prompt-sections.md` template-deletion behavior. | Current Go delete path: `internal/httpapi/prompt_template_routes.go::deletePromptTemplateHandler`; current workflow/template linkage still exists in `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`. | `Missing` | Current Go deletes the template after an existence check and does not inspect workflow references, so it misses the source-baseline `409` guard. The prompt-section broken-link half of the doc still survives separately. |
+| `PT-08` | Deleting a prompt template that is still referenced by workflow edges is blocked with `409`, while prompt-section links do not block deletion. | `backend/setta/routers/agentic.py::route_delete_prompt_template`; `docs/reference/prompt-sections.md` template-deletion behavior. | Impl: `internal/httpapi/prompt_template_routes.go::deletePromptTemplateHandler`; workflow reference scan: `internal/projectstate/prompt_template_references.go::WorkflowPromptTemplateReferences`; proof: `internal/projectstate/prompt_template_references_test.go::TestDocumentWorkflowPromptTemplateReferencesListsWorkflowEdgesOnly`; route proof: `internal/httpapi/prompt_template_routes_test.go::{TestRegisterPromptTemplateRoutesBlocksDeleteForWorkflowReferences,TestRegisterPromptTemplateRoutesDeleteAllowsPromptSectionLinks}`; runtime/template linkage remains in `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`. | `Proved` | Current Go now blocks deletes only for workflow-edge references and preserves the documented broken-link behavior for Prompt sections. |
 | `PT-09` | Linked prompt sections use the saved prompt template as the source of truth for runtime/codegen/workflow resolution and fail loudly when the linked template is missing. | `docs/reference/prompt-sections.md` linked-template and runtime/codegen sections. | Impl: `internal/projectstate/state_machine.go`; `internal/statemachineruns/runtime.go`; frontend broken-link UI proof: `frontend/src/utils/promptSectionSource.ts`; `frontend/src/components/Section/Layouts/PromptArea.test.tsx::it(\"shows linked prompt templates as read-only source text\")`; `frontend/src/components/Section/Layouts/PromptArea.test.tsx::it(\"clears stale prompt text when a linked prompt template is missing\")`. | `Proved` | This keeps runtime/codegen parity even though `PT-06` still leaves cached project-state preview fields stale after template edits. |
 
 ## Engine Configs
@@ -1236,8 +1236,8 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty-four concrete source-parity gaps:
-   `PT-06`, `PT-08`, `LS-11`, `LS-17`, `LD-03`,
+1. The matrix now contains forty-three concrete source-parity gaps:
+   `PT-06`, `LS-11`, `LS-17`, `LD-03`,
    `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
@@ -1245,10 +1245,9 @@ It covers:
    `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, `SC-06`, and
    `DL-02`.
 2. The prompt-template slice matters because it split cleanly into:
-   - real missing parity on linked-section refresh and workflow-reference
-     delete protection (`PT-06`, `PT-08`)
+   - one real missing parity on linked-section refresh (`PT-06`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
-   - preserved runtime/codegen source-of-truth behavior (`PT-09`)
+   - preserved runtime/codegen/delete behavior (`PT-08`, `PT-09`)
 3. The engine-config slice now closes with proofs and retains two documented
    divergences (`EC-04`, `EC-06`).
 4. The project-shell slice also surfaced one source behavior that is still
@@ -1395,7 +1394,7 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `PT-06`, `PT-08`, `LD-03`, `US-05`, `RV-02`,
+    - decide whether `PT-06`, `LD-03`, `US-05`, `RV-02`,
       `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
       `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,

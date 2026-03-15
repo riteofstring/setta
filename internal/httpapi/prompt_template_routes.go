@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
 )
 
@@ -20,8 +21,13 @@ const RouteUpdatePromptTemplate = "/updatePromptTemplate"
 const RouteDeletePromptTemplate = "/deletePromptTemplate"
 
 type PromptTemplateRouteDependencies struct {
-	ModePolicy modes.Policy
-	Templates  *prompttemplates.Store
+	ModePolicy   modes.Policy
+	Templates    *prompttemplates.Store
+	ProjectState PromptTemplateProjectState
+}
+
+type PromptTemplateProjectState interface {
+	Snapshot() projectstate.Snapshot
 }
 
 type createPromptTemplateRequest struct {
@@ -73,7 +79,7 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps.Templates))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps.Templates))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps.Templates, deps.ProjectState))
 	return nil
 }
 
@@ -199,7 +205,7 @@ func updatePromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 	}
 }
 
-func deletePromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc {
+func deletePromptTemplateHandler(store *prompttemplates.Store, projectState PromptTemplateProjectState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -223,6 +229,23 @@ func deletePromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc 
 			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
+		}
+		if projectState != nil {
+			references := projectState.Snapshot().Document.WorkflowPromptTemplateReferences(templateID)
+			if len(references) > 0 {
+				writeError(
+					w,
+					r,
+					http.StatusConflict,
+					"prompt_template_in_use",
+					fmt.Sprintf(
+						"Prompt template %s is still referenced by workflow edges: %s",
+						templateID,
+						strings.Join(references, "; "),
+					),
+				)
+				return
+			}
 		}
 		if err := store.Delete(templateID); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

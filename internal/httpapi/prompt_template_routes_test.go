@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
 )
 
@@ -347,6 +348,75 @@ func TestRegisterPromptTemplateRoutesReturnsNotFoundForDelete(t *testing.T) {
 	}
 }
 
+func TestRegisterPromptTemplateRoutesBlocksDeleteForWorkflowReferences(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-1",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+	}); err != nil {
+		t.Fatalf("save template: %v", err)
+	}
+	projectRuntime := newPromptTemplateRouteWorkflowReferenceRuntime(t, "template-1")
+	handler := newPromptTemplateRouteTestHandlerWithProjectState(t, config.ModeIDE, store, projectRuntime)
+
+	response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, RouteDeletePromptTemplate, map[string]any{
+		"templateId": "template-1",
+	})
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "prompt_template_in_use" {
+		t.Fatalf("expected prompt_template_in_use, got %#v", payload)
+	}
+	if !strings.Contains(payload.Error.Message, "project project-alpha, edge edge-send-prompt") {
+		t.Fatalf("expected workflow reference detail, got %#v", payload)
+	}
+	if _, err := store.Get("template-1"); err != nil {
+		t.Fatalf("expected template to remain after blocked delete, got %v", err)
+	}
+}
+
+func TestRegisterPromptTemplateRoutesDeleteAllowsPromptSectionLinks(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-1",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+	}); err != nil {
+		t.Fatalf("save template: %v", err)
+	}
+	projectRuntime := newPromptTemplateRouteLinkedPromptSectionRuntime(t, "template-1")
+	handler := newPromptTemplateRouteTestHandlerWithProjectState(t, config.ModeIDE, store, projectRuntime)
+
+	response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, RouteDeletePromptTemplate, map[string]any{
+		"templateId": "template-1",
+	})
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null delete payload, got %q", response.Body.String())
+	}
+	templates, err := store.List()
+	if err != nil {
+		t.Fatalf("list templates after delete: %v", err)
+	}
+	if len(templates) != 0 {
+		t.Fatalf("expected linked prompt section not to block delete, got %#v", templates)
+	}
+}
+
 func TestRegisterPromptTemplateRoutesRejectsInvalidCreateJSON(t *testing.T) {
 	t.Parallel()
 
@@ -461,14 +531,26 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 func newPromptTemplateRouteTestHandler(t *testing.T, mode config.Mode, store *prompttemplates.Store) http.Handler {
 	t.Helper()
 
+	return newPromptTemplateRouteTestHandlerWithProjectState(t, mode, store, nil)
+}
+
+func newPromptTemplateRouteTestHandlerWithProjectState(
+	t *testing.T,
+	mode config.Mode,
+	store *prompttemplates.Store,
+	projectRuntime *projectstate.Runtime,
+) http.Handler {
+	t.Helper()
+
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterPromptTemplateRoutes(r, PromptTemplateRouteDependencies{
-				ModePolicy: modes.NewPolicy(mode),
-				Templates:  store,
+				ModePolicy:   modes.NewPolicy(mode),
+				Templates:    store,
+				ProjectState: projectRuntime,
 			}); err != nil {
 				t.Fatalf("register prompt template routes: %v", err)
 			}
@@ -478,6 +560,125 @@ func newPromptTemplateRouteTestHandler(t *testing.T, mode config.Mode, store *pr
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func newPromptTemplateRouteWorkflowReferenceRuntime(t *testing.T, templateID string) *projectstate.Runtime {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				StateMachineEdges: []projectstate.StateMachineEdge{
+					{
+						ID:              "edge-send-prompt",
+						MachineGroupID:  "workflow-a",
+						SourceSectionID: "gate-section",
+						SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+						TargetSectionID: "chat-section",
+						TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+						TargetAction: &projectstate.StateMachineTargetAction{
+							Type:             projectstate.StateMachineTargetActionTypeSendPrompt,
+							PromptTemplateID: promptTemplateRouteStringPointer(templateID),
+							ThreadStrategy:   projectstate.StateMachineThreadStrategyContinueCurrentThread,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open workflow reference runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close workflow reference runtime: %v", err)
+		}
+	})
+	return projectRuntime
+}
+
+func newPromptTemplateRouteLinkedPromptSectionRuntime(t *testing.T, templateID string) *projectstate.Runtime {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": promptTemplateRouteLinkedPromptProject(t, templateID),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open linked prompt runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close linked prompt runtime: %v", err)
+		}
+	})
+	return projectRuntime
+}
+
+func promptTemplateRouteLinkedPromptProject(t *testing.T, templateID string) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"prompt-section": "prompt-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"prompt-section": {
+				ID:               "prompt-section",
+				Name:             "Prompt Section",
+				VariantIDs:       []string{"prompt-variant"},
+				DefaultVariantID: "prompt-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"prompt-variant": {
+				ID:     "prompt-variant",
+				ImplID: "prompt-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"prompt-impl": {
+				ID:   "prompt-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":               "prompt-impl",
+					"type":             "Prompt",
+					"promptTemplateId": templateID,
+					"template":         "Linked {{ name }}",
+					"inputs":           map[string]string{},
+					"format":           string(projectstate.PromptFormatJinja),
+					"renderedText":     "",
+					"missingVariables": []string{},
+					"renderError":      nil,
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize linked prompt project: %v", err)
+	}
+	return project
+}
+
+func mustMarshalProjectObject(value map[string]any) projectstate.RawJSON {
+	content, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return projectstate.RawJSON(content)
+}
+
+func promptTemplateRouteStringPointer(value string) *string {
+	return &value
 }
 
 func newPromptTemplateRouteTestStore(t *testing.T) *prompttemplates.Store {
