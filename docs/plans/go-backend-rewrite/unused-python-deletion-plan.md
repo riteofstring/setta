@@ -314,6 +314,13 @@ Current tree note:
   terminal/window-space normalization, and scoped LSP diagnostics filtering
   already live in Go under `internal/projectview`, `internal/projectstate`,
   `internal/mcpx`, and `internal/frontendbindings`.
+- The dead Python attachment/git utility tail is also smaller in the current
+  worktree: `attachment_policy.py`, `chat_attachments.py`, and `git.py` are
+  gone because attachment payload shaping/download URLs plus git status/diff/log
+  services already live in Go under `internal/chatattachments`, `internal/gitread`,
+  and `internal/httpapi`; the leftover Python websocket logging binding,
+  async-debouncer, worktree, and bootstrap-network helpers also had no remaining
+  non-test callers on retained Python boundaries.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.

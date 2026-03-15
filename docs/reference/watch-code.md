@@ -78,7 +78,7 @@ Watch Code uses a dedicated `watchdog.Observer` (separate from
 - Respects the `recursive` flag per folder.
 - If a watched dir does not exist yet, it watches the nearest existing ancestor
   and resyncs once the directory appears.
-- Debounces file events with a 0.3s `AsyncDebouncer`.
+- Debounces file events in the Go watch-code runtime before applying updates.
 
 The manager is started during `BaseProjectManager` initialization and resynced
 whenever project configs change.

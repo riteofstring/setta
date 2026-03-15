@@ -76,13 +76,9 @@ Values are normalized and sanitized:
 - Active Go middleware: `internal/httpapi/httpapi.go`
   - Adds `request_id` and logs request method/path/status through the Go
     request, recovery, and access-log middleware stack.
-- Retained Python helper: `bind_request_logging_context` is still available for
-  retained Python FastAPI/Starlette surfaces.
 
 **Websocket connections**
 
-- Context manager: `backend/setta/logging/context_bindings.py`
-  - Adds `websocket_id`, `path`, optional `project_config_id`, and `client`.
 - Active Go transport: `internal/wsapi`
   - Resolves connection type, auth, and mode/share-session context before
     handing the socket to the route-specific handler.
