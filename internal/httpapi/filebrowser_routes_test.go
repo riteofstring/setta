@@ -173,6 +173,54 @@ func TestRegisterFileBrowserRoutesChecksIfFileExistsRelativeToWorkspaceAndReject
 	}
 }
 
+func TestRegisterFileBrowserRoutesCheckIfFileExistsAllowsShareDeploymentRootsOnly(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	deploymentRoot := t.TempDir()
+	allowedPath := filepath.Join(deploymentRoot, "code", "run.py")
+	blockedPath := filepath.Join(deploymentRoot, "manifest.json")
+	for _, path := range []string{filepath.Dir(allowedPath), filepath.Dir(blockedPath)} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	if err := os.WriteFile(allowedPath, []byte("print('hi')"), 0o644); err != nil {
+		t.Fatalf("write allowed deployment file: %v", err)
+	}
+	if err := os.WriteFile(blockedPath, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write blocked deployment file: %v", err)
+	}
+
+	handler := newFileBrowserRouteTestHandlerWithDeploymentRoot(t, config.ModeShare, authService, nil, deploymentRoot)
+
+	allowedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckIfFileExists, strings.NewReader(`{"filepath":"code/run.py"}`))
+	allowedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, allowedRequest, authService)
+
+	allowedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(allowedResponse, allowedRequest)
+	if allowedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", allowedResponse.Code, allowedResponse.Body.String())
+	}
+	if strings.TrimSpace(allowedResponse.Body.String()) != "true" {
+		t.Fatalf("expected true response for allowed deployment file, got %q", allowedResponse.Body.String())
+	}
+
+	blockedRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteCheckIfFileExists, strings.NewReader(`{"filepath":"manifest.json"}`))
+	blockedRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, blockedRequest, authService)
+
+	blockedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(blockedResponse, blockedRequest)
+	if blockedResponse.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", blockedResponse.Code, blockedResponse.Body.String())
+	}
+	if !strings.Contains(blockedResponse.Body.String(), `"detail":"Deployment mode file access is restricted to the deployment artifacts/json_sources/code paths."`) {
+		t.Fatalf("expected deployment path restriction detail, got %q", blockedResponse.Body.String())
+	}
+}
+
 func TestRegisterFileBrowserRoutesChecksWorkspaceInitializationAndOutsideWorkspaceOptIn(t *testing.T) {
 	t.Parallel()
 
@@ -647,6 +695,17 @@ func newFileBrowserRouteServiceWithRoots(t *testing.T, authService *auth.Service
 
 func newFileBrowserRouteTestHandler(t *testing.T, mode config.Mode, authService *auth.Service, service *filebrowser.Service) http.Handler {
 	t.Helper()
+	return newFileBrowserRouteTestHandlerWithDeploymentRoot(t, mode, authService, service, "")
+}
+
+func newFileBrowserRouteTestHandlerWithDeploymentRoot(
+	t *testing.T,
+	mode config.Mode,
+	authService *auth.Service,
+	service *filebrowser.Service,
+	deploymentRoot string,
+) http.Handler {
+	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -655,8 +714,9 @@ func newFileBrowserRouteTestHandler(t *testing.T, mode config.Mode, authService 
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterFileBrowserRoutes(r, FileBrowserRouteDependencies{
-				ModePolicy: modes.NewPolicy(mode),
-				Browser:    service,
+				ModePolicy:     modes.NewPolicy(mode),
+				DeploymentRoot: deploymentRoot,
+				Browser:        service,
 			}); err != nil {
 				t.Fatalf("register file browser routes: %v", err)
 			}

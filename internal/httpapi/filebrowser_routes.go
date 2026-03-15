@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -28,8 +30,9 @@ const (
 )
 
 type FileBrowserRouteDependencies struct {
-	ModePolicy modes.Policy
-	Browser    FileBrowserService
+	ModePolicy     modes.Policy
+	DeploymentRoot string
+	Browser        FileBrowserService
 }
 
 type FileBrowserService interface {
@@ -83,6 +86,26 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 
 func checkIfFileExistsHandler(deps FileBrowserRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ModePolicy.IsDeployment() {
+			payload, err := decodeJSONBody[CheckIfFileExistsRequest](r)
+			if err != nil {
+				writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+				return
+			}
+
+			exists, status, detail, err := checkIfDeploymentFileExists(payload.Filepath, deps.DeploymentRoot)
+			if err != nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+			if status != 0 {
+				writeDetail(w, status, detail)
+				return
+			}
+			writeJSON(w, http.StatusOK, exists)
+			return
+		}
+
 		if !ensureFileBrowsingAllowed(w, r) || deps.Browser == nil {
 			if deps.Browser == nil {
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -335,6 +358,58 @@ func ensureFileBrowsingAllowed(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	return true
+}
+
+func checkIfDeploymentFileExists(rawPath string, deploymentRoot string) (bool, int, string, error) {
+	resolvedPath, status, detail, err := resolveDeploymentCheckPath(rawPath, deploymentRoot)
+	if err != nil || status != 0 {
+		return false, status, detail, err
+	}
+
+	if _, statErr := os.Stat(resolvedPath); statErr != nil {
+		if errors.Is(statErr, os.ErrNotExist) {
+			return false, 0, "", nil
+		}
+		return false, 0, "", nil
+	}
+	return true, 0, "", nil
+}
+
+func resolveDeploymentCheckPath(rawPath string, deploymentRoot string) (string, int, string, error) {
+	resolvedDeploymentRoot, err := filepath.Abs(strings.TrimSpace(deploymentRoot))
+	if err != nil {
+		return "", 0, "", err
+	}
+	if strings.TrimSpace(resolvedDeploymentRoot) == "" || strings.TrimSpace(deploymentRoot) == "" {
+		return "", http.StatusBadRequest, "Deployment root is not configured.", nil
+	}
+
+	resolvedCandidate := resolvedDeploymentRoot
+	trimmedPath := strings.TrimSpace(rawPath)
+	if trimmedPath != "" {
+		if filepath.IsAbs(trimmedPath) {
+			resolvedCandidate, err = filepath.Abs(trimmedPath)
+		} else {
+			resolvedCandidate, err = filepath.Abs(filepath.Join(resolvedDeploymentRoot, trimmedPath))
+		}
+		if err != nil {
+			return "", 0, "", err
+		}
+	}
+	resolvedCandidate = filepath.Clean(resolvedCandidate)
+
+	for _, subfolder := range []string{"artifacts", "json_sources", "code"} {
+		allowedRoot := filepath.Join(resolvedDeploymentRoot, subfolder)
+		relative, relErr := filepath.Rel(allowedRoot, resolvedCandidate)
+		if relErr != nil {
+			return "", 0, "", relErr
+		}
+		if relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
+			return resolvedCandidate, 0, "", nil
+		}
+	}
+
+	return "", http.StatusForbidden, "Deployment mode file access is restricted to the deployment artifacts/json_sources/code paths.", nil
 }
 
 func writeFileBrowserRouteError(w http.ResponseWriter, r *http.Request, err error) {
