@@ -10,11 +10,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1395`
+- Authored TS/TSX files under `frontend/src`: `1397`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4996`)
   - `components/Chat/ChatMessages.tsx` (`4848`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4759`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
@@ -221,6 +221,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/ChatWindowing/*` owns dock/window rendering, surface ids, snap
     layout helpers, and viewport math.
+  - `components/ChatWindowing/projectChatWindowShortcuts.ts` owns dock-specific
+    keyboard shortcut parsing, editable-target gating, and keydown listener
+    wiring used by `components/ChatWindowing/ProjectChatBottomDock.tsx`.
   - `state/actions/projectChatWindowingDefaultBounds.ts` owns pure floating and
     docked default-bounds math.
   - `state/actions/projectChatWindowingStateNormalization.ts` owns order and

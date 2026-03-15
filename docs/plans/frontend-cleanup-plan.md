@@ -54,7 +54,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1395 authored TS/TSX files under `frontend/src`.
+- There are 1397 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 4848 lines
@@ -64,7 +64,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2444 lines
-- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4996 lines
+- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4759 lines
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2323 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
@@ -82,8 +82,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Future cleanup should default to the remaining giant render-heavy hotspots,
   not to more taxonomic splitting of already smaller `state/actions` modules.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
@@ -111,6 +111,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Chat/chatAttachmentPreviewUrls.ts` now owns message attachment collection, attachment URL lookup, stale refresh policy, and preview URL caching used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatAttachmentPreviews.tsx` now owns attachment list rendering, preview dialog/media-carousel branching, and attachment text-preview fetch state used by `frontend/src/components/Chat/ChatMessages.tsx`.
 - `frontend/src/components/Chat/chatMessageContent.tsx` now owns markdown/code rendering, inline markdown labels, streaming markdown animation wrappers, and conversation-search highlight helpers used by `frontend/src/components/Chat/ChatMessages.tsx`.
+- `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/state/actions/chatBranchState.ts` now owns branch bootstrap, active-branch fallback, and incoming-message sync, `frontend/src/state/actions/chatBranchEditing.ts` now owns edited-message history truncation plus child-branch creation, `frontend/src/state/actions/chatBranchIndexState.ts` now owns branch-index derivation from section branch records, and `frontend/src/state/actions/chatBranches.ts` is now the thin compatibility facade.
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external hydration route probes plus outcome classification, `frontend/src/state/actions/aiHydrationChatState.ts` now owns managed/external chat-detail reconciliation plus app-generation hydration, `frontend/src/state/actions/aiHydrationSectionState.ts` now owns managed/external chat-section reconciliation plus persistence sync, `frontend/src/state/actions/aiHydrationApply.ts` is now the thin apply-orchestration facade, and `frontend/src/state/actions/aiHydration.ts` is now the thin public hydration facade.
 - `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry derivation and chat label normalization, `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical plus scoped chat provenance resolution, `frontend/src/state/actions/chatHistoryShared.ts` now owns shared run filtering/grouping helpers, `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history filter/provenance types, and `frontend/src/state/actions/chatHistory.ts` is now a thin compatibility facade.
@@ -695,8 +696,8 @@ Notes:
 ## Phase 1: Simplify Chat, Project AI, And Windowing First
 
 - Start with the highest-traffic shared path:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
@@ -803,7 +804,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/ChatWindowing/ProjectChatBottomDock.tsx`, `components/Chat/ChatMessages.tsx`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `components/Section/Layouts/BrowserArea.tsx`, `plugins/runtime.ts`, or `components/App/appRegistry.tsx`.
+2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Chat/ChatMessages.tsx`, `components/ChatWindowing/ProjectChatBottomDock.tsx`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `components/Section/Layouts/BrowserArea.tsx`, `plugins/runtime.ts`, or `components/App/appRegistry.tsx`.
 3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a direct prerequisite for simplifying one of those larger hotspots or when it deletes a now-unnecessary compatibility surface after callers have converged.
 4. Continue project chat windowing, file browser, section layout, page, pane, and runtime cleanup from the companion plans once the highest current hotspot in that area is clear.
 5. Add feature READMEs as each area stabilizes.
