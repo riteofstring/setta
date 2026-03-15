@@ -32,12 +32,7 @@ func (d *Document) CreateChildSectionsViaIncrementer(
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
-	normalizedSettings := normalizeStructuralMutationSettings(settings)
-	result, err := project.CreateChildSectionsViaIncrementer(
-		input,
-		normalizedSettings.SectionSizingPolicy,
-		normalizedSettings.TerminalDefaultHeight,
-	)
+	result, err := project.CreateChildSectionsViaIncrementer(input, settings)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
@@ -72,8 +67,7 @@ func (r *Runtime) CreateChildSectionsViaIncrementer(
 
 func (p *Project) CreateChildSectionsViaIncrementer(
 	input CreateChildSectionsViaIncrementerInput,
-	policy AutoLayoutSectionSizingPolicy,
-	terminalDefaultHeight float64,
+	settings StructuralMutationSettings,
 ) (CreateChildSectionsResult, error) {
 	if p == nil {
 		return CreateChildSectionsResult{}, ErrProjectNotFound
@@ -93,7 +87,7 @@ func (p *Project) CreateChildSectionsViaIncrementer(
 		ImplType:    normalized.ImplType,
 		NumChildren: normalized.NumChildren,
 		StartIdx:    &startIdx,
-	}, policy, terminalDefaultHeight)
+	}, settings)
 }
 
 func normalizeCreateChildSectionsViaIncrementerInput(input CreateChildSectionsViaIncrementerInput) (CreateChildSectionsViaIncrementerInput, error) {

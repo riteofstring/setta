@@ -40,12 +40,7 @@ func (d *Document) GroupSections(projectID string, input GroupSectionsInput, set
 	if err != nil {
 		return err
 	}
-	normalizedSettings := normalizeStructuralMutationSettings(settings)
-	if err := project.GroupSections(
-		input,
-		normalizedSettings.SectionSizingPolicy,
-		normalizedSettings.TerminalDefaultHeight,
-	); err != nil {
+	if err := project.GroupSections(input, settings); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -71,8 +66,7 @@ func (r *Runtime) GroupSections(
 
 func (p *Project) GroupSections(
 	input GroupSectionsInput,
-	policy AutoLayoutSectionSizingPolicy,
-	terminalDefaultHeight float64,
+	settings StructuralMutationSettings,
 ) error {
 	if p == nil {
 		return ErrProjectNotFound
@@ -100,7 +94,7 @@ func (p *Project) GroupSections(
 		result, err := p.CreateTopLevelSection(CreateTopLevelSectionInput{
 			ImplType: "Group",
 			Position: &position,
-		}, policy)
+		}, settings)
 		if err != nil {
 			return err
 		}
@@ -127,7 +121,7 @@ func (p *Project) GroupSections(
 		ImplType:    "Group",
 		NumChildren: 1,
 		StartIdx:    &startIdx,
-	}, policy, terminalDefaultHeight)
+	}, settings)
 	if err != nil {
 		return err
 	}

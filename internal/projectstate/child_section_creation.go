@@ -54,12 +54,7 @@ func (d *Document) CreateChildSections(
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
-	normalizedSettings := normalizeStructuralMutationSettings(settings)
-	result, err := project.CreateChildSections(
-		input,
-		normalizedSettings.SectionSizingPolicy,
-		normalizedSettings.TerminalDefaultHeight,
-	)
+	result, err := project.CreateChildSections(input, settings)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
@@ -94,13 +89,13 @@ func (r *Runtime) CreateChildSections(
 
 func (p *Project) CreateChildSections(
 	input CreateChildSectionsInput,
-	policy AutoLayoutSectionSizingPolicy,
-	terminalDefaultHeight float64,
+	settings StructuralMutationSettings,
 ) (CreateChildSectionsResult, error) {
 	if p == nil {
 		return CreateChildSectionsResult{}, ErrProjectNotFound
 	}
 
+	normalizedSettings := normalizeStructuralMutationSettings(settings)
 	normalized, err := normalizeCreateChildSectionsInput(input)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
@@ -134,7 +129,14 @@ func (p *Project) CreateChildSections(
 		return CreateChildSectionsResult{}, fmt.Errorf("%w: startIdx=%d childCount=%d", ErrChildSectionStartIdxInvalid, startIdx, len(parentChildren))
 	}
 
-	parentWidth, err := resolveAutoLayoutDimension(policy, parentSection.ID, parentType, "width", nil, parentPayload)
+	parentWidth, err := resolveAutoLayoutDimension(
+		normalizedSettings.SectionSizingPolicy,
+		parentSection.ID,
+		parentType,
+		"width",
+		nil,
+		parentPayload,
+	)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
@@ -153,7 +155,7 @@ func (p *Project) CreateChildSections(
 			normalized.ImplType,
 			parentWidth,
 			parentImpl.IsCode(),
-			terminalDefaultHeight,
+			normalizedSettings,
 		)
 		if err != nil {
 			return CreateChildSectionsResult{}, err
@@ -201,7 +203,11 @@ func (p *Project) CreateChildSections(
 	parentPayload["children"] = append([]string(nil), nextChildren...)
 	if parentImpl.IsCode() {
 		parentPayload["attachedTerminalSectionId"] = createdIDs[0]
-		if err := ensureEmbeddedCodeSectionPayloadSize(parentSection.ID, parentPayload, policy); err != nil {
+		if err := ensureEmbeddedCodeSectionPayloadSize(
+			parentSection.ID,
+			parentPayload,
+			normalizedSettings.SectionSizingPolicy,
+		); err != nil {
 			return CreateChildSectionsResult{}, err
 		}
 		parentImpl.Code.AttachedTerminalSectionID = createdIDs[0]
@@ -275,7 +281,7 @@ func newCreatedChildSectionState(
 	implType string,
 	parentWidth float64,
 	codeParent bool,
-	terminalDefaultHeight float64,
+	settings StructuralMutationSettings,
 ) (createdChildSectionState, error) {
 	sectionID, err := newProjectStateID()
 	if err != nil {
@@ -290,13 +296,22 @@ func newCreatedChildSectionState(
 		return createdChildSectionState{}, err
 	}
 
-	impl, metaControlParamCore, metaControlParamVar, metaControlParamImpl, err := buildCreatedTopLevelSectionImpl(implID, CreateTopLevelSectionInput{
-		ImplType: implType,
-	})
+	impl, metaControlParamCore, metaControlParamVar, metaControlParamImpl, err := buildCreatedTopLevelSectionImpl(
+		implID,
+		CreateTopLevelSectionInput{
+			ImplType: implType,
+		},
+		settings,
+	)
 	if err != nil {
 		return createdChildSectionState{}, err
 	}
-	impl, err = applyCreatedChildSectionSizing(impl, parentWidth, codeParent, terminalDefaultHeight)
+	impl, err = applyCreatedChildSectionSizing(
+		impl,
+		parentWidth,
+		codeParent,
+		settings.TerminalDefaultHeight,
+	)
 	if err != nil {
 		return createdChildSectionState{}, err
 	}

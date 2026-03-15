@@ -226,9 +226,16 @@ func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testi
 	if settings.TerminalDefaultHeight != 150 {
 		t.Fatalf("expected default terminal height 150, got %v", settings.TerminalDefaultHeight)
 	}
+	if got := settings.SectionDefaultsByType["TaskBoard"]["columns"]; got != nil {
+		t.Fatalf("expected default task board columns sentinel nil, got %#v", got)
+	}
+	if got := settings.SectionDefaultsByType["TextBlock"]["headingAsSectionName"]; got != false {
+		t.Fatalf("expected default text block headingAsSectionName false, got %#v", got)
+	}
 
 	document["sectionSizingPolicy"].(map[string]any)["byType"].(map[string]any)["Chart"].(map[string]any)["minWidth"] = 150.0
 	document["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"] = 222.0
+	document["textBlockSectionDefault"].(map[string]any)["headingAsSectionName"] = true
 
 	settings, err = StructuralMutationSettingsForDocument(document)
 	if err != nil {
@@ -239,6 +246,9 @@ func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testi
 	}
 	if settings.TerminalDefaultHeight != 222 {
 		t.Fatalf("expected overridden terminal height 222, got %v", settings.TerminalDefaultHeight)
+	}
+	if got := settings.SectionDefaultsByType["TextBlock"]["headingAsSectionName"]; got != true {
+		t.Fatalf("expected overridden text block headingAsSectionName true, got %#v", got)
 	}
 }
 

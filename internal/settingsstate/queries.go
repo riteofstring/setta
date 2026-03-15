@@ -10,6 +10,31 @@ import (
 
 const DefaultAutoRefetchCallableParamsOnLSPMismatch = true
 
+var sectionDefaultSettingsKeysByType = map[string]string{
+	"Browser":           "browserSectionDefault",
+	"Callable":          "callableSectionDefault",
+	"Chart":             "chartSectionDefault",
+	"Chat":              "chatSectionDefault",
+	"Code":              "codeSectionDefault",
+	"Dict":              "dictSectionDefault",
+	"Draw":              "drawSectionDefault",
+	"GenPythonCode":     "genPythonCodeSectionDefault",
+	"GenPythonMetadata": "genPythonMetadataSectionDefault",
+	"GlobalVariables":   "globalVariablesSectionDefault",
+	"Group":             "groupSectionDefault",
+	"IFrame":            "iFrameSectionDefault",
+	"Image":             "imageSectionDefault",
+	"ListRoot":          "listRootSectionDefault",
+	"MetaControl":       "metaControlSectionDefault",
+	"Plugin":            "pluginSectionDefault",
+	"Prompt":            "promptSectionDefault",
+	"Social":            "socialSectionDefault",
+	"Spreadsheet":       "spreadsheetSectionDefault",
+	"TaskBoard":         "taskBoardSectionDefault",
+	"Terminal":          "terminalSectionDefault",
+	"TextBlock":         "textBlockSectionDefault",
+}
+
 type RenameRefactorMode = projectstate.RenameRefactorMode
 
 const (
@@ -147,12 +172,33 @@ func StructuralMutationSettingsForDocument(document Document) (projectstate.Stru
 		}
 	}
 
+	sectionDefaults, err := sectionCreateDefaultsForDocument(document)
+	if err != nil {
+		return projectstate.StructuralMutationSettings{}, err
+	}
+	settings.SectionDefaultsByType = sectionDefaults
+
 	terminalDefaultHeight, err := terminalDefaultHeightForDocument(document)
 	if err != nil {
 		return projectstate.StructuralMutationSettings{}, err
 	}
 	settings.TerminalDefaultHeight = terminalDefaultHeight
 	return settings, nil
+}
+
+func sectionCreateDefaultsForDocument(document Document) (map[string]map[string]any, error) {
+	defaults := make(map[string]map[string]any, len(sectionDefaultSettingsKeysByType))
+	for sectionType, settingsKey := range sectionDefaultSettingsKeysByType {
+		sectionDefaults, ok, err := objectField(document, settingsKey)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		defaults[sectionType] = cloneMap(sectionDefaults)
+	}
+	return defaults, nil
 }
 
 func resolveSectionSizingDimension(

@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -95,7 +96,7 @@ func TestProjectCreateChildSectionsInsertsAtIndexAndSetsParentIDs(t *testing.T) 
 		ImplType:    "TextBlock",
 		NumChildren: 2,
 		StartIdx:    &startIdx,
-	}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create child sections: %v", err)
 	}
@@ -196,12 +197,12 @@ func TestProjectCreateChildSectionsCreatesAttachedTerminalForCodeParent(t *testi
 		},
 	}
 
-	terminalDefaultHeight := 222.0
+	settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
 	result, err := project.CreateChildSections(CreateChildSectionsInput{
 		ParentID:    "code-parent",
 		ImplType:    "Terminal",
 		NumChildren: 1,
-	}, defaultAutoLayoutSectionSizingPolicy(), terminalDefaultHeight)
+	}, settings)
 	if err != nil {
 		t.Fatalf("create terminal child section: %v", err)
 	}
@@ -263,8 +264,8 @@ func TestProjectCreateChildSectionsCreatesAttachedTerminalForCodeParent(t *testi
 	if !present || isAuto {
 		t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
 	}
-	if terminalHeight != 222.0 {
-		t.Fatalf("expected settings-backed terminal height 222, got %v", terminalHeight)
+	if terminalHeight != settings.TerminalDefaultHeight {
+		t.Fatalf("expected settings-backed terminal height %v, got %v", settings.TerminalDefaultHeight, terminalHeight)
 	}
 
 	parentImpl := project.SectionImpls["code-parent-impl"]
@@ -358,7 +359,7 @@ func TestProjectCreateChildSectionsSupportsExpandedActiveTypes(t *testing.T) {
 			ParentID:    "parent",
 			ImplType:    tc.implType,
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		}, DefaultStructuralMutationSettings())
 		if err != nil {
 			t.Fatalf("create %s child section: %v", tc.name, err)
 		}
@@ -371,6 +372,52 @@ func TestProjectCreateChildSectionsSupportsExpandedActiveTypes(t *testing.T) {
 			t.Fatalf("effective payload for %s: %v", tc.name, err)
 		}
 		tc.assert(t, project, result.SectionIDs[0], payload)
+	}
+}
+
+func TestProjectCreateChildSectionsAppliesSettingsBackedTaskBoardDefaults(t *testing.T) {
+	t.Parallel()
+
+	project := testIncrementerProject()
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["TaskBoard"] = map[string]any{
+		"viewMode": "task_list",
+		"columns":  nil,
+	}
+
+	result, err := project.CreateChildSections(CreateChildSectionsInput{
+		ParentID:    "parent",
+		ImplType:    "TaskBoard",
+		NumChildren: 1,
+	}, settings)
+	if err != nil {
+		t.Fatalf("create task board child section with settings defaults: %v", err)
+	}
+	if len(result.SectionIDs) != 1 {
+		t.Fatalf("expected one created child id, got %#v", result.SectionIDs)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionIDs[0], project.SectionVariantMap[result.SectionIDs[0]])
+	if err != nil {
+		t.Fatalf("effective task board child payload: %v", err)
+	}
+	if got := payloadStringField(payload, "viewMode"); got != string(TaskBoardViewModeTaskList) {
+		t.Fatalf("expected task board child viewMode %q, got %q", TaskBoardViewModeTaskList, got)
+	}
+	rawColumns, ok := payload["columns"].([]any)
+	if !ok || len(rawColumns) != 3 {
+		t.Fatalf("expected seeded task board child columns, got %#v", payload["columns"])
+	}
+	gotNames := make([]string, 0, len(rawColumns))
+	for _, rawColumn := range rawColumns {
+		column, ok := rawColumn.(map[string]any)
+		if !ok {
+			t.Fatalf("expected task board child column object, got %#v", rawColumn)
+		}
+		gotNames = append(gotNames, payloadStringField(column, "name"))
+	}
+	if !reflect.DeepEqual(gotNames, []string{"Todo", "Doing", "Done"}) {
+		t.Fatalf("expected seeded task board child column names, got %#v", gotNames)
 	}
 }
 
@@ -408,7 +455,7 @@ func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.
 			ParentID:    "leaf",
 			ImplType:    "TextBlock",
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		}, DefaultStructuralMutationSettings())
 		if !errors.Is(err, ErrChildSectionParentUnsupported) {
 			t.Fatalf("expected ErrChildSectionParentUnsupported, got %v", err)
 		}
@@ -451,7 +498,7 @@ func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.
 			ParentID:    "code-parent",
 			ImplType:    "TextBlock",
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		}, DefaultStructuralMutationSettings())
 		if !errors.Is(err, ErrCodeSectionChildTypeInvalid) {
 			t.Fatalf("expected ErrCodeSectionChildTypeInvalid, got %v", err)
 		}
@@ -490,7 +537,7 @@ func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.
 			ImplType:    "TextBlock",
 			NumChildren: 1,
 			StartIdx:    &startIdx,
-		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		}, DefaultStructuralMutationSettings())
 		if !errors.Is(err, ErrChildSectionStartIdxInvalid) {
 			t.Fatalf("expected ErrChildSectionStartIdxInvalid, got %v", err)
 		}

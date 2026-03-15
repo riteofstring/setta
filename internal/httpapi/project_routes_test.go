@@ -1756,6 +1756,79 @@ func TestRegisterProjectRoutesCreateTopLevelSectionSeedsWorkflowDefaults(t *test
 	}
 }
 
+func TestRegisterProjectRoutesCreateTopLevelSectionAppliesDefaultTaskBoardColumns(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTopLevelSection,
+		strings.NewReader(`{"projectConfigId":"project-alpha","implType":"TaskBoard"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.CreateTopLevelSectionResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode createTopLevelSection response: %v", err)
+	}
+	if strings.TrimSpace(payload.SectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", payload)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project snapshot: %v", err)
+	}
+	_, _, impl, err := project.ResolveSection(payload.SectionID)
+	if err != nil {
+		t.Fatalf("resolve created section: %v", err)
+	}
+	implPayload := decodeProjectRouteRawObject(t, impl.Payload)
+	rawColumns, ok := implPayload["columns"].([]any)
+	if !ok || len(rawColumns) != 3 {
+		t.Fatalf("expected seeded task board columns, got %#v", implPayload["columns"])
+	}
+	gotNames := make([]string, 0, len(rawColumns))
+	for _, rawColumn := range rawColumns {
+		column, ok := rawColumn.(map[string]any)
+		if !ok {
+			t.Fatalf("expected task board column object, got %#v", rawColumn)
+		}
+		if got := column["id"]; got == nil || strings.TrimSpace(fmt.Sprintf("%v", got)) == "" {
+			t.Fatalf("expected seeded task board column id, got %#v", column)
+		}
+		gotNames = append(gotNames, fmt.Sprintf("%v", column["name"]))
+	}
+	if !reflect.DeepEqual(gotNames, []string{"Todo", "Doing", "Done"}) {
+		t.Fatalf("expected seeded task board column names, got %#v", gotNames)
+	}
+}
+
 func TestRegisterProjectRoutesCreateTopLevelSectionAppliesSnapshotViewportAndName(t *testing.T) {
 	t.Parallel()
 

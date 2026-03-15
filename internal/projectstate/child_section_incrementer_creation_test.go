@@ -14,7 +14,7 @@ func TestProjectCreateChildSectionsViaIncrementerPrependsWhenCalledByIsParent(t 
 		CalledBy:    "parent",
 		ImplType:    "TextBlock",
 		NumChildren: 2,
-	}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create child sections via incrementer on parent: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestProjectCreateChildSectionsViaIncrementerInsertsAfterCalledByChild(t *te
 		CalledBy:    "child-a",
 		ImplType:    "TextBlock",
 		NumChildren: 1,
-	}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create child sections via incrementer on child: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestProjectCreateChildSectionsViaIncrementerSupportsExpandedChildTypes(t *t
 		CalledBy:    "child-a",
 		ImplType:    "Browser",
 		NumChildren: 1,
-	}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create browser child sections via incrementer: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestProjectCreateChildSectionsViaIncrementerRejectsUnsupportedCallerState(t
 			CalledBy:    "leaf",
 			ImplType:    "TextBlock",
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		}, DefaultStructuralMutationSettings())
 		if !errors.Is(err, ErrChildSectionIncrementerCalledByUnsupported) {
 			t.Fatalf("expected ErrChildSectionIncrementerCalledByUnsupported, got %v", err)
 		}
@@ -164,7 +164,7 @@ func TestProjectCreateChildSectionsViaIncrementerRejectsUnsupportedCallerState(t
 			CalledBy:    "child-a",
 			ImplType:    "TextBlock",
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
+		}, DefaultStructuralMutationSettings())
 		if !errors.Is(err, ErrChildSectionIncrementerCalledByNotInParent) {
 			t.Fatalf("expected ErrChildSectionIncrementerCalledByNotInParent, got %v", err)
 		}

@@ -14,7 +14,7 @@ func TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicP
 
 	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 		ImplType: "Dict",
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create top level section: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestProjectCreateTopLevelSectionCreatesMetaControlParamAndHonorsExplicitPos
 		ImplType:           "MetaControl",
 		ControlCodeObjType: &controlType,
 		Position:           position,
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create meta control top level section: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults(t *testing.
 
 	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 		ImplType: "Terminal",
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create terminal top level section: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestProjectCreateTopLevelSectionSeedsStateMachineDefaults(t *testing.T) {
 
 		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 			ImplType: tc.implType,
-		}, defaultAutoLayoutSectionSizingPolicy())
+		}, DefaultStructuralMutationSettings())
 		if err != nil {
 			t.Fatalf("create %s top level section: %v", tc.implType, err)
 		}
@@ -240,7 +240,7 @@ func TestProjectCreateTopLevelSectionAppliesLayoutSnapshotViewportPlacementAndIn
 			W: 1200,
 			H: 700,
 		},
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create top level section with snapshot placement: %v", err)
 	}
@@ -437,7 +437,7 @@ func TestProjectCreateTopLevelSectionSupportsExpandedSectionTypes(t *testing.T) 
 		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 			ImplType:      tc.implType,
 			ImplOverrides: tc.implOverrides,
-		}, defaultAutoLayoutSectionSizingPolicy())
+		}, DefaultStructuralMutationSettings())
 		if err != nil {
 			t.Fatalf("create %s top level section: %v", tc.name, err)
 		}
@@ -521,7 +521,7 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 			ImplType:           "MetaControl",
 			ControlCodeObjType: &tc.controlCodeType,
-		}, defaultAutoLayoutSectionSizingPolicy())
+		}, DefaultStructuralMutationSettings())
 		if err != nil {
 			t.Fatalf("create %s meta control section: %v", tc.name, err)
 		}
@@ -544,6 +544,99 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 	}
 }
 
+func TestProjectCreateTopLevelSectionAppliesSettingsBackedTaskBoardDefaults(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["TaskBoard"] = map[string]any{
+		"viewMode": "task_list",
+		"columns":  nil,
+	}
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "TaskBoard",
+	}, settings)
+	if err != nil {
+		t.Fatalf("create task board top level section with settings defaults: %v", err)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+	if err != nil {
+		t.Fatalf("effective task board payload: %v", err)
+	}
+	if got := payloadStringField(payload, "viewMode"); got != string(TaskBoardViewModeTaskList) {
+		t.Fatalf("expected task board viewMode %q, got %q", TaskBoardViewModeTaskList, got)
+	}
+	rawColumns, ok := payload["columns"].([]any)
+	if !ok || len(rawColumns) != 3 {
+		t.Fatalf("expected seeded task board columns, got %#v", payload["columns"])
+	}
+	gotNames := make([]string, 0, len(rawColumns))
+	for _, rawColumn := range rawColumns {
+		column, ok := rawColumn.(map[string]any)
+		if !ok {
+			t.Fatalf("expected task board column object, got %#v", rawColumn)
+		}
+		if got := payloadStringField(column, "id"); got == "" {
+			t.Fatalf("expected seeded task board column id, got %#v", column)
+		}
+		gotNames = append(gotNames, payloadStringField(column, "name"))
+	}
+	if !reflect.DeepEqual(gotNames, []string{"Todo", "Doing", "Done"}) {
+		t.Fatalf("expected seeded task board column names, got %#v", gotNames)
+	}
+}
+
+func TestProjectCreateTopLevelSectionAppliesSettingsBackedTextBlockHeadingName(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["TextBlock"] = map[string]any{
+		"format":               "Markdown",
+		"headingAsSectionName": true,
+		"text":                 "# Roadmap\n\nBody",
+		"size": map[string]any{
+			"height": "auto",
+		},
+	}
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "TextBlock",
+	}, settings)
+	if err != nil {
+		t.Fatalf("create text block top level section with settings defaults: %v", err)
+	}
+
+	created := project.Sections[result.SectionID]
+	if created.Name != "Roadmap" {
+		t.Fatalf("expected heading-derived section name Roadmap, got %#v", created)
+	}
+
+	payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
+	if err != nil {
+		t.Fatalf("effective text block payload: %v", err)
+	}
+	if got := payloadStringField(payload, "format"); got != string(TextBlockFormatMarkdown) {
+		t.Fatalf("expected text block format %q, got %q", TextBlockFormatMarkdown, got)
+	}
+	if !payloadBoolField(payload, "headingAsSectionName") {
+		t.Fatalf("expected headingAsSectionName true, got %#v", payload)
+	}
+	size, ok := payloadObjectField(payload, "size")
+	if !ok {
+		t.Fatalf("expected text block size payload, got %#v", payload)
+	}
+	_, isAuto, present, err := payloadAutoLayoutSizeValue(size, "height")
+	if err != nil {
+		t.Fatalf("parse text block height: %v", err)
+	}
+	if !present || !isAuto {
+		t.Fatalf("expected settings-backed auto text block height, got %#v", size)
+	}
+}
+
 func TestProjectCreateTopLevelSectionDoesNotPersistPartialStateWhenInitialNameValidationFails(t *testing.T) {
 	t.Parallel()
 
@@ -554,7 +647,7 @@ func TestProjectCreateTopLevelSectionDoesNotPersistPartialStateWhenInitialNameVa
 	_, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 		ImplType: "Chat",
 		Name:     &name,
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if !IsInvalidSectionNameError(err) {
 		t.Fatalf("expected InvalidSectionNameError, got %v", err)
 	}
@@ -578,7 +671,7 @@ func TestProjectCreateTopLevelSectionRejectsUnsupportedImplType(t *testing.T) {
 	project := testCreateTopLevelSectionProject(t)
 	_, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 		ImplType: "UnsupportedSection",
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if err == nil || err.Error() == "" {
 		t.Fatalf("expected unsupported impl type error, got %v", err)
 	}
@@ -598,7 +691,7 @@ func TestProjectCreateTopLevelSectionAcceptsPluginCodeLanguage(t *testing.T) {
 			"type":         "Code",
 			"codeLanguage": "FixtureDSL",
 		},
-	}, defaultAutoLayoutSectionSizingPolicy())
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("create plugin language code section: %v", err)
 	}
