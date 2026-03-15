@@ -168,7 +168,7 @@ func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDi
 func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	type installPluginRequest struct {
 		SourceSpec string                          `json:"sourceSpec"`
-		Scope      *plugins.PluginScope            `json:"scope"`
+		Scope      *string                         `json:"scope"`
 		Installer  *plugins.PluginInstallerBackend `json:"installer"`
 		Enable     *bool                           `json:"enable"`
 		Force      *bool                           `json:"force"`
@@ -189,10 +189,15 @@ func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 		if payload.Force != nil {
 			force = *payload.Force
 		}
+		scope, err := normalizePluginInstallScope(payload.Scope)
+		if err != nil {
+			writeError(w, r, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+			return
+		}
 
 		response, err := deps.Service.Install(r.Context(), plugins.InstallOptions{
 			SourceSpec: payload.SourceSpec,
-			Scope:      payload.Scope,
+			Scope:      scope,
 			Installer:  payload.Installer,
 			Enable:     enable,
 			Force:      force,
@@ -202,6 +207,21 @@ func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func normalizePluginInstallScope(raw *string) (*plugins.PluginScope, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	trimmed := strings.TrimSpace(*raw)
+	scope := plugins.PluginScope(trimmed)
+	switch scope {
+	case plugins.PluginScopeWorkspace, plugins.PluginScopeSettaFiles, plugins.PluginScopeGlobal:
+		return &scope, nil
+	default:
+		return nil, fmt.Errorf("Invalid install scope: %q", trimmed)
 	}
 }
 

@@ -768,16 +768,19 @@ func TestRegisterPluginRoutesRejectsInvalidInstallScope(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"environment","installer":"pip"}`))
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected invalid install scope 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected invalid install scope 422, got %d with body %q", response.Code, response.Body.String())
 	}
 
 	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode invalid install scope response: %v", err)
 	}
-	if payload.Error.Code != string(plugins.ServiceErrorCodeScopeInvalid) {
-		t.Fatalf("expected scope invalid error code, got %q", payload.Error.Code)
+	if payload.Error.Code != "invalid_request" {
+		t.Fatalf("expected invalid_request error code, got %q", payload.Error.Code)
+	}
+	if !strings.Contains(payload.Error.Message, "environment") {
+		t.Fatalf("expected invalid scope message to mention environment, got %#v", payload)
 	}
 }
 

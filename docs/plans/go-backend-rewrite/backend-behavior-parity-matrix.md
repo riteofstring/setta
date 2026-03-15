@@ -259,9 +259,6 @@ It covers:
   - current Go mounts that direct HTTP chat-section route family only in IDE
     even though the current chat surfaces still persist state/settings and
     managed-thread resets through share-aware callers
-  - source-baseline plugin install rejects removed legacy scope
-    `environment` with FastAPI/Pydantic `422` validation
-  - current Go plugin install maps that payload to `400 PLUGIN_SCOPE_INVALID`
   - source-baseline plugin routes preserve manager-provided HTTP status and
     structured code/message payloads for runtime/rescan and mutation failures
   - current Go plugin route error mapping only preserves a fixed subset of
@@ -400,7 +397,7 @@ It covers:
   three broader proof-gap rows (`WL-01`, `WL-03`, `WL-04`) plus one dormant
   mode-boundary row (`WL-05`).
 - The plugin route slice mostly closes with proofs, but it adds:
-  - two more concrete transport gaps (`PL-04`, `PL-05`)
+  - one more concrete transport gap (`PL-05`)
   - one documented backend-runtime divergence for source FastAPI query
     coercion semantics (`PL-11`)
   - one more restart-capability proof gap (`PL-08`)
@@ -895,7 +892,7 @@ It covers:
 | `PL-01` | `GET /plugins/runtime` is the canonical plugin read surface: it returns the combined list/status/restart-capability payload, and the older split `/plugins/list` and `/plugins/status` reads stay absent. | Source routes: `backend/setta/routers/plugins.py::route_plugins_runtime`; source tests: `tests/routers/test_plugin_routes.py::{test_plugin_routes_link_and_asset_roundtrip,test_plugin_legacy_read_routes_are_not_registered}`; current caller evidence: `frontend/src/plugins/runtime.ts`; `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`. | Impl: `internal/httpapi/plugin_routes.go::RegisterPluginRoutes`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesReturnsRuntimePayload,TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull}`; current caller proof: `frontend/src/utils/generatedEndpoints.ts`; `frontend/src/utils/generatedEndpoints.test.ts::{it("issues GET requests for route_plugins_runtime", ...),it("issues POST requests for route_plugins_restart", ...)}`. | `Proved` | Current generated route bindings and plugin runtime bootstrap only target the unified runtime endpoint. |
 | `PL-02` | Runtime reads outside IDE mode redact host-local source details and stored config payload contents while still exposing schema presence and status metadata. | Source test: `tests/routers/test_plugin_routes.py::test_plugin_read_routes_redact_source_details_in_deployment_mode`. | Impl: `internal/plugins/runtime.go`; proof: `internal/plugins/runtime_test.go::TestServiceRuntimeRedactsConfigAndSourceOutsideIDE`; route proof: `internal/httpapi/plugin_routes_test.go::TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE`. | `Proved` | |
 | `PL-03` | Plugin mutation routes stay blocked outside IDE mode, while runtime reads remain available. | Source tests: `tests/routers/test_plugin_routes.py::{test_plugin_mutation_routes_blocked_in_deployment_mode,test_all_plugin_mutation_routes_are_blocked_in_deployment_mode}`. | Impl: `internal/httpapi/plugin_routes.go::RegisterPluginRoutes`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE,TestRegisterPluginRoutesBlocksLifecycleSlicesOutsideIDE,TestRegisterPluginRoutesBlocksRestartOutsideIDE,TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE}`. | `Proved` | Current Go uses the standard `mode_forbidden` error envelope for the blocked writes, but the mode-boundary behavior itself is preserved. |
-| `PL-04` | Plugin install rejects the removed legacy scope label `environment` with FastAPI/Pydantic `422` validation rather than a generic plugin-service bad-request error. | Source request model: `backend/setta/routers/plugins.py::PluginInstallRequest`; source test: `tests/routers/test_plugin_routes.py::test_plugin_install_route_rejects_removed_environment_scope`. | Current Go request decoding and scope validation: `internal/httpapi/plugin_routes.go::pluginInstallHandler`; `internal/plugins/source_specs.go::parseOptionalPluginScope`; proof of current behavior: `internal/httpapi/plugin_routes_test.go::TestRegisterPluginRoutesRejectsInvalidInstallScope`. | `Missing` | Source returns framework validation `422`; current Go accepts the payload shape and then returns `400 PLUGIN_SCOPE_INVALID`. |
+| `PL-04` | Plugin install rejects the removed legacy scope label `environment` with FastAPI/Pydantic `422` validation rather than a generic plugin-service bad-request error. | Source request model: `backend/setta/routers/plugins.py::PluginInstallRequest`; source test: `tests/routers/test_plugin_routes.py::test_plugin_install_route_rejects_removed_environment_scope`. | Impl: `internal/httpapi/plugin_routes.go::{pluginInstallHandler,normalizePluginInstallScope}`; proof: `internal/httpapi/plugin_routes_test.go::TestRegisterPluginRoutesRejectsInvalidInstallScope`. | `Proved` | Go now rejects invalid install-scope payloads at the route boundary with `422 invalid_request` instead of passing the legacy `environment` label through to plugin-service scope parsing. |
 | `PL-05` | Plugin routes preserve manager-provided HTTP status plus structured code/message payloads for runtime/rescan and remaining mutation failures. | Source route helper: `backend/setta/routers/plugins.py::_run_manager_call`; source tests: `tests/routers/test_plugin_routes.py::{test_plugin_mutation_route_error_mappings_for_remaining_endpoints,test_plugin_runtime_and_rescan_routes_map_plugin_manager_errors}`. | Current Go route mapper: `internal/httpapi/plugin_routes.go::writePluginRouteError`; current Go store/runtime path still produces generic errors for malformed persisted state instead of typed plugin service errors: `internal/plugins/store.go::LoadPluginsState`; current route proof only covers fixed-code mappings such as `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesMapsLinkSourceValidationErrors,TestRegisterPluginRoutesMapsMissingEnableTo404,TestRegisterPluginRoutesMapsProgrammaticRestartFailureTo503,TestRegisterPluginRoutesMapsMissingLockfileTo404}`. | `Missing` | Current Go preserves a fixed subset of known plugin service codes, but it does not preserve the source pass-through contract for arbitrary manager status codes, and generic runtime/store failures fall back to `500 internal_error`. |
 | `PL-06` | Plugin lifecycle routes roundtrip link/install/enable/disable/uninstall/update/rollback behavior and preserve explicit unavailable/not-found/scope-required error codes for linked, missing, and ambiguous installs. | Source tests: `tests/routers/test_plugin_routes.py::{test_plugin_routes_install_enable_rescan_and_uninstall_roundtrip,test_plugin_routes_uninstall_and_install_error_mappings,test_plugin_routes_linked_plugin_update_and_rollback_are_unavailable,test_plugin_routes_update_and_rollback_missing_plugin_errors}`; current caller evidence: `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`. | Impl: `internal/httpapi/plugin_routes.go`; `internal/plugins/service.go`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesInstallAndUninstallPlugin,TestRegisterPluginRoutesLinksLocalPlugin,TestRegisterPluginRoutesUpdateAndRollbackPlugin,TestRegisterPluginRoutesEnableAndDisablePlugin,TestRegisterPluginRoutesMapUpdateMetadataAndRollbackHistoryErrors,TestRegisterPluginRoutesRejectLocalSourceUpdateAndRollback,TestRegisterPluginRoutesMapsMissingEnableTo404,TestRegisterPluginRoutesRequiresExplicitUninstallScopeWhenPluginExistsInMultipleScopes}`. | `Proved` | |
 | `PL-07` | Plugin config writes and lockfile write/apply routes roundtrip deterministic payloads and preserve missing-lockfile failure mapping. | Source tests: `tests/routers/test_plugin_routes.py::test_plugin_routes_config_and_lock_roundtrip`. | Impl: `internal/httpapi/plugin_routes.go::{pluginConfigHandler,pluginLockWriteHandler,pluginLockApplyHandler}`; `internal/plugins/config_write.go`; `internal/plugins/lockfile.go`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback,TestRegisterPluginRoutesWritesAndAppliesLockfile,TestRegisterPluginRoutesMapsMissingLockfileTo404,TestRegisterPluginRoutesRejectsInvalidPluginConfig}`. | `Proved` | |
@@ -1212,10 +1209,10 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains thirty-eight concrete source-parity gaps:
+1. The matrix now contains thirty-seven concrete source-parity gaps:
    `LS-11`, `LS-17`,
    `US-05`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
-   `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
+   `DP-08`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
    `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`, `SC-05`, `SC-06`, and
@@ -1278,10 +1275,9 @@ It covers:
 21. The workspace-launch slice adds no new real behavior gap, but it does add
     three broader proof-gap rows (`WL-01`, `WL-03`, `WL-04`) plus one dormant
     mode-boundary row (`WL-05`).
-22. The plugin route slice mostly closes with proofs, but it adds two real
-    transport gaps (`PL-04`, `PL-05`), one documented backend-runtime
-    divergence (`PL-11`), and one broader restart-capability proof gap
-    (`PL-08`).
+22. The plugin route slice mostly closes with proofs, but it adds one real
+    transport gap (`PL-05`), one documented backend-runtime divergence
+    (`PL-11`), and one broader restart-capability proof gap (`PL-08`).
 23. The auth/bootstrap/share-session slice mostly closes with proofs, but it
     adds four real auth/session gaps (`AU-07`, `AU-09`, `AU-10`, `AU-11`)
     plus one broader consume-transport proof gap (`AU-04`).
@@ -1369,7 +1365,7 @@ It covers:
 53. The next high-value steps are:
     - decide whether `US-05`,
       `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
-      `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
+      `DP-08`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
       `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`,
