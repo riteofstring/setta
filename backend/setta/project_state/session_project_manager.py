@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.lsp.managers import LSPWriters
+    from setta.plugins.manager import PluginManager
     from setta.project_state.artifacts import Artifacts
     from setta.project_state.code_files import CodeFiles
     from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
     from setta.types.listener import ListenerFrontendEmitKeyAndValue
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+    from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
 class SessionPersistenceMode(str, Enum):
@@ -57,6 +59,7 @@ class SessionProjectManager(BaseProjectManager):
         *,
         persistence_mode: SessionPersistenceMode,
         frontend_sender: "WMHFrontendSender",
+        python_script_sender: "WMHPythonScriptSender",
         settings_file: "SettingsFile",
         specific_file_watcher: "SpecificFileWatcher",
         dbe,
@@ -66,6 +69,7 @@ class SessionProjectManager(BaseProjectManager):
         lsp_writers: "LSPWriters | None" = None,
         share_runtime_state: "ShareRuntimeState | None" = None,
         share_session_id: str | None = None,
+        plugin_manager: "PluginManager | None" = None,
     ) -> None:
         self.persistence_mode = persistence_mode
         self.share_runtime_state = share_runtime_state
@@ -79,12 +83,14 @@ class SessionProjectManager(BaseProjectManager):
         super().__init__(
             lsp_writers=resolved_lsp_writers,
             websocket_msg_handler=resolved_sender,
+            python_script_sender=python_script_sender,
             settings_file=settings_file,
             specific_file_watcher=specific_file_watcher,
             dbe=dbe,
             artifacts=artifacts,
             json_source=json_source,
             code_files=code_files,
+            plugin_manager=plugin_manager,
         )
 
     def load_initial_state(self) -> ProjectStateBackend:
