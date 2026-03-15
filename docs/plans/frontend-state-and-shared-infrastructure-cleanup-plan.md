@@ -283,17 +283,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
   - `frontend/src/state/actions/app.ts` at 319 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
+  - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 350 lines
   - `frontend/src/state/actions/windowSpacePersistence.ts` at 329 lines
   - `frontend/src/state/actions/sections/createSectionCatalog.ts` at 319 lines
   - `frontend/src/state/actions/app.ts` at 319 lines
+  - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
+  - `frontend/src/state/actions/aiChatStreamingMessages.ts` at 308 lines
   - `frontend/src/state/actions/aiPendingChatState.ts` at 312 lines
 - `frontend/src/state/actions/agenticEdgeConnections.ts` now owns agentic-edge
   handle normalization, connection validation, and kind resolution,

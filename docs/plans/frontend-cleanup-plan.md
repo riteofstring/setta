@@ -89,7 +89,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` is now the
   thin compatibility facade.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
-- `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration plus pending-surface coordination, and `frontend/src/state/actions/aiChatSubmissionPayload.ts` now owns request payload assembly, app-generation request metadata, and edited-chat engine fallback resolution.
+- `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration plus pending-surface coordination, `frontend/src/state/actions/aiChatSubmissionPayload.ts` now owns request payload assembly plus app-generation request metadata, and `frontend/src/state/actions/aiChatSubmissionEngineResolution.ts` now owns edited-chat engine resolution plus agent-run-backed fallback lookup.
 - `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiExternalAgentStop.ts`, `frontend/src/state/actions/aiChatStopState.ts`, and `frontend/src/state/actions/aiExternalAgentResponses.ts` now own public stop orchestration, external stop/recovery, local stop snapshot/reconciliation, and external approval/question responses.
 - `frontend/src/state/actions/aiChatState.ts` now owns chat-detail and pending-surface detail writes shared by submission, hydration, and controls.
 - `frontend/src/state/actions/aiPendingChatState.ts` now owns surface-scoped pending drafts, pending app-generation state, and promotion into materialized chats.
@@ -539,7 +539,7 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiChatSubmissionPayload.ts`, `state/actions/windowSpacePersistence.ts`, `state/actions/sections/createSectionCatalog.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
+2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/windowSpacePersistence.ts`, `state/actions/sections/createSectionCatalog.ts`, `state/actions/app.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the project chat windowing split from the existing `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.

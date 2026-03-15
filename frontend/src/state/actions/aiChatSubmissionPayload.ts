@@ -8,7 +8,6 @@ import {
   type ChatAppGenerationDetails,
 } from "state/utils/chatAppGeneration";
 import {
-  AgentRun,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatPermissionMode,
@@ -17,9 +16,8 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
-import { loadAgentRuns } from "./aiAgentRuns";
 import { requirePendingChatSurfaceId } from "./aiChatState";
+import { resolveEngineConfigIdForChat } from "./aiChatSubmissionEngineResolution";
 import { getChatAppGenerationDetailsForTarget } from "./aiPendingChatState";
 import { buildEditedMessageHistory } from "./chatBranches";
 
@@ -248,57 +246,6 @@ export async function prepareEditedMessageRequest({
     nextMessages,
     nextAppGenerationDetails,
   };
-}
-
-export async function resolveEngineConfigIdForChat(
-  chatId: string,
-  engineConfigId: string | null,
-): Promise<string | null> {
-  if (engineConfigId) {
-    return engineConfigId;
-  }
-  const resolveFromRuns = (runs: AgentRun[]): string | null => {
-    const matchingRuns = runs.filter(
-      (run) => getRunInputString(run, "chatId") === chatId,
-    );
-    const runsWithEngine = matchingRuns.filter((run) =>
-      getRunInputString(run, "engineConfigId"),
-    );
-    if (runsWithEngine.length === 0) {
-      return null;
-    }
-    const [latestRun] = [...runsWithEngine].sort(
-      (a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a),
-    );
-    return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
-  };
-
-  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
-  if (!agentRunsInitialLoadComplete) {
-    await loadAgentRuns();
-    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
-  }
-  if (!agentRunsInitialLoadComplete) {
-    return null;
-  }
-  let resolved = resolveFromRuns(agentRuns);
-  if (!resolved) {
-    await loadAgentRuns();
-    ({ agentRuns } = useAIStore.getState());
-    resolved = resolveFromRuns(agentRuns);
-  }
-  if (resolved) {
-    return resolved;
-  }
-  const { chatDetails, engineConfigs } = useAIStore.getState();
-  const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
-  if (!llmConfigId) {
-    return null;
-  }
-  const matchingEngine = engineConfigs.find(
-    (config) => config.settaLlmConfigId === llmConfigId,
-  );
-  return matchingEngine?.id ?? null;
 }
 
 function buildUserMessage({

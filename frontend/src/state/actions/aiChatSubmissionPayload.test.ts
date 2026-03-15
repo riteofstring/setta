@@ -2,8 +2,6 @@ import { useAIStore } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
-  EngineTypeEnum,
-  createEngineConfig,
   createMessageTextContent,
   createUserChatMessage,
 } from "utils/generatedTypes";
@@ -12,7 +10,6 @@ import { getDefaultChatDetails } from "./aiChatDetails";
 import {
   prepareEditedMessageRequest,
   prepareSubmitMessageRequest,
-  resolveEngineConfigIdForChat,
 } from "./aiChatSubmissionPayload";
 
 vi.mock("state/actions/aiAgentRuns", async () => {
@@ -35,6 +32,7 @@ describe("aiChatSubmissionPayload", () => {
   });
 
   it("prepares submit payloads with retained app-generation metadata", () => {
+    // Submitting from a pending surface should preserve prior app-generation metadata.
     useAIStore.setState({
       pendingChatDetailsBySurfaceId: {
         surfaceA: {
@@ -80,6 +78,7 @@ describe("aiChatSubmissionPayload", () => {
   });
 
   it("prepares edited-message payloads with branch metadata and app-generation mode", async () => {
+    // Edited requests should carry the branch metadata the backend uses to fork history.
     const prepared = await prepareEditedMessageRequest({
       parentChatId: "chat-parent",
       messages: [
@@ -108,39 +107,5 @@ describe("aiChatSubmissionPayload", () => {
     expect(prepared?.requestPayload.appGenerationByMessageId).toEqual({
       "msg-1": "prompt_builder",
     });
-  });
-
-  it("falls back to the chat llm-config engine when runs do not provide an engine id", async () => {
-    useAIStore.setState({
-      agentRunsInitialLoadComplete: true,
-      agentRuns: [],
-      chatDetails: {
-        "chat-1": {
-          ...getDefaultChatDetails(),
-          llmConfig: {
-            id: "llm-config-1",
-            model: "gpt-4o-mini",
-            provider: "openai",
-            base_url: null,
-            api_key_env: null,
-            other_params: null,
-            mcpServerIds: [],
-            temporary: false,
-          },
-        },
-      },
-      engineConfigs: [
-        createEngineConfig({
-          id: "engine-fallback",
-          name: "Fallback engine",
-          engineType: EngineTypeEnum.setta_llm,
-          settaLlmConfigId: "llm-config-1",
-        }),
-      ],
-    });
-
-    await expect(resolveEngineConfigIdForChat("chat-1", null)).resolves.toBe(
-      "engine-fallback",
-    );
   });
 });
