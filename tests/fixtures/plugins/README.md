@@ -11,12 +11,15 @@ Principles:
 
 Current fixtures:
 
-- `backend/`: backend-only plugin with Python entrypoint that registers MCP tools plus project-state reads.
+- `backend/`: backend-only plugin with Python entrypoint that registers one plugin route and one MCP tool.
 - `backend-codegen/`: backend-only plugin that registers a worker-based codegen target.
 - `backend-external-agent/`: backend-only plugin that registers external agent adapters.
 - `backend-language-server/`: backend-only plugin that registers a language server.
 - `backend-language-server-e2e/`: backend-only plugin for end-to-end language server UI/behavior testing.
 - `backend-mcp-tools/`: backend-only plugin that registers multiple MCP tools.
+- `backend-static-router/`: backend-only plugin that registers both API router and static directory.
+- `backend-worker-failure-api-version/`: intentional failure fixture for worker handshake API-version mismatch.
+- `backend-worker-failure-missing-method/`: intentional failure fixture for worker handshake required-method mismatch.
 - `backend-worker-failure-transport/`: intentional failure fixture for worker transport/process-exit errors.
 - `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
 - `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
@@ -45,7 +48,7 @@ Target fixture catalog (coverage baseline):
 Current count:
 
 - 23 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 18 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 22 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:

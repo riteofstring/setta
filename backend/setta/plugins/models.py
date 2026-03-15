@@ -21,6 +21,7 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "registerLanguageServer",
     "registerExternalAgentAdapter",
     "registerCodegenTarget",
+    "registerRouter",
     "registerListenerEndpoint",
     "registerStaticDir",
     "writeWorkspacePlugins",
@@ -183,6 +184,22 @@ class PluginRegisteredCodegenTarget(BaseModel):
     language: str
     name: str
     defaultFileName: str
+
+
+class PluginRegisteredUISetting(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    localSettingId: str
+    pluginId: str
+    title: str
+    description: str
+    synonyms: list[str] = Field(default_factory=list)
+    paneId: str
+    revealKey: str
+    mutability: Literal["readOnly", "writable"]
+    valueSchema: dict[str, Any]
+    readHandlerId: str
+    writeHandlerId: str | None = None
 
 
 class PluginRestartCapability(BaseModel):
