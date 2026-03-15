@@ -7,12 +7,10 @@ from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.runtime.context import RuntimeContext
-from setta.routers import (
-    listener_router,
-    lsp_router,
-    project_manager_router,
-    terminals_http_router,
-)
+from setta.routers.listener import router as listener_router
+from setta.routers.lsp import router as lsp_router
+from setta.routers.project_manager import router as project_manager_router
+from setta.routers.terminals import terminals_http_router
 from setta.server_state import SettaFastAPIState
 
 _ALLOWED_ENDPOINT_MODULE_PREFIXES = (

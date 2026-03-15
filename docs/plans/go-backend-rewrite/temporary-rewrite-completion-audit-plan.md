@@ -819,3 +819,17 @@ registrations through health checks or run startup, and the dedicated plugin
 external-agent tests plus fixture plugin were removed. After that slice, the
 old plugin external-agent path is gone from both the active Go contract and
 the remaining Python backend code.
+
+A later follow-up cleanup slice removed the broad dead Python router stack
+outside the retained listener-endpoint modules. The legacy Python HTTP/router
+files for launch, launcher-home, bootstrap, frontend/share websocket routes,
+MCP tools, AI/agentic, file/artifact/git, app-deployment/share-deployment,
+settings/projects/sections/runs, and related helper modules were deleted along
+with their direct route/auth test suites. `backend/setta/routers/__init__.py`
+is now a narrow package marker instead of importing the whole old route graph,
+and `backend/setta/listeners/listener_router_endpoint_registry.py` now imports
+only the retained `project_manager`, `terminals`, `listener`, and `lsp`
+modules directly. After that slice, the remaining Python rewrite blocker is no
+longer the deleted route transport surface; it is the narrower legacy
+`SettaFastAPIState` / `backend/setta/websockets/**` / Python project-state
+support tail that still exists behind retained listener/share behavior.
