@@ -225,6 +225,10 @@ categorize them.
   next cheap queue should likely come from the remote `stop` CLI
   forwarding/conflicting-flag pair unless another similarly narrow
   service-only proof appears nearby
+- That remote `stop` CLI pair is now proved too, so the next cheap queue
+  should likely come from the adjacent remote `connect` forwarding row or the
+  remaining similarly narrow CLI/service proof-only owners before switching
+  fully back to heavier missing surfaces
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
