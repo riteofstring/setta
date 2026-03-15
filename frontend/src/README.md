@@ -60,9 +60,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/aiChatStreamingRouting.ts` owns placeholder filtering,
     chatId-to-section routing, stream-active tracking, section persistence, and
     scope-violation side effects for streaming chunks.
-  - `state/actions/aiChatStreamingMessages.ts` owns shared message delta,
-    finalized-assistant merge, and message upsert helpers used by chat streaming
-    and tool-preview updates.
+  - `state/actions/aiChatStreamingMessageDeltas.ts` owns assistant placeholder
+    creation plus shared text/thinking delta reducers.
+  - `state/actions/aiChatStreamingMessageUpserts.ts` owns finalized-assistant
+    merge, response-placeholder detection, and generic message upserts.
+  - `state/actions/aiChatStreamingMessages.ts` is now a thin compatibility
+    facade over those narrower streaming message owners.
   - `state/actions/aiChatStreamingSectionState.ts` owns chat-section stream
     reconciliation and active-branch message sync for managed chat sections.
   - `state/actions/aiChatStreamingToolCalls.ts` owns tool-call placeholder

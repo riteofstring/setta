@@ -10,11 +10,11 @@ import {
 } from "utils/generatedTypes";
 import { updateChatDetails } from "./aiChatState";
 import { maybeApplyAppDefinitionToolResult } from "./aiChatStreamingAppDefinition";
+import { applyMessageDeltaToChatMessages } from "./aiChatStreamingMessageDeltas";
 import {
   applyFinalizedMessageToChatMessages,
-  applyMessageDeltaToChatMessages,
   upsertMessage,
-} from "./aiChatStreamingMessages";
+} from "./aiChatStreamingMessageUpserts";
 import {
   applyStreamingChunkRoutingSideEffects,
   clearStreamingFollowToolArguments,

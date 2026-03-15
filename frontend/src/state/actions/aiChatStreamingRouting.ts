@@ -25,7 +25,7 @@ import {
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { persistChatSectionState } from "./aiChatSectionState";
 import { maybeApplyAppDefinitionToolResult } from "./aiChatStreamingAppDefinition";
-import { isResponsePlaceholderId } from "./aiChatStreamingMessages";
+import { isResponsePlaceholderId } from "./aiChatStreamingMessageUpserts";
 import { applyChatSectionStreamDelta } from "./aiChatStreamingSectionState";
 import {
   applyToolArgumentPreviewDeltaToPreviewStore,

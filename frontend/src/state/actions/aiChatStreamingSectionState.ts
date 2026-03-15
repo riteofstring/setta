@@ -6,11 +6,11 @@ import {
 } from "utils/generatedTypes";
 
 import { getChatSectionStateFromStore } from "./aiChatSectionState";
+import { applyMessageDeltaToChatMessages } from "./aiChatStreamingMessageDeltas";
 import {
   applyFinalizedMessageToChatMessages,
-  applyMessageDeltaToChatMessages,
   upsertMessage,
-} from "./aiChatStreamingMessages";
+} from "./aiChatStreamingMessageUpserts";
 import { applyToolCallDeltaToChatMessages } from "./aiChatStreamingToolCalls";
 import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
 

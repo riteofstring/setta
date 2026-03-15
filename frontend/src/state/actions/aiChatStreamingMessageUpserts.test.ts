@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyFinalizedMessageToChatMessages,
-  applyMessageDeltaToChatMessages,
-} from "./aiChatStreamingMessages";
+  upsertMessage,
+} from "./aiChatStreamingMessageUpserts";
 
 import {
   createAssistantChatMessage,
   createMessageTextContent,
   createToolCall,
   createToolCallFunction,
-  type MessageDeltaEvent,
+  createUserChatMessage,
 } from "utils/generatedTypes";
 
-describe("ai chat streaming messages", () => {
+describe("aiChatStreamingMessageUpserts", () => {
   it("merges a finalized assistant message into the streamed placeholder", () => {
     const streamedPlaceholder = createAssistantChatMessage({
       id: "resp_placeholder_1",
@@ -62,38 +62,22 @@ describe("ai chat streaming messages", () => {
     ]);
   });
 
-  it("creates an assistant placeholder and applies text plus thinking deltas", () => {
-    const chunk: MessageDeltaEvent = {
-      type: "delta",
-      message_id: "assistant-1",
-      content: [
-        { type: "text_delta", index: 0, text: "Hello" },
-        {
-          type: "thinking_delta",
-          index: 1,
-          thinking: "Plan",
-          summary: "Summarized",
-          signature: "sig-1",
-        },
-      ],
-    };
+  it("stamps a createdAt timestamp when a new non-tool message is inserted", () => {
+    const userMessage = createUserChatMessage({
+      id: "user-1",
+      createdAt: 0,
+      content: [createMessageTextContent({ text: "Hello" })],
+      attachments: [],
+    });
 
-    const result = applyMessageDeltaToChatMessages([], chunk);
+    const result = upsertMessage([], userMessage);
 
-    expect(result).toEqual([
+    expect(result[0]).toEqual(
       expect.objectContaining({
-        id: "assistant-1",
-        role: "assistant",
-        content: [
-          expect.objectContaining({ type: "text", text: "Hello" }),
-          expect.objectContaining({
-            type: "thinking",
-            thinking: "Plan",
-            summary: "Summarized",
-            signature: "sig-1",
-          }),
-        ],
+        id: "user-1",
+        createdAt: expect.any(Number),
       }),
-    ]);
+    );
+    expect(result[0].createdAt).toBeGreaterThan(0);
   });
 });

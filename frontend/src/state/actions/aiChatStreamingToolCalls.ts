@@ -7,7 +7,7 @@ import {
   ToolCallDeltaEvent,
 } from "utils/generatedTypes";
 import { updateChatDetails } from "./aiChatState";
-import { ensureAssistantMessage } from "./aiChatStreamingMessages";
+import { ensureAssistantMessage } from "./aiChatStreamingMessageDeltas";
 
 type ToolCallChunkLike = {
   message_id: string;
