@@ -1,4 +1,8 @@
-import { RouteEnum, type ServerModeResponse } from "./generatedTypes";
+import type { ServerModeResponse } from "./generatedTypes";
+import {
+  ROOT_TRANSPORT_ROUTES,
+  SERVER_MODE_BOUNDARY_ROUTES,
+} from "./transportRouteConstants";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
 export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
@@ -12,6 +16,27 @@ type ModeBoundaryPolicy = {
   capabilities: ServerModeCapabilities;
   workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
 };
+
+const BOOTSTRAP_PAGE_ROUTE = ROOT_TRANSPORT_ROUTES.bootstrapPage;
+const TOOLS_CALL_ROUTE = ROOT_TRANSPORT_ROUTES.toolsCall;
+const LAUNCH_ROUTE = SERVER_MODE_BOUNDARY_ROUTES.launch;
+const CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent;
+const GET_SETTA_HOME_INFO_ROUTE = SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo;
+const GET_LAUNCHER_RECENT_WORKSPACES_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces;
+const ADD_LAUNCHER_RECENT_WORKSPACE_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.addLauncherRecentWorkspace;
+const REMOVE_LAUNCHER_RECENT_WORKSPACE_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.removeLauncherRecentWorkspace;
+const PIN_LAUNCHER_RECENT_WORKSPACE_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.pinLauncherRecentWorkspace;
+const GET_LAUNCHER_FILESYSTEM_ROOTS_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.getLauncherFilesystemRoots;
+const LIST_LAUNCHER_DIRECTORY_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory;
+const OPEN_LAUNCHER_WORKSPACE_ROUTE =
+  SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace;
 
 const MODE_BOUNDARY_POLICY: Readonly<
   Record<ServerModeResponse["mode"], ModeBoundaryPolicy>
@@ -37,22 +62,22 @@ const MODE_BOUNDARY_POLICY: Readonly<
 export const ENDPOINT_ORIGIN_POLICY: Readonly<
   Record<string, EndpointOriginPolicy>
 > = Object.freeze({
-  [RouteEnum.LAUNCH]: "launcher",
-  [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
-  [RouteEnum.GET_SETTA_HOME_INFO]: "backend",
-  [RouteEnum.TOOLS_CALL]: "backend-origin",
-  [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
-  [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS]: "launcher",
-  [RouteEnum.LIST_LAUNCHER_DIRECTORY]: "launcher",
-  [RouteEnum.OPEN_LAUNCHER_WORKSPACE]: "launcher",
+  [LAUNCH_ROUTE]: "launcher",
+  [CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE]: "launcher",
+  [GET_SETTA_HOME_INFO_ROUTE]: "backend",
+  [TOOLS_CALL_ROUTE]: "backend-origin",
+  [GET_LAUNCHER_RECENT_WORKSPACES_ROUTE]: "launcher",
+  [ADD_LAUNCHER_RECENT_WORKSPACE_ROUTE]: "launcher",
+  [REMOVE_LAUNCHER_RECENT_WORKSPACE_ROUTE]: "launcher",
+  [PIN_LAUNCHER_RECENT_WORKSPACE_ROUTE]: "launcher",
+  [GET_LAUNCHER_FILESYSTEM_ROOTS_ROUTE]: "launcher",
+  [LIST_LAUNCHER_DIRECTORY_ROUTE]: "launcher",
+  [OPEN_LAUNCHER_WORKSPACE_ROUTE]: "launcher",
 });
 
 const MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
-  RouteEnum.LAUNCH,
-  RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
+  LAUNCH_ROUTE,
+  CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE,
 ]);
 
 export function resolveServerModeCapabilities(
@@ -91,7 +116,7 @@ export function resolveEndpointOriginForMode(
   serverMode: ServerMode,
 ): EndpointOriginPolicy {
   const normalizedAddress = stripQueryAndHash(address);
-  if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
+  if (normalizedAddress.startsWith(BOOTSTRAP_PAGE_ROUTE)) {
     return "backend-origin";
   }
   const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];

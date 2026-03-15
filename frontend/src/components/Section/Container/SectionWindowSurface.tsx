@@ -16,7 +16,7 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
-import { SectionAreaSwitch } from "./SectionAreaSwitch";
+import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
@@ -150,7 +150,7 @@ export function SectionWindowSurface({
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
         >
           {bodyOverride ?? (
-            <SectionAreaSwitch
+            <AreaSwitch
               sectionId={sectionId}
               sectionTypeName={sectionTypeName}
               bgColor={bgColor}

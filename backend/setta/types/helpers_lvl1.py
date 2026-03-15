@@ -7,7 +7,6 @@ from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
-    BaseCodeObjImplArgsWithCallable,
     BaseSectionImplArgsWithCallable,
 )
 from setta.types.id import ID
@@ -61,35 +60,12 @@ def get_curr_effective_section_impl_with_type_guard(
     return impl
 
 
-def get_variant_effective_section_impl(
-    p: "ProjectStateCore", sectionId: ID, variantId: ID
-):
-    variant = p.sectionVariants[variantId]
-    impl = p.sectionImpls[variant.impl]
-    core = p.sections[sectionId]
-    return get_effective_impl(impl, core, variant)
-
-
 def get_variant_base_and_effective_section_impl(
     p: "ProjectStateCore", core: Core, variant_id: ID
 ):
     variant = p.sectionVariants[variant_id]
     base_impl = p.sectionImpls[variant.impl]
     impl = get_effective_impl(base_impl, core, variant)
-    return variant, base_impl, impl
-
-
-def get_variant_base_and_effective_section_impl_with_type_guard(
-    p: "ProjectStateCore",
-    core: Core,
-    variant_id: ID,
-    impl_type: type[GenericBaseSectionImplType],
-) -> tuple[Variant, GenericBaseSectionImplType, GenericBaseSectionImplType]:
-    variant, base_impl, impl = get_variant_base_and_effective_section_impl(
-        p, core, variant_id
-    )
-    if not isinstance(base_impl, impl_type) or not isinstance(impl, impl_type):
-        raise TypeError
     return variant, base_impl, impl
 
 
@@ -141,29 +117,15 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     return impl
 
 
-def get_variant_base_code_obj_impl(p: "ProjectStateCore", variantId: ID):
-    variant = p.codeObjVariants[variantId]
-    return p.codeObjImpls[variant.impl]
-
-
-def get_variant_base_and_effective_code_obj_impl(
-    p: "ProjectStateCore", core: Core, variant_id: ID
-):
-    variant = p.codeObjVariants[variant_id]
-    base_impl = p.codeObjImpls[variant.impl]
-    impl = get_effective_impl(base_impl, core, variant)
-    return variant, base_impl, impl
-
-
 def get_variant_base_and_effective_code_obj_impl_with_type_guard(
     p: "ProjectStateCore",
     core: Core,
     variant_id: ID,
     impl_type: type[GenericBaseCodeObjImplType],
 ) -> tuple[Variant, GenericBaseCodeObjImplType, GenericBaseCodeObjImplType]:
-    variant, base_impl, impl = get_variant_base_and_effective_code_obj_impl(
-        p, core, variant_id
-    )
+    variant = p.codeObjVariants[variant_id]
+    base_impl = p.codeObjImpls[variant.impl]
+    impl = get_effective_impl(base_impl, core, variant)
     if not isinstance(base_impl, impl_type) or not isinstance(impl, impl_type):
         raise TypeError
     return variant, base_impl, impl
@@ -177,19 +139,3 @@ def set_curr_effective_section_impl_value(
     core = p.sections[sectionId]
     set_effective_impl_value(impl, core, variant, args)
 
-
-def set_curr_effective_code_obj_impl_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    codeObjId: ID,
-    args: BaseCodeObjImplArgsWithCallable,
-):
-    variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
-    impl = p.codeObjImpls[variant.impl]
-    core = p.codeObjs[codeObjId]
-    set_effective_impl_value(impl, core, variant, args)
-
-
-def get_curr_section_base_impl(p: "ProjectStateSingleConfig", sectionId: ID):
-    variant = get_curr_section_variant(p, sectionId)
-    return p.sectionImpls[variant.impl]
