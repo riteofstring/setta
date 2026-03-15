@@ -200,6 +200,24 @@ func TestServiceListFolderAppliesEntryCapAfterFolderFirstCaseInsensitiveSortAndI
 	}
 }
 
+func TestServiceListFolderReturnsEmptyListForMissingFolderWhenRequested(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+	missingFolder := filepath.Join(workspaceRoot, "missing-folder")
+
+	items, err := service.ListFolder(context.Background(), ListFolderRequest{
+		FolderPath:            missingFolder,
+		MissingFolderBehavior: "empty",
+	})
+	if err != nil {
+		t.Fatalf("list missing folder with empty behavior: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("expected empty list for missing folder, got %#v", items)
+	}
+}
+
 func TestServiceReadWriteAndDownloadFlow(t *testing.T) {
 	t.Parallel()
 

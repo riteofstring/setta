@@ -467,6 +467,38 @@ func TestRegisterFileBrowserRoutesDefaultFolderContentsShowDotfilesButHideIgnore
 	}
 }
 
+func TestRegisterFileBrowserRoutesMapMissingAndNotDirectoryFolderErrors(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	missingFolder := filepath.Join(workspaceRoot, "missing-folder")
+	missingRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFolderContents, strings.NewReader(`{"folderPath":"`+missingFolder+`"}`))
+	missingRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, missingRequest, authService)
+
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingRequest)
+	assertFileBrowserRouteError(t, missingResponse, http.StatusNotFound, "path_not_found", "Path does not exist: "+missingFolder)
+
+	notDirectoryPath := filepath.Join(workspaceRoot, "not-a-folder.txt")
+	if err := os.WriteFile(notDirectoryPath, []byte("file"), 0o644); err != nil {
+		t.Fatalf("write not-a-folder fixture: %v", err)
+	}
+	notDirectoryRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFolderContents, strings.NewReader(`{"folderPath":"`+notDirectoryPath+`"}`))
+	notDirectoryRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, notDirectoryRequest, authService)
+
+	notDirectoryResponse := httptest.NewRecorder()
+	handler.ServeHTTP(notDirectoryResponse, notDirectoryRequest)
+	assertFileBrowserRouteError(t, notDirectoryResponse, http.StatusBadRequest, "path_not_directory", "Path is not a directory: "+notDirectoryPath)
+}
+
 func TestRegisterFileBrowserRoutesRejectsCreateFileOutsideWorkspaceRoot(t *testing.T) {
 	t.Parallel()
 
