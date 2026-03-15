@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`7e31019305e1fd209e256852751b462fdb81163c`
+`c48af2c6d6c1564fc53b9ee041d741c5690da6f5`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -55,6 +55,7 @@ It currently covers:
   behavior
 - deployment publish/catalog and deployment session bootstrap/state/project-config
   behavior
+- code editing, formatter, LSP diagnostics/admin, and watch-code behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -100,7 +101,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Twenty-four concrete parity gaps are already visible:
+- Twenty-five concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -187,6 +188,9 @@ Rows outside these slices are still pending.
   - current Go publishes listener metadata and still documents that behavior,
     but it never launches a retained loader or equivalent per deployment
     session
+  - source code-section diagnostics ignore versionless LSP publishes
+  - current Go applies versionless code-section diagnostics directly into the
+    live snapshot instead of dropping them
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -293,6 +297,12 @@ Rows outside these slices are still pending.
   - one broader proof-gap row around typed publish validation/error mapping
     (`DP-05`)
   - two dormant transport/mode-boundary rows (`DP-02`, `DP-07`)
+- The code-edit/LSP/watch-code slice mostly closes with proofs, but it adds:
+  - one real behavior gap around versionless code-section diagnostics
+    publishes (`LD-03`)
+  - four more proof-gap rows around formatter edge handling, plugin-language
+    diagnostics/type-check coverage, and bound-code baseline-on-enable
+    behavior (`CE-02`, `LD-04`, `TC-02`, `WC-02`)
 
 ## Project Names
 
@@ -765,13 +775,31 @@ Rows outside these slices are still pending.
 | `PL-10` | Registered backend plugin extensions serve static dirs, dispatch backend HTTP routes, preserve raw request/auth/share-session context, and require auth only for backend routes rather than for public static assets. | Source test: `tests/routers/test_plugin_routes.py::test_plugin_routes_backend_static_router_fixture_roundtrip`. | Impl: `internal/httpapi/plugin_routes.go::{pluginBackendRootHandler,dispatchRegisteredPluginBackendRoute,pluginStaticDirHandler}`; `internal/plugins/backend_runtime.go`; proof: `internal/httpapi/plugin_routes_test.go::{TestRegisterPluginRootRoutesServesRegisteredBackendStaticDirs,TestRegisterPluginRootRoutesDispatchesRegisteredBackendRoutes,TestRegisterPluginRootRoutesRequireAuthOnlyForRegisteredBackendRoutes,TestRegisterPluginRootRoutesLeavesUnknownPathsAsRouteNotFoundWithoutRegisteredStaticDir}`; service proof: `internal/plugins/backend_runtime_test.go::{TestServiceDispatchRegisteredBackendRouteInvokesGoBackendExecutable,TestServiceLookupRegisteredBackendRouteReportsPathMismatch,TestServiceDispatchRegisteredBackendRouteFallsBackFromHeadToGet}`. | `Proved` | |
 | `PL-11` | Source Python backend-plugin proxy routes preserved FastAPI scalar/list query coercion semantics for query parameters. The rewrite instead moves backend plugins to a Go-native executable/runtime contract and does not preserve FastAPI-specific request coercion as the host contract. | Source test: `tests/routers/test_plugin_routes.py::test_plugin_routes_backend_query_param_coercion_matches_fastapi`. | Current rewrite docs: `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md` Go-owned backend plugin runtime rows; `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` backend/plugin extension boundary; current host transport: `internal/plugins/backend_runtime.go` passes raw method/path/query/body metadata over the typed backend runtime contract. | `Intentional divergence` | Current backend plugin authoring/runtime explicitly targets Go-backed executables rather than Python/FastAPI handlers, so FastAPI/Pydantic query coercion is no longer the surviving backend-plugin contract. |
 
+## Code Editing, LSP Diagnostics/Admin, And Watch Code
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `CE-01` | `setCode` updates inline code payloads, rejects read-only bound sections, and for watch-code-bound Python files syncs the LSP snapshot before reapplying Watch Code so signature refetch sees the latest source. | Source route: `backend/setta/routers/project_manager.py::route_set_code`; source docs: `docs/reference/watch-code.md` "Inline edits & bound code files"; source tests: `tests/project_state/test_set_code_access_mode.py::test_set_code_rejects_read_only_binding`; `tests/project_state/test_watch_code.py::test_syncs_lsp_before_watch_code_update`. | Impl: `internal/httpapi/project_routes.go::setCodeHandler`; `internal/projectstate/code_updates.go`; `internal/app/code_updates.go::SetCode`; proof: `internal/projectstate/code_updates_test.go::{TestProjectSetCodeUpdatesInlineCodePayload,TestProjectSetCodeRejectsReadOnlyBinding}`; `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK,TestRegisterProjectRoutesSetCodeReturnsForbiddenForReadOnlyBinding}`; app proof: `internal/app/app_test.go::TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate`. | `Proved` | |
+| `CE-02` | `formatCode` formats Python code sections plus generated Python prefix/suffix, leaves unused args and unresolved symbols alone, rejects non-Python/non-code/read-only/invalid targets with sanitized typed errors, and refreshes Watch Code state for bound Python files. | Source route: `backend/setta/routers/project_manager.py::route_format_code`; source tests: `tests/project_state/test_format_code.py::{test_format_code_updates_python_code,test_format_code_updates_gen_python_prefix_suffix,test_format_code_rejects_non_python_code_section,test_format_code_rejects_non_code_section,test_format_code_allows_unused_args,test_format_code_rejects_invalid_python_code,test_format_code_rejects_invalid_gen_prefix,test_format_code_rejects_invalid_gen_suffix,test_format_code_allows_undefined_symbols_in_gen_prefix}`; `tests/project_state/test_set_code_access_mode.py::test_format_code_rejects_read_only_binding`; `tests/project_state/test_codegen_targets.py::test_format_code_updates_watch_code_registry`; source frontend/caller behavior: `frontend/src/state/actions/formatCode.ts`; `frontend/src/state/actions/lspDiagnostics.ts`. | Impl: `internal/projectstate/format_code.go`; `internal/codeformat/python.go`; `internal/app/code_updates.go::FormatCode`; proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK,TestRegisterProjectRoutesFormatCodeReturnsForbiddenForReadOnlyBinding,TestRegisterProjectRoutesFormatCodeReturns422ForInvalidTarget}`; `internal/app/code_updates_test.go::{TestCodeUpdateServiceFormatCodeFormatsPythonSection,TestCodeUpdateServiceFormatCodeRejectsReadOnlyBinding,TestCodeUpdateServiceFormatCodeFormatsGeneratedPythonTarget,TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry}`; current caller proof: `frontend/src/state/actions/lspDiagnostics.test.ts` formatter-diagnostic merge/clear cases. | `Implemented, proof incomplete` | This slice does not yet cite direct Go proof for the invalid-syntax / invalid-gen-prefix / invalid-gen-suffix detail variants or for the unused-args / unresolved-symbol tolerance branches from `main`. |
+| `LD-01` | `get_latest_lsp_diagnostics` and `LSPDiagnostics` websocket payloads share the same project-scoped snapshot contract, and the frontend rehydrates from the route on project load or websocket reconnect. Share/deployment mode keeps the diagnostics/admin transport blocked. | Source docs: `docs/reference/lsp-diagnostics.md` payload/routing and share-mode sections; source route: `backend/setta/routers/project_manager.py::route_get_latest_lsp_diagnostics`; source tests: `tests/routers/test_full_runtime_mode_guards.py::{test_restart_language_server_is_blocked_in_launcher_mode,test_type_check_is_blocked_in_launcher_mode}`; source frontend callers: `frontend/src/state/actions/project/loadProject.ts`; `frontend/src/state/actions/websocketReceive.ts`. | Impl: `internal/httpapi/lsp_routes.go::getLatestLSPDiagnosticsHandler`; `internal/app/app.go` frontend websocket diagnostics broadcast wiring; proof: `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesReturnsLatestDiagnosticsSnapshot,TestRegisterLSPRoutesRejectsShareModeRequests}`; websocket proof: `internal/app/websocket_test.go::TestAppBroadcastsAndHydratesLSPDiagnostics`; current caller proof: `frontend/src/state/actions/project/loadProject.test.ts`; `frontend/src/state/actions/websocketReceive.test.ts`. | `Proved` | |
+| `LD-02` | Code-section diagnostics store raw LSP payloads separately from filtered payloads so mute/suppression updates can reapply instantly without waiting for a new publish, and the effective ignore state persists on the correct shared/variant payload. | Source docs: `docs/reference/lsp-diagnostics.md` diagnostics-ignore section; source routes: `backend/setta/routers/project_manager.py::{route_set_code_section_diagnostics_mute,route_set_code_section_diagnostic_code_suppression}`; source tests: `tests/project_state/test_code_section_diagnostics.py::{test_code_section_diagnostics_update_state,test_code_section_diagnostics_respect_suppression,test_code_section_diagnostics_restore_after_ignore_change}`; `tests/project_state/test_code_section_diagnostics_ignore.py`. | Impl: `internal/projectstate/lsp_diagnostics.go`; `internal/projectstate/code_section_diagnostics_ignore.go`; `internal/httpapi/lsp_routes.go::{setCodeSectionDiagnosticsMuteHandler,setCodeSectionDiagnosticCodeSuppressionHandler}`; proof: `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesMutatesCodeSectionDiagnosticsIgnoreState,TestRegisterLSPRoutesMutesCodeSectionDiagnostics}`; state proof: `internal/projectstate/code_section_diagnostics_ignore_test.go`; `internal/projectstate/lsp_diagnostics_test.go::{TestLSPDiagnosticsRegistryAppliesCodeSectionIgnoreState,TestLSPDiagnosticsRegistryReappliesCodeSectionIgnoreState}`. | `Proved` | |
+| `LD-03` | Code-section diagnostics ignore versionless LSP publishes instead of treating them as the latest live snapshot. | Source test: `tests/project_state/test_code_section_diagnostics.py::test_code_section_diagnostics_ignores_versionless_publish`. | Current Go code-section callback unconditionally forwards every diagnostics publish into the registry: `internal/lsp/project_synchronizer.go::codeSectionDiagnosticsCallback`; transport params still expose optional `Version`: `internal/lsp/session.go::PublishDiagnosticsParams`; current proof only covers versioned callbacks: `internal/lsp/project_synchronizer_test.go::TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutContentChanges`. | `Missing` | Current Go has no version-presence guard before updating section diagnostics. |
+| `LD-04` | Non-Python/plugin-language code sections feed diagnostics through the same project snapshot path as Python code sections. | Source test: `tests/project_state/test_code_section_diagnostics.py::test_non_python_lsp_code_section_diagnostics_update_state`; related type-check source test: `tests/project_state/test_type_check.py::test_type_check_runs_typescript_sections_with_plugin_lsp`. | Impl: `internal/projectstate/code_section_bindings.go::ActiveCodeSectionFiles`; `internal/lsp/project_synchronizer.go::buildProjectDocuments`; current route transport is language-agnostic in `internal/httpapi/lsp_routes.go::getLatestLSPDiagnosticsHandler`. | `Implemented, proof incomplete` | Current Go code is language-agnostic here, but this slice does not yet cite a direct Go proof for non-Python diagnostics delivery. |
+| `TC-01` | `restartLanguageServer` remains an IDE-only admin surface and restarts by closing the active LSP session set before rematerializing the current tracked documents. | Source route: `backend/setta/routers/lsp.py::route_restart_language_server`; source mode-guard test: `tests/routers/test_full_runtime_mode_guards.py::test_restart_language_server_is_blocked_in_launcher_mode`; source caller: `frontend/src/state/actions/lsp.ts`. | Impl: `internal/httpapi/lsp_routes.go::restartLanguageServerHandler`; `internal/lsp/project_synchronizer.go::Restart`; proof: `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesRestartsLanguageServer,TestRegisterLSPRoutesRejectsShareModeRequests}`; synchronizer proof: `internal/lsp/project_synchronizer_test.go::TestProjectSynchronizerRestartClosesBeforeRematerializing`; current caller proof: `frontend/src/state/actions/lsp.test.ts`. | `Proved` | |
+| `TC-02` | Manual `typeCheck` refreshes the target project's tracked documents, including generated Python plus plugin-language code sections, without rebuilding unrelated tracked projects. | Source route: `backend/setta/routers/lsp.py::route_type_check`; source tests: `tests/project_state/test_type_check.py::{test_type_check_runs_python_sections_without_codegen,test_type_check_runs_typescript_sections_with_plugin_lsp,test_type_check_runs_gen_code_and_python_sections}`; source caller: `frontend/src/state/actions/typeCheck.ts`. | Impl: `internal/httpapi/lsp_routes.go::typeCheckHandler`; `internal/lsp/project_synchronizer.go::TypeCheckProject`; proof: `internal/httpapi/lsp_routes_test.go::TestRegisterLSPRoutesTypeChecksProject`; synchronizer proof: `internal/lsp/project_synchronizer_test.go::TestProjectSynchronizerTypeCheckProjectRefreshesProjectDocuments`; current caller proof: `frontend/src/state/actions/typeCheck.test.ts`. | `Implemented, proof incomplete` | Current Go directly proves the project-scoped refresh path for Python plus generated docs, but this slice does not yet cite direct Go proof for the plugin-language case from `main`. |
+| `TC-03` | `setTypeErrorIgnore` toggles callable-vs-param ignore flags on the active section payload, and the transport stays IDE-only just like the rest of the LSP diagnostics controls. | Source route: `backend/setta/routers/project_manager.py::route_set_type_error_ignore`; source helper: `backend/setta/types/helpers_lvl2.py::set_type_error_ignore`; source share-policy test: `tests/routers/test_share_policy_routes.py` `set_type_error_ignore` coverage. | Impl: `internal/projectstate/code_object_writes.go::SetTypeErrorIgnore`; `internal/httpapi/lsp_routes.go::setTypeErrorIgnoreHandler`; proof: `internal/projectstate/code_object_writes_test.go::TestProjectSetTypeErrorIgnorePersistsCallableAndParamFlags`; `internal/httpapi/lsp_routes_test.go::{TestRegisterLSPRoutesSetsTypeErrorIgnore,TestRegisterLSPRoutesRejectsShareModeRequests}`. | `Proved` | |
+| `WC-01` | `setWatchCodeEnabled` / `setWatchCodeInputs` normalize and dedupe repo-relative (or in-repo absolute) file/folder inputs, reject outside-workspace paths, baseline existing watched definitions on first enable, and baseline only new inputs after Watch Code is already enabled. | Source docs: `docs/reference/watch-code.md` configuration/inputs and baselines sections; source routes: `backend/setta/routers/project_manager.py::{route_set_watch_code_enabled,route_set_watch_code_inputs}`; source tests: `tests/project_state/test_watch_code.py::{test_baseline_on_enable_skips_existing_defs,test_baseline_new_watch_inputs_when_enabled,test_rejects_watch_inputs_outside_repo}`; current caller evidence: `frontend/src/state/actions/project/watchCode.ts`; `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`; `frontend/src/components/AppHeader/WatchCodeToggleButton.tsx`. | Impl: `internal/projectstate/watch_code.go`; `internal/httpapi/project_routes.go::{setWatchCodeEnabledHandler,setWatchCodeInputsHandler}`; proof: `internal/projectstate/watch_code_test.go::{TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs,TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled,TestRuntimeSetWatchCodeInputsRejectsOutsideWorkspace}`; `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs,TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs,TestRegisterProjectRoutesRejectsWatchCodeInputsOutsideWorkspace}`; current caller proof: `frontend/src/state/actions/project/watchCode.test.ts`. | `Proved` | |
+| `WC-02` | Enabling Watch Code also baselines already-bound Python code sections so turning it on does not retro-create callable sections for existing bound files. | Source docs: `docs/reference/watch-code.md` baselines section explicitly includes existing code sections bound to files. | Impl: `internal/projectstate/watch_code.go::baselineWatchCodeCodeSections`; bound-source resolution: `internal/projectstate/watch_code.go::watchCodeBoundSectionSource`. | `Implemented, proof incomplete` | This slice does not yet cite a direct Go test for the bound-code baseline-on-enable path. |
+| `WC-03` | The live Watch Code service syncs saved config into the watcher runtime, respects recursive versus non-recursive folder matching, ignores default excluded dirs, and watches the nearest existing ancestor until a missing watched directory appears. | Source docs: `docs/reference/watch-code.md` watcher architecture and path-matching rules. | Impl: `internal/watchcode/manager.go`; app wiring: `internal/app/app.go`; proof: `internal/watchcode/manager_test.go::{TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs,TestManagerSyncConfigsUpgradesRecursiveFolders,TestManagerSyncConfigsUsesExistingAncestorForMissingDirs,TestManagerHandleFileEventIgnoresNonPythonAndIgnoredPaths}`; snapshot proof: `internal/watchcode/snapshot_test.go::TestBuildTrackedFileSnapshotIgnoresDefaultIgnoredDirs`; app proof: `internal/app/app_test.go::{TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState,TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs}`. | `Proved` | |
+| `WC-04` | Watch Code file/bound-section updates handle moves, renames, signature changes, new callables, deletions, and syntax-error no-op cases while keeping registry/baseline state and generated import prefixes in sync. | Source docs: `docs/reference/watch-code.md` update flow, section creation/imports, deletions, and inline edits sections; source tests: `tests/project_state/test_watch_code.py` rename/move/delete/signature/syntax-error cases. | Impl: `internal/projectstate/watch_code_apply.go`; `internal/projectstate/watch_code_bound_sections_test.go`; app runtime wiring: `internal/app/app.go`; proof: `internal/projectstate/watch_code_apply_test.go::{TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig,TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSection,TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline,TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState}` plus the signature/rename/delete follow-up cases in the same file; bound-section proof: `internal/projectstate/watch_code_bound_sections_test.go::TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInputs`; app proof: `internal/app/app_test.go::{TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks,TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads,TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate}`. | `Proved` | |
+
 ## Current Findings
 
-1. The matrix now contains twenty-four concrete source-parity gaps:
-   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`,
-   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
-   `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and
-   `AU-11`.
+1. The matrix now contains twenty-five concrete source-parity gaps:
+   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
+   `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
+   `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
+   and `AU-11`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -848,16 +876,20 @@ Rows outside these slices are still pending.
     adds two real behavior gaps (`DP-06`, `DP-08`), one broader publish-error
     proof gap (`DP-05`), and two dormant transport/mode-boundary rows
     (`DP-02`, `DP-07`).
-25. Git route behavior is now largely proved, including literal pathspec
+25. The code-edit/LSP/watch-code slice mostly closes with proofs, but it adds
+    one real behavior gap (`LD-03`) plus four broader proof-gap rows
+    (`CE-02`, `LD-04`, `TC-02`, `WC-02`).
+26. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-26. The remaining issues in the naming slice are still mostly proof gaps rather
+27. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-27. The next high-value steps are:
-    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
-      `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
-      `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`, and
-      `AU-11` should be restored or documented as intentional divergences
+28. The next high-value steps are:
+    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
+      `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
+      `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
+      `AU-10`, and `AU-11` should be restored or documented as intentional
+      divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
@@ -869,16 +901,18 @@ Rows outside these slices are still pending.
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
       `LS-13`, `LS-16`, `LR-05`, `LC-05`, `TR-01`, `DR-05`) plus the new
-      binary/artifact/attachment/file-browser proof gaps (`BP-02`, `AR-04`,
-      `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
-      `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new status/launcher
-      proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
-      (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),
-      the new plugin proof gap (`PL-08`), the new auth/bootstrap proof gap
-      (`AU-04`), and the new transcription proof gaps (`TS-02`, `TS-04`,
-      `TS-07`, `TS-11`), plus the new chat/managed-stop proof gaps (`AH-02`,
-      `MS-02`), plus the new managed-agent-run proof gap (`MA-05`), plus the
-      new state-machine-run proof gap (`SM-05`), plus the new
-      workflow-signal/websocket proof gaps (`WS-02`, `WS-05`)
+      code-edit/LSP/watch-code proof gaps (`CE-02`, `LD-04`, `TC-02`,
+      `WC-02`), the new binary/artifact/attachment/file-browser proof gaps
+      (`BP-02`, `AR-04`, `AT-05`, `FB-04`), the new Project-AI tooling proof
+      gaps (`SK-01`, `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), the new
+      status/launcher proof gaps (`ST-03`, `LM-01`), the new
+      workspace-launch proof gaps (`WL-01`, `WL-03`, `WL-04`), the new
+      deployment proof gap (`DP-05`), the new plugin proof gap (`PL-08`), the
+      new auth/bootstrap proof gap (`AU-04`), and the new transcription proof
+      gaps (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the new
+      chat/managed-stop proof gaps (`AH-02`, `MS-02`), plus the new
+      managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
+      proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
+      (`WS-02`, `WS-05`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
