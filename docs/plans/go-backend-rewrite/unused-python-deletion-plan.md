@@ -391,6 +391,15 @@ Current tree note:
   `internal/httpapi`, and `internal/frontendbindings`, while the retained
   Python code and tests only use `setta.types.clipboard` directly rather than
   the unused generated union wrapper.
+- The dead generated Python type-definition tail is also smaller in the current
+  worktree: `backend/scripts/prune_generated_types.py` pruned repo-unreferenced
+  adapters, type-set constants, and the unused `ProjectConfigArgs` typed dict
+  from `backend/setta/types/generated/*.py`, because current retained Python
+  callers only import the surviving union aliases, discriminated union aliases,
+  and concrete generated typed dicts they still use, while clipboard, project
+  state, workflow authoring, and websocket/runtime contract ownership already
+  live on the Go side under `internal/projectstate`, `internal/httpapi`,
+  `internal/wsapi`, `internal/realtime`, and `internal/frontendbindings`.
 - The dead Python websocket-shell tail is also smaller in the current
   worktree: `backend/setta/websockets/websocket_manager.py`,
   `backend/setta/websockets/msg_handlers/base.py`, and
