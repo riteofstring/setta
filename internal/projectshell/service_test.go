@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 func TestServiceLoadAllProjectMetadataReturnsDefaultAndSortedMetadata(t *testing.T) {
@@ -92,6 +93,57 @@ func TestServiceLoadProjectConfigLoadsByName(t *testing.T) {
 	}
 	if projectConfig.ProjectConfig.Name != "Alpha" {
 		t.Fatalf("expected Alpha, got %q", projectConfig.ProjectConfig.Name)
+	}
+}
+
+func TestServiceLoadProjectConfigLoadsDedicatedSettingsProjectByName(t *testing.T) {
+	t.Parallel()
+
+	mainRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open main overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := mainRuntime.Close(); err != nil {
+			t.Fatalf("close main overlay runtime: %v", err)
+		}
+	})
+
+	settingsDocument, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsProjectDocument, err := settingsstate.BuildProjectDocument(settingsDocument)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsRuntime, err := projectstate.OpenOverlayRuntime(settingsProjectDocument)
+	if err != nil {
+		t.Fatalf("open settings overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings overlay runtime: %v", err)
+		}
+	})
+
+	service, err := NewService(ServiceOptions{
+		ProjectState:         mainRuntime,
+		SettingsProjectState: settingsRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	projectConfig, err := service.LoadProjectConfig(context.Background(), settingsstate.SettingsProjectName)
+	if err != nil {
+		t.Fatalf("load settings project config: %v", err)
+	}
+	if projectConfig.ProjectConfig.ID != settingsstate.SettingsProjectID {
+		t.Fatalf("expected settings project id %q, got %q", settingsstate.SettingsProjectID, projectConfig.ProjectConfig.ID)
+	}
+	if len(projectConfig.Sections) != 46 {
+		t.Fatalf("expected 46 settings sections, got %d", len(projectConfig.Sections))
 	}
 }
 

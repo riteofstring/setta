@@ -139,6 +139,19 @@
     "runSnapshotMode": "ephemeral",
     "completionGuardEnabled": false
   },
+  "chatWindowing": {
+    "autoCreateInitialChat": true,
+    "restorePriorStateOnUnmaximize": true,
+    "shortcuts": {
+      "canvasToggle": "Shift + Esc",
+      "maximizeFocused": "Mod + Shift + Enter",
+      "minimizeFocused": "Mod + Shift + M",
+      "snapLeft": "Mod + Alt + ArrowLeft",
+      "snapRight": "Mod + Alt + ArrowRight",
+      "snapTop": "Mod + Alt + ArrowUp",
+      "snapBottom": "Mod + Alt + ArrowDown"
+    }
+  },
   "sectionSizingPolicy": {
     "byType": {
       "Callable": {
@@ -710,6 +723,53 @@
     "showRowNumbers": true,
     "density": "compact",
     "autoReloadOnExternalChange": false
+  },
+  "stateMachineEndSectionDefault": {
+    "isFrozen": false,
+    "tagColor": null,
+    "styleColor": null,
+    "size": {
+      "width": 240.0,
+      "height": 96.0
+    },
+    "aspectRatio": false,
+    "isMinimized": false,
+    "positionAndSizeLocked": false,
+    "machineGroupId": "default-state-machine-group",
+    "label": "End"
+  },
+  "stateMachineGateSectionDefault": {
+    "isFrozen": false,
+    "tagColor": null,
+    "styleColor": null,
+    "size": {
+      "width": 240.0,
+      "height": 120.0
+    },
+    "aspectRatio": false,
+    "isMinimized": false,
+    "positionAndSizeLocked": false,
+    "machineGroupId": "default-state-machine-group",
+    "gateType": "AND",
+    "label": "",
+    "ui": {
+      "showDetails": false
+    }
+  },
+  "stateMachineStartSectionDefault": {
+    "isFrozen": false,
+    "tagColor": null,
+    "styleColor": null,
+    "size": {
+      "width": 240.0,
+      "height": 96.0
+    },
+    "aspectRatio": false,
+    "isMinimized": false,
+    "positionAndSizeLocked": false,
+    "machineGroupId": "default-state-machine-group",
+    "label": "Start",
+    "maxIterations": null
   },
   "taskBoardSectionDefault": {
     "isFrozen": false,

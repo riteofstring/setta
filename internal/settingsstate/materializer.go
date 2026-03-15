@@ -130,6 +130,9 @@ func settingsProjectCodeObjectValue(payload map[string]any) any {
 	if !ok {
 		return cloneValue(rawValue)
 	}
+	if stringFieldOrEmpty(payload, "settingsValueEncoding") == "raw_string" {
+		return typedString
+	}
 
 	var decoded any
 	if err := json.Unmarshal([]byte(typedString), &decoded); err == nil {

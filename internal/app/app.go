@@ -499,6 +499,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
 			return nil, err
 		}
+		if err := settingsstate.EnsureProjectRuntimeBootstrapped(context.Background(), settingsStateRuntime, projectStates.Settings()); err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
 		plannerFilesRoot = cfg.Paths.SettaFilesRoot
 		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
 		projectLSPSyncer.SetCallableAutoRefetchHandlers(
@@ -934,8 +938,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return joined
 		}
 		projectShellService, err = projectshell.NewService(projectshell.ServiceOptions{
-			ProjectState:     projectRuntime,
-			AfterProjectSave: broadcastSavedProjectNotification,
+			ProjectState:         projectRuntime,
+			SettingsProjectState: projectStates.Settings(),
+			AfterProjectSave:     broadcastSavedProjectNotification,
 			AfterProjectMetadataMutation: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 				return broadcastAllProjectMetadata(ctx, snapshot)
 			},
@@ -1515,6 +1520,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:                     modePolicy,
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
+				SettingsProjectState:           projectStates.Settings(),
 				WebsocketHub:                   websocketHub,
 				PromptTemplates:                promptTemplateStore,
 				ShareSessions:                  shareSessions,

@@ -21,6 +21,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 	"setta/internal/terminals"
 	"setta/internal/watchcode"
 	"setta/internal/wsapi"
@@ -121,7 +122,7 @@ func TestAppServesProjectShellReadRoutes(t *testing.T) {
 	}
 }
 
-func TestAppLoadProjectConfigDoesNotExposeDedicatedSettingsProjectRuntime(t *testing.T) {
+func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -136,50 +137,75 @@ func TestAppLoadProjectConfigDoesNotExposeDedicatedSettingsProjectRuntime(t *tes
 		}
 	})
 
-	if _, err := app.ProjectStates().Settings().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		return appSettingsProjectMaterializerTestDocument(t), nil
-	}); err != nil {
-		t.Fatalf("seed settings project runtime: %v", err)
-	}
-
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
 	authCookie := newAppTestAuthCookie(t, app)
 
-	assertSettingsProjectLoadNotFound := func(projectConfigName string) {
-		t.Helper()
+	loadSettingsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
+	if err != nil {
+		t.Fatalf("new settings load request: %v", err)
+	}
+	loadSettingsRequest.Header.Set("Content-Type", "application/json")
+	loadSettingsRequest.AddCookie(authCookie)
 
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"`+projectConfigName+`"}`))
-		if err != nil {
-			t.Fatalf("new project request %q: %v", projectConfigName, err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(authCookie)
-
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatalf("load project config %q: %v", projectConfigName, err)
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusNotFound {
-			body, _ := io.ReadAll(response.Body)
-			t.Fatalf("expected project config %q to return 404, got %d with body %q", projectConfigName, response.StatusCode, string(body))
-		}
-
-		var payload struct {
-			Detail string `json:"detail"`
-		}
-		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode project-not-found payload for %q: %v", projectConfigName, err)
-		}
-		if payload.Detail != "Project config not found." {
-			t.Fatalf("expected project-not-found detail for %q, got %#v", projectConfigName, payload)
-		}
+	loadSettingsResponse, err := http.DefaultClient.Do(loadSettingsRequest)
+	if err != nil {
+		t.Fatalf("load settings project config: %v", err)
+	}
+	defer loadSettingsResponse.Body.Close()
+	if loadSettingsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(loadSettingsResponse.Body)
+		t.Fatalf("expected settings project config 200, got %d with body %q", loadSettingsResponse.StatusCode, string(body))
 	}
 
-	assertSettingsProjectLoadNotFound("settings")
-	assertSettingsProjectLoadNotFound("Settings Home")
+	var loadSettingsPayload projectview.SingleConfig
+	if err := json.NewDecoder(loadSettingsResponse.Body).Decode(&loadSettingsPayload); err != nil {
+		t.Fatalf("decode settings project payload: %v", err)
+	}
+	if loadSettingsPayload.ProjectConfig.ID != settingsstate.SettingsProjectID {
+		t.Fatalf("expected settings project id %q, got %q", settingsstate.SettingsProjectID, loadSettingsPayload.ProjectConfig.ID)
+	}
+	if loadSettingsPayload.ProjectConfig.Name != settingsstate.SettingsProjectName {
+		t.Fatalf("expected settings project name %q, got %q", settingsstate.SettingsProjectName, loadSettingsPayload.ProjectConfig.Name)
+	}
+	if len(loadSettingsPayload.Sections) != 46 {
+		t.Fatalf("expected 46 settings sections, got %d", len(loadSettingsPayload.Sections))
+	}
+	if len(loadSettingsPayload.ProjectConfig.ViewModes) != 5 {
+		t.Fatalf("expected 5 settings view modes, got %d", len(loadSettingsPayload.ProjectConfig.ViewModes))
+	}
+	if loadSettingsPayload.ProjectConfig.ActiveViewModeID == nil || *loadSettingsPayload.ProjectConfig.ActiveViewModeID == "" {
+		t.Fatal("expected settings project active view mode id")
+	}
+
+	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
+	if err != nil {
+		t.Fatalf("new settings latest-state request: %v", err)
+	}
+	latestStateRequest.Header.Set("Content-Type", "application/json")
+	latestStateRequest.AddCookie(authCookie)
+
+	latestStateResponse, err := http.DefaultClient.Do(latestStateRequest)
+	if err != nil {
+		t.Fatalf("get settings latest project state: %v", err)
+	}
+	defer latestStateResponse.Body.Close()
+	if latestStateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(latestStateResponse.Body)
+		t.Fatalf("expected settings latest state 200, got %d with body %q", latestStateResponse.StatusCode, string(body))
+	}
+
+	var latestStatePayload httpapi.ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.NewDecoder(latestStateResponse.Body).Decode(&latestStatePayload); err != nil {
+		t.Fatalf("decode settings latest project state payload: %v", err)
+	}
+	if latestStatePayload.ProjectState.ProjectConfig.ID != settingsstate.SettingsProjectID {
+		t.Fatalf("expected latest-state settings project id %q, got %q", settingsstate.SettingsProjectID, latestStatePayload.ProjectState.ProjectConfig.ID)
+	}
+	if latestStatePayload.ProjectState.ProjectConfig.Name != settingsstate.SettingsProjectName {
+		t.Fatalf("expected latest-state settings project name %q, got %q", settingsstate.SettingsProjectName, latestStatePayload.ProjectState.ProjectConfig.Name)
+	}
 }
 
 func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {

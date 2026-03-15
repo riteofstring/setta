@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -501,20 +502,39 @@ func writeValidationError(w http.ResponseWriter, status int, message string) {
 	})
 }
 
+type rawJSONBodyContextKey struct{}
+
 func decodeJSONBody[T any](r *http.Request) (T, error) {
 	var payload T
 	if r.Body == nil {
 		return payload, nil
 	}
 
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&payload); err != nil {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		return payload, err
+	}
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	*r = *r.WithContext(context.WithValue(r.Context(), rawJSONBodyContextKey{}, append([]byte(nil), bodyBytes...)))
+
+	if len(strings.TrimSpace(string(bodyBytes))) == 0 {
+		return payload, nil
+	}
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 		if errors.Is(err, io.EOF) {
 			return payload, nil
 		}
 		return payload, err
 	}
 	return payload, nil
+}
+
+func rawJSONBodyFromRequest(r *http.Request) []byte {
+	if r == nil {
+		return nil
+	}
+	value, _ := r.Context().Value(rawJSONBodyContextKey{}).([]byte)
+	return append([]byte(nil), value...)
 }
 
 type requestIDContextKey struct{}

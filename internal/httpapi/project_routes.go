@@ -165,6 +165,7 @@ type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
+	SettingsProjectState           *projectstate.Runtime
 	WebsocketHub                   *realtime.WebsocketHub
 	PromptTemplates                *prompttemplates.Store
 	ShareSessions                  modes.ShareSessionStore
@@ -1406,7 +1407,32 @@ func projectRuntimeForRequest(
 	if deps.ProjectState == nil {
 		return nil, fmt.Errorf("project runtime is required")
 	}
+	if projectID, ok := projectIDFromRequestBody(r); ok {
+		return settingsstate.ProjectRuntimeForID(
+			deps.ProjectState,
+			deps.SettingsProjectState,
+			projectID,
+		)
+	}
 	return deps.ProjectState, nil
+}
+
+func projectIDFromRequestBody(r *http.Request) (string, bool) {
+	rawBody := rawJSONBodyFromRequest(r)
+	if len(rawBody) == 0 {
+		return "", false
+	}
+	var payload struct {
+		ProjectID string `json:"projectConfigId"`
+	}
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		return "", false
+	}
+	projectID := strings.TrimSpace(payload.ProjectID)
+	if projectID == "" {
+		return "", false
+	}
+	return projectID, true
 }
 
 func ensureProjectLayoutMutationsAllowed(
@@ -1857,7 +1883,13 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 
-		snapshot, frontendOps, err := deps.ProjectState.SnapshotAndConsumeFrontendOps()
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, frontendOps, err := runtime.SnapshotAndConsumeFrontendOps()
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return

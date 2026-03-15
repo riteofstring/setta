@@ -8,6 +8,7 @@ import (
 
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/settingsstate"
 )
 
 var ErrProjectStateRequired = errors.New("project shell service requires a project runtime")
@@ -19,6 +20,7 @@ type AfterProjectsDeleteHook func(context.Context, projectstate.Snapshot, []stri
 
 type ServiceOptions struct {
 	ProjectState                 *projectstate.Runtime
+	SettingsProjectState         *projectstate.Runtime
 	AfterProjectRename           AfterProjectRenameHook
 	AfterProjectSave             AfterProjectSaveHook
 	AfterProjectMetadataMutation AfterProjectMetadataMutationHook
@@ -32,6 +34,7 @@ type AllProjectMetadata struct {
 
 type Service struct {
 	projectState                 *projectstate.Runtime
+	settingsProjectState         *projectstate.Runtime
 	afterProjectRename           AfterProjectRenameHook
 	afterProjectSave             AfterProjectSaveHook
 	afterProjectMetadataMutation AfterProjectMetadataMutationHook
@@ -44,6 +47,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}
 	return &Service{
 		projectState:                 options.ProjectState,
+		settingsProjectState:         options.SettingsProjectState,
 		afterProjectRename:           options.AfterProjectRename,
 		afterProjectSave:             options.AfterProjectSave,
 		afterProjectMetadataMutation: options.AfterProjectMetadataMutation,
@@ -65,7 +69,12 @@ func (s *Service) LoadProjectConfig(_ context.Context, projectConfigName string)
 		return projectview.SingleConfig{}, ErrProjectStateRequired
 	}
 
-	snapshot := s.projectState.Snapshot()
+	runtime := s.projectState
+	if settingsstate.IsSettingsProjectName(projectConfigName) && s.settingsProjectState != nil {
+		runtime = s.settingsProjectState
+	}
+
+	snapshot := runtime.Snapshot()
 	projectID, err := snapshot.Document.ProjectIDByName(projectConfigName)
 	if err != nil {
 		return projectview.SingleConfig{}, err
@@ -139,11 +148,16 @@ func (s *Service) SaveProject(ctx context.Context, projectConfigID string) error
 		return ErrProjectStateRequired
 	}
 
-	if _, err := s.projectState.Snapshot().Document.ProjectByID(projectConfigID); err != nil {
+	runtime := s.projectState
+	if settingsstate.IsSettingsProjectID(projectConfigID) && s.settingsProjectState != nil {
+		runtime = s.settingsProjectState
+	}
+
+	if _, err := runtime.Snapshot().Document.ProjectByID(projectConfigID); err != nil {
 		return err
 	}
 
-	snapshot, err := s.projectState.Save(ctx)
+	snapshot, err := runtime.Save(ctx)
 	if err != nil {
 		return err
 	}

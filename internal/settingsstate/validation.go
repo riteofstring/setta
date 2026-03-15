@@ -138,6 +138,8 @@ func allowedValuesForPath(path string) []string {
 		return []string{"free", "vertical", "horizontal"}
 	case "settings.gui.selectionMode":
 		return []string{"partial", "full"}
+	case "settings.stateMachineGateSectionDefault.gateType":
+		return []string{"AND", "OR", "XOR"}
 	}
 
 	if strings.HasPrefix(path, "settings.sectionSizingPolicy.metaControlByType.") &&
