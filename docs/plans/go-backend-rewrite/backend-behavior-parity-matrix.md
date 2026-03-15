@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`dcbdaacaab416f26b1f3cc8bc5e7bf0f8060c39e`
+`f7b7c7111a1d36a4cefa85c1fdaeaebdf17441bf`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -65,6 +65,7 @@ It currently covers:
 - group orientation plus spreadsheet/task-board/image/social section-data
   mutation and deployment-policy behavior
 - chat-section settings/state persistence and stale-chat cleanup behavior
+- project-chat windowing and window-space CRUD behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -119,6 +120,9 @@ Rows outside these slices are still pending.
 - The chat-section persistence / stale-chat-cleanup slice mostly closes with
   proofs, but it adds two more caller-backed transport/policy gaps, one
   dormant direct-HTTP read boundary row, and one proof-gap row.
+- The project-chat-windowing / window-space slice adds no new concrete gap,
+  but it does add two more proof-gap rows around layout-only thread-binding
+  invariants and remaining window-space transport mapping.
 - Thirty-five concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
@@ -938,6 +942,17 @@ Rows outside these slices are still pending.
 | `CS-05` | Direct HTTP `getChatSectionChatId` remains mounted outside IDE and is not share-policy-gated, rather than disappearing with IDE-only route registration. | Source route: `backend/setta/routers/project_manager.py::route_get_chat_section_chat_id`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; retained listener/chat-toolkit routing for chat-id reads is covered separately by `LC-01`, and the current non-test frontend directly reads hydrated `chatId` state instead of calling this HTTP route. | `Dormant / unproven caller` | This row is scoped to the direct HTTP route family, not the retained listener endpoint transport. |
 | `CS-06` | Changing chat-section settings to make a linked chat target non-executable preserves existing `chat_chat` edges instead of deleting them eagerly during the settings write. | Source test: `tests/project_state/test_project_chat_windowing_persistence.py::test_set_chat_section_settings_preserves_linked_chat_edges_when_target_becomes_non_executable_for_real_manager`; source helper: `backend/setta/types/helpers_lvl2.py::set_chat_section_settings`. | Current Go settings writes only update chat-section payload fields in `internal/projectstate/chat_sections.go::SetChatSectionSettings`, leaving `projectConfig.agenticEdges` untouched; current linked-agent surfaces still read those edges in `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` and `frontend/src/components/Section/Layouts/ChatArea.tsx`. | `Implemented, proof incomplete` | This slice does not yet cite a dedicated Go regression test or a later runtime-admission proof for the non-executable linked-target case. |
 
+## Project-Chat Windowing And Window-Space CRUD
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `CW-01` | Authoritative project-chat windowing normalization keeps runtime state coherent: defaults are seeded, invalid owner combinations fail, missing-section bindings are pruned, one authoritative window survives per section binding, section-window titles are cleared, and non-`project_ai_mode` windows drop `chatId`. | Source docs: `docs/reference/project-chat-windowing.md`; source tests: `tests/types/test_project_chat_windowing.py::{test_project_state_defaults_project_chat_windowing,test_set_project_chat_windowing_state_replaces_runtime_state,test_project_state_normalizes_project_chat_windowing_for_missing_sections,test_project_state_normalizes_duplicate_section_bindings_to_one_authoritative_window,test_project_state_normalizes_exact_section_binding_ties_by_instance_id,test_project_state_normalizes_section_window_titles_to_none,test_project_state_normalizes_section_mode_window_chat_ids_to_none,test_project_state_normalizes_git_graph_window_chat_ids_to_none,test_project_chat_windowing_rejects_section_mode_without_section_binding,test_project_chat_windowing_rejects_git_graph_section_binding,test_project_chat_windowing_rejects_git_graph_canvas_placement}`. | Impl: `internal/projectstate/project_chat_windowing_writes.go::{normalizeProjectChatWindowingStateForWrite,validateProjectChatWindowOwner,shouldPreferProjectChatSectionBinding}`; proof: `internal/projectstate/project_chat_windowing_test.go::TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces`; route proof: `internal/httpapi/project_chat_windowing_routes_test.go::TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFrontendOps`. | `Proved` | Current Go route proof directly covers section-title normalization on a persisted layout write, while the runtime normalization proof covers the broader owner/default/dedup contract. |
+| `CW-02` | `setProjectChatWindowingState` is layout-only: it cannot create, rebind, or remove still-bound `project_ai_mode` chat threads, while omitting an unbound project-chat window remains allowed. | Source docs: `docs/reference/project-chat-windowing.md`; source tests: `tests/types/test_project_chat_windowing.py::{test_set_project_chat_windowing_state_rejects_rebinding_existing_project_chat,test_set_project_chat_windowing_state_rejects_new_project_chat_with_bound_thread,test_set_project_chat_windowing_state_rejects_omitting_existing_bound_project_chat,test_set_project_chat_windowing_state_allows_omitting_existing_unbound_project_chat}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::{test_project_chat_window_layout_route_cannot_rebind_thread_when_llm_is_disallowed,test_project_chat_window_layout_route_never_rebinds_thread_even_when_llm_is_allowed}`. | Impl: `internal/projectstate/project_chat_windowing_writes.go::validateProjectChatThreadBindingsUnchanged`; direct proof: `internal/projectstate/project_chat_windowing_writes_test.go::TestRuntimeSetProjectChatWindowingStateRejectsThreadRebinding`. | `Implemented, proof incomplete` | Current Go clearly has the layout-only thread-binding guard, but this slice only directly proves the rebinding branch and does not yet cite a Go test for the new-bound, omit-bound, or omit-unbound variants. |
+| `CW-03` | `setProjectChatWindowChatId` updates only existing `project_ai_mode` windows, rejects git-graph or missing windows, and stays separately LLM-gated from layout mutations. | Source tests: `tests/types/test_project_chat_windowing.py::{test_set_project_chat_window_chat_id_updates_the_target_window,test_set_project_chat_window_chat_id_rejects_git_graph_windows,test_set_project_chat_window_chat_id_requires_an_existing_window}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::{test_project_chat_window_thread_binding_allowed_when_llm_allowed_and_layout_blocked,test_project_chat_window_thread_binding_blocked_when_llm_is_disallowed,test_project_chat_window_thread_binding_rejects_git_graph_windows}`; source route: `backend/setta/routers/project_manager.py::route_set_project_chat_window_chat_id`. | Impl: `internal/projectstate/project_chat_windowing_writes.go::SetProjectChatWindowChatID`; proof: `internal/projectstate/project_chat_windowing_writes_test.go::TestRuntimeSetProjectChatWindowChatIDRequiresExistingProjectAIWindow`; route proof: `internal/httpapi/project_chat_windowing_routes_test.go::{TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFrontendOps,TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy,TestRegisterProjectRoutesProjectChatWindowChatIDRespectsDeploymentLLMPolicy}`. | `Proved` | Current active callers still drive this split through `frontend/src/state/actions/projectChatWindowing.ts`, `frontend/src/components/ChatWindowing/UnifiedChatSurface.tsx`, and `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`. |
+| `CW-04` | Window-space create/rename/sort/delete writes persist normalized saved layouts, trim and validate names, generate a valid default name when omitted, reject invalid saved-window owners, and renumber sort indexes after delete. | Source docs: `docs/reference/project-chat-windowing.md`; source name-validation docs: `docs/reference/name-validation.md`; source share/deployment tests: `tests/routers/test_share_policy_routes.py::{test_window_space_routes_allowed_when_layout_changes_allowed,test_window_space_routes_reject_invalid_window_owners}`. | Impl: `internal/projectstate/project_chat_windowing_writes.go::{CreateWindowSpace,resolveWindowSpaceCreateName,SetWindowSpaceName,SetWindowSpaceSortOrder,DeleteWindowSpace,normalizeWindowSpaceStateForWrite,validateWindowSpaceWindowOwner}`; proof: `internal/projectstate/project_chat_windowing_writes_test.go::{TestRuntimeCreateWindowSpacePersistsNormalizedState,TestRuntimeCreateWindowSpaceGeneratesValidDefaultName,TestRuntimeCreateWindowSpaceRejectsInvalidWindowOwner,TestRuntimeWindowSpaceNameSortAndDeleteMutations}`; route proof: `internal/httpapi/project_chat_windowing_routes_test.go::{TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFrontendOps,TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads}`. | `Proved` | This row is about the persisted write contract; standalone `/windowspace/...` local-only behavior is documented separately and does not change backend storage semantics. |
+| `CW-05` | In share/app sessions, layout/window-space writes follow `allowLayoutChanges`, while `setProjectChatWindowChatId` is separately gated by `allowLLM` and can still succeed when layout changes are blocked. | Source docs: `docs/reference/project-chat-windowing.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_project_chat_windowing_state,route_create_window_space,route_set_window_space_name,route_set_window_space_sort_order,route_delete_window_space,route_set_project_chat_window_chat_id}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::{test_window_space_routes_blocked_when_layout_changes_disallowed,test_window_space_routes_allowed_when_layout_changes_allowed,test_project_chat_window_thread_binding_allowed_when_llm_allowed_and_layout_blocked,test_project_chat_window_thread_binding_blocked_when_llm_is_disallowed}`. | Current Go mounts layout/window-space routes behind the deployment `shareGuard` and `setProjectChatWindowChatId` behind the same direct route family with separate runtime LLM policy enforcement in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; route proof: `internal/httpapi/project_chat_windowing_routes_test.go::{TestRegisterProjectRoutesProjectChatWindowingMutationsRespectDeploymentPolicy,TestRegisterProjectRoutesProjectChatWindowChatIDRespectsDeploymentLLMPolicy}`; current caller evidence: `frontend/src/state/actions/projectChatWindowing.ts`, `frontend/src/state/actions/windowSpaces.ts`, and `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`. | `Proved` | This slice confirms that the current Go deployment boundary matches the source layout-vs-LLM split for active callers. |
+| `CW-06` | Missing window-space ids and the remaining window-space name/sort validation branches preserve typed `404` / `422` transport mappings on the direct route family. | Source tests: `tests/routers/test_share_policy_routes.py::test_window_space_routes_return_404_for_missing_window_space_ids`; source docs: `docs/reference/name-validation.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_window_space_name,route_set_window_space_sort_order,route_delete_window_space}`. | Current Go route mapper has the typed branches in `internal/httpapi/project_routes.go::writeWindowSpaceMutationError`; current runtime proof covers invalid-name and invalid-sort errors in `internal/projectstate/project_chat_windowing_writes_test.go::TestRuntimeWindowSpaceNameSortAndDeleteMutations`. | `Implemented, proof incomplete` | This slice does not yet cite direct Go route tests for the missing-window-space-id `404` mapping or the invalid-name / invalid-sort transport branches. |
+
 ## Current Findings
 
 1. The matrix now contains thirty-five concrete source-parity gaps:
@@ -1046,12 +1061,15 @@ Rows outside these slices are still pending.
     with proofs, but it adds two real transport/policy gaps (`CS-02`,
     `CS-04`), one dormant direct-HTTP read boundary row (`CS-05`), and one
     broader proof-gap row (`CS-06`).
-33. Git route behavior is now largely proved, including literal pathspec
+33. The project-chat-windowing / window-space slice adds no new real
+    behavior gap, but it does add two broader proof-gap rows (`CW-02`,
+    `CW-06`).
+34. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-34. The remaining issues in the naming slice are still mostly proof gaps rather
+35. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-35. The next high-value steps are:
+36. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
@@ -1081,6 +1099,7 @@ Rows outside these slices are still pending.
       (`AU-04`), and the new transcription proof gaps (`TS-02`, `TS-04`,
       `TS-07`, `TS-11`), plus the new chat/managed-stop proof gaps (`AH-02`,
       `MS-02`), plus the new chat-section proof gap (`CS-06`), plus the new
+      project-chat-windowing proof gaps (`CW-02`, `CW-06`), plus the new
       managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
       (`WS-02`, `WS-05`)
