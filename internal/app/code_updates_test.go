@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -133,7 +137,7 @@ func TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply(t *tes
 }
 
 func TestCodeUpdateServiceFormatCodeFormatsPythonSection(t *testing.T) {
-	t.Parallel()
+	addRepoVenvRuffToPath(t)
 
 	project := codeUpdateTestProject(t, projectstate.CodeFileAccessModeReadWrite)
 	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
@@ -214,51 +218,9 @@ func TestCodeUpdateServiceFormatCodeRejectsReadOnlyBinding(t *testing.T) {
 }
 
 func TestCodeUpdateServiceFormatCodeFormatsGeneratedPythonTarget(t *testing.T) {
-	t.Parallel()
+	addRepoVenvRuffToPath(t)
 
-	project, err := projectstate.Project{
-		ID:   "project-alpha",
-		Name: "Alpha",
-		CodegenTargets: []projectstate.ProjectCodegenTarget{
-			{
-				Language: string(projectstate.CodeLanguagePython),
-				Payload:  json.RawMessage(`{"language":"python","genCodePrefix":"x=1\n","genCodeSuffix":"y=2\n"}`),
-			},
-		},
-		SectionVariantMap: map[string]string{
-			projectstate.GeneratedPythonCodeSectionID: projectstate.GeneratedPythonCodeVariantID,
-		},
-		Sections: map[string]projectstate.Section{
-			projectstate.GeneratedPythonCodeSectionID: {
-				ID:               projectstate.GeneratedPythonCodeSectionID,
-				Name:             projectstate.GeneratedPythonCodeSectionName,
-				VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
-				DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
-			},
-		},
-		SectionVariants: map[string]projectstate.SectionVariant{
-			projectstate.GeneratedPythonCodeVariantID: {
-				ID:     projectstate.GeneratedPythonCodeVariantID,
-				ImplID: projectstate.GeneratedPythonCodeImplID,
-			},
-		},
-		SectionImpls: map[string]projectstate.SectionImpl{
-			projectstate.GeneratedPythonCodeImplID: {
-				ID:   projectstate.GeneratedPythonCodeImplID,
-				Kind: projectstate.SectionKindGenerated,
-				Payload: projectstate.RawJSON(`{
-					"id":"gen-python-impl",
-					"type":"GenPythonCode"
-				}`),
-				Generated: &projectstate.GeneratedSectionImpl{
-					Kind: projectstate.GeneratedSectionKindPythonCode,
-				},
-			},
-		},
-	}.Normalized()
-	if err != nil {
-		t.Fatalf("normalize generated python format project: %v", err)
-	}
+	project := generatedPythonFormatProject(t, "x=1\n", "y=2\n")
 
 	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -300,7 +262,7 @@ func TestCodeUpdateServiceFormatCodeFormatsGeneratedPythonTarget(t *testing.T) {
 }
 
 func TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry(t *testing.T) {
-	t.Parallel()
+	addRepoVenvRuffToPath(t)
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeBoundReloadProject(t)
@@ -359,6 +321,233 @@ func TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry(t *testing.T) {
 	}
 	if !strings.Contains(target.Code, "def watched(value, extra):") {
 		t.Fatalf("expected formatted bound code, got %q", target.Code)
+	}
+}
+
+func TestCodeUpdateServiceFormatCodeAllowsUnusedArgs(t *testing.T) {
+	addRepoVenvRuffToPath(t)
+
+	project := codeUpdateTestProject(t, projectstate.CodeFileAccessModeReadWrite)
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState: runtime,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	if _, err := runtime.SetCode(context.Background(), "project-alpha", "section-main", "def foo(a):\n    return 1\n"); err != nil {
+		t.Fatalf("seed unused-arg code: %v", err)
+	}
+	if err := service.FormatCode(context.Background(), "project-alpha", "section-main"); err != nil {
+		t.Fatalf("format code with unused args: %v", err)
+	}
+
+	target, err := runtime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", "section-main")
+	if err != nil {
+		t.Fatalf("resolve formatted code section: %v", err)
+	}
+	if !strings.Contains(target.Code, "def foo(a):") {
+		t.Fatalf("expected unused args to be preserved, got %q", target.Code)
+	}
+}
+
+func TestCodeUpdateServiceFormatCodeRejectsInvalidPythonCodeWithSanitizedDetail(t *testing.T) {
+	addRepoVenvRuffToPath(t)
+
+	project := codeUpdateTestProject(t, projectstate.CodeFileAccessModeReadWrite)
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState: runtime,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	if _, err := runtime.SetCode(context.Background(), "project-alpha", "section-main", "def broken("); err != nil {
+		t.Fatalf("seed invalid code: %v", err)
+	}
+	err = service.FormatCode(context.Background(), "project-alpha", "section-main")
+	if !projectstate.IsFormatCodeError(err) {
+		t.Fatalf("expected format-code error, got %v", err)
+	}
+	if err.Error() == "" {
+		t.Fatal("expected invalid python formatting error detail")
+	}
+	if strings.Contains(err.Error(), "\x1b") {
+		t.Fatalf("expected stripped ansi escapes, got %q", err.Error())
+	}
+
+	target, resolveErr := runtime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", "section-main")
+	if resolveErr != nil {
+		t.Fatalf("resolve code section after invalid format failure: %v", resolveErr)
+	}
+	if target.Code != "def broken(" {
+		t.Fatalf("expected invalid code to stay unchanged, got %q", target.Code)
+	}
+}
+
+func TestCodeUpdateServiceFormatCodeRejectsInvalidGeneratedPrefixWithSanitizedDetail(t *testing.T) {
+	addRepoVenvRuffToPath(t)
+
+	project := generatedPythonFormatProject(t, "def broken(", "y=2\n")
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState: runtime,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	err = service.FormatCode(context.Background(), "project-alpha", projectstate.GeneratedPythonCodeSectionID)
+	if !projectstate.IsFormatCodeError(err) {
+		t.Fatalf("expected format-code error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Gen code prefix:") {
+		t.Fatalf("expected gen code prefix detail, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "\x1b") {
+		t.Fatalf("expected stripped ansi escapes, got %q", err.Error())
+	}
+
+	target, resolveErr := runtime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", projectstate.GeneratedPythonCodeSectionID)
+	if resolveErr != nil {
+		t.Fatalf("resolve generated target after invalid prefix failure: %v", resolveErr)
+	}
+	if target.GenCodePrefix != "def broken(" || target.GenCodeSuffix != "y=2\n" {
+		t.Fatalf("expected generated python target to stay unchanged, got prefix=%q suffix=%q", target.GenCodePrefix, target.GenCodeSuffix)
+	}
+}
+
+func TestCodeUpdateServiceFormatCodeRejectsInvalidGeneratedSuffixWithSanitizedDetail(t *testing.T) {
+	addRepoVenvRuffToPath(t)
+
+	project := generatedPythonFormatProject(t, "x = 1\n", "def broken(")
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState: runtime,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	err = service.FormatCode(context.Background(), "project-alpha", projectstate.GeneratedPythonCodeSectionID)
+	if !projectstate.IsFormatCodeError(err) {
+		t.Fatalf("expected format-code error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Gen code suffix:") {
+		t.Fatalf("expected gen code suffix detail, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "\x1b") {
+		t.Fatalf("expected stripped ansi escapes, got %q", err.Error())
+	}
+
+	target, resolveErr := runtime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", projectstate.GeneratedPythonCodeSectionID)
+	if resolveErr != nil {
+		t.Fatalf("resolve generated target after invalid suffix failure: %v", resolveErr)
+	}
+	if target.GenCodePrefix != "x = 1\n" || target.GenCodeSuffix != "def broken(" {
+		t.Fatalf("expected generated python target to stay unchanged, got prefix=%q suffix=%q", target.GenCodePrefix, target.GenCodeSuffix)
+	}
+}
+
+func TestCodeUpdateServiceFormatCodeAllowsUndefinedSymbolsInGeneratedPython(t *testing.T) {
+	addRepoVenvRuffToPath(t)
+
+	project := generatedPythonFormatProject(t, "state = SettaState()\n", "state = SettaState()\n")
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState: runtime,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	if err := service.FormatCode(context.Background(), "project-alpha", projectstate.GeneratedPythonCodeSectionID); err != nil {
+		t.Fatalf("format generated python with unresolved symbols: %v", err)
+	}
+
+	target, resolveErr := runtime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", projectstate.GeneratedPythonCodeSectionID)
+	if resolveErr != nil {
+		t.Fatalf("resolve generated target after formatting: %v", resolveErr)
+	}
+	if !strings.Contains(target.GenCodePrefix, "SettaState") || !strings.Contains(target.GenCodeSuffix, "SettaState") {
+		t.Fatalf("expected unresolved SettaState symbols to be preserved, got prefix=%q suffix=%q", target.GenCodePrefix, target.GenCodeSuffix)
 	}
 }
 
@@ -471,4 +660,68 @@ func codeUpdateTestProject(t *testing.T, accessMode projectstate.CodeFileAccessM
 		t.Fatalf("normalize code update test project: %v", err)
 	}
 	return project
+}
+
+func generatedPythonFormatProject(t *testing.T, prefix string, suffix string) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  json.RawMessage(`{"language":"python","genCodePrefix":` + strconv.Quote(prefix) + `,"genCodeSuffix":` + strconv.Quote(suffix) + `}`),
+			},
+		},
+		SectionVariantMap: map[string]string{
+			projectstate.GeneratedPythonCodeSectionID: projectstate.GeneratedPythonCodeVariantID,
+		},
+		Sections: map[string]projectstate.Section{
+			projectstate.GeneratedPythonCodeSectionID: {
+				ID:               projectstate.GeneratedPythonCodeSectionID,
+				Name:             projectstate.GeneratedPythonCodeSectionName,
+				VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
+				DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			projectstate.GeneratedPythonCodeVariantID: {
+				ID:     projectstate.GeneratedPythonCodeVariantID,
+				ImplID: projectstate.GeneratedPythonCodeImplID,
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			projectstate.GeneratedPythonCodeImplID: {
+				ID:   projectstate.GeneratedPythonCodeImplID,
+				Kind: projectstate.SectionKindGenerated,
+				Payload: projectstate.RawJSON(`{
+					"id":"gen-python-impl",
+					"type":"GenPythonCode"
+				}`),
+				Generated: &projectstate.GeneratedSectionImpl{
+					Kind: projectstate.GeneratedSectionKindPythonCode,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize generated python format project: %v", err)
+	}
+	return project
+}
+
+func addRepoVenvRuffToPath(t *testing.T) {
+	t.Helper()
+
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve code_updates_test.go path")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	venvBin := filepath.Join(repoRoot, ".venv", "bin")
+	if _, err := os.Stat(filepath.Join(venvBin, "ruff")); err != nil {
+		t.Fatalf("stat repo ruff binary: %v", err)
+	}
+	t.Setenv("PATH", venvBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
