@@ -21,9 +21,9 @@ Current status:
 - Active plan: reopened expanded-scope sections-wide container-down flattening and grid removal
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Accepted history to preserve: `Phase S1`, `Phase S2`, and `Phase S3` through checkpoint 9
-- Active phase: fresh expanded-scope boundary read from the section container cluster downward across all section types
+- Active phase: `Phase S1` checkpoint selection around the shared param-row grid contract below the section container cluster
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
-- Current state: the earlier section-shell closure is superseded by explicit scope expansion; the next serious step is to identify the deepest remaining container-down `grid` or wrapper seam, remove it on one narrow checkpoint, and re-measure before moving upward
+- Current state: the fresh reopened boundary read is complete; the deepest next seam is the shared param-row grid contract used by the callable/dict/global-variables stack, while the higher shared section-surface grid in `sectionChrome` remains a later upward follow-on after the lower row contract is exhausted
 - Deferred follow-up watch items after the current structural passes: callable column resizing and section resizing are still noticeably slow, but they should be treated as post-flattening trace targets rather than immediate checkpoint drivers
 - Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
@@ -61,6 +61,39 @@ Immediate next step:
 6. After each accepted checkpoint, re-read from the section container level downward again; move upward only when the lower section stack no longer contains a stronger removable `grid` or wrapper seam.
 7. Keep the previously accepted `Phase S3` route/window checkpoints as preserved history, but do not treat the earlier section-shell closure as active direction for this expanded scope.
 8. Keep callable column resize and section resize as explicit deferred follow-up checks after the active flattening passes, then compare untouched `main` vs this branch on those resize paths once the structural work is otherwise complete.
+9. Fresh reopened boundary read result:
+   - the shared section-surface grid contract still lives in `frontend/src/components/Section/Container/sectionChrome.ts` through `section-grid-cols`, `section-grid-rows`, and `section-grid-areas`, so it remains an open upward seam
+   - the deeper still-live contract is the shared param-row CSS grid system in `frontend/index.css`:
+     - `section-args-nested`
+     - `section-param-row`
+     - `section-key`
+     - `section-value`
+     - `section-key-value`
+   - that lower contract is still consumed by:
+     - `frontend/src/components/Params/ParamRowShell.tsx`
+     - `frontend/src/components/Params/GroupContainer.tsx`
+     - `frontend/src/components/Params/ParamContainer.tsx`
+     - the shared `KwargsControls` plus `ParamGroupContainer` stack
+   - the primary affected section types are:
+     - `Callable`
+     - `Dict`
+     - `GlobalVariables`
+   - `MetaControl` remains a parallel lower-shell grid consumer through `single-cell-container` / `single-cell-child`, so keep it in the verification set, but it is not the deepest shared checkpoint candidate
+10. Next narrow checkpoint candidate:
+   - target the shared param-row grid contract and the surrounding `section-args-nested` wrappers before reopening the higher `sectionChrome` section-surface grid
+   - start with:
+     - `frontend/index.css`
+     - `frontend/src/components/Params/paramRowClassNames.ts`
+     - `frontend/src/components/Params/ParamRowShell.tsx`
+     - `frontend/src/components/Params/GroupContainer.tsx`
+   - pull in `frontend/src/components/Params/ParamContainer.tsx`, `frontend/src/components/Params/ParamSwitch.tsx`, and row-input consumers only as needed to preserve parity
+   - lock the verification set to:
+     - `Callable`
+     - `Dict`
+     - `GlobalVariables`
+     - one floated/window rendering of a param section
+     - `MetaControl` as a contrast check for lower-shell regressions
+   - keep text-input underline/focus feedback, dummy-vs-real CodeMirror typography parity, and activation responsiveness as hard acceptance checks inside this checkpoint
 
 Historical accepted checkpoint notes retained below:
 

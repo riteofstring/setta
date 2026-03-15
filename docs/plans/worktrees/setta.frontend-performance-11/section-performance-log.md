@@ -2841,3 +2841,41 @@ Append-only log for the section performance refactor.
   - When those follow-up checks run, measure untouched `main` vs this branch on the exact resize interaction path before deciding whether either issue becomes a new checkpoint.
 - Next action:
   - Continue the active section-container-down boundary read and leave callable column resize plus section resize as deferred follow-up trace targets.
+
+### 2026-03-17 81
+
+- Item: Complete the fresh reopened section-container-down boundary read and choose the next narrow checkpoint candidate.
+- Status: `done`
+- Details:
+  - Reviewed the shared section-container cluster and its immediate downward consumers in:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+    - `frontend/src/components/Section/Container/SectionAreaSwitch.tsx`
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+  - Confirmed the higher shared section-surface grid contract is still live in `frontend/src/components/Section/Container/sectionChrome.ts` through:
+    - `section-grid-cols`
+    - `section-grid-rows`
+    - `section-grid-areas`
+  - Confirmed the deeper still-live contract sits below that cluster in the shared param-row CSS grid system defined in `frontend/index.css`:
+    - `section-args-nested`
+    - `section-param-row`
+    - `section-key`
+    - `section-value`
+    - `section-key-value`
+  - Confirmed that lower contract is still consumed by:
+    - `frontend/src/components/Params/ParamRowShell.tsx`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - the shared `KwargsControls` plus `ParamGroupContainer` stack
+  - Confirmed the primary affected section-type entry paths are:
+    - `Callable`
+    - `Dict`
+    - `GlobalVariables`
+  - Confirmed `MetaControl` is a parallel lower-shell grid consumer through `single-cell-container` / `single-cell-child`, so it belongs in the verification set but is not the deepest shared checkpoint candidate.
+  - Conclusion:
+    - the next narrow checkpoint should target the shared param-row grid contract and surrounding `section-args-nested` wrappers before reopening the higher `sectionChrome` section-surface grid
+    - keep text-input underline/focus feedback, dummy-vs-real CodeMirror typography parity, and activation responsiveness as hard acceptance checks inside that checkpoint
+- Next action:
+  - Start the next checkpoint at the shared param-row grid contract in `frontend/index.css`, `frontend/src/components/Params/paramRowClassNames.ts`, `frontend/src/components/Params/ParamRowShell.tsx`, and `frontend/src/components/Params/GroupContainer.tsx`, with Callable / Dict / GlobalVariables as the primary verification set and one floated param section plus MetaControl as contrast checks.
