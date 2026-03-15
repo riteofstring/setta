@@ -14,7 +14,7 @@ from setta.project_state.project_manager_types import (
     RunDetachedResponse,
     RunStatusResponse,
 )
-from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.dependency_key import SectionParamDependencyKey
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -239,7 +239,12 @@ class SettaRunner:
         self._session = requests.Session()
         self._auth_headers = dict(auth_headers) if auth_headers is not None else None
         self._bootstrap_token = bootstrap_token.strip() if bootstrap_token else None
-        self._workspace_root = self._resolve_workspace_root(workspace_root)
+        if workspace_root is None:
+            self._workspace_root = get_setta_paths().workspace_root
+        elif isinstance(workspace_root, Path):
+            self._workspace_root = workspace_root.expanduser().resolve()
+        else:
+            self._workspace_root = Path(workspace_root).expanduser().resolve()
         self._resolved_auth_headers: dict[str, str] | None = None
         self._project_configs: list[ProjectConfig] | None = None
         self._default_project_config_id: ID | None = None
@@ -338,18 +343,39 @@ class SettaRunner:
         return f"{cookie_name}={cookie_value}"
 
     def _load_cookie_from_sessions(self) -> str | None:
-        registry = self._build_session_registry()
-        if registry is None:
+        def normalize_host(host: str | None) -> str | None:
+            if host is None:
+                return None
+            cleaned = host.strip()
+            if cleaned.startswith("[") and cleaned.endswith("]"):
+                cleaned = cleaned[1:-1]
+            if cleaned == "0.0.0.0" or cleaned == "localhost":
+                return "127.0.0.1"
+            if cleaned == "::":
+                return "::1"
+            return cleaned
+
+        sessions_root = resolve_sessions_root(self._workspace_root)
+        if sessions_root is None:
             return None
+        registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace(self._workspace_root)
         if not sessions:
             return None
-        base_host, base_port = _parse_base_url(self._base_url)
+        parsed_base_url = urlparse(self._base_url)
+        base_host = normalize_host(parsed_base_url.hostname)
+        base_port = parsed_base_url.port
         if base_host is not None or base_port is not None:
             matching = [
                 session
                 for session in sessions
-                if _session_matches_base_url(session, base_host, base_port)
+                if (
+                    (base_port is None or session.port == base_port)
+                    and (
+                        base_host is None
+                        or normalize_host(session.host) == base_host
+                    )
+                )
             ]
             if matching:
                 sessions = matching
@@ -361,19 +387,6 @@ class SettaRunner:
         secret = secret_path.read_bytes()
         token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
         return f"{auth_cookie_name(selected.id)}={token}"
-
-    def _build_session_registry(self) -> SessionRegistry | None:
-        sessions_root = resolve_sessions_root(self._workspace_root)
-        if sessions_root is None:
-            return None
-        return SessionRegistry(sessions_root=sessions_root)
-
-    def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
-        if workspace_root is None:
-            return get_setta_paths().workspace_root
-        if isinstance(workspace_root, Path):
-            return workspace_root.expanduser().resolve()
-        return Path(workspace_root).expanduser().resolve()
 
     def _get_project_state(self) -> ProjectStateSingleConfig:
         project_config_id = self._resolve_project_config_id(None)
@@ -421,31 +434,3 @@ class SettaRunner:
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
         return self._project_configs
-
-
-def _parse_base_url(base_url: str) -> tuple[str | None, int | None]:
-    parsed = urlparse(base_url)
-    return _normalize_host(parsed.hostname), parsed.port
-
-
-def _normalize_host(host: str | None) -> str | None:
-    if host is None:
-        return None
-    cleaned = host.strip()
-    if cleaned.startswith("[") and cleaned.endswith("]"):
-        cleaned = cleaned[1:-1]
-    if cleaned == "0.0.0.0" or cleaned == "localhost":
-        return "127.0.0.1"
-    if cleaned == "::":
-        return "::1"
-    return cleaned
-
-
-def _session_matches_base_url(
-    session: SessionMetadata, base_host: str | None, base_port: int | None
-) -> bool:
-    if base_port is not None and session.port != base_port:
-        return False
-    if base_host is None:
-        return True
-    return _normalize_host(session.host) == base_host

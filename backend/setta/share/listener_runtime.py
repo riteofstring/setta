@@ -37,30 +37,23 @@ class ShareListenerRuntime:
         self._deployment_root = deployment_root
         self._manifest = manifest
         self._listener_config = None if manifest is None else manifest.listener
-        self._entrypoint_path = self._resolve_entrypoint_path()
+        if self._listener_config is None or not self._listener_config.enabled:
+            self._entrypoint_path = None
+        else:
+            entrypoint = (
+                self._deployment_root / self._listener_config.entrypoint
+            ).resolve()
+            if not entrypoint.exists():
+                raise FileNotFoundError(
+                    f"Share listener entrypoint not found: {entrypoint}"
+                )
+            self._entrypoint_path = entrypoint
         self._session_handles: dict[tuple[str, ID], _ListenerHandle] = {}
         self._runtime_root = (
             runtime_root.resolve() if runtime_root is not None else None
         )
         if self._runtime_root is not None:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self._runtime_root))
-
-    def _resolve_entrypoint_path(self) -> Path | None:
-        if self._listener_config is None:
-            return None
-        if not self._listener_config.enabled:
-            return None
-        entrypoint = (
-            self._deployment_root / self._listener_config.entrypoint
-        ).resolve()
-        if not entrypoint.exists():
-            raise FileNotFoundError(
-                f"Share listener entrypoint not found: {entrypoint}"
-            )
-        return entrypoint
-
-    def _is_enabled(self) -> bool:
-        return self._entrypoint_path is not None
 
     def _sanitize_module_suffix(self, value: str) -> str:
         sanitized = []
@@ -79,7 +72,25 @@ class ShareListenerRuntime:
         base = self._sanitize_module_suffix(self._deployment_root.name)
         return f"setta_share_listener_{base}_{safe_suffix}"
 
-    def _load_module(self, session_id: str | None, project_config_id: ID) -> ModuleType:
+    def _drop_handle(self, key: tuple[str, ID], handle: _ListenerHandle) -> None:
+        if key in self._session_handles:
+            del self._session_handles[key]
+        sys.modules.pop(handle.module.__name__, None)
+
+    async def ensure_listener_for_session(
+        self, session_id: str | None, project_config_id: ID
+    ) -> None:
+        if self._entrypoint_path is None:
+            return
+        if session_id is None:
+            raise KeyError("Share listener session id is required in share mode")
+        key = (session_id, project_config_id)
+        handle = self._session_handles.get(key)
+        if handle is not None:
+            if handle.task.done():
+                self._drop_handle(key, handle)
+            else:
+                return
         if self._entrypoint_path is None:
             raise KeyError("Share listener entrypoint is not configured")
         module_name = self._module_name_for_session(session_id, project_config_id)
@@ -91,54 +102,19 @@ class ShareListenerRuntime:
         module = util.module_from_spec(spec)
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
-        return module
-
-    def _drop_module(self, module: ModuleType) -> None:
-        sys.modules.pop(module.__name__, None)
-
-    def _drop_handle(self, key: tuple[str, ID], handle: _ListenerHandle) -> None:
-        if key in self._session_handles:
-            del self._session_handles[key]
-        self._drop_module(handle.module)
-
-    def _handle_listener_task_done(
-        self, key: tuple[str, ID], task: asyncio.Task[object]
-    ) -> None:
-        handle = self._session_handles.get(key)
-        if handle is None:
-            return
-        if handle.task is not task:
-            return
-        self._drop_handle(key, handle)
-
-    def _resolve_builder(self, module: ModuleType) -> _ListenerBuilder:
+        builder: _ListenerBuilder | None = None
         for name in _BUILDER_NAMES:
-            builder = getattr(module, name, None)
-            if builder is None:
+            candidate = getattr(module, name, None)
+            if candidate is None:
                 continue
-            if not callable(builder):
+            if not callable(candidate):
                 raise TypeError(f"Share listener {name} must be callable")
-            return builder
-        raise KeyError(
-            "Share listener entrypoint must define build_listener or build_callbacks"
-        )
-
-    async def ensure_listener_for_session(
-        self, session_id: str | None, project_config_id: ID
-    ) -> None:
-        if not self._is_enabled():
-            return
-        if session_id is None:
-            raise KeyError("Share listener session id is required in share mode")
-        key = (session_id, project_config_id)
-        handle = self._session_handles.get(key)
-        if handle is not None:
-            if handle.task.done():
-                self._drop_handle(key, handle)
-            else:
-                return
-        module = self._load_module(session_id, project_config_id)
-        builder = self._resolve_builder(module)
+            builder = candidate
+            break
+        if builder is None:
+            raise KeyError(
+                "Share listener entrypoint must define build_listener or build_callbacks"
+            )
         listener = SettaListener(
             project_config_id=project_config_id,
             share_session_id=session_id,
@@ -149,9 +125,16 @@ class ShareListenerRuntime:
             label="share-listener-per-viewer",
             extra_values={"share_session_id": session_id},
         )
-        task.add_done_callback(
-            lambda finished_task: self._handle_listener_task_done(key, finished_task)
-        )
+
+        def _drop_finished_handle(finished_task: asyncio.Task[object]) -> None:
+            handle = self._session_handles.get(key)
+            if handle is None:
+                return
+            if handle.task is not finished_task:
+                return
+            self._drop_handle(key, handle)
+
+        task.add_done_callback(_drop_finished_handle)
         self._session_handles[key] = _ListenerHandle(
             listener=listener,
             task=task,
@@ -167,7 +150,7 @@ class ShareListenerRuntime:
         handle = self._session_handles.pop(key)
         handle.listener.stop()
         handle.task.cancel()
-        self._drop_module(handle.module)
+        sys.modules.pop(handle.module.__name__, None)
 
     def drop_session_listener(self, session_id: str) -> None:
         session_keys = [

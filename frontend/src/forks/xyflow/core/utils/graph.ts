@@ -1,8 +1,11 @@
 import type { Selection as D3Selection } from "d3";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useNodeInternals, useProjectState } from "state/definitions";
-import { useSectionRefs } from "state/stores/layoutInteractionStores";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useProjectState,
+  useSectionRefs,
+} from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";

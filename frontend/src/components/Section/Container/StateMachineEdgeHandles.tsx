@@ -3,9 +3,11 @@ import { Handle } from "forks/xyflow/core/components/Handle";
 import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
-import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdgeCanonicalization";
-import { isValidStateMachineEdgeConnection } from "state/actions/stateMachineEdgeConnections";
-import { createStateMachineEdgeFromConnection } from "state/actions/stateMachineEdgeMutations";
+import {
+  createStateMachineEdgeFromConnection,
+  isValidStateMachineEdgeConnection,
+  STATE_MACHINE_EDGE_HANDLE_IDS,
+} from "state/actions/stateMachineEdges";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {

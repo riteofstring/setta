@@ -31,7 +31,6 @@ from setta.types.external_agents import ExternalAgentConfig, ExternalAgentConfig
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.id import ID
-from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
@@ -60,7 +59,6 @@ from setta.types.websocket import (
     WebsocketMsgBackendLogEvent,
     WebsocketMsgEngineConfigsUpdated,
     WebsocketMsgExternalAgentConfigsUpdated,
-    WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMApiKeysUpdated,
     WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
@@ -422,17 +420,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self._broadcast_frontend(
             WebsocketMsgUpdateSettings(content=settings),
-            share_session_id,
-        )
-
-    async def broadcast_listener_coverage_snapshot(
-        self,
-        snapshot: ListenerCoverageSnapshot,
-        *,
-        share_session_id: str | None = None,
-    ):
-        await self._broadcast_frontend(
-            WebsocketMsgListenerCoverageSnapshot(content=snapshot),
             share_session_id,
         )
 
