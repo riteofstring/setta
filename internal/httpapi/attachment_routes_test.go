@@ -402,6 +402,109 @@ func TestRegisterAttachmentRoutesReturnsDownloadURLAndServesAttachment(t *testin
 	}
 }
 
+func TestRegisterAttachmentRoutesRejectsInvalidAndOutsidePaths(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, root, nil)
+	handler := newAttachmentRouteTestHandler(t, config.ModeIDE, authService, service, nil)
+
+	outsideRoot := t.TempDir()
+	outsidePath := filepath.Join(outsideRoot, "outside.txt")
+	if err := os.WriteFile(outsidePath, []byte("outside"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+
+	testCases := []struct {
+		name       string
+		requestBody string
+	}{
+		{
+			name:        "relative traversal",
+			requestBody: `{"artifactId":"../secrets.txt"}`,
+		},
+		{
+			name:        "absolute outside artifacts root",
+			requestBody: `{"artifactId":"` + outsidePath + `"}`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURL, strings.NewReader(testCase.requestBody))
+			request.Header.Set("Content-Type", "application/json")
+			addHTTPTestAuthCookie(t, request, authService)
+
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "attachment_not_found" {
+				t.Fatalf("expected attachment_not_found, got %#v", payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAttachmentRoutesReturnsNotFoundWhenAttachmentDisappearsAfterURLMint(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	attachmentPath := filepath.Join(artifactsRoot, "notes.txt")
+	if err := os.WriteFile(attachmentPath, []byte("attachment body"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, root, nil)
+	handler := newAttachmentRouteTestHandler(t, config.ModeIDE, authService, service, nil)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURL, strings.NewReader(`{"artifactId":"artifacts/notes.txt","projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload GetAttachmentDownloadURLResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode attachment url payload: %v", err)
+	}
+
+	if err := os.Remove(attachmentPath); err != nil {
+		t.Fatalf("remove attachment after mint: %v", err)
+	}
+
+	fileRequest := httptest.NewRequest(http.MethodGet, strings.TrimPrefix(payload.URL, "http://example.com"), nil)
+	fileResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileResponse, fileRequest)
+
+	if fileResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", fileResponse.Code, fileResponse.Body.String())
+	}
+	var errorPayload errorResponse
+	if err := json.Unmarshal(fileResponse.Body.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("decode download error payload: %v", err)
+	}
+	if errorPayload.Error.Code != "attachment_not_found" {
+		t.Fatalf("expected attachment_not_found, got %#v", errorPayload)
+	}
+}
+
 func TestRegisterAttachmentRoutesSkipsMissingEntriesInPluralResponse(t *testing.T) {
 	t.Parallel()
 
