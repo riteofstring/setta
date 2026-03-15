@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`af10acbcbab31d44be6d363b0fa7932dfab9fd17`
+`c55610c15e8fab0a980c29cfebb9239068827dcd`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -60,6 +60,7 @@ It currently covers:
   `setCallable` behavior
 - password reveal helper and password-secret store behavior
 - text-block mutation and deployment-policy behavior
+- chart metadata mutation and deployment-policy behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -105,7 +106,10 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Twenty-seven concrete parity gaps are already visible:
+- The chart-metadata slice mostly closes with proofs, but it adds two more
+  caller-backed transport/runtime gaps plus one more dormant deployment-mode
+  boundary row.
+- Twenty-nine concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -161,6 +165,14 @@ Rows outside these slices are still pending.
     FastAPI/Pydantic `422` validation
   - current Go launcher setup strict-decode path returns `400 invalid_json`
     for the same unknown-field payloads
+  - source-baseline `setChartAreaDataPath` persists the literal `dataPath`
+    string provided by the caller
+  - current Go trims leading and trailing whitespace before persisting that
+    chart data path
+  - source-baseline invalid `setChartType` / `setChartSettings` request bodies
+    fail FastAPI/Pydantic validation with `422`
+  - current Go normalizes chart-type payloads after JSON decode and returns
+    `400` chart-mutation errors instead
   - source-baseline plugin install rejects removed legacy scope
     `environment` with FastAPI/Pydantic `422` validation
   - current Go plugin install maps that payload to `400 PLUGIN_SCOPE_INVALID`
@@ -846,13 +858,22 @@ Rows outside these slices are still pending.
 | `TB-03` | Invalid `textDisplayMode` / `format` request payloads should fail source FastAPI/Pydantic enum validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded enum strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetTextBlockDisplayModeRequest,SetTextBlockFormatRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_display_mode,route_set_text_block_format}`. | Current Go normalizes and validates after JSON decode in `internal/projectstate/text_block_sections.go::{normalizeTextBlockDisplayMode,normalizeTextBlockFormat}` and maps failures through `internal/httpapi/project_routes.go::writeTextBlockMutationError`; proof of current `400` transport: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: Go both trims the enum strings and reports `400`, while the source typed body model would reject the same payload at FastAPI validation time with `422`. |
 | `TB-04` | In deployment sessions, text-block mutations stay mounted and are gated by share policy instead of being IDE-only: `setTextBlockText` follows `allowParamChanges`, while `setTextBlockDisplayMode`, `setTextBlockFormat`, and `setTextBlockMasterFontSize` follow `allowLayoutChanges`. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_text_block_text,route_set_text_block_display_mode,route_set_text_block_master_font_size,route_set_text_block_format}`; source share-policy tests: `tests/routers/test_share_policy_routes::{test_param_routes_blocked,test_layout_routes_blocked}`. | Current Go mounts every text-block mutation route only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still has deployment-aware callers via `frontend/src/state/hooks/share.ts`, `frontend/src/components/Panes/UiEditor/MarkdownEditor/MarkdownEditor.tsx`, `frontend/src/components/Section/Header/ToggleTextBlockDisplayModeButton.tsx`, `frontend/src/components/Section/Header/MenuButton/ShowMarkdown.tsx`, and `frontend/src/components/Panes/UiEditor/SectionConfig/TextBlockSettings.tsx`. | `Missing` | This is an active parity gap: source deployments allow these text-block mutations under policy gates, but current Go drops the transport entirely outside IDE even though current deployment UI still wires those controls through `useShareCapabilities`. |
 
+## Chart Metadata Mutations And Deployment Policy
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `CH-01` | `setChartAreaDataPath` persists the literal `dataPath` string supplied by the caller through latest-state hydration instead of trimming leading or trailing whitespace. | Source helper: `backend/setta/types/helpers_lvl2.py::set_chart_area_data_path`; source route: `backend/setta/routers/project_manager.py::route_set_chart_area_data_path`; current caller: `frontend/src/components/Panes/UiEditor/SectionConfig/ChartAreaSettings.tsx` via `frontend/src/state/hooks/editableText.ts::useEditableOnSubmit`. | Current Go trims before persistence in `internal/projectstate/chart_sections.go::SetChartAreaDataPath`; proof: `internal/projectstate/chart_sections_test.go::TestRuntimeChartMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsPersistLatestState`. | `Missing` | This is a caller-backed behavior gap: source writes the submitted path verbatim, while current Go persists `strings.TrimSpace(dataPath)`. |
+| `CH-02` | `setChartType` preserves shared chart-setting fields while changing the chart discriminator, and `setChartSettings` only applies the fields named in `changedSettings`. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_chart_type,set_chart_settings}`. | Impl: `internal/projectstate/chart_sections.go::{SetChartType,SetChartSettings,carryForwardChartSettings}`; proof: `internal/projectstate/chart_sections_test.go::TestRuntimeChartMutationsUpdateEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsPersistLatestState`. | `Proved` | Current Go proof covers carry-forward of shared fields like `xAxisColumn` / `xAxisLog`, clearing incompatible line-only settings on scatter conversion, and selective updates from `changedSettings`. |
+| `CH-03` | Invalid `chartType` / `chartSettings.type` request payloads should fail source FastAPI/Pydantic validation with `422` rather than the current Go `400` mutation error path, and source transport does not trim padded chart-type strings before validation. | Source request models: `backend/setta/project_state/project_manager_types.py::{SetChartTypeRequest,SetChartSettingsRequest}`; source routes: `backend/setta/routers/project_manager.py::{route_set_chart_type,route_set_chart_settings}`. | Current Go normalizes post-decode in `internal/projectstate/chart_sections.go::{normalizeChartType,parseChartSettingsUpdate}` and maps failures through `internal/httpapi/project_routes.go::writeChartMutationError`; proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesChartMutationsRejectInvalidInputs`. | `Missing` | This is a transport-contract gap: current Go trims and returns `400 chart_type_invalid`, while the source typed request body would reject the same payload at framework validation time with `422`. |
+| `CH-04` | Source share/app sessions keep chart metadata mutation routes mounted and gate them with `allowParamChanges` instead of restricting them to IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_chart_area_data_path,route_set_chart_type,route_set_chart_settings}`; source share-policy tests: `tests/routers/test_share_policy_routes.py::test_param_routes_blocked`. | Current Go mounts all three routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the IDE `ChartAreaSettings` surface via `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` and `frontend/src/components/Panes/UiEditor/SectionConfig/{SectionConfig,ChartAreaSettings}.tsx`. | `Dormant / unproven caller` | The source/current transport delta is real (`403` versus route absence), but this slice does not yet prove any active deployment/share caller still exposes chart metadata editing in the Go-era product. |
+
 ## Current Findings
 
-1. The matrix now contains twenty-seven concrete source-parity gaps:
+1. The matrix now contains twenty-nine concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
-   `AU-11`, `TB-03`, and `TB-04`.
+   `AU-11`, `TB-03`, `TB-04`, `CH-01`, and `CH-03`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -940,25 +961,28 @@ Rows outside these slices are still pending.
 28. The text-block mutation slice mostly closes with proofs, but it adds two
     real transport gaps around enum validation/status (`TB-03`) and missing
     deployment policy-gated mounting (`TB-04`).
-29. Git route behavior is now largely proved, including literal pathspec
+29. The chart-metadata slice mostly closes with proofs, but it adds two real
+    transport/runtime gaps (`CH-01`, `CH-03`) plus one dormant
+    deployment-mode route-boundary row (`CH-04`).
+30. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-30. The remaining issues in the naming slice are still mostly proof gaps rather
+31. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-31. The next high-value steps are:
+32. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
-      `AU-10`, `AU-11`, `TB-03`, and `TB-04` should be restored or
-      documented as intentional divergences
+      `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, and `CH-03` should be
+      restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
-      `LH-04`, `WL-05`, `AS-02`, and `SM-04` can be treated as fully dead
-      legacy or share-only transports, or still need explicit retained-boundary
-      decisions
+      `LH-04`, `WL-05`, `AS-02`, `SM-04`, and `CH-04` can be treated as fully
+      dead legacy or share-only transports, or still need explicit
+      retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
