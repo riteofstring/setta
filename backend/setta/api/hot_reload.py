@@ -290,7 +290,15 @@ class _WatcherSpec:
 
     def accepts(self, candidate: Path) -> bool:
         if self.is_file:
-            return self._match_file(candidate)
+            if candidate != self.root:
+                return False
+            if not self.ignores:
+                return True
+            # Treat ignored file patterns as matching the file name.
+            relative = candidate.name
+            if any(self._fnmatch(relative, pattern) for pattern in self.ignores):
+                return False
+            return True
         try:
             relative = candidate.relative_to(self.root)
         except ValueError:
@@ -327,17 +335,6 @@ class _WatcherSpec:
             includes=includes,
             ignores=ignores,
         )
-
-    def _match_file(self, candidate: Path) -> bool:
-        if candidate != self.root:
-            return False
-        if not self.ignores:
-            return True
-        # Treat ignored file patterns as matching the file name.
-        relative = candidate.name
-        if any(self._fnmatch(relative, pattern) for pattern in self.ignores):
-            return False
-        return True
 
     @staticmethod
     def _fnmatch(target: str, pattern: str) -> bool:
