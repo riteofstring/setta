@@ -1,7 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 
 import { getNodes } from "state/actions/nodeInternals";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { useReactFlow } from ".";
 import type { FitViewOptions, ReactFlowState } from "../types";
 import {

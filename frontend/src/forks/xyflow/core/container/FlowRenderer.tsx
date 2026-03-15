@@ -4,7 +4,8 @@ import {
 } from "forks/xyflow/core/components/NodesSelection";
 import _ from "lodash";
 import { memo, type ReactNode } from "react";
-import { useAIFollow, useSettings } from "state/definitions";
+import { useAIFollow } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { useReactFlow } from "../store";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
