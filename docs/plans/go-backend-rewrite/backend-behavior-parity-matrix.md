@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`e894e84a0001577b844ae4a370ffa90d8da37c48`
+`78696bae3e346830bdddcaf6c275da163f8c6aa9`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -46,6 +46,9 @@ It currently covers:
 - attachment download URL/token/payload behavior
 - file browser root/list/read/write/transfer behavior
 - git status/diff/log/commit route behavior
+- UI-setting search/read/write/reveal behavior
+- app-definition read/validate/write/update behavior
+- app-spec patch-stream behavior and legacy stream-app-spec transport
 
 Rows outside these slices are still pending.
 
@@ -76,7 +79,7 @@ Rows outside these slices are still pending.
   proved.
 - Several format-rule clusters are implemented in Go but still under-proved
   relative to `main`.
-- Eight concrete parity gaps are already visible:
+- Nine concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -100,6 +103,10 @@ Rows outside these slices are still pending.
   - source-baseline file-browser folder listings show dev-facing dotfiles by
     default
   - current Go hides all dotfiles unless callers opt in with `includeHidden`
+  - source-baseline share-scope UI-setting reveal routing is constrained to the
+    active `shareSessionId`
+  - current Go reveal routing ignores share-session scope and treats frontend
+    selection globally
 - The prompt-template slice also shows one documented transport divergence
   (`GET /getPromptTemplates` narrowed to IDE mode) and one broader realtime
   defer decision (`PromptTemplatesUpdated` / watcher refresh), while the
@@ -124,6 +131,18 @@ Rows outside these slices are still pending.
   - four more proof-gap clusters around binary upload edge handling, artifact
     upload-policy branches, attachment token/filename edge cases, and
     file-browser read/write concurrency/error paths
+- The UI-settings and app-definition/app-spec slice mostly closes with proofs,
+  but it adds one more concrete behavior gap:
+  - source-baseline share-scope UI-setting reveal routing is constrained to the
+    active `shareSessionId` and share-origin frontend selection
+  - current Go reveal routing ignores share-session scope entirely even though
+    the current docs still describe that constraint
+- The same slice also shows one superseded transport boundary:
+  - source `/api/streamAppSpec` request validation and image-mode guards are
+    still well specified on `main`
+  - current Go documents that the active app-config flow no longer depends on
+    that route and instead uses `/api/getLLMResponse`, `/ws/frontend`
+    tool-preview events, and `stream_app_definition`
 
 ## Project Names
 
@@ -376,10 +395,33 @@ Rows outside these slices are still pending.
 | `GT-04` | Commit-details and commit-file-diff routes cover renames and historical file paths, while invalid revisions map to `400` and missing commit-file diffs map to `404`. | `tests/routers/test_git_routes.py::test_log_returns_client_error_for_unknown_revision`; `tests/routers/test_git_routes.py::test_log_commit_details_and_file_diff`; `tests/routers/test_git_routes.py::test_commit_file_diff_allows_historical_file_when_path_is_now_directory`; `tests/routers/test_git_routes.py::test_commit_file_diff_returns_not_found_for_file_not_in_commit_diff`. | Impl: `internal/gitread/service.go::{Log,CommitDetails,CommitFileDiff}`; proof: `internal/gitread/service_test.go::TestServiceLogRejectsInvalidRevision`; `internal/gitread/service_test.go::TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff`. | `Proved` | |
 | `GT-05` | Git routes are IDE-only and deployment-mode requests fail with the standard `mode_forbidden` envelope; launcher mode is also blocked. | `docs/reference/git-pane.md` availability section; `docs/reference/share-policy-flags.md` git-route note. | Impl: `internal/httpapi/git_routes.go::RegisterGitRoutes`; proof: `internal/httpapi/httpapi_test.go::TestHandlerBlocksIDEModeRouteInShareMode`; `internal/httpapi/git_routes_test.go::TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksLauncherMode`. | `Proved` | |
 
+## UI Settings
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `US-01` | MCP UI-setting search/read/write exposes canonical setting ids, ranked search, typed result payloads, and stable core setting summaries. | `tests/mcp/test_ui_setting_tools.py::test_ui_setting_tools_core_flow`; `tests/mcp/test_ui_setting_tools.py::test_search_ui_settings_rejects_blank_query`; source tool surface: `backend/setta/mcp/tools/ui_settings.py`. | Impl: `internal/mcpx/ui_setting_tools.go`; core registry: `internal/uisettings/core.go`; proof: `internal/mcpx/ui_setting_tools_test.go::{TestServerSearchUISettingsReturnsRankedCoreResults,TestServerGetUISettingValueReturnsStructuredPayload,TestServerSetUISettingValueWritesAndValidates}`; transport proof: `internal/httpapi/mcp_tool_ui_settings_test.go::TestMCPToolCallRouteSupportsUISettingSearchReadWrite`; app proof: `internal/app/mcp_ui_settings_test.go::TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE`. | `Proved` | |
+| `US-02` | UI-setting writes validate against each setting schema, reject unsupported watch-code folder shapes/properties with typed errors, and map stale compare-and-set preconditions to `mutation_failed` without clobbering state. | `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_returns_structured_validation_error`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_watch_code_folders_invalid_item_shape_is_typed_and_side_effect_free`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_watch_code_folders_rejects_unknown_properties`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_rejects_writer_old_value_drift`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_core_watch_code_enabled_rejects_stale_precondition_without_clobber`. | Impl: `internal/uisettings/registry.go::WriteValue`; `internal/uisettings/core.go`; proof: `internal/uisettings/registry_test.go::{TestRegistryWriteValueRejectsInvalidWatchCodeFolderShape,TestRegistryWriteValueRejectsUnsupportedWatchCodeFolderProperties,TestRegistryWriteValueMapsStaleCompareAndSetToMutationFailed}`; `internal/mcpx/ui_setting_tools_test.go::TestServerSetUISettingValueRejectsWriterOldValueDrift`. | `Proved` | |
+| `US-03` | Same-value watch-code and app-definition metadata compare-and-set writes are side-effect free, and fresh-project app-metadata no-ops do not materialize app-definition state or app-spec files. | `tests/project_state/test_ui_setting_reveal_leases.py::test_compare_and_set_watch_code_noops_are_side_effect_free`; `tests/project_state/test_ui_setting_reveal_leases.py::test_compare_and_set_app_definition_metadata_noops_do_not_materialize_state`; `tests/mcp/test_ui_setting_tools.py::test_set_ui_setting_value_app_metadata_noops_do_not_materialize_app_definition`. | Impl/proof: `internal/projectstate/ui_settings_compare_and_set_test.go::TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree`; `internal/projectstate/app_definition_compare_and_set_test.go::TestRuntimeCompareAndSetAppDefinitionMetadataNoopsAreSideEffectFreeOnFreshProject`. | `Proved` | This row is about no-op side effects, not the broader reveal flow. |
+| `US-04` | Right-pane UI-setting reveals require section context, use frontend-owned reveal acknowledgements, and fail closed on ambiguity, websocket mismatch, project mismatch, or frontend disconnect. | `tests/mcp/test_ui_setting_tools.py::test_reveal_right_pane_setting_requires_active_section_or_override`; `tests/mcp/test_ui_setting_tools.py::test_reveal_right_pane_uses_frontend_owned_activation_flow`; `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_origin`; `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatches`; `tests/mcp/test_ui_setting_tools.py::test_reveal_ui_setting_fails_closed_when_frontend_ack_websocket_mismatches`; `tests/ui_settings/test_reveal_result_hub.py`. | Impl: `internal/uisettings/reveal.go`; `internal/realtime/ui_setting_reveal_results.go`; proof: `internal/uisettings/reveal_test.go::{TestRevealServiceDispatchesToAffinitySelectedFrontendAndReturnsSuccess,TestRevealServiceRejectsMissingActiveSectionForRightPaneReveal,TestRevealServiceRejectsAmbiguousFrontendSelectionWithoutAffinity}`; `internal/realtime/ui_setting_reveal_results_test.go::{TestUISettingRevealResultHubFailsClosedOnContractMismatch,TestUISettingRevealResultHubCancelsRequestsForDisconnectedWebsocket}`; app proof: `internal/app/mcp_ui_settings_test.go::TestAppIDEMCPToolCallRouteSupportsRevealUISetting`. | `Proved` | |
+| `US-05` | Share-scope UI-setting reveal routing is constrained to the active `shareSessionId`, and missing/ambiguous share-session frontend selection fails within that session boundary instead of considering unrelated frontends. | `tests/mcp/test_ui_setting_tools.py::{test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup,test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_affinity_token,test_reveal_ui_setting_returns_structured_error_when_share_session_id_is_missing,test_reveal_ui_setting_share_scope_succeeds_without_affinity_when_target_is_deterministic,test_reveal_ui_setting_share_scope_reports_no_frontend_without_affinity}`; source coordinator: `backend/setta/ui_settings/reveal_coordinator.py`. | Current Go docs still claim share/app reveal routing is constrained by the active share session: `docs/reference/mcp-system-overview.md` frontend-affinity section. Current Go implementation lacks any share-session input on the reveal path: `internal/mcpx/agentic_context.go::ToolInvocationContext`; `internal/uisettings/reveal.go::{RevealInput,resolveTargetFrontendID}` passes `""` into `realtime.Registry.ResolveFrontendConnectionID` and enumerates all frontend connections without a session filter. | `Missing` | This is a concrete parity gap, not just a proof gap. The source contract was session-aware and the current Go docs still describe that behavior, but the current Go reveal pipeline cannot carry or enforce a share-session scope. |
+| `US-06` | Plugin UI settings remain discoverable/readable/writable, while typed structured errors distinguish disabled-plugin `plugin_unavailable` from unknown-setting `setting_not_found`. | `tests/mcp/test_ui_setting_tools.py::{test_plugin_ui_setting_flow_from_config_schema_metadata,test_plugin_ui_setting_returns_plugin_unavailable_when_disabled,test_plugin_unknown_setting_id_is_not_masked_by_other_invalid_contributions}`. | Impl: `internal/uisettings/plugins.go`; `internal/uisettings/registry.go::MissingSettingError`; `internal/mcpx/ui_setting_tools.go`; proof: `internal/mcpx/ui_setting_tools_test.go::{TestServerUISettingToolsSupportSchemaBackedPluginSettings,TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting,TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin}`. | `Proved` | |
+
+## App Definition And App-Spec
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `AD-01` | `get_app_definition` returns `appDefinition=None` / `appSpec=None` on a fresh project, and `set_app_definition` persists the spec plus normalized metadata such as `appSpecPath`, `appSpecVersion`, and `catalogId`. | `tests/project_state/test_app_definition.py::{test_get_app_definition_empty,test_set_app_definition_persists_spec}`; source routes: `backend/setta/routers/project_manager.py::{route_get_app_definition,route_set_app_definition}`. | Impl: `internal/projectstate/app_definition_reads.go`; `internal/projectstate/app_definition_writes.go`; proof: `internal/projectstate/app_definition_reads_test.go::{TestRuntimeGetAppDefinitionEmpty,TestRuntimeGetAppDefinitionReturnsStoredSpec}`; `internal/projectstate/app_definition_writes_test.go::TestRuntimeSetAppDefinitionPersistsSpecAndMetadata`; route proof: `internal/httpapi/app_definition_routes_test.go::{TestRegisterAppDefinitionRoutesGetsStoredDefinition,TestRegisterAppDefinitionRoutesPersistsDefinition}`. | `Proved` | |
+| `AD-02` | Persisted app-definition writes reject unknown components, unknown action types, and invalid theme payloads, while validation returns capabilities, warnings, and accumulated errors without silently dropping issues. | `tests/project_state/test_app_definition.py::{test_set_app_definition_rejects_unknown_component,test_set_app_definition_rejects_unknown_action_type,test_set_app_definition_rejects_invalid_theme,test_validate_app_definition_returns_capabilities,test_validate_app_definition_reports_unknown_component,test_validate_app_definition_reports_theme_errors,test_validate_app_definition_warns_on_run_missing_section_id,test_validate_app_definition_warns_on_ignored_theme_vars,test_validate_app_definition_warns_on_external_assets,test_validate_app_definition_accumulates_multiple_errors}`. | Impl: `internal/appspec/validation.go`; `internal/appspec/diagnostics.go`; `internal/projectstate/app_definition_reads.go`; proof: `internal/appspec/validation_test.go::{TestValidatePersistedWriteRejectsUnknownComponent,TestValidatePersistedWriteRejectsUnknownActionType,TestValidatePersistedWriteRejectsInvalidThemeMotion}`; `internal/appspec/diagnostics_test.go::{TestBuildCapabilitiesReturnsCatalogVersionAndFeatureFlags,TestCollectThemeValidationIssuesWarnsOnIgnoredVarsAndRejectsMotionObject,TestValidateDefinitionPayloadWarnsOnRunMissingSectionIDAndExternalAssets}`; `internal/projectstate/app_definition_reads_test.go::{TestRuntimeValidateAppDefinitionReturnsCapabilities,TestRuntimeValidateAppDefinitionReportsWarningsAndMultipleErrors}`; route proof: `internal/httpapi/app_definition_routes_test.go::TestRegisterAppDefinitionRoutesValidatesDefinition`. | `Proved` | |
+| `AD-03` | `update_app_definition` applies a JSON Merge Patch to the stored spec, preserves untouched fields, and fails loudly when no app-spec path or stored file exists. | `tests/project_state/test_app_definition.py::{test_update_app_definition_merges_patch,test_update_app_definition_rejects_unknown_component}`; docs: `docs/reference/app-spec-patching.md` persistent-updates section; source route: `backend/setta/routers/project_manager.py::route_update_app_definition`. | Impl: `internal/projectstate/app_definition_writes.go::UpdateAppDefinition`; proof: `internal/projectstate/app_definition_writes_test.go::{TestRuntimeUpdateAppDefinitionMergesPatchAndRewritesStoredSpec,TestRuntimeUpdateAppDefinitionRequiresConfiguredSpecPath,TestRuntimeUpdateAppDefinitionRequiresStoredSpec}`; MCP proof: `internal/httpapi/mcp_tool_routes_test.go::TestMCPToolCallRouteSupportsUpdateAppDefinition`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE`. | `Proved` | The current Go HTTP app-definition route family does not expose a dedicated `/updateAppDefinition` endpoint, but the behavior itself survives on the retained MCP tool surface. |
+| `AD-04` | App-definition metadata compare-and-set settings preserve fresh-project no-op semantics, materialize a minimal default spec only when a real metadata write occurs, normalize spec paths, and preserve existing theme payload while updating theme mode. | `tests/project_state/test_ui_setting_reveal_leases.py::test_compare_and_set_app_definition_metadata_noops_do_not_materialize_state`; `tests/mcp/test_ui_setting_tools.py::{test_app_spec_path_read_and_write_are_schema_consistent_on_fresh_project,test_set_ui_setting_value_app_metadata_noops_do_not_materialize_app_definition}`. | Impl: `internal/projectstate/app_definition_compare_and_set.go`; proof: `internal/projectstate/app_definition_compare_and_set_test.go::{TestRuntimeCompareAndSetAppDefinitionMetadataNoopsAreSideEffectFreeOnFreshProject,TestRuntimeCompareAndSetAppDefinitionSpecVersionMaterializesMinimalSpec,TestRuntimeCompareAndSetAppDefinitionCatalogIDRejectsUnknownCatalog,TestRuntimeCompareAndSetAppDefinitionSpecPathNormalizesAndPersistsMinimalSpec,TestRuntimeCompareAndSetAppDefinitionThemeModePreservesThemePayload,TestRuntimeCompareAndSetAppDefinitionMetadataRejectsStaleExpectedOldValue}`; registry proof: `internal/uisettings/registry_test.go::TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner`. | `Proved` | |
+| `AS-01` | `stream_app_definition` patch parsing ignores blank/comment lines, accepts the JSONL JSON-Pointer patch contract, uses either the provided base spec or stored spec as the patch base, falls back to an empty spec when the configured file is missing, and rejects invalid nested-element patches with typed invalid-arguments behavior. | `tests/routers/test_app_spec_streaming_parsing.py::{test_parses_valid_root_patch,test_parses_valid_element_patch,test_parses_valid_nested_element_patch,test_parses_valid_remove_patch,test_ignores_blank_and_comments,test_rejects_invalid_payloads}`; `docs/reference/app-spec-patching.md` streaming-preview section. | Impl: `internal/appspec/patch_stream.go`; `internal/projectstate/app_definition_stream.go`; proof: `internal/appspec/patch_stream_test.go::{TestParsePatchLinesIgnoresCommentsAndBlanks,TestParsePatchLineReturnsNilForInvalidPayloads,TestApplyPatchOpsRequiresExistingNestedElement}`; `internal/projectstate/app_definition_stream_test.go::{TestRuntimeStreamAppDefinitionUsesProvidedBaseSpecAndPersistsResult,TestRuntimeStreamAppDefinitionUsesStoredSpecWhenBaseSpecOmitted,TestRuntimeStreamAppDefinitionFallsBackToEmptySpecWhenConfiguredFileIsMissing,TestRuntimeStreamAppDefinitionRejectsInvalidNestedElementPatch}`; MCP proof: `internal/mcpx/app_definition_stream_test.go::{TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID,TestServerStreamAppDefinitionRejectsInvalidPatchPayload}`; transport proof: `internal/httpapi/mcp_tool_stream_app_definition_test.go::TestMCPToolCallRouteSupportsStreamAppDefinition`; app proof: `internal/app/mcp_stream_app_definition_test.go::TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE`. | `Proved` | |
+| `AS-02` | The legacy `/api/streamAppSpec` HTTP route on `main` enforced prompt/current-spec/reference-image request validation and image-mode capability guards before any model call. | `tests/routers/test_app_spec_streaming_route.py::{test_returns_message_when_no_llm_config_available,test_returns_message_for_empty_prompt,test_rejects_non_json_serializable_current_spec,test_rejects_large_current_spec,test_rejects_large_catalog_summary,test_rejects_large_sections_summary,test_rejects_large_reference_image_url,test_rejects_large_reference_image_notes,test_rejects_image_mode_when_model_lacks_vision_support,test_ignores_reference_image_payload_outside_image_mode}`; source route: `backend/setta/routers/app_spec_streaming.py`; docs: `docs/reference/app-spec-patching.md` `/api/streamAppSpec` section. | Current rewrite docs explicitly classify that route as superseded for active callers: `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md` app-config pane row; `docs/reference/urls-and-routes.md` `/api/streamAppSpec` note. Current Go app generation uses `/api/getLLMResponse`, `/ws/frontend` tool-preview events, and `stream_app_definition` persistence instead of a direct replacement HTTP route. | `Dormant / unproven caller` | The older route-specific request guards are still well specified on `main`, but this slice does not prove any active Go-era caller still needs the legacy HTTP generator transport now that the current flow is chat/MCP driven. |
+
 ## Current Findings
 
-1. The matrix now contains eight concrete source-parity gaps:
-   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, and `FB-02`.
+1. The matrix now contains nine concrete source-parity gaps:
+   `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `FB-02`, and
+   `US-05`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -410,18 +452,24 @@ Rows outside these slices are still pending.
       (`BP-03`)
     - four more under-proved proof clusters (`BP-02`, `AR-04`, `AT-05`,
       `FB-04`)
-11. Git route behavior is now largely proved, including literal pathspec
+11. The UI-settings and app-definition/app-spec slice mostly closes with
+    proofs, but it adds one real behavior gap around share-session-scoped
+    reveal routing (`US-05`) plus one more dormant transport row around the
+    superseded `/api/streamAppSpec` HTTP generator (`AS-02`).
+12. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-12. The remaining issues in the naming slice are still mostly proof gaps rather
+13. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-13. The next high-value steps are:
-    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, and
-      `FB-02` should be restored or documented as intentional divergences
+14. The next high-value steps are:
+    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`, and
+      `US-05` should be restored or documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
+    - decide whether `AS-02` can be treated as a fully dead legacy transport
+      or still needs an explicit retained-boundary decision
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
