@@ -2304,3 +2304,29 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiChatSubmission.ts`, now the largest
     authored/shared state hotspot at 423 lines, by separating request payload
     assembly from the remaining pending-surface orchestration helpers.
+
+## 2026-03-15 03:09:46 PDT
+
+- Slice completed: split chat request payload assembly away from pending-surface
+  submission orchestration
+- Key files touched:
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/aiChatSubmissionPayload.ts`
+  - `frontend/src/state/actions/aiChatSubmissionPayload.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiChatSubmissionPayload.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiWebsocketAffinitySubmit.test.ts src/state/actions/aiChatPromotion.test.ts src/state/actions/aiPendingChatState.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatSubmission.ts src/state/actions/aiChatSubmissionPayload.ts src/state/actions/aiChatSubmissionPayload.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `c01641751`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/windowSpaceSnapshots.ts`, now the largest
+    authored/shared state hotspot at 422 lines, by separating floating
+    snapshot capture from restored-windowing conversion helpers.
