@@ -26,8 +26,10 @@ import {
   setActiveSectionIds,
 } from "./activeSections";
 import { loadProjectState } from "./project/loadProject";
-import { getCurrEffectiveSectionImpl } from "./sectionInfos";
-import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
+import {
+  getCurrEffectiveSectionImpl,
+  processProjectStateUpdateFromBackend,
+} from "./sectionInfos";
 
 function createWindowStub() {
   const location = { search: "" };
