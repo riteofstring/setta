@@ -180,11 +180,10 @@ function CoreCodeMirror({
     () =>
       getOnCreateEditor({
         initialEvent,
-        divId,
         value,
         defaultVal,
       }),
-    [defaultVal, divId, initialEvent, value],
+    [defaultVal, initialEvent, value],
   );
 
   if (shouldAutocomplete) {

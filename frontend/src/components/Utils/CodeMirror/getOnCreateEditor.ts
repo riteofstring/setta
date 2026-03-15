@@ -1,20 +1,29 @@
 import { Completion, CompletionSource } from "@codemirror/autocomplete";
 import { useReactFlow } from "forks/xyflow/core/store";
 
-function fixPlaceholderCursor(divId, value, defaultVal) {
+function fixPlaceholderCursor(view, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
   // This is a hacky solution to that problem.
-  if (!value && defaultVal) {
-    const divs = document.querySelectorAll(`#${divId} .cm-cursor`);
-    divs.forEach((div) => {
-      div.style.height = `${14 * useReactFlow.getState().transform[2]}px`;
-    });
+  if (value || !defaultVal) {
+    return;
   }
+  const zoom = useReactFlow.getState().transform[2];
+  if (zoom === 1) {
+    return;
+  }
+  const divs = view.dom?.querySelectorAll?.(".cm-cursor");
+  if (!divs || divs.length === 0) {
+    return;
+  }
+  divs.forEach((div) => {
+    if (div instanceof HTMLElement) {
+      div.style.height = `${14 * zoom}px`;
+    }
+  });
 }
 
 export function getOnCreateEditor({
   initialEvent,
-  divId,
   value,
   defaultVal,
 }) {
@@ -27,10 +36,12 @@ export function getOnCreateEditor({
     if (initialEvent !== "tab") {
       const { clientX, clientY } = initialEvent;
       const pos = view.posAtCoords({ x: clientX, y: clientY });
-      view.dispatch({ selection: { anchor: pos, head: pos } });
+      if (pos !== null) {
+        view.dispatch({ selection: { anchor: pos, head: pos } });
+      }
     }
 
-    fixPlaceholderCursor(divId, value, defaultVal);
+    fixPlaceholderCursor(view, value, defaultVal);
   };
 }
 
