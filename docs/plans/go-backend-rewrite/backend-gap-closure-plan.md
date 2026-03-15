@@ -109,3 +109,7 @@ categorize them.
   platform-default Setta-home row as the only obvious small remaining config
   proof slice before it is probably better to switch focus back to the larger
   deployment, websocket, watch-code, external-agent, and packaged-CLI gaps
+- The binary-download unknown-id row is now proved too; keep favoring these
+  small direct route/service proofs when the implementation already matches
+  `main`, but avoid spending too long trying to force the remaining
+  platform-default Setta-home row if a larger caller-visible slice is cheaper
