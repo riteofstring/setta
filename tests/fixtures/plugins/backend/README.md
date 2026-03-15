@@ -2,8 +2,8 @@
 
 Backend success fixture plugin.
 
-- Purpose: MCP + project-state + listener-event registration coverage.
-- Capabilities: `registerMcpTools`, `readProjectState`, `emitListenerEvents`.
+- Purpose: router + MCP registration coverage.
+- Capabilities: `registerRouter`, `registerMcpTools`.
 
 Manual smoke:
 

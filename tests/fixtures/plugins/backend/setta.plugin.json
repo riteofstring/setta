@@ -9,8 +9,10 @@
     "entrypoint": "backend/entrypoint.py"
   },
   "capabilities": [
+    "registerRouter",
     "registerMcpTools",
     "readProjectState",
-    "emitListenerEvents"
+    "emitListenerEvents",
+    "registerListenerEndpoint"
   ]
 }

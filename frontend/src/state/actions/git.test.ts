@@ -1,4 +1,4 @@
-import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
+import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowingTrackedGitPane";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
 import {
@@ -19,18 +19,22 @@ import {
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildGitDiffAvailabilityByPath,
-  clearGitGraphSelectedCommit,
   ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
-  openGitDiffOverlay,
   openGitGraphOverlay,
   refreshGitGraphOverlay,
-  refreshGitStatus,
+} from "./gitGraphLog";
+import {
+  clearGitGraphSelectedCommit,
   selectGitCommit,
   selectGitCommitFile,
+} from "./gitGraphSelection";
+import {
+  buildGitDiffAvailabilityByPath,
+  openGitDiffOverlay,
+  refreshGitStatus,
   setGitDiffMode,
-} from "./git";
+} from "./gitStatusAndDiff";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_git_commit_details: vi.fn(),
@@ -40,7 +44,7 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_get_git_status: vi.fn(),
 }));
 
-vi.mock("state/actions/projectChatWindowing", () => ({
+vi.mock("state/actions/projectChatWindowingTrackedGitPane", () => ({
   ensureTrackedGitPaneGraphWindow: vi.fn(),
 }));
 
