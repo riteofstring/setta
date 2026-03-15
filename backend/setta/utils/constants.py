@@ -149,7 +149,6 @@ class C:
     SESSION_SECRET_BYTES = 32
 
     # WebSocket message types
-    WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
 
