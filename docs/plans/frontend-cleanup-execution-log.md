@@ -3412,3 +3412,43 @@ module map and placement guide while this cleanup progresses.
     the largest authored/shared hotspot at 299 lines, by separating ephemeral
     instance-key or tracked-window ownership from embedded git-pane visibility
     pruning and reconciliation.
+
+## 2026-03-15 08:24:06 PDT
+
+- Slice completed: split project chat windowing ephemeral key, tracked-window,
+  and embedded git-pane visibility ownership
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowingEphemeralKeys.ts`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPaneState.ts`
+  - `frontend/src/state/actions/projectChatWindowingEmbeddedPaneVisibility.ts`
+  - `frontend/src/state/actions/projectChatWindowingEphemeral.ts`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
+  - `frontend/src/state/actions/projectChatWindowLifecycleCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowLayoutCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowingWriteState.ts`
+  - `frontend/src/state/actions/projectChatWindowingWrites.ts`
+  - `frontend/src/state/actions/windowSpaceSnapshotCapture.ts`
+  - `frontend/src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts`
+  - `frontend/src/components/Git/GitGraphWindowContent.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/state/actions/projectChatWindowingTrackedGitPaneState.test.ts`
+  - `frontend/src/state/actions/projectChatWindowingEmbeddedPaneVisibility.test.ts`
+  - `frontend/src/components/Git/GitGraphWindowContent.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `docs/plans/frontend-cleanup-execution-log.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowingTrackedGitPaneState.test.ts src/state/actions/projectChatWindowingEmbeddedPaneVisibility.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/windowSpaceWorkspaceRestoreVisibility.test.ts src/state/actions/windowSpaces.test.ts src/components/Git/GitGraphWindowContent.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowingEphemeral.ts src/state/actions/projectChatWindowingEphemeralKeys.ts src/state/actions/projectChatWindowingTrackedGitPaneState.ts src/state/actions/projectChatWindowingEmbeddedPaneVisibility.ts src/state/actions/projectChatWindowingTrackedGitPaneState.test.ts src/state/actions/projectChatWindowingEmbeddedPaneVisibility.test.ts src/state/actions/projectChatWindowingTrackedGitPane.ts src/state/actions/projectChatWindowLifecycleCommands.ts src/state/actions/projectChatWindowLayoutCommands.ts src/state/actions/projectChatWindowingWriteState.ts src/state/actions/projectChatWindowingWrites.ts src/state/actions/windowSpaceSnapshotCapture.ts src/state/actions/windowSpaceWorkspaceRestoreVisibility.ts src/components/Git/GitGraphWindowContent.tsx src/components/Git/GitGraphWindowContent.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `127dbbc7217997316b8ee5dceda515dec72be025`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatSubmissionPayload.ts`, now the
+    largest authored/shared hotspot at 297 lines, by separating shared
+    user-message/request-payload assembly from app-generation and edited-chat
+    submission coordination.
