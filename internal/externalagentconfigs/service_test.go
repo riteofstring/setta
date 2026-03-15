@@ -68,6 +68,56 @@ func TestServiceCreateAppliesCodexDefaultsAndWritesCanonicalConfig(t *testing.T)
 	}
 }
 
+func TestServiceCreateAppliesCodexOpenAIAuthDefaultsWhenOpenAIAPIKeyIsWhitelisted(t *testing.T) {
+	t.Parallel()
+
+	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
+
+	created, err := service.Create(Config{
+		ID:                 "codex-openai-auth-config",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+		EnvVarWhitelist:    []string{"OPENAI_API_KEY"},
+	})
+	if err != nil {
+		t.Fatalf("create config: %v", err)
+	}
+
+	configPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID, codexConfigFileName)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read codex config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := toml.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode codex config: %v", err)
+	}
+	if got := payload["forced_login_method"]; got != "api" {
+		t.Fatalf("expected forced login auth default, got %#v", payload)
+	}
+	if got := payload["preferred_auth_method"]; got != "apikey" {
+		t.Fatalf("expected preferred auth default, got %#v", payload)
+	}
+	if got := payload["cli_auth_credentials_store"]; got != "file" {
+		t.Fatalf("expected auth credential store default, got %#v", payload)
+	}
+	features, ok := payload["features"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected auth feature payload, got %#v", payload["features"])
+	}
+	if got := features["remote_models"]; got != false {
+		t.Fatalf("expected remote models to be disabled, got %#v", features)
+	}
+	if got := features["remote_compaction"]; got != false {
+		t.Fatalf("expected remote compaction to be disabled, got %#v", features)
+	}
+	if got := payload["model_reasoning_summary"]; got != "none" {
+		t.Fatalf("expected reasoning summary default to remain covered, got %#v", payload)
+	}
+}
+
 func TestServiceCreateWritesOpenCodeCanonicalConfig(t *testing.T) {
 	t.Parallel()
 
