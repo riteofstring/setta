@@ -1273,6 +1273,230 @@ func TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin(t *testing
 	}
 }
 
+func TestServerUISettingToolsKeepPendingRestartPluginSettingsAvailable(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName: "full",
+			Version:     "0.1.0",
+		},
+	})
+	installResult, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	if installResult.State != plugins.PluginRuntimeStatePendingRestart || !installResult.RestartRequired {
+		t.Fatalf("expected pending-restart install result, got %#v", installResult)
+	}
+
+	runtimeResponse, err := service.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load plugin runtime after pending-restart install: %v", err)
+	}
+	mustFindPluginListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
+	mustFindPluginStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-full", plugins.PluginRuntimeStatePendingRestart)
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "full fixture enabled",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call pending-restart plugin search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected pending-restart plugin search success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	foundEnabled := false
+	for _, rawResult := range searchResults {
+		resultMap := mustStructuredMap(t, rawResult)
+		if resultMap["settingId"] == "plugin::setta-fixture-full::enabled" {
+			foundEnabled = true
+			break
+		}
+	}
+	if !foundEnabled {
+		t.Fatalf("expected pending-restart plugin setting in search results, got %#v", searchResults)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::label",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call pending-restart plugin get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected pending-restart plugin get success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != "unset" {
+		t.Fatalf("expected default pending-restart plugin label value, got %#v", getPayload["value"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call pending-restart plugin set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected pending-restart plugin set success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["oldValue"] != false || setPayload["newValue"] != true || setPayload["changed"] != true {
+		t.Fatalf("expected pending-restart plugin write false -> true, got %#v", setPayload)
+	}
+}
+
+func TestServerUISettingToolsKeepShadowedPluginSettingsAvailableThroughEffectiveEntry(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	globalRoot := filepath.Join(roots.settaHome, "plugins", "setta-fixture-full")
+	sourceRoot := filepath.Join(pluginFixtureRepoRoot(t), "tests", "fixtures", "plugins", "full")
+	if err := copyPluginFixtureDir(sourceRoot, globalRoot); err != nil {
+		t.Fatalf("copy shadowed full fixture plugin: %v", err)
+	}
+	if err := rewritePluginManifest(globalRoot, func(payload map[string]any) {
+		payload["version"] = "0.0.9"
+		delete(payload, "backend")
+	}); err != nil {
+		t.Fatalf("rewrite shadowed full fixture plugin manifest: %v", err)
+	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan plugin runtime after adding shadowed plugin: %v", err)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status after adding shadowed plugin: %v", err)
+	}
+	mustFindPluginStatusEntry(t, status.Plugins, "setta-fixture-full", plugins.PluginRuntimeStateActive)
+	shadowed := mustFindPluginStatusEntry(t, status.Plugins, "setta-fixture-full", plugins.PluginRuntimeStateShadowed)
+	workspacePluginRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-full")
+	if shadowed.ShadowedBySourcePath == nil || *shadowed.ShadowedBySourcePath != workspacePluginRoot {
+		t.Fatalf("expected shadowed plugin path %q, got %#v", workspacePluginRoot, shadowed.ShadowedBySourcePath)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "full fixture label",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call shadowed plugin search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected shadowed plugin search success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	foundLabel := false
+	for _, rawResult := range searchResults {
+		resultMap := mustStructuredMap(t, rawResult)
+		if resultMap["settingId"] == "plugin::setta-fixture-full::label" {
+			foundLabel = true
+			break
+		}
+	}
+	if !foundLabel {
+		t.Fatalf("expected shadowed plugin setting in search results, got %#v", searchResults)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::label",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call shadowed plugin get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected shadowed plugin get success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != "unset" {
+		t.Fatalf("expected default shadowed plugin label value, got %#v", getPayload["value"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call shadowed plugin set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected shadowed plugin set success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["oldValue"] != false || setPayload["newValue"] != true || setPayload["changed"] != true {
+		t.Fatalf("expected shadowed plugin write false -> true, got %#v", setPayload)
+	}
+}
+
 func TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingDistinct(t *testing.T) {
 	t.Parallel()
 
@@ -1739,6 +1963,23 @@ func mustFindPluginListEntry(t *testing.T, entries []plugins.ListEntry, pluginID
 	}
 	t.Fatalf("expected plugin list entry for %s, got %#v", pluginID, entries)
 	return plugins.ListEntry{}
+}
+
+func mustFindPluginStatusEntry(
+	t *testing.T,
+	entries []plugins.StatusEntry,
+	pluginID string,
+	state plugins.PluginRuntimeState,
+) plugins.StatusEntry {
+	t.Helper()
+
+	for _, entry := range entries {
+		if entry.PluginID == pluginID && entry.State == state {
+			return entry
+		}
+	}
+	t.Fatalf("expected plugin status entry for %s in state %s, got %#v", pluginID, state, entries)
+	return plugins.StatusEntry{}
 }
 
 func testStringPointer(value string) *string {
