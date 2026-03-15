@@ -192,7 +192,10 @@ test("app mode param widgets use theme tokens (dropzone + color picker)", async 
       sectionImpls: { [sectionImplId]: sectionImpl },
       sectionVariants: { [sectionVariantId]: sectionVariant },
       codeObjs: { [colorParamId]: colorCore, [dropzoneParamId]: dropzoneCore },
-      codeObjImpls: { [colorParamImplId]: colorImpl, [dropzoneParamImplId]: dropzoneImpl },
+      codeObjImpls: {
+        [colorParamImplId]: colorImpl,
+        [dropzoneParamImplId]: dropzoneImpl,
+      },
       codeObjVariants: {
         [colorParamVariantId]: colorVariant,
         [dropzoneParamVariantId]: dropzoneVariant,
@@ -269,6 +272,29 @@ test("app mode param widgets use theme tokens (dropzone + color picker)", async 
     .locator("button")
     .filter({ has: page.locator("i.gg-chevron-down") })
     .first();
+  const colorWrapper = colorToggle.locator(
+    "xpath=ancestor::*[contains(@class,'section-value')][1]",
+  );
+
+  const colorClassRead = await colorWrapper.evaluate((wrapper) => {
+    const trigger = wrapper.querySelector(".colorpicker");
+    return {
+      wrapperClassName: wrapper.className,
+      triggerClassName:
+        trigger instanceof HTMLElement ? trigger.className : null,
+      wrapperMarkup: wrapper.innerHTML,
+    };
+  });
+
+  expect(colorClassRead.wrapperMarkup).not.toContain("single-cell-container");
+  expect(colorClassRead.wrapperMarkup).not.toContain("single-cell-child");
+  expect(colorClassRead.wrapperClassName).not.toContain(
+    "single-cell-container",
+  );
+  expect(colorClassRead.triggerClassName).not.toContain(
+    "single-cell-container",
+  );
+
   await colorToggle.click();
 
   const menu = page.getByRole("menu").first();
