@@ -18,6 +18,37 @@ var expectedSettingsBootstrapRootCodeObjDisplayNames = map[string]string{
 	"genPythonCodeSectionDefault": "Generated Python Code Section Default",
 }
 
+type settingsParamImplContractSample struct {
+	sectionName     string
+	paramPath       []string
+	expectedType    string
+	expectedChoices []string
+}
+
+var expectedSettingsParamImplContractSamples = []settingsParamImplContractSample{
+	{
+		sectionName:  "backend",
+		paramPath:    []string{"autosave"},
+		expectedType: "SwitchParam",
+	},
+	{
+		sectionName:     "backend",
+		paramPath:       []string{"renameRefactorMode"},
+		expectedType:    "DropdownParam",
+		expectedChoices: []string{`"ALWAYS_ASK"`, `"ALWAYS_RENAME"`, `"NEVER_RENAME"`},
+	},
+	{
+		sectionName:  "gui",
+		paramPath:    []string{"gridColor"},
+		expectedType: "ColorPickerParam",
+	},
+	{
+		sectionName:  "sectionSizingPolicy",
+		paramPath:    []string{"metaControlByType"},
+		expectedType: "NestedParam",
+	},
+}
+
 func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	t.Parallel()
 
@@ -62,6 +93,7 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	}
 	assertSettingsProjectViewModeLayoutAndViewportContract(t, project)
 	assertSettingsProjectBootstrapMetadataContract(t, project, settingsPath)
+	assertSettingsProjectParamImplMappingContract(t, project)
 
 	expectedCountsByView := map[string]int{
 		"All Settings":                        46,
@@ -439,7 +471,7 @@ func TestRefreshProjectRuntimeFromSettingsFailsClosedOnMissingRequiredSection(t 
 	}
 }
 
-func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjWithinExistingSection(t *testing.T) {
+func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjsWithinExistingSections(t *testing.T) {
 	t.Parallel()
 
 	settingsDocument, err := NewDocument()
@@ -472,17 +504,19 @@ func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjWithinExistingSe
 
 	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
 		project := document.Projects[SettingsProjectID]
-		if err := removeSettingsProjectCodeObject(
-			&project,
-			"backend",
-			[]string{"backend", "renameRefactorMode"},
-		); err != nil {
-			return projectstate.Document{}, err
+		for _, sample := range expectedSettingsParamImplContractSamples {
+			if err := removeSettingsProjectCodeObject(
+				&project,
+				sample.sectionName,
+				append([]string{sample.sectionName}, sample.paramPath...),
+			); err != nil {
+				return projectstate.Document{}, err
+			}
 		}
 		document.Projects[SettingsProjectID] = project
 		return document, nil
 	}); err != nil {
-		t.Fatalf("remove required settings code object: %v", err)
+		t.Fatalf("remove required settings code objects: %v", err)
 	}
 
 	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
@@ -493,10 +527,7 @@ func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjWithinExistingSe
 	if err != nil {
 		t.Fatalf("project by id after ensure: %v", err)
 	}
-	codeObjID := settingsCodeObjID("backend", []string{"backend", "renameRefactorMode"})
-	if _, ok := project.CodeObjs[codeObjID]; !ok {
-		t.Fatalf("expected EnsureProjectRuntimeBootstrapped to restore %q", codeObjID)
-	}
+	assertSettingsProjectParamImplMappingContract(t, project)
 }
 
 func assertSettingsProjectViewModeLayoutAndViewportContract(
@@ -665,6 +696,47 @@ func assertSettingsProjectBootstrapMetadataContract(
 	}
 }
 
+func assertSettingsProjectParamImplMappingContract(
+	t *testing.T,
+	project projectstate.Project,
+) {
+	t.Helper()
+
+	for _, sample := range expectedSettingsParamImplContractSamples {
+		fullPath := append([]string{sample.sectionName}, sample.paramPath...)
+		implID := settingsCodeObjImplID(sample.sectionName, fullPath)
+		impl, ok := project.CodeObjImpls[implID]
+		if !ok {
+			t.Fatalf("expected settings code object impl %q", implID)
+		}
+		if impl.Type != sample.expectedType {
+			t.Fatalf("expected settings code object impl %q type %q, got %q", implID, sample.expectedType, impl.Type)
+		}
+		payload := settingsProjectCodeObjImplPayload(t, impl)
+		if got := payload["type"]; got != sample.expectedType {
+			t.Fatalf("expected settings code object payload %q type %q, got %#v", implID, sample.expectedType, got)
+		}
+		if len(sample.expectedChoices) == 0 {
+			continue
+		}
+		rawChoices, ok := payload["choices"].([]any)
+		if !ok {
+			t.Fatalf("expected settings code object payload %q choices, got %#v", implID, payload["choices"])
+		}
+		choices := make([]string, 0, len(rawChoices))
+		for _, rawChoice := range rawChoices {
+			choice, ok := rawChoice.(string)
+			if !ok {
+				t.Fatalf("expected settings code object payload %q choice string, got %#v", implID, rawChoice)
+			}
+			choices = append(choices, choice)
+		}
+		if !reflect.DeepEqual(choices, sample.expectedChoices) {
+			t.Fatalf("expected settings code object payload %q choices %#v, got %#v", implID, sample.expectedChoices, choices)
+		}
+	}
+}
+
 func settingsProjectViewModeByName(
 	t *testing.T,
 	project projectstate.Project,
@@ -815,11 +887,23 @@ func settingsProjectCodeObjValue(t *testing.T, project projectstate.Project, imp
 	if !ok {
 		t.Fatalf("expected code object impl %q", implID)
 	}
-	var payload struct {
-		Value string `json:"value"`
+	payload := settingsProjectCodeObjImplPayload(t, impl)
+	value, ok := payload["value"].(string)
+	if !ok {
+		t.Fatalf("expected code object impl %q string value, got %#v", implID, payload["value"])
 	}
+	return value
+}
+
+func settingsProjectCodeObjImplPayload(
+	t *testing.T,
+	impl projectstate.CodeObjectImpl,
+) map[string]any {
+	t.Helper()
+
+	var payload map[string]any
 	if err := json.Unmarshal(impl.Payload, &payload); err != nil {
-		t.Fatalf("decode code object impl payload %q: %v", implID, err)
+		t.Fatalf("decode code object impl payload %q: %v", impl.ID, err)
 	}
-	return payload.Value
+	return payload
 }

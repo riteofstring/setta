@@ -1709,48 +1709,128 @@ class Route:
             "projectConfig": {
                 "sectionVariantMap": {
                     "backend-section": "backend-section-variant",
+                    "gui-section": "gui-section-variant",
+                    "section-sizing-policy-section": "section-sizing-policy-section-variant",
                 }
             },
             "sections": {
                 "backend-section": {
                     "name": "backend",
                     "defaultVariant": "backend-section-variant",
-                }
+                },
+                "gui-section": {
+                    "name": "gui",
+                    "defaultVariant": "gui-section-variant",
+                },
+                "section-sizing-policy-section": {
+                    "name": "sectionSizingPolicy",
+                    "defaultVariant": "section-sizing-policy-section-variant",
+                },
             },
             "sectionVariants": {
                 "backend-section-variant": {
                     "impl": "backend-section-impl",
-                }
+                },
+                "gui-section-variant": {
+                    "impl": "gui-section-impl",
+                },
+                "section-sizing-policy-section-variant": {
+                    "impl": "section-sizing-policy-section-impl",
+                },
             },
             "sectionImpls": {
                 "backend-section-impl": {
                     "topLevelParamId": "backend-root",
-                }
+                },
+                "gui-section-impl": {
+                    "topLevelParamId": "gui-root",
+                },
+                "section-sizing-policy-section-impl": {
+                    "topLevelParamId": "section-sizing-policy-root",
+                },
             },
             "codeObjs": {
                 "backend-root": {
                     "name": "backend",
                     "defaultVariant": "backend-root-variant",
                 },
+                "backend-autosave": {
+                    "name": "autosave",
+                    "defaultVariant": "backend-autosave-variant",
+                },
                 "rename-setting": {
                     "name": "renameRefactorMode",
                     "defaultVariant": "rename-setting-variant",
+                },
+                "gui-root": {
+                    "name": "gui",
+                    "defaultVariant": "gui-root-variant",
+                },
+                "gui-grid-color": {
+                    "name": "gridColor",
+                    "defaultVariant": "gui-grid-color-variant",
+                },
+                "section-sizing-policy-root": {
+                    "name": "sectionSizingPolicy",
+                    "defaultVariant": "section-sizing-policy-root-variant",
+                },
+                "section-sizing-policy-meta-control-by-type": {
+                    "name": "metaControlByType",
+                    "defaultVariant": "section-sizing-policy-meta-control-by-type-variant",
                 },
             },
             "codeObjVariants": {
                 "backend-root-variant": {
                     "impl": "backend-root-impl",
                 },
+                "backend-autosave-variant": {
+                    "impl": "backend-autosave-impl",
+                },
                 "rename-setting-variant": {
                     "impl": "rename-setting-impl",
+                },
+                "gui-root-variant": {
+                    "impl": "gui-root-impl",
+                },
+                "gui-grid-color-variant": {
+                    "impl": "gui-grid-color-impl",
+                },
+                "section-sizing-policy-root-variant": {
+                    "impl": "section-sizing-policy-root-impl",
+                },
+                "section-sizing-policy-meta-control-by-type-variant": {
+                    "impl": "section-sizing-policy-meta-control-by-type-impl",
                 },
             },
             "codeObjImpls": {
                 "backend-root-impl": {
-                    "children": ["rename-setting"],
+                    "type": "NestedParam",
+                    "children": ["backend-autosave", "rename-setting"],
+                },
+                "backend-autosave-impl": {
+                    "type": "SwitchParam",
+                    "value": True,
                 },
                 "rename-setting-impl": {
+                    "type": "DropdownParam",
+                    "choices": ['"ALWAYS_ASK"', '"ALWAYS_RENAME"', '"NEVER_RENAME"'],
                     "value": "ALWAYS_ASK",
+                },
+                "gui-root-impl": {
+                    "type": "NestedParam",
+                    "children": ["gui-grid-color"],
+                },
+                "gui-grid-color-impl": {
+                    "type": "ColorPickerParam",
+                    "value": "#afbacf",
+                },
+                "section-sizing-policy-root-impl": {
+                    "type": "NestedParam",
+                    "children": ["section-sizing-policy-meta-control-by-type"],
+                },
+                "section-sizing-policy-meta-control-by-type-impl": {
+                    "type": "NestedParam",
+                    "children": [],
                 },
             },
         }
@@ -1769,11 +1849,46 @@ class Route:
             {
                 "initialLoadHttpStatus": 200,
                 "restartStartupStatus": "ready",
-                "restartStartupRenameRefactorModePresent": True,
+                "restartStartupParamImplTypes": {
+                    "backend.autosave": "SwitchParam",
+                    "backend.renameRefactorMode": "DropdownParam",
+                    "gui.gridColor": "ColorPickerParam",
+                    "sectionSizingPolicy.metaControlByType": "NestedParam",
+                },
+                "restartStartupDropdownChoices": {
+                    "backend.renameRefactorMode": [
+                        '"ALWAYS_ASK"',
+                        '"ALWAYS_RENAME"',
+                        '"NEVER_RENAME"',
+                    ]
+                },
                 "restartLoadHttpStatus": 200,
-                "restartLoadRenameRefactorModePresent": True,
-                "restartLoadRenameRefactorMode": "ALWAYS_ASK",
-                "postLoadPersistedRenameRefactorModePresent": True,
+                "restartLoadParamImplTypes": {
+                    "backend.autosave": "SwitchParam",
+                    "backend.renameRefactorMode": "DropdownParam",
+                    "gui.gridColor": "ColorPickerParam",
+                    "sectionSizingPolicy.metaControlByType": "NestedParam",
+                },
+                "restartLoadDropdownChoices": {
+                    "backend.renameRefactorMode": [
+                        '"ALWAYS_ASK"',
+                        '"ALWAYS_RENAME"',
+                        '"NEVER_RENAME"',
+                    ]
+                },
+                "postLoadPersistedParamImplTypes": {
+                    "backend.autosave": "SwitchParam",
+                    "backend.renameRefactorMode": "DropdownParam",
+                    "gui.gridColor": "ColorPickerParam",
+                    "sectionSizingPolicy.metaControlByType": "NestedParam",
+                },
+                "postLoadPersistedDropdownChoices": {
+                    "backend.renameRefactorMode": [
+                        '"ALWAYS_ASK"',
+                        '"ALWAYS_RENAME"',
+                        '"NEVER_RENAME"',
+                    ]
+                },
             },
         )
 

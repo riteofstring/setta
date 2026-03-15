@@ -77,6 +77,19 @@ SETTINGS_ALL_LEAD_SECTION_NAMES = [
     "backend",
     "chatWindowing",
 ]
+SETTINGS_PARAM_IMPL_SAMPLE_SPECS = [
+    ("backend.autosave", "backend", ["autosave"]),
+    ("backend.renameRefactorMode", "backend", ["renameRefactorMode"]),
+    ("gui.gridColor", "gui", ["gridColor"]),
+    (
+        "sectionSizingPolicy.metaControlByType",
+        "sectionSizingPolicy",
+        ["metaControlByType"],
+    ),
+]
+SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS = [
+    ("backend.renameRefactorMode", "backend", ["renameRefactorMode"]),
+]
 
 
 class ParityHarnessError(RuntimeError):
@@ -1419,11 +1432,13 @@ def execute_settings_project_existing_section_code_obj_backfill(
     initial_load_payload = normalize_response_json_allow_status(initial_load_response)
 
     persisted_payload = read_persisted_settings_project_document(backend)
-    corrupted_payload = remove_settings_param_from_store_payload(
-        persisted_payload,
-        section_name="backend",
-        param_path=["renameRefactorMode"],
-    )
+    corrupted_payload = persisted_payload
+    for _sample_name, section_name, param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS:
+        corrupted_payload = remove_settings_param_from_store_payload(
+            corrupted_payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
     write_json(backend.setta_files_root / SETTINGS_PROJECT_FILE_NAME, corrupted_payload)
 
     restart_startup_error = restart_backend_allow_startup_failure(backend)
@@ -2397,38 +2412,32 @@ def summarize_settings_project_existing_section_code_obj_backfill(
         return summary
 
     summary["restartStartupStatus"] = "ready"
-    startup_present, _startup_value = try_extract_settings_project_param_value_from_store_payload(
-        restart_startup_persisted_payload,
-        section_name="backend",
-        param_path=["renameRefactorMode"],
+    summary["restartStartupParamImplTypes"] = settings_store_param_impl_type_samples(
+        restart_startup_persisted_payload
     )
-    summary["restartStartupRenameRefactorModePresent"] = startup_present
+    summary["restartStartupDropdownChoices"] = settings_store_dropdown_choice_samples(
+        restart_startup_persisted_payload
+    )
 
     summary["restartLoadHttpStatus"] = restart_load_http_status
     if restart_load_http_status == 200 and isinstance(restart_load_payload, dict):
-        restart_load_present, restart_load_value = (
-            try_extract_settings_project_param_value(
-                restart_load_payload,
-                section_name="backend",
-                param_path=["renameRefactorMode"],
-            )
+        summary["restartLoadParamImplTypes"] = settings_payload_param_impl_type_samples(
+            restart_load_payload
         )
-        summary["restartLoadRenameRefactorModePresent"] = restart_load_present
-        if restart_load_present:
-            summary["restartLoadRenameRefactorMode"] = restart_load_value
+        summary["restartLoadDropdownChoices"] = settings_payload_dropdown_choice_samples(
+            restart_load_payload
+        )
     else:
         summary["restartLoadErrorSummary"] = normalize_error_summary(
             restart_load_payload
         )
 
-    post_load_present, _post_load_value = (
-        try_extract_settings_project_param_value_from_store_payload(
-            post_load_persisted_payload,
-            section_name="backend",
-            param_path=["renameRefactorMode"],
-        )
+    summary["postLoadPersistedParamImplTypes"] = settings_store_param_impl_type_samples(
+        post_load_persisted_payload
     )
-    summary["postLoadPersistedRenameRefactorModePresent"] = post_load_present
+    summary["postLoadPersistedDropdownChoices"] = settings_store_dropdown_choice_samples(
+        post_load_persisted_payload
+    )
     return summary
 
 
@@ -2672,11 +2681,11 @@ def summarize_settings_project_active_view_mode_projection(
     return summary
 
 
-def extract_settings_project_param_value(
+def find_settings_project_param_code_obj_id(
     payload: dict[str, Any],
     section_name: str,
     param_path: list[str],
-) -> Any:
+) -> str:
     sections = object_field(payload, "sections")
     target_section_id = ""
     for section_id, raw_section in sections.items():
@@ -2708,7 +2717,120 @@ def extract_settings_project_param_value(
         raise ParityHarnessError(
             f"Unable to find settings param path {param_path!r} in section {section_name!r}"
         )
+    return current_code_obj_id
+
+
+def extract_settings_project_param_value(
+    payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> Any:
+    current_code_obj_id = find_settings_project_param_code_obj_id(
+        payload,
+        section_name=section_name,
+        param_path=param_path,
+    )
     return code_object_value(payload, current_code_obj_id)
+
+
+def extract_settings_project_param_impl_type(
+    payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> str:
+    current_code_obj_id = find_settings_project_param_code_obj_id(
+        payload,
+        section_name=section_name,
+        param_path=param_path,
+    )
+    return code_object_impl_type(payload, current_code_obj_id)
+
+
+def try_extract_settings_project_param_impl_type(
+    payload: Any,
+    section_name: str,
+    param_path: list[str],
+) -> tuple[bool, str | None]:
+    if not isinstance(payload, dict):
+        return False, None
+    try:
+        return True, extract_settings_project_param_impl_type(
+            payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+    except ParityHarnessError:
+        return False, None
+
+
+def try_extract_settings_project_param_impl_type_from_store_payload(
+    payload: Any,
+    section_name: str,
+    param_path: list[str],
+) -> tuple[bool, str | None]:
+    if not isinstance(payload, dict):
+        return False, None
+    try:
+        settings_project = settings_project_payload_from_store_payload(payload)
+    except ParityHarnessError:
+        return False, None
+    return try_extract_settings_project_param_impl_type(
+        settings_project,
+        section_name=section_name,
+        param_path=param_path,
+    )
+
+
+def extract_settings_project_param_dropdown_choices(
+    payload: dict[str, Any],
+    section_name: str,
+    param_path: list[str],
+) -> list[str] | None:
+    current_code_obj_id = find_settings_project_param_code_obj_id(
+        payload,
+        section_name=section_name,
+        param_path=param_path,
+    )
+    impl_payload = code_object_impl_payload(payload, current_code_obj_id)
+    raw_choices = impl_payload.get("choices")
+    if raw_choices is None:
+        return None
+    return expect_string_list(raw_choices, "codeObjImpls.<dropdown>.choices")
+
+
+def try_extract_settings_project_param_dropdown_choices(
+    payload: Any,
+    section_name: str,
+    param_path: list[str],
+) -> tuple[bool, list[str] | None]:
+    if not isinstance(payload, dict):
+        return False, None
+    try:
+        return True, extract_settings_project_param_dropdown_choices(
+            payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+    except ParityHarnessError:
+        return False, None
+
+
+def try_extract_settings_project_param_dropdown_choices_from_store_payload(
+    payload: Any,
+    section_name: str,
+    param_path: list[str],
+) -> tuple[bool, list[str] | None]:
+    if not isinstance(payload, dict):
+        return False, None
+    try:
+        settings_project = settings_project_payload_from_store_payload(payload)
+    except ParityHarnessError:
+        return False, None
+    return try_extract_settings_project_param_dropdown_choices(
+        settings_project,
+        section_name=section_name,
+        param_path=param_path,
+    )
 
 
 def try_extract_settings_project_param_value(
@@ -2865,20 +2987,51 @@ def code_object_value(payload: dict[str, Any], code_obj_id: str) -> Any:
     if "value" in variant_modifier:
         return normalize_scalar_payload_value(variant_modifier.get("value"))
 
+    code_obj_impl_payload = code_object_impl_payload(payload, code_obj_id)
+    return normalize_scalar_payload_value(code_obj_impl_payload.get("value"))
+
+
+def code_object_impl_type(payload: dict[str, Any], code_obj_id: str) -> str:
+    code_obj_impl = code_object_impl(payload, code_obj_id)
+    impl_type = normalized_string(code_obj_impl.get("type"))
+    if impl_type:
+        return impl_type
+    code_obj_impl_payload = impl_payload_object(
+        code_obj_impl,
+        f"codeObjImpls.{code_obj_id}",
+    )
+    payload_type = normalized_string(code_obj_impl_payload.get("type"))
+    if payload_type:
+        return payload_type
+    raise ParityHarnessError(f"Code object {code_obj_id!r} impl is missing a type field")
+
+
+def code_object_impl_payload(payload: dict[str, Any], code_obj_id: str) -> dict[str, Any]:
+    code_obj_impl = code_object_impl(payload, code_obj_id)
+    return impl_payload_object(code_obj_impl, f"codeObjImpls.{code_obj_id}")
+
+
+def code_object_impl(payload: dict[str, Any], code_obj_id: str) -> dict[str, Any]:
+    code_objs = object_field(payload, "codeObjs")
+    code_obj = expect_object(code_objs.get(code_obj_id), f"codeObjs.{code_obj_id}")
+    code_obj_variant_id = expect_non_empty_string(
+        default_variant_id_for_model(code_obj),
+        f"codeObjs.{code_obj_id}.defaultVariant",
+    )
+    code_obj_variants = object_field(payload, "codeObjVariants")
+    code_obj_variant = expect_object(
+        code_obj_variants.get(code_obj_variant_id),
+        f"codeObjVariants.{code_obj_variant_id}",
+    )
     code_obj_impls = object_field(payload, "codeObjImpls")
     code_obj_impl_id = expect_non_empty_string(
         impl_id_for_variant(code_obj_variant),
         f"codeObjVariants.{code_obj_variant_id}.impl",
     )
-    code_obj_impl = expect_object(
+    return expect_object(
         code_obj_impls.get(code_obj_impl_id),
         f"codeObjImpls.{code_obj_impl_id}",
     )
-    code_obj_impl_payload = impl_payload_object(
-        code_obj_impl,
-        f"codeObjImpls.{code_obj_impl_id}",
-    )
-    return normalize_scalar_payload_value(code_obj_impl_payload.get("value"))
 
 
 def normalize_scalar_payload_value(value: Any) -> Any:
@@ -2932,6 +3085,68 @@ def settings_payload_view_mode_names(payload: dict[str, Any]) -> list[str]:
     project_config = object_field(payload, "projectConfig")
     view_modes = object_field(project_config, "viewModes", allow_missing=True)
     return ordered_view_mode_names(view_modes)
+
+
+def settings_payload_param_impl_type_samples(payload: Any) -> dict[str, str | None]:
+    samples: dict[str, str | None] = {
+        sample_name: None
+        for sample_name, _section_name, _param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS
+    }
+    for sample_name, section_name, param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS:
+        _present, impl_type = try_extract_settings_project_param_impl_type(
+            payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+        samples[sample_name] = impl_type
+    return samples
+
+
+def settings_store_param_impl_type_samples(payload: Any) -> dict[str, str | None]:
+    samples: dict[str, str | None] = {
+        sample_name: None
+        for sample_name, _section_name, _param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS
+    }
+    for sample_name, section_name, param_path in SETTINGS_PARAM_IMPL_SAMPLE_SPECS:
+        _present, impl_type = try_extract_settings_project_param_impl_type_from_store_payload(
+            payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+        samples[sample_name] = impl_type
+    return samples
+
+
+def settings_payload_dropdown_choice_samples(payload: Any) -> dict[str, list[str] | None]:
+    samples: dict[str, list[str] | None] = {
+        sample_name: None
+        for sample_name, _section_name, _param_path in SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS
+    }
+    for sample_name, section_name, param_path in SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS:
+        _present, choices = try_extract_settings_project_param_dropdown_choices(
+            payload,
+            section_name=section_name,
+            param_path=param_path,
+        )
+        samples[sample_name] = choices
+    return samples
+
+
+def settings_store_dropdown_choice_samples(payload: Any) -> dict[str, list[str] | None]:
+    samples: dict[str, list[str] | None] = {
+        sample_name: None
+        for sample_name, _section_name, _param_path in SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS
+    }
+    for sample_name, section_name, param_path in SETTINGS_DROPDOWN_PARAM_SAMPLE_SPECS:
+        _present, choices = (
+            try_extract_settings_project_param_dropdown_choices_from_store_payload(
+                payload,
+                section_name=section_name,
+                param_path=param_path,
+            )
+        )
+        samples[sample_name] = choices
+    return samples
 
 
 def settings_payload_active_view_mode_name(payload: dict[str, Any]) -> str | None:

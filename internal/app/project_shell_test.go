@@ -821,7 +821,7 @@ func TestAppStartupFailsClosedOnMissingRequiredSettingsSection(t *testing.T) {
 	}
 }
 
-func TestAppStartupBackfillsMissingCodeObjWithinExistingSettingsSection(t *testing.T) {
+func TestAppStartupBackfillsMissingCodeObjsWithinExistingSettingsSections(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -843,15 +843,56 @@ func TestAppStartupBackfillsMissingCodeObjWithinExistingSettingsSection(t *testi
 		t.Fatalf("load persisted settings project document: %v", err)
 	}
 	settingsProject := settingsDocument.Projects[settingsstate.SettingsProjectID]
-	if err := removeSettingsProjectCodeObjectByID(
-		&settingsProject,
-		"settings-section-impl__backend",
-		"settings-codeobj__backend__backend__renameRefactorMode",
-		"settings-codeobj-variant__backend__backend__renameRefactorMode",
-		"settings-codeobj-impl__backend__backend__renameRefactorMode",
-		"settings-codeobj-impl__backend__backend",
-	); err != nil {
-		t.Fatalf("remove settings code object: %v", err)
+	samples := []settingsProjectCodeObjBackfillSample{
+		{
+			sectionImplID:  "settings-section-impl__backend",
+			codeObjID:      "settings-codeobj__backend__backend__autosave",
+			codeObjVariant: "settings-codeobj-variant__backend__backend__autosave",
+			codeObjImplID:  "settings-codeobj-impl__backend__backend__autosave",
+			parentImplID:   "settings-codeobj-impl__backend__backend",
+			expectedType:   "SwitchParam",
+		},
+		{
+			sectionImplID:  "settings-section-impl__backend",
+			codeObjID:      "settings-codeobj__backend__backend__renameRefactorMode",
+			codeObjVariant: "settings-codeobj-variant__backend__backend__renameRefactorMode",
+			codeObjImplID:  "settings-codeobj-impl__backend__backend__renameRefactorMode",
+			parentImplID:   "settings-codeobj-impl__backend__backend",
+			expectedType:   "DropdownParam",
+			expectedChoices: []string{
+				`"ALWAYS_ASK"`,
+				`"ALWAYS_RENAME"`,
+				`"NEVER_RENAME"`,
+			},
+		},
+		{
+			sectionImplID:  "settings-section-impl__gui",
+			codeObjID:      "settings-codeobj__gui__gui__gridColor",
+			codeObjVariant: "settings-codeobj-variant__gui__gui__gridColor",
+			codeObjImplID:  "settings-codeobj-impl__gui__gui__gridColor",
+			parentImplID:   "settings-codeobj-impl__gui__gui",
+			expectedType:   "ColorPickerParam",
+		},
+		{
+			sectionImplID:  "settings-section-impl__sectionSizingPolicy",
+			codeObjID:      "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType",
+			codeObjVariant: "settings-codeobj-variant__sectionSizingPolicy__sectionSizingPolicy__metaControlByType",
+			codeObjImplID:  "settings-codeobj-impl__sectionSizingPolicy__sectionSizingPolicy__metaControlByType",
+			parentImplID:   "settings-codeobj-impl__sectionSizingPolicy__sectionSizingPolicy",
+			expectedType:   "NestedParam",
+		},
+	}
+	for _, sample := range samples {
+		if err := removeSettingsProjectCodeObjectByID(
+			&settingsProject,
+			sample.sectionImplID,
+			sample.codeObjID,
+			sample.codeObjVariant,
+			sample.codeObjImplID,
+			sample.parentImplID,
+		); err != nil {
+			t.Fatalf("remove settings code object %q: %v", sample.codeObjID, err)
+		}
 	}
 	settingsDocument.Projects[settingsstate.SettingsProjectID] = settingsProject
 	if err := settingsStore.Save(context.Background(), settingsDocument); err != nil {
@@ -880,9 +921,17 @@ func TestAppStartupBackfillsMissingCodeObjWithinExistingSettingsSection(t *testi
 	if err != nil {
 		t.Fatalf("repaired settings project by id: %v", err)
 	}
-	if _, ok := repairedProject.CodeObjs["settings-codeobj__backend__backend__renameRefactorMode"]; !ok {
-		t.Fatal("expected startup repair to restore backend.renameRefactorMode code object")
-	}
+	assertSettingsProjectPersistedParamImplMappingContract(t, repairedProject, samples)
+}
+
+type settingsProjectCodeObjBackfillSample struct {
+	sectionImplID   string
+	codeObjID       string
+	codeObjVariant  string
+	codeObjImplID   string
+	parentImplID    string
+	expectedType    string
+	expectedChoices []string
 }
 
 func removeSettingsProjectSectionByName(project *projectstate.Project, sectionName string) {
@@ -982,6 +1031,62 @@ func removeSettingsProjectCodeObjectByID(
 	parentImpl.Payload = encodedParentPayload
 	project.CodeObjImpls[parentCodeObjImplID] = parentImpl
 	return nil
+}
+
+func assertSettingsProjectPersistedParamImplMappingContract(
+	t *testing.T,
+	project projectstate.Project,
+	samples []settingsProjectCodeObjBackfillSample,
+) {
+	t.Helper()
+
+	for _, sample := range samples {
+		if _, ok := project.CodeObjs[sample.codeObjID]; !ok {
+			t.Fatalf("expected repaired settings code object %q", sample.codeObjID)
+		}
+		impl, ok := project.CodeObjImpls[sample.codeObjImplID]
+		if !ok {
+			t.Fatalf("expected repaired settings code object impl %q", sample.codeObjImplID)
+		}
+		if impl.Type != sample.expectedType {
+			t.Fatalf("expected repaired settings code object impl %q type %q, got %q", sample.codeObjImplID, sample.expectedType, impl.Type)
+		}
+		payload := settingsProjectPersistedCodeObjImplPayload(t, impl)
+		if got := payload["type"]; got != sample.expectedType {
+			t.Fatalf("expected repaired settings payload %q type %q, got %#v", sample.codeObjImplID, sample.expectedType, got)
+		}
+		if len(sample.expectedChoices) == 0 {
+			continue
+		}
+		rawChoices, ok := payload["choices"].([]any)
+		if !ok {
+			t.Fatalf("expected repaired settings payload %q choices, got %#v", sample.codeObjImplID, payload["choices"])
+		}
+		choices := make([]string, 0, len(rawChoices))
+		for _, rawChoice := range rawChoices {
+			choice, ok := rawChoice.(string)
+			if !ok {
+				t.Fatalf("expected repaired settings payload %q choice string, got %#v", sample.codeObjImplID, rawChoice)
+			}
+			choices = append(choices, choice)
+		}
+		if !reflect.DeepEqual(choices, sample.expectedChoices) {
+			t.Fatalf("expected repaired settings payload %q choices %#v, got %#v", sample.codeObjImplID, sample.expectedChoices, choices)
+		}
+	}
+}
+
+func settingsProjectPersistedCodeObjImplPayload(
+	t *testing.T,
+	impl projectstate.CodeObjectImpl,
+) map[string]any {
+	t.Helper()
+
+	var payload map[string]any
+	if err := json.Unmarshal(impl.Payload, &payload); err != nil {
+		t.Fatalf("decode persisted settings code object impl %q: %v", impl.ID, err)
+	}
+	return payload
 }
 
 func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleConfig, implID string) string {

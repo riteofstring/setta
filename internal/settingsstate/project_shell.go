@@ -593,9 +593,13 @@ func addSettingsCodeObject(
 		}
 		switch {
 		case len(allowedValues) > 0:
+			encodedChoices, err := encodeSettingsDropdownChoices(allowedValues)
+			if err != nil {
+				return "", nil, err
+			}
 			implType = "DropdownParam"
 			payload["type"] = implType
-			payload["choices"] = allowedValues
+			payload["choices"] = encodedChoices
 		case settingsValueIsHexColor(value):
 			implType = "ColorPickerParam"
 			payload["type"] = implType
@@ -862,6 +866,18 @@ func encodeSettingsScalarValue(value any) string {
 		}
 		return string(encoded)
 	}
+}
+
+func encodeSettingsDropdownChoices(values []string) ([]string, error) {
+	encodedChoices := make([]string, 0, len(values))
+	for _, value := range values {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		encodedChoices = append(encodedChoices, string(encoded))
+	}
+	return encodedChoices, nil
 }
 
 func settingsSectionID(sectionName string) string {
