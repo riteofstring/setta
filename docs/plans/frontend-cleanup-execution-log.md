@@ -3019,3 +3019,36 @@ module map and placement guide while this cleanup progresses.
     tied for the largest authored/shared state hotspot at 319 lines, by
     separating static grouped section-create catalogs from hook-time
     singleton/codegen/plugin gating.
+
+## 2026-03-15 06:15:31 PDT
+
+- Slice completed: split UI setting reveal activation ownership into pane and
+  step activation owners
+- Key files touched:
+  - `frontend/src/state/actions/uiSettingRevealPaneActivation.ts`
+  - `frontend/src/state/actions/uiSettingRevealStepActivation.ts`
+  - `frontend/src/state/actions/uiSettingRevealActivationShared.ts`
+  - `frontend/src/state/actions/uiSettingRevealActivation.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutations.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationRecordRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationProjectStateRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealPaneActivation.test.ts`
+  - `frontend/src/state/actions/uiSettingRevealStepActivation.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingRevealPaneActivation.test.ts src/state/actions/uiSettingRevealStepActivation.test.ts src/state/actions/uiSettingReveal.test.ts src/state/actions/uiSettingRevealMutationOwnership.test.ts src/state/actions/uiSettingRevealMutationProjectStateRestore.test.ts`
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingRevealMutationSnapshots.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/uiSettingRevealActivation.ts src/state/actions/uiSettingRevealActivationShared.ts src/state/actions/uiSettingRevealPaneActivation.ts src/state/actions/uiSettingRevealStepActivation.ts src/state/actions/uiSettingRevealMutations.ts src/state/actions/uiSettingRevealMutationRecordRestore.ts src/state/actions/uiSettingRevealMutationProjectStateRestore.ts src/state/actions/uiSettingRevealPaneActivation.test.ts src/state/actions/uiSettingRevealStepActivation.test.ts src/state/actions/uiSettingReveal.test.ts src/state/actions/uiSettingRevealMutationOwnership.test.ts src/state/actions/uiSettingRevealMutationProjectStateRestore.test.ts src/state/actions/uiSettingRevealMutationSnapshots.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `97c5f1619`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/hooks/artifacts.ts`, now the largest
+    authored/shared state hotspot at 446 lines, by separating cached artifact
+    load/decode transport from draw-area artifact reference selection and
+    revision-stamp hooks.
