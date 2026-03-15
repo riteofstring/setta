@@ -4976,3 +4976,31 @@ in `frontend/src/README.md` and the cleanup plans.
   - `af474fffc2b5b1656702c0103065dbae0254071d`
 - Next highest-value unblocked slice:
   - Simplify the pointer resize or drag state inside `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is still the top unresolved hotspot at about `4421` lines now that the layout calculations live in `projectChatBottomDockLayout.ts`.
+
+## 2026-03-15 15:07:02 PDT
+
+- Slice completed: extracted dock preview width/height state and dock-resize pointer-session handling out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` remained the top unresolved hotspot at the start of the slice, and the dock-only resize path was the next cohesive interaction seam after keyboard shortcuts and layout math had already moved out.
+  - This was higher value than switching back to `ChatMessages.tsx` because the dock was still larger, and isolating dock-resize state first removes one full pointer-interaction branch before tackling the more entangled floating drag or snap preview logic.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/projectChatDockResize.ts`
+  - `frontend/src/components/ChatWindowing/projectChatDockResize.test.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-bottom-dock-resize-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatDockResize.test.ts src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat bottom dock auto-creates a chat and supports creating additional windows"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatDockResize.ts src/components/ChatWindowing/projectChatDockResize.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-bottom-dock-resize-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-bottom-dock-resize-2026-03-15.md` with same-origin harness before/after notes and screenshots.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that a bottom-right resize still clamped the dock window from `460x430` down to `280x220`, and that a fresh larger drag still expanded the same dock window to `720x610` without clipping the composer or window controls.
+- Commit hash:
+  - `d82bfd943f1f67ff03949731d754842b8c4b73a1`
+- Next highest-value unblocked slice:
+  - Simplify the floating drag/resize and snap-preview state inside `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is still the top unresolved hotspot at about `4227` lines now that dock shortcuts, layout math, and dock-resize state live in their own local owners.
