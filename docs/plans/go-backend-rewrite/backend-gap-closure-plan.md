@@ -64,6 +64,9 @@ categorize them.
   proved via the default harness too; the next likely project/window-space
   queue is the remaining title-clearing, dedupe, owner-validation, and
   sort-index repair rows
+- The section-bound project-chat/window-space title-clearing and dedupe rows
+  are now proved too; the next likely project/window-space queue is the
+  remaining owner-validation and duplicate-`sortIndex` load-normalization rows
 - The empty latest-state `windowSpaces` object-shape row is now proved too;
   keep prioritizing the remaining project/window-space `Missing` rows over
   additional shape-only proof slices
