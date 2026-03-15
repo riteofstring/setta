@@ -21,8 +21,8 @@ Current status:
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
 - Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
 - Active phase: `Phase S3: Shared Resizable / Container Simplification`
-- Latest accepted checkpoint: `Phase S3` checkpoint 1 extracted `useSectionResizeController` from `CustomResizable` while keeping the visible resize shell stable
-- Current `Phase S3` state: checkpoint 1 accepted; the next serious step is higher shared-shell/layout ownership above the controller seam
+- Latest accepted checkpoint: `Phase S3` checkpoint 2 moved canvas surface chrome ownership out of `CustomResizable` and into `sectionChrome.ts` / `SectionContainerCoreResizabe.tsx`
+- Current `Phase S3` state: checkpoint 2 accepted; the next serious step is real shared-shell wrapper reduction or higher invalidation work above the accepted chrome seams
 
 Non-negotiable constraints:
 
@@ -83,6 +83,15 @@ Immediate next step:
      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
      - `frontend/src/components/Section/Container/sectionChrome.ts`
    - do not reopen the controller split unless a later trace shows a new boundary-specific regression
+14. Current post-checkpoint-2 direction:
+   - `getCanvasSectionChrome` now owns the canvas surface class recipe, section background choice, meta-control drag-handle visibility, and the header/menu variant split
+   - `CustomResizable` now consumes prepared canvas chrome and only owns the runtime resize shell responsibilities that still depend on DnD state or live handle geometry
+   - the representative `S0 Dict` resize gate stayed flat enough to accept this chrome-ownership move
+   - the remaining `Phase S3` work should now focus on:
+     - real removable wrappers in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+     - higher shell invalidation around `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+     - any follow-on shared-surface simplification needed by `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+   - do not reopen the accepted controller or chrome plumbing seams unless a later trace shows a boundary-specific regression
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 

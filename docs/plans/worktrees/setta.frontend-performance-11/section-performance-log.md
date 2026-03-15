@@ -2177,3 +2177,65 @@ Append-only log for the section performance refactor.
   - The remaining resize-path cost still appears to live higher in shared shell invalidation and edge-handle/layout work, not in the controller seam itself.
 - Next action:
   - Continue `Phase S3` by targeting `SectionContainerCoreResizabe` / `sectionChrome` ownership and wrapper reduction without reopening the accepted controller split unless a later trace proves it necessary.
+
+### 2026-03-17 69
+
+- Item: Accept `Phase S3` checkpoint 2 after moving canvas surface chrome ownership out of `CustomResizable`.
+- Status: `done`
+- Details:
+  - Added `getCanvasSectionChrome` in `frontend/src/components/Section/Container/sectionChrome.ts` so the shared canvas chrome descriptor now owns:
+    - background-color selection
+    - canvas surface class composition
+    - meta-control drag-handle visibility
+    - meta-control vs text-block-meta vs standard-header variant selection
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so the section container now selects the canvas chrome variant and hands a prepared surface class into `CustomResizable`.
+  - Updated `frontend/src/components/Utils/Resizable/CustomResizable.tsx` so:
+    - the resize shell no longer rebuilds shared section chrome from scattered props
+    - it only applies the runtime-only surface adjustments that still depend on DnD or content behavior
+    - the resize-handle geometry and the `id={`${sectionId}-CustomResizable`}` contract stay intact
+  - Expanded focused Vitest coverage:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - Re-ran focused Vitest coverage:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/useSectionResizeController.test.tsx src/state/hooks/sectionSizes.integration.test.tsx`
+    - result: `4` files passed, `32` tests passed
+  - Re-ran the representative browser resize suite:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-sizing.spec.ts`
+    - result: `8 passed`
+  - Re-ran the locked untouched-`main` vs worktree Chrome DevTools gate on:
+    - untouched `main`: `http://127.0.0.1:3087/dark_swimming`
+    - worktree: `http://127.0.0.1:3011/tide_pike`
+  - Reused the representative `S0 Dict` bottom-handle shrink replay from `300px` to `225px`.
+  - Verified on both branches:
+    - expanded state root size `260 x 300`
+    - shrunk state root size `260 x 225`
+    - filter field remained inside the resizable root
+    - `overflow-y` stayed `visible`
+  - Accepted target-renderer interaction-window totals from the shrink pair, in milliseconds:
+    - `main`
+      - `FunctionCall`: `1145.367`
+      - `UpdateLayoutTree`: `277.639`
+      - `Layout`: `13.279`
+      - `Paint`: `4.365`
+      - `RunTask`: `1303.913`
+      - `EventDispatch`: `29.920`
+      - `TimerFire`: `0.177`
+      - `FireAnimationFrame`: `218.506`
+      - `Commit`: `1.857`
+    - worktree
+      - `FunctionCall`: `1176.440`
+      - `UpdateLayoutTree`: `279.094`
+      - `Layout`: `16.372`
+      - `Paint`: `4.737`
+      - `RunTask`: `1133.181`
+      - `EventDispatch`: `28.888`
+      - `TimerFire`: `0.050`
+      - `FireAnimationFrame`: `124.627`
+      - `Commit`: `0.588`
+- Interpretation:
+  - Checkpoint 2 is accepted.
+  - The shared canvas chrome contract is now explicit enough that `CustomResizable` no longer owns high-level section-surface decisions.
+  - The representative resize trace stayed close enough to accept the move, with the worktree materially improving `RunTask`, `FireAnimationFrame`, and `Commit` even though `FunctionCall`, `UpdateLayoutTree`, `Layout`, and `Paint` remain slightly higher.
+  - The remaining `Phase S3` work now looks like real wrapper reduction or higher shared-shell invalidation, not more surface-class plumbing.
+- Next action:
+  - Continue `Phase S3` by targeting real removable wrappers and invalidation work in `SectionContainerCoreResizabe`, `SectionContainerCore`, and the shared window-surface shell without reopening the accepted controller or chrome seams unless a later trace proves it necessary.
