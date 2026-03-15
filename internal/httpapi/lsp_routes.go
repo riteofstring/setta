@@ -137,7 +137,6 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGenCodePrefixCompletion, genCodePrefixCompletionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGenCodeSuffixCompletion, genCodeSuffixCompletionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestLSPDiagnostics, getLatestLSPDiagnosticsHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTypeErrorIgnore, setTypeErrorIgnoreHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionDiagnosticsMute, setCodeSectionDiagnosticsMuteHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionDiagnosticCodeSuppression, setCodeSectionDiagnosticCodeSuppressionHandler(deps))
 	return nil
@@ -435,43 +434,6 @@ func getLatestLSPDiagnosticsHandler(deps LSPRouteDependencies) http.HandlerFunc 
 		}
 
 		writeJSON(w, http.StatusOK, deps.Diagnostics.Snapshot(projectID))
-	}
-}
-
-func setTypeErrorIgnoreHandler(deps LSPRouteDependencies) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[SetTypeErrorIgnoreRequest](r)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
-			return
-		}
-
-		projectID := strings.TrimSpace(payload.ProjectID)
-		if projectID == "" {
-			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
-			return
-		}
-		sectionID := strings.TrimSpace(payload.SectionID)
-		if sectionID == "" {
-			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
-			return
-		}
-		if deps.ProjectState == nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-
-		if _, err := deps.ProjectState.SetTypeErrorIgnore(
-			r.Context(),
-			projectID,
-			sectionID,
-			optionalTrimmedStringPointer(payload.ParamInfoID),
-			payload.IgnoreTypeErrors,
-		); err != nil {
-			writeTypeErrorIgnoreMutationError(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, nil)
 	}
 }
 

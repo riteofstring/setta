@@ -2648,6 +2648,167 @@ func TestRegisterProjectRoutesRejectsWatchCodeInputsOutsideWorkspace(t *testing.
 	}
 }
 
+func TestRegisterProjectRoutesSetsTypeErrorIgnore(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetTypeErrorIgnore,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","paramInfoId":"param-1","ignoreTypeErrors":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set type error ignore: %v", err)
+	}
+	ignoreState, err := project.TypeErrorIgnoreStateForSection("callable-section")
+	if err != nil {
+		t.Fatalf("type error ignore state: %v", err)
+	}
+	if !ignoreState.Params["param-1"] {
+		t.Fatalf("expected param-1 ignore state, got %#v", ignoreState)
+	}
+}
+
+func TestRegisterProjectRoutesSetTypeErrorIgnoreRespectsDeploymentParamPolicy(t *testing.T) {
+	t.Parallel()
+
+	seedRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := seedRuntime.Close(); err != nil {
+			t.Fatalf("close seed runtime: %v", err)
+		}
+	})
+	document := seedRuntime.Snapshot().Document
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:     mode,
+				Document: document.Clone(),
+				Policy: map[string]any{
+					"allowParamChanges": true,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetTypeErrorIgnore,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","paramInfoId":"param-1","ignoreTypeErrors":true}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			overlayIgnoreState, err := overlayProject.TypeErrorIgnoreStateForSection("callable-section")
+			if err != nil {
+				t.Fatalf("overlay type error ignore state: %v", err)
+			}
+			if !overlayIgnoreState.Params["param-1"] {
+				t.Fatalf("expected overlay param-1 ignore state, got %#v", overlayIgnoreState)
+			}
+
+			baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+			baseIgnoreState, err := baseProject.TypeErrorIgnoreStateForSection("callable-section")
+			if err != nil {
+				t.Fatalf("base type error ignore state: %v", err)
+			}
+			if baseIgnoreState.Params["param-1"] {
+				t.Fatalf("expected base project to remain unchanged, got %#v", baseIgnoreState)
+			}
+		})
+	}
+}
+
+func TestRegisterProjectRoutesSetTypeErrorIgnoreRejectsDeploymentWhenParamChangesForbidden(t *testing.T) {
+	t.Parallel()
+
+	seedRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := seedRuntime.Close(); err != nil {
+			t.Fatalf("close seed runtime: %v", err)
+		}
+	})
+	document := seedRuntime.Snapshot().Document
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:     mode,
+				Document: document.Clone(),
+				Policy: map[string]any{
+					"allowParamChanges": false,
+				},
+			})
+			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+				t.Fatalf("create deployment session: %v", err)
+			}
+
+			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSetTypeErrorIgnore,
+				strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","paramInfoId":"param-1","ignoreTypeErrors":true}`),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
+				t.Fatalf("expected param_changes_forbidden body, got %q", response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
+				t.Fatalf("expected deployment param policy denial, got %q", response.Body.String())
+			}
+
+			overlay, err := deploymentRuntime.Overlay("share-a")
+			if err != nil {
+				t.Fatalf("deployment overlay: %v", err)
+			}
+			overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+			overlayIgnoreState, err := overlayProject.TypeErrorIgnoreStateForSection("callable-section")
+			if err != nil {
+				t.Fatalf("overlay type error ignore state: %v", err)
+			}
+			if overlayIgnoreState.Params["param-1"] {
+				t.Fatalf("expected overlay project to remain unchanged, got %#v", overlayIgnoreState)
+			}
+		})
+	}
+}
+
 func TestRegisterProjectRoutesDisablesPythonCodegenAndReturnsCleanedProjectState(t *testing.T) {
 	t.Parallel()
 

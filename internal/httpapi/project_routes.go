@@ -1755,6 +1755,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGenCodeSuffix, setGenCodeSuffixHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeInputs, setWatchCodeInputsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTypeErrorIgnore, setTypeErrorIgnoreHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteChangeParamImpl, changeParamImplHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateParamImplConfig, updateParamImplConfigHandler(deps))
@@ -1795,6 +1796,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteSetChatSectionState, setChatSectionStateHandler(deps))
 		router.With(shareGuard).Post(RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
 		router.With(shareGuard).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
+		router.With(shareGuard).Post(RouteSetTypeErrorIgnore, setTypeErrorIgnoreHandler(deps))
 		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
 		router.With(shareGuard).Post(RouteSetSectionStyleColor, setSectionStyleColorHandler(deps))
@@ -2094,6 +2096,47 @@ func setParamEnteredValueHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			payload.Value,
 		); err != nil {
 			writeParamValueMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTypeErrorIgnoreHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTypeErrorIgnoreRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if _, err := runtime.SetTypeErrorIgnore(
+			r.Context(),
+			projectID,
+			sectionID,
+			optionalTrimmedStringPointer(payload.ParamInfoID),
+			payload.IgnoreTypeErrors,
+		); err != nil {
+			writeTypeErrorIgnoreMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

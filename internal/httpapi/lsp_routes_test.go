@@ -294,50 +294,6 @@ func TestRegisterLSPRoutesTypeChecksProject(t *testing.T) {
 	}
 }
 
-// Ignoring type errors should persist through the Go project-state runtime so
-// the existing context-menu caller no longer needs the Python helper route.
-func TestRegisterLSPRoutesSetsTypeErrorIgnore(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := completionRouteTestRuntime(t)
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close runtime: %v", err)
-		}
-	})
-
-	handler := newLSPRouteTestHandler(
-		t,
-		config.ModeIDE,
-		projectRuntime,
-		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
-		nil,
-	)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetTypeErrorIgnore,
-		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","paramInfoId":"param-1","ignoreTypeErrors":true}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after set type error ignore: %v", err)
-	}
-	ignoreState, err := project.TypeErrorIgnoreStateForSection("callable-section")
-	if err != nil {
-		t.Fatalf("type error ignore state: %v", err)
-	}
-	if !ignoreState.Params["param-1"] {
-		t.Fatalf("expected param-1 ignore state, got %#v", ignoreState)
-	}
-}
-
 func newLSPRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
