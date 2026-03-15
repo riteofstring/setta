@@ -110,6 +110,14 @@ func (s *Service) Reveal(ctx context.Context, rawPath string) error {
 	if err != nil {
 		return &Error{Kind: ErrorInvalidRequest, Message: err.Error()}
 	}
+	resolvedPath = resolveExistingPathPrefix(resolvedPath)
+	allowedRoots, err := s.allowedRoots()
+	if err != nil {
+		return &Error{Kind: ErrorExecution, Message: fmt.Sprintf("Failed to determine allowed reveal roots: %v", err)}
+	}
+	if !isWithinAnyRoot(resolvedPath, allowedRoots) {
+		return &Error{Kind: ErrorInvalidRequest, Message: "Path is outside allowed reveal roots."}
+	}
 	info, err := os.Stat(resolvedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -119,11 +127,6 @@ func (s *Service) Reveal(ctx context.Context, rawPath string) error {
 	}
 	if evaluatedPath, err := filepath.EvalSymlinks(resolvedPath); err == nil && strings.TrimSpace(evaluatedPath) != "" {
 		resolvedPath = filepath.Clean(evaluatedPath)
-	}
-
-	allowedRoots, err := s.allowedRoots()
-	if err != nil {
-		return &Error{Kind: ErrorExecution, Message: fmt.Sprintf("Failed to determine allowed reveal roots: %v", err)}
 	}
 	if !isWithinAnyRoot(resolvedPath, allowedRoots) {
 		return &Error{Kind: ErrorInvalidRequest, Message: "Path is outside allowed reveal roots."}
@@ -219,4 +222,30 @@ func isWithinAnyRoot(path string, roots []string) bool {
 		}
 	}
 	return false
+}
+
+func resolveExistingPathPrefix(path string) string {
+	current := filepath.Clean(path)
+	if current == "" {
+		return current
+	}
+
+	var suffix []string
+	for {
+		if evaluatedPath, err := filepath.EvalSymlinks(current); err == nil && strings.TrimSpace(evaluatedPath) != "" {
+			current = filepath.Clean(evaluatedPath)
+			break
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return filepath.Clean(path)
+		}
+		suffix = append(suffix, filepath.Base(current))
+		current = parent
+	}
+
+	for i := len(suffix) - 1; i >= 0; i-- {
+		current = filepath.Join(current, suffix[i])
+	}
+	return filepath.Clean(current)
 }

@@ -203,10 +203,6 @@ It covers:
     active `shareSessionId`
   - current Go reveal routing ignores share-session scope and treats frontend
     selection globally
-  - source-baseline reveal-path routing returns the same allowlist `400` for
-    missing paths outside approved roots
-  - current Go reveals leak `404 path_not_found` before the allowlist check on
-    those missing outside-root paths
   - source-baseline managed and external chat hydration responses preserve
     `appGenerationByMessageId` provenance from run inputs
   - current Go hydration responses omit that field even though current
@@ -364,14 +360,11 @@ It covers:
   - current Go documents that the active app-config flow no longer depends on
     that route and instead uses `/api/getLLMResponse`, `/ws/frontend`
     tool-preview events, and `stream_app_definition`
-- The app-gen skills / viewer-support slice mostly closes at the implementation
-  level, but it adds:
-  - one more concrete behavior gap around reveal-path allowlist enforcement for
-    missing outside-root paths
-  - six more proof-gap clusters around skill discovery/editability coverage,
-    create-root reporting, skill preview/read errors, custom-skill upsert edge
-    handling, reveal-path failure mapping, and custom-root MCP runtime-status
-    reporting
+- The app-gen skills / viewer-support slice now closes the reveal-path
+  allowlist leak and retains six proof-gap clusters around skill
+  discovery/editability coverage, create-root reporting, skill preview/read
+  errors, custom-skill upsert edge handling, reveal-path failure mapping, and
+  custom-root MCP runtime-status reporting.
 - The transcription-session slice mostly closes with proofs and adds:
   - one documented transport/runtime divergence around source `auto`
     fallback-to-file behavior after realtime setup failures
@@ -741,7 +734,7 @@ It covers:
 | `MR-01` | `mcpServerRuntimeStatus` returns internal server statuses plus request-scoped external runtime statuses, includes `llmConfigPath` / `activeSettaFilesLocation`, and is blocked outside the full IDE runtime. | `tests/routers/test_mcp_server_runtime_status_route.py::{test_mcp_runtime_status_route_returns_server_and_external_statuses,test_mcp_runtime_status_route_blocked_in_deployment_mode,test_mcp_runtime_status_route_blocked_in_launcher_mode}`; source route: `backend/setta/routers/status.py::route_get_mcp_server_runtime_status`. | Impl: `internal/httpapi/mcp_routes.go`; external runtime bridge: `internal/externalagents/external_mcp_status.go::ExternalRuntimeStatuses`; proof: `internal/httpapi/mcp_routes_test.go::{TestMCPRuntimeStatusRouteReturnsCurrentStatuses,TestMCPRuntimeStatusRouteReturnsExternalStatuses,TestMCPRuntimeStatusRouteBlockedOutsideFullIDE}`; app proof: `internal/app/mcp_test.go::TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient`. | `Proved` | |
 | `MR-02` | `mcpServerRuntimeStatus` reports `"custom"` and the explicit-root `llmConfigPath` when the active setta-files root is overridden away from the standard global/local location. | `tests/routers/test_mcp_server_runtime_status_route.py::test_mcp_runtime_status_route_reports_custom_setta_files_location_when_explicit_root`. | Impl: `internal/httpapi/mcp_routes.go::MCPRuntimeStatusResponse`; app wiring: `internal/app/app.go`; current proof: `internal/httpapi/mcp_routes_test.go::TestMCPRuntimeStatusRouteReturnsCurrentStatuses`; `internal/app/mcp_test.go::TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient`. | `Implemented, proof incomplete` | Current Go passes the same `config.Paths.ActiveSettaFilesLocation()` contract into the route, but this slice does not yet have a direct Go test for the explicit custom-root case from `main`. |
 | `RV-01` | `revealPathInOsFileExplorer` allows workspace, `setta_files`, and discovered skill-root paths, and opener command failures/timeouts surface the explicit backend error text rather than succeeding silently. | `tests/routers/test_reveal_path_in_os_file_explorer_route.py::{test_reveal_path_allows_workspace_and_setta_files_paths,test_reveal_path_allows_discovered_skill_root_path,test_reveal_path_returns_error_when_explorer_command_fails,test_reveal_path_returns_error_when_explorer_command_times_out}`; source route: `backend/setta/routers/status.py::route_reveal_path_in_os_file_explorer`; docs: `docs/reference/setta-files.md` path-reveal endpoint section. | Impl: `internal/pathreveal/service.go`; transport mapping: `internal/httpapi/status_routes.go::{revealPathInOSFileExplorerHandler,writeRevealPathError}`; current proof: `internal/pathreveal/service_test.go::TestRevealAllowsSkillRoots`; `internal/httpapi/status_routes_test.go::{TestRegisterStatusRoutesRevealsPathsInIDEMode,TestRegisterStatusRoutesRejectsRevealPathOutsideAllowedRoots}`. | `Implemented, proof incomplete` | Current Go proves the allowlist happy path and existing outside-root rejection, but this slice does not yet have direct Go proof for opener failure/timeout mapping or the workspace-plus-setta-files dual-root allowlist contract. |
-| `RV-02` | Missing paths outside the allowed reveal roots return the same allowlist `400` as existing outside-root paths, so the route does not leak existence information for disallowed locations. | `tests/routers/test_reveal_path_in_os_file_explorer_route.py::test_reveal_path_outside_allowlist_returns_same_error_for_missing_path`; source route: `backend/setta/routers/status.py::route_reveal_path_in_os_file_explorer`. | Current Go reveal flow checks filesystem existence before the allowlist boundary: `internal/pathreveal/service.go::Reveal` calls `os.Stat(resolvedPath)` before `allowedRoots()` / `isWithinAnyRoot(...)`; route mapping: `internal/httpapi/status_routes.go::writeRevealPathError`. | `Missing` | This is a concrete parity gap. The source route intentionally returned the same allowlist error for missing outside-root paths, but current Go emits `404 path_not_found` before it reaches the allowlist check. |
+| `RV-02` | Missing paths outside the allowed reveal roots return the same allowlist `400` as existing outside-root paths, so the route does not leak existence information for disallowed locations. | `tests/routers/test_reveal_path_in_os_file_explorer_route.py::test_reveal_path_outside_allowlist_returns_same_error_for_missing_path`; source route: `backend/setta/routers/status.py::route_reveal_path_in_os_file_explorer`. | Impl: `internal/pathreveal/service.go::Reveal`; route mapping: `internal/httpapi/status_routes.go::writeRevealPathError`; proof: `internal/pathreveal/service_test.go::TestRevealRejectsMissingPathsOutsideAllowedRootsWithoutLeakingExistence`; route proof: `internal/httpapi/status_routes_test.go::TestRegisterStatusRoutesRejectsMissingRevealPathOutsideAllowedRoots`. | `Proved` | Go now resolves the existing path prefix before the allowlist check and rejects missing outside-root paths with the same `400 invalid_request` response used for existing disallowed paths. |
 
 ## MCP Init Tools
 
@@ -1230,9 +1223,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty-two concrete source-parity gaps:
+1. The matrix now contains forty-one concrete source-parity gaps:
    `LS-11`, `LS-17`, `LD-03`,
-   `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
+   `US-05`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
@@ -1267,9 +1260,8 @@ It covers:
     proofs, but it adds one real behavior gap around share-session-scoped
     reveal routing (`US-05`) plus one more dormant transport row around the
     superseded `/api/streamAppSpec` HTTP generator (`AS-02`).
-12. The app-gen skills and viewer-support slice mostly closes at the
-    implementation level, but it adds one more real behavior gap (`RV-02`)
-    plus six more proof-gap clusters (`SK-01`, `SK-02`, `SK-03`, `SK-04`,
+12. The app-gen skills and viewer-support slice closes the reveal-path leak and
+    retains six proof-gap clusters (`SK-01`, `SK-02`, `SK-03`, `SK-04`,
     `MR-02`, `RV-01`).
 13. The transcription-session slice mostly closes with proofs, but it adds
     one documented auto-fallback divergence (`TS-08`), one dormant
@@ -1388,7 +1380,7 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `LD-03`, `US-05`, `RV-02`,
+    - decide whether `LD-03`, `US-05`,
       `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
       `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,

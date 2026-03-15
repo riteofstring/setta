@@ -231,6 +231,45 @@ func TestRegisterStatusRoutesRejectsRevealPathOutsideAllowedRoots(t *testing.T) 
 	}
 }
 
+func TestRegisterStatusRoutesRejectsMissingRevealPathOutsideAllowedRoots(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	missingOutsidePath := filepath.Join(t.TempDir(), "outside", "missing.md")
+	revealService, err := pathreveal.NewService(pathreveal.ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RevealPath: revealService,
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRevealPathInOSFileExplorer, strings.NewReader(`{"path":"`+missingOutsidePath+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected reveal path 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Path is outside allowed reveal roots.") {
+		t.Fatalf("expected allowed-root message, got %q", response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "path_not_found") {
+		t.Fatalf("expected missing outside-root path to avoid path_not_found leak, got %q", response.Body.String())
+	}
+}
+
 func newStatusRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,

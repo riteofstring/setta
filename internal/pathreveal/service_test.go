@@ -84,6 +84,39 @@ func TestRevealRejectsPathsOutsideAllowedRoots(t *testing.T) {
 	}
 }
 
+func TestRevealRejectsMissingPathsOutsideAllowedRootsWithoutLeakingExistence(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	missingOutsidePath := filepath.Join(t.TempDir(), "outside", "missing.txt")
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: pathRevealTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+
+	err = service.Reveal(context.Background(), missingOutsidePath)
+	var routeErr *Error
+	if !errorsAs(err, &routeErr) {
+		t.Fatalf("expected typed error, got %v", err)
+	}
+	if routeErr.Kind != ErrorInvalidRequest {
+		t.Fatalf("expected invalid request error, got %#v", routeErr)
+	}
+	if routeErr.Message != "Path is outside allowed reveal roots." {
+		t.Fatalf("unexpected error message %q", routeErr.Message)
+	}
+}
+
 func TestRevealAllowsSkillRoots(t *testing.T) {
 	t.Parallel()
 
