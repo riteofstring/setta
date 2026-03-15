@@ -4621,3 +4621,35 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/runOrImportCode.ts` so run-vs-import
     transport selection, loading guards, and follow-up project reload behavior
     stop sharing one action surface.
+
+## 2026-03-15 12:37:58 PDT
+
+- Slice completed: split run code execution from main run controls
+- Key files touched:
+  - `frontend/src/state/actions/runCodeExecution.ts`
+  - `frontend/src/state/actions/runCodeControls.ts`
+  - `frontend/src/state/actions/runOrImportCode.ts`
+  - `frontend/src/state/actions/runCodeExecution.test.ts`
+  - `frontend/src/state/actions/runCodeControls.test.ts`
+  - `frontend/src/state/actions/customRunExecution.ts`
+  - `frontend/src/state/actions/customRunExecution.test.ts`
+  - `frontend/src/state/actions/keyActivationCommands.ts`
+  - `frontend/src/components/AppHeader/RunButton.tsx`
+  - `frontend/src/components/AppHeader/StopButton.tsx`
+  - `frontend/src/components/Section/Header/RunButton.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/runCodeExecution.test.ts src/state/actions/runCodeControls.test.ts src/state/actions/customRunExecution.test.ts src/state/actions/keyActivationCommands.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/runCodeExecution.ts src/state/actions/runCodeControls.ts src/state/actions/runOrImportCode.ts src/state/actions/runCodeExecution.test.ts src/state/actions/runCodeControls.test.ts src/state/actions/customRunExecution.ts src/state/actions/customRunExecution.test.ts src/state/actions/keyActivationCommands.ts src/components/AppHeader/RunButton.tsx src/components/AppHeader/StopButton.tsx src/components/Section/Header/RunButton.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual run-action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `eed7449a7a008d63ce6ae6ab50eb78cae4911c32`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowingInstanceState.ts`
+    so window instance creation, next-instance-id allocation, and shared
+    per-window update helpers stop sharing one action surface.
