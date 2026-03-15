@@ -84,6 +84,10 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			writeSettingsSaveError(w, r, err)
 			return
 		}
+		if err := settingsstate.ValidateDirectSaveDocument(document); err != nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
 
 		snapshot, err := deps.SettingsState.ReplaceAndSave(r.Context(), document)
 		if err != nil {
@@ -127,9 +131,12 @@ func settingsSaveModeDetail(policy modes.Policy) (string, bool) {
 }
 
 func writeSettingsSaveError(w http.ResponseWriter, r *http.Request, err error) {
+	var validationErr *settingsstate.ValidationError
 	switch {
 	case errors.Is(err, settingsstate.ErrSettingsPayloadNotObject):
 		writeError(w, r, http.StatusBadRequest, "invalid_settings", "Settings payload must be a JSON object.")
+	case errors.As(err, &validationErr):
+		writeValidationError(w, http.StatusUnprocessableEntity, validationErr.Error())
 	case errors.Is(err, settingsstate.ErrSettingsValueInvalid):
 		writeError(w, r, http.StatusBadRequest, "invalid_settings", "Invalid settings payload.")
 	default:

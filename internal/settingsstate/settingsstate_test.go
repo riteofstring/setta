@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -103,6 +104,89 @@ func TestQueriesRejectInvalidValues(t *testing.T) {
 	backend["autoRefetchCallableParamsOnLspMismatch"] = "nope"
 	if _, err := AutoRefetchCallableParamsOnLSPMismatchEnabled(document); !errors.Is(err, ErrSettingsValueInvalid) {
 		t.Fatalf("expected ErrSettingsValueInvalid for mismatch-refetch, got %v", err)
+	}
+}
+
+func TestValidateDirectSaveDocumentAcceptsCurrentSupportedBranches(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+
+	document["backend"].(map[string]any)["completionGuardEnabled"] = true
+	document["backend"].(map[string]any)["renameRefactorMode"] = "NEVER_RENAME"
+	document["gui"].(map[string]any)["sectionTagColorChoices"] = []any{
+		map[string]any{"color": "#111111", "description": "Custom"},
+	}
+	document["sectionSizingPolicy"].(map[string]any)["globals"].(map[string]any)["autoMaxHeight"] = 240.0
+	document["languageServer"] = map[string]any{
+		"pylsp": map[string]any{"enabled": true},
+	}
+
+	if err := ValidateDirectSaveDocument(document); err != nil {
+		t.Fatalf("ValidateDirectSaveDocument returned error: %v", err)
+	}
+}
+
+func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name         string
+		mutate       func(Document)
+		expectedPath string
+	}{
+		{
+			name: "backend rename refactor mode",
+			mutate: func(document Document) {
+				document["backend"].(map[string]any)["renameRefactorMode"] = "LATER"
+			},
+			expectedPath: "backend.renameRefactorMode",
+		},
+		{
+			name: "gui color choice description",
+			mutate: func(document Document) {
+				document["gui"].(map[string]any)["sectionTagColorChoices"] = []any{
+					map[string]any{"color": "#111111", "description": 7.0},
+				}
+			},
+			expectedPath: "gui.sectionTagColorChoices.0.description",
+		},
+		{
+			name: "section sizing globals",
+			mutate: func(document Document) {
+				document["sectionSizingPolicy"].(map[string]any)["globals"].(map[string]any)["autoMaxHeight"] = "tall"
+			},
+			expectedPath: "sectionSizingPolicy.globals.autoMaxHeight",
+		},
+		{
+			name: "language server root",
+			mutate: func(document Document) {
+				document["languageServer"] = []any{"bad"}
+			},
+			expectedPath: "languageServer",
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			document, err := NewDocument()
+			if err != nil {
+				t.Fatalf("NewDocument returned error: %v", err)
+			}
+			testCase.mutate(document)
+
+			err = ValidateDirectSaveDocument(document)
+			if err == nil {
+				t.Fatal("expected validation error, got nil")
+			}
+			if !strings.Contains(err.Error(), testCase.expectedPath) {
+				t.Fatalf("expected error to contain %q, got %q", testCase.expectedPath, err.Error())
+			}
+		})
 	}
 }
 

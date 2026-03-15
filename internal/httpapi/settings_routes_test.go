@@ -269,6 +269,87 @@ func TestRegisterSettingsRoutesSaveMissingSettingsFieldReturnsValidationEnvelope
 	}
 }
 
+func TestRegisterSettingsRoutesSaveRejectsTypedInvalidNestedSettings(t *testing.T) {
+	t.Parallel()
+
+	// The live save route should reject typed-invalid settings on the current Go-owned save surface.
+	for _, testCase := range []struct {
+		name           string
+		body           string
+		expectedDetail string
+	}{
+		{
+			name:           "backend rename enum",
+			body:           `{"settings":{"backend":{"renameRefactorMode":"MAYBE"}}}`,
+			expectedDetail: "backend.renameRefactorMode",
+		},
+		{
+			name:           "shortcuts string field",
+			body:           `{"settings":{"shortcuts":{"searchShortcut":false}}}`,
+			expectedDetail: "shortcuts.searchShortcut",
+		},
+		{
+			name:           "gui snap grid length",
+			body:           `{"settings":{"gui":{"snapGrid":[15]}}}`,
+			expectedDetail: "gui.snapGrid",
+		},
+		{
+			name:           "gui color choices element",
+			body:           `{"settings":{"gui":{"sectionTagColorChoices":[{"color":7,"description":"Broken"}]}}}`,
+			expectedDetail: "gui.sectionTagColorChoices.0.color",
+		},
+		{
+			name:           "section sizing meta control enum",
+			body:           `{"settings":{"sectionSizingPolicy":{"metaControlByType":{"DropdownParam":{"sizeModeHeight":"sometimes"}}}}}`,
+			expectedDetail: "sectionSizingPolicy.metaControlByType.DropdownParam.sizeModeHeight",
+		},
+		{
+			name:           "language server root object",
+			body:           `{"settings":{"languageServer":false}}`,
+			expectedDetail: "languageServer",
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			runtime, _ := newSettingsRouteTestRuntime(t)
+			handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
+			before := runtime.Snapshot()
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteSaveSettings,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected save settings 422, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload validationErrorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode validation envelope: %v", err)
+			}
+			if payload.StatusCode != 10422 {
+				t.Fatalf("expected validation status code 10422, got %#v", payload)
+			}
+			if !strings.Contains(payload.Message, testCase.expectedDetail) {
+				t.Fatalf("expected validation detail %q in %q", testCase.expectedDetail, payload.Message)
+			}
+			if payload.Data != nil {
+				t.Fatalf("expected nil validation data, got %#v", payload.Data)
+			}
+
+			after := runtime.Snapshot()
+			if got := after.Document["backend"].(map[string]any)["renameRefactorMode"]; got != before.Document["backend"].(map[string]any)["renameRefactorMode"] {
+				t.Fatalf("expected rejected save to preserve runtime snapshot, got before=%#v after=%#v", before.Document["backend"], after.Document["backend"])
+			}
+		})
+	}
+}
+
 func newSettingsRouteTestRuntime(t *testing.T) (*settingsstate.Runtime, string) {
 	t.Helper()
 
