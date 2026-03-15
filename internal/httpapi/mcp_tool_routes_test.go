@@ -37,6 +37,53 @@ func (p routePythonPackageProvider) InstalledPackages(context.Context) ([]string
 	return append([]string(nil), p.packages...), nil
 }
 
+type routeStateMachineRunProvider struct {
+	report                map[string]any
+	projectConfigID       string
+	childRunID            *string
+	machineRunID          *string
+	sectionID             *string
+	signalName            string
+	payload               map[string]any
+	shareSessionID        *string
+	reportSignalCallCount int
+}
+
+func (p *routeStateMachineRunProvider) Disabled() bool {
+	return p == nil
+}
+
+func (p *routeStateMachineRunProvider) ReportSignal(
+	projectConfigID string,
+	childRunID *string,
+	machineRunID *string,
+	sectionID *string,
+	signalName string,
+	payload map[string]any,
+	shareSessionID *string,
+) (map[string]any, error) {
+	p.reportSignalCallCount++
+	p.projectConfigID = projectConfigID
+	p.childRunID = childRunID
+	p.machineRunID = machineRunID
+	p.sectionID = sectionID
+	p.signalName = signalName
+	p.payload = payload
+	p.shareSessionID = shareSessionID
+	if p.report != nil {
+		return p.report, nil
+	}
+	return map[string]any{
+		"status":                "ok",
+		"signalEventId":         "signal-1",
+		"machineRunId":          "machine-1",
+		"childRunId":            "child-run-1",
+		"sourceSectionId":       "chat-section",
+		"signalName":            signalName,
+		"sourceActivationCount": 0,
+	}, nil
+}
+
 func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	t.Parallel()
 
@@ -127,6 +174,166 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 		}
 	})
+}
+
+func TestMCPToolCallRouteReportStateMachineSignalUsesBodyRunContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	provider := &routeStateMachineRunProvider{
+		report: map[string]any{
+			"status":                "ok",
+			"signalEventId":         "signal-1",
+			"machineRunId":          "machine-1",
+			"childRunId":            "child-run-1",
+			"sourceSectionId":       "chat-section",
+			"signalName":            "merge_decision",
+			"sourceActivationCount": 1,
+		},
+	}
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		SectionNames:     routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:   diagnostics,
+		StateMachineRuns: provider,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"report_state_machine_signal",
+		"arguments":{
+			"signalName":"merge_decision",
+			"sectionId":"chat-section",
+			"payload":{"decision":"retry"}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"runId":"child-run-1",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected report_state_machine_signal success, got %#v", payload.StructuredContent)
+	}
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if result["status"] != "ok" {
+		t.Fatalf("expected ok status, got %#v", result["status"])
+	}
+	if provider.reportSignalCallCount != 1 {
+		t.Fatalf("expected one ReportSignal call, got %d", provider.reportSignalCallCount)
+	}
+	if provider.projectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha project config id, got %#v", provider.projectConfigID)
+	}
+	if provider.childRunID == nil || *provider.childRunID != "child-run-1" {
+		t.Fatalf("expected child-run-1 child run id, got %#v", provider.childRunID)
+	}
+	if provider.machineRunID != nil {
+		t.Fatalf("expected nil machine run id, got %#v", provider.machineRunID)
+	}
+	if provider.sectionID == nil || *provider.sectionID != "chat-section" {
+		t.Fatalf("expected chat-section source section id, got %#v", provider.sectionID)
+	}
+	if provider.signalName != "merge_decision" {
+		t.Fatalf("expected merge_decision signal name, got %#v", provider.signalName)
+	}
+	if provider.payload["decision"] != "retry" {
+		t.Fatalf("expected retry payload, got %#v", provider.payload)
+	}
+	if provider.shareSessionID != nil {
+		t.Fatalf("expected nil share session id in IDE mode, got %#v", provider.shareSessionID)
+	}
+}
+
+func TestMCPToolCallRouteReportStateMachineSignalRequiresActiveChildRun(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	provider := &routeStateMachineRunProvider{}
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		SectionNames:     routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:   diagnostics,
+		StateMachineRuns: provider,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"report_state_machine_signal",
+		"arguments":{
+			"signalName":"merge_decision",
+			"sectionId":"chat-section"
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatal("expected report_state_machine_signal without runId to fail")
+	}
+	if provider.reportSignalCallCount != 0 {
+		t.Fatalf("expected runtime provider not to be called, got %d calls", provider.reportSignalCallCount)
+	}
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if result["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", result["code"])
+	}
+	if result["message"] != "report_state_machine_signal requires an active child run." {
+		t.Fatalf("unexpected error message %#v", result["message"])
+	}
 }
 
 func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {

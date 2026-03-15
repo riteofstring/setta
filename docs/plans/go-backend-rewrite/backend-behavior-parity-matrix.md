@@ -192,7 +192,7 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Thirty-three concrete parity gaps are already visible:
+- Thirty-two concrete parity gaps are already visible:
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
@@ -208,10 +208,6 @@ It covers:
     `report_state_machine_signal`
   - current Go workflow startup does not validate that precondition even
     though current docs still describe the fail-closed behavior
-  - source-baseline stateless `/__setta__/tools/call` agentic context carries
-    `runId` for `report_state_machine_signal`
-  - current Go drops `runId` from that request-body transport, so direct HTTP
-    signal-tool calls cannot satisfy the source contract
   - source-baseline `setChartAreaDataPath` persists the literal `dataPath`
     string provided by the caller
   - current Go trims leading and trailing whitespace before persisting that
@@ -371,8 +367,6 @@ It covers:
   contract, but it also adds:
   - one concrete gap around missing fail-closed workflow validation for
     signal-filtered chat targets (`WS-01`)
-  - one concrete gap around missing stateless HTTP signal-tool run-context
-    transport (`WS-04`)
   - two more proof-gap clusters around signal-routing edge variants and
     websocket broadcast proof (`WS-02`, `WS-05`)
 - The agent-profile slice now closes with proofs and retains one dormant
@@ -803,7 +797,7 @@ It covers:
 | `WS-01` | Workflow chats with signal-filtered outgoing edges fail closed before dispatch when the selected agent profile cannot call `report_state_machine_signal`. | `tests/routers/test_state_machine_run_routes.py::test_state_machine_runner_fails_closed_when_signal_tool_is_missing_from_profile`; `docs/reference/state-machine-workflows.md` chat-behavior section; `docs/reference/chat-sections.md` workflow-chat notes. | Current Go graph/run startup carries `agentProfileId` through `internal/statemachineruns/runtime.go::{buildGraphSection,StartRun}` and dispatches chat targets without any equivalent signal-tool allowlist validation; `internal/managedllm/tools.go::buildToolDefinitions` only filters available tools later at managed-chat execution time. | `Missing` | Current Go docs still state the fail-closed behavior, but this slice found no equivalent rewrite runtime check before workflow dispatch. |
 | `WS-02` | `report_state_machine_signal` persists signal events onto the parent workflow run, activates matching signal-filtered edges, and keeps processed-signal, dispatched-edge, gate-waiting, and source-activation-count bookkeeping aligned across retry/loop flows. | `tests/routers/test_state_machine_run_routes.py::{test_state_machine_runner_routes_signal_filtered_edges,test_state_machine_runner_keeps_signal_gate_waiting_while_source_chat_runs,test_state_machine_runner_counts_source_activations_for_signal_retry_loop}`; `docs/reference/state-machine-workflows.md` signal-reporting section. | Impl: `internal/statemachineruns/runtime.go::ReportSignal`; proof: `internal/statemachineruns/runtime_test.go::TestRuntimeReportSignalActivatesMatchingSignalEdgesAndPersistsSignalState`. | `Implemented, proof incomplete` | Current Go proof directly covers one signal-routing branch, but this slice does not yet cite direct Go tests for the source gate-waiting and retry-loop variants. |
 | `WS-03` | `report_state_machine_signal` MCP execution uses the active child-run agentic context and fails with typed `invalid_arguments` when the call lacks an active child run. | `tests/routers/test_mcp_tools_call_agentic_scope_enforcement.py::{test_tools_call_report_state_machine_signal_uses_agentic_run_context,test_tools_call_report_state_machine_signal_requires_active_child_run}`; source tool: `backend/setta/mcp/tools/agentic_tools.py::report_state_machine_signal`. | Impl: `internal/mcpx/state_machine_signal_tool.go`; proof: `internal/mcpx/state_machine_signal_tool_test.go::{TestServerReportStateMachineSignalUsesScopedRunContext,TestServerReportStateMachineSignalRequiresActiveChildRun}`; tool-meta proof: `internal/managedllm/tools_test.go::TestBuildToolRequestMetaIncludesRunContextForWorkflowSignalTool`. | `Proved` | This row is about the scoped MCP-session/tool contract, not the separate stateless HTTP tool-call transport. |
-| `WS-04` | Stateless `POST /__setta__/tools/call` transport preserves `agenticContext.runId` for `report_state_machine_signal`, so direct tool calls can report signals without a prior session `set_agentic_context`; the source route also threaded `share_session_id` when present. | `tests/routers/test_mcp_tools_call_agentic_scope_enforcement.py::{test_tools_call_report_state_machine_signal_uses_agentic_run_context,test_tools_call_report_state_machine_signal_threads_share_session_id,test_tools_call_report_state_machine_signal_requires_active_child_run}`; source route: `backend/setta/routers/mcp_tools.py::route_tools_call`. | Current Go stateless tool-call transport drops `runId` from request-body agentic context: `internal/httpapi/mcp_tool_routes.go::agenticContextMeta`; current Go docs for `/__setta__/tools/call` also omit `runId` from the documented body/header context inputs: `docs/reference/mcp-system-overview.md` agentic-context section. | `Missing` | Persistent Go MCP sessions can still carry run context via `set_agentic_context`, but the source stateless HTTP tool-call contract is not preserved. |
+| `WS-04` | Stateless `POST /__setta__/tools/call` transport preserves `agenticContext.runId` for `report_state_machine_signal`, so direct tool calls can report signals without a prior session `set_agentic_context`; the source route also threaded `share_session_id` when present. | `tests/routers/test_mcp_tools_call_agentic_scope_enforcement.py::{test_tools_call_report_state_machine_signal_uses_agentic_run_context,test_tools_call_report_state_machine_signal_threads_share_session_id,test_tools_call_report_state_machine_signal_requires_active_child_run}`; source route: `backend/setta/routers/mcp_tools.py::route_tools_call`. | Impl: `internal/httpapi/mcp_tool_routes.go::agenticContextMeta`; `internal/mcpx/agentic_context.go::resolveAgenticContext`; `internal/mcpx/state_machine_signal_tool.go::newReportStateMachineSignalHandler`; proof: `internal/httpapi/mcp_tool_routes_test.go::{TestMCPToolCallRouteReportStateMachineSignalUsesBodyRunContext,TestMCPToolCallRouteReportStateMachineSignalRequiresActiveChildRun}`; `internal/mcpx/state_machine_signal_tool_test.go::{TestServerReportStateMachineSignalUsesScopedRunContext,TestServerReportStateMachineSignalRequiresActiveChildRun}`; docs: `docs/reference/mcp-system-overview.md` agentic-context section. | `Proved` | Current Go keeps the stateless tool-call route IDE-only, so the active route proof covers the source run-context contract plus the nil share-session branch rather than any share-mode transport path. |
 | `WS-05` | Workflow run updates are broadcast as `AgentRunUpdated` websocket messages carrying the updated `AgentRun`, and current frontend workflow state consumes that payload without forcing an extra refresh poll. | Source websocket type/sender: `backend/setta/types/websocket.py::WebsocketMsgAgentRunUpdated`; `backend/setta/websockets/msg_handlers/frontend_sender.py::broadcast_agent_run_update`; source workflow test: `tests/routers/test_state_machine_run_routes.py::test_state_machine_runner_broadcasts_parent_update_when_child_run_completes`; source/current frontend caller handling: `frontend/src/state/actions/websocketReceive.ts`; `frontend/tests/e2e/sections/state-machine-sections.spec.ts`. | Impl: `internal/app/app.go` agent-run `AddAfterSaveListener`; `internal/realtime/messages.go::NewAgentRunUpdatedMessage`; proof: `internal/realtime/messages_test.go::{TestNewAgentRunUpdatedMessageClonesContent,TestNewAgentRunUpdatedMessageJSONIncludesEmptySlices}`; current caller proof: `frontend/src/state/actions/websocketReceive.test.ts::it("merges workflow run websocket updates into the agent run store", ...)`; `frontend/tests/e2e/sections/state-machine-sections.spec.ts::test("updates workflow status from websocket run updates without periodic workflow polling", ...)`. | `Implemented, proof incomplete` | Current caller-facing reducer and e2e behavior are proved, but this slice does not yet cite a direct Go app/websocket test that a saved workflow run actually emits the broadcast. |
 
 ## Agent Profiles
@@ -1195,9 +1189,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains thirty-three concrete source-parity gaps:
+1. The matrix now contains thirty-two concrete source-parity gaps:
    `LS-11`, `LS-17`,
-   `US-05`, `WS-01`, `WS-04`,
+   `US-05`, `WS-01`,
    `DP-08`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
@@ -1250,8 +1244,8 @@ It covers:
     dormant share-mutation row (`SM-04`) plus one more proof-gap cluster
     (`SM-05`).
 18. The workflow-signal / AgentRunUpdated slice closes the scoped MCP-session
-    contract, but it adds two real behavior gaps (`WS-01`, `WS-04`) plus two
-    more proof-gap clusters (`WS-02`, `WS-05`).
+    contract, but it adds one real behavior gap (`WS-01`) plus two more
+    proof-gap clusters (`WS-02`, `WS-05`).
 19. The agent-profile slice now closes with proofs and retains one dormant
     realtime row (`AP-04`).
 20. The status/server-mode/launcher slice mostly closes with proofs, and it
@@ -1349,7 +1343,7 @@ It covers:
     than obvious implementation gaps.
 53. The next high-value steps are:
     - decide whether `US-05`,
-      `WS-01`, `WS-04`,
+      `WS-01`,
       `DP-08`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,

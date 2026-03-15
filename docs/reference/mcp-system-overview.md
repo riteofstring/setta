@@ -49,13 +49,14 @@ Agentic context inputs:
 - Required: `projectConfigId`.
 - Required unless unscoped: `sectionId` (the Chat section id).
 - Optional: `chatId` (used to associate follow/highlight state with a specific chat/run).
+- Optional: `runId` (used by workflow child chats when calling `report_state_machine_signal`).
 - Optional: `frontendAffinityToken` (used to route UI-setting reveal requests back to the originating frontend when multiple frontends are connected).
 - Optional: `allowUnscoped=true` (project-level access; used by Project Chat).
 
 Ways to provide agentic context:
-- MCP meta (`projectConfigId`, `chatId`, `sectionId`, `frontendAffinityToken`, `allowUnscoped`).
+- MCP meta (`projectConfigId`, `chatId`, `runId`, `sectionId`, `frontendAffinityToken`, `allowUnscoped`).
 - Request headers (`x-setta-project-config-id`, `x-setta-chat-id`,
-  `x-setta-section-id`, `x-setta-frontend-affinity-token`,
+  `x-setta-run-id`, `x-setta-section-id`, `x-setta-frontend-affinity-token`,
   `x-setta-allow-unscoped`).
 - `/__setta__/tools/call` request body (`agenticContext` object).
 - Persistent sessions can also call the init tool `set_agentic_context` once per
