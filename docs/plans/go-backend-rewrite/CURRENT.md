@@ -102,6 +102,10 @@ plugin model, not product-level removal of backend plugin features.
   retain superseded Python by default. Delete dead Python code/tests in
   bounded batches once the replacement-owner or no-replacement justification is
   proved.
+- Prefer the largest safe deletion batch that current caller, import, and test
+  evidence supports. Do not spend time inlining or locally simplifying Python
+  code that is likely to be deleted unless that edit is required to sever a
+  retained boundary or unlock a larger bounded deletion.
 - Default to a behavior-first, architecture-conservative port. Reopen redesign
   only when correctness, testability, or active caller coverage requires it.
 - Prefer explicit ownership, thin transports, typed boundaries, deterministic
@@ -144,7 +148,8 @@ plugin model, not product-level removal of backend plugin features.
    - the relevant checklist rows or slice doc
    - the active code path
    - the boundary implications
-   - the single highest-leverage next step
+   - the single highest-leverage next step, including the largest safe deletion
+     batch if cleanup is in scope
 4. Execute that step end-to-end unless the task is planning or inventory work.
 5. Update the source-of-truth docs in the same change when ownership, caller
    reachability, dependency decisions, or workflow guidance changed.

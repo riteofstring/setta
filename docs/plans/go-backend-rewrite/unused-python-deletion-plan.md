@@ -23,6 +23,8 @@ The output should not be:
 - zero Python files at any cost
 - accidental deletion of retained SDK, packaging, asset, or sidecar boundaries
 - deletion justified only by old rewrite docs or assumption
+- local inlining or micro-cleanup inside Python code that should instead be
+  deleted as part of a larger proven batch
 
 ## Inputs
 
@@ -66,8 +68,17 @@ bounded cleanup with its own proof.
 The deletion unit is a single file or a tight file cluster that implements one
 behavior surface together.
 
+Prefer the largest safe batch that shares one behavior surface and one proof
+story.
+If both a small local deletion and a larger cluster deletion are supportable,
+choose the larger cluster unless it would mix classifications, widen retained
+boundary risk, or make verification meaningfully less clear.
+
 Do not delete broad trees in one step unless every file in the tree shares the
 same proven classification.
+Do not spend time simplifying internals of candidate files before deletion
+unless that edit is required to sever a retained import, isolate a retained
+support module, or unlock the larger batch.
 
 ### Rule 2: Required proof per deleted implementation file
 
@@ -188,6 +199,8 @@ Actions:
 
 - use current imports, entrypoints, and caller scans to place every candidate
   file into a real cluster
+- rank the candidate clusters by safe size and leverage so the first deletion
+  batch is the biggest low-risk batch, not the smallest obvious edit
 - do not mix retained support modules into a delete batch just because they
   sit next to dead code
 
@@ -253,6 +266,8 @@ Reason for this order:
 - early batches are easier to map to obvious Go owners
 - late batches contain more retained helper overlap or a higher chance of
   mistaken deletion
+- this ordering also biases the work toward high-leverage cluster deletion
+  before granular file-by-file cleanup
 
 Per-batch requirements:
 
@@ -398,3 +413,6 @@ Do not begin by deleting files.
 The first executable deliverable should be a deletion ledger and a bounded
 first batch, with the legacy transport shell as the default starting point
 unless current code review shows a retained import dependency there.
+Do not start by inlining or simplifying dead Python within a candidate batch.
+Use those smaller edits only when they are necessary to unlock the chosen
+batch or after the major cluster deletions are complete.
