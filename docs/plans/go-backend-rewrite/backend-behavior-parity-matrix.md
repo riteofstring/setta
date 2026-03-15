@@ -5,7 +5,7 @@ Last audited: `2026-03-16`
 ## Audit Boundary
 
 - Source baseline: `main@26e7406b764009690b3b5af7ade260c91407c0be`
-- Target head: `8d8dc54275264acf2074f1246946bb1902350396`
+- Target head: `6762b6462207cb0441a295bbca70eba7a62278f0`
 - Slice covered in this pass: the first recommended
   naming/default-name/error-contract/realtime slice, the project-shell slice,
   the websocket/realtime/listener
@@ -30,9 +30,9 @@ Last audited: `2026-03-16`
 
 ## Status Summary
 
-- Rows audited in this pass: `198`
+- Rows audited in this pass: `200`
 - Status counts:
-  - `Proved`: `193`
+  - `Proved`: `195`
   - `Intentional divergence`: `5`
 - Audit fixes landed while building this matrix:
   - `internal/projectstate/add_kwarg.go`: missing dict-root initialization now
@@ -57,6 +57,11 @@ Last audited: `2026-03-16`
   - `internal/gitread/service.go`: git status responses now include the
     source-style `worktrees` list again, including current/prunable metadata,
     and the generated frontend bindings expose that contract to the git pane
+  - `internal/uisettings/plugins.go` and `internal/uisettings/registry.go`:
+    plugin UI-setting registry construction now degrades duplicate/invalid
+    plugin setting entries per setting id instead of failing the whole plugin
+    registry, so affected setting ids return `plugin_unavailable` while healthy
+    sibling settings remain available
   - route tests were updated to lock those transport contracts
 
 ## Scope Notes
@@ -144,9 +149,9 @@ Last audited: `2026-03-16`
     detail rows beyond the persistence/validation invariants audited here
   - remaining app-definition mode-guard/tool-error-detail rows beyond the
     persistence/preview/temp-id subset audited here
-  - remaining UI-setting corrupt-config, capability-gating, reveal-after-set,
-    affinity-precedence, and reveal-lease rows beyond the search/temporary-id/
-    share-routing subset audited here
+  - remaining UI-setting corrupt-config, reveal-after-set, affinity-precedence,
+    and reveal-lease rows beyond the search/temporary-id/share-routing/
+    plugin-invalid-entry subset audited here
   - broader codegen refresh/listener/runtime rows beyond the project-target
     validation and reconciliation subset audited here
 
@@ -359,4 +364,6 @@ Last audited: `2026-03-16`
 | `ui_settings.plugin.search_filters_separate_sources_and_ignore_disabled_plugins` | `tests/mcp/test_ui_setting_tools.py::test_search_ui_settings_source_filter_separates_core_and_plugin_entries`; `::test_search_ui_settings_ignores_disabled_plugins` | `internal/uisettings/registry.go::{ListEntries,Search}`; `internal/uisettings/plugins.go::NewScopedRegistry` | `TestServerSearchUISettingsReturnsRankedCoreResults`; `TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin` | the active MCP UI-setting search tool still exposes `sourceFilter` and returns structured result lists | `Proved` | Source filtering still separates core from plugin settings, and disabled plugins still disappear from plugin-only search results. |
 | `ui_settings.plugin.duplicate_setting_ids_skip_search_and_report_plugin_unavailable` | `tests/mcp/test_ui_setting_tools.py::test_search_ui_settings_skips_plugins_with_duplicate_setting_ids` | `internal/uisettings/registry.go::newRegistry`; `internal/uisettings/plugins.go::NewScopedRegistry` | `TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingDistinct` | `search_ui_settings` and `get_ui_setting_value` still surface the duplicate-setting behavior over the MCP tool boundary | `Proved` | Plugins with duplicated UI setting ids still omit the duplicated setting from search and report `plugin_unavailable` when that duplicated setting id is read. |
 | `ui_settings.plugin.unknown_setting_not_masked_by_duplicate_contributions` | `tests/mcp/test_ui_setting_tools.py::test_plugin_unknown_setting_id_is_not_masked_by_other_invalid_contributions` | `internal/uisettings/registry.go::ReadValue`; `internal/uisettings/plugins.go::NewScopedRegistry` | `TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingDistinct`; `TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting` | the MCP UI-setting read tool still differentiates unknown ids from unavailable plugin-provided ids | `Proved` | Unknown plugin setting ids still return `setting_not_found` even when the same plugin namespace has duplicated invalid UI-setting contributions. |
+| `ui_settings.plugin.schema_invalid_setting_stays_unavailable_while_healthy_siblings_survive` | `tests/mcp/test_ui_setting_tools.py::test_plugin_schema_tracks_multiple_invalid_entries_per_setting_id` | `internal/uisettings/plugins.go::parsePluginUISettingDefinitions`; `internal/uisettings/registry.go::MissingSettingError` | `TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKeepHealthySibling` | `get_ui_setting_value` still returns structured per-setting errors on the MCP tool surface | `Proved` | Invalid plugin schema entries now make only the affected setting ids unavailable while healthy sibling plugin settings remain readable. |
+| `ui_settings.plugin.register_pane_capability_gate_blocks_read_write` | `tests/mcp/test_ui_setting_tools.py::test_plugin_ui_setting_returns_plugin_unavailable_when_register_pane_not_effective` | `internal/uisettings/plugins.go::buildPluginRegistryMetadata`; `internal/uisettings/registry.go::MissingSettingError` | `TestServerUISettingToolsReturnPluginUnavailableForReadWriteWhenRegisterPaneCapabilityNotEffective` | MCP UI-setting reads and writes still surface the capability-gated `plugin_unavailable` error instead of mutating config | `Proved` | Plugin settings remain unavailable to read/write callers when the plugin is present but `registerPane` is not an effective capability. |
 | `codegen_targets.mcp_temporary_ids_and_plugin_registration_gate` | `backend/setta/mcp/server.py` temporary-id conversion at invocation edge; `tests/mcp/test_id_conversion.py`; `tests/project_state/test_codegen_targets.py::test_set_codegen_targets_rejects_unknown_plugin_target` | `internal/mcpx/temporary_ids.go`; `internal/mcpx/server.go`; `internal/projectstate/codegen_targets.go` | `TestTemporaryIDStoreResolvesKnownTemporaryIDsAndRejectsUnknownNumericIDs`; `TestMCPToolCallRouteSupportsPluginSetProjectConfigCodegenTargetsWithTemporaryIDs`; `TestAppIDEMCPServerRejectsPluginSetProjectConfigCodegenTargetsOverAuthenticatedSSE`; `TestAppIDEMCPServerSupportsLinkedPluginSetProjectConfigCodegenTargetsWithTemporaryIDsOverAuthenticatedSSE`; `TestAppIDEMCPToolCallRouteSupportsSetProjectConfigCodegenTargets` | MCP tool-call and authenticated-SSE callers still mutate codegen targets through the same tool name | `Proved` | MCP codegen-target writes still reject unregistered plugin languages, but once the plugin is linked the same tool accepts temporary project ids and persists the target against the canonical project. |
