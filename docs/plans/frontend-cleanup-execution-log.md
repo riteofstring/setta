@@ -5972,3 +5972,49 @@ schedule settings` button still appears on the live task row.
     now the highest unresolved front-door hotspot after `PluginsPane.tsx`
     dropped to about 607 lines and delegated its per-plugin card/editor/schema
     ownership into feature-local modules.
+
+## 2026-03-15 23:08:55 PDT
+
+- Slice completed: extracted ChatArea managed and scriptable surface owners
+- This was higher value than jumping straight to
+  `frontend/src/plugins/runtime.ts` or
+  `frontend/src/components/Panes/Overview/RunInstructions.tsx` because
+  `frontend/src/components/Section/Layouts/ChatArea.tsx` was still the highest
+  unresolved section-layout front door at the start of the turn, and it still
+  mixed the managed section-chat branch, the scriptable section-chat branch,
+  managed history/polling helpers, and shared realtime action telemetry in one
+  first-hop file.
+- Key files touched:
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Section/Layouts/chatAreaManagedSurface.tsx`
+  - `frontend/src/components/Section/Layouts/chatAreaScriptableSurface.tsx`
+  - `frontend/src/components/Section/Layouts/chatAreaManagedHistory.tsx`
+  - `frontend/src/components/Section/Layouts/chatAreaRealtimeEvents.ts`
+  - `frontend/src/components/Section/Layouts/ChatArea.renderBoundary.test.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.test.tsx`
+  - `frontend/src/components/Section/Layouts/chatAreaHistoryPolling.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `perf/reports/frontend/chat-area-branch-surfaces-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/ChatArea.test.tsx src/components/Section/Layouts/ChatArea.renderBoundary.test.tsx src/components/Section/Layouts/chatAreaHistoryPolling.test.ts src/components/Section/Layouts/chatAreaPlanModeBadge.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts --grep 'managed chat sections keep thread actions in-chat and hide inline settings controls|managed chat sections hide thread controls when deployment policy disallows LLM access|managed section zero-scope banner is dismissible per browser session'`
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/ChatArea.test.tsx src/components/Section/Layouts/ChatArea.renderBoundary.test.tsx src/components/Section/Layouts/chatAreaHistoryPolling.test.ts src/components/Section/Layouts/chatAreaManagedHistory.tsx src/components/Section/Layouts/chatAreaManagedSurface.tsx src/components/Section/Layouts/chatAreaRealtimeEvents.ts src/components/Section/Layouts/chatAreaScriptableSurface.tsx src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../perf/reports/frontend/chat-area-branch-surfaces-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-area-branch-surfaces-2026-03-15.md`
+    with the before/after ownership notes for the branch split.
+  - CDP visual verification was run on `http://127.0.0.1:3002/racing_busy` at
+    `1400x900`; the injected managed plus scriptable preview still showed the
+    zero-scope banner, `Dismiss`/`History`/`New Chat`, a disabled managed
+    composer, and the scriptable `draft scriptable prompt`, with the scratch
+    mount changing from `nodeCount: 59` before the extraction to
+    `nodeCount: 58` after while preserving the visible controls.
+- Commit hash:
+  - `75d97dca9a1bb720bcaabea22e3c85ec55366683`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/plugins/runtime.ts`, which is now the top unresolved
+    front-door hotspot after `ChatArea.tsx` dropped to a thin branch router and
+    moved managed/scriptable ownership into feature-local surfaces.
