@@ -1134,3 +1134,24 @@ Append-only log for the callable DOM-first performance refactor.
     - the next correct pass may only become obvious after that layer is gone
 - Next action:
   - Continue the shared section-shell baseline with the explicit assumption that multiple passes may be required.
+
+### 2026-03-16 47
+
+- Item: Added semantic HTML as a later-pass cleanup goal in the active sections-wide plan.
+- Status: `done`
+- Details:
+  - Updated the active plan so semantic HTML is now explicitly encouraged where it fits naturally after the structural simplification is stable.
+  - Recorded that this is a later-pass concern, not a first-pass constraint:
+    - structural simplification and performance-sensitive DOM reduction come first
+    - semantic upgrades come after the non-grid layout contract is already stable
+  - Added a dedicated later phase for semantic cleanup with likely candidates such as:
+    - `section`
+    - `header`
+    - `nav`
+    - `aside`
+    - list semantics where appropriate
+- Interpretation:
+  - This keeps semantic markup in scope without letting it interfere with the deeper structural rewrite.
+  - It should be treated as opportunistic cleanup in the second pass, not as a reason to complicate parity-sensitive checkpoints.
+- Next action:
+  - Keep semantic HTML as a lower-priority second-pass concern while the shared section-shell baseline and non-grid simplification are still in progress.

@@ -107,6 +107,9 @@ For the broadened sections-wide pass, treat these as the shared architecture clu
 - Use `flex` only when the layout is truly one-dimensional and it simplifies the contract without introducing extra measurement or wrapper work.
 - Existing `grid` / `subgrid` usage is now something to remove, not something to preserve by default.
 - If a target layout truly cannot be achieved without `grid`, stop implementation and report that explicitly instead of introducing `grid` anyway.
+- Use semantic HTML where it fits naturally, but treat that as a second-pass improvement after the structural/performance simplification is already stable.
+- Good candidates for later passes include `section`, `header`, `nav`, `aside`, lists, and other semantic containers that can replace generic wrappers without adding layout risk.
+- Do not force semantic tags into places where they complicate parity or make the structure harder to reason about.
 - If a layout choice is not clearly simpler or clearly faster, do not keep it by inertia; measure it.
 
 ## Current Callable Hotspot Map
@@ -659,6 +662,26 @@ Exit criteria:
 
 - The next remaining hotspot is explicitly identified.
 - Any further work is justified by evidence rather than assumption.
+
+#### Phase S5: Semantic HTML Cleanup
+
+Purpose: once the simplified non-grid structure is stable, replace generic wrappers with semantic HTML where it fits naturally.
+
+Tasks:
+
+1. Audit the stabilized structure for obvious semantic upgrades:
+   - `section`
+   - `header`
+   - `nav`
+   - `aside`
+   - lists and list items
+2. Apply semantic tags only where they preserve parity and do not complicate the simplified structure.
+3. Keep this phase lower priority than the structural/performance work.
+
+Exit criteria:
+
+- Obvious semantic upgrades are applied where they are genuinely helpful.
+- No user-facing behavior or layout regressions are introduced.
 
 ## Current Blockers At Planning Time
 
