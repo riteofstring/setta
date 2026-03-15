@@ -59,7 +59,22 @@ class ListenerHotReloader:
         self._settle_delay = settle_delay
         self._stop_event = asyncio.Event()
         self._reload_lock = asyncio.Lock()
-        self._watch_filter = self._make_watch_filter()
+        allowed_changes = {Change.added, Change.modified, Change.deleted}
+
+        def watch_filter(change: Change, path: str) -> bool:
+            if change not in allowed_changes:
+                return False
+            candidate_path = Path(path)
+            try:
+                candidate = candidate_path.resolve()
+            except RuntimeError:
+                candidate = candidate_path.absolute()
+            for spec in self._watch_specs:
+                if spec.accepts(candidate):
+                    return True
+            return False
+
+        self._watch_filter = watch_filter
 
     @property
     def listener(self) -> "SettaListener":
@@ -194,24 +209,6 @@ class ListenerHotReloader:
             raise
         finally:
             self._stop_event.set()
-
-    def _make_watch_filter(self):
-        allowed_changes = {Change.added, Change.modified, Change.deleted}
-
-        def _filter(change: Change, path: str) -> bool:
-            if change not in allowed_changes:
-                return False
-            candidate_path = Path(path)
-            try:
-                candidate = candidate_path.resolve()
-            except RuntimeError:
-                candidate = candidate_path.absolute()
-            for spec in self._watch_specs:
-                if spec.accepts(candidate):
-                    return True
-            return False
-
-        return _filter
 
     async def reload_now(self, *, reload_module: bool = True) -> None:
         """Reload callbacks immediately, optionally skipping module reload."""
