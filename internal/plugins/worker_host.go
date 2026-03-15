@@ -13,15 +13,12 @@ import (
 	"sort"
 	"strings"
 
-	"setta/internal/deployments"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 	"setta/internal/statefs"
 	"setta/internal/tools"
 )
 
 const (
-	CapabilityEmitListenerEvents           = "emitListenerEvents"
 	CapabilityRegisterMCPTools             = "registerMcpTools"
 	CapabilityReadProjectState             = "readProjectState"
 	CapabilityRegisterLanguageServer       = "registerLanguageServer"
@@ -30,17 +27,15 @@ const (
 )
 
 const (
-	HostMethodEmitListenerDependencyEvent = "host.emit_listener_dependency_event"
-	HostMethodRegisterMCPTool             = "host.register_mcp_tool"
-	HostMethodReadProjectState            = "host.read_project_state"
-	HostMethodRegisterLanguageServer      = "host.register_language_server"
-	HostMethodRegisterExternalAgent       = "host.register_external_agent_adapter"
-	HostMethodRegisterCodegenTarget       = "host.register_codegen_target"
+	HostMethodRegisterMCPTool        = "host.register_mcp_tool"
+	HostMethodReadProjectState       = "host.read_project_state"
+	HostMethodRegisterLanguageServer = "host.register_language_server"
+	HostMethodRegisterExternalAgent  = "host.register_external_agent_adapter"
+	HostMethodRegisterCodegenTarget  = "host.register_codegen_target"
 )
 
 var (
 	ErrWorkerHostServiceRequired                         = errors.New("plugins: worker host requires at least one registered service")
-	ErrWorkerHostListenerProducerRequired                = errors.New("plugins: listener producer is required")
 	ErrWorkerHostProjectStateReaderRequired              = errors.New("plugins: project state reader is required")
 	ErrWorkerHostMCPToolRegistrarRequired                = errors.New("plugins: mcp tool registrar is required")
 	ErrWorkerHostLanguageServerRegistrarRequired         = errors.New("plugins: language server registrar is required")
@@ -49,7 +44,6 @@ var (
 	ErrWorkerHostPluginIDRequired                        = errors.New("plugins: worker host plugin id is required")
 	ErrWorkerHostPluginRootRequired                      = errors.New("plugins: worker host plugin root is required")
 	ErrWorkerHostCapabilityDenied                        = errors.New("plugins: worker host capability is required")
-	ErrWorkerHostDependencyEventsRequired                = errors.New("plugins: dependency events must contain at least one entry")
 	ErrWorkerHostShareSessionRequired                    = errors.New("plugins: share session id is required in deployment mode")
 	ErrWorkerHostProjectStateReadFailed                  = errors.New("plugins: project state read failed")
 	ErrWorkerHostProjectStateProjectIDRequired           = errors.New("plugins: project config id is required")
@@ -99,8 +93,6 @@ var supportedExternalAgentRunModes = map[string]struct{}{
 }
 
 type WorkerHostOptions struct {
-	ListenerProducer              *realtime.ListenerProducer
-	Deployment                    *deployments.Runtime
 	ProjectStateReader            ProjectStateReader
 	MCPToolRegistrar              BackendMCPToolRegistrar
 	LanguageServerRegistrar       BackendLanguageServerRegistrar
@@ -112,18 +104,6 @@ type WorkerContext struct {
 	PluginID              string
 	PluginRoot            string
 	EffectiveCapabilities []string
-}
-
-type ListenerDependencyEvent struct {
-	DependencyKey json.RawMessage `json:"dependencyKey"`
-	Payload       json.RawMessage `json:"payload,omitempty"`
-	TimestampMS   int64           `json:"timestampMs"`
-}
-
-type EmitListenerDependencyEventsRequest struct {
-	ProjectID        string                    `json:"projectConfigId"`
-	DependencyEvents []ListenerDependencyEvent `json:"dependencyEvents"`
-	ShareSessionID   string                    `json:"shareSessionId,omitempty"`
 }
 
 type RegisterMCPToolRequest struct {
@@ -193,8 +173,6 @@ type workerCodegenTargetRegistrationPayload struct {
 }
 
 type WorkerHost struct {
-	listener                  *realtime.ListenerProducer
-	deployment                *deployments.Runtime
 	projectStateReader        ProjectStateReader
 	mcpToolStore              BackendMCPToolRegistrar
 	languageServerStore       BackendLanguageServerRegistrar
@@ -203,8 +181,7 @@ type WorkerHost struct {
 }
 
 func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
-	if options.ListenerProducer == nil &&
-		options.ProjectStateReader == nil &&
+	if options.ProjectStateReader == nil &&
 		options.MCPToolRegistrar == nil &&
 		options.LanguageServerRegistrar == nil &&
 		options.ExternalAgentAdapterRegistrar == nil &&
@@ -213,63 +190,12 @@ func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	}
 
 	return &WorkerHost{
-		listener:                  options.ListenerProducer,
-		deployment:                options.Deployment,
 		projectStateReader:        options.ProjectStateReader,
 		mcpToolStore:              options.MCPToolRegistrar,
 		languageServerStore:       options.LanguageServerRegistrar,
 		externalAgentAdapterStore: options.ExternalAgentAdapterRegistrar,
 		codegenTargetStore:        options.CodegenTargetRegistrar,
 	}, nil
-}
-
-func (h *WorkerHost) EmitListenerDependencyEvents(
-	ctx context.Context,
-	worker WorkerContext,
-	request EmitListenerDependencyEventsRequest,
-) error {
-	if h == nil || h.listener == nil {
-		return ErrWorkerHostListenerProducerRequired
-	}
-	if !worker.hasCapability(CapabilityEmitListenerEvents) {
-		return fmt.Errorf("%w: %s", ErrWorkerHostCapabilityDenied, CapabilityEmitListenerEvents)
-	}
-
-	projectID := strings.TrimSpace(request.ProjectID)
-	if projectID == "" {
-		return projectstate.ErrProjectIDRequired
-	}
-	if len(request.DependencyEvents) == 0 {
-		return ErrWorkerHostDependencyEventsRequired
-	}
-
-	shareSessionID := strings.TrimSpace(request.ShareSessionID)
-	if h.deployment != nil {
-		if shareSessionID == "" {
-			return ErrWorkerHostShareSessionRequired
-		}
-		if err := h.deployment.TouchSession(shareSessionID); err != nil {
-			return err
-		}
-	}
-
-	events := make([]realtime.DependencyEventInput, 0, len(request.DependencyEvents))
-	for _, event := range request.DependencyEvents {
-		events = append(events, realtime.DependencyEventInput{
-			DependencyKey: append(json.RawMessage(nil), event.DependencyKey...),
-			Payload:       append(json.RawMessage(nil), event.Payload...),
-			TimestampMS:   event.TimestampMS,
-		})
-	}
-
-	if _, _, err := h.listener.EmitDependencyEvents(ctx, realtime.ProduceDependencyEventsParams{
-		ProjectID:        projectID,
-		ShareSessionID:   shareSessionID,
-		DependencyEvents: events,
-	}); err != nil {
-		return fmt.Errorf("emit plugin listener dependency events: %w", err)
-	}
-	return nil
 }
 
 func (h *WorkerHost) ReadProjectState(
@@ -408,20 +334,6 @@ func (h *WorkerHost) Dispatch(
 	}
 
 	switch method {
-	case HostMethodEmitListenerDependencyEvent:
-		decodedParams := json.RawMessage(`{}`)
-		if len(strings.TrimSpace(string(params))) > 0 {
-			decodedParams = append(json.RawMessage(nil), params...)
-		}
-
-		var request EmitListenerDependencyEventsRequest
-		if err := json.Unmarshal(decodedParams, &request); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
-		}
-		if err := h.EmitListenerDependencyEvents(ctx, worker, request); err != nil {
-			return nil, err
-		}
-		return json.RawMessage(`{"ok":true}`), nil
 	case HostMethodReadProjectState:
 		var request ReadProjectStateRequest
 		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {

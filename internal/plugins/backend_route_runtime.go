@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"setta/internal/config"
-	"setta/internal/realtime"
 )
 
 var (
@@ -23,7 +22,6 @@ type BackendRouteRuntimeOptions struct {
 	DiscoveryService *DiscoveryService
 	Snapshot         *DiscoverySnapshot
 	RuntimeProvider  WorkerRuntimeProvider
-	ListenerProducer *realtime.ListenerProducer
 	ProjectStateRead ProjectStateReader
 	ServerMode       config.Mode
 	Logger           *slog.Logger
@@ -32,7 +30,6 @@ type BackendRouteRuntimeOptions struct {
 type BackendRouteRuntime struct {
 	logger *slog.Logger
 
-	listenerProducer *realtime.ListenerProducer
 	projectStateRead ProjectStateReader
 
 	mcpTools    []RegisteredMCPTool
@@ -86,7 +83,6 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 	runtimePlugins := collectBackendRuntimePlugins(snapshot.Plugins)
 	runtime := &BackendRouteRuntime{
 		logger:           options.Logger,
-		listenerProducer: options.ListenerProducer,
 		projectStateRead: options.ProjectStateRead,
 		mcpTools:         []RegisteredMCPTool{},
 		sessions:         map[string]*StartedWorkerSession{},
@@ -222,7 +218,6 @@ func (r *BackendRouteRuntime) startPlugin(
 	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer:              r.listenerProducer,
 		ProjectStateReader:            r.projectStateRead,
 		MCPToolRegistrar:              mcpTools,
 		LanguageServerRegistrar:       languageServers,

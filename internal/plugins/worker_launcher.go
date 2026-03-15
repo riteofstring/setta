@@ -25,7 +25,6 @@ var (
 		"host.register_external_agent_adapter": {},
 		"host.register_codegen_target":         {},
 		"host.read_project_state":              {},
-		"host.emit_listener_dependency_event":  {},
 	}
 )
 

@@ -6,7 +6,6 @@ import (
 
 	"setta/internal/config"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 )
 
 // Tool-only backend plugins should stay live and proxy MCP tool calls over the worker RPC boundary.
@@ -59,7 +58,7 @@ func TestBackendRouteRuntimeSupportsProjectStateReadsOverMCPTools(t *testing.T) 
 		t.Fatalf("new project state reader: %v", err)
 	}
 
-	runtime := mustNewBackendRouteRuntimeWithOptions(t, roots, config.ModeIDE, reader, nil)
+	runtime := mustNewBackendRouteRuntimeWithOptions(t, roots, config.ModeIDE, reader)
 	defer func() {
 		if err := runtime.Close(); err != nil {
 			t.Fatalf("close backend route runtime: %v", err)
@@ -113,7 +112,7 @@ func TestBackendRouteRuntimeSupportsMixedToolAndLanguageServerFixtures(t *testin
 func mustNewBackendRouteRuntime(t *testing.T, roots filesystemResolverTestRoots, mode config.Mode) *BackendRouteRuntime {
 	t.Helper()
 
-	return mustNewBackendRouteRuntimeWithOptions(t, roots, mode, nil, nil)
+	return mustNewBackendRouteRuntimeWithOptions(t, roots, mode, nil)
 }
 
 func mustNewBackendRouteRuntimeWithOptions(
@@ -121,7 +120,6 @@ func mustNewBackendRouteRuntimeWithOptions(
 	roots filesystemResolverTestRoots,
 	mode config.Mode,
 	reader ProjectStateReader,
-	listenerProducer *realtime.ListenerProducer,
 ) *BackendRouteRuntime {
 	t.Helper()
 
@@ -151,7 +149,6 @@ func mustNewBackendRouteRuntimeWithOptions(
 				WorkingDirectory: repoRoot,
 			}, nil
 		}),
-		ListenerProducer: listenerProducer,
 		ProjectStateRead: reader,
 		ServerMode:       mode,
 	})

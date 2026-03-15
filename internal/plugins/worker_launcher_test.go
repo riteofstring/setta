@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"setta/internal/realtime"
 )
 
 // A launcher without a host cannot own nested worker host requests.
@@ -29,49 +27,12 @@ func TestNewWorkerLauncherRequiresHost(t *testing.T) {
 
 // The first caller-facing launcher should start, initialize, and register a real worker through the Go host boundary.
 func TestWorkerLauncherStartAndRegisterWithPythonWorker(t *testing.T) {
-	now := time.Date(2026, 3, 6, 15, 0, 0, 0, time.UTC)
-	deploymentRuntime := newWorkerHostTestDeploymentRuntime(t, &now)
-	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-		t.Fatalf("create share session: %v", err)
-	}
-	before, ok := deploymentRuntime.Session("share-a")
-	if !ok {
-		t.Fatal("expected deployment session")
-	}
-	now = now.Add(2 * time.Minute)
-
-	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: hub,
-	})
-	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-			Broadcaster: broadcaster,
-			Deployment:  deploymentRuntime,
-		}),
-		Deployment: deploymentRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
+	host, registry := newWorkerRPCTestMCPHost(t)
 	launcher, err := NewWorkerLauncher(WorkerLauncherOptions{Host: host})
 	if err != nil {
 		t.Fatalf("new worker launcher: %v", err)
 	}
-
-	server := newWorkerHostWebsocketServer(t, hub)
-	defer server.Close()
-
-	listener := connectWorkerHostListener(t, server.URL, hub, "listener-worker-launcher", "share-a")
-	defer listener.CloseNow()
-	recordWorkerHostBootstrapAndRegistration(t, broadcaster, "listener-worker-launcher", "project-a", "share-a", map[string]realtime.ListenerCallback{
-		"cb-a": {
-			Dependencies:   []string{"section-action", "section-second"},
-			DependencyMode: realtime.ListenerDependencyModeRealtimeOnly,
-		},
-	})
-
-	spec, _ := newWorkerLauncherTestSpec(t, "share-a")
+	spec, _ := newWorkerLauncherTestSpec(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -95,31 +56,31 @@ func TestWorkerLauncherStartAndRegisterWithPythonWorker(t *testing.T) {
 		t.Fatalf("expected backend API version %d, got %d", BackendPluginAPIVersion, started.Handshake.BackendPluginAPIVersion)
 	}
 
-	envelope := readWorkerHostEnvelope(t, listener)
-	if envelope.MessageType != realtime.MessageTypeListenerDependencyEvent {
-		t.Fatalf("expected listener dependency event, got %q", envelope.MessageType)
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 registered mcp tool, got %#v", registrations)
+	}
+	if registrations[0].Name != workerRPCTestToolName {
+		t.Fatalf("expected %q registration, got %q", workerRPCTestToolName, registrations[0].Name)
 	}
 
-	var content realtime.ListenerDependencyEventContent
-	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode listener dependency event content: %v", err)
+	invokeResult, err := started.Session.Call(ctx, "plugin.invoke_mcp_tool", map[string]any{
+		"toolName": workerRPCTestToolName,
+		"kwargs": map[string]any{
+			"value": "gamma",
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke registered mcp tool: %v", err)
 	}
-	if content.ProjectConfigID != "project-a" {
-		t.Fatalf("expected project-a content, got %q", content.ProjectConfigID)
+	var toolResult struct {
+		Result string `json:"result"`
 	}
-	if content.ShareSessionID != "share-a" {
-		t.Fatalf("expected share-a content, got %q", content.ShareSessionID)
+	if err := json.Unmarshal(invokeResult, &toolResult); err != nil {
+		t.Fatalf("decode worker mcp tool result: %v", err)
 	}
-	if content.Sequence != 1 {
-		t.Fatalf("expected sequence 1, got %d", content.Sequence)
-	}
-
-	after, ok := deploymentRuntime.Session("share-a")
-	if !ok {
-		t.Fatal("expected deployment session after register")
-	}
-	if !after.LastSeenAt.After(before.LastSeenAt) {
-		t.Fatalf("expected worker launcher register to advance last-seen time from %v to after %v", before.LastSeenAt, after.LastSeenAt)
+	if toolResult.Result != "fixture-plugin:gamma" {
+		t.Fatalf("expected fixture-plugin:gamma, got %q", toolResult.Result)
 	}
 }
 
@@ -204,7 +165,7 @@ func TestDecodeWorkerHandshakeRejectsInvalidPayloads(t *testing.T) {
 	}
 }
 
-func newWorkerLauncherTestSpec(t *testing.T, shareSessionID string) (BackendWorkerSpec, string) {
+func newWorkerLauncherTestSpec(t *testing.T) (BackendWorkerSpec, string) {
 	t.Helper()
 
 	repoRoot := workerRPCTestRepoRoot(t)
@@ -215,7 +176,7 @@ func newWorkerLauncherTestSpec(t *testing.T, shareSessionID string) (BackendWork
 	}
 
 	entrypoint := filepath.Join(backendRoot, "entrypoint.py")
-	if err := os.WriteFile(entrypoint, []byte(workerRPCTestEntrypoint(shareSessionID)), 0o644); err != nil {
+	if err := os.WriteFile(entrypoint, []byte(workerRPCTestEntrypoint()), 0o644); err != nil {
 		t.Fatalf("write worker launcher entrypoint: %v", err)
 	}
 
@@ -226,7 +187,7 @@ func newWorkerLauncherTestSpec(t *testing.T, shareSessionID string) (BackendWork
 		PluginRoot:            pluginRoot,
 		Entrypoint:            entrypoint,
 		ServerMode:            "share",
-		EffectiveCapabilities: []string{CapabilityEmitListenerEvents},
+		EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
 		Environment:           workerRPCTestEnv(repoRoot),
 		WorkingDirectory:      repoRoot,
 	}, pluginRoot

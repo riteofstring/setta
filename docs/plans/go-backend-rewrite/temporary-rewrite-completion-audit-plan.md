@@ -696,3 +696,15 @@ fixture and Playwright coverage were removed. The remaining Python plugin
 worker blocker is now narrower: real backend ownership is limited to the
 retained worker capability clusters that still exist in `worker.py`, not any
 route transport surface.
+
+Subsequent follow-up rewrite steps removed two more dead Python worker
+transport boundaries. `backend/setta/plugins/worker.py` no longer registers
+static dirs or emits listener dependency events, the Go plugin runtime no
+longer captures either surface, and the Go app / backend-route / codegen
+runtime wiring no longer threads plugin-specific listener-producer state into
+worker hosts just to support the deleted listener-event bridge. The focused
+real-worker Go and Python tests now validate the retained worker boundary
+through MCP-tool registration and invocation instead. The remaining Python
+plugin worker blocker is narrower again: live backend ownership is now limited
+to MCP tools, codegen targets, language servers, external-agent adapters, and
+project-state reads.

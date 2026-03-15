@@ -1244,7 +1244,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		initialPluginRuntime, err := plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
 			DiscoveryService: pluginDiscovery,
 			RuntimeProvider:  pluginWorkerRuntime,
-			ListenerProducer: listenerProducer,
 			ProjectStateRead: pluginProjectStateReader,
 			ServerMode:       cfg.Server.Mode,
 			Logger:           logger,
@@ -1258,7 +1257,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			service:          pluginMutationService,
 			discovery:        pluginDiscovery,
 			runtimeProvider:  pluginWorkerRuntime,
-			listenerProducer: listenerProducer,
 			projectStateRead: pluginProjectStateReader,
 			serverMode:       cfg.Server.Mode,
 			holder:           pluginBackendRoutes,

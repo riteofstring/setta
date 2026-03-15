@@ -10,7 +10,6 @@
   },
   "capabilities": [
     "registerMcpTools",
-    "readProjectState",
-    "emitListenerEvents"
+    "readProjectState"
   ]
 }

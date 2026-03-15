@@ -265,24 +265,21 @@ def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
-def test_worker_register_supports_read_state_and_emit_registration(
+def test_worker_register_supports_read_state_and_mcp_registration(
     tmp_path: Path,
 ) -> None:
-    # Worker register should support host read_project_state and emit_listener_dependency_event.
+    # Worker register should support host read_project_state and retained MCP registration.
     plugin_root = _copy_backend_fixture(tmp_path)
     (plugin_root / "backend" / "entrypoint.py").write_text(
         "def register(plugin):\n"
         "    project_state = plugin.read_project_state(project_config_id='fixture-project', view='summary')\n"
         "    assert project_state['projectConfig']['id'] == 'fixture-project'\n"
-        "    plugin.emit_listener_dependency_event(\n"
-        "        project_config_id='fixture-project',\n"
-        "        dependency_events=[\n"
-        "            {\n"
-        "                'dependencyKey': {'type': 'Section', 'sectionId': 'fixture-section'},\n"
-        "                'payload': {'type': 'Literal', 'payload': 'hello'},\n"
-        "                'timestampMs': 123,\n"
-        "            }\n"
-        "        ],\n"
+        "    def fixture_tool(*, value: str) -> str:\n"
+        "        return f\"{plugin.plugin_id}:{value}\"\n"
+        "    plugin.register_mcp_tool(\n"
+        "        fixture_tool,\n"
+        "        name='fixture_tool',\n"
+        "        annotations={'accessType': 'read'},\n"
         "    )\n",
         encoding="utf-8",
     )
@@ -332,7 +329,7 @@ def test_worker_register_supports_read_state_and_emit_registration(
         assert register_response["result"] == {"ok": True}
         assert host_method_calls == [
             "host.read_project_state",
-            "host.emit_listener_dependency_event",
+            "host.register_mcp_tool",
         ]
         read_request = next(
             request
@@ -343,14 +340,13 @@ def test_worker_register_supports_read_state_and_emit_registration(
             "projectConfigId": "fixture-project",
             "view": "summary",
         }
-        emit_request = next(
+        register_request = next(
             request
             for request in host_requests
-            if request["method"] == "host.emit_listener_dependency_event"
+            if request["method"] == "host.register_mcp_tool"
         )
-        assert emit_request["params"]["projectConfigId"] == "fixture-project"
-        assert isinstance(emit_request["params"]["dependencyEvents"], list)
-        assert len(emit_request["params"]["dependencyEvents"]) == 1
+        assert register_request["params"]["tool"]["name"] == "fixture_tool"
+        assert register_request["params"]["tool"]["metadata"]["accessType"] == "read"
     finally:
         _stop_worker(worker)
 

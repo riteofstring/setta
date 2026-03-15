@@ -22,7 +22,6 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "host.register_external_agent_adapter",
     "host.register_codegen_target",
     "host.read_project_state",
-    "host.emit_listener_dependency_event",
 )
 _PROTOCOL_STDOUT = sys.stdout
 
@@ -801,49 +800,6 @@ class _WorkerBackendPluginContext:
                 "Host read_project_state response missing projectState object.",
             )
         return project_state
-
-    def emit_listener_dependency_event(
-        self,
-        *,
-        project_config_id: str,
-        dependency_events: list[dict[str, Any]],
-        share_session_id: str | None = None,
-    ) -> None:
-        if not isinstance(project_config_id, str) or project_config_id.strip() == "":
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    "emit_listener_dependency_event project_config_id must be "
-                    "a non-empty string."
-                ),
-            )
-        if not isinstance(dependency_events, list) or len(dependency_events) == 0:
-            raise WorkerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    "emit_listener_dependency_event dependency_events must be a "
-                    "non-empty list."
-                ),
-            )
-        params: dict[str, Any] = {
-            "projectConfigId": project_config_id.strip(),
-            "dependencyEvents": _ensure_json_serializable(
-                dependency_events,
-                plugin_id=self.plugin_id,
-                label="dependency events",
-            ),
-        }
-        if share_session_id is not None:
-            if not isinstance(share_session_id, str) or share_session_id.strip() == "":
-                raise WorkerError(
-                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                    (
-                        "emit_listener_dependency_event share_session_id must be "
-                        "non-empty when set."
-                    ),
-                )
-            params["shareSessionId"] = share_session_id.strip()
-        self._host_call("host.emit_listener_dependency_event", params)
 
 
 def _emit_response(payload: dict[str, Any]) -> None:

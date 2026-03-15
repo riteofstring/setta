@@ -9,7 +9,6 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/realtime"
 	"setta/internal/tools"
 )
 
@@ -17,7 +16,6 @@ type pluginBackendRuntimeRefresher struct {
 	service          *plugins.Service
 	discovery        *plugins.DiscoveryService
 	runtimeProvider  plugins.WorkerRuntimeProvider
-	listenerProducer *realtime.ListenerProducer
 	projectStateRead plugins.ProjectStateReader
 	serverMode       config.Mode
 	holder           *plugins.BackendRuntimeHolder
@@ -217,7 +215,6 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		DiscoveryService: r.discovery,
 		Snapshot:         &previewSnapshot,
 		RuntimeProvider:  r.runtimeProvider,
-		ListenerProducer: r.listenerProducer,
 		ProjectStateRead: r.projectStateRead,
 		ServerMode:       r.serverMode,
 	})

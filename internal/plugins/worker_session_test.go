@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"setta/internal/realtime"
 )
 
 // Session startup should reject missing worker metadata before spawning a subprocess.
@@ -21,7 +19,7 @@ func TestStartWorkerSessionRequiresFields(t *testing.T) {
 		PluginVersion:         "0.1.0",
 		PluginRoot:            "/tmp/plugin-root",
 		Entrypoint:            "/tmp/plugin-root/entrypoint.py",
-		EffectiveCapabilities: []string{CapabilityEmitListenerEvents},
+		EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
 		Host:                  host,
 	}
 
@@ -93,45 +91,8 @@ func TestStartWorkerSessionRequiresFields(t *testing.T) {
 
 // A real worker session should initialize, register through the Go host boundary, and close cleanly.
 func TestWorkerSessionInitializeRegisterShutdownAndClose(t *testing.T) {
-	now := time.Date(2026, 3, 6, 14, 0, 0, 0, time.UTC)
-	deploymentRuntime := newWorkerHostTestDeploymentRuntime(t, &now)
-	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-		t.Fatalf("create share session: %v", err)
-	}
-	before, ok := deploymentRuntime.Session("share-a")
-	if !ok {
-		t.Fatal("expected deployment session")
-	}
-	now = now.Add(2 * time.Minute)
-
-	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: hub,
-	})
-	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-			Broadcaster: broadcaster,
-			Deployment:  deploymentRuntime,
-		}),
-		Deployment: deploymentRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
-
-	server := newWorkerHostWebsocketServer(t, hub)
-	defer server.Close()
-
-	listener := connectWorkerHostListener(t, server.URL, hub, "listener-worker-session", "share-a")
-	defer listener.CloseNow()
-	recordWorkerHostBootstrapAndRegistration(t, broadcaster, "listener-worker-session", "project-a", "share-a", map[string]realtime.ListenerCallback{
-		"cb-a": {
-			Dependencies:   []string{"section-action", "section-second"},
-			DependencyMode: realtime.ListenerDependencyModeRealtimeOnly,
-		},
-	})
-
-	options := newWorkerSessionTestOptions(t, host, "share-a")
+	host, registry := newWorkerRPCTestMCPHost(t)
+	options := newWorkerSessionTestOptions(t, host)
 	session, err := StartWorkerSession(options)
 	if err != nil {
 		t.Fatalf("start worker session: %v", err)
@@ -174,28 +135,31 @@ func TestWorkerSessionInitializeRegisterShutdownAndClose(t *testing.T) {
 		t.Fatalf("expected ok register response, got %s", string(registerResult))
 	}
 
-	envelope := readWorkerHostEnvelope(t, listener)
-	if envelope.MessageType != realtime.MessageTypeListenerDependencyEvent {
-		t.Fatalf("expected listener dependency event, got %q", envelope.MessageType)
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 registered mcp tool, got %#v", registrations)
+	}
+	if registrations[0].Name != workerRPCTestToolName {
+		t.Fatalf("expected %q registration, got %q", workerRPCTestToolName, registrations[0].Name)
 	}
 
-	var content realtime.ListenerDependencyEventContent
-	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode listener dependency event content: %v", err)
+	invokeResult, err := session.Call(ctx, "plugin.invoke_mcp_tool", map[string]any{
+		"toolName": workerRPCTestToolName,
+		"kwargs": map[string]any{
+			"value": "beta",
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke registered mcp tool: %v\nstderr:\n%s", err, session.Stderr())
 	}
-	if content.Sequence != 1 {
-		t.Fatalf("expected sequence 1, got %d", content.Sequence)
+	var toolResult struct {
+		Result string `json:"result"`
 	}
-	if len(content.DependencyEvents) != 2 {
-		t.Fatalf("expected 2 dependency events, got %d", len(content.DependencyEvents))
+	if err := json.Unmarshal(invokeResult, &toolResult); err != nil {
+		t.Fatalf("decode worker mcp tool result: %v", err)
 	}
-
-	after, ok := deploymentRuntime.Session("share-a")
-	if !ok {
-		t.Fatal("expected deployment session after register")
-	}
-	if !after.LastSeenAt.After(before.LastSeenAt) {
-		t.Fatalf("expected worker session register to advance last-seen time from %v to after %v", before.LastSeenAt, after.LastSeenAt)
+	if toolResult.Result != "fixture-plugin:beta" {
+		t.Fatalf("expected fixture-plugin:beta, got %q", toolResult.Result)
 	}
 
 	if err := session.Shutdown(ctx); err != nil {
@@ -212,13 +176,13 @@ func TestWorkerSessionInitializeRegisterShutdownAndClose(t *testing.T) {
 	}
 }
 
-func newWorkerSessionTestOptions(t *testing.T, host *WorkerHost, shareSessionID string) WorkerSessionOptions {
+func newWorkerSessionTestOptions(t *testing.T, host *WorkerHost) WorkerSessionOptions {
 	t.Helper()
 
 	repoRoot := workerRPCTestRepoRoot(t)
 	pluginRoot := t.TempDir()
 	entrypoint := filepath.Join(pluginRoot, "entrypoint.py")
-	if err := os.WriteFile(entrypoint, []byte(workerRPCTestEntrypoint(shareSessionID)), 0o644); err != nil {
+	if err := os.WriteFile(entrypoint, []byte(workerRPCTestEntrypoint()), 0o644); err != nil {
 		t.Fatalf("write worker session entrypoint: %v", err)
 	}
 
@@ -228,7 +192,7 @@ func newWorkerSessionTestOptions(t *testing.T, host *WorkerHost, shareSessionID 
 		PluginVersion:         "0.1.0",
 		PluginRoot:            pluginRoot,
 		Entrypoint:            entrypoint,
-		EffectiveCapabilities: []string{CapabilityEmitListenerEvents},
+		EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
 		Environment:           workerRPCTestEnv(repoRoot),
 		WorkingDirectory:      repoRoot,
 		Host:                  host,

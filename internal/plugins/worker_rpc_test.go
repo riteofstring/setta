@@ -14,8 +14,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"setta/internal/realtime"
 )
 
 type workerRPCTestProcess struct {
@@ -25,50 +23,10 @@ type workerRPCTestProcess struct {
 	stderr *bytes.Buffer
 }
 
-// The Go transport should drive a real Python worker and deliver nested listener events through the Go host boundary.
-func TestWorkerRPCClientCallWithPythonWorkerDeliversListenerDependencyEvents(t *testing.T) {
-	now := time.Date(2026, 3, 6, 13, 0, 0, 0, time.UTC)
-	deploymentRuntime := newWorkerHostTestDeploymentRuntime(t, &now)
-	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-		t.Fatalf("create share session: %v", err)
-	}
-	before, ok := deploymentRuntime.Session("share-a")
-	if !ok {
-		t.Fatal("expected deployment session")
-	}
-	now = now.Add(2 * time.Minute)
-
-	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: hub,
-	})
-	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-			Broadcaster: broadcaster,
-			Deployment:  deploymentRuntime,
-		}),
-		Deployment: deploymentRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new worker host: %v", err)
-	}
-
-	server := newWorkerHostWebsocketServer(t, hub)
-	defer server.Close()
-
-	listener := connectWorkerHostListener(t, server.URL, hub, "listener-worker-rpc", "share-a")
-	defer listener.CloseNow()
-	recordWorkerHostBootstrapAndRegistration(t, broadcaster, "listener-worker-rpc", "project-a", "share-a", map[string]realtime.ListenerCallback{
-		"cb-a": {
-			Dependencies:   []string{"section-action", "section-second"},
-			DependencyMode: realtime.ListenerDependencyModeRealtimeOnly,
-		},
-	})
-
-	process := newWorkerRPCTestProcess(t, workerRPCTestProcessOptions{
-		Host:           host,
-		ShareSessionID: "share-a",
-	})
+// The Go transport should drive a real Python worker, capture MCP registration, and invoke the retained worker tool.
+func TestWorkerRPCClientCallWithPythonWorkerRegistersMCPTool(t *testing.T) {
+	host, registry := newWorkerRPCTestMCPHost(t)
+	process := newWorkerRPCTestProcess(t, workerRPCTestProcessOptions{Host: host})
 	defer process.Close(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -102,59 +60,45 @@ func TestWorkerRPCClientCallWithPythonWorkerDeliversListenerDependencyEvents(t *
 		t.Fatalf("expected ok register response, got %s", string(registerResult))
 	}
 
-	after, ok := deploymentRuntime.Session("share-a")
-	if !ok {
-		t.Fatal("expected deployment session after register")
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 registered mcp tool, got %#v", registrations)
 	}
-	if !after.LastSeenAt.After(before.LastSeenAt) {
-		t.Fatalf("expected worker RPC register to advance last-seen time from %v to after %v", before.LastSeenAt, after.LastSeenAt)
+	registration := registrations[0]
+	if registration.PluginID != "fixture-plugin" {
+		t.Fatalf("expected fixture-plugin registration, got %q", registration.PluginID)
+	}
+	if registration.Name != workerRPCTestToolName {
+		t.Fatalf("expected %q tool registration, got %q", workerRPCTestToolName, registration.Name)
+	}
+	if registration.Metadata.AccessType != "read" {
+		t.Fatalf("expected read access type, got %#v", registration.Metadata.AccessType)
 	}
 
-	envelope := readWorkerHostEnvelope(t, listener)
-	if envelope.MessageType != realtime.MessageTypeListenerDependencyEvent {
-		t.Fatalf("expected listener dependency event, got %q", envelope.MessageType)
+	invokeResult, err := process.client.Call(ctx, "plugin.invoke_mcp_tool", map[string]any{
+		"toolName": workerRPCTestToolName,
+		"kwargs": map[string]any{
+			"value": "alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke worker mcp tool: %v\nstderr:\n%s", err, process.stderr.String())
 	}
-
-	var content realtime.ListenerDependencyEventContent
-	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode listener dependency event content: %v", err)
+	var toolResult struct {
+		Result string `json:"result"`
 	}
-	if content.ProjectConfigID != "project-a" {
-		t.Fatalf("expected project-a content, got %q", content.ProjectConfigID)
+	if err := json.Unmarshal(invokeResult, &toolResult); err != nil {
+		t.Fatalf("decode worker mcp tool result: %v", err)
 	}
-	if content.ShareSessionID != "share-a" {
-		t.Fatalf("expected share-a content, got %q", content.ShareSessionID)
-	}
-	if content.Sequence != 1 {
-		t.Fatalf("expected sequence 1, got %d", content.Sequence)
-	}
-	if len(content.DependencyEvents) != 2 {
-		t.Fatalf("expected 2 dependency events, got %d", len(content.DependencyEvents))
-	}
-	if content.DependencyEvents[0].DependencyKey != "section-action" {
-		t.Fatalf("expected first dependency key section-action, got %q", content.DependencyEvents[0].DependencyKey)
-	}
-	if content.DependencyEvents[1].DependencyKey != "section-second" {
-		t.Fatalf("expected second dependency key section-second, got %q", content.DependencyEvents[1].DependencyKey)
-	}
-	if string(content.DependencyEvents[0].Payload) != `{"type":"Literal","payload":"clicked"}` {
-		t.Fatalf("expected first payload to round-trip, got %s", string(content.DependencyEvents[0].Payload))
-	}
-	if string(content.DependencyEvents[1].Payload) != `{"type":"Literal","payload":"second"}` {
-		t.Fatalf("expected second payload to round-trip, got %s", string(content.DependencyEvents[1].Payload))
+	if toolResult.Result != "fixture-plugin:alpha" {
+		t.Fatalf("expected fixture-plugin:alpha, got %q", toolResult.Result)
 	}
 }
 
 // Nested host failures should surface back through the worker as a typed Go RPC error.
 func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing.T) {
-	now := time.Date(2026, 3, 6, 13, 0, 0, 0, time.UTC)
-	deploymentRuntime := newWorkerHostTestDeploymentRuntime(t, &now)
 	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-			Broadcaster: realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{}),
-			Deployment:  deploymentRuntime,
-		}),
-		Deployment: deploymentRuntime,
+		CodegenTargetRegistrar: NewCodegenTargetRegistry(),
 	})
 	if err != nil {
 		t.Fatalf("new worker host: %v", err)
@@ -181,11 +125,11 @@ func TestWorkerRPCClientCallWithPythonWorkerPropagatesNestedHostError(t *testing
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("expected worker RPC error, got %T: %v", err, err)
 	}
-	if rpcErr.Code != workerRPCListenerEmitFailedCode {
-		t.Fatalf("expected %q error code, got %q", workerRPCListenerEmitFailedCode, rpcErr.Code)
+	if rpcErr.Code != workerRPCRegisterFailedCode {
+		t.Fatalf("expected %q error code, got %q", workerRPCRegisterFailedCode, rpcErr.Code)
 	}
-	if !strings.Contains(rpcErr.Message, ErrWorkerHostShareSessionRequired.Error()) {
-		t.Fatalf("expected share-session-required message, got %q", rpcErr.Message)
+	if !strings.Contains(rpcErr.Message, ErrWorkerHostMCPToolRegistrarRequired.Error()) {
+		t.Fatalf("expected mcp-tool-registrar-required message, got %q", rpcErr.Message)
 	}
 }
 
@@ -252,8 +196,7 @@ func TestWorkerRPCClientCallRejectsInvalidResponseContracts(t *testing.T) {
 }
 
 type workerRPCTestProcessOptions struct {
-	Host           *WorkerHost
-	ShareSessionID string
+	Host *WorkerHost
 }
 
 func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) *workerRPCTestProcess {
@@ -262,7 +205,7 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 	repoRoot := workerRPCTestRepoRoot(t)
 	pluginRoot := t.TempDir()
 	entrypoint := filepath.Join(pluginRoot, "entrypoint.py")
-	if err := os.WriteFile(entrypoint, []byte(workerRPCTestEntrypoint(options.ShareSessionID)), 0o644); err != nil {
+	if err := os.WriteFile(entrypoint, []byte(workerRPCTestEntrypoint()), 0o644); err != nil {
 		t.Fatalf("write worker RPC test entrypoint: %v", err)
 	}
 
@@ -299,7 +242,7 @@ func newWorkerRPCTestProcess(t *testing.T, options workerRPCTestProcessOptions) 
 		Host:   options.Host,
 		Worker: WorkerContext{
 			PluginID:              "fixture-plugin",
-			EffectiveCapabilities: []string{CapabilityEmitListenerEvents},
+			EffectiveCapabilities: []string{CapabilityRegisterMCPTools},
 		},
 	})
 	if err != nil {
@@ -346,17 +289,25 @@ func (p *workerRPCTestProcess) Close(t *testing.T) {
 	}
 }
 
-func newWorkerRPCTestHost(t *testing.T) *WorkerHost {
+const workerRPCTestToolName = "fixture_echo"
+
+func newWorkerRPCTestMCPHost(t *testing.T) (*WorkerHost, *MCPToolRegistry) {
 	t.Helper()
 
+	registry := NewMCPToolRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-			Broadcaster: realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{}),
-		}),
+		MCPToolRegistrar: registry,
 	})
 	if err != nil {
 		t.Fatalf("new worker RPC test host: %v", err)
 	}
+	return host, registry
+}
+
+func newWorkerRPCTestHost(t *testing.T) *WorkerHost {
+	t.Helper()
+
+	host, _ := newWorkerRPCTestMCPHost(t)
 	return host
 }
 
@@ -432,28 +383,16 @@ func workerRPCTestEnv(repoRoot string) []string {
 	return env
 }
 
-func workerRPCTestEntrypoint(shareSessionID string) string {
-	shareArgument := ""
-	if strings.TrimSpace(shareSessionID) != "" {
-		shareArgument = fmt.Sprintf(",\n        share_session_id=%q", strings.TrimSpace(shareSessionID))
-	}
-
+func workerRPCTestEntrypoint() string {
 	return strings.Join([]string{
 		"def register(plugin):",
-		"    plugin.emit_listener_dependency_event(",
-		"        project_config_id='project-a',",
-		"        dependency_events=[",
-		"            {",
-		"                'dependencyKey': {'type': 'Section', 'sectionId': 'section-action'},",
-		"                'payload': {'type': 'Literal', 'payload': 'clicked'},",
-		"                'timestampMs': 123,",
-		"            },",
-		"            {",
-		"                'dependencyKey': {'type': 'Section', 'sectionId': 'section-second'},",
-		"                'payload': {'type': 'Literal', 'payload': 'second'},",
-		"                'timestampMs': 124,",
-		"            },",
-		"        ]" + shareArgument + ",",
+		"    def fixture_echo(*, value: str) -> str:",
+		"        return f\"{plugin.plugin_id}:{value}\"",
+		"",
+		"    plugin.register_mcp_tool(",
+		"        fixture_echo,",
+		fmt.Sprintf("        name=%q,", workerRPCTestToolName),
+		"        annotations={'accessType': 'read'},",
 		"    )",
 		"",
 	}, "\n")

@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
-	"setta/internal/deployments"
-	"setta/internal/realtime"
 )
 
 const defaultCodegenTargetFileName = "setta_gen.txt"
@@ -48,9 +45,7 @@ type CodegenTargetRegistry struct {
 }
 
 type CodegenRuntimeStartOptions struct {
-	WorkerSpec       BackendWorkerSpec
-	ListenerProducer *realtime.ListenerProducer
-	Deployment       *deployments.Runtime
+	WorkerSpec BackendWorkerSpec
 }
 
 type CodegenRuntime struct {
@@ -116,8 +111,6 @@ func (r *CodegenTargetRegistry) Lookup(targetID string) (RegisteredCodegenTarget
 func StartCodegenRuntime(ctx context.Context, options CodegenRuntimeStartOptions) (*CodegenRuntime, error) {
 	registry := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
-		ListenerProducer:       options.ListenerProducer,
-		Deployment:             options.Deployment,
 		CodegenTargetRegistrar: registry,
 	})
 	if err != nil {
