@@ -5062,3 +5062,31 @@ in `frontend/src/README.md` and the cleanup plans.
   - `b2aa7e4f3f0d16ea4fd57a0e744ebc8730258c2f`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is now back to the top unresolved hotspot at about `3414` lines after `ChatMessages.tsx` dropped to about `1236` lines.
+
+## 2026-03-15 16:22:58 PDT
+
+- Slice completed: extracted minimized-pill strip responsiveness, cycle state, manager-menu shell, and strip layout animation bookkeeping out of `ProjectChatBottomDock.tsx`
+- Why this slice now:
+  - At the start of the slice, `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` was still the top unresolved hotspot in `frontend/src/README.md`, and the minimized-pill strip was the remaining cohesive local owner after dock shortcuts, layout math, dock resize, and floating interactions had already moved out.
+  - This was higher value than jumping to `ProjectChatHistory.tsx` immediately because the dock still had one large self-contained render/interaction seam left in the same file, and finishing that local boundary reduced cross-layer jumping without reopening a second giant surface before the current one stabilized.
+- Key files touched:
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockPillStrip.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatBottomDockPillStrip.test.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/project-chat-bottom-dock-pill-strip-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatBottomDockPillStrip.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat bottom dock narrows into a single visible window and collapses chats into a menu"` attempted, but Playwright global setup failed because the app shell is still blocked by the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing)
+  - `pnpm -C frontend exec prettier --check src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/ChatWindowing/projectChatBottomDockPillStrip.tsx src/components/ChatWindowing/projectChatBottomDockPillStrip.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/project-chat-bottom-dock-pill-strip-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/project-chat-bottom-dock-pill-strip-2026-03-15.md` with same-origin harness before/after notes.
+  - CDP visual verification was done through a same-origin harness on `http://127.0.0.1:3002` because the normal app shell remained blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error (`receiveAgentProfilesUpdate` export missing).
+  - Verified that a wide `900px` viewport still showed the `Plan`, `Review`, `Ship`, and `Launch` minimized pills with the create button and manager trigger intact, and that a narrow `500px` viewport still collapsed the strip into the manager trigger with four reopen rows after opening the menu.
+- Commit hash:
+  - `8b11ee3b97741f216a2004e87f5a5eab51d01345`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, which is now the top unresolved hotspot at about `3328` lines after `ProjectChatBottomDock.tsx` dropped to about `2860` lines.
