@@ -46,6 +46,7 @@ ROUTE_CREATE_PROJECT_CONFIG = "/api/createProjectConfig"
 ROUTE_LOAD_ALL_PROJECT_METADATA = "/api/loadAllProjectMetadata"
 ROUTE_LOAD_PROJECT_CONFIG = "/api/loadProjectConfig"
 ROUTE_GET_LATEST_PROJECT_STATE = "/api/getLatestProjectState"
+ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE = "/api/setProjectChatWindowingState"
 ROUTE_SET_PROJECT_CHAT_WINDOW_CHAT_ID = "/api/setProjectChatWindowChatId"
 ROUTE_LOAD_SETTINGS = "/api/loadSettings"
 ROUTE_SAVE_SETTINGS = "/api/saveSettings"
@@ -811,6 +812,10 @@ def execute_scenario(
         return execute_windowing_scoped_per_project_config(backend)
     if scenario.kind == "project_chat_window_chat_id_route_contract":
         return execute_project_chat_window_chat_id_route_contract(backend)
+    if scenario.kind == "project_chat_windowing_state_invalid_owner_mode_write_contract":
+        return execute_project_chat_windowing_state_invalid_owner_mode_write_contract(
+            backend
+        )
     if scenario.kind == "settings_project_shell":
         return execute_settings_project_shell(backend)
     if scenario.kind == "settings_project_live_hydration":
@@ -1537,6 +1542,108 @@ def execute_project_chat_window_chat_id_route_contract(
         "missingWindowPayload": missing_window_payload,
         "latestProjectStateStatus": latest_response.status_code,
         "latestProjectState": latest_payload,
+    }
+
+
+def execute_project_chat_windowing_state_invalid_owner_mode_write_contract(
+    backend: BackendSession,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    created_name, loaded = create_and_load_project(backend)
+    project_id = find_project_id_by_name(backend, created_name)
+    project_config = object_field(loaded, "projectConfig")
+    top_level_sections = object_field(project_config, "topLevelSections", allow_missing=True)
+    if not top_level_sections:
+        raise ParityHarnessError(
+            f"Expected created project {project_id!r} to have at least one top-level section."
+        )
+    section_id = next(iter(top_level_sections))
+
+    section_mode_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE,
+        payload={
+            "projectConfigId": project_id,
+            "state": {
+                "instancesById": {
+                    "section-missing-binding": {
+                        "instanceId": "section-missing-binding",
+                        "placement": "floating",
+                        "mode": "section_mode",
+                    }
+                },
+                "order": ["section-missing-binding"],
+                "nextInstanceNumber": 2,
+            },
+        },
+    )
+    section_mode_payload = normalize_response_json_allow_status(section_mode_response)
+
+    git_graph_section_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE,
+        payload={
+            "projectConfigId": project_id,
+            "state": {
+                "instancesById": {
+                    "git-graph-section-window": {
+                        "instanceId": "git-graph-section-window",
+                        "placement": "floating",
+                        "mode": "git_graph_mode",
+                        "sectionIdOrNull": section_id,
+                    }
+                },
+                "order": ["git-graph-section-window"],
+                "nextInstanceNumber": 2,
+            },
+        },
+    )
+    git_graph_section_payload = normalize_response_json_allow_status(
+        git_graph_section_response
+    )
+
+    git_graph_canvas_response = post_json_allow_status(
+        session=backend.session,
+        base_url=backend.base_url,
+        route=ROUTE_SET_PROJECT_CHAT_WINDOWING_STATE,
+        payload={
+            "projectConfigId": project_id,
+            "state": {
+                "instancesById": {
+                    "git-graph-canvas-window": {
+                        "instanceId": "git-graph-canvas-window",
+                        "placement": "canvas_section",
+                        "mode": "git_graph_mode",
+                    }
+                },
+                "order": ["git-graph-canvas-window"],
+                "nextInstanceNumber": 2,
+            },
+        },
+    )
+    git_graph_canvas_payload = normalize_response_json_allow_status(
+        git_graph_canvas_response
+    )
+
+    summary = summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
+        section_mode_http_status=section_mode_response.status_code,
+        section_mode_payload=section_mode_payload,
+        git_graph_section_http_status=git_graph_section_response.status_code,
+        git_graph_section_payload=git_graph_section_payload,
+        git_graph_canvas_http_status=git_graph_canvas_response.status_code,
+        git_graph_canvas_payload=git_graph_canvas_payload,
+    )
+    return summary, {
+        "createdProjectName": created_name,
+        "projectID": project_id,
+        "loadProjectConfig": loaded,
+        "sectionModeStatus": section_mode_response.status_code,
+        "sectionModePayload": section_mode_payload,
+        "gitGraphSectionStatus": git_graph_section_response.status_code,
+        "gitGraphSectionPayload": git_graph_section_payload,
+        "gitGraphCanvasStatus": git_graph_canvas_response.status_code,
+        "gitGraphCanvasPayload": git_graph_canvas_payload,
     }
 
 
@@ -2940,6 +3047,31 @@ def summarize_project_chat_window_chat_id_route_contract(
     else:
         summary["latestErrorSummary"] = normalize_error_summary(latest_payload)
     return summary
+
+
+def summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
+    section_mode_http_status: int,
+    section_mode_payload: Any,
+    git_graph_section_http_status: int,
+    git_graph_section_payload: Any,
+    git_graph_canvas_http_status: int,
+    git_graph_canvas_payload: Any,
+) -> dict[str, Any]:
+    return {
+        "sectionModeHttpStatus": section_mode_http_status,
+        "sectionModeErrorCode": normalize_error_code(section_mode_payload),
+        "sectionModeErrorSummary": normalize_error_summary(section_mode_payload),
+        "gitGraphSectionHttpStatus": git_graph_section_http_status,
+        "gitGraphSectionErrorCode": normalize_error_code(git_graph_section_payload),
+        "gitGraphSectionErrorSummary": normalize_error_summary(
+            git_graph_section_payload
+        ),
+        "gitGraphCanvasHttpStatus": git_graph_canvas_http_status,
+        "gitGraphCanvasErrorCode": normalize_error_code(git_graph_canvas_payload),
+        "gitGraphCanvasErrorSummary": normalize_error_summary(
+            git_graph_canvas_payload
+        ),
+    }
 
 
 def summarize_single_config_windowing_scope(

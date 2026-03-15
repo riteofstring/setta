@@ -288,24 +288,30 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsRejectInvalidPayloads
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 
-	layoutRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetProjectChatWindowingState,
-		strings.NewReader(`{"projectConfigId":"project-alpha","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before"},"project-chat-window-2":{"instanceId":"project-chat-window-2","placement":"canvas_section","mode":"git_graph_mode"}},"order":["project-chat-window-1","project-chat-window-2"],"nextInstanceNumber":3}}`),
-	)
-	layoutRequest.Header.Set("Content-Type", "application/json")
-	layoutResponse := httptest.NewRecorder()
-	handler.ServeHTTP(layoutResponse, layoutRequest)
-	if layoutResponse.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422 layout response, got %d with body %q", layoutResponse.Code, layoutResponse.Body.String())
-	}
+	for _, payload := range []string{
+		`{"projectConfigId":"project-alpha","state":{"instancesById":{"section-window":{"instanceId":"section-window","placement":"floating","mode":"section_mode"}},"order":["section-window"],"nextInstanceNumber":2}}`,
+		`{"projectConfigId":"project-alpha","state":{"instancesById":{"git-graph-section-window":{"instanceId":"git-graph-section-window","placement":"floating","mode":"git_graph_mode","sectionIdOrNull":"section-a"}},"order":["git-graph-section-window"],"nextInstanceNumber":2}}`,
+		`{"projectConfigId":"project-alpha","state":{"instancesById":{"git-graph-canvas-window":{"instanceId":"git-graph-canvas-window","placement":"canvas_section","mode":"git_graph_mode"}},"order":["git-graph-canvas-window"],"nextInstanceNumber":2}}`,
+	} {
+		layoutRequest := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetProjectChatWindowingState,
+			strings.NewReader(payload),
+		)
+		layoutRequest.Header.Set("Content-Type", "application/json")
+		layoutResponse := httptest.NewRecorder()
+		handler.ServeHTTP(layoutResponse, layoutRequest)
+		if layoutResponse.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("expected 422 layout response, got %d with body %q", layoutResponse.Code, layoutResponse.Body.String())
+		}
 
-	var layoutError errorResponse
-	if err := json.Unmarshal(layoutResponse.Body.Bytes(), &layoutError); err != nil {
-		t.Fatalf("decode layout error response: %v", err)
-	}
-	if layoutError.Error.Code != "invalid_project_chat_windowing" {
-		t.Fatalf("expected invalid_project_chat_windowing, got %#v", layoutError)
+		var layoutError map[string]string
+		if err := json.Unmarshal(layoutResponse.Body.Bytes(), &layoutError); err != nil {
+			t.Fatalf("decode layout error response: %v", err)
+		}
+		if layoutError["detail"] == "" {
+			t.Fatalf("expected detail-style invalid layout response, got %#v", layoutError)
+		}
 	}
 
 	windowSpaceRequest := httptest.NewRequest(

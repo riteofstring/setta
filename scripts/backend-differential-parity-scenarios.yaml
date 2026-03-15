@@ -47,6 +47,10 @@ scenarios:
     kind: project_chat_window_chat_id_route_contract
     seed: none
     description: The direct project-chat chatId route should persist bindings for project_ai windows while rejecting non-project_ai and missing window targets with the source transport contract.
+  - name: project_chat_windowing_state_invalid_owner_mode_write_contract
+    kind: project_chat_windowing_state_invalid_owner_mode_write_contract
+    seed: none
+    description: Project-chat layout writes should reject the documented invalid owner/mode combinations instead of normalizing impossible windows.
   - name: settings_project_shell
     kind: settings_project_shell
     seed: none

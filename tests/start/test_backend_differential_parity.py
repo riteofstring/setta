@@ -2406,6 +2406,37 @@ class Route:
             },
         )
 
+    def test_summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "detail": "Project chat layout write rejected."
+        }
+
+        self.assertEqual(
+            harness.summarize_project_chat_windowing_state_invalid_owner_mode_write_contract(
+                section_mode_http_status=422,
+                section_mode_payload=payload,
+                git_graph_section_http_status=422,
+                git_graph_section_payload=payload,
+                git_graph_canvas_http_status=422,
+                git_graph_canvas_payload=payload,
+            ),
+            {
+                "sectionModeHttpStatus": 422,
+                "sectionModeErrorCode": "Project chat layout write rejected.",
+                "sectionModeErrorSummary": "Project chat layout write rejected.",
+                "gitGraphSectionHttpStatus": 422,
+                "gitGraphSectionErrorCode": "Project chat layout write rejected.",
+                "gitGraphSectionErrorSummary": "Project chat layout write rejected.",
+                "gitGraphCanvasHttpStatus": 422,
+                "gitGraphCanvasErrorCode": "Project chat layout write rejected.",
+                "gitGraphCanvasErrorSummary": "Project chat layout write rejected.",
+            },
+        )
+
     def test_summarize_workspace_launch_outdated_settings_error_detects_typed_failure(
         self,
     ) -> None:

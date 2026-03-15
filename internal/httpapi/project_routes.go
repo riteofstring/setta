@@ -7691,7 +7691,7 @@ func writeProjectChatWindowingMutationError(
 	case errors.Is(err, projectstate.ErrProjectChatWindowNotFound):
 		writeError(w, r, http.StatusNotFound, "project_chat_window_not_found", "Project chat window not found.")
 	case projectstate.IsInvalidProjectChatWindowingError(err):
-		writeError(w, r, http.StatusUnprocessableEntity, "invalid_project_chat_windowing", err.Error())
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

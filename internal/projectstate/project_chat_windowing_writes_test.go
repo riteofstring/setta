@@ -196,6 +196,75 @@ func TestRuntimeSetProjectChatWindowingStateRejectsGitGraphCanvasPlacement(t *te
 	}
 }
 
+func TestRuntimeSetProjectChatWindowingStateRejectsAdditionalInvalidOwnerModes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		state   ProjectChatWindowingState
+		message string
+	}{
+		{
+			name: "section mode without section binding",
+			state: ProjectChatWindowingState{
+				InstancesByID: map[string]ProjectChatWindowInstance{
+					"project-chat-window-1": {
+						InstanceID: "project-chat-window-1",
+						Placement:  ChatWindowPlacementFloating,
+						Mode:       ChatWindowModeProjectAI,
+						ChatID:     stringPointer("chat-before"),
+					},
+					"section-window": {
+						InstanceID: "section-window",
+						Placement:  ChatWindowPlacementFloating,
+						Mode:       ChatWindowModeSection,
+					},
+				},
+				Order:              []string{"project-chat-window-1", "section-window"},
+				NextInstanceNumber: 2,
+			},
+			message: "Project chat section_mode windows require sectionIdOrNull.",
+		},
+		{
+			name: "git graph with section binding",
+			state: ProjectChatWindowingState{
+				InstancesByID: map[string]ProjectChatWindowInstance{
+					"project-chat-window-1": {
+						InstanceID: "project-chat-window-1",
+						Placement:  ChatWindowPlacementFloating,
+						Mode:       ChatWindowModeProjectAI,
+						ChatID:     stringPointer("chat-before"),
+					},
+					"git-graph-window": {
+						InstanceID:      "git-graph-window",
+						Placement:       ChatWindowPlacementFloating,
+						Mode:            ChatWindowModeGitGraph,
+						SectionIDOrNull: stringPointer("section-a"),
+					},
+				},
+				Order:              []string{"project-chat-window-1", "git-graph-window"},
+				NextInstanceNumber: 2,
+			},
+			message: "Project chat git_graph_mode windows cannot carry sectionIdOrNull.",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			runtime := openProjectChatWindowingWriteTestRuntime(t)
+
+			_, err := runtime.SetProjectChatWindowingState(
+				context.Background(),
+				"project-alpha",
+				tc.state,
+			)
+			if err == nil || err.Error() != tc.message {
+				t.Fatalf("expected owner validation error %q, got %v", tc.message, err)
+			}
+		})
+	}
+}
+
 func TestRuntimeSetProjectChatWindowChatIDRequiresExistingProjectAIWindow(t *testing.T) {
 	t.Parallel()
 
