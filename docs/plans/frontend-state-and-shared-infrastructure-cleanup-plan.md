@@ -449,6 +449,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   visible-to-full insertion index mapping, and
   `frontend/src/state/actions/params/paramTree.ts` is now the thin
   compatibility facade.
+- `frontend/src/state/actions/params/paramMoveSelectionContext.ts` now owns
+  selected-section resolution, visible-param gating, and movement or
+  unindent context reads, `frontend/src/state/actions/params/paramMoveOrdering.ts`
+  now owns parent-child ordering plus contiguous visible-sibling grouping,
+  and `frontend/src/state/actions/params/paramMoveQueries.ts` is now the thin
+  compatibility facade.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessionTransport.ts` now owns websocket/session
   bootstrap plus stdin/output transport wiring, `terminalSessions.ts` now owns
@@ -463,7 +469,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 105.5k authored lines including colocated tests, or
   about 53.1k non-test, non-generated lines in the sampled directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/params/paramMoveQueries.ts` at 212 lines
   - `frontend/src/state/actions/sectionProjectStateSync.ts` at 211 lines
   - `frontend/src/state/actions/lspDiagnostics.ts` at 211 lines
   - `frontend/src/state/actions/aiChatSubmissionPayload.ts` at 210 lines
@@ -474,6 +479,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/keyShortcutMatching.ts` at 206 lines
   - `frontend/src/state/actions/windowSpaceSnapshotCapture.ts` at 205 lines
   - `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` at 205 lines
+  - `frontend/src/state/actions/sectionEffectiveImplSelectors.ts` at 205 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -656,9 +662,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - raw `setSectionSizes` transport shared by resize and group-overflow flows
 - `sectionSizes.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
-- `paramMoveQueries.ts` now owns:
-  - param selection resolution and visible-param gating
-  - visible sibling grouping and movement-context derivation for keyboard moves
+- `paramMoveSelectionContext.ts` now owns:
+  - selected-section resolution and visible-param gating
+  - movement and unindent context derivation for keyboard and backend param moves
+- `paramMoveOrdering.ts` now owns:
+  - parent-child ordering for param mutations and DnD
+  - contiguous visible-sibling grouping for keyboard moves
+- `paramMoveQueries.ts` is now:
+  - the thin compatibility re-export surface over the param move selection-context and ordering owners
 - `paramMoveMutations.ts` now owns:
   - optimistic param reparent/reorder application
   - parent promotion and shown-param top-level order synchronization

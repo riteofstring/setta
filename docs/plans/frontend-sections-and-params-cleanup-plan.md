@@ -74,11 +74,18 @@ Make section chrome and param rendering easy to change without touching measurem
   single-param drag/drop selection normalization,
   `frontend/src/state/actions/params/paramMoveCommands.ts` now owns optimistic
   backend dispatch for direct moves plus indent or unindent commands,
+  `frontend/src/state/actions/params/paramMoveSelectionContext.ts` now owns
+  selected-section resolution, visible-param gating, and movement or unindent
+  context reads,
+  `frontend/src/state/actions/params/paramMoveOrdering.ts` now owns parent-child
+  ordering plus contiguous visible-sibling grouping,
   `frontend/src/state/actions/params/paramTreeStructure.ts` now owns param
   root lookup, ancestry maps, and visible tree derivation,
   `frontend/src/state/actions/params/paramTreeSelection.ts` now owns
   root-selection filtering, shared-parent lookup, descendant checks, and
   visible-to-full insertion index mapping,
+  `frontend/src/state/actions/params/paramMoveQueries.ts` is now the thin
+  compatibility facade,
   `frontend/src/state/actions/params/paramTree.ts` is now the thin
   compatibility facade,
   `frontend/src/state/actions/params/paramMoveKeyboardCommands.ts` now owns

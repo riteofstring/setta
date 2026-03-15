@@ -358,12 +358,20 @@ feature-local adapters around them when the consuming surface is non-trivial.
     selection normalization for param drag/drop flows.
   - `state/actions/params/paramMoveCommands.ts` owns optimistic backend
     dispatch for drag/drop param moves plus indent and unindent commands.
+  - `state/actions/params/paramMoveSelectionContext.ts` owns selected-section
+    resolution, visible-param gating, and movement or unindent context reads
+    shared by keyboard and backend param move commands.
+  - `state/actions/params/paramMoveOrdering.ts` owns parent-child ordering and
+    contiguous visible-sibling grouping shared by param DnD, optimistic
+    mutations, and keyboard move planning.
   - `state/actions/params/paramTreeStructure.ts` owns param root lookup,
     ancestry maps, and visible param tree derivation used by param move and
     drag/drop flows.
   - `state/actions/params/paramTreeSelection.ts` owns root-selection filtering,
     shared-parent resolution, descendant checks, and visible-to-full insertion
     index mapping for param move and drag/drop flows.
+  - `state/actions/params/paramMoveQueries.ts` is now the thin compatibility
+    facade over the param move selection-context and ordering owners.
   - `state/actions/params/paramTree.ts` is now the thin compatibility facade
     over those param tree owners.
   - `state/actions/params/paramMoveKeyboardCommands.ts` owns visible-sibling

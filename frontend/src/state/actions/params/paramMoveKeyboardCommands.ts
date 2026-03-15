@@ -4,10 +4,8 @@ import { isBaseParentCodeObjImpl } from "utils/generatedTypes";
 
 import { moveParamGroupsWithBackend } from "./paramMoveCommands";
 import { type ParamMoveGroup } from "./paramMoveMutations";
-import {
-  buildVisibleSelectionGroups,
-  getParamMovementContext,
-} from "./paramMoveQueries";
+import { buildVisibleSelectionGroups } from "./paramMoveOrdering";
+import { getParamMovementContext } from "./paramMoveSelectionContext";
 import { resolveFullIndexForVisibleInsertion } from "./paramTreeSelection";
 
 function insertItems<T>(items: T[], index: number, nextItems: T[]): T[] {

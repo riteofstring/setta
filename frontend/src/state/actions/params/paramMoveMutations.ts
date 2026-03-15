@@ -9,7 +9,7 @@ import {
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
 import { CodeObjTypeEnum, isBaseParentCodeObjImpl } from "utils/generatedTypes";
-import { orderParamIdsByParent } from "./paramMoveQueries";
+import { orderParamIdsByParent } from "./paramMoveOrdering";
 
 export type ParamMoveGroup = {
   paramIds: string[];

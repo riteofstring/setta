@@ -11,7 +11,7 @@ import { applyParamMove, type ParamMoveGroup } from "./paramMoveMutations";
 import {
   getParamMovementContext,
   getParamUnindentContext,
-} from "./paramMoveQueries";
+} from "./paramMoveSelectionContext";
 
 export function moveParamsWithBackend({
   sectionId,

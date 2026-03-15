@@ -2,11 +2,14 @@ import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
 import { moveSelectedParamsDown } from "state/actions/params/paramMoveKeyboardCommands";
 import { applyParamMove } from "state/actions/params/paramMoveMutations";
 import {
-  buildVisibleParamIdSet,
   buildVisibleSelectionGroups,
   orderParamIdsByParent,
+} from "state/actions/params/paramMoveOrdering";
+import {
+  buildVisibleParamIdSet,
+  getParamMovementContext,
   resolveSectionWithSelectedParams,
-} from "state/actions/params/paramMoveQueries";
+} from "state/actions/params/paramMoveSelectionContext";
 import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
 import {
   getCurrEffectiveCodeObjImpl,
@@ -349,6 +352,27 @@ describe("moveParams feature split", () => {
       "param-a",
       "param-b",
     ]);
+  });
+
+  it("builds keyboard move context from the current visible root selection", () => {
+    // Keyboard move planning should receive the root-selected ids, shared parent, and visible tree in one context object.
+    const bundle = createParamSectionBundle({
+      sectionId: "section-context",
+      selectedParams: ["param-a", "param-b"],
+    });
+    seedProjectState([bundle]);
+    useActiveSectionUI.setState({ activeIds: [bundle.sectionId] });
+
+    expect(getParamMovementContext()).toMatchObject({
+      sectionId: bundle.sectionId,
+      rootSelected: ["param-a", "param-b"],
+      sharedParent: bundle.rootId,
+      tree: {
+        visibleChildrenByParent: {
+          [bundle.rootId]: ["param-a", "param-b", "param-c"],
+        },
+      },
+    });
   });
 
   it("selects only the requested param when drag selection targets a sibling", () => {

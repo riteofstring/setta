@@ -32,7 +32,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { moveParamsWithBackend } from "state/actions/params/paramMoveCommands";
-import { orderParamIdsByParent } from "state/actions/params/paramMoveQueries";
+import { orderParamIdsByParent } from "state/actions/params/paramMoveOrdering";
 import { selectOnlyParam } from "state/actions/params/paramSelectionCommands";
 import {
   getRootSelectedParamIds,
