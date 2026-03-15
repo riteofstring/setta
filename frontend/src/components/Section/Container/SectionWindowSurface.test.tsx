@@ -60,8 +60,8 @@ vi.mock("../Header/SectionHeader", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerCoreResizabe", () => ({
-  AreaSwitch: ({
+vi.mock("./SectionAreaSwitch", () => ({
+  SectionAreaSwitch: ({
     sectionId,
     chatHost,
     chatModeOverride,
