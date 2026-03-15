@@ -4833,3 +4833,62 @@ Append-only log for the section performance refactor.
 - Next action:
   - Keep the accepted callable search shell closed.
   - Re-read `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam.
+
+### 2026-03-18 125
+
+- Item: Accept the Draw canvas shell flattening and close the remaining `single-cell` overlay in the Draw body path.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Layouts/DrawArea/DrawArea.tsx`
+    - `frontend/src/state/hooks/sectionSizes.ts`
+  - The accepted lower-shell move is narrow:
+    - the outer Draw body shell no longer uses `single-cell-container`
+    - the inner Draw wrapper no longer uses `single-cell-container`
+    - the stacked layer and draft canvases no longer use `single-cell-child`
+    - the helper path now preserves the browser-default `300 x 150` canvas fallback when a fixed Draw size would otherwise resolve to an invalid inner dimension
+    - the visible compact Draw box keeps the same `378 x 150` wrapper/canvas geometry on the representative default Draw scene
+  - Added focused direct coverage in:
+    - `frontend/src/state/hooks/sectionSizes.test.tsx`
+      - Draw auto canvas defaults stay at `500 x 500`
+      - invalid fixed Draw dimensions keep the explicit `378 x 150` fallback on the compact default Draw scene
+    - `frontend/tests/e2e/sections/draw-canvas-shell.spec.ts`
+      - the Draw body shell no longer exposes `single-cell-container`
+      - the inner wrapper and canvases no longer expose `single-cell-child`
+      - the wrapper and visible canvases keep the same positive compact geometry
+    - existing draw regressions stayed green:
+      - `frontend/tests/e2e/sections/draw-color-picker-shell.spec.ts`
+      - `frontend/tests/e2e/sections/realtime-binary-draw.spec.ts`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/state/hooks/sectionSizes.test.tsx`
+      - result: `1` file passed, `10` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/draw-canvas-shell.spec.ts frontend/tests/e2e/sections/draw-color-picker-shell.spec.ts frontend/tests/e2e/sections/realtime-binary-draw.spec.ts`
+      - result: `3` passed
+  - CDP compare using the existing DevTools windows already open:
+    - untouched `main`: disposable compare project `knowing_eager` on `http://127.0.0.1:3087/knowing_eager`
+      - Draw body shell still reads `nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0`
+      - inner wrapper still reads `single-cell-child single-cell-container`
+      - stacked canvases still read `single-cell-child max-w-full place-self-center ...`
+      - visible geometry:
+        - wrapper `378 x 150`
+        - canvas `378 x 150`
+    - worktree: disposable compare project `clean_chasing` on `http://127.0.0.1:3011/clean_chasing`
+      - Draw body shell now reads `nodrag section-row-main section-key-value relative flex max-h-full min-h-0 min-w-0 items-center justify-center`
+      - inner wrapper now reads `relative flex max-w-full shrink-0`
+      - wrapper inline style now reads `width: 378px; height: 150px;`
+      - stacked canvases now read `absolute inset-0 h-full w-full`
+      - the touched canvas markup no longer exposes `single-cell-container`
+      - the touched canvas markup no longer exposes `single-cell-child`
+      - visible geometry:
+        - wrapper `378 x 150`
+        - canvas `378 x 150`
+  - Interpretation:
+    - the Draw canvas shell is now accepted
+    - the accepted Draw toolbar color-picker wrapper stays closed
+    - the higher `sectionChrome` baseline stays closed
+    - the next pass should return to the remaining section-owned lower shell in `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx`
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_draw-area-canvas-shell.md`
+- Next action:
+  - Keep the accepted Draw canvas shell closed.
+  - Re-read `frontend/src/components/Section/Layouts/ChartArea/ChartArea.tsx` as the next section-owned lower-shell candidate before reopening any higher seam.
