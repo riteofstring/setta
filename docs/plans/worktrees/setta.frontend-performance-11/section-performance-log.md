@@ -3705,3 +3705,53 @@ Append-only log for the section performance refactor.
     - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
     - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
   - Do not rerun the shared-row compare or move upward into `sectionChrome` until the callable reorder/indent representative is green on the next lower-seam candidate.
+
+### 2026-03-17 101
+
+- Item: Reject the combined row-activator plus wrapper-geometry experiment and restore the clean branch state.
+- Status: `needs_more_work`
+- Details:
+  - Combined two local changes:
+    - reintroduced the known wrapper-local geometry correction in:
+      - `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - added an explicit out-of-flow row activator overlay in:
+      - `frontend/src/components/Params/ParamSwitch.tsx`
+      - `frontend/src/components/Params/ParamContainer.tsx`
+      - `frontend/src/components/Params/ParamRowShell.tsx`
+  - Goal of the combined patch:
+    - keep the sortable row rect owned by the row `<article>`
+    - move drag activation onto a row-owned overlay during selection mode
+    - keep the same wrapper-local `12px / 16px` geometry correction that had already matched untouched `main`
+  - Focused verification under the combined local patch:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CallableArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/GlobalVariablesArea.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.test.tsx`
+      - result: `4` files passed, `7` tests passed
+  - The callable reorder/indent representative still failed under the combined patch:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "workspace and standalone callable routes preserve reorder and tab indent behavior"`
+    - result under the combined patch: failed
+    - observed order after dragging `k` before `h`: `h > k > i > j`
+  - Interpretation:
+    - explicit row-owned activator ownership did not rescue the geometry patch
+    - the failure boundary now looks later than simple surface ownership alone:
+      - wrapper-local descendant ownership changes failed
+      - selection-mode pointer suppression failed
+      - explicit out-of-flow row activator ownership also failed
+  - Additional code-read findings from the row/CSS seam:
+    - `Callable` and `GlobalVariables` already share the same row subtree; the mismatch is not caused by different row markup between those section types
+    - the callable representative is a row-body drag contract, not a small-handle contract; narrowing activation to a visible or narrow handle would be a behavior change
+    - the adapter already exposes `setActivatorNodeRef`, but the params path currently drops that seam; it remains a low-risk ownership hook only if `setNodeRef` later needs to move off the row `<article>`
+    - `labelShapeKey` is already computed in `frontend/src/components/Params/ParamSwitch.tsx` and passed into `frontend/src/components/Params/ParamContainer.tsx`, but it is not rendered into the DOM; that is an available row-shape-specific modifier seam for a future CSS-level correction
+  - No production code from the combined patch was kept:
+    - reverted the local experiment
+    - restored the worktree to the clean committed branch state before continuing the tracker
+  - Recorded the dead end in:
+    - `perf/reports/frontend/2026-03-17_section-shell-s1-checkpoint1-row-activator-experiment.md`
+  - Decision:
+    - do not land the combined row-activator plus wrapper-geometry patch
+    - checkpoint 1 stays open
+    - treat the next blocker as a drag lifecycle or collision/update problem after the geometry shift, not another first-surface ownership tweak
+- Next action:
+  - Keep the branch on the clean committed code state until the drag lifecycle is instrumented more explicitly.
+  - Before attempting another geometry correction, instrument the param drag lifecycle or collision/update path.
+  - If the geometry correction returns to the row/CSS seam, prefer a shape-specific hook such as `labelShapeKey` over another generic descendant-wrapper override.
+  - Do not rerun the shared-row compare or move upward into `sectionChrome` until the callable reorder/indent representative is green on the next lower-seam candidate.
