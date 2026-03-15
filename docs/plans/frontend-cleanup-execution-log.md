@@ -5795,3 +5795,48 @@ schedule settings` button still appears on the live task row.
     which is now the top unresolved front-door hotspot in the README and
     cleanup plan after `ChatInput.tsx` delegated its local composer
     meta-controls owner.
+
+## 2026-03-15 21:43:02 PDT
+
+- Slice completed: extracted ProjectChatCore helper owners
+- This was higher value than jumping straight to
+  `frontend/src/components/Git/GitGraphOverlay.tsx` or
+  `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
+  because `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  still routes contributors immediately into `ProjectChatCore.tsx`, and
+  shrinking that same-domain second hop removed several mixed responsibilities
+  from the hottest project-chat path without taking on a broader UI shell
+  refactor in the same turn.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan-index.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatConversationModel.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatSlashCommandAuthority.integration.test.ts src/README.md ../docs/plans/frontend-cleanup-plan-index.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this was a behavior-preserving helper and
+    view-model ownership split without a meaningful DOM-shape or render-path
+    change worth profiling independently.
+  - CDP visual verification was not run because this slice only moved
+    ProjectChatCore local runtime/model logic into feature-local modules and
+    did not change intended UI behavior or styling.
+- Commit hash:
+  - `9270de6e0e00bffd6e5a6c3592cac7113debcb05`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Git/GitGraphOverlay.tsx`, which is now
+    the highest unresolved front-door hotspot after `ProjectChatCore.tsx`
+    dropped to about 1225 lines and fell behind the larger pane/layout roots.
