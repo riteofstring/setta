@@ -22,6 +22,7 @@ const (
 	sessionSecretFileName   = "secret"
 	sessionSecretBytes      = 32
 	sessionIDBytes          = 3
+	inProcessBackendEnvVar  = "SETTA_IN_PROCESS_BACKEND"
 )
 
 type RegistryOptions struct {
@@ -347,7 +348,7 @@ func IsSessionActive(session auth.SessionMetadata) bool {
 		return true
 	}
 	if len(cmdline) == 0 {
-		return false
+		return session.PID == os.Getpid() && inProcessBackendEnabled()
 	}
 	scriptBasenames := map[string]struct{}{
 		"setta":            {},
@@ -370,5 +371,17 @@ func IsSessionActive(session auth.SessionMetadata) bool {
 			return true
 		}
 	}
-	return false
+	return session.PID == os.Getpid() && inProcessBackendEnabled()
+}
+
+func inProcessBackendEnabled() bool {
+	raw, ok := os.LookupEnv(inProcessBackendEnvVar)
+	if !ok {
+		return false
+	}
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	if trimmed == "" {
+		return false
+	}
+	return trimmed != "0" && trimmed != "false" && trimmed != "no"
 }

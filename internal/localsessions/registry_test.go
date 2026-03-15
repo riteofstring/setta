@@ -3,13 +3,18 @@ package localsessions
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"setta/internal/auth"
 )
+
+const registryHelperEnvVar = "SETTA_REGISTRY_TEST_HELPER"
 
 func TestRegistryCreateSessionWritesMetadataAndSecret(t *testing.T) {
 	t.Parallel()
@@ -190,5 +195,115 @@ func TestRegistryLoadSessionsAndFindByWorkspaceAndMode(t *testing.T) {
 	}
 	if len(filtered) != 1 || filtered[0].ID != second.ID {
 		t.Fatalf("expected filtered IDE sessions to contain %q, got %#v", second.ID, filtered)
+	}
+}
+
+func TestIsSessionActiveRecognizesSettaProcessSignatures(t *testing.T) {
+	for _, basename := range registryRecognizedProcessNames() {
+		basename := basename
+		t.Run(basename, func(t *testing.T) {
+			session := startRegistryHelperProcess(t, basename)
+			if !IsSessionActive(session) {
+				t.Fatalf("expected %q helper process to count as active Setta session", basename)
+			}
+		})
+	}
+}
+
+func TestFilterActiveSessionsPrunesNonSettaProcesses(t *testing.T) {
+	settaSession := startRegistryHelperProcess(t, registryRecognizedProcessNames()[0])
+	otherSession := startRegistryHelperProcess(t, registryProcessName("unit-test"))
+
+	filtered := FilterActiveSessions([]auth.SessionMetadata{settaSession, otherSession})
+	if len(filtered) != 1 {
+		t.Fatalf("expected one active Setta session, got %#v", filtered)
+	}
+	if filtered[0].PID != settaSession.PID {
+		t.Fatalf("expected Setta process PID %d, got %#v", settaSession.PID, filtered)
+	}
+}
+
+func TestIsSessionActiveRejectsCurrentPIDWithoutInProcessFlag(t *testing.T) {
+	t.Setenv(inProcessBackendEnvVar, "")
+
+	session := auth.SessionMetadata{
+		ID:            "current-process",
+		PID:           os.Getpid(),
+		PIDCreateTime: defaultPIDCreateTime(os.Getpid()),
+	}
+	if IsSessionActive(session) {
+		t.Fatal("expected current test process to be rejected without in-process mode enabled")
+	}
+}
+
+func TestIsSessionActiveKeepsCurrentPIDWithInProcessFlag(t *testing.T) {
+	t.Setenv(inProcessBackendEnvVar, "1")
+
+	session := auth.SessionMetadata{
+		ID:            "current-process",
+		PID:           os.Getpid(),
+		PIDCreateTime: defaultPIDCreateTime(os.Getpid()),
+	}
+	if !IsSessionActive(session) {
+		t.Fatal("expected current test process to stay active when in-process mode is enabled")
+	}
+}
+
+func TestRegistryProcessHelper(t *testing.T) {
+	if os.Getenv(registryHelperEnvVar) != "1" {
+		return
+	}
+	time.Sleep(30 * time.Second)
+}
+
+func registryRecognizedProcessNames() []string {
+	if runtime.GOOS == "windows" {
+		return []string{"setta.exe", "setta-server.exe"}
+	}
+	return []string{"setta", "setta-script.py", "setta-server"}
+}
+
+func registryProcessName(base string) string {
+	if runtime.GOOS == "windows" && filepath.Ext(base) == "" {
+		return base + ".exe"
+	}
+	return base
+}
+
+func startRegistryHelperProcess(t *testing.T, basename string) auth.SessionMetadata {
+	t.Helper()
+
+	sourcePath, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve test executable: %v", err)
+	}
+	sourceBytes, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatalf("read test executable: %v", err)
+	}
+
+	targetPath := filepath.Join(t.TempDir(), basename)
+	if err := os.WriteFile(targetPath, sourceBytes, 0o755); err != nil {
+		t.Fatalf("write helper executable: %v", err)
+	}
+
+	cmd := exec.Command(targetPath, "-test.run=TestRegistryProcessHelper")
+	cmd.Env = append(os.Environ(), registryHelperEnvVar+"=1")
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start helper process %q: %v", basename, err)
+	}
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	})
+
+	return auth.SessionMetadata{
+		ID:            basename,
+		PID:           cmd.Process.Pid,
+		PIDCreateTime: defaultPIDCreateTime(cmd.Process.Pid),
 	}
 }
