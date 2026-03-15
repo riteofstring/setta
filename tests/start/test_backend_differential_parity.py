@@ -1,0 +1,224 @@
+import importlib.util
+import tempfile
+import unittest
+from pathlib import Path
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def load_harness_module():
+    module_path = repo_root() / "scripts" / "backend_differential_parity.py"
+    spec = importlib.util.spec_from_file_location(
+        "backend_differential_parity", module_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class BackendDifferentialParityTests(unittest.TestCase):
+    def test_extract_bootstrap_token_prefers_token_line(self) -> None:
+        harness = load_harness_module()
+
+        log_text = """
+        Setta running (session abc123)
+        Bootstrap URL (recommended):
+          http://127.0.0.1:61234/__setta__/bootstrap#token=url-token
+
+        Manual token entry:
+          http://127.0.0.1:61234/__setta__/bootstrap
+          Token: manual-token
+        """
+
+        self.assertEqual(harness.extract_bootstrap_token(log_text), "manual-token")
+
+    def test_load_manifest_resolves_relative_fixture_paths(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fixtures_dir = root / "fixtures"
+            fixtures_dir.mkdir(parents=True)
+            fixture_path = fixtures_dir / "project.json"
+            fixture_path.write_text(
+                '{"schemaVersion":1,"projects":{}}', encoding="utf-8"
+            )
+
+            manifest_path = root / "manifest.yaml"
+            manifest_path.write_text(
+                """
+scenarios:
+  - name: fixture_scenario
+    kind: latest_state_empty_callable_shown_param_ids
+    seed: fixture
+    fixture: fixtures/project.json
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            scenarios = harness.load_manifest(manifest_path)
+
+            self.assertEqual(len(scenarios), 1)
+            self.assertEqual(scenarios[0].fixture, fixture_path.resolve())
+
+    def test_summarize_frontend_inventory_normalizes_connection_type_case(self) -> None:
+        harness = load_harness_module()
+
+        messages = [
+            {
+                "messageType": "FrontendIdentity",
+                "content": {"frontendAffinityToken": "abc"},
+            },
+            {
+                "messageType": "AllConnections",
+                "content": [
+                    {"id": "frontend-a", "connectionType": "frontend"},
+                    {"id": "server-a", "connectionType": "SERVER"},
+                ],
+            },
+        ]
+
+        summary = harness.summarize_frontend_inventory(messages)
+
+        self.assertEqual(
+            summary,
+            {
+                "frontendIdentityReceived": True,
+                "allConnectionsReceived": True,
+                "connectionCount": 2,
+                "connectionTypes": ["FRONTEND", "SERVER"],
+                "hasServerConnection": True,
+                "frontendConnectionCount": 1,
+            },
+        )
+
+    def test_resolve_frontend_websocket_route_reads_go_route(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            routes_path = root / "internal" / "wsapi" / "routes.go"
+            routes_path.parent.mkdir(parents=True)
+            routes_path.write_text(
+                """
+package wsapi
+
+const (
+    RouteFrontend = "/ws/frontend"
+)
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                harness.resolve_frontend_websocket_route(root),
+                "/ws/frontend",
+            )
+
+    def test_resolve_frontend_websocket_route_reads_python_route(self) -> None:
+        harness = load_harness_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            routes_path = root / "backend" / "setta" / "types" / "routes.py"
+            routes_path.parent.mkdir(parents=True)
+            routes_path.write_text(
+                """
+class Route:
+    PREFIX = "/api"
+    WEBSOCKET_FRONTEND = "/frontend"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                harness.resolve_frontend_websocket_route(root),
+                "/api/frontend",
+            )
+
+    def test_summarize_empty_callable_latest_state_detects_present_entry(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectState": {
+                "shownParamIds": {
+                    "empty-callable-variant": {
+                        "pinned": {
+                            "topLevelParamIds": [],
+                            "requiredParamIdsToPaths": {},
+                        },
+                        "unpinned": {
+                            "topLevelParamIds": [],
+                            "requiredParamIdsToPaths": {},
+                        },
+                    }
+                }
+            }
+        }
+
+        summary = harness.summarize_empty_callable_latest_state(
+            http_status=200,
+            payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "httpStatus": 200,
+                "shownParamEntryPresent": True,
+                "pinnedTopLevelParamIds": [],
+                "unpinnedTopLevelParamIds": [],
+                "pinnedRequiredPathCount": 0,
+                "unpinnedRequiredPathCount": 0,
+            },
+        )
+
+    def test_summarize_latest_state_after_create_project_detects_defaults(self) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projectState": {
+                "projectConfig": {
+                    "id": "project-1",
+                    "name": "Example project",
+                    "viewModes": {"view-mode-1": {"id": "view-mode-1"}},
+                    "activeViewModeId": "view-mode-1",
+                    "isEditingViewMode": False,
+                    "topLevelSections": {},
+                },
+                "shownParamIds": {},
+            }
+        }
+
+        summary = harness.summarize_latest_state_after_create_project(
+            http_status=200,
+            payload=payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "httpStatus": 200,
+                "projectIDPresent": True,
+                "projectNamePresent": True,
+                "viewModeCount": 1,
+                "activeViewModeIdPresent": True,
+                "activeViewModePresentInMap": True,
+                "isEditingViewMode": False,
+                "topLevelSectionCount": 0,
+                "shownParamEntryCount": 0,
+            },
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

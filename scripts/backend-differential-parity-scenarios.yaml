@@ -1,0 +1,17 @@
+scenarios:
+  - name: create_project_defaults
+    kind: create_project_defaults
+    seed: none
+    description: New projects should bootstrap a single active view mode while starting outside view-edit mode.
+  - name: initial_frontend_websocket_inventory
+    kind: initial_frontend_websocket_inventory
+    seed: none
+    description: Initial frontend websocket inventory should expose the same transport health view as the baseline backend.
+  - name: toggle_view_mode_broadcast
+    kind: toggle_view_mode_broadcast
+    seed: none
+    description: Toggling view-edit mode should persist and rebroadcast the updated latest project state.
+  - name: latest_state_after_create_project
+    kind: latest_state_after_create_project
+    seed: none
+    description: Fresh projects should expose the same initial latest-project-state shape after creation.
