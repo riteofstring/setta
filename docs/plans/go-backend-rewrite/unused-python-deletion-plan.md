@@ -296,6 +296,16 @@ Current tree note:
   config import, ID-path extraction, and unused agentic-observability helper
   types are gone because current tool-scope/runtime ownership already lives in
   Go under `internal/mcpx`, `internal/tools`, and `internal/managedchat`.
+- Additional orphaned Python helper leaves are also gone in the current
+  worktree: unused internal utility modules for status snapshots, attachment
+  tokens, process/session rollback, JSON-source payload IO, skill-root
+  discovery, filename/command-path helpers, an unused async RW lock, the
+  unused watchdog observer wrapper, and the dead internal
+  `setta.llm.chat_toolkit.ToolRunner` helper were deleted because they had no
+  remaining non-test callers. Active retained tool execution stays on the
+  `setta.api.chat_toolkit.ChatToolRunnerClient` path to the Go-owned
+  `route_run_mcp_tools` surface, while Go now owns the live status/runtime
+  transport for the old Python status snapshot slice.
 - `tests/utils/manager_fixture.py` and the Python tests that only exercised
   the superseded Python project-state/session-manager runtime are also gone in
   the current worktree.
