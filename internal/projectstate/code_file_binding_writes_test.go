@@ -9,67 +9,71 @@ import (
 func TestRuntimeSetCodeFileBindingUpdatesEffectivePayloadAndBinding(t *testing.T) {
 	t.Parallel()
 
-	runtime, err := OpenOverlayRuntime(Document{
-		SchemaVersion:    CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]Project{
-			"project-alpha": codeFileBindingMutationTestProject(t),
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
+	for _, accessMode := range []CodeFileAccessMode{
+		CodeFileAccessModeReadWrite,
+		CodeFileAccessModeReadOnly,
+		CodeFileAccessModeWriteOnly,
+	} {
+		runtime, err := OpenOverlayRuntime(Document{
+			SchemaVersion:    CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]Project{
+				"project-alpha": codeFileBindingMutationTestProject(t),
+			},
+		})
+		if err != nil {
+			t.Fatalf("open overlay runtime for %s: %v", accessMode, err)
 		}
-	})
 
-	snapshot, err := runtime.SetCodeFileBinding(
-		context.Background(),
-		"project-alpha",
-		"code-section",
-		CodeFileBinding{
-			Path:       "./pkg/../pkg/updated.py",
-			AccessMode: CodeFileAccessModeReadOnly,
-		},
-	)
-	if err != nil {
-		t.Fatalf("SetCodeFileBinding returned error: %v", err)
-	}
+		snapshot, err := runtime.SetCodeFileBinding(
+			context.Background(),
+			"project-alpha",
+			"code-section",
+			CodeFileBinding{
+				Path:       "./pkg/../pkg/" + string(accessMode) + ".py",
+				AccessMode: accessMode,
+			},
+		)
+		if closeErr := runtime.Close(); closeErr != nil {
+			t.Fatalf("close overlay runtime for %s: %v", accessMode, closeErr)
+		}
+		if err != nil {
+			t.Fatalf("SetCodeFileBinding returned error for %s: %v", accessMode, err)
+		}
 
-	project := snapshot.Document.Projects["project-alpha"]
-	payload, err := effectiveSectionPayload(project, "code-section", "code-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload code-section: %v", err)
-	}
+		project := snapshot.Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, "code-section", "code-variant")
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload code-section for %s: %v", accessMode, err)
+		}
 
-	rawBinding, ok := payloadObjectField(payload, "codeFileBinding")
-	if !ok {
-		t.Fatalf("expected codeFileBinding object, got %#v", payload["codeFileBinding"])
-	}
-	if rawBinding["canonical_path"] != "pkg/updated.py" {
-		t.Fatalf("expected canonical_path pkg/updated.py, got %#v", rawBinding["canonical_path"])
-	}
-	if rawBinding["access_mode"] != string(CodeFileAccessModeReadOnly) {
-		t.Fatalf("expected access_mode read_only, got %#v", rawBinding["access_mode"])
-	}
-	if rawBinding["autoBinding"] != false {
-		t.Fatalf("expected autoBinding=false, got %#v", rawBinding["autoBinding"])
-	}
+		rawBinding, ok := payloadObjectField(payload, "codeFileBinding")
+		if !ok {
+			t.Fatalf("expected codeFileBinding object for %s, got %#v", accessMode, payload["codeFileBinding"])
+		}
+		if rawBinding["canonical_path"] != "pkg/"+string(accessMode)+".py" {
+			t.Fatalf("expected canonical_path pkg/%s.py, got %#v", accessMode, rawBinding["canonical_path"])
+		}
+		if rawBinding["access_mode"] != string(accessMode) {
+			t.Fatalf("expected access_mode %s, got %#v", accessMode, rawBinding["access_mode"])
+		}
+		if rawBinding["autoBinding"] != false {
+			t.Fatalf("expected autoBinding=false for %s, got %#v", accessMode, rawBinding["autoBinding"])
+		}
 
-	_, _, impl, err := project.ResolveSection("code-section")
-	if err != nil {
-		t.Fatalf("resolve code section: %v", err)
-	}
-	if impl.Code == nil || impl.Code.Binding == nil {
-		t.Fatalf("expected code binding to persist on section impl, got %#v", impl.Code)
-	}
-	if impl.Code.Binding.Path != "pkg/updated.py" {
-		t.Fatalf("expected impl binding path pkg/updated.py, got %q", impl.Code.Binding.Path)
-	}
-	if impl.Code.Binding.AccessMode != CodeFileAccessModeReadOnly {
-		t.Fatalf("expected impl binding access mode read_only, got %q", impl.Code.Binding.AccessMode)
+		_, _, impl, err := project.ResolveSection("code-section")
+		if err != nil {
+			t.Fatalf("resolve code section for %s: %v", accessMode, err)
+		}
+		if impl.Code == nil || impl.Code.Binding == nil {
+			t.Fatalf("expected code binding to persist on section impl for %s, got %#v", accessMode, impl.Code)
+		}
+		if impl.Code.Binding.Path != "pkg/"+string(accessMode)+".py" {
+			t.Fatalf("expected impl binding path pkg/%s.py, got %q", accessMode, impl.Code.Binding.Path)
+		}
+		if impl.Code.Binding.AccessMode != accessMode {
+			t.Fatalf("expected impl binding access mode %s, got %q", accessMode, impl.Code.Binding.AccessMode)
+		}
 	}
 }
 

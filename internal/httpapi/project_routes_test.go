@@ -6287,53 +6287,59 @@ func TestRegisterProjectRoutesSetCodeFileBindingPersistsLatestState(t *testing.T
 		return response
 	}
 
-	response := post(
-		RouteSetCodeFileBinding,
-		`{"projectConfigId":"project-alpha","sectionId":"code-section","binding":{"canonical_path":"./pkg/../pkg/updated.py","access_mode":"read_only"}}`,
-	)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	for _, accessMode := range []projectstate.CodeFileAccessMode{
+		projectstate.CodeFileAccessModeReadWrite,
+		projectstate.CodeFileAccessModeReadOnly,
+		projectstate.CodeFileAccessModeWriteOnly,
+	} {
+		response := post(
+			RouteSetCodeFileBinding,
+			`{"projectConfigId":"project-alpha","sectionId":"code-section","binding":{"canonical_path":"./pkg/../pkg/`+string(accessMode)+`.py","access_mode":"`+string(accessMode)+`"}}`,
+		)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", accessMode, response.Code, response.Body.String())
+		}
 
-	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-	}
+		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+		if latestResponse.Code != http.StatusOK {
+			t.Fatalf("expected 200 latest-state response for %s, got %d with body %q", accessMode, latestResponse.Code, latestResponse.Body.String())
+		}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload for %s: %v", accessMode, err)
+		}
 
-	codeSection := payload.ProjectState.Sections["code-section"]
-	codeSharedModifier := decodeProjectRouteRawObject(t, codeSection.SharedModifier)
-	rawBinding, ok := codeSharedModifier["codeFileBinding"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected codeFileBinding object, got %#v", codeSharedModifier["codeFileBinding"])
-	}
-	if rawBinding["canonical_path"] != "pkg/updated.py" {
-		t.Fatalf("expected canonical_path pkg/updated.py, got %#v", rawBinding["canonical_path"])
-	}
-	if rawBinding["access_mode"] != "read_only" {
-		t.Fatalf("expected access_mode read_only, got %#v", rawBinding["access_mode"])
-	}
-	if rawBinding["autoBinding"] != false {
-		t.Fatalf("expected autoBinding=false, got %#v", rawBinding["autoBinding"])
-	}
+		codeSection := payload.ProjectState.Sections["code-section"]
+		codeSharedModifier := decodeProjectRouteRawObject(t, codeSection.SharedModifier)
+		rawBinding, ok := codeSharedModifier["codeFileBinding"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected codeFileBinding object for %s, got %#v", accessMode, codeSharedModifier["codeFileBinding"])
+		}
+		if rawBinding["canonical_path"] != "pkg/"+string(accessMode)+".py" {
+			t.Fatalf("expected canonical_path pkg/%s.py, got %#v", accessMode, rawBinding["canonical_path"])
+		}
+		if rawBinding["access_mode"] != string(accessMode) {
+			t.Fatalf("expected access_mode %s, got %#v", accessMode, rawBinding["access_mode"])
+		}
+		if rawBinding["autoBinding"] != false {
+			t.Fatalf("expected autoBinding=false for %s, got %#v", accessMode, rawBinding["autoBinding"])
+		}
 
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	_, _, impl, err := project.ResolveSection("code-section")
-	if err != nil {
-		t.Fatalf("resolve code section: %v", err)
-	}
-	if impl.Code == nil || impl.Code.Binding == nil {
-		t.Fatalf("expected code impl binding, got %#v", impl.Code)
-	}
-	if impl.Code.Binding.Path != "pkg/updated.py" {
-		t.Fatalf("expected impl binding path pkg/updated.py, got %q", impl.Code.Binding.Path)
-	}
-	if impl.Code.Binding.AccessMode != projectstate.CodeFileAccessModeReadOnly {
-		t.Fatalf("expected impl binding access mode read_only, got %q", impl.Code.Binding.AccessMode)
+		project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+		_, _, impl, err := project.ResolveSection("code-section")
+		if err != nil {
+			t.Fatalf("resolve code section for %s: %v", accessMode, err)
+		}
+		if impl.Code == nil || impl.Code.Binding == nil {
+			t.Fatalf("expected code impl binding for %s, got %#v", accessMode, impl.Code)
+		}
+		if impl.Code.Binding.Path != "pkg/"+string(accessMode)+".py" {
+			t.Fatalf("expected impl binding path pkg/%s.py, got %q", accessMode, impl.Code.Binding.Path)
+		}
+		if impl.Code.Binding.AccessMode != accessMode {
+			t.Fatalf("expected impl binding access mode %s, got %q", accessMode, impl.Code.Binding.AccessMode)
+		}
 	}
 }
 
