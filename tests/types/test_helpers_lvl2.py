@@ -19,14 +19,8 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import (
-    add_children_of_callable,
-    add_kwarg,
-    change_param_impl,
     get_curr_top_level_param_ids,
-    get_first_markdown_heading,
     set_chat_section_chat_id,
-    set_param_entered_value,
-    update_param_impl_config,
 )
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -46,7 +40,17 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TextBlockSectionImpl,
 )
-from tests.helpers.project_state_sections import create_top_level_section
+from tests.helpers.project_state_mutations import (
+    add_children_of_callable,
+    add_kwarg,
+    change_param_impl,
+    set_param_entered_value,
+    update_param_impl_config,
+)
+from tests.helpers.project_state_sections import (
+    create_top_level_section,
+    get_first_markdown_heading,
+)
 
 
 def build_callable_project_state(

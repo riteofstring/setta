@@ -7,7 +7,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     get_curr_section_variant,
 )
-from setta.types.helpers_lvl2 import (
+from tests.helpers.project_state_mutations import (
     add_kwarg,
     delete_kwarg,
     set_param_entered_value,

@@ -23,12 +23,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
-    add_code_obj,
-    add_kwarg,
-    add_meta_control_code_obj,
     get_section_path_full_name,
-    set_project_config_name,
-    set_section_name,
 )
 from setta.types.project_config import (
     Position,
@@ -71,6 +66,13 @@ from setta.utils.name_validation import (
 )
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
+from tests.helpers.project_state_mutations import (
+    add_code_obj,
+    add_kwarg,
+    add_meta_control_code_obj,
+    set_project_config_name,
+    set_section_name,
+)
 from tests.helpers.project_state_sections import (
     create_child_sections,
     create_top_level_section,

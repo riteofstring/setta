@@ -10,7 +10,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import set_curr_effective_section_impl_value
-from setta.types.helpers_lvl2 import add_code_obj, add_kwarg
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
@@ -20,6 +19,7 @@ from setta.utils.name_validation import (
     get_section_name_format_error,
     get_view_mode_name_format_error,
 )
+from tests.helpers.project_state_mutations import add_code_obj, add_kwarg
 from tests.helpers.project_state_sections import create_top_level_section
 
 FIXTURE_PATH = (

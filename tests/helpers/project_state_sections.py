@@ -26,7 +26,6 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     set_curr_effective_section_impl_value,
 )
-from setta.types.helpers_lvl2 import add_meta_control_code_obj
 from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout
 from setta.types.section_impls import (
@@ -44,6 +43,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.utils.utils import insert_into_array
+from tests.helpers.project_state_mutations import add_meta_control_code_obj
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
