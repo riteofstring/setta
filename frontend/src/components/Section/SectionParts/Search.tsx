@@ -89,12 +89,12 @@ export function SectionSearch({
       callable={callable}
       onEnter={onEnter}
       onShiftEnter={onShiftEnter}
-      dummyCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid ${
+      dummyCodeClassName={`${NO_PAN_CLASS_NAME} min-w-0 flex-1 self-stretch rounded-2xl border border-solid ${
         hasSectionStyleTheme
           ? "border-[color:var(--setta-section-style-border)]"
           : "border-setta-100 dark:border-setta-800"
       } bg-white py-1 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`}
-      realCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid ${
+      realCodeClassName={`${NO_PAN_CLASS_NAME} min-w-0 flex-1 self-stretch nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid ${
         hasSectionStyleTheme
           ? "border-[color:var(--setta-section-style-outline)]"
           : "border-blue-500 dark:border-blue-400/50"
@@ -366,7 +366,7 @@ function SectionSearchCore({
 
   return (
     <search
-      className="section-search single-cell-container relative w-full"
+      className="section-search relative flex w-full min-w-0 items-stretch"
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       ref={searchRef}
     >
@@ -388,7 +388,7 @@ function SectionSearchCore({
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {showRightIndicator && (
-        <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
+        <div className="pointer-events-none absolute inset-y-0 right-0 mr-2 flex items-center gap-1">
           {showCallableErrorIndicator && (
             <span
               className="pointer-events-auto grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white"
