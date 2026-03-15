@@ -77,7 +77,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` is now 614 lines after the local task-board model, toolbar, task-list view, and kanban-view extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/components/App/appRegistry.tsx` at 888 lines after the local param-input, param-controls, and param-model extraction and still a real cross-domain front-door hotspot
+  - `frontend/src/components/App/appRegistry.tsx` at 654 lines after the local param-input, param-controls, param-model, and config-bound output-block extraction and remains a smaller cross-domain front door
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 813 lines and still a large overview-pane front door
 - `frontend/src/components/Pages/Home/HomePage.tsx` is now 451 lines after delegating gallery/list rendering to `frontend/src/components/Pages/Home/homeProjectGallery.tsx`, workspace/browser plus side-pane shells to `frontend/src/components/Pages/Home/homeWorkspaceSidePanes.tsx`, selected-project metadata rendering to `frontend/src/components/Pages/Home/homeSelectedProjectDetails.tsx`, and shared path/count helpers to `frontend/src/components/Pages/Home/homeProjectNavigation.ts`, so it is no longer a top-size hotspot.
 - `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` is
@@ -208,6 +208,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   so the next default work in that domain should continue from the remaining
   larger front-door surfaces instead of immediately re-cutting those new local
   history render owners.
+- `frontend/src/components/App/appRegistry.tsx` now delegates config-bound
+  `TextOutput` or `ImageOutput` rendering, text-output resolution, and cached
+  image artifact loading to
+  `frontend/src/components/App/appRegistryOutputBlocks.tsx`, so app-mode
+  follow-through should now continue from the larger remaining front doors
+  instead of immediately re-cutting that new local output owner.
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
   now delegates hydration cache keys plus retry policy to
   `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.ts`,
@@ -347,9 +353,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ProjectChatSkillsMcpViewer.tsx`, `StandaloneWindowSpaceSurface.tsx`,
   `TaskBoardArea.tsx`, `RunInstructions.tsx`, or `GitGraphOverlay.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
 - Do not pick `FileBrowserPane.tsx`, `BrowserArea.tsx`,
   `ProjectChatBottomDock.tsx`, `ProjectChatSkillsMcpViewer.tsx`,
@@ -1046,15 +1052,18 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
-  - app-mode registration and mode-shell composition vs param/control wiring in
-    `appRegistry.tsx`
   - history selection/search authority vs DnD/grouping vs final panel
     composition in `ProjectChatHistory.tsx`
+  - app-config authoring/load/save orchestration vs preview/spec/theme editor
+    composition in `AppConfigPane.tsx`
+  - app-mode registration and mode-shell composition vs param/control wiring in
+    `appRegistry.tsx`
   - standalone route target/title/share-policy gating vs page shell rendering
     in `StandaloneProjectSurfacePage.tsx`
 

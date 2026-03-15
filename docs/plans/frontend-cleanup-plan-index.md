@@ -41,9 +41,9 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-16)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
   `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `BrowserArea.tsx`,
@@ -147,6 +147,13 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` or
   one of those sharp local owners instead of rebuilding a larger standalone
   page coordinator.
+- `appRegistry.tsx` is no longer the highest-value cross-domain front door
+  after delegating config-bound `TextOutput` or `ImageOutput` rendering,
+  text-output resolution, and cached image artifact loading to
+  `frontend/src/components/App/appRegistryOutputBlocks.tsx`; app-mode
+  follow-through should now start from the larger remaining roots in
+  [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) unless a same-turn
+  slice directly shortens `appRegistry.tsx` or that local output owner.
 - Page-shell work remains covered in [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md), but it is generally behind the larger project-chat, git, pane, section-layout, runtime, and app-mode entry surfaces above.
 - `HomePage.tsx` is no longer a top hotspot after the local home-page split
   into `homeProjectGallery.tsx`, `homeWorkspaceSidePanes.tsx`,
