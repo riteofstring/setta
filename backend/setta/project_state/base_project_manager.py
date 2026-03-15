@@ -447,7 +447,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.types.state_machine_edges import StateMachineEdge
-from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -469,6 +468,25 @@ from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
+
+
+class UISettingExpectedOldValueMismatchError(ValueError):
+    def __init__(
+        self,
+        *,
+        setting_id: str,
+        expected_old_value: object,
+        observed_old_value: object,
+    ) -> None:
+        self.setting_id = setting_id
+        self.expected_old_value = expected_old_value
+        self.observed_old_value = observed_old_value
+        super().__init__(
+            (
+                f"UI setting {setting_id} changed since pre-write validation. "
+                "Retry with a fresh read before writing."
+            )
+        )
 
 
 def _assert_ui_setting_expected_old_value_matches(
