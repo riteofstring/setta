@@ -67,6 +67,13 @@ categorize them.
 - The multi-project windowing scoping, direct
   `setProjectChatWindowChatId`, and broader
   `setProjectChatWindowingState` invalid-owner rows are now proved via the
-  default harness too; after the duplicate-`sortIndex` load-normalization
-  gap, the next queue is the remaining saved-window-space write-validation row
+  default harness too, and the remaining saved-window-space write-validation
+  row is now proved as well
+- For that `createWindowSpace` write-validation slice, the harness now treats
+  the source FastAPI validation envelope as a retained Python boundary and
+  compares the caller-visible rejection detail text instead of Python's raw
+  stringified validator internals
+- After those write-validation rows, the next queue is still the remaining
+  duplicate-`sortIndex` load-normalization gap plus the broader
+  project/window-space load-normalization backlog
 - More corpus-driven latest-state hydration / projection scenarios
