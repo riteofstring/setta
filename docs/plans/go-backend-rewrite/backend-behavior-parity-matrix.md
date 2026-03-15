@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`37ecd3a1b5a43fc0ab5382ef88b98eee4cbbcc37`
+`d688a6d560528f9985b489ace51faabdee247457`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -68,6 +68,8 @@ It currently covers:
 - project-chat windowing and window-space CRUD behavior
 - project history undo/redo and section clipboard route behavior
 - view-mode layout, viewport/layout-presentation, and layout share-policy behavior
+- section chrome/filter/meta-control, child-defaults, and param-selection
+  behavior
 - backend init/auth refresh/server-mode status routes
 - launcher home recent-workspace/directory/open-workspace behavior
 - launcher management status/setup/repair/remove/update behavior
@@ -130,7 +132,10 @@ Rows outside these slices are still pending.
   row.
 - The view-mode layout / layout-presentation slice mostly closes with proofs,
   but it adds one more caller-backed deployment-policy gap.
-- Thirty-eight concrete parity gaps are already visible:
+- The section-chrome / child-defaults / param-selection slice mostly closes
+  with proofs, but it adds two more caller-backed deployment-policy gaps plus
+  two more dormant child-default route-boundary rows.
+- Forty concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
   - source-baseline `saveAsNewProjectConfig` changes behavior based on
@@ -984,14 +989,28 @@ Rows outside these slices are still pending.
 | `VL-06` | `setActiveIDs`, `toggleMinimized`, and `togglePositionLocks` persist project/effective-payload presentation state, and `togglePositionLocks` validates all section ids before applying any mutation. | Source routes: `backend/setta/routers/project_manager.py::{route_set_active_ids,route_toggle_minimized,route_toggle_position_locks}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{set_active_ids,toggle_minimized,toggle_position_locks}`; source helper: `backend/setta/types/helpers_lvl2.py::{toggle_minimized,toggle_position_locks}`. | Impl: `internal/projectstate/layout_presentation.go::{SetActiveIDs,ToggleMinimized,TogglePositionLocks}`; proof: `internal/projectstate/layout_presentation_test.go::{TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload,TestRuntimeTogglePositionLocksValidatesBeforeApplying}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState,TestRegisterProjectRoutesTogglePositionLocksReturnsNotFoundForUnknownSection}`. | `Proved` | The current route proof covers the typed `404 section_not_found` branch for failed lock toggles as well as the persisted active-id/minimized state updates. |
 | `VL-07` | In share/app sessions, the layout-presentation route family stays mounted behind `allowLayoutChanges`: `setTopLevelSectionLayout`, `autoLayoutTopLevelSections`, `setSectionSizes`, `togglePositionLocks`, `toggleMinimized`, and `setViewport` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_top_level_section_layout,route_auto_layout_top_level_sections,route_set_section_sizes,route_toggle_position_locks,route_toggle_minimized,route_set_viewport}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues those writes from share-aware layout callers via `frontend/src/state/actions/sectionInfos.ts`, `frontend/src/state/actions/sections/sectionPositions.ts`, `frontend/src/components/Utils/Resizable/CustomResizable.tsx`, `frontend/src/components/Section/Header/{LockPositionButton,MinimizeButton}.tsx`, `frontend/src/components/Params/ResizeHandle.tsx`, and `frontend/src/components/AppHeader/EditMenu.tsx`. | `Missing` | This is an active parity gap: the source/current docs keep these writes policy-gated under `allowLayoutChanges`, but current Go removes the entire direct route family outside IDE even though current layout callers still drive it in share-aware flows. |
 
+## Section Chrome, Child Defaults, And Param-Selection Routes
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `SP-01` | `setShowParamDisplayNames`, `setSectionTagColor`, `setSectionStyleColor`, `setCallableHideParams`, `setSectionHideUnpinnedParams`, `setSectionPinnedParams`, and `setSectionColumnWidth` persist their UI state through latest-state hydration, with param column width remaining backend-backed section state. | Source manager methods: `backend/setta/project_state/base_project_manager.py::{set_show_param_display_names,set_section_tag_color,set_section_style_color,set_callable_hide_params,set_section_hide_unpinned_params,set_section_pinned_params,set_section_column_width}`; source helpers: `backend/setta/types/helpers_lvl2.py::{set_section_tag_color,set_section_style_color,set_callable_hide_params,set_section_hide_unpinned_params,set_section_pinned_params,set_section_column_width}`; source docs: `docs/reference/column-width.md`. | Impl: `internal/projectstate/layout_presentation.go::{SetShowParamDisplayNames,SetSectionTagColor,SetSectionStyleColor,SetCallableHideParams,SetSectionHideUnpinnedParams,SetSectionPinnedParams,SetSectionColumnWidth}`; proof: `internal/projectstate/layout_presentation_test.go::TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState`. | `Proved` | The current Go route proof covers persisted latest-state hydration for all seven mutations in one pass. |
+| `SP-02` | `setSectionParamFilter` preserves raw strings including whitespace-only filters and rejects unsupported section types, `setMetaControlShowSectionTitle` persists the toggle and rejects non-meta-control sections, and `setGroupOverflowMode` only applies to group sections while persisting valid group overflow state. | Source helpers: `backend/setta/types/helpers_lvl2.py::{set_section_param_filter,set_meta_control_show_section_title,set_group_overflow_mode}`; source helper test: `tests/types/test_helpers_lvl2.py::test_param_filter_whitespace_allows_reorder`; source manager methods: `backend/setta/project_state/base_project_manager.py::{set_section_param_filter,set_meta_control_show_section_title,set_group_overflow_mode}`. | Impl: `internal/projectstate/section_filter_meta_control_title.go::{SetSectionParamFilter,SetMetaControlShowSectionTitle}`; impl: `internal/projectstate/layout_presentation.go::SetGroupOverflowMode`; proof: `internal/projectstate/section_filter_meta_control_title_test.go::{TestRuntimeSetSectionParamFilterPersistsRawString,TestRuntimeSetSectionParamFilterRejectsUnsupportedSectionType,TestRuntimeSetMetaControlShowSectionTitlePersistsValue,TestRuntimeSetMetaControlShowSectionTitleRejectsNonMetaControlSection}`; proof: `internal/projectstate/layout_presentation_test.go::{TestRuntimeSetGroupOverflowModeUpdatesEffectivePayload,TestRuntimeGroupLayoutMutationsRejectNonGroupSections}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsPersistLatestState,TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsRejectInvalidInputs}`. | `Proved` | Current Go route proof covers the typed invalid-target branches for both meta-control-title and group-overflow writes as well as raw-whitespace filter persistence. |
+| `SP-03` | In share/app sessions, the direct HTTP layout-chrome family stays mounted behind `allowLayoutChanges`: `setShowParamDisplayNames`, `setSectionTagColor`, `setSectionStyleColor`, `setSectionParamFilter`, `setCallableHideParams`, `setSectionHideUnpinnedParams`, `setSectionPinnedParams`, and `setSectionColumnWidth` should not disappear outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source docs: `docs/reference/column-width.md`; source routes: `backend/setta/routers/project_manager.py::{route_set_show_param_display_names,route_set_section_tag_color,route_set_section_style_color,route_set_section_param_filter,route_set_callable_hide_params,route_set_section_hide_unpinned_params,route_set_section_pinned_params,route_set_section_column_width}`. | Current Go mounts all of those routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues these writes from share-aware callers via `frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/{SectionTagColorSettings.tsx,SectionStyleColorSettings.tsx}`, `frontend/src/state/hooks/useParamColumnWidth.ts`, `frontend/src/components/Section/SectionParts/KwargsControls.tsx`, and `frontend/src/components/Section/Header/MenuButton/{HideShowParamsButton.tsx,HideShowUnpinnedParamsButton.tsx}`. | `Missing` | This is an active parity gap: source/current docs keep this write family on the layout policy boundary, and the current frontend still wires it into shared surfaces. The source router also keeps `setSectionPinnedParams` on the same layout-guarded family even though the policy doc does not enumerate it separately. |
+| `CD-01` | `setParentDefaultChildSectionType` updates both group and list-root defaults while rejecting singleton or invalid child types, and `setListRootViewMode` persists the list-root-specific view mode while rejecting invalid section or mode inputs. | Source docs: `docs/reference/view-modes.md`; source helpers: `backend/setta/types/helpers_lvl2.py::{set_parent_default_child_section_type,set_list_root_view_mode}`; source helper tests: `tests/types/test_helpers_lvl2.py::{test_incrementer_uses_requested_child_type,test_disallows_singleton_section_types_as_default_child,test_list_root_view_mode_persists_on_section_impl}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{set_parent_default_child_section_type,set_list_root_view_mode}`. | Impl: `internal/projectstate/child_defaults.go::{SetParentDefaultChildSectionType,SetListRootViewMode}`; proof: `internal/projectstate/child_defaults_test.go::{TestRuntimeSetParentDefaultChildSectionTypeUpdatesGroupAndListRoot,TestRuntimeSetParentDefaultChildSectionTypeRejectsInvalidInputs,TestRuntimeSetListRootViewModeUpdatesEffectivePayload,TestRuntimeSetListRootViewModeRejectsInvalidInputs}`; route proof: `internal/httpapi/project_routes_test.go::{TestRegisterProjectRoutesChildDefaultsMutationsPersistLatestState,TestRegisterProjectRoutesChildDefaultsMutationsRejectInvalidInputs}`. | `Proved` | Current Go route proof covers the typed `422` mappings for invalid parent/type and list-root view-mode writes. |
+| `CD-02` | Direct HTTP `setParentDefaultChildSectionType` stays mounted outside IDE and follows the layout share-policy gate instead of disappearing entirely. | Source docs: `docs/reference/view-modes.md`; source route: `backend/setta/routers/project_manager.py::route_set_parent_default_child_section_type`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current caller-backed proof only covers the UI-editor child-default settings surface in `frontend/src/components/Panes/UiEditor/SectionConfig/ChildDefaultsSettings.tsx`, which disables the control with `canEditStructure` before any non-IDE transport call. | `Dormant / unproven caller` | The source/current transport delta is real, but this slice does not yet prove an active Go-era non-IDE caller still depends on the source direct-route contract. |
+| `CD-03` | Direct HTTP `setListRootViewMode` stays mounted outside IDE and can still fail closed with deployment-mode structural `403` instead of disappearing entirely. | Source docs: `docs/reference/view-modes.md`; source route: `backend/setta/routers/project_manager.py::route_set_list_root_view_mode`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_layout_routes_blocked`. | Current Go only mounts the route in IDE via `internal/httpapi/project_routes.go::RegisterProjectRoutes`; the current UI-editor caller in `frontend/src/components/Panes/UiEditor/SectionConfig/ChildDefaultsSettings.tsx` also disables the control with `canEditStructure`, so active non-IDE use remains unproven. | `Dormant / unproven caller` | The source router keeps this route transport-visible even though deployment structural writes still fail closed; current Go removes the route entirely outside IDE. |
+| `PA-01` | `toggleParamSelected` toggles selection membership on the target param, and `unselectAllParams` clears `selectedParams` across every param-capable section instead of only the active one. | Source helpers: `backend/setta/types/helpers_lvl2.py::{toggle_param_selected,unselect_all_params}`; source manager methods: `backend/setta/project_state/base_project_manager.py::{toggle_param_selected,unselect_all_params}`. | Impl: `internal/projectstate/section_structure_selection.go::{ToggleParamSelected,UnselectAllParams}`; proof: `internal/projectstate/section_structure_selection_test.go::TestRuntimeToggleParamSelectedAndUnselectAllParamsPersistSelectionState`; route proof: `internal/httpapi/project_routes_test.go::TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState`. | `Proved` | Current Go route proof also covers the related `deleteSelectedParams` cleanup path, which is tracked elsewhere as a structural mutation family. |
+| `PA-02` | In share/app sessions, `toggleParamSelected` and `unselectAllParams` stay mounted behind `allowParamChanges` instead of disappearing outside IDE mode. | Source docs: `docs/reference/share-policy-flags.md`; source routes: `backend/setta/routers/project_manager.py::{route_toggle_param_selected,route_unselect_all_params}`; source share-policy test: `tests/routers/test_share_policy_routes.py::test_param_selection_routes_blocked`. | Current Go mounts both routes only through `RequireIDEMode` in `internal/httpapi/project_routes.go::RegisterProjectRoutes`; current frontend still issues these selection writes from `frontend/src/state/actions/sectionInfos.ts`, `frontend/src/components/Params/{GroupContainer.tsx,ParamSwitch.tsx}`, `frontend/src/state/actions/keyActivations.ts`, and `frontend/src/state/actions/params/moveParams.ts`. | `Missing` | This is an active parity gap: the source/current docs keep param selection on the `allowParamChanges` boundary, but current Go removes the direct route family outside IDE while the shared param-selection flow still uses it. |
+
 ## Current Findings
 
-1. The matrix now contains thirty-eight concrete source-parity gaps:
+1. The matrix now contains forty concrete source-parity gaps:
    `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
-   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, and `VL-07`.
+   `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, and
+   `PA-02`.
 2. The prompt-template slice matters because it split cleanly into:
    - real missing parity on linked-section refresh and workflow-reference
      delete protection (`PT-06`, `PT-08`)
@@ -1100,27 +1119,32 @@ Rows outside these slices are still pending.
     deployment-mode route-boundary row (`CB-05`).
 35. The view-mode layout / layout-presentation slice mostly closes with
     proofs, but it adds one real deployment-policy gap (`VL-07`).
-36. Git route behavior is now largely proved, including literal pathspec
+36. The section-chrome / child-defaults / param-selection slice mostly closes
+    with proofs, but it adds two real deployment-policy gaps (`SP-03`,
+    `PA-02`) plus two dormant child-default route-boundary rows (`CD-02`,
+    `CD-03`).
+37. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-37. The remaining issues in the naming slice are still mostly proof gaps rather
+38. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-38. The next high-value steps are:
+39. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
       `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
-      `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, and
-      `VL-07` should be restored or documented as intentional divergences
+      `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
+      `VL-07`, `SP-03`, and `PA-02` should be restored or documented as
+      intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,
       `LH-04`, `WL-05`, `AS-02`, `SM-04`, `CH-04`, `SD-07`, `SD-08`,
-      `SD-09`, `CS-05`, and `CB-05` can be treated as fully dead legacy or
-      share-only transports, or still need explicit retained-boundary
-      decisions
+      `SD-09`, `CS-05`, `CB-05`, `CD-02`, and `CD-03` can be treated as fully
+      dead legacy or share-only transports, or still need explicit
+      retained-boundary decisions
     - close proof gaps for project/view-mode/window-space/section format-rule
       variants
     - close the remaining listener/terminal proof gaps (`LS-04`, `LS-12`,
