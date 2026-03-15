@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`ae358320454b7fe531d6af08fea96b799ee6cd83`
+`770293ffd45d0d1a202ad46db5551d7d69ce3918`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -55,6 +55,7 @@ It currently covers:
 - provider dictation transcription-session file/realtime transport and runtime behavior
 - managed/external chat hydration, managed stop, and external-agent approval/question transport behavior
 - AI-follow snapshot, external-agent run stop, and agent-run read routes
+- managed `startAgentRun` / `stopAgentRun` transport and runtime behavior
 
 Rows outside these slices are still pending.
 
@@ -186,6 +187,10 @@ Rows outside these slices are still pending.
   proofs, but it adds:
   - one concrete behavior gap around missing managed follow-state snapshot
     rehydrate (`FS-01`)
+- The managed-agent-run slice mostly closes with proofs and adds:
+  - one documented clean-break divergence around source hybrid
+    external-agent dispatch on `startAgentRun` (`MA-02`)
+  - one more proof gap around typed missing-run stop transport (`MA-05`)
 
 ## Project Names
 
@@ -547,6 +552,16 @@ Rows outside these slices are still pending.
 | `GR-01` | `getAgentRun` returns the persisted run payload by id, and missing run ids return typed `404 agent_run_not_found`. | `tests/routers/test_agentic_routes.py` run-route flow covering `route_get_agent_run`; source route: `backend/setta/routers/agentic.py::route_get_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::getAgentRunHandler`; proof: `internal/httpapi/agent_run_routes_test.go::{TestRegisterAgentRunRoutesGetsRun,TestRegisterAgentRunRoutesReturnsNotFoundForMissingRun,TestRegisterAgentRunRoutesRejectsMissingRunID}`; app proof: `internal/app/app_test.go::TestAppServesRunChainRoutesAndPersistedReadback`. | `Proved` | Current caller transport still posts the same `runId` payload: `frontend/src/utils/generatedEndpoints.test.ts::it("posts single agent-run reads with the run id payload", ...)`. |
 | `GR-02` | `getAgentRuns` returns the current persisted run list and `[]` when no runs exist. | `tests/routers/test_agentic_routes.py` run-route flow covering `route_get_agent_runs`; source route: `backend/setta/routers/agentic.py::route_get_agent_runs`. | Impl: `internal/httpapi/agent_run_routes.go::getAgentRunsHandler`; proof: `internal/httpapi/agent_run_routes_test.go::{TestRegisterAgentRunRoutesListsRuns,TestRegisterAgentRunRoutesReturnsEmptyList}`; app proof: `internal/app/app_test.go::TestAppServesRunChainRoutesAndPersistedReadback`. | `Proved` | Current caller transport still loads the list from the backend origin: `frontend/src/utils/generatedEndpoints.test.ts::it("loads agent runs from the backend origin", ...)`; active caller usage remains in `frontend/src/state/actions/ai.ts`. |
 
+## Managed Agent Runs
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `MA-01` | `startAgentRun` loads the requested managed profile, returns a running persisted `AgentRun`, and missing profiles return typed `404 agent_profile_not_found`. | `tests/routers/test_agentic_routes.py` managed run flow covering `route_start_agent_run`; source route: `backend/setta/routers/agentic.py::route_start_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::startAgentRunHandler`; proof: `internal/httpapi/agent_run_routes_test.go::{TestRegisterAgentRunRoutesStartsManagedRun,TestRegisterAgentRunRoutesReturnsNotFoundForMissingProfileOnStart}`; app proof: `internal/app/app_test.go::{TestAppWiresManagedAgentRunFoundationInIDEMode,TestAppServesManagedAgentRunRoutesWithManagedExecutor}`. | `Proved` | |
+| `MA-02` | Source `startAgentRun` dispatches external-agent-backed profiles through the external runtime after engine/preflight validation; current Go intentionally keeps `startAgentRun` managed-only and rejects external-agent-backed profiles with `managed_llm_engine_required`. | Source route: `backend/setta/routers/agentic.py::route_start_agent_run`; source test: `tests/routers/test_agentic_routes.py::test_agent_profile_routes_validate_llm_config_id`. | Current Go route mapping: `internal/httpapi/agent_run_routes.go::writeManagedAgentRunError`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesRejectsExternalAgentProfileOnStart`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-start-stop-runtime-and-transport.md`; `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`. | `Intentional divergence` | The Phase 14 docs explicitly rejected reintroducing Python's hybrid external-agent dispatch through `POST /startAgentRun`. |
+| `MA-03` | `stopAgentRun` cancels the active managed run and returns persisted cancelled terminal state. | `tests/routers/test_agentic_routes.py` managed run flow covering `route_stop_agent_run`; source route: `backend/setta/routers/agentic.py::route_stop_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::stopAgentRunHandler`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesStopsManagedRun`. | `Proved` | |
+| `MA-04` | Managed start/stop surface typed `503 managed_agent_run_unavailable` when the managed runtime is disabled or not yet executable in real app wiring. | Source route: `backend/setta/routers/agentic.py::{route_start_agent_run,route_stop_agent_run}`; source disabled-runtime branch uses `AgentRunner.disabled`. | Impl: `internal/httpapi/agent_run_routes.go::{startAgentRunHandler,stopAgentRunHandler,writeManagedAgentRunError}`; proof: `internal/httpapi/agent_run_routes_test.go::TestRegisterAgentRunRoutesReturnUnavailableWhenManagedRuntimeDisabled`; rewrite decision: `docs/plans/go-backend-rewrite/archive/phase-14-managed-agent-start-stop-runtime-and-transport.md`. | `Proved` | |
+| `MA-05` | Missing managed run ids on `stopAgentRun` return typed `404 agent_run_not_found`. | Source route: `backend/setta/routers/agentic.py::route_stop_agent_run`. | Impl: `internal/httpapi/agent_run_routes.go::{stopAgentRunHandler,writeManagedAgentRunError}`. | `Implemented, proof incomplete` | Current Go error mapping clearly includes the typed `agent_run_not_found` branch, but this slice does not yet cite a direct Go route test for missing-run stop transport. |
+
 ## Current Findings
 
 1. The matrix now contains twelve concrete source-parity gaps:
@@ -599,12 +614,15 @@ Rows outside these slices are still pending.
     proof-gap clusters (`AH-02`, `MS-02`).
 15. The AI-follow / external-run-stop / agent-run-read slice mostly closes
     with proofs, but it adds one real behavior gap (`FS-01`).
-16. Git route behavior is now largely proved, including literal pathspec
+16. The managed-agent-run slice mostly closes with proofs, but it adds one
+    documented clean-break divergence (`MA-02`) plus one more proof gap
+    (`MA-05`).
+17. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-17. The remaining issues in the naming slice are still mostly proof gaps rather
+18. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-18. The next high-value steps are:
+19. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `FB-02`,
       `US-05`, `RV-02`, `AH-04`, and `FS-01` should be restored or documented
       as intentional divergences
@@ -622,6 +640,7 @@ Rows outside these slices are still pending.
       `AT-05`, `FB-04`), the new Project-AI tooling proof gaps (`SK-01`,
       `SK-02`, `SK-03`, `SK-04`, `MR-02`, `RV-01`), and the new
       transcription proof gaps (`TS-02`, `TS-04`, `TS-07`, `TS-11`), plus the
-      new chat/managed-stop proof gaps (`AH-02`, `MS-02`)
+      new chat/managed-stop proof gaps (`AH-02`, `MS-02`), plus the new
+      managed-agent-run proof gap (`MA-05`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
