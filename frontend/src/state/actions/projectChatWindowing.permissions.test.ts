@@ -20,13 +20,13 @@ vi.mock("utils/generatedEndpoints", () => ({
 
 import {
   createProjectChatWindowInstance,
-  flushPendingProjectChatWindowingWrites,
   focusProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
   setProjectChatWindowChatId,
   showSectionInProjectChatWindow,
 } from "./projectChatWindowing";
+import { flushPendingProjectChatWindowingWrites } from "./projectChatWindowingWrites";
 
 describe("project chat windowing permissions", () => {
   beforeEach(() => {

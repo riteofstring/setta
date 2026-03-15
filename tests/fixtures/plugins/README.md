@@ -18,6 +18,8 @@ Current fixtures:
 - `backend-language-server-e2e/`: backend-only plugin for end-to-end language server UI/behavior testing.
 - `backend-mcp-tools/`: backend-only plugin that registers multiple MCP tools.
 - `backend-static-router/`: backend-only plugin that registers both API router and static directory.
+- `backend-worker-failure-api-version/`: intentional failure fixture for worker handshake API-version mismatch.
+- `backend-worker-failure-missing-method/`: intentional failure fixture for worker handshake required-method mismatch.
 - `backend-worker-failure-transport/`: intentional failure fixture for worker transport/process-exit errors.
 - `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
 - `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
@@ -45,8 +47,8 @@ Target fixture catalog (coverage baseline):
 
 Current count:
 
-- 21 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 20 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 23 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 22 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:
