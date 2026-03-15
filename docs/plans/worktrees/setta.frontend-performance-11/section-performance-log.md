@@ -2806,3 +2806,24 @@ Append-only log for the section performance refactor.
     - or the scope explicitly expands into a new app-shell / route-wrapper plan
 - Next action:
   - None under the current section-shell plan.
+
+### 2026-03-17 79
+
+- Item: Reopen the section performance plan with expanded scope beyond the earlier section-shell closure.
+- Status: `done`
+- Details:
+  - Supersede the earlier "plan complete for the current section-shell scope" read because the scope is now explicitly broader.
+  - The reopened scope is:
+    - remove all remaining live `grid` and `subgrid` usage from the section container level downward
+    - flatten wrappers as aggressively as possible while preserving parity
+    - check all touched section types, not only the earlier representative controls
+    - continue upward reducing shared complexity only after the lower section stack is exhausted
+  - Add explicit cross-section regression checks for touched text/code input paths:
+    - underline/focus feedback
+    - dummy-vs-real CodeMirror font and spacing parity
+    - CodeMirror activation responsiveness
+  - Keep all accepted `Phase S0` / `Phase S1` / `Phase S2` / `Phase S3` checkpoints as append-only baseline history.
+  - All future acceptance decisions under this reopened plan must compare untouched `main` vs this branch on the exact changed path in Chrome DevTools.
+  - The earlier closure entry remains historical and is now superseded by explicit scope expansion, not by a regression in the accepted checkpoint history.
+- Next action:
+  - Run a fresh section-container-down boundary read across the section container cluster and all section-type entry paths to choose the next narrow checkpoint.

@@ -9,112 +9,59 @@ Related log: `docs/plans/worktrees/setta.frontend-performance-11/section-perform
 
 If you are a new chat/session picking this work up, use this section first.
 
-- Despite the plan's callable origin, the active work is no longer callable-only.
-- The accepted callable work in this branch is now pilot history for a broader sections-wide DOM simplification effort.
-- The active refactor target is shared section-shell structure above the callable subtree.
+- Despite the plan's callable origin, the active work is now broader than the previously closed section-shell-only scope.
+- The accepted callable work in this branch remains pilot history for a broader sections-wide DOM simplification effort.
+- Reopen this plan with expanded scope: remove all remaining live `grid` and `subgrid` usage and flatten wrappers as aggressively as possible from the section container level downward across all section types, then continue upward reducing shared complexity to the top only after the lower section stack is exhausted.
+- Keep every accepted `Phase S0` / `Phase S1` / `Phase S2` / `Phase S3` checkpoint as append-only history and baseline evidence, not as proof that the broader sections stack is exhausted.
 
 Current status:
 
 - Callable pilot work: complete as pilot/history
 - Callable-specific performance goal: not fully achieved
-- Active plan: sections-wide section-shell simplification is complete for the current section-shell scope
+- Active plan: reopened expanded-scope sections-wide container-down flattening and grid removal
 - Completed baseline: `Phase S0: Shared Section-Shell Baseline`
-- Wrapper-only shell pass: `Phase S1` structurally exhausted after six accepted checkpoints
-- Active phase: none; `Phase S3` is structurally exhausted after nine accepted checkpoints
+- Accepted history to preserve: `Phase S1`, `Phase S2`, and `Phase S3` through checkpoint 9
+- Active phase: fresh expanded-scope boundary read from the section container cluster downward across all section types
 - Latest accepted checkpoint: `Phase S3` checkpoint 9 isolates standalone chat routes from unrelated project-structure churn
-- Current `Phase S3` state: the standalone route-shell boundary read above `StandaloneProjectSurfacePage.tsx` is complete; no stronger section-shell-specific seam remains above the accepted controller/chrome/area-switch/active-shell/surface-chrome/window-body/window-space/route-history/chat-structure seams without expanding scope into general app shells
-- Plan closure: complete for the current section-shell scope; only reopen if a fresh untouched-`main` vs worktree trace identifies another section-shell-specific hotspot or the scope explicitly expands into app-shell invalidation
+- Current state: the earlier section-shell closure is superseded by explicit scope expansion; the next serious step is to identify the deepest remaining container-down `grid` or wrapper seam, remove it on one narrow checkpoint, and re-measure before moving upward
+- Plan closure: not complete for the expanded scope; close only after container-down `grid` removal, cross-section-type verification, and upward exhaustion reads are all complete against untouched `main` vs this branch
 
 Non-negotiable constraints:
 
 - Eliminate div soup wherever wrappers are not carrying real value.
-- Do not use `grid` or `subgrid` in the active implementation path.
+- Remove all remaining live `grid` and `subgrid` usage from the section container level downward in the active implementation path.
 - Use the simplest rendering/layout technique that preserves parity.
 - Preserve all existing user-facing behavior, features, and interactions.
 - The intended user-visible outcome is performance gain only, not redesign.
 - Work from the deepest nested layout ownership outward/upward.
 - Expect multiple passes; after removing a top shared grid layer, re-analyze before deciding the next pass.
 - Use Chrome DevTools performance testing and compare untouched `main` vs this worktree.
+- Check every touched section type, not only the earlier representative controls.
+- For every touched text/code input path, explicitly verify underline/focus feedback, dummy-vs-real CodeMirror font and spacing parity, and activation responsiveness.
 - For any performance test that touches panning, zooming, resizing, or another section-shell interaction path, capture a Chrome DevTools `Performance` trace on that path. Playwright metrics or ad hoc timings can support the read, but they do not replace the DevTools profile.
 - If a target truly cannot be achieved without `grid`, stop and report the blocker instead of introducing `grid`.
 - Do not edit the settings page as part of this plan. Treat it as an observation-only perf control surface.
 
 Immediate next step:
 
-1. Reuse the locked S0 baseline in `perf/reports/frontend/2026-03-16_section-shell-s0.md` plus the accepted S1 checkpoints in `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint1.md` and `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint2.md`.
-2. Reuse the newer shared-shell checkpoints in `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint3.md`, `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint4.md`, `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint5.md`, and `perf/reports/frontend/2026-03-16_section-shell-s1-checkpoint6.md` as the accepted `Phase S1` history.
-3. Reuse `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint1.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint2.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint3.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint4.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint5.md`, `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint6-rerun2.md`, and `perf/reports/frontend/2026-03-17_section-shell-s2-checkpoint7.md` as the accepted `Phase S2` history so far.
-4. Treat `Phase S1` as exhausted on the locked representative controls:
-   - no exact wrapper-only candidates remain on the current worktree read for `S0 Code` / `S0 Dict`
-   - the surviving outer `section-row-pin-main` shell is blocked by real ownership, not decoration
-5. Treat the completed `Phase S2` row-tree cluster as:
-   - `frontend/src/components/Params/ParamDndList.tsx`
-   - `frontend/src/components/Params/ParamSwitch.tsx`
-   - `frontend/src/components/Params/ParamContainer.tsx`
-6. The surviving shared-shell subgrid utility usage in `GroupContainer` is now removed on the worktree representative controls, and the special nested-parent `section-args-nested` row branch is also removed there.
-7. `ParamContainer` remains the row-only boundary beneath the list/filter orchestration, and checkpoint 7 is the accepted pass that removes the last justified row-tree adapter without reopening the earlier checkpoint-6 regression:
-   - `frontend/src/components/Params/ParamSwitch.tsx`
-   - `frontend/src/components/Params/ParamDndList.tsx`
-   - the remaining child-recursion prop threading, especially `requiredParamIdsToPaths` and `visibleParamIdLookup`
-   - the reduced row-tree ownership split between `ParamDndList`, `ParamSwitch`, and the row-only `ParamContainer`
-8. Keep `S0 Code` and `S0 Dict` as the required untouched-`main` vs worktree representative controls.
-9. For any `Phase S2` performance test that touches resize, pan, or zoom, capture a Chrome DevTools `Performance` trace on the touched path before deciding whether the checkpoint is accepted.
-10. Current post-checkpoint-7 direction:
-   - the locked untouched-`main` vs worktree `S0 Dict` visual/perf gate has been rerun after removing `GetParamSwitch`
-   - the focused representative subtree remains flatter on the worktree in the settled `gamma` state:
-     - `main`: `75` nodes, max depth `11`
-     - worktree: `65` nodes, max depth `9`
-   - the target-renderer trace pair now favors the worktree on most of the heavier categories:
-     - worktree wins on `FunctionCall`, `UpdateLayoutTree`, `Layout`, `RunTask`, `EventDispatch`, `FireAnimationFrame`, and `Commit`
-     - worktree is only slightly higher on `Paint` and `TimerFire`
-     - INP is effectively flat (`189ms` on `main`, `190ms` on the worktree)
-   - treat `Phase S2` as structurally exhausted and move the next serious step to `Phase S3`
-11. The strongest opening `Phase S3` candidate was the shared resize/session ownership in:
-   - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+1. Treat the accepted `Phase S0` / `Phase S1` / `Phase S2` / `Phase S3` reports as baseline history and reuse them as comparison context, not as proof that the expanded scope is exhausted.
+2. Start a fresh boundary read at:
+   - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
-   - `frontend/src/components/Section/Container/sectionChrome.ts`
-12. Accepted `Phase S3` checkpoint 1 boundary:
-   - extract a no-UI-change resize/session controller from `CustomResizable`
-   - keep the visual shell stable while moving auto-size promotion, clamp/propagation, and persisted resize commit out of the presentational wrapper
-13. Current post-checkpoint-1 direction:
-   - `useSectionResizeController` now owns the resize/session lifecycle and persisted size commits
-   - the representative `S0 Dict` resize gate stayed effectively flat enough to accept the ownership split
-   - the remaining resize-path cost is still dominated by higher shell invalidation around the shared section frame, not by the controller seam itself
-   - the next serious `Phase S3` pass should target:
-     - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
-     - `frontend/src/components/Section/Container/sectionChrome.ts`
-   - do not reopen the controller split unless a later trace shows a new boundary-specific regression
-14. Current post-checkpoint-2 direction:
-   - `getCanvasSectionChrome` now owns the canvas surface class recipe, section background choice, meta-control drag-handle visibility, and the header/menu variant split
-   - `CustomResizable` now consumes prepared canvas chrome and only owns the runtime resize shell responsibilities that still depend on DnD state or live handle geometry
-   - the representative `S0 Dict` resize gate stayed flat enough to accept this chrome-ownership move
-   - the remaining `Phase S3` work should now focus on:
-     - real removable wrappers in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
-     - higher shell invalidation around `frontend/src/components/Section/Container/SectionContainerCore.tsx`
-     - any follow-on shared-surface simplification needed by `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
-   - do not reopen the accepted controller or chrome plumbing seams unless a later trace shows a boundary-specific regression
-15. Current post-checkpoint-3 direction:
-   - `frontend/src/components/Section/Container/SectionAreaSwitch.tsx` now owns the shared section-type switch and chat-area handoff for both canvas and window surfaces
-   - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now owns only the canvas-specific placeholder/minimized gate above the shared area switch
-   - `frontend/src/components/Section/Container/SectionWindowSurface.tsx` no longer depends on the canvas wrapper module to render shared section bodies
-   - the locked representative `S0 Dict` subtree is flatter on the worktree at the accepted shrunk state:
-     - `main`: `68` nodes, max depth `9`
-     - worktree: `58` nodes, max depth `7`
-   - the target-renderer resize trace now favors the worktree on:
-     - `FunctionCall`
-     - `UpdateLayoutTree`
-     - `Layout`
-     - `Paint`
-     - `RunTask`
-     - `EventDispatch`
-     - `Commit`
-   - `FireAnimationFrame` is the only notable watch item left from this checkpoint, and it is not large enough to reject the extraction
-   - the next serious `Phase S3` pass should target higher shared-shell wrapper reduction or invalidation in:
-     - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
-     - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
-     - the remaining shared header/body shells around the accepted `SectionAreaSwitch` seam
-   - do not reopen the accepted controller, chrome, or area-switch seams unless a later trace shows a boundary-specific regression
-16. Current post-checkpoint-4 direction:
+   - `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+   - `frontend/src/components/Section/Container/SectionAreaSwitch.tsx`
+3. From that cluster downward, inventory every remaining live `grid` or `subgrid` usage and every wrapper-heavy shell across all section-type entry paths; choose the deepest removable ownership seam first and flatten it before touching higher shells.
+4. Expand representative coverage beyond `S0 Code` and `S0 Dict` to every section type affected by the seam, and explicitly verify:
+   - text-input underline/focus feedback
+   - dummy-vs-real CodeMirror font and spacing parity
+   - CodeMirror activation responsiveness
+5. For every candidate checkpoint, compare untouched `main` vs this branch on the exact touched interaction path in Chrome DevTools and pair the trace with fresh DOM audits for the touched section types.
+6. After each accepted checkpoint, re-read from the section container level downward again; move upward only when the lower section stack no longer contains a stronger removable `grid` or wrapper seam.
+7. Keep the previously accepted `Phase S3` route/window checkpoints as preserved history, but do not treat the earlier section-shell closure as active direction for this expanded scope.
+
+Historical accepted checkpoint notes retained below:
+
+16. Historical accepted `Phase S3` direction before the expanded-scope reopen:
    - `frontend/src/components/Section/Container/SectionContainerCore.tsx` now isolates the active/highlight shell from the static edge-handle + resizable body subtree
    - a new focused invalidation guardrail proves active-only changes do not rerender:
      - the edge-handle subtree
@@ -239,15 +186,15 @@ Immediate next step:
      - the accepted checkpoint-9 representative trace already leaves the worktree marked route window close to idle
    - treat `Phase S3` as structurally exhausted for the current section-shell scope
    - do not continue implementation work under this plan unless a new untouched-`main` vs worktree trace identifies another meaningful section-shell-specific hotspot
-23. Plan closure:
-   - the accepted `Phase S0` through `Phase S3` checkpoints now cover the intended shared section-shell simplification scope of this document
-   - the remaining wrapper stack above the accepted standalone route seam belongs to:
-     - general app-shell routing
-     - share wrappers
-     - modal hosting
-     - bootstrap shells
-   - that work is outside the current section-shell plan and should only start as a separate follow-up if a fresh trace proves it matters
-   - treat this plan as complete for the current scope rather than leaving it indefinitely open after the final `Phase S3` exhaustion read
+23. Prior closure state, now superseded by explicit scope expansion:
+   - the accepted `Phase S0` through `Phase S3` checkpoints covered the narrower shared section-shell simplification scope that ended at the standalone route seam
+   - that earlier closeout remains valid historical context for the narrower scope, but it is no longer the active direction for this document
+   - the reopened scope now requires:
+     - removing all remaining live `grid` and `subgrid` usage from the section container level downward
+     - flattening wrappers as aggressively as possible while preserving parity
+     - checking all touched section types instead of relying only on the earlier representative controls
+     - continuing upward reducing shared complexity to the top only after the lower section stack is exhausted
+   - close this plan only after the expanded scope is exhausted with fresh untouched-`main` vs worktree evidence
 
 Use the log for append-only history, but the active direction and next step should be readable from this file alone.
 
@@ -260,14 +207,17 @@ This file started as a callable-only plan. The accepted callable work now serves
 Active goal now:
 
 - Reduce section-shell DOM complexity across shared section infrastructure, not just callables.
+- Remove all remaining live `grid` and `subgrid` usage from the section container level downward across all touched section types.
 - Eliminate div soup wherever wrappers are not carrying real value.
 - Prefer the simplest layout/rendering technique that preserves behavior and parity.
 - Treat performance wins as likely upside, but not as guaranteed proof before the shared section-shell work is complete.
 - Keep comparing untouched `main` vs this worktree in Chrome DevTools at each accepted checkpoint.
 - Work from the deepest nested structures outward/upward into the shared section shell.
+- Continue upward only after the lower section stack is exhausted.
 - Expect multiple passes. Do not assume the first grid-removal pass will reveal the final target structure.
 - The intended user-facing result is performance gain only, not visual or UX change.
 - All existing features and interactions must remain intact.
+- Treat text-input focus affordances, dummy-vs-real CodeMirror typography parity, and CodeMirror activation responsiveness as required regression checks across all touched section types.
 
 Historical callable-only phases below remain valid as an append-only record of the pilot work that already landed.
 
@@ -292,6 +242,10 @@ Historical callable-only phases below remain valid as an append-only record of t
 
 - The main bottleneck is the live callable/settings param-row and widget subtree, not the outer React Flow shell.
 - DOM flattening is directionally correct, but DOM count reduction alone is not enough.
+- Input/editor polish is now a tracked regression surface in the expanded scope:
+  - text-input underlines must still light up on focus
+  - dummy CodeMirror must visually match the real editor path closely enough that activation does not cause a font/spacing jump
+  - activating a CodeMirror-backed text input must stay responsive enough that the handoff does not feel delayed
 - We should not reopen previously rejected paths unless the product assumption changes:
   - backend-only fixes as the primary answer
   - subscription partitioning
@@ -819,108 +773,124 @@ Add an occasional large-surface pan/zoom control outside the locked checkpoint s
 
 #### Phase S0: Shared Section-Shell Baseline
 
-Purpose: identify the section-level grid/subgrid and wrapper contracts that survive above the callable pilot.
+Purpose: identify the section-container-down grid/subgrid and wrapper contracts that still survive across all section types.
 
 Tasks:
 
-1. Capture a fresh DOM audit for representative section types on `main` and this worktree:
+1. Capture a fresh DOM audit for every touched section type on untouched `main` and this worktree:
    - total nodes
    - max depth
    - grid count
    - subgrid count
    - wrapper-only nodes
-2. Capture Chrome DevTools `Performance` traces for the shared resize path and any obviously coupled pan/zoom path.
+2. Capture Chrome DevTools `Performance` traces for:
+   - the shared resize path
+   - any obviously coupled pan/zoom path
+   - the touched text/code input activation path where dummy and real CodeMirror hand off
    - Do not treat Playwright timings or ad hoc stopwatch numbers as a substitute for this trace evidence.
-3. Map the shared shell ownership:
+3. Map the shared shell ownership at and below the section container cluster:
    - `SectionContainerCoreResizabe`
    - `CustomResizable`
    - `sectionChrome`
+   - `SectionWindowSurface`
+   - `SectionAreaSwitch`
    - shared edge-handle work
    - editor/chat chrome that fires during section resize
-4. For each representative section, identify the deepest nested DOM cluster that should be attacked first before moving outward/upward.
+4. For each touched section type, identify the deepest remaining DOM cluster and the deepest remaining live `grid` / `subgrid` seam that should be attacked first before moving outward/upward.
+5. Record the input/editor regression checks that must hold for every touched section type:
+   - underline/focus feedback
+   - dummy/real CodeMirror font and spacing parity
+   - activation responsiveness
 
 Exit criteria:
 
-- The shared section-shell hotspot map is written down.
-- The representative scene set is locked.
+- The shared section-container-down hotspot map is written down.
+- The representative scene set across touched section types is locked.
 - The deepest-first attack order for the first pass is written down.
 
-#### Phase S1: Decorative And Wrapper Flattening Across Shared Section Shells
+#### Phase S1: Section-Container-Down Grid And Wrapper Removal
 
-Purpose: remove visual-only nodes and grid usage that are not carrying real layout semantics.
+Purpose: remove remaining live `grid` / `subgrid` usage and wrapper-heavy shells from the section container level downward before moving higher in the stack.
 
 Targets:
 
-- resize visuals
-- section hover/selection chrome
-- underlines and focus affordances
-- status/error badges
-- purely visual gutters/dividers
+- `SectionContainerCoreResizabe`
+- `SectionContainerCore`
+- `SectionWindowSurface`
+- `SectionAreaSwitch`
+- the deepest touched section-type-specific shells under that cluster
 
 Tasks:
 
-1. Replace wrapper nodes with pseudo-elements where possible.
-2. Replace visual-only grid usage with absolute positioning where it keeps parity and reduces coupling.
-3. Keep each checkpoint small and screenshot-gated.
-4. If a target cannot be completed without `grid`, stop and document the blocker instead of shipping a new grid-based solution.
-5. Keep the checkpoints moving from inner layout ownership outward/upward instead of starting at the top-level section frame.
+1. Choose the deepest removable ownership seam first; do not start at the top if a lower container-down seam is still stronger.
+2. Remove live `grid` / `subgrid` usage from the touched slice and replace it with simpler layout primitives that preserve parity.
+3. Flatten wrapper nodes aggressively where they are not carrying real ownership or semantics.
+4. Keep each checkpoint small and screenshot/trace-gated on untouched `main` vs this branch.
+5. Re-verify every touched section type, including text/code input focus and activation behavior.
+6. If a target cannot be completed without `grid`, stop and document the blocker instead of shipping a new grid-based solution.
 
 Exit criteria:
 
-- Visual-only wrappers are materially reduced across the shared shell.
-- No user-facing behavior changes.
-- A follow-up structural audit is recorded before moving to the next pass if the removal changes the visible shell contract.
+- The touched container-down slice is materially flatter than untouched `main`.
+- No live `grid` / `subgrid` remains in the accepted slice without a documented blocker.
+- No user-facing behavior changes or input/editor regressions are introduced.
+- A follow-up structural audit is recorded before moving to the next pass.
 
-#### Phase S2: Shared Row / Shell Contract Simplification
+#### Phase S2: Lower Section-Type Shell Simplification
 
-Purpose: replace the surviving grid/subgrid section-row contract with a simpler shared primitive that does not depend on grid.
+Purpose: continue removing lower-shell complexity inside section-type-specific bodies once the container-down read proves the next seam is below the shared container cluster.
 
 Targets:
 
 - `GroupContainer`
 - `ParamContainer`
 - `ParamSwitch`
-- any shared section-row shell in the section container stack
+- text/code input shells that still show dummy/real parity gaps
+- any surviving shared section-row shell below the section container stack
 
 Tasks:
 
-1. Remove `grid-cols-subgrid` and other surviving row-level grid contracts.
-2. Collapse nested row shells that still exist only to satisfy the old grid contract.
-3. Prefer a single shared non-grid row primitive instead of multiple similar wrappers.
-4. If a row/shell target cannot be reproduced without grid, stop and document the blocker rather than keeping grid as an exception.
-5. Continue moving outward/upward only after the inner row/group slice is stable under parity and DevTools checks.
+1. Remove surviving row-level `grid` / `subgrid` contracts.
+2. Collapse nested lower shells that still exist only to satisfy the old layout contract.
+3. Prefer shared non-grid primitives instead of multiple similar wrappers.
+4. Fix or eliminate dummy/real CodeMirror visual mismatches in the touched slice.
+5. Fix or eliminate CodeMirror activation handoff cost that is obvious on the touched path.
+6. If a row/shell target cannot be reproduced without grid, stop and document the blocker rather than keeping grid as an exception.
+7. Continue moving outward/upward only after the lower slice is stable under parity and DevTools checks.
 
 Exit criteria:
 
-- The shared row/shell contract is materially simpler than untouched `main`.
-- Grid remains only where it clearly carries real structural value.
-- After the top-most shared grid layer is removed, a fresh structural read determines whether another simplification pass is needed.
+- The touched lower section-type shells are materially simpler than untouched `main`.
+- The touched slice has no known text-input underline, dummy/real font, or activation regressions.
+- After the strongest lower seam is removed, a fresh structural read determines whether another lower pass is needed or whether the work should move upward.
 
-#### Phase S3: Shared Resizable / Container Simplification
+#### Phase S3: Upward Shared Shell Climb
 
-Purpose: simplify the high-level section frame and resize path now that the inner shell has been reduced.
+Purpose: once the section-container-down and lower section-type slices are exhausted, continue upward reducing shared complexity to the top of the relevant stack.
 
 Targets:
 
-- `SectionContainerCoreResizabe`
-- `CustomResizable`
-- `sectionChrome`
+- higher shared window shells
+- route-level section hosts
+- any remaining shared wrappers above the accepted lower slices that are proven hot by traces
 
 Tasks:
 
-1. Remove unnecessary frame/layout wrappers in the section shell.
-2. Reduce layout reads/writes in the resize path where a simpler shell makes them unnecessary.
-3. Keep parity on handles, selection, hover, and minimized/fullscreen behavior.
-4. Treat this phase as intentionally later than the inner-shell work, not as the starting point.
+1. Re-run a boundary read after each accepted lower checkpoint before claiming the next upward seam.
+2. Remove unnecessary shared wrappers and remaining complexity only where the lower stack is no longer the stronger target.
+3. Reduce layout and activation work where a simpler shared shell makes it unnecessary.
+4. Keep parity on handles, selection, hover, minimized/fullscreen behavior, and input/editor interactions.
+5. Treat this phase as intentionally later than the container-down and lower-shell work, not as the starting point.
 
 Exit criteria:
 
-- The shared section shell is flatter than untouched `main`.
-- The resize path is re-measured on the representative scenes.
+- The upward shared shell is flatter than untouched `main`.
+- The representative resize and input activation paths are re-measured on the touched scenes.
+- A fresh exhaustion read determines whether another upward pass is justified.
 
 #### Phase S4: Trace-Backed Follow-Up
 
-Purpose: only after the shared DOM simplification lands, revisit any remaining scripting/layout hotspots shown by DevTools.
+Purpose: only after the lower and upward structural simplification passes land, revisit any remaining scripting/layout hotspots shown by DevTools.
 
 Tasks:
 
