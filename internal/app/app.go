@@ -1523,6 +1523,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:   modePolicy,
 				Templates:    promptTemplateStore,
 				ProjectState: projectRuntime,
+				Deployment:   deploymentRuntime,
 			}); err != nil {
 				panic(err)
 			}

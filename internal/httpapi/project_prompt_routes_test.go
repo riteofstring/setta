@@ -248,6 +248,65 @@ func TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejec
 	stateMachineRouteErrorCode(t, missingResponse, "prompt_template_not_found")
 }
 
+func TestRegisterProjectRoutesPromptTemplateLinkRejectsUnlinkWhenLinkedTemplateIsMissing(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(promptSectionRouteTestDocument(t))
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	workspaceRoot := t.TempDir()
+	templateStore, err := prompttemplates.NewStore(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+	if err := templateStore.Save(prompttemplates.Template{
+		ID:       "template-broken-link",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+		Format:   prompttemplates.FormatJinja,
+	}); err != nil {
+		t.Fatalf("save prompt template: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+
+	linkRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetPromptTemplateLink,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"prompt-section","promptTemplateId":"template-broken-link"}`),
+	)
+	linkRequest.Header.Set("Content-Type", "application/json")
+	linkResponse := httptest.NewRecorder()
+	handler.ServeHTTP(linkResponse, linkRequest)
+	if linkResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 link response, got %d with body %q", linkResponse.Code, linkResponse.Body.String())
+	}
+
+	if err := templateStore.Delete("template-broken-link"); err != nil {
+		t.Fatalf("delete prompt template: %v", err)
+	}
+
+	unlinkRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetPromptTemplateLink,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"prompt-section","promptTemplateId":null}`),
+	)
+	unlinkRequest.Header.Set("Content-Type", "application/json")
+	unlinkResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unlinkResponse, unlinkRequest)
+	if unlinkResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 unlink response, got %d with body %q", unlinkResponse.Code, unlinkResponse.Body.String())
+	}
+	stateMachineRouteErrorCode(t, unlinkResponse, "prompt_template_not_found")
+}
+
 func TestRegisterProjectRoutesPromptSectionMutationsRespectDeploymentParamPolicy(t *testing.T) {
 	t.Parallel()
 

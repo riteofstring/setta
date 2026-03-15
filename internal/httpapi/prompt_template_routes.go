@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
@@ -24,6 +25,7 @@ type PromptTemplateRouteDependencies struct {
 	ModePolicy   modes.Policy
 	Templates    *prompttemplates.Store
 	ProjectState *projectstate.Runtime
+	Deployment   *deployments.Runtime
 }
 
 type createPromptTemplateRequest struct {
@@ -67,25 +69,68 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Templates == nil {
-		return fmt.Errorf("prompt template store is required in ide mode")
+	if deps.Templates == nil {
+		return fmt.Errorf("prompt template store is required")
+	}
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetPromptTemplates, getPromptTemplatesHandler(deps.Templates))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps.Templates))
+	router.Get(RouteGetPromptTemplates, getPromptTemplatesHandler(deps))
+	router.Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps.Templates, deps.ProjectState))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps.Templates, deps.ProjectState))
 	return nil
 }
 
-func getPromptTemplatesHandler(store *prompttemplates.Store) http.HandlerFunc {
+func ensurePromptTemplateReadsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps PromptTemplateRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if err := requestInfo.Policy.RequireNotLauncher(); err != nil {
+		if writeModesError(w, r, err) {
+			return false
+		}
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
+func getPromptTemplatesHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if !ensurePromptTemplateReadsAllowed(w, r, deps) {
+			return
+		}
+		if deps.Templates == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		templates, err := store.List()
+		templates, err := deps.Templates.List()
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -94,9 +139,12 @@ func getPromptTemplatesHandler(store *prompttemplates.Store) http.HandlerFunc {
 	}
 }
 
-func getPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc {
+func getPromptTemplateHandler(deps PromptTemplateRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if store == nil {
+		if !ensurePromptTemplateReadsAllowed(w, r, deps) {
+			return
+		}
+		if deps.Templates == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -112,7 +160,7 @@ func getPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "template_id_required", "Template id is required.")
 			return
 		}
-		template, err := store.Get(templateID)
+		template, err := deps.Templates.Get(templateID)
 		if err != nil {
 			if writePromptTemplateStoreError(w, r, err) {
 				return

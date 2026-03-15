@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
@@ -106,25 +107,121 @@ func TestRegisterPromptTemplateRoutesGetsTemplate(t *testing.T) {
 	}
 }
 
-func TestRegisterPromptTemplateRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterPromptTemplateRoutesAllowDeploymentReadsWhenLLMAccessEnabled(t *testing.T) {
 	t.Parallel()
 
 	store := newPromptTemplateRouteTestStore(t)
-	handler := newPromptTemplateRouteTestHandler(t, config.ModeShare, store)
-	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetPromptTemplates, nil)
-	response := httptest.NewRecorder()
-
-	handler.ServeHTTP(response, request)
-
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-1",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+	}); err != nil {
+		t.Fatalf("save template: %v", err)
 	}
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+	testCases := []struct {
+		name string
+		mode config.Mode
+		path string
+		body string
+	}{
+		{name: "share list", mode: config.ModeShare, path: RouteGetPromptTemplates},
+		{name: "share get", mode: config.ModeShare, path: RouteGetPromptTemplate, body: `{"templateId":"template-1"}`},
+		{name: "app list", mode: config.ModeApp, path: RouteGetPromptTemplates},
+		{name: "app get", mode: config.ModeApp, path: RouteGetPromptTemplate, body: `{"templateId":"template-1"}`},
 	}
-	if payload.Error.Code != "mode_forbidden" {
-		t.Fatalf("expected mode_forbidden, got %#v", payload)
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode:   testCase.mode,
+				Policy: map[string]any{"allowLLM": true},
+			})
+			handler := newPromptTemplateRouteTestHandler(t, testCase.mode, store, deploymentRuntime)
+
+			method := http.MethodGet
+			var body io.Reader
+			if testCase.body != "" {
+				method = http.MethodPost
+				body = strings.NewReader(testCase.body)
+			}
+			request := httptest.NewRequest(method, "/api"+testCase.path, body)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected 200 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+			if testCase.path == RouteGetPromptTemplates {
+				var templates []prompttemplates.Template
+				if err := json.Unmarshal(response.Body.Bytes(), &templates); err != nil {
+					t.Fatalf("decode templates: %v", err)
+				}
+				if len(templates) != 1 || templates[0].ID != "template-1" {
+					t.Fatalf("unexpected templates payload %#v", templates)
+				}
+				return
+			}
+			var template prompttemplates.Template
+			if err := json.Unmarshal(response.Body.Bytes(), &template); err != nil {
+				t.Fatalf("decode template: %v", err)
+			}
+			if template.ID != "template-1" || template.Name != "Greeting" {
+				t.Fatalf("unexpected template payload %#v", template)
+			}
+		})
+	}
+}
+
+func TestRegisterPromptTemplateRoutesBlockDeploymentReadsWhenLLMAccessDisabled(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	testCases := []struct {
+		name string
+		mode config.Mode
+		path string
+		body string
+	}{
+		{name: "share list", mode: config.ModeShare, path: RouteGetPromptTemplates},
+		{name: "share get", mode: config.ModeShare, path: RouteGetPromptTemplate, body: `{"templateId":"template-1"}`},
+		{name: "app list", mode: config.ModeApp, path: RouteGetPromptTemplates},
+		{name: "app get", mode: config.ModeApp, path: RouteGetPromptTemplate, body: `{"templateId":"template-1"}`},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+				Mode: testCase.mode,
+			})
+			handler := newPromptTemplateRouteTestHandler(t, testCase.mode, store, deploymentRuntime)
+
+			method := http.MethodGet
+			var body io.Reader
+			if testCase.body != "" {
+				method = http.MethodPost
+				body = strings.NewReader(testCase.body)
+			}
+			request := httptest.NewRequest(method, "/api"+testCase.path, body)
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != "llm_access_forbidden" {
+				t.Fatalf("expected llm_access_forbidden, got %#v", payload)
+			}
+		})
 	}
 }
 
@@ -522,6 +619,10 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 	t.Parallel()
 
 	store := newPromptTemplateRouteTestStore(t)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:   config.ModeShare,
+		Policy: map[string]any{"allowLLM": true},
+	})
 	if err := store.Save(prompttemplates.Template{
 		ID:       "template-1",
 		Name:     "Greeting",
@@ -529,18 +630,12 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save template: %v", err)
 	}
-	handler := newPromptTemplateRouteTestHandler(t, config.ModeShare, store)
+	handler := newPromptTemplateRouteTestHandler(t, config.ModeShare, store, deploymentRuntime)
 
 	testCases := []struct {
 		path    string
 		payload map[string]any
 	}{
-		{
-			path: RouteGetPromptTemplate,
-			payload: map[string]any{
-				"templateId": "template-1",
-			},
-		},
 		{
 			path: RouteCreatePromptTemplate,
 			payload: map[string]any{
@@ -580,10 +675,15 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 	}
 }
 
-func newPromptTemplateRouteTestHandler(t *testing.T, mode config.Mode, store *prompttemplates.Store) http.Handler {
+func newPromptTemplateRouteTestHandler(
+	t *testing.T,
+	mode config.Mode,
+	store *prompttemplates.Store,
+	deploymentRuntimes ...*deployments.Runtime,
+) http.Handler {
 	t.Helper()
 
-	return newPromptTemplateRouteTestHandlerWithProjectState(t, mode, store, nil)
+	return newPromptTemplateRouteTestHandlerWithProjectState(t, mode, store, nil, deploymentRuntimes...)
 }
 
 func newPromptTemplateRouteTestHandlerWithProjectState(
@@ -591,8 +691,19 @@ func newPromptTemplateRouteTestHandlerWithProjectState(
 	mode config.Mode,
 	store *prompttemplates.Store,
 	projectRuntime *projectstate.Runtime,
+	deploymentRuntimes ...*deployments.Runtime,
 ) http.Handler {
 	t.Helper()
+
+	var deploymentRuntime *deployments.Runtime
+	if len(deploymentRuntimes) != 0 {
+		deploymentRuntime = deploymentRuntimes[0]
+	}
+	if deploymentRuntime == nil && (mode == config.ModeShare || mode == config.ModeApp) {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Mode: mode,
+		})
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -603,6 +714,7 @@ func newPromptTemplateRouteTestHandlerWithProjectState(
 				ModePolicy:   modes.NewPolicy(mode),
 				Templates:    store,
 				ProjectState: projectRuntime,
+				Deployment:   deploymentRuntime,
 			}); err != nil {
 				t.Fatalf("register prompt template routes: %v", err)
 			}
