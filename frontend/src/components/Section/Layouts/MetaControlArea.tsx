@@ -5,24 +5,23 @@ import type {
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
 import React from "react";
-import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getParamDisplayName,
   getSectionCore,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
   sendRealtimeSectionLiteral,
-} from "state/actions/websocketRealtimeDispatch";
+} from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { post } from "utils/endpointUtils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseCodeObjImplUnion,
@@ -48,7 +47,7 @@ import {
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
-import { buildSettaApiPayload } from "utils/settaApiPresets";
+import { sendButtonSettaRequest } from "./settaApiAction";
 
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
@@ -459,13 +458,4 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     headers,
     body,
   });
-}
-
-function sendButtonSettaRequest(config: ButtonRequestConfig) {
-  const route = config.requestUrl.trim();
-  if (route === "") {
-    return;
-  }
-  const payload = buildSettaApiPayload(route, config.requestBody);
-  void post(route, payload);
 }

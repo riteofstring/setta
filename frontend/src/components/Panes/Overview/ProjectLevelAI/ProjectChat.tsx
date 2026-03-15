@@ -1,5 +1,8 @@
+import * as Menubar from "@radix-ui/react-menubar";
+import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
+import { getProjectDictationModeOptionLabel } from "components/Chat/dictationPolicy";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
@@ -10,11 +13,15 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
+  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { buildOverviewProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
+import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { Resizable } from "re-resizable";
@@ -27,35 +34,45 @@ import {
   useState,
 } from "react";
 import { IoMdArrowRoundBack } from "react-icons/io";
-import { MdAdd, MdChevronLeft, MdChevronRight } from "react-icons/md";
+import { IoSettingsOutline } from "react-icons/io5";
+import {
+  MdAdd,
+  MdChevronLeft,
+  MdChevronRight,
+  MdOutlineSmartToy,
+} from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import { updateEngineConfig } from "state/actions/aiConfigurationCatalogMutations";
-import { saveLLMConfig } from "state/actions/aiLLMConfiguration";
-import { seedPendingChatDetails } from "state/actions/aiPendingChatMessageState";
-import { buildChatHistoryEntries } from "state/actions/chatHistoryEntries";
 import {
+  saveLLMConfig,
+  seedPendingChatDetails,
+  updateEngineConfig,
+} from "state/actions/ai";
+import {
+  buildChatHistoryEntries,
   buildChatProvenanceByChatId,
   resolveScopedChatProvenanceForChatId,
-} from "state/actions/chatHistoryProvenance";
-import type { ChatHistoryCompatibility } from "state/actions/chatHistoryTypes";
+  type ChatHistoryCompatibility,
+} from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
-import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreadGroupAssignments";
+import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
 import {
   useAIStore,
+  useLocalStorage,
   useProjectState,
   type ProjectChatAuxView,
 } from "state/definitions";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
-import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGenerationDetails";
+import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
+  AllLLMConfigs,
   BaseChatMessageUnion,
   EngineConfig,
   EngineTypeEnum,
+  ExternalAgentPreflightStatus,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
@@ -67,27 +84,47 @@ import {
   type ProjectChatBlockedErrorCode,
 } from "./ProjectChatCore";
 import {
-  findPreferredProjectChatEngineId,
-  resolveProjectChatEngineConfigIdForSelectedChat,
-  resolveProjectChatEngineSwitchContinuationAfterContextChange,
-  resolveProjectChatEngineSwitchContinuationOnEngineChange,
-  resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
-  resolveProjectChatSelectedLLMUnavailableReason,
-  shouldProjectChatSkipEngineSyncForContinuation,
-  type ProjectChatEngineSwitchContinuation,
-} from "./projectChatEngineSelection";
+  focusInputWithoutSelectionById,
+  PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
+} from "./projectChatFocusUtils";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
-import {
-  ProjectChatSettingsPopover,
-  type ProjectDictationMode,
-} from "./projectChatSettingsPopover";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
 export { resolveProjectChatThreadBlockedErrorCodeForSelectedChat } from "./projectChatHydrationAuthority";
 
+type ProjectAISettingsPopoverProps = {
+  engineGroups: ReturnType<typeof buildEngineGroups>;
+  transcriptionProfileGroups: AllItemsType<string>;
+  availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
+  selectedEngineId: string | null;
+  selectedLLMConfigId: string | null;
+  llmSelectionUnavailableReason: string | null;
+  selectedTranscriptionProfileId: string | null;
+  defaultLLMConfigId: string | null;
+  engineType: EngineTypeEnum | null;
+  noConfigsAvailable: boolean;
+  dictationMode: ProjectDictationMode;
+  activityAccordionOpenByDefault: boolean;
+  activityChildrenOpenByDefault: boolean;
+  providerDictationLikelySupported: boolean;
+  providerDictationUnavailableReason: string;
+  onOpenSkillsView: () => void;
+  onOpenMcpView: () => void;
+  onOpenSlashCommandsView: () => void;
+  onOpenProjectSettingsView: () => void;
+  onEngineChange: (value: string | null) => void;
+  onLLMConfigChange: (value: string | null) => void;
+  onTranscriptionProfileChange: (value: string | null) => void;
+  onPinDefaultModel: () => void;
+  onDictationModeChange: (value: ProjectDictationMode) => void;
+  onActivityAccordionOpenByDefaultChange: (value: boolean) => void;
+  onActivityChildrenOpenByDefaultChange: (value: boolean) => void;
+};
+
+type ProjectDictationMode = "auto" | "browser" | "provider";
 type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none">;
 const INLINE_THREADS_BREAKPOINT_PX = 760;
 const INLINE_THREADS_MIN_WIDTH_PX = 220;
@@ -109,6 +146,50 @@ type ResolveProjectChatThreadVisibilityFromResizeInput = {
   isLargeEnoughForInlineThreads: boolean;
   viewThreads: boolean;
   explicitlyClosedAtLargeWidth: boolean;
+};
+
+type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
+  chatId: string | null | undefined;
+  selectedEngineId: string | null;
+  availableEngineConfigIds: Set<string>;
+  chatEngineConfigByChatId: Map<string, string | null>;
+};
+
+type ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput = {
+  engineConfigsInitialLoadComplete: boolean;
+  engineConfigs: EngineConfig[];
+  selectedEngineId: string | null;
+  preferredEngineId: string | null;
+};
+
+type ResolveProjectChatSelectedLLMUnavailableReasonInput = {
+  engineType: EngineTypeEnum | null;
+  selectedLLMConfigId: string | null;
+  allLLMConfigs: AllLLMConfigs | null;
+  availableConfigIds: Set<string>;
+};
+
+type ProjectChatEngineSwitchContinuation = {
+  sourceChatId: string;
+  sourceEngineConfigId: string;
+  targetEngineConfigId: string | null;
+};
+
+type ResolveProjectChatEngineSwitchContinuationOnEngineChangeInput = {
+  chatId: string | null | undefined;
+  nextEngineId: string | null;
+  chatEngineConfigByChatId: Map<string, string | null>;
+};
+
+type ResolveProjectChatEngineSwitchContinuationAfterContextChangeInput = {
+  continuation: ProjectChatEngineSwitchContinuation | null;
+  chatId: string | null | undefined;
+  selectedEngineId: string | null;
+};
+
+type ShouldProjectChatSkipEngineSyncForContinuationInput = {
+  continuation: ProjectChatEngineSwitchContinuation | null;
+  chatId: string | null | undefined;
 };
 
 type ResolveProjectChatAuxViewByProjectConfigIdUpdateInput = {
@@ -164,6 +245,130 @@ export function resolveProjectChatThreadVisibilityFromResize({
     return null;
   }
   return true;
+}
+
+export function resolveProjectChatEngineConfigIdForSelectedChat({
+  chatId,
+  selectedEngineId,
+  availableEngineConfigIds,
+  chatEngineConfigByChatId,
+}: ResolveProjectChatEngineConfigIdForSelectedChatInput): string | null {
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (!resolvedChatId) {
+    return null;
+  }
+  const resolvedEngineConfigId = chatEngineConfigByChatId.get(resolvedChatId);
+  if (!resolvedEngineConfigId) {
+    return null;
+  }
+  if (!availableEngineConfigIds.has(resolvedEngineConfigId)) {
+    return null;
+  }
+  if (resolvedEngineConfigId === selectedEngineId) {
+    return null;
+  }
+  return resolvedEngineConfigId;
+}
+
+export function resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad({
+  engineConfigsInitialLoadComplete,
+  engineConfigs,
+  selectedEngineId,
+  preferredEngineId,
+}: ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput):
+  | string
+  | null {
+  if (!engineConfigsInitialLoadComplete) {
+    return selectedEngineId;
+  }
+  if (engineConfigs.length === 0) {
+    return null;
+  }
+  if (
+    selectedEngineId &&
+    engineConfigs.some((config) => config.id === selectedEngineId)
+  ) {
+    return selectedEngineId;
+  }
+  return preferredEngineId ?? engineConfigs[0].id;
+}
+
+export function resolveProjectChatSelectedLLMUnavailableReason({
+  engineType,
+  selectedLLMConfigId,
+  allLLMConfigs,
+  availableConfigIds,
+}: ResolveProjectChatSelectedLLMUnavailableReasonInput): string | null {
+  if (engineType !== EngineTypeEnum.setta_llm) {
+    return null;
+  }
+  if (!selectedLLMConfigId) {
+    return null;
+  }
+  if (availableConfigIds.has(selectedLLMConfigId)) {
+    return null;
+  }
+  const selectedConfig = allLLMConfigs?.configs[selectedLLMConfigId];
+  if (!selectedConfig) {
+    return "Selected model is unavailable.";
+  }
+  const requiredApiKeyEnv = selectedConfig.api_key_env?.trim() ?? "";
+  if (requiredApiKeyEnv) {
+    return `Selected model is unavailable. Missing API key: ${requiredApiKeyEnv}.`;
+  }
+  return "Selected model is unavailable.";
+}
+
+export function resolveProjectChatEngineSwitchContinuationOnEngineChange({
+  chatId,
+  nextEngineId,
+  chatEngineConfigByChatId,
+}: ResolveProjectChatEngineSwitchContinuationOnEngineChangeInput): ProjectChatEngineSwitchContinuation | null {
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (!resolvedChatId) {
+    return null;
+  }
+  const sourceEngineConfigId = chatEngineConfigByChatId.get(resolvedChatId);
+  if (!sourceEngineConfigId) {
+    return null;
+  }
+  if (sourceEngineConfigId === nextEngineId) {
+    return null;
+  }
+  return {
+    sourceChatId: resolvedChatId,
+    sourceEngineConfigId,
+    targetEngineConfigId: nextEngineId,
+  };
+}
+
+export function resolveProjectChatEngineSwitchContinuationAfterContextChange({
+  continuation,
+  chatId,
+  selectedEngineId,
+}: ResolveProjectChatEngineSwitchContinuationAfterContextChangeInput): ProjectChatEngineSwitchContinuation | null {
+  if (!continuation) {
+    return null;
+  }
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (resolvedChatId !== continuation.sourceChatId) {
+    return null;
+  }
+  if (selectedEngineId === continuation.sourceEngineConfigId) {
+    return null;
+  }
+  return continuation;
+}
+
+export function shouldProjectChatSkipEngineSyncForContinuation({
+  continuation,
+  chatId,
+}: ShouldProjectChatSkipEngineSyncForContinuationInput): boolean {
+  if (!continuation) {
+    return false;
+  }
+  const resolvedChatId = chatId?.trim() ?? "";
+  return resolvedChatId !== "" && resolvedChatId === continuation.sourceChatId;
 }
 
 export function resolveProjectChatAuxViewByProjectConfigIdUpdate({
@@ -585,7 +790,7 @@ function ProjectChatSurface({
   );
   const preferredEngineId = useMemo(
     () =>
-      findPreferredProjectChatEngineId({
+      findPreferredEngineId({
         engineConfigs,
         allLLMConfigs,
         availableConfigIds,
@@ -666,6 +871,14 @@ function ProjectChatSurface({
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
+  );
+  const selectableLLMConfigId = useMemo(
+    () =>
+      resolveSelectableLLMConfigId(
+        availableConfigGroups,
+        selectedLLMConfigId,
+      ),
+    [availableConfigGroups, selectedLLMConfigId],
   );
   const llmSelectionUnavailableReason = useMemo(
     () =>
@@ -1756,12 +1969,12 @@ function ProjectChatSurface({
                   {!isAuxView ? (
                     <div className="flex items-center justify-self-end @[16.25rem]:col-start-3">
                       {showPlanModeBadge ? <PlanModeBadge /> : null}
-                      <ProjectChatSettingsPopover
+                      <ProjectAISettingsPopover
                         engineGroups={engineGroups}
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectedLLMConfigId}
+                        selectedLLMConfigId={selectableLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -1988,6 +2201,7 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
+                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2061,6 +2275,7 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
+              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
@@ -2087,5 +2302,433 @@ function ProjectChatSurface({
         )}
       </div>
     )
+  );
+}
+
+function findPreferredEngineId({
+  engineConfigs,
+  allLLMConfigs,
+  availableConfigIds,
+  externalAgentHealth,
+  externalAgentHealthInitialLoadComplete,
+}: {
+  engineConfigs: EngineConfig[];
+  allLLMConfigs: AllLLMConfigs | null;
+  availableConfigIds: Set<string>;
+  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealthInitialLoadComplete: boolean;
+}): string | null {
+  for (const config of engineConfigs) {
+    if (config.engineType !== EngineTypeEnum.setta_llm) {
+      continue;
+    }
+    if (
+      isEngineUsable({
+        config,
+        allLLMConfigs,
+        availableConfigIds,
+        externalAgentHealth,
+        externalAgentHealthInitialLoadComplete,
+      })
+    ) {
+      return config.id;
+    }
+  }
+  for (const config of engineConfigs) {
+    if (config.engineType !== EngineTypeEnum.external_agent) {
+      continue;
+    }
+    if (
+      isEngineUsable({
+        config,
+        allLLMConfigs,
+        availableConfigIds,
+        externalAgentHealth,
+        externalAgentHealthInitialLoadComplete,
+      })
+    ) {
+      return config.id;
+    }
+  }
+  return engineConfigs[0]?.id ?? null;
+}
+
+function isEngineUsable({
+  config,
+  allLLMConfigs,
+  availableConfigIds,
+  externalAgentHealth,
+  externalAgentHealthInitialLoadComplete,
+}: {
+  config: EngineConfig;
+  allLLMConfigs: AllLLMConfigs | null;
+  availableConfigIds: Set<string>;
+  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealthInitialLoadComplete: boolean;
+}): boolean {
+  if (config.engineType === EngineTypeEnum.setta_llm) {
+    const fallbackConfigId = pickDefaultConfigId(allLLMConfigs);
+    const configId = config.settaLlmConfigId ?? fallbackConfigId;
+    return Boolean(configId && availableConfigIds.has(configId));
+  }
+  if (config.engineType === EngineTypeEnum.external_agent) {
+    if (!externalAgentHealthInitialLoadComplete) {
+      return true;
+    }
+    const configId = config.externalAgentConfigId;
+    const status = externalAgentHealth.find(
+      (entry) => entry.configId === configId,
+    );
+    return Boolean(status?.available && status.supported);
+  }
+  return false;
+}
+
+function ProjectAISettingsContent({
+  engineGroups,
+  transcriptionProfileGroups,
+  availableConfigGroups,
+  selectedEngineId,
+  selectedLLMConfigId,
+  llmSelectionUnavailableReason,
+  selectedTranscriptionProfileId,
+  defaultLLMConfigId,
+  engineType,
+  noConfigsAvailable,
+  dictationMode,
+  activityAccordionOpenByDefault,
+  activityChildrenOpenByDefault,
+  providerDictationLikelySupported,
+  providerDictationUnavailableReason,
+  onOpenSkillsView,
+  onOpenMcpView,
+  onOpenSlashCommandsView,
+  onOpenProjectSettingsView,
+  onEngineChange,
+  onLLMConfigChange,
+  onTranscriptionProfileChange,
+  onPinDefaultModel,
+  onDictationModeChange,
+  onActivityAccordionOpenByDefaultChange,
+  onActivityChildrenOpenByDefaultChange,
+}: ProjectAISettingsPopoverProps) {
+  const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
+  const showLlmUnavailableWarning = llmSelectionUnavailableReason !== null;
+  const llmPlaceholder = noConfigsAvailable
+    ? "Add an LLM config or API key"
+    : "Select an LLM";
+  const llmBg =
+    selectedLLMConfigId && !showLlmUnavailableWarning
+      ? ""
+      : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+  const providerModeAvailable = providerDictationLikelySupported;
+  const autoFallsBackToBrowser =
+    dictationMode === "auto" && !providerDictationLikelySupported;
+  const selectedModelPinnedAsDefault =
+    selectedLLMConfigId !== null && selectedLLMConfigId === defaultLLMConfigId;
+  const dictationModeOptions = useMemo<AllItemsType<ProjectDictationMode>>(
+    () => [
+      {
+        group: "Microphone Source",
+        items: [
+          {
+            id: "auto",
+            name: getProjectDictationModeOptionLabel({
+              mode: "auto",
+              providerModeAvailable,
+            }),
+          },
+          {
+            id: "provider",
+            name: getProjectDictationModeOptionLabel({
+              mode: "provider",
+              providerModeAvailable,
+            }),
+          },
+          {
+            id: "browser",
+            name: getProjectDictationModeOptionLabel({
+              mode: "browser",
+              providerModeAvailable,
+            }),
+          },
+        ],
+      },
+    ],
+    [providerModeAvailable],
+  );
+  const handleDictationModeOptionChange = useCallback(
+    (value: ProjectDictationMode | null) => {
+      if (!value) {
+        return;
+      }
+      if (value === "provider" && !providerModeAvailable) {
+        return;
+      }
+      onDictationModeChange(value);
+    },
+    [onDictationModeChange, providerModeAvailable],
+  );
+  const pinDefaultModelTooltipHandlers = useMemo(() => {
+    if (selectedModelPinnedAsDefault) {
+      return getFloatingBoxHandlers({
+        title: "Default model",
+        content: "This model is already pinned as default.",
+      });
+    }
+    if (!selectedLLMConfigId) {
+      return getFloatingBoxHandlers({
+        title: "Default model",
+        content: "Select a model before pinning a default.",
+      });
+    }
+    return getFloatingBoxHandlers({
+      title: "Default model",
+      content: "Pin the selected model as the default for new chats.",
+    });
+  }, [selectedLLMConfigId, selectedModelPinnedAsDefault]);
+  const openSkillsTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Skills",
+        content: "Open the Skills view.",
+      }),
+    [],
+  );
+  const openMcpTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "MCP",
+        content: "Open the MCP view.",
+      }),
+    [],
+  );
+  const openSlashCommandsTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Slash Commands",
+        content: "Open the Slash Commands view.",
+      }),
+    [],
+  );
+  const openProjectSettingsViewTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Project AI Settings",
+        content: "Open the Project AI Settings pane.",
+      }),
+    [],
+  );
+
+  return (
+    <div className="flex flex-col gap-2 [&_button:disabled]:cursor-not-allowed [&_button]:cursor-pointer">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
+        Project AI
+      </p>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+            Engine
+          </span>
+          <IdNameCombobox
+            allItems={engineGroups}
+            value={selectedEngineId}
+            small={false}
+            onSelectedItemChange={onEngineChange}
+            placeholder="Select an engine"
+            outerDivClasses="w-full"
+            inputDivId={PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+            Transcription Profile
+          </span>
+          <IdNameCombobox
+            allItems={transcriptionProfileGroups}
+            value={selectedTranscriptionProfileId}
+            small={false}
+            onSelectedItemChange={onTranscriptionProfileChange}
+            placeholder="Select a transcription profile"
+            outerDivClasses="w-full"
+            selectedItemCanBeNull
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+            Microphone Source
+          </span>
+          <IdNameCombobox
+            allItems={dictationModeOptions}
+            value={dictationMode}
+            small={false}
+            onSelectedItemChange={handleDictationModeOptionChange}
+            placeholder="Microphone source"
+            outerDivClasses="w-full"
+            inputDivId="project-ai-microphone-source"
+          />
+          <p className="text-[10px] text-setta-500 dark:text-setta-400">
+            Provider mode uses the selected transcription profile.
+          </p>
+          {!providerModeAvailable ? (
+            <p className="text-[10px] text-amber-700 dark:text-amber-300">
+              {providerDictationUnavailableReason}
+            </p>
+          ) : null}
+          {autoFallsBackToBrowser ? (
+            <p className="text-[10px] text-amber-700 dark:text-amber-300">
+              Auto currently prefers browser/OS because provider dictation is
+              unavailable.
+            </p>
+          ) : null}
+        </div>
+        {showLLMConfig ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              LLM Config
+            </span>
+            <IdNameCombobox
+              allItems={availableConfigGroups}
+              value={selectedLLMConfigId}
+              small={false}
+              onSelectedItemChange={onLLMConfigChange}
+              placeholder={llmPlaceholder}
+              // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+              bg={llmBg}
+              outerDivClasses="w-full"
+            />
+            {showLlmUnavailableWarning ? (
+              <p className="text-[10px] text-red-600 dark:text-red-300">
+                {llmSelectionUnavailableReason}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={onPinDefaultModel}
+              disabled={!selectedLLMConfigId || selectedModelPinnedAsDefault}
+              className="h-8 w-full rounded-md border border-setta-200 bg-white px-2 text-left text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              {...pinDefaultModelTooltipHandlers}
+            >
+              {selectedModelPinnedAsDefault
+                ? "Selected model is pinned as default"
+                : "Pin selected model as default"}
+            </button>
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+            Tools
+          </span>
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onOpenSkillsView}
+              data-testid="project-chat-settings-open-skills"
+              className="box-border h-8 w-full min-w-0 rounded-md border border-setta-200 bg-white px-2 text-center text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              {...openSkillsTooltipHandlers}
+            >
+              Skills
+            </button>
+            <button
+              type="button"
+              onClick={onOpenMcpView}
+              data-testid="project-chat-settings-open-mcp"
+              className="box-border h-8 w-full min-w-0 rounded-md border border-setta-200 bg-white px-2 text-center text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              {...openMcpTooltipHandlers}
+            >
+              MCP
+            </button>
+            <button
+              type="button"
+              onClick={onOpenSlashCommandsView}
+              data-testid="project-chat-settings-open-slash-commands"
+              className="box-border h-8 w-full min-w-0 rounded-md border border-setta-200 bg-white px-2 text-center text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              {...openSlashCommandsTooltipHandlers}
+            >
+              Slash Commands
+            </button>
+            <button
+              type="button"
+              onClick={onOpenProjectSettingsView}
+              data-testid="project-chat-settings-open-project-settings"
+              className="box-border inline-flex h-8 w-full min-w-0 items-center justify-center gap-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              {...openProjectSettingsViewTooltipHandlers}
+            >
+              <MdOutlineSmartToy size={14} aria-hidden />
+              <span>AI Settings</span>
+            </button>
+            <Menubar.Root className="w-full min-w-0">
+              <FollowAIToggleButton
+                labelMode="always"
+                triggerClassName="nodrag relative inline-flex box-border h-8 w-full min-w-0 select-none items-center justify-center gap-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] font-semibold transition-colors hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:hover:bg-setta-800/70"
+              />
+            </Menubar.Root>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+            Activity
+          </span>
+          <label
+            data-testid="project-chat-settings-activity-accordion-default"
+            className="flex w-full items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5 text-[11px] text-setta-600 dark:bg-setta-900 dark:text-setta-200"
+          >
+            <span>Open activity accordions by default</span>
+            <SwitchInput
+              value={activityAccordionOpenByDefault}
+              onChange={onActivityAccordionOpenByDefaultChange}
+            />
+          </label>
+          <label
+            data-testid="project-chat-settings-activity-children-default"
+            className="flex w-full items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5 text-[11px] text-setta-600 dark:bg-setta-900 dark:text-setta-200"
+          >
+            <span>Open child accordions by default</span>
+            <SwitchInput
+              value={activityChildrenOpenByDefault}
+              onChange={onActivityChildrenOpenByDefaultChange}
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectAISettingsPopover(props: ProjectAISettingsPopoverProps) {
+  const handleSettingsPopoverOpenAutoFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    requestAnimationFrame(() => {
+      focusInputWithoutSelectionById(PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID);
+    });
+  }, []);
+  const settingsTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Project AI settings",
+        content: "Configure engine, model, microphone source, and tools.",
+      }),
+    [],
+  );
+
+  return (
+    <StandardPopover
+      trigger={
+        <button
+          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+          aria-label="Project AI Settings"
+          type="button"
+          {...settingsTooltipHandlers}
+        >
+          <IoSettingsOutline size={15} />
+          <span className="hidden @[46rem]:block">Settings</span>
+        </button>
+      }
+      contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
+      arrowClasses="fill-white/95 stroke-[1px] stroke-setta-200/80 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+      contentProps={{ onOpenAutoFocus: handleSettingsPopoverOpenAutoFocus }}
+    >
+      <ProjectAISettingsContent {...props} />
+    </StandardPopover>
   );
 }

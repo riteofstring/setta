@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import {
   deleteSelectedStateMachineEdges,
   replaceStateMachineEdge,
-} from "state/actions/stateMachineEdgeMutations";
+} from "state/actions/stateMachineEdges";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
