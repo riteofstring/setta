@@ -18,9 +18,8 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { useNameValidationErrors } from "state/stores/editorDiagnosticsStores";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,

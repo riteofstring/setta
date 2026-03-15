@@ -1,12 +1,8 @@
 import { GitPane } from "components/Panes/Overview/Git/GitPane";
 import { useEffect } from "react";
-import { ensureGitGraphStateLoaded } from "state/actions/gitGraphOverlayActions";
-import {
-  isProjectChatGitGraphEmbeddedPaneVisibleInState,
-  toggleProjectChatGitGraphEmbeddedPaneVisibility,
-} from "state/actions/projectChatWindowingEmbeddedPaneVisibility";
-import { useProjectState } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { ensureGitGraphStateLoaded } from "state/actions/git";
+import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
+import { useMisc, useProjectState } from "state/definitions";
 import { GitGraphOverlay } from "./GitGraphOverlay";
 
 type GitGraphWindowContentProps = {
@@ -32,10 +28,13 @@ export function GitGraphWindowContent({
     if (!instanceId) {
       return false;
     }
-    return isProjectChatGitGraphEmbeddedPaneVisibleInState(
-      state,
+    const ephemeralKey = buildProjectChatEphemeralWindowInstanceKey(
       projectConfigId,
       instanceId,
+    );
+    return (
+      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId[ephemeralKey] ===
+      true
     );
   });
   const isControlledEmbeddedGitPane =
@@ -52,10 +51,25 @@ export function GitGraphWindowContent({
       onEmbeddedGitPaneVisibleChange?.(!isEmbeddedGitPaneVisible);
       return;
     }
-    toggleProjectChatGitGraphEmbeddedPaneVisibility(
+    const ephemeralKey = buildProjectChatEphemeralWindowInstanceKey(
       projectConfigId,
       instanceId,
     );
+    useMisc.setState((state) => {
+      const nextVisibilityByInstanceId = {
+        ...state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+      };
+      if (nextVisibilityByInstanceId[ephemeralKey]) {
+        delete nextVisibilityByInstanceId[ephemeralKey];
+      } else {
+        nextVisibilityByInstanceId[ephemeralKey] = true;
+      }
+      return {
+        ...state,
+        projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
+          nextVisibilityByInstanceId,
+      };
+    });
   }
 
   return (
