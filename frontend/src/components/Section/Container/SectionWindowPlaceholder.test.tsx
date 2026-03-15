@@ -5,12 +5,9 @@ import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 let mockCanEditLayout = true;
 
 vi.mock("state/actions/projectChatWindowing", () => ({
+  bootProjectChatWindowToCanvasSection: vi.fn(),
   focusProjectChatWindow: vi.fn(),
   reopenProjectChatWindow: vi.fn(),
-}));
-
-vi.mock("state/actions/projectChatWindowingCanvasBoot", () => ({
-  bootProjectChatWindowToCanvasSection: vi.fn(),
 }));
 
 vi.mock("state/definitions", () => ({

@@ -1,6 +1,5 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
-from setta.types.agentic_edges import AgenticEdge
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -31,19 +30,9 @@ from setta.types.code_obj_impls import (
     TimeDisplayFont,
     TimeDisplayFormat,
 )
-from setta.types.edges import Edge, EdgePort
+from setta.types.edges import EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
-from setta.types.project_config import (
-    ProjectCodegenPluginTarget,
-    ProjectCodegenPythonTarget,
-    TopLevelSectionLayout,
-    ViewModeConfig,
-    Viewport,
-    WatchCodeFolder,
-    WatchCodeRegistryEntry,
-    WindowSpaceConfig,
-)
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
@@ -68,7 +57,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TypeErrorIgnoreState,
 )
-from setta.types.state_machine_edges import StateMachineEdge
 
 
 class CoreArgs(TypedDict):
@@ -221,35 +209,6 @@ class CoreArgs(TypedDict):
             ]
         ]
     ]
-
-
-class ProjectConfigArgs(TypedDict):
-    id: NotRequired[ID]
-    name: NotRequired[str]
-    showParamDisplayNames: NotRequired[bool]
-    allowJsonSourceKeyEdits: NotRequired[bool]
-    previewImgColor: NotRequired[str]
-    viewport: NotRequired[Viewport | None]
-    viewportInitialized: NotRequired[bool]
-    viewModes: NotRequired[dict[ID, ViewModeConfig]]
-    windowSpaces: NotRequired[dict[ID, WindowSpaceConfig]]
-    activeViewModeId: NotRequired[ID | None]
-    isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[
-        list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
-    ]
-    entryCodeBlockId: NotRequired[ID | None]
-    topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
-    sectionVariantMap: NotRequired[dict[ID, ID]]
-    activeIds: NotRequired[list[ID]]
-    edges: NotRequired[list[Edge]]
-    agenticEdges: NotRequired[list[AgenticEdge]]
-    stateMachineEdges: NotRequired[list[StateMachineEdge]]
-    watchCodeEnabled: NotRequired[bool]
-    watchCodeFolders: NotRequired[list[WatchCodeFolder]]
-    watchCodeFiles: NotRequired[list[str]]
-    watchCodeRegistry: NotRequired[dict[str, WatchCodeRegistryEntry]]
-    watchCodeBaselineByPath: NotRequired[dict[str, list[str]]]
 
 
 class BaseSectionImplArgs(TypedDict):
