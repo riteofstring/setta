@@ -44,7 +44,6 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Current Default Starting Points (2026-03-15)
 
 - The highest-value unresolved front-door hotspots are:
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
@@ -52,9 +51,10 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
 - Already-improved coordinators and smaller follow-through surfaces such as
-  `runtime.ts`, `ChatArea.tsx`, `ProjectChatCore.tsx`,
+  `runtime.ts`, `RunInstructions.tsx`, `ChatArea.tsx`, `ProjectChatCore.tsx`,
   `ProjectChatHistory.tsx`, `ChatInput.tsx`, `ChatMessages.tsx`, and
   `BrowserArea.tsx` are now second-order work unless the same slice directly
   shortens one of the entry surfaces above.

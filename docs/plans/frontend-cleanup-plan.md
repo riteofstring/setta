@@ -39,7 +39,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - AI-follow tool-argument snapshot reads/writes plus backend snapshot fetch now live in `frontend/src/state/actions/aiFollowToolArguments.ts`, while tool-result highlights and scope-violation timeout orchestration now live in `frontend/src/state/actions/aiFollowHighlights.ts`
   - LLM config loading/saving now lives in `frontend/src/state/actions/aiLLMConfiguration.ts`, managed API-key snapshot/load behavior now lives in `frontend/src/state/actions/aiManagedApiKeyState.ts`, queued managed API-key persistence and conflict handling now lives in `frontend/src/state/actions/aiManagedApiKeyPersistence.ts`, `frontend/src/state/actions/aiManagedApiKeys.ts` is now a thin compatibility facade, while agent-profile, prompt-template, external-agent, external-agent-health, and engine-config catalog fetch/hydration now live in `frontend/src/state/actions/aiConfigurationCatalogLoads.ts`, shared AI catalog store writes now live in `frontend/src/state/actions/aiConfigurationCatalogState.ts`, and catalog mutations now live in `frontend/src/state/actions/aiConfigurationCatalogMutations.ts`
   - provider dictation audio decode and realtime payload prep now live in `frontend/src/state/actions/aiTranscriptionAudio.ts`, provider upload orchestration now lives in `frontend/src/state/actions/aiTranscriptionUpload.ts`, `frontend/src/state/actions/aiTranscription.ts` is now a thin compatibility facade, while session transport now lives in `frontend/src/state/actions/aiTranscriptionSessions.ts` and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscriptionProfiles.ts`
-  - `RunInstructions.tsx` already delegates some state/parsing work to `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`
+  - `RunInstructions.tsx` already delegates accordion-state persistence to `runInstructionsAccordionState.ts`, runnable-code-block discovery to `runInstructionsRunnableCodeBlocks.ts`, workflow-start control discovery to `runInstructionsStateMachineControls.ts`, run snapshot/codegen target composition to `runInstructionsCodegenSections.tsx`, detailed python codegen policy UI to `runInstructionsCodegenPolicyContent.tsx`, and codegen registration/representation rules to `runInstructionsCodegenModel.ts`
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
 - Before starting a slice, re-measure the current file and check for nearby helper modules/tests.
 - Terminal hook ownership is no longer concentrated in one file: `frontend/src/state/hooks/terminals/terminal.ts`
@@ -54,8 +54,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1483 authored TS/TSX files under `frontend/src`.
-- There are 39 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
+- There are 1487 authored TS/TSX files under `frontend/src`.
+- There are 38 non-generated TS/TSX files at 1000+ lines; several production hotspots are still well above 1800 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 914 lines after the local history-panel, folder-shell, and thread-row extraction
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 1848 lines after the local settings, engine-selection, and inline-thread layout extraction
@@ -71,10 +71,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 1751 lines after the local task-schedule extraction
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` is now 42 lines after the local managed/scriptable surface, managed-history, and realtime-event extraction and is no longer a top-size hotspot.
 - App/runtime and pane follow-through work remain cleanup hotspots:
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
   - `frontend/src/components/Pages/Home/HomePage.tsx` at 1620 lines
+- `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555 lines after the local codegen sections, codegen policy content, and codegen model extraction and is no longer a top-size hotspot.
 - `frontend/src/plugins/runtime.ts` is now 622 lines after the local host-types, host-validation, and plugin-host extraction and is no longer a top-size hotspot.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607 lines after the local plugin-card, config-editor, config-schema, and shared-shell extraction and is no longer a top-size hotspot.
 
@@ -118,6 +118,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   the next default work in that domain should continue from the remaining
   larger pane and runtime entry surfaces instead of re-cutting those new local
   plugin owners.
+- `frontend/src/components/Panes/Overview/RunInstructions.tsx` now delegates
+  run snapshot-mode persistence and codegen-target accordion composition to
+  `frontend/src/components/Panes/Overview/runInstructionsCodegenSections.tsx`,
+  detailed python codegen policy UI plus option-list state to
+  `frontend/src/components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx`,
+  and codegen registration/representation rules to
+  `frontend/src/components/Panes/Overview/runInstructionsCodegenModel.ts`, so
+  the next default work in that domain should continue from the remaining
+  larger pane roots instead of re-cutting those new run-instructions owners.
 - `frontend/src/components/Section/Layouts/ChatArea.tsx` now delegates
   scriptable section-chat state, branch reconciliation, slash-command
   handling, and composer/message rendering to
@@ -219,7 +228,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `ChatArea.tsx`, `ProjectChatHistory.tsx`, `ProjectChatBottomDock.tsx`,
   `ChatInput.tsx`, `ChatMessages.tsx`, or `BrowserArea.tsx`.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
@@ -895,9 +903,9 @@ Notes:
 ## Phase 1: Shrink The Remaining Front-Door Hotspots
 
 - Start with the biggest unresolved first-hop surfaces:
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
 - Use the matching companion plan for the root surface you choose.
 - Remove one major mixed responsibility at a time:
   - hydration and preflight orchestration
@@ -911,20 +919,17 @@ Notes:
 ## Phase 2: Continue Through The Next Cross-Domain Entry Surfaces
 
 - Once the phase-1 roots are smaller, continue into:
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
   - `frontend/src/components/App/appRegistry.tsx`
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx`
   - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
 - Keep the entry surface obvious, but move clearly named responsibilities out of
   it:
   - registry vs renderer vs binding adapters in `appRegistry.tsx`
-  - runtime transport vs host API vs subscription/view-model work in
-    `runtime.ts`
-  - parsed-content orchestration vs runnable-control shells in
-    `RunInstructions.tsx`
   - task/column commands vs DnD math vs board shells in `TaskBoardArea.tsx`
   - data bootstrap vs search/favorites model vs presentational shells in
     `HomePage.tsx`
+  - search/indexing vs virtualization vs detail panes in `GitGraphOverlay.tsx`
 
 ## Phase 3: Revisit Already-Improved Coordinators Only When They Shorten The Main Path
 
@@ -996,8 +1001,7 @@ Notes:
 1. Refresh or add the module map, placement rules, and execution log only if
    they are missing, stale, or changed by your slice.
 2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`,
-   usually `components/Panes/Overview/RunInstructions.tsx`,
-   `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
+   usually `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`,
    `components/App/appRegistry.tsx`,
    `components/Section/Layouts/TaskBoardArea.tsx`,
    `components/Git/GitGraphOverlay.tsx`,

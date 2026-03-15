@@ -30,34 +30,39 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   `frontend/src/components/Panes/Overview/Plugins/pluginsPaneConfigSchema.ts`,
   and shared shells to
   `frontend/src/components/Panes/Overview/Plugins/pluginsPaneShared.tsx`.
-- `RunInstructions.tsx` is now the default pane-side entry surface in this
+- `RunInstructions.tsx` is no longer a 1900-line pane-side front door. It now
+  delegates run snapshot/codegen target composition to
+  `frontend/src/components/Panes/Overview/runInstructionsCodegenSections.tsx`,
+  detailed python codegen policy UI to
+  `frontend/src/components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx`,
+  and codegen registration/representation rules to
+  `frontend/src/components/Panes/Overview/runInstructionsCodegenModel.ts`.
+- `GitGraphOverlay.tsx` is now the default pane-side entry surface in this
   companion plan.
-- `GitGraphOverlay.tsx` is still a meaningful pane-domain hotspot, but it is
-  now follow-through work behind `RunInstructions.tsx`.
-- `RunInstructions.tsx` already has helper seams in `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`, but the main surface still carries too much orchestration.
 - `FileBrowserPane.tsx` now delegates tree-data transport and tree view-model
   ownership to `useFileBrowserPaneTreeData.ts` and
   `fileBrowserPaneTreeModel.ts`, so future work in this domain should extend
   those seams instead of reintroducing transport logic into the pane shell.
 - Future cleanup in this domain should continue the existing seams, but default
   to the largest pane and git entry surfaces contributors still open first:
-  `RunInstructions.tsx` and the remaining `GitGraphOverlay.tsx`
-  follow-through work, then return to `FileBrowserPane.tsx`,
+  `GitGraphOverlay.tsx`, then return to `FileBrowserPane.tsx`,
   `AppConfigPane.tsx`, and authoring follow-up work.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Panes` totals about 52.8k lines of authored code.
 - Large non-chat pane surfaces include:
-  - `frontend/src/components/Panes/Overview/RunInstructions.tsx` at 1908 lines
   - `frontend/src/components/Git/GitGraphOverlay.tsx` at 1550 lines after the local resize-model and resize-hook extraction
-  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1392 lines after the local tree-data extraction
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 1399 lines after the local tree-data extraction
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx` at 816 lines
   - `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` at 832 lines
   - `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx` at 793 lines
   - `frontend/src/components/Panes/Overview/ProjectConfigs.tsx` at 656 lines
   - `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` at 1305 lines
   - `frontend/src/components/Panes/UiEditor/SectionConfig/EdgePortsSettings.tsx` at 605 lines
+- `frontend/src/components/Panes/Overview/RunInstructions.tsx` is now 555
+  lines after the local codegen sections, codegen policy content, and codegen
+  model extraction and is no longer the default pane-side hotspot.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx` is now 607
   lines after the local plugin-card, config-editor, config-schema, and
   shared-shell extraction and is no longer the default pane-side hotspot.
@@ -80,6 +85,18 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - `PluginsPane.tsx` now focuses on runtime/install/rescan/restart
     orchestration, busy-state tracking, active-plugin list mapping, and
     discovery-table composition.
+- `RunInstructions.tsx` local owners now divide responsibilities as follows:
+  - `runInstructionsCodegenSections.tsx` owns run snapshot-mode persistence,
+    codegen-target enablement, orphaned-target cleanup, and accordion item
+    composition.
+  - `runInstructionsCodegenPolicyContent.tsx` owns generated-metadata toggles,
+    section allowlist/default/override controls, code-obj default/override
+    controls, and option-list state.
+  - `runInstructionsCodegenModel.ts` owns plugin target dedupe/sort rules and
+    section/code-obj representation option mapping.
+  - `RunInstructions.tsx` now focuses on share/deployment gating, accordion
+    persistence, workflow/custom-run/add-from-code-block composition, and the
+    overview-pane scroll shell.
 - `Overview.tsx` owns:
   - icon rail rendering
   - plugin tab resolution
@@ -94,7 +111,6 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - validation and preview behavior
   - generation-mode UI state
 - The existing `appDraftPreview.ts` split is a good start, but transport, generation, persistence, and validation are still coupled in the main surface.
-- `RunInstructions.tsx` still mixes parsed-content rendering, accordion state, runnable controls, and higher-level overview-pane orchestration even after the first helper extractions.
 - `FileBrowserPane.tsx` now focuses on:
   - selection, clipboard, and DnD behavior
   - row/header/virtualized list shells
@@ -152,9 +168,9 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - schema-backed config and language-server settings editors to `pluginsPaneConfigEditors.tsx`
   - top-level config-schema field helpers to `pluginsPaneConfigSchema.ts`
   - shared action/capability/install-summary shells to `pluginsPaneShared.tsx`
-- In the same phase, keep `RunInstructions.tsx` and the remaining
-  `GitGraphOverlay.tsx` follow-through work ahead of smaller authoring
-  surfaces when choosing the next pane-side slice.
+- In the same phase, keep the remaining `GitGraphOverlay.tsx` follow-through
+  work ahead of smaller authoring surfaces when choosing the next pane-side
+  slice.
 
 2. Continue `FileBrowserPane.tsx` only when it shortens the main path
 
@@ -185,12 +201,17 @@ Make overview-pane and UI-authoring code easy to extend by separating pane shell
   - presentational editor panels
 - Keep app generation behavior explicit without hiding it inside one large component.
 
-5. Continue splitting `RunInstructions.tsx`
+5. Only continue `RunInstructions.tsx` when a slice shortens the root again
 
 - Keep `runInstructionsAccordionState.ts`,
-  `runInstructionsRunnableCodeBlocks.ts`, and
-  `runInstructionsStateMachineControls.ts` as the first stable seams.
-- Move remaining parsing, derived state, and large render branches out of the main surface.
+  `runInstructionsRunnableCodeBlocks.ts`,
+  `runInstructionsStateMachineControls.ts`,
+  `runInstructionsCodegenSections.tsx`,
+  `runInstructionsCodegenPolicyContent.tsx`, and
+  `runInstructionsCodegenModel.ts` as the current stable seams.
+- If follow-through work is still needed, keep it focused on the remaining
+  workflow/custom-run/add-from-code-block ownership rather than rebuilding a
+  large codegen helper.
 
 6. Clean up view-mode and project-config authoring
 

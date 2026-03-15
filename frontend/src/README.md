@@ -10,10 +10,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1483`
-- Non-generated TS/TSX files at `1000+` lines: `39`
+- Authored TS/TSX files under `frontend/src`: `1487`
+- Non-generated TS/TSX files at `1000+` lines: `38`
 - Biggest current front-door hotspots:
-  - `components/Panes/Overview/RunInstructions.tsx` (`1908`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`1848`)
   - `components/App/appRegistry.tsx` (`1753`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`1751`)
@@ -23,6 +22,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Git/GitGraphOverlay.tsx` (`1550`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`1471`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`1399`)
+  - `components/Section/Layouts/BrowserArea.tsx` (`1302`)
 
 ## Module Map
 
@@ -78,6 +78,21 @@ feature-local adapters around them when the consuming surface is non-trivial.
     runtime/install/rescan/restart orchestration, busy-state tracking,
     discovery-table composition, and active-plugin list wiring over those
     local plugin owners.
+  - `components/Panes/Overview/runInstructionsCodegenSections.tsx` owns run
+    snapshot-mode persistence, codegen-target enablement, orphaned-target
+    cleanup, and accordion item composition used by
+    `components/Panes/Overview/RunInstructions.tsx`.
+  - `components/Panes/Overview/runInstructionsCodegenPolicyContent.tsx` owns
+    python codegen metadata toggles, section allowlist/default/override
+    controls, code-obj default/override controls, and option-list state used by
+    `components/Panes/Overview/runInstructionsCodegenSections.tsx`.
+  - `components/Panes/Overview/runInstructionsCodegenModel.ts` owns plugin
+    codegen-target dedupe/sort rules and section/code-obj representation
+    option mapping used by the extracted run-instructions codegen owners.
+  - `components/Panes/Overview/RunInstructions.tsx` now focuses on
+    share/deployment gating, accordion-state persistence, workflow controls,
+    custom-run rows, add-from-code-block wiring, and the overview-pane scroll
+    shell over those local run-instructions owners.
   - `components/Panes/UiEditor/*` and `components/ProjectConfigs/*` own authoring
     and configuration editors.
 
