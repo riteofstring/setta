@@ -25,6 +25,7 @@ type SectionSurfaceClassNameOptions = {
   positionAndSizeLocked: boolean;
   shouldDisablePointerEvents?: boolean;
   isYouTube?: boolean;
+  surfaceLayout?: "grid" | "windowFlow";
   frameClassName?: string;
   layoutClassName?: string;
   zIndexClassName?: string;
@@ -194,6 +195,7 @@ export function getSectionSurfaceClassName({
   positionAndSizeLocked,
   shouldDisablePointerEvents = false,
   isYouTube = false,
+  surfaceLayout = "grid",
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   zIndexClassName = "z-10",
@@ -202,7 +204,12 @@ export function getSectionSurfaceClassName({
   hideFrameBorder = false,
 }: SectionSurfaceClassNameOptions): string {
   const layoutClassNameToUse =
-    layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
+    layoutClassName ??
+    (surfaceLayout === "grid"
+      ? "section-grid-cols section-grid-rows section-grid-areas"
+      : "");
+  const displayClassName =
+    surfaceLayout === "grid" ? "grid" : "flex min-h-0 flex-col";
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
     : "";
@@ -214,7 +221,8 @@ export function getSectionSurfaceClassName({
     shouldDisablePointerEvents && "pointer-events-none select-none",
     bgColor,
     layoutClassNameToUse,
-    "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
+    "relative h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
+    displayClassName,
     frameBorderClassName,
     cornerClassName ?? (!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"),
     isYouTube && "overflow-clip",
@@ -304,6 +312,7 @@ export function getWindowSectionChrome({
       bgColor: surfaceMode.bgColor,
       hasSectionStyleTheme,
       positionAndSizeLocked,
+      surfaceLayout: "windowFlow",
       cornerClassName,
       hideFrameBorder: isStandalonePage,
     }),

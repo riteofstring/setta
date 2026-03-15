@@ -40,6 +40,21 @@ describe("sectionChrome", () => {
     expect(className).toContain("rounded-none");
   });
 
+  it("supports a window flow surface without the shared section grid", () => {
+    const className = getSectionSurfaceClassName({
+      bgColor: "bg-white",
+      hasSectionStyleTheme: false,
+      positionAndSizeLocked: false,
+      surfaceLayout: "windowFlow",
+      cornerClassName: "rounded-none",
+    });
+
+    expect(className).toContain("flex");
+    expect(className).toContain("flex-col");
+    expect(className).not.toContain("section-grid-cols");
+    expect(className).not.toContain(" grid ");
+  });
+
   it("builds the canvas meta-control chrome descriptor from one helper", () => {
     const chrome = getCanvasSectionChrome({
       sectionTypeName: SectionTypeEnum.MetaControl,
@@ -95,6 +110,8 @@ describe("sectionChrome", () => {
     expect(chrome.outerShellClassName).toContain("border-0");
     expect(chrome.outerShellClassName).toContain("rounded-none");
     expect(chrome.innerShellClassName).toContain("before:border-0");
+    expect(chrome.innerShellClassName).toContain("flex-col");
+    expect(chrome.innerShellClassName).not.toContain("section-grid-cols");
     expect(chrome.innerShellClassName).toContain("rounded-none");
   });
 });

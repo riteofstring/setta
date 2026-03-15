@@ -4191,3 +4191,63 @@ Append-only log for the section performance refactor.
 - Next action:
   - Move upward into the higher shared `sectionChrome` section-surface grid seam.
   - Keep the callable reorder/indent and shared row-contract guardrails active while widening the seam again.
+
+### 2026-03-18 113
+
+- Item: Accept the window-only `sectionChrome` split by moving floating and standalone window surfaces onto `windowFlow`.
+- Status: `done`
+- Details:
+  - Kept the change inside:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+    - `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.tsx`
+  - Added a narrow shared-surface mode split:
+    - default path remains the existing shared `grid` recipe
+    - new `surfaceLayout: "windowFlow"` path uses `flex min-h-0 flex-col` and omits `section-grid-cols`, `section-grid-rows`, and `section-grid-areas`
+  - Switched both window-only callers onto that new path:
+    - `getWindowSectionChrome(...)`
+    - `ProjectChatWindowSurface.tsx`
+  - Added focused direct coverage in:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - direct `windowFlow` class contract
+      - `getWindowSectionChrome(...)` no longer returning `section-grid-cols`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx src/components/ChatWindowing/UnifiedChatSurface.test.tsx`
+      - result: `4` files passed, `35` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "section pop-out opens above existing floating windows by default|standalone section routes stay bound to their section thread and keep workspace project chat isolated|workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: `4 passed`
+  - CDP compare:
+    - untouched `main` floating `GlobalVariables` on `marsh_zooming` still reads the shared grid inner shell:
+      - `display: grid`
+      - `section-grid-cols section-grid-rows section-grid-areas`
+      - bounds `818 x 628`
+    - untouched `main` standalone `GlobalVariables` on `marsh_zooming/section/global_variables` still reads the shared grid inner shell:
+      - `display: grid`
+      - `section-grid-cols section-grid-rows section-grid-areas`
+      - bounds `1400 x 900`
+    - clean disposable worktree scene `lively_rising` on `3211/8211` now reads:
+      - floating `GlobalVariables` inner shell:
+        - `display: flex`
+        - `flexDirection: column`
+        - no `section-grid-*`
+        - bounds `818 x 628`
+      - standalone `GlobalVariables` inner shell:
+        - `display: flex`
+        - `flexDirection: column`
+        - no `section-grid-*`
+        - bounds `1400 x 900`
+      - floating project chat inner shell:
+        - `display: flex`
+        - `flexDirection: column`
+        - no `section-grid-*`
+        - bounds `818 x 518`
+    - untouched `main` and worktree screenshots stayed visually aligned enough on the floating and standalone window surfaces after the grid removal.
+  - Interpretation:
+    - this is the new higher-seam baseline above accepted checkpoint 1
+    - the worktree no longer uses the shared grid inner shell on window-only surfaces
+    - the next serious pass should stay in `sectionChrome` and target the remaining canvas-side surface grid contract instead of reopening the accepted window surfaces
+  - Recorded the higher-seam baseline in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-window-surface-windowflow-split.md`
+- Next action:
+  - Keep the accepted window-only `windowFlow` split.
+  - Move to the remaining canvas-side `sectionChrome` grid contract.
+  - Keep one floating section window, one standalone section route, and one floating project chat window in the verification set while widening the seam.
