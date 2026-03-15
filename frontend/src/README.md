@@ -13,7 +13,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Authored TS/TSX files under `frontend/src`: `1404`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4421`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4227`)
   - `components/Chat/ChatMessages.tsx` (`3920`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
@@ -232,6 +232,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     reservation math, visible dock-window selection, width-fitting, and
     minimized-pill display-mode calculations used by
     `components/ChatWindowing/ProjectChatBottomDock.tsx`.
+  - `components/ChatWindowing/projectChatDockResize.ts` owns dock preview
+    width/height state, stale-preview pruning, and dock-resize pointer session
+    handling used by `components/ChatWindowing/ProjectChatBottomDock.tsx`.
   - `state/actions/projectChatWindowingDefaultBounds.ts` owns pure floating and
     docked default-bounds math.
   - `state/actions/projectChatWindowingStateNormalization.ts` owns order and

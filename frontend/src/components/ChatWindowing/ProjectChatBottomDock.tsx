@@ -16,6 +16,7 @@ import {
   resolvePillDisplayMode,
   type PillDisplayMode,
 } from "components/ChatWindowing/projectChatBottomDockLayout";
+import { useProjectChatDockResize } from "components/ChatWindowing/projectChatDockResize";
 import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
@@ -150,22 +151,6 @@ function canMoveProjectChatWindowToCanvas(
 ): boolean {
   return mode !== ChatWindowModeEnum.git_graph_mode;
 }
-
-type ActiveSingleDockResize = {
-  pointerId: number;
-  instanceId: string;
-  direction: WindowResizeDirection;
-  startX: number;
-  startY: number;
-  startWidthPx: number;
-  startHeightPx: number;
-  lastWidthPx: number;
-  lastHeightPx: number;
-  minWidthPx: number;
-  maxWidthPx: number;
-  minHeightPx: number;
-  maxHeightPx: number;
-};
 
 type ActiveFloatingDrag = {
   pointerId: number;
@@ -1069,12 +1054,6 @@ export function ProjectChatBottomDock() {
   >({});
   const [activeFloatingSnapPreview, setActiveFloatingSnapPreview] =
     useState<ActiveFloatingSnapPreview | null>(null);
-  const [dockPreviewWidthsById, setDockPreviewWidthsById] = useState<
-    Record<string, number>
-  >({});
-  const [dockPreviewHeightsById, setDockPreviewHeightsById] = useState<
-    Record<string, number>
-  >({});
   const [windowExitAnimationsById, setWindowExitAnimationsById] = useState<
     Record<string, ChatWindowExitAnimationKind>
   >({});
@@ -1093,7 +1072,6 @@ export function ProjectChatBottomDock() {
   const pillViewportRef = useRef<HTMLDivElement | null>(null);
   const fullMeasureRowRef = useRef<HTMLDivElement | null>(null);
   const compactMeasureRowRef = useRef<HTMLDivElement | null>(null);
-  const activeSingleDockResizeRef = useRef<ActiveSingleDockResize | null>(null);
   const activeFloatingDragRef = useRef<ActiveFloatingDrag | null>(null);
   const activeFloatingResizeRef = useRef<ActiveFloatingResize | null>(null);
   const activeFloatingSnapResizeRef = useRef<ActiveFloatingSnapResize | null>(
@@ -1502,6 +1480,45 @@ export function ProjectChatBottomDock() {
     () => buildFloatingSnapResizeHandles(snappedFloatingWindows),
     [snappedFloatingWindows],
   );
+  const dockedWindowIdsKey = useMemo(
+    () => openDockedPills.map((pill) => pill.instanceId).join("|"),
+    [openDockedPills],
+  );
+  const handleCommitSingleDockResize = useCallback(
+    ({
+      instanceId,
+      widthPx,
+      heightPx,
+    }: {
+      instanceId: string;
+      widthPx: number;
+      heightPx: number;
+    }) => {
+      setProjectChatWindowDockFractions({
+        widthFractionsByInstanceId: {
+          [instanceId]: 1,
+        },
+        dockContainerWidthPx: widthPx,
+      });
+      setProjectChatWindowBounds(instanceId, {
+        height: heightPx,
+      });
+    },
+    [],
+  );
+  const {
+    dockPreviewWidthsById,
+    dockPreviewHeightsById,
+    handleSingleDockResizePointerDown,
+    handleSingleDockResizePointerMove,
+    handleSingleDockResizePointerUp,
+  } = useProjectChatDockResize({
+    dockBottomOffsetPx,
+    dockedWindowIdsKey,
+    dockedPills: openDockedPills,
+    workspaceTopInsetPx,
+    onCommitResize: handleCommitSingleDockResize,
+  });
 
   const dockSurfaceRightPx =
     SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
@@ -1548,10 +1565,6 @@ export function ProjectChatBottomDock() {
     ],
   );
 
-  const dockedWindowIdsKey = useMemo(
-    () => openDockedPills.map((pill) => pill.instanceId).join("|"),
-    [openDockedPills],
-  );
   const stripPills = useMemo(
     () =>
       orderedPills.filter(
@@ -1565,40 +1578,6 @@ export function ProjectChatBottomDock() {
     () => openFloatingPills.map((pill) => pill.instanceId).join("|"),
     [openFloatingPills],
   );
-
-  useEffect(() => {
-    activeSingleDockResizeRef.current = null;
-    const allowedDockedWindowIds = new Set(
-      dockedWindowIdsKey
-        .split("|")
-        .map((windowId) => windowId.trim())
-        .filter((windowId) => windowId.length > 0),
-    );
-    setDockPreviewWidthsById((current) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      for (const [instanceId, previewWidthPx] of Object.entries(current)) {
-        if (!allowedDockedWindowIds.has(instanceId)) {
-          changed = true;
-          continue;
-        }
-        next[instanceId] = previewWidthPx;
-      }
-      return changed ? next : current;
-    });
-    setDockPreviewHeightsById((current) => {
-      let changed = false;
-      const next: Record<string, number> = {};
-      for (const [instanceId, previewHeightPx] of Object.entries(current)) {
-        if (!allowedDockedWindowIds.has(instanceId)) {
-          changed = true;
-          continue;
-        }
-        next[instanceId] = previewHeightPx;
-      }
-      return changed ? next : current;
-    });
-  }, [dockedWindowIdsKey]);
 
   useEffect(() => {
     setDockCycleOffsetFromEnd((current) =>
@@ -2932,179 +2911,6 @@ export function ProjectChatBottomDock() {
     [clearFloatingBoundsPreviewBatch, updateActiveFloatingSnapPreview],
   );
 
-  const handleSingleDockResizePointerDown = useCallback(
-    (
-      event: PointerEvent<HTMLDivElement>,
-      pill: ResolvedWindowPill,
-      direction: WindowResizeDirection,
-    ) => {
-      if (event.button !== 0) {
-        return;
-      }
-      const panelNode = event.currentTarget.closest(
-        `[data-chat-window-instance-id="${pill.instanceId}"]`,
-      );
-      const panelBounds = panelNode?.getBoundingClientRect();
-      const startWidthPx =
-        panelBounds?.width ??
-        resolvedDockWindowWidthsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_WIDTH_PX;
-      const startHeightPx =
-        panelBounds?.height ??
-        resolvedDockWindowHeightsById[pill.instanceId] ??
-        DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-      const viewport = getViewportDimensions();
-      const maxHeightFromViewport = viewport
-        ? viewport.height - workspaceTopInsetPx - dockBottomOffsetPx
-        : dockAvailableHeightPx;
-      activeSingleDockResizeRef.current = {
-        pointerId: event.pointerId,
-        instanceId: pill.instanceId,
-        direction,
-        startX: event.clientX,
-        startY: event.clientY,
-        startWidthPx,
-        startHeightPx,
-        lastWidthPx: startWidthPx,
-        lastHeightPx: startHeightPx,
-        minWidthPx: MIN_DOCK_CHAT_WIDTH_PX,
-        maxWidthPx: DOCK_SURFACE_MAX_WIDTH_PX,
-        minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
-        maxHeightPx: clampNumber(
-          maxHeightFromViewport,
-          MIN_DOCK_CHAT_HEIGHT_PX,
-          dockAvailableHeightPx,
-        ),
-      };
-      setDockPreviewWidthsById((current) => ({
-        ...current,
-        [pill.instanceId]: startWidthPx,
-      }));
-      setDockPreviewHeightsById((current) => ({
-        ...current,
-        [pill.instanceId]: startHeightPx,
-      }));
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [
-      dockAvailableHeightPx,
-      dockBottomOffsetPx,
-      resolvedDockWindowHeightsById,
-      resolvedDockWindowWidthsById,
-      workspaceTopInsetPx,
-    ],
-  );
-
-  const handleSingleDockResizePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeSingleDockResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      const deltaX = event.clientX - activeResize.startX;
-      const deltaY = event.clientY - activeResize.startY;
-      const resizingLeft = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "left",
-      );
-      const resizingRight = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "right",
-      );
-      const resizingTop = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "top",
-      );
-      const resizingBottom = resizeDirectionIncludesAxis(
-        activeResize.direction,
-        "bottom",
-      );
-      let nextWidthPx = activeResize.startWidthPx;
-      let nextHeightPx = activeResize.startHeightPx;
-      if (resizingLeft) {
-        nextWidthPx = activeResize.startWidthPx - deltaX;
-      } else if (resizingRight) {
-        nextWidthPx = activeResize.startWidthPx + deltaX;
-      }
-      if (resizingTop) {
-        nextHeightPx = activeResize.startHeightPx - deltaY;
-      } else if (resizingBottom) {
-        nextHeightPx = activeResize.startHeightPx + deltaY;
-      }
-      nextWidthPx = clampNumber(
-        nextWidthPx,
-        activeResize.minWidthPx,
-        activeResize.maxWidthPx,
-      );
-      nextHeightPx = clampNumber(
-        nextHeightPx,
-        activeResize.minHeightPx,
-        activeResize.maxHeightPx,
-      );
-      activeResize.lastWidthPx = nextWidthPx;
-      activeResize.lastHeightPx = nextHeightPx;
-      setDockPreviewWidthsById((current) => {
-        if (current[activeResize.instanceId] === nextWidthPx) {
-          return current;
-        }
-        return {
-          ...current,
-          [activeResize.instanceId]: nextWidthPx,
-        };
-      });
-      setDockPreviewHeightsById((current) => {
-        if (current[activeResize.instanceId] === nextHeightPx) {
-          return current;
-        }
-        return {
-          ...current,
-          [activeResize.instanceId]: nextHeightPx,
-        };
-      });
-    },
-    [],
-  );
-
-  const handleSingleDockResizePointerUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const activeResize = activeSingleDockResizeRef.current;
-      if (!activeResize || activeResize.pointerId !== event.pointerId) {
-        return;
-      }
-      setProjectChatWindowDockFractions({
-        widthFractionsByInstanceId: {
-          [activeResize.instanceId]: 1,
-        },
-        dockContainerWidthPx: activeResize.lastWidthPx,
-      });
-      setProjectChatWindowBounds(activeResize.instanceId, {
-        height: activeResize.lastHeightPx,
-      });
-      setDockPreviewWidthsById((current) => {
-        if (!(activeResize.instanceId in current)) {
-          return current;
-        }
-        const next = { ...current };
-        delete next[activeResize.instanceId];
-        return next;
-      });
-      setDockPreviewHeightsById((current) => {
-        if (!(activeResize.instanceId in current)) {
-          return current;
-        }
-        const next = { ...current };
-        delete next[activeResize.instanceId];
-        return next;
-      });
-      activeSingleDockResizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-    },
-    [],
-  );
-
   useLayoutEffect(() => {
     const viewportNode = pillViewportRef.current;
     const fullMeasureNode = fullMeasureRowRef.current;
@@ -3597,7 +3403,7 @@ export function ProjectChatBottomDock() {
                                 onPointerDown={(event) => {
                                   handleSingleDockResizePointerDown(
                                     event,
-                                    pill,
+                                    pill.instanceId,
                                     handle.direction,
                                   );
                                 }}
