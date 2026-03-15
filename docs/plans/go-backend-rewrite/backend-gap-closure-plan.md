@@ -60,4 +60,7 @@ categorize them.
 - The latest-state stale-`activeIds` load-normalization row is now proved via
   the default harness; the next likely latest-state queue is the remaining
   project/window-space load-normalization rows
+- The empty latest-state `windowSpaces` object-shape row is now proved too;
+  keep prioritizing the remaining project/window-space `Missing` rows over
+  additional shape-only proof slices
 - More corpus-driven latest-state hydration / projection scenarios
