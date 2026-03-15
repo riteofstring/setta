@@ -217,6 +217,58 @@ func TestLocalLaunchServiceUsesDefaultProfileLookupHomeForProfileLaunches(t *tes
 	}
 }
 
+func TestLocalLaunchServiceProfileLaunchOmitsSettaFilesLocationWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","profile":"dev"}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	if fixture.sessions.captured[0].SettaHome != fixture.defaultSettaHome {
+		t.Fatalf("expected default setta home %q, got %q", fixture.defaultSettaHome, fixture.sessions.captured[0].SettaHome)
+	}
+	if fixture.sessions.captured[0].ProfileLookupHome != fixture.defaultProfileLookupHome {
+		t.Fatalf("expected default profile lookup home %q, got %q", fixture.defaultProfileLookupHome, fixture.sessions.captured[0].ProfileLookupHome)
+	}
+	if fixture.sessions.captured[0].SettaFilesLocation != nil {
+		t.Fatalf("expected omitted settaFilesLocation for profile launch, got %#v", fixture.sessions.captured[0].SettaFilesLocation)
+	}
+}
+
+func TestLocalLaunchServiceProfileLaunchKeepsExplicitAutoSettaFilesLocation(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","profile":"dev","settaFilesLocation":"auto"}`), "http://launcher.example:7999/home")
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err != nil {
+		t.Fatalf("launch workspace: %v", err)
+	}
+
+	if len(fixture.sessions.captured) != 1 {
+		t.Fatalf("expected one session launch call, got %d", len(fixture.sessions.captured))
+	}
+	if fixture.sessions.captured[0].SettaFilesLocation == nil || *fixture.sessions.captured[0].SettaFilesLocation != "auto" {
+		t.Fatalf("expected explicit auto settaFilesLocation to be preserved, got %#v", fixture.sessions.captured[0].SettaFilesLocation)
+	}
+}
+
 func TestLocalLaunchServiceRollsBackNewSessionWhenTrustPersistenceFails(t *testing.T) {
 	t.Parallel()
 
@@ -402,6 +454,108 @@ func TestLocalLaunchServiceDoesNotRollbackReusedSessionOnTrustFailure(t *testing
 	}
 }
 
+func TestLocalLaunchServiceTrustFailureDoesNotPersistLastUsedWorkspace(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	writeInstalledLauncherMetadata(t, fixture.defaultSettaHome)
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace"}`), "http://launcher.example:7999/home")
+	if err := os.WriteFile(filepath.Join(fixture.runtimeRoot, "trusted_frontend_origins.json"), []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("write invalid trusted origins store: %v", err)
+	}
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err == nil {
+		t.Fatal("expected trust persistence failure")
+	}
+
+	metadata, err := launcher.LoadLauncherInstallMetadata(fixture.defaultSettaHome)
+	if err != nil {
+		t.Fatalf("load launcher metadata: %v", err)
+	}
+	if metadata == nil {
+		t.Fatal("expected launcher metadata to remain installed")
+	}
+	if metadata.LastUsedWorkspace != nil {
+		t.Fatalf("expected last used workspace to remain unset on trust failure, got %#v", metadata.LastUsedWorkspace)
+	}
+}
+
+func TestLocalLaunchServiceDoesNotRollbackReusedRemoteSessionOnTrustFailure(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	remoteResult := remoteLaunchConnectResult()
+	remoteResult.StartedNew = false
+	fixture.ssh.connectResult = remoteResult
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","sshTarget":"user@host"}`), "http://launcher.example:7999/home")
+	if err := os.WriteFile(filepath.Join(fixture.runtimeRoot, "trusted_frontend_origins.json"), []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("write invalid trusted origins store: %v", err)
+	}
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err == nil {
+		t.Fatal("expected trust persistence failure")
+	}
+	launchErr, ok := err.(*LaunchError)
+	if !ok {
+		t.Fatalf("expected launch error, got %T", err)
+	}
+	if launchErr.Code != "TrustedFrontendOriginStoreInvalid" {
+		t.Fatalf("expected TrustedFrontendOriginStoreInvalid, got %#v", launchErr)
+	}
+	if len(fixture.ssh.rollbackInputs) != 0 {
+		t.Fatalf("expected no rollback calls for reused remote session, got %#v", fixture.ssh.rollbackInputs)
+	}
+}
+
+func TestLocalLaunchServiceReturnsRemoteRollbackFailedWithTunnelDetail(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalLaunchFixture(t)
+	remoteResult := remoteLaunchConnectResult()
+	remoteResult.StartedNew = true
+	fixture.ssh.connectResult = remoteResult
+	fixture.ssh.rollbackErr = &sshx.Error{
+		Code:    "RemoteRollback",
+		Message: "Failed rolling back SSH launch side effects. Tunnel process 999 is still running for user@host.",
+	}
+	intent := fixture.createIntent(t, decodeLaunchRequest(t, `{"workspaceRoot":"/tmp/workspace","sshTarget":"user@host"}`), "http://launcher.example:7999/home")
+	if err := os.WriteFile(filepath.Join(fixture.runtimeRoot, "trusted_frontend_origins.json"), []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("write invalid trusted origins store: %v", err)
+	}
+
+	_, err := fixture.service.Launch(LocalLaunchInput{
+		Request:        decodeLaunchRequest(t, `{"launchIntentToken":"`+intent+`"}`),
+		RequestOrigin:  "http://launcher.example:7999",
+		CurrentSession: fixture.currentSession,
+	})
+	if err == nil {
+		t.Fatal("expected remote rollback failure")
+	}
+	launchErr, ok := err.(*LaunchError)
+	if !ok {
+		t.Fatalf("expected launch error, got %T", err)
+	}
+	if launchErr.Code != "RemoteRollbackFailed" {
+		t.Fatalf("expected RemoteRollbackFailed, got %#v", launchErr)
+	}
+	if !strings.Contains(launchErr.Message, remoteResult.Session.ID) {
+		t.Fatalf("expected session id in rollback failure message, got %q", launchErr.Message)
+	}
+	if !strings.Contains(launchErr.Message, "Tunnel process 999 is still running for user@host.") {
+		t.Fatalf("expected tunnel rollback detail in message, got %q", launchErr.Message)
+	}
+}
+
 type localLaunchFixture struct {
 	runtimeRoot              string
 	defaultSettaHome         string
@@ -516,6 +670,33 @@ func (f localLaunchFixture) createIntent(t *testing.T, request Request, returnUR
 		t.Fatalf("create intent: %v", err)
 	}
 	return result.LaunchIntentToken
+}
+
+func writeInstalledLauncherMetadata(t *testing.T, settaHome string) {
+	t.Helper()
+
+	targetExecutable := filepath.Join(t.TempDir(), "setta")
+	if err := os.WriteFile(targetExecutable, []byte("#!/usr/bin/env bash\n"), 0o755); err != nil {
+		t.Fatalf("write launcher target executable: %v", err)
+	}
+	installMetadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
+		TargetCommand:          []string{targetExecutable},
+		Channel:                "manual",
+		InstallSource:          launcher.LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "local-launch-test-token",
+		SettaVersion:           "1.2.3",
+		SettaHome:              settaHome,
+		OpenMode:               launcher.LauncherOpenModeBrowser,
+		WorkspaceBehavior:      launcher.LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("build launcher metadata: %v", err)
+	}
+	if _, err := launcher.WriteLauncherInstallMetadata(settaHome, installMetadata); err != nil {
+		t.Fatalf("write launcher metadata: %v", err)
+	}
 }
 
 func float64Pointer(value float64) *float64 {
