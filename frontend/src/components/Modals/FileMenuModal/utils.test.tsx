@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const useAllProjectMetadataMock = vi.fn(() => []);
 
-vi.mock("state/definitions", () => ({
+vi.mock("state/stores/sessionStores", () => ({
   useAllProjectMetadata: (...args: unknown[]) =>
     useAllProjectMetadataMock(...args),
 }));

@@ -14,10 +14,13 @@ let mockProjectState: MockProjectState = {
   },
 };
 
-vi.mock("state/actions/sectionInfos", () => ({
+vi.mock("state/actions/sectionDisplayQueries", () => ({
   getActiveViewModeConfig: () => ({
     isUserFacing: false,
   }),
+}));
+
+vi.mock("state/actions/sectionInfos", () => ({
   getAttachedTerminalParentIdForTerminalSection: () => null,
 }));
 
