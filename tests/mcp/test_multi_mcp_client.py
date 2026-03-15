@@ -1,12 +1,21 @@
+import asyncio
+from contextlib import AsyncExitStack, asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
 
 import anyio
+import httpx
+import mcp.types as mcp_types
 import pytest
+from mcp.shared.message import SessionMessage
 from mcp.types import Tool, ToolAnnotations
 
-from setta.mcp.client import MissingMCPEnvVarError, MultiMCPClient
+import setta.mcp.client as client_mod
+from setta.auth.cookies import auth_cookie_name
+from setta.mcp.client import BridgeConfig, MissingMCPEnvVarError, MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
+from setta.sessions.registry import SessionMetadata
 from setta.types.llm_config import MCPServerConfig
 from setta.types.mcp_runtime_status import MCPServerRuntimeState
 from setta.utils.constants import C
@@ -51,6 +60,45 @@ class _RecordingSession:
         return self.result
 
 
+@dataclass
+class _BridgeStreams:
+    stdio_input_send: Any
+    stdio_read: Any
+    stdio_write: Any
+    stdio_output_read: Any
+    backend_input_send: Any
+    backend_read: Any
+    backend_write: Any
+    backend_output_read: Any
+
+
+def _create_bridge_streams() -> _BridgeStreams:
+    stdio_input_send, stdio_read = anyio.create_memory_object_stream(1)
+    stdio_write, stdio_output_read = anyio.create_memory_object_stream(1)
+    backend_input_send, backend_read = anyio.create_memory_object_stream(1)
+    backend_write, backend_output_read = anyio.create_memory_object_stream(1)
+    return _BridgeStreams(
+        stdio_input_send=stdio_input_send,
+        stdio_read=stdio_read,
+        stdio_write=stdio_write,
+        stdio_output_read=stdio_output_read,
+        backend_input_send=backend_input_send,
+        backend_read=backend_read,
+        backend_write=backend_write,
+        backend_output_read=backend_output_read,
+    )
+
+
+def _build_session_message(method: str, message_id: int) -> SessionMessage:
+    return SessionMessage(
+        mcp_types.JSONRPCRequest(
+            jsonrpc="2.0",
+            id=message_id,
+            method=method,
+        )
+    )
+
+
 class TestMultiMCPClientToolCache:
     def test_namespaces_tools_and_routes(self) -> None:
         client = MultiMCPClient({})
@@ -75,6 +123,16 @@ class TestMultiMCPClientToolCache:
             f"{SETTA_MCP_SERVER_ID}__read_file_range"
             in client.init_tool_definitions
         )
+        assert client.init_tool_definitions[
+            f"{SETTA_MCP_SERVER_ID}__read_file_range"
+        ] == {
+            "type": "function",
+            "function": {
+                "name": f"{SETTA_MCP_SERVER_ID}__read_file_range",
+                "description": "Read file contents",
+                "parameters": {},
+            },
+        }
         assert (
             f"{SETTA_MCP_SERVER_ID}__list_projects"
             in client.discoverable_tool_definitions
@@ -98,10 +156,14 @@ class TestMultiMCPClientToolCache:
         client._update_tool_cache_for_server(SETTA_MCP_SERVER_ID, [setta_tool])
         client._update_tool_cache_for_server("github", [github_tool])
 
+        filtered_init = client.init_tool_definitions_for_servers({"github"})
         filtered = client.discoverable_tool_definitions_for_servers({"github"})
+        filtered_annotations = client.tool_annotations_for_servers({"github"})
 
+        assert filtered_init == {}
         assert "github__search_repo" in filtered
         assert f"{SETTA_MCP_SERVER_ID}__read_file_range" not in filtered
+        assert filtered_annotations == {"github__search_repo": None}
 
     def test_skips_search_tool(self) -> None:
         client = MultiMCPClient({})
@@ -123,6 +185,199 @@ class TestMultiMCPClientToolCache:
             f"{SETTA_MCP_SERVER_ID}__search_mcp_tools"
             in client.init_tool_definitions
         )
+
+
+class TestRunStdioBridge:
+    @pytest.mark.asyncio
+    async def test_uses_current_session_cookie_when_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session_metadata = SessionMetadata(
+            id="sess-1",
+            workspacePath="/tmp/workspace",
+            workspacePathCanonical="/tmp/workspace",
+            host="127.0.0.1",
+            port=8000,
+            pid=123,
+            secretPath="/tmp/secret",
+            serverMode="ide",
+        )
+        streams = _create_bridge_streams()
+        sse_calls: list[tuple[str, dict[str, str]]] = []
+        streams.stdio_input_send.close()
+        streams.backend_input_send.close()
+
+        @asynccontextmanager
+        async def _stdio_server():
+            yield streams.stdio_read, streams.stdio_write
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str]):
+            sse_calls.append((url, headers))
+            yield streams.backend_read, streams.backend_write
+
+        monkeypatch.setattr(client_mod, "load_current_session_secret", lambda: (session_metadata, b"secret"))
+        monkeypatch.setattr(
+            client_mod.AUTH_COOKIE_MANAGER,
+            "mint",
+            lambda _session_id, _secret: "cookie-value",
+        )
+        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
+
+        await client_mod.run_stdio_bridge(
+            BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
+        )
+
+        assert sse_calls == [
+            (
+                "http://127.0.0.1:8000/mcp",
+                {
+                    "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value"
+                },
+            )
+        ]
+
+    @pytest.mark.asyncio
+    async def test_prefers_trimmed_bootstrap_token_over_session_secret(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        streams = _create_bridge_streams()
+        sse_calls: list[tuple[str, dict[str, str]]] = []
+        http_calls: list[tuple[str, dict[str, str]]] = []
+        streams.stdio_input_send.close()
+        streams.backend_input_send.close()
+
+        @asynccontextmanager
+        async def _stdio_server():
+            yield streams.stdio_read, streams.stdio_write
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str]):
+            sse_calls.append((url, headers))
+            yield streams.backend_read, streams.backend_write
+
+        class _RecordingHTTPClient:
+            async def post(self, url: str, json: dict[str, str]) -> httpx.Response:
+                http_calls.append((url, json))
+                return httpx.Response(
+                    200,
+                    headers={
+                        "set-cookie": (
+                            f"{auth_cookie_name('sess-bridge')}=bootstrap-cookie; Path=/"
+                        )
+                    },
+                    request=httpx.Request("POST", url),
+                )
+
+        @asynccontextmanager
+        async def _create_mcp_http_client():
+            yield _RecordingHTTPClient()
+
+        def _unexpected_session_lookup() -> None:
+            raise AssertionError("bootstrap token flow should not read session auth")
+
+        monkeypatch.setattr(client_mod, "load_current_session_secret", _unexpected_session_lookup)
+        monkeypatch.setattr(client_mod, "create_mcp_http_client", _create_mcp_http_client)
+        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
+
+        await client_mod.run_stdio_bridge(
+            BridgeConfig(
+                backend_url="http://127.0.0.1:8000/mcp",
+                verbose=False,
+                bootstrap_token="  bridge-token  ",
+            )
+        )
+
+        assert http_calls == [
+            (
+                "http://127.0.0.1:8000"
+                f"{client_mod.Route.BOOTSTRAP_CONSUME.value}",
+                {"token": "bridge-token"},
+            )
+        ]
+        assert sse_calls == [
+            (
+                "http://127.0.0.1:8000/mcp",
+                {
+                    "Cookie": (
+                        f"{auth_cookie_name('sess-bridge')}=bootstrap-cookie"
+                    )
+                },
+            )
+        ]
+
+    @pytest.mark.asyncio
+    async def test_raises_when_no_bridge_auth_is_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(client_mod, "load_current_session_secret", lambda: None)
+
+        with pytest.raises(ValueError, match="Missing MCP auth"):
+            await client_mod.run_stdio_bridge(
+                BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
+            )
+
+    @pytest.mark.asyncio
+    async def test_forwards_messages_between_stdio_and_backend(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session_metadata = SessionMetadata(
+            id="sess-forward",
+            workspacePath="/tmp/workspace",
+            workspacePathCanonical="/tmp/workspace",
+            host="127.0.0.1",
+            port=8000,
+            pid=123,
+            secretPath="/tmp/secret",
+            serverMode="ide",
+        )
+        streams = _create_bridge_streams()
+
+        @asynccontextmanager
+        async def _stdio_server():
+            yield streams.stdio_read, streams.stdio_write
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str]):
+            del url, headers
+            yield streams.backend_read, streams.backend_write
+
+        monkeypatch.setattr(
+            client_mod,
+            "load_current_session_secret",
+            lambda: (session_metadata, b"secret"),
+        )
+        monkeypatch.setattr(
+            client_mod.AUTH_COOKIE_MANAGER,
+            "mint",
+            lambda _session_id, _secret: "cookie-value",
+        )
+        monkeypatch.setattr(client_mod, "stdio_server", _stdio_server)
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
+
+        bridge_task = asyncio.create_task(
+            client_mod.run_stdio_bridge(
+                BridgeConfig(backend_url="http://127.0.0.1:8000/mcp", verbose=False)
+            )
+        )
+        await asyncio.sleep(0)
+
+        stdio_message = _build_session_message("stdio.method", 1)
+        backend_message = _build_session_message("backend.method", 2)
+        await streams.stdio_input_send.send(stdio_message)
+        await streams.backend_input_send.send(backend_message)
+
+        forwarded_to_backend = await streams.backend_output_read.receive()
+        forwarded_to_stdio = await streams.stdio_output_read.receive()
+
+        assert forwarded_to_backend is stdio_message
+        assert forwarded_to_stdio is backend_message
+
+        streams.stdio_input_send.close()
+        streams.backend_input_send.close()
+        await bridge_task
 
 
 class TestMultiMCPClientCallTool:
@@ -265,7 +520,11 @@ class TestMultiMCPClientRuntimeStatus:
             }
         )
 
-        client._mark_connecting("github")
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.connecting,
+            update_attempt=True,
+        )
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.connecting
         assert statuses["github"].lastAttemptAt is not None
@@ -281,7 +540,11 @@ class TestMultiMCPClientRuntimeStatus:
         assert statuses["github"].missingEnvVar == "GITHUB_TOKEN"
         assert statuses["github"].consecutiveFailures == 1
 
-        client._mark_retrying("github")
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.retrying,
+            tool_count=0,
+        )
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.retrying
 
@@ -296,7 +559,13 @@ class TestMultiMCPClientRuntimeStatus:
         )
 
         client._mark_failure("github", error=RuntimeError("fail"))
-        client._mark_connected("github", tool_count=5)
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.connected,
+            update_connected=True,
+            tool_count=5,
+            reset_failure_count=True,
+        )
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.connected
@@ -315,7 +584,13 @@ class TestMultiMCPClientRuntimeStatus:
             }
         )
 
-        client._mark_connected("github", tool_count=2)
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.connected,
+            update_connected=True,
+            tool_count=2,
+            reset_failure_count=True,
+        )
         await client.stop()
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
@@ -337,7 +612,13 @@ class TestMultiMCPClientRuntimeStatus:
             error=RuntimeError("connect failed"),
             missing_env_var="GITHUB_TOKEN",
         )
-        client._mark_disabled("github")
+        client._mark_server_state(
+            "github",
+            state=MCPServerRuntimeState.disabled,
+            tool_count=0,
+            reset_failure_count=True,
+            clear_failure_metadata=True,
+        )
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.disabled
@@ -395,10 +676,37 @@ class TestMultiMCPClientRuntimeStatus:
             _record_sleep,
         )
 
-        def _record_retry(server_id: str) -> None:
-            retry_marks.append(server_id)
+        original_mark_server_state = client._mark_server_state
 
-        monkeypatch.setattr(client, "_mark_retrying", _record_retry)
+        def _record_retry_state(
+            server_id: str,
+            *,
+            state: MCPServerRuntimeState,
+            update_attempt: bool = False,
+            update_connected: bool = False,
+            update_failure: bool = False,
+            error: str | None = None,
+            missing_env_var: str | None = None,
+            tool_count: int | None = None,
+            reset_failure_count: bool = False,
+            clear_failure_metadata: bool = False,
+        ) -> None:
+            if state == MCPServerRuntimeState.retrying:
+                retry_marks.append(server_id)
+            original_mark_server_state(
+                server_id,
+                state=state,
+                update_attempt=update_attempt,
+                update_connected=update_connected,
+                update_failure=update_failure,
+                error=error,
+                missing_env_var=missing_env_var,
+                tool_count=tool_count,
+                reset_failure_count=reset_failure_count,
+                clear_failure_metadata=clear_failure_metadata,
+            )
+
+        monkeypatch.setattr(client, "_mark_server_state", _record_retry_state)
 
         await client._connect_server_loop("github", config, retry_delay=1)
 
@@ -411,57 +719,109 @@ class TestMultiMCPClientRuntimeStatus:
 
 
 class TestMultiMCPClientHTTPHeaders:
-    def test_build_http_headers_merges_config_and_setta_auth(
+    @pytest.mark.asyncio
+    async def test_open_transport_merges_config_and_setta_auth(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        session_metadata = SessionMetadata(
+            id="sess-http",
+            workspacePath="/tmp/workspace",
+            workspacePathCanonical="/tmp/workspace",
+            host="127.0.0.1",
+            port=8000,
+            pid=123,
+            secretPath="/tmp/secret",
+            serverMode="ide",
+        )
         client = MultiMCPClient(
             {
                 SETTA_MCP_SERVER_ID: MCPServerConfig(
-                    transport="streamable_http",
+                    transport="sse",
                     url="http://localhost:9000/mcp",
                     http_headers={"Authorization": "Bearer custom-token"},
                 )
             }
         )
         config = client.server_configs[SETTA_MCP_SERVER_ID]
+        sse_calls: list[tuple[str, dict[str, str] | None]] = []
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str] | None):
+            sse_calls.append((url, headers))
+            read_send, read_stream = anyio.create_memory_object_stream(1)
+            write_stream, write_receive = anyio.create_memory_object_stream(1)
+            read_send.close()
+            write_receive.close()
+            yield read_stream, write_stream
+
         monkeypatch.setattr(
-            client,
-            "_build_setta_auth_headers",
-            lambda _server_id: {"Cookie": "setta_session=cookie-value"},
+            client_mod,
+            "load_current_session_secret",
+            lambda: (session_metadata, b"secret"),
         )
+        monkeypatch.setattr(
+            client_mod.AUTH_COOKIE_MANAGER,
+            "mint",
+            lambda _session_id, _secret: "cookie-value",
+        )
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
 
-        headers = client._build_http_headers(SETTA_MCP_SERVER_ID, config)
+        async with AsyncExitStack() as stack:
+            await client._open_transport(stack, SETTA_MCP_SERVER_ID, config)
 
-        assert headers == {
-            "Authorization": "Bearer custom-token",
-            "Cookie": "setta_session=cookie-value",
-        }
+        assert sse_calls == [
+            (
+                "http://localhost:9000/mcp",
+                {
+                    "Authorization": "Bearer custom-token",
+                    "Cookie": f"{auth_cookie_name(session_metadata.id)}=cookie-value",
+                },
+            )
+        ]
 
-    def test_build_http_headers_excludes_setta_auth_for_non_setta_server(
+    @pytest.mark.asyncio
+    async def test_open_transport_excludes_setta_auth_for_non_setta_server(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = MultiMCPClient(
             {
                 "github": MCPServerConfig(
-                    transport="streamable_http",
+                    transport="sse",
                     url="http://localhost:9001/mcp",
                     http_headers={"X-Api-Key": "github-token"},
                 )
             }
         )
         config = client.server_configs["github"]
+        sse_calls: list[tuple[str, dict[str, str] | None]] = []
+
+        @asynccontextmanager
+        async def _sse_client(*, url: str, headers: dict[str, str] | None):
+            sse_calls.append((url, headers))
+            read_send, read_stream = anyio.create_memory_object_stream(1)
+            write_stream, write_receive = anyio.create_memory_object_stream(1)
+            read_send.close()
+            write_receive.close()
+            yield read_stream, write_stream
+
+        def _unexpected_session_lookup() -> None:
+            raise AssertionError("non-Setta server should not read Setta session auth")
+
         monkeypatch.setattr(
-            client,
-            "_build_setta_auth_headers",
-            lambda server_id: (
-                {"Cookie": "should-not-apply"}
-                if server_id == SETTA_MCP_SERVER_ID
-                else None
-            ),
+            client_mod,
+            "load_current_session_secret",
+            _unexpected_session_lookup,
         )
+        monkeypatch.setattr(client_mod, "sse_client", _sse_client)
 
-        headers = client._build_http_headers("github", config)
+        async with AsyncExitStack() as stack:
+            await client._open_transport(stack, "github", config)
 
-        assert headers == {"X-Api-Key": "github-token"}
+        assert sse_calls == [
+            (
+                "http://localhost:9001/mcp",
+                {"X-Api-Key": "github-token"},
+            )
+        ]
