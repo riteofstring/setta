@@ -1,6 +1,8 @@
 import inspect
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 from setta.agentic.store import (
     list_prompt_templates,
@@ -9,6 +11,12 @@ from setta.agentic.store import (
 )
 from setta.app.spec_store import default_app_spec_path
 from setta.mcp.ui_settings_context import resolve_project_manager_from_ctx
+from setta.plugins.errors import PluginManagerError
+from setta.plugins.models import (
+    PluginListEntry,
+    PluginRegisteredUISetting,
+    PluginRuntimeResponse,
+)
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
     SetShowParamDisplayNamesRequest,
@@ -38,6 +46,10 @@ if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
 
 UISettingSourceFilter = Literal["core", "plugin", "all"]
+PLUGIN_SETTING_ID_PREFIX = "plugin::"
+PLUGIN_UI_SETTINGS_SCHEMA_KEY = "x-setta-ui-settings"
+PLUGIN_RUNTIME_OPERATIONAL_STATES = frozenset({"active", "pending_restart"})
+_JS_ENCODE_URI_COMPONENT_SAFE_CHARS = "-_.!~*'()"
 _REQUIRED_CORE_REVEAL_ACTIVATION_STEP_BY_SETTING_ID: dict[str, tuple[str, str]] = {
     "core.project_ai_settings.llm_api_keys": (
         "project_ai_settings_accordion_item",
@@ -60,6 +72,13 @@ _REQUIRED_CORE_REVEAL_ACTIVATION_STEP_BY_SETTING_ID: dict[str, tuple[str, str]] 
         "run-instructions-codegen-targets",
     ),
 }
+logger = logging.getLogger(__name__)
+
+
+class PluginUISettingErrorsByPluginId(dict[str, str]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.by_plugin_and_local_setting_id: dict[tuple[str, str], str] = {}
 
 
 class UISettingValidationError(ValueError):
@@ -68,12 +87,110 @@ class UISettingValidationError(ValueError):
         self.code = code
 
 
+@dataclass(frozen=True, slots=True)
+class _PluginUISettingDefinition:
+    localSettingId: str
+    title: str
+    description: str
+    synonyms: list[str]
+    paneId: str
+    revealKey: str
+    configPath: list[str]
+    mutability: Literal["readOnly", "writable"]
+    valueSchema: UISettingValueSchema
+    defaultValue: JSONValue
+
+
+@dataclass(frozen=True, slots=True)
+class _PluginUISettingContribution:
+    source: Literal["schema", "backend"]
+    localSettingId: str
+    definition: _PluginUISettingDefinition | None = None
+    registration: PluginRegisteredUISetting | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PluginRuntimeAvailability:
+    pluginEntry: PluginListEntry | None
+    observedStates: tuple[str, ...]
+    hasOperationalState: bool
+
+
+def build_plugin_setting_id(*, plugin_id: str, local_setting_id: str) -> str:
+    return f"{PLUGIN_SETTING_ID_PREFIX}{plugin_id}::{local_setting_id}"
+
+
+def parse_plugin_setting_id(setting_id: str) -> tuple[str, str] | None:
+    if not setting_id.startswith(PLUGIN_SETTING_ID_PREFIX):
+        return None
+    remainder = setting_id[len(PLUGIN_SETTING_ID_PREFIX) :]
+    if remainder == "":
+        return None
+    parts = remainder.split("::", maxsplit=1)
+    if len(parts) != 2:
+        return None
+    plugin_id, local_setting_id = parts
+    if plugin_id == "" or local_setting_id == "":
+        return None
+    return plugin_id, local_setting_id
+
+
+def is_plugin_runtime_operational_state(*, state: str) -> bool:
+    return state in PLUGIN_RUNTIME_OPERATIONAL_STATES
+
+
+def describe_plugin_runtime_states(*, observed_states: tuple[str, ...]) -> str | None:
+    if len(observed_states) == 0:
+        return None
+    if len(observed_states) == 1:
+        return observed_states[0]
+    return ",".join(observed_states)
+
+
+def resolve_plugin_runtime_availability(
+    *,
+    runtime_response: PluginRuntimeResponse,
+    plugin_id: str,
+) -> PluginRuntimeAvailability:
+    observed_states_set: set[str] = set()
+    for status_entry in runtime_response.status.plugins:
+        if status_entry.pluginId != plugin_id:
+            continue
+        observed_states_set.add(status_entry.state.value)
+    observed_states = tuple(sorted(observed_states_set))
+
+    plugin_entry: PluginListEntry | None = None
+    for candidate in runtime_response.list.plugins:
+        if candidate.pluginId == plugin_id:
+            plugin_entry = candidate
+            break
+
+    return PluginRuntimeAvailability(
+        pluginEntry=plugin_entry,
+        observedStates=observed_states,
+        hasOperationalState=any(
+            is_plugin_runtime_operational_state(state=state)
+            for state in observed_states
+        ),
+    )
+
+
 @dataclass(slots=True)
 class UISettingRegistry:
     entriesById: dict[str, UISettingRuntimeEntry]
+    pluginErrorsByPluginId: dict[str, str]
+    pluginErrorsByPluginAndLocalSettingId: dict[tuple[str, str], str]
+    knownPluginIds: set[str]
+    knownPluginAndLocalSettingIds: set[tuple[str, str]]
 
     def get(self, setting_id: str) -> UISettingRuntimeEntry | None:
         return self.entriesById.get(setting_id)
+
+    def has_known_plugin(self, plugin_id: str) -> bool:
+        return plugin_id in self.knownPluginIds
+
+    def has_known_plugin_setting(self, plugin_id: str, local_setting_id: str) -> bool:
+        return (plugin_id, local_setting_id) in self.knownPluginAndLocalSettingIds
 
     def list_entries(
         self, *, source_filter: UISettingSourceFilter
@@ -114,7 +231,7 @@ class UISettingRegistry:
 def build_ui_settings_registry(
     *,
     ctx: "Context",
-    project_config_id: ID,  # noqa: ARG001 - legacy Python registry is core-only
+    project_config_id: ID,  # noqa: ARG001 - reserved for plugin contributions
 ) -> UISettingRegistry:
     entries_by_id: dict[str, UISettingRuntimeEntry] = {}
     for entry in _build_core_entries():
@@ -122,9 +239,109 @@ def build_ui_settings_registry(
         if setting_id in entries_by_id:
             raise ValueError(f"Duplicate core UI setting id: {setting_id}")
         entries_by_id[setting_id] = entry
+    plugin_entries, plugin_errors = _build_plugin_entries(
+        ctx=ctx,
+        project_config_id=project_config_id,
+    )
+    plugin_errors_by_plugin_and_local_setting_id = getattr(
+        plugin_errors,
+        "by_plugin_and_local_setting_id",
+        {},
+    )
+    (
+        known_plugin_ids,
+        known_plugin_and_local_setting_ids,
+    ) = _collect_known_plugin_ids_and_settings(ctx=ctx)
+    known_plugin_ids.update(plugin_errors.keys())
+    known_plugin_and_local_setting_ids.update(
+        plugin_errors_by_plugin_and_local_setting_id.keys()
+    )
+    for entry in plugin_entries:
+        setting_id = entry.metadata.settingId
+        plugin_id = entry.metadata.pluginId
+        if plugin_id is not None:
+            parsed_setting_id = parse_plugin_setting_id(setting_id)
+            if parsed_setting_id is not None:
+                known_plugin_ids.add(plugin_id)
+                known_plugin_and_local_setting_ids.add(parsed_setting_id)
+        if setting_id in entries_by_id:
+            if plugin_id is None:
+                raise ValueError(f"Duplicate UI setting id: {setting_id}")
+            parsed_setting_id = parse_plugin_setting_id(setting_id)
+            local_setting_id = (
+                parsed_setting_id[1] if parsed_setting_id is not None else setting_id
+            )
+            _record_plugin_ui_setting_error(
+                plugin_errors,
+                plugin_id=plugin_id,
+                local_setting_id=local_setting_id,
+                message=_build_plugin_duplicate_ui_setting_message(
+                    plugin_id=plugin_id,
+                    local_setting_id=local_setting_id,
+                    sources={"registry_merge"},
+                ),
+            )
+            continue
+        entries_by_id[setting_id] = entry
     for entry in entries_by_id.values():
         _validate_runtime_entry_write_signature(entry)
-    return UISettingRegistry(entriesById=entries_by_id)
+    return UISettingRegistry(
+        entriesById=entries_by_id,
+        pluginErrorsByPluginId=plugin_errors,
+        pluginErrorsByPluginAndLocalSettingId=(
+            plugin_errors_by_plugin_and_local_setting_id
+        ),
+        knownPluginIds=known_plugin_ids,
+        knownPluginAndLocalSettingIds=known_plugin_and_local_setting_ids,
+    )
+
+
+def _collect_known_plugin_ids_and_settings(
+    *,
+    ctx: "Context",
+) -> tuple[set[str], set[tuple[str, str]]]:
+    plugin_manager = _resolve_registry_build_plugin_manager(ctx=ctx)
+    if plugin_manager is None:
+        return set(), set()
+
+    runtime_response = plugin_manager.get_runtime_response()
+    known_plugin_ids: set[str] = set()
+    known_plugin_and_local_setting_ids: set[tuple[str, str]] = set()
+    for status_entry in runtime_response.status.plugins:
+        known_plugin_ids.add(status_entry.pluginId)
+    for plugin in runtime_response.list.plugins:
+        plugin_id = plugin.pluginId
+        known_plugin_ids.add(plugin_id)
+
+        schema_json = plugin.config.schemaJson
+        if isinstance(schema_json, dict):
+            raw_definitions = schema_json.get(PLUGIN_UI_SETTINGS_SCHEMA_KEY)
+            if isinstance(raw_definitions, list):
+                for raw_definition in raw_definitions:
+                    local_setting_id = _try_resolve_plugin_local_setting_id_for_error(
+                        raw_definition=raw_definition,
+                    )
+                    if local_setting_id is not None:
+                        known_plugin_and_local_setting_ids.add(
+                            (plugin_id, local_setting_id)
+                        )
+
+        backend_registrations = plugin_manager.get_backend_ui_settings(
+            plugin_id=plugin_id
+        )
+        for registration in backend_registrations:
+            local_setting_id = registration.localSettingId.strip()
+            if local_setting_id == "":
+                continue
+            known_plugin_and_local_setting_ids.add((plugin_id, local_setting_id))
+
+    return known_plugin_ids, known_plugin_and_local_setting_ids
+
+
+def _resolve_registry_build_plugin_manager(*, ctx: "Context") -> Any | None:
+    fastmcp = getattr(ctx, "fastmcp", None)
+    state = getattr(fastmcp, "state", None)
+    return getattr(state, "plugin_manager", None)
 
 
 def _validate_runtime_entry_write_signature(entry: UISettingRuntimeEntry) -> None:
@@ -740,6 +957,200 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
     return entries
 
 
+def _build_plugin_entries(
+    *,
+    ctx: "Context",
+    project_config_id: ID,  # noqa: ARG001 - reserved for future plugin state scoping
+) -> tuple[list[UISettingRuntimeEntry], PluginUISettingErrorsByPluginId]:
+    plugin_manager = _resolve_registry_build_plugin_manager(ctx=ctx)
+    if plugin_manager is None:
+        return [], PluginUISettingErrorsByPluginId()
+    runtime_response = plugin_manager.get_runtime_response()
+    entries: list[UISettingRuntimeEntry] = []
+    plugin_errors_by_plugin_id = PluginUISettingErrorsByPluginId()
+    for plugin in runtime_response.list.plugins:
+        availability = resolve_plugin_runtime_availability(
+            runtime_response=runtime_response,
+            plugin_id=plugin.pluginId,
+        )
+        if not availability.hasOperationalState:
+            continue
+        if "registerPane" not in plugin.effectiveCapabilities:
+            continue
+        contributions_by_local_setting_id: dict[
+            str, list[_PluginUISettingContribution]
+        ] = {}
+        schema_json = plugin.config.schemaJson
+        if isinstance(schema_json, dict):
+            definitions = _parse_plugin_ui_setting_definitions(
+                schema_json=schema_json,
+                plugin_id=plugin.pluginId,
+                plugin_errors_by_plugin_id=plugin_errors_by_plugin_id,
+            )
+            for definition in definitions:
+                _append_plugin_ui_setting_contribution(
+                    contributions_by_local_setting_id,
+                    _PluginUISettingContribution(
+                        source="schema",
+                        localSettingId=definition.localSettingId,
+                        definition=definition,
+                    ),
+                )
+        backend_registrations = plugin_manager.get_backend_ui_settings(
+            plugin_id=plugin.pluginId,
+        )
+        for registration in backend_registrations:
+            _append_plugin_ui_setting_contribution(
+                contributions_by_local_setting_id,
+                _PluginUISettingContribution(
+                    source="backend",
+                    localSettingId=registration.localSettingId,
+                    registration=registration,
+                ),
+            )
+
+        for local_setting_id, contributions in sorted(
+            contributions_by_local_setting_id.items()
+        ):
+            if len(contributions) > 1:
+                _record_plugin_ui_setting_error(
+                    plugin_errors_by_plugin_id,
+                    plugin_id=plugin.pluginId,
+                    message=_build_plugin_duplicate_ui_setting_message(
+                        plugin_id=plugin.pluginId,
+                        local_setting_id=local_setting_id,
+                        sources={contribution.source for contribution in contributions},
+                    ),
+                    local_setting_id=local_setting_id,
+                )
+                continue
+            contribution = contributions[0]
+            try:
+                if contribution.source == "schema":
+                    if contribution.definition is None:
+                        raise ValueError(
+                            (
+                                "Missing schema definition payload for plugin "
+                                f"{plugin.pluginId} setting {local_setting_id}."
+                            )
+                        )
+                    entries.append(
+                        _build_plugin_runtime_entry(
+                            plugin_id=plugin.pluginId,
+                            definition=contribution.definition,
+                        )
+                    )
+                    continue
+                if contribution.registration is None:
+                    raise ValueError(
+                        (
+                            "Missing backend registration payload for plugin "
+                            f"{plugin.pluginId} setting {local_setting_id}."
+                        )
+                    )
+                entries.append(
+                    _build_backend_plugin_runtime_entry(
+                        plugin_id=plugin.pluginId,
+                        registration=contribution.registration,
+                        plugin_manager=plugin_manager,
+                    )
+                )
+            except Exception as exc:
+                _record_plugin_ui_setting_error(
+                    plugin_errors_by_plugin_id,
+                    plugin_id=plugin.pluginId,
+                    message=str(exc),
+                    local_setting_id=local_setting_id,
+                )
+    return entries, plugin_errors_by_plugin_id
+
+
+def _append_plugin_ui_setting_contribution(
+    contributions_by_local_setting_id: dict[str, list[_PluginUISettingContribution]],
+    contribution: _PluginUISettingContribution,
+) -> None:
+    local_setting_id = contribution.localSettingId
+    if local_setting_id not in contributions_by_local_setting_id:
+        contributions_by_local_setting_id[local_setting_id] = [contribution]
+        return
+    contributions_by_local_setting_id[local_setting_id].append(contribution)
+
+
+def _build_plugin_duplicate_ui_setting_message(
+    *,
+    plugin_id: str,
+    local_setting_id: str,
+    sources: set[str],
+) -> str:
+    normalized_sources = sorted(sources)
+    if normalized_sources == ["backend", "schema"]:
+        return (
+            f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+            "(declared in both schema and backend registration)."
+        )
+    if normalized_sources == ["backend"]:
+        return (
+            f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+            "(multiple backend registrations)."
+        )
+    if normalized_sources == ["schema"]:
+        return (
+            f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+            "(multiple schema entries)."
+        )
+    return (
+        f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+        f"(sources={', '.join(normalized_sources)})."
+    )
+
+
+def _record_plugin_ui_setting_error(
+    plugin_errors_by_plugin_id: dict[str, str],
+    *,
+    plugin_id: str,
+    message: str,
+    local_setting_id: str | None = None,
+) -> None:
+    logger.warning(
+        "Skipping invalid UI-setting contribution from plugin %s: %s",
+        plugin_id,
+        message,
+    )
+    plugin_errors_by_plugin_and_local_setting_id = getattr(
+        plugin_errors_by_plugin_id,
+        "by_plugin_and_local_setting_id",
+        None,
+    )
+    existing = plugin_errors_by_plugin_id.get(plugin_id)
+    if existing is None:
+        plugin_errors_by_plugin_id[plugin_id] = message
+        if (
+            local_setting_id is not None
+            and plugin_errors_by_plugin_and_local_setting_id is not None
+        ):
+            plugin_errors_by_plugin_and_local_setting_id[
+                (plugin_id, local_setting_id)
+            ] = message
+        return
+    if message in existing:
+        if (
+            local_setting_id is not None
+            and plugin_errors_by_plugin_and_local_setting_id is not None
+        ):
+            key = (plugin_id, local_setting_id)
+            if key not in plugin_errors_by_plugin_and_local_setting_id:
+                plugin_errors_by_plugin_and_local_setting_id[key] = message
+        return
+    plugin_errors_by_plugin_id[plugin_id] = f"{existing}; {message}"
+    if (
+        local_setting_id is not None
+        and plugin_errors_by_plugin_and_local_setting_id is not None
+    ):
+        plugin_errors_by_plugin_and_local_setting_id[(plugin_id, local_setting_id)] = (
+            message
+        )
+
+
 def _validate_core_reveal_activation_steps(
     entries: list[UISettingRuntimeEntry],
 ) -> None:
@@ -767,6 +1178,784 @@ def _validate_core_reveal_activation_steps(
                 f"{setting_id}: expected ({expected_step_type}, {expected_item_value})."
             )
         )
+
+
+def _build_plugin_runtime_entry(
+    *,
+    plugin_id: str,
+    definition: _PluginUISettingDefinition,
+) -> UISettingRuntimeEntry:
+    setting_id = build_plugin_setting_id(
+        plugin_id=plugin_id,
+        local_setting_id=definition.localSettingId,
+    )
+    read_value = _build_plugin_read_value(
+        plugin_id=plugin_id,
+        config_path=definition.configPath,
+        default_value=definition.defaultValue,
+    )
+    write_value = (
+        None
+        if definition.mutability == "readOnly"
+        else _build_plugin_write_value(
+            setting_id=setting_id,
+            plugin_id=plugin_id,
+            config_path=definition.configPath,
+            default_value=definition.defaultValue,
+            value_schema=definition.valueSchema,
+        )
+    )
+    return UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId=setting_id,
+            title=definition.title,
+            synonyms=definition.synonyms,
+            description=definition.description,
+            location=UISettingLocation(
+                side="left",
+                overviewTabKey=_build_plugin_pane_overview_tab_key(
+                    plugin_id=plugin_id,
+                    pane_id=definition.paneId,
+                ),
+                pluginId=plugin_id,
+                paneId=definition.paneId,
+            ),
+            highlight=UISettingHighlight(
+                strategy="plugin_handler",
+                pluginRevealKey=definition.revealKey,
+            ),
+            source="plugin",
+            pluginId=plugin_id,
+            mutability=definition.mutability,
+            valueSchema=definition.valueSchema,
+        ),
+        readValue=read_value,
+        writeValue=write_value,
+    )
+
+
+def _build_backend_plugin_runtime_entry(
+    *,
+    plugin_id: str,
+    registration: PluginRegisteredUISetting,
+    plugin_manager,
+) -> UISettingRuntimeEntry:
+    setting_id = build_plugin_setting_id(
+        plugin_id=plugin_id,
+        local_setting_id=registration.localSettingId,
+    )
+    value_schema = UISettingValueSchema.model_validate(registration.valueSchema)
+    read_value = _build_plugin_backend_read_value(
+        plugin_id=plugin_id,
+        read_handler_id=registration.readHandlerId,
+        plugin_manager=plugin_manager,
+    )
+    write_value = (
+        None
+        if registration.mutability == "readOnly" or registration.writeHandlerId is None
+        else _build_plugin_backend_write_value(
+            setting_id=setting_id,
+            plugin_id=plugin_id,
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=registration.writeHandlerId,
+            plugin_manager=plugin_manager,
+            value_schema=value_schema,
+        )
+    )
+    return UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId=setting_id,
+            title=registration.title,
+            synonyms=list(registration.synonyms),
+            description=registration.description,
+            location=UISettingLocation(
+                side="left",
+                overviewTabKey=_build_plugin_pane_overview_tab_key(
+                    plugin_id=plugin_id,
+                    pane_id=registration.paneId,
+                ),
+                pluginId=plugin_id,
+                paneId=registration.paneId,
+            ),
+            highlight=UISettingHighlight(
+                strategy="plugin_handler",
+                pluginRevealKey=registration.revealKey,
+            ),
+            source="plugin",
+            pluginId=plugin_id,
+            mutability=registration.mutability,
+            valueSchema=value_schema,
+        ),
+        readValue=read_value,
+        writeValue=write_value,
+    )
+
+
+def _build_plugin_read_value(
+    *,
+    plugin_id: str,
+    config_path: list[str],
+    default_value: JSONValue,
+):
+    def _read_plugin_value(
+        ctx: "Context",
+        project_config_id: ID,  # noqa: ARG001 - plugin settings are project-global
+    ) -> JSONValue:
+        plugin_entry = _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        return _read_plugin_config_path_value(
+            config=plugin_entry.config.currentConfig,
+            config_path=config_path,
+            default_value=default_value,
+            plugin_id=plugin_id,
+        )
+
+    return _read_plugin_value
+
+
+def _build_plugin_write_value(
+    *,
+    setting_id: str,
+    plugin_id: str,
+    config_path: list[str],
+    default_value: JSONValue,
+    value_schema: UISettingValueSchema,
+):
+    async def _write_plugin_value(
+        ctx: "Context",
+        project_config_id: ID,  # noqa: ARG001 - plugin settings are project-global
+        value: JSONValue,
+        expected_old_value: JSONValue | None = None,
+    ) -> UISettingMutationResult:
+        _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        plugin_manager = ctx.fastmcp.state.plugin_manager
+
+        def _validate_old_value(observed_old_value: JSONValue) -> None:
+            validate_ui_setting_value(value_schema, observed_old_value)
+
+        try:
+            old_value, new_value = (
+                plugin_manager.compare_and_write_plugin_config_path_value(
+                    plugin_id=plugin_id,
+                    setting_id=setting_id,
+                    config_path=config_path,
+                    default_value=default_value,
+                    value=value,
+                    expected_old_value=expected_old_value,
+                    validate_old_value=_validate_old_value,
+                )
+            )
+        except PluginManagerError as exc:
+            raise _convert_plugin_manager_error_for_ui_setting(
+                exc,
+                plugin_id=plugin_id,
+                operation="write",
+            ) from exc
+        return UISettingMutationResult(
+            oldValue=old_value,
+            newValue=new_value,
+            normalizedValue=value,
+            changed=old_value != new_value,
+        )
+
+    return _write_plugin_value
+
+
+def _build_plugin_backend_read_value(
+    *,
+    plugin_id: str,
+    read_handler_id: str,
+    plugin_manager,
+):
+    def _read_plugin_backend_value(
+        ctx: "Context",
+        project_config_id: ID,
+    ) -> JSONValue:
+        _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        try:
+            return plugin_manager.read_backend_ui_setting_value(
+                plugin_id=plugin_id,
+                read_handler_id=read_handler_id,
+                project_config_id=project_config_id,
+            )
+        except PluginManagerError as exc:
+            raise _convert_plugin_manager_error_for_ui_setting(
+                exc,
+                plugin_id=plugin_id,
+                operation="read",
+            ) from exc
+
+    return _read_plugin_backend_value
+
+
+def _build_plugin_backend_write_value(
+    *,
+    setting_id: str,
+    plugin_id: str,
+    read_handler_id: str,
+    write_handler_id: str,
+    plugin_manager,
+    value_schema: UISettingValueSchema,
+):
+    async def _write_plugin_backend_value(
+        ctx: "Context",
+        project_config_id: ID,
+        value: JSONValue,
+        expected_old_value: JSONValue | None = None,
+    ) -> UISettingMutationResult:
+        _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+
+        def _validate_backend_value(observed_value: JSONValue) -> None:
+            validate_ui_setting_value(value_schema, observed_value)
+
+        try:
+            old_value, new_value = (
+                plugin_manager.compare_and_write_backend_ui_setting_value(
+                    plugin_id=plugin_id,
+                    setting_id=setting_id,
+                    read_handler_id=read_handler_id,
+                    write_handler_id=write_handler_id,
+                    project_config_id=project_config_id,
+                    value=value,
+                    expected_old_value=expected_old_value,
+                    validate_old_value=_validate_backend_value,
+                    validate_new_value=_validate_backend_value,
+                )
+            )
+        except PluginManagerError as exc:
+            raise _convert_plugin_manager_error_for_ui_setting(
+                exc,
+                plugin_id=plugin_id,
+                operation="write",
+            ) from exc
+        return UISettingMutationResult(
+            oldValue=old_value,
+            newValue=new_value,
+            normalizedValue=value,
+            changed=old_value != new_value,
+        )
+
+    return _write_plugin_backend_value
+
+
+def _convert_plugin_manager_error_for_ui_setting(
+    exc: PluginManagerError,
+    *,
+    plugin_id: str,
+    operation: str,
+) -> UISettingValidationError:
+    if exc.code in {
+        "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+        "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+        "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_FAILED",
+        "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_ROLLBACK_FAILED",
+    }:
+        return UISettingValidationError(
+            "mutation_failed",
+            exc.message,
+        )
+    if exc.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR":
+        return UISettingValidationError(
+            "plugin_unavailable",
+            (
+                f"Plugin {plugin_id} is unavailable for ui setting {operation}: "
+                f"{exc.message}"
+            ),
+        )
+    return UISettingValidationError(
+        "mutation_failed",
+        (f"Plugin {plugin_id} ui setting {operation} failed: {exc.message}"),
+    )
+
+
+def _parse_plugin_ui_setting_definitions(
+    *,
+    schema_json: dict[str, Any],
+    plugin_id: str,
+    plugin_errors_by_plugin_id: PluginUISettingErrorsByPluginId,
+) -> list[_PluginUISettingDefinition]:
+    if PLUGIN_UI_SETTINGS_SCHEMA_KEY not in schema_json:
+        return []
+    raw_definitions = schema_json[PLUGIN_UI_SETTINGS_SCHEMA_KEY]
+    if not isinstance(raw_definitions, list):
+        _record_plugin_ui_setting_error(
+            plugin_errors_by_plugin_id,
+            plugin_id=plugin_id,
+            message=f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY} must be a list.",
+        )
+        return []
+
+    definitions: list[_PluginUISettingDefinition] = []
+    for index, raw_definition in enumerate(raw_definitions):
+        local_setting_id_for_error = _try_resolve_plugin_local_setting_id_for_error(
+            raw_definition=raw_definition
+        )
+        try:
+            definitions.append(
+                _parse_plugin_ui_setting_definition(
+                    schema_json=schema_json,
+                    plugin_id=plugin_id,
+                    index=index,
+                    raw_definition=raw_definition,
+                )
+            )
+        except Exception as exc:
+            _record_plugin_ui_setting_error(
+                plugin_errors_by_plugin_id,
+                plugin_id=plugin_id,
+                message=str(exc),
+                local_setting_id=local_setting_id_for_error,
+            )
+    return definitions
+
+
+def _parse_plugin_ui_setting_definition(
+    *,
+    schema_json: dict[str, Any],
+    plugin_id: str,
+    index: int,
+    raw_definition: Any,
+) -> _PluginUISettingDefinition:
+    if not isinstance(raw_definition, dict):
+        raise ValueError(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] must be an object."
+        )
+    local_setting_id = _require_non_empty_string(
+        raw_definition.get("settingId"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "settingId must be a non-empty string."
+        ),
+    )
+    if "::" in local_setting_id:
+        raise ValueError(
+            f"Plugin {plugin_id} settingId {local_setting_id} must not contain '::'."
+        )
+    title = _require_non_empty_string(
+        raw_definition.get("title"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "title must be a non-empty string."
+        ),
+    )
+    description = _require_non_empty_string(
+        raw_definition.get("description"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "description must be a non-empty string."
+        ),
+    )
+    pane_id = _require_non_empty_string(
+        raw_definition.get("paneId"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "paneId must be a non-empty string."
+        ),
+    )
+    reveal_key = _require_non_empty_string(
+        raw_definition.get("revealKey"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "revealKey must be a non-empty string."
+        ),
+    )
+    config_path = _normalize_plugin_config_path(
+        raw_definition.get("configPath"),
+        plugin_id=plugin_id,
+        index=index,
+    )
+    mutability = _normalize_plugin_mutability(
+        raw_definition.get("mutability"),
+        plugin_id=plugin_id,
+        index=index,
+    )
+    synonyms = _normalize_plugin_synonyms(
+        raw_definition.get("synonyms"),
+        plugin_id=plugin_id,
+        index=index,
+    )
+    value_schema = _resolve_plugin_value_schema(
+        schema_json=schema_json,
+        raw_value_schema=raw_definition.get("valueSchema"),
+        config_path=config_path,
+        plugin_id=plugin_id,
+        local_setting_id=local_setting_id,
+    )
+    if "defaultValue" not in raw_definition:
+        raise ValueError(
+            (f"Plugin {plugin_id} setting {local_setting_id} must define defaultValue.")
+        )
+    default_value = _validate_plugin_default_value(
+        plugin_id=plugin_id,
+        local_setting_id=local_setting_id,
+        value_schema=value_schema,
+        value=raw_definition.get("defaultValue"),
+    )
+    return _PluginUISettingDefinition(
+        localSettingId=local_setting_id,
+        title=title,
+        description=description,
+        synonyms=synonyms,
+        paneId=pane_id,
+        revealKey=reveal_key,
+        configPath=config_path,
+        mutability=mutability,
+        valueSchema=value_schema,
+        defaultValue=default_value,
+    )
+
+
+def _try_resolve_plugin_local_setting_id_for_error(
+    *,
+    raw_definition: Any,
+) -> str | None:
+    if not isinstance(raw_definition, dict):
+        return None
+    raw_setting_id = raw_definition.get("settingId")
+    if not isinstance(raw_setting_id, str):
+        return None
+    local_setting_id = raw_setting_id.strip()
+    if local_setting_id == "" or "::" in local_setting_id:
+        return None
+    return local_setting_id
+
+
+def _require_non_empty_string(value: Any, *, context: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(context)
+    normalized = value.strip()
+    if normalized == "":
+        raise ValueError(context)
+    return normalized
+
+
+def _normalize_plugin_config_path(
+    raw_value: Any,
+    *,
+    plugin_id: str,
+    index: int,
+) -> list[str]:
+    context = (
+        f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+        "configPath must be a non-empty string array."
+    )
+    if not isinstance(raw_value, list) or len(raw_value) == 0:
+        raise ValueError(context)
+    output: list[str] = []
+    for path_item in raw_value:
+        output.append(_require_non_empty_string(path_item, context=context))
+    return output
+
+
+def _normalize_plugin_synonyms(
+    raw_value: Any,
+    *,
+    plugin_id: str,
+    index: int,
+) -> list[str]:
+    if raw_value is None:
+        return []
+    if not isinstance(raw_value, list):
+        raise ValueError(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] synonyms must be a string array."
+        )
+    output: list[str] = []
+    for synonym in raw_value:
+        output.append(
+            _require_non_empty_string(
+                synonym,
+                context=(
+                    f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                    "synonyms must contain non-empty strings."
+                ),
+            )
+        )
+    return output
+
+
+def _normalize_plugin_mutability(
+    raw_value: Any,
+    *,
+    plugin_id: str,
+    index: int,
+) -> Literal["readOnly", "writable"]:
+    if raw_value is None:
+        return "writable"
+    if raw_value in {"readOnly", "writable"}:
+        return raw_value
+    raise ValueError(
+        f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] mutability must be readOnly or writable."
+    )
+
+
+def _resolve_plugin_value_schema(
+    *,
+    schema_json: dict[str, Any],
+    raw_value_schema: Any,
+    config_path: list[str],
+    plugin_id: str,
+    local_setting_id: str,
+) -> UISettingValueSchema:
+    if raw_value_schema is not None:
+        if not isinstance(raw_value_schema, dict):
+            raise ValueError(
+                f"Plugin {plugin_id} setting {local_setting_id} valueSchema must be an object."
+            )
+        return UISettingValueSchema.model_validate(raw_value_schema)
+    inferred = _infer_plugin_value_schema_from_config_schema(
+        schema_json=schema_json,
+        config_path=config_path,
+    )
+    if inferred is not None:
+        return inferred
+    raise ValueError(
+        f"Plugin {plugin_id} setting {local_setting_id} must define valueSchema."
+    )
+
+
+def _validate_plugin_default_value(
+    *,
+    plugin_id: str,
+    local_setting_id: str,
+    value_schema: UISettingValueSchema,
+    value: JSONValue,
+) -> JSONValue:
+    try:
+        validate_ui_setting_value(value_schema, value)
+    except UISettingValidationError as exc:
+        raise ValueError(
+            (
+                f"Plugin {plugin_id} setting {local_setting_id} defaultValue "
+                f"is invalid: {exc}"
+            )
+        ) from exc
+    return value
+
+
+def _infer_plugin_value_schema_from_config_schema(
+    *,
+    schema_json: dict[str, Any],
+    config_path: list[str],
+) -> UISettingValueSchema | None:
+    schema_node = _resolve_schema_node_for_config_path(
+        schema_json=schema_json,
+        config_path=config_path,
+    )
+    if schema_node is None:
+        return None
+    return _infer_ui_setting_value_schema_from_schema_node(schema_node=schema_node)
+
+
+def _infer_ui_setting_value_schema_from_schema_node(
+    *,
+    schema_node: dict[str, Any],
+) -> UISettingValueSchema | None:
+    raw_type: Any = schema_node.get("type")
+    if isinstance(raw_type, list):
+        non_null_types = [item for item in raw_type if item != "null"]
+        if len(non_null_types) != 1:
+            return None
+        raw_type = non_null_types[0]
+    if raw_type not in {"boolean", "string", "number", "integer", "array", "object"}:
+        return None
+    enum_values = schema_node.get("enum")
+    if enum_values is not None and not isinstance(enum_values, list):
+        return None
+    minimum = _as_float(schema_node.get("minimum"))
+    maximum = _as_float(schema_node.get("maximum"))
+    min_length = _as_int(schema_node.get("minLength"))
+    max_length = _as_int(schema_node.get("maxLength"))
+    items_schema: UISettingValueSchema | None = None
+    if raw_type == "array":
+        raw_items = schema_node.get("items")
+        if isinstance(raw_items, dict):
+            items_schema = _infer_ui_setting_value_schema_from_schema_node(
+                schema_node=raw_items
+            )
+    properties_schema: dict[str, UISettingValueSchema] | None = None
+    required_properties: list[str] | None = None
+    additional_properties: bool | None = None
+    if raw_type == "object":
+        raw_properties = schema_node.get("properties")
+        if isinstance(raw_properties, dict):
+            parsed_properties: dict[str, UISettingValueSchema] = {}
+            for property_name, raw_property_schema in raw_properties.items():
+                if not isinstance(property_name, str):
+                    continue
+                if not isinstance(raw_property_schema, dict):
+                    continue
+                parsed_property_schema = (
+                    _infer_ui_setting_value_schema_from_schema_node(
+                        schema_node=raw_property_schema
+                    )
+                )
+                if parsed_property_schema is None:
+                    continue
+                parsed_properties[property_name] = parsed_property_schema
+            properties_schema = parsed_properties
+        raw_required = schema_node.get("required")
+        if isinstance(raw_required, list):
+            required_list = [
+                item for item in raw_required if isinstance(item, str) and item != ""
+            ]
+            required_properties = required_list
+        raw_additional_properties = schema_node.get("additionalProperties")
+        if isinstance(raw_additional_properties, bool):
+            additional_properties = raw_additional_properties
+    return UISettingValueSchema(
+        type=raw_type,
+        enumValues=enum_values,
+        minimum=minimum,
+        maximum=maximum,
+        minLength=min_length,
+        maxLength=max_length,
+        items=items_schema,
+        properties=properties_schema,
+        requiredProperties=required_properties,
+        additionalProperties=additional_properties,
+    )
+
+
+def _resolve_schema_node_for_config_path(
+    *,
+    schema_json: dict[str, Any],
+    config_path: list[str],
+) -> dict[str, Any] | None:
+    current_node: Any = schema_json
+    for segment in config_path:
+        if not isinstance(current_node, dict):
+            return None
+        if "properties" not in current_node:
+            return None
+        properties = current_node["properties"]
+        if not isinstance(properties, dict):
+            return None
+        if segment not in properties:
+            return None
+        current_node = properties[segment]
+    if not isinstance(current_node, dict):
+        return None
+    return current_node
+
+
+def _as_float(value: Any) -> float | None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    return float(value)
+
+
+def _as_int(value: Any) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        return None
+    return int(value)
+
+
+def _build_plugin_pane_overview_tab_key(*, plugin_id: str, pane_id: str) -> str:
+    return (
+        "PluginPane:"
+        f"{quote(plugin_id, safe=_JS_ENCODE_URI_COMPONENT_SAFE_CHARS)}:"
+        f"{quote(pane_id, safe=_JS_ENCODE_URI_COMPONENT_SAFE_CHARS)}"
+    )
+
+
+def _require_active_plugin_runtime_entry(
+    *,
+    ctx: "Context",
+    plugin_id: str,
+):
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        raise UISettingValidationError(
+            "plugin_unavailable",
+            "Plugin manager is unavailable for plugin UI setting access.",
+        )
+    runtime_response = plugin_manager.get_runtime_response()
+    availability = resolve_plugin_runtime_availability(
+        runtime_response=runtime_response,
+        plugin_id=plugin_id,
+    )
+    if not availability.hasOperationalState:
+        observed_state = describe_plugin_runtime_states(
+            observed_states=availability.observedStates
+        )
+        if observed_state is None:
+            raise UISettingValidationError(
+                "plugin_unavailable",
+                f"Plugin {plugin_id} is unavailable.",
+            )
+        raise UISettingValidationError(
+            "plugin_unavailable",
+            f"Plugin {plugin_id} is unavailable (state={observed_state}).",
+        )
+    if availability.pluginEntry is not None:
+        return availability.pluginEntry
+    observed_state = (
+        describe_plugin_runtime_states(observed_states=availability.observedStates)
+        or "unknown"
+    )
+    raise UISettingValidationError(
+        "plugin_unavailable",
+        (
+            f"Plugin {plugin_id} is unavailable "
+            f"(state={observed_state}, runtime entry missing)."
+        ),
+    )
+
+
+def _read_plugin_config_path_value(
+    *,
+    config: Any,
+    config_path: list[str],
+    default_value: JSONValue,
+    plugin_id: str,
+) -> JSONValue:
+    return _read_plugin_config_path_value_for_write(
+        config=config,
+        config_path=config_path,
+        default_value=default_value,
+        plugin_id=plugin_id,
+    )
+
+
+def _read_plugin_config_path_value_for_write(
+    *,
+    config: dict[str, Any],
+    config_path: list[str],
+    default_value: JSONValue,
+    plugin_id: str,
+) -> JSONValue:
+    current_value: Any = config
+    traversed_segments: list[str] = []
+    for segment in config_path:
+        if not isinstance(current_value, dict):
+            mismatch_path = (
+                ".".join(traversed_segments)
+                if len(traversed_segments) > 0
+                else "<root>"
+            )
+            raise UISettingValidationError(
+                "mutation_failed",
+                (
+                    f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                    f"contains a non-object node at {mismatch_path}."
+                ),
+            )
+        if segment not in current_value:
+            return default_value
+        traversed_segments.append(segment)
+        current_value = current_value[segment]
+    return current_value
 
 
 def _get_project_manager(ctx: "Context", project_config_id: ID):
