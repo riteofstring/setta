@@ -25,6 +25,14 @@ Make section chrome and param rendering easy to change without touching measurem
   section creation commands and empty-space add actions,
   `frontend/src/state/actions/sections/createSectionPlacement.ts` owns smart
   placement/empty-space helpers,
+  `frontend/src/state/actions/sections/createSectionCatalogSectionGroups.ts`
+  now owns static section/code/artifact/workflow/other presets,
+  `frontend/src/state/actions/sections/createSectionCatalogControlGroups.ts`
+  now owns metacontrol/embed presets,
+  `frontend/src/state/actions/sections/createSectionCatalogGroupAssembly.ts`
+  now owns ordered base group assembly,
+  `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` is now a
+  thin compatibility facade,
   `frontend/src/state/actions/sections/createSectionFileOpenShared.ts` owns
   shared opened-file naming/reuse helpers,
   `frontend/src/state/actions/sections/createSectionFileOpenCommands.ts` owns

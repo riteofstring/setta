@@ -8,10 +8,9 @@ import {
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
-import {
-  getBaseCodeSectionCreateItems,
-  getBaseMetaControlGroupItems,
-} from "./createSectionCatalogStatic";
+import { getBaseMetaControlGroupItems } from "./createSectionCatalogControlGroups";
+import { getBaseCreateSectionGroups } from "./createSectionCatalogGroupAssembly";
+import { getBaseCodeSectionCreateItems } from "./createSectionCatalogSectionGroups";
 
 describe("createSectionCatalogStatic", () => {
   it("includes JSON, YAML, and TOML code creation presets", () => {
@@ -38,5 +37,18 @@ describe("createSectionCatalogStatic", () => {
       dateSelectionMode: DateSelectionModeEnum.multiple,
       dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
     });
+  });
+
+  it("assembles the base create-section groups in the expected order", () => {
+    // Hook-time gating should extend a stable group order instead of rebuilding the static catalog shape.
+    expect(getBaseCreateSectionGroups().map((group) => group.group)).toEqual([
+      "Section",
+      "Code",
+      "Artifacts",
+      "Workflow",
+      "Other",
+      "MetaControls",
+      "Embed",
+    ]);
   });
 });

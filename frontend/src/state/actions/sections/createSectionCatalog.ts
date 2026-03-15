@@ -7,7 +7,7 @@ import {
 } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-import { getBaseCreateSectionGroups } from "./createSectionCatalogStatic";
+import { getBaseCreateSectionGroups } from "./createSectionCatalogGroupAssembly";
 import type {
   CreateSectionsContextMenuGroup,
   CreateSectionsContextMenuInfo,

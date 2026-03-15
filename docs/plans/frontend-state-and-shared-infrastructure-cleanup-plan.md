@@ -363,11 +363,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/createSectionCatalogStatic.ts` at 250 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 249 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 245 lines
   - `frontend/src/state/actions/sectionDisplayQueries.ts` at 243 lines
   - `frontend/src/state/actions/projectChatThreadStorageUndo.ts` at 239 lines
+  - `frontend/src/state/actions/projectChatWindowingNormalization.ts` at 237 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/components/Utils/FloatingBox.tsx` at 476 lines
@@ -781,7 +781,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingWrites.ts` now owns:
   - the thin public mutation facade that composes write-state, write-pipeline, and write-sync helpers
 - `sections/createSections.ts`, `sections/createSectionPlacement.ts`,
-  `sections/createSectionCatalog.ts`, `sections/createSectionCatalogStatic.ts`,
+  `sections/createSectionCatalog.ts`,
+  `sections/createSectionCatalogSectionGroups.ts`,
+  `sections/createSectionCatalogControlGroups.ts`,
+  `sections/createSectionCatalogGroupAssembly.ts`,
+  `sections/createSectionCatalogStatic.ts`,
   `sections/createSectionCatalogTypes.ts`, `sections/createSectionsHelper.ts`,
   `sections/createSectionFileOpenShared.ts`,
   `sections/createSectionFileOpenCommands.ts`,
@@ -789,7 +793,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `sections/createSectionImplDefaults.ts` now split into:
   - `createSections.ts` for top-level create orchestration and empty-space add commands
   - `createSectionCatalogTypes.ts` for shared section creation menu types
-  - `createSectionCatalogStatic.ts` for static grouped section creation defaults
+  - `createSectionCatalogSectionGroups.ts` for static section/code/artifact/workflow/other presets
+  - `createSectionCatalogControlGroups.ts` for metacontrol/embed presets
+  - `createSectionCatalogGroupAssembly.ts` for ordered base group assembly
+  - `createSectionCatalogStatic.ts` as the thin compatibility facade
   - `createSectionCatalog.ts` for hook-time singleton/codegen/plugin gating in `useCreateSectionsList`
   - `createSectionsHelper.ts` for the narrowed post-create command path for `createTopLevelSectionFromImplSpecs`
   - `createSectionPlacement.ts` for smart placement context and empty-space positioning

@@ -297,8 +297,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     creation commands plus empty-space add actions.
   - `state/actions/sections/createSectionCatalogTypes.ts` owns shared section
     creation menu types.
-  - `state/actions/sections/createSectionCatalogStatic.ts` owns static grouped
-    section creation defaults.
+  - `state/actions/sections/createSectionCatalogSectionGroups.ts` owns static
+    section/code/artifact/workflow/other creation presets.
+  - `state/actions/sections/createSectionCatalogControlGroups.ts` owns static
+    metacontrol and embed creation presets.
+  - `state/actions/sections/createSectionCatalogGroupAssembly.ts` owns the
+    ordered base group assembly for section creation menus.
+  - `state/actions/sections/createSectionCatalogStatic.ts` is now the thin
+    compatibility facade over those catalog owners.
   - `state/actions/sections/createSectionCatalog.ts` now owns hook-time
     singleton/codegen/plugin gating for `useCreateSectionsList`.
   - `state/actions/sections/createSectionsHelper.ts` now owns the narrower
