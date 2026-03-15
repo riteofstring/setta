@@ -12,7 +12,7 @@ from setta.types.chat_messages import ToolChatMessage
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.api.chat_toolkit import ChatHistoryClient, ChatToolRunnerClient
-from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.api.generated_listener_endpoints import RouterEndpointAPI
 
 
 class TestChatToolkitListenerClient:
