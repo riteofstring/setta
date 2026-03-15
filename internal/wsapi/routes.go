@@ -189,6 +189,14 @@ func serveFrontendConnection(
 			deps.UISettingRevealResults.CancelRequestsForWebsocketID(connection.ID)
 		}
 	}()
+	if info.Modes.Policy.IsDeployment() && deps.Deployment != nil {
+		if err := deps.Deployment.EnsureListenerForSession(
+			info.Modes.ShareSessionID,
+			deps.Deployment.Manifest().DefaultProjectID,
+		); err != nil {
+			return err
+		}
+	}
 
 	if err := deps.WebsocketHub.SendFrontendIdentity(ctx, connection.ID); err != nil {
 		return err

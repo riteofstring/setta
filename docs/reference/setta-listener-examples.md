@@ -30,7 +30,8 @@ in a managed terminal session. It is separate from deployment-mode listeners
 
 ## Deployment listener entrypoint (share/app deployments)
 Deployments can ship a listener entrypoint at `listener/app.py`. If the deployment
-manifest enables it, Setta starts a listener per deployment session.
+manifest enables it, the Go backend starts a retained Python listener process per
+deployment session.
 
 The entrypoint should define either `build_listener` or `build_callbacks` and
 register callbacks on the provided `SettaListener`:

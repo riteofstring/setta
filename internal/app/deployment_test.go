@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/pythonenv"
 	"setta/internal/realtime"
 	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
@@ -178,6 +180,91 @@ func TestAppShareModeFrontendWebsocketUsesDeploymentShareSessions(t *testing.T) 
 	if !touched.LastSeenAt.After(session.LastSeenAt) {
 		t.Fatalf("expected websocket connect to advance last-seen time from %v to after %v", touched.LastSeenAt, session.LastSeenAt)
 	}
+}
+
+func TestAppShareModeFrontendWebsocketAutostartsDeploymentListenerWithBuildCallbacks(t *testing.T) {
+	serverListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen app server: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = serverListener.Close()
+	})
+
+	cfg := testDeploymentConfig(t, config.ModeShare)
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = serverListener.Addr().(*net.TCPAddr).Port
+	enableAppDeploymentListener(t, cfg.Paths.DeploymentRoot, `from setta.api import SettaListener
+
+def build_callbacks(listener: SettaListener) -> None:
+    return None
+`)
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv(pythonenv.InterpreterEnv, appTestWorkerPython(t, repoRoot))
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(serverListener)
+	}()
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+		select {
+		case serveErr := <-serverErrors:
+			if serveErr != nil && serveErr != http.ErrServerClosed {
+				t.Fatalf("serve app test server: %v", serveErr)
+			}
+		default:
+		}
+	})
+
+	if _, err := app.DeploymentRuntime().CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	serverURL := "http://" + serverListener.Addr().String()
+	conn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend,
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				modes.ShareSessionHeaderName: []string{"share-a"},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	if envelope.MessageType != realtime.MessageTypeFrontendIdentity {
+		t.Fatalf("expected frontend identity message, got %q", envelope.MessageType)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", "share-a")
+		if len(targets) == 1 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", "share-a")
+	t.Fatalf("expected autostarted deployment listener bootstrap for share-a/project-alpha, got %#v", targets)
 }
 
 func TestAppShareModeServesCurrentDeploymentSessionRoute(t *testing.T) {
@@ -438,6 +525,28 @@ func writeAppDeploymentFixture(t *testing.T, deploymentRoot string) {
 	writeAppJSON(t, filepath.Join(deploymentRoot, "policy.json"), map[string]any{
 		"allowRun": true,
 	})
+}
+
+func enableAppDeploymentListener(t *testing.T, deploymentRoot string, entrypointContent string) {
+	t.Helper()
+
+	writeAppJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v2",
+		"listener": map[string]any{
+			"entrypoint": "listener/app.py",
+			"enabled":    true,
+		},
+	})
+	if err := os.MkdirAll(filepath.Join(deploymentRoot, "listener"), 0o755); err != nil {
+		t.Fatalf("mkdir app deployment listener dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deploymentRoot, "listener", "app.py"), []byte(entrypointContent), 0o644); err != nil {
+		t.Fatalf("write app deployment listener entrypoint: %v", err)
+	}
 }
 
 func writeAppProjectDocument(t *testing.T, path string, document projectstate.Document) {

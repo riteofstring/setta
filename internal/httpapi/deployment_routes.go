@@ -156,6 +156,9 @@ func currentDeploymentSession(runtime *deployments.Runtime, request *http.Reques
 	if err != nil {
 		return deployments.Session{}, err
 	}
+	if err := runtime.EnsureListenerForSession(session.ID, runtime.Manifest().DefaultProjectID); err != nil {
+		return deployments.Session{}, err
+	}
 	return session, nil
 }
 
@@ -282,6 +285,11 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			return
 		}
 
+		if err := ensureDeploymentListener(runtime, r, projectConfigID); err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+
 		snapshot, err := currentDeploymentSnapshot(runtime, r)
 		if err != nil {
 			handleDeploymentProjectStateError(w, r, err)
@@ -326,6 +334,10 @@ func requireDeploymentMatch(w http.ResponseWriter, r *http.Request, runtime *dep
 }
 
 func currentDeploymentProjectState(runtime *deployments.Runtime, request *http.Request) (projectview.SingleConfig, error) {
+	defaultProjectID := runtime.Manifest().DefaultProjectID
+	if err := ensureDeploymentListener(runtime, request, defaultProjectID); err != nil {
+		return projectview.SingleConfig{}, err
+	}
 	snapshot, err := currentDeploymentSnapshot(runtime, request)
 	if err != nil {
 		return projectview.SingleConfig{}, err
@@ -334,6 +346,9 @@ func currentDeploymentProjectState(runtime *deployments.Runtime, request *http.R
 }
 
 func explicitDeploymentProjectState(runtime *deployments.Runtime, request *http.Request, projectConfigID string) (projectview.SingleConfig, error) {
+	if err := ensureDeploymentListener(runtime, request, projectConfigID); err != nil {
+		return projectview.SingleConfig{}, err
+	}
 	snapshot, err := currentDeploymentSnapshot(runtime, request)
 	if err != nil {
 		return projectview.SingleConfig{}, err
@@ -347,6 +362,14 @@ func currentDeploymentSnapshot(runtime *deployments.Runtime, request *http.Reque
 		return projectstate.Snapshot{}, &modes.MissingShareSessionError{}
 	}
 	return runtime.SessionSnapshot(requestInfo.ShareSessionID)
+}
+
+func ensureDeploymentListener(runtime *deployments.Runtime, request *http.Request, projectConfigID string) error {
+	requestInfo, ok := modes.RequestInfoFromRequest(request)
+	if !ok || strings.TrimSpace(requestInfo.ShareSessionID) == "" {
+		return &modes.MissingShareSessionError{}
+	}
+	return runtime.EnsureListenerForSession(requestInfo.ShareSessionID, projectConfigID)
 }
 
 func handleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, err error) {

@@ -38,6 +38,9 @@ type RuntimeOptions struct {
 	IDGenerator    func() string
 	Now            func() time.Time
 	SessionTTL     time.Duration
+	ListenerHost   string
+	ListenerPort   int
+	ListenerPython string
 }
 
 type Runtime struct {
@@ -46,6 +49,7 @@ type Runtime struct {
 	policy   Policy
 	base     *projectstate.Runtime
 	overlays *projectstate.SessionOverlayRegistry
+	listener *deploymentListenerRuntime
 
 	idGenerator func() string
 	now         func() time.Time
@@ -66,6 +70,10 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 		return nil, err
 	}
 	policy, err := LoadPolicy(paths.DeploymentRoot)
+	if err != nil {
+		return nil, err
+	}
+	listenerRuntime, err := newDeploymentListenerRuntime(paths.DeploymentRoot, paths.RuntimeRoot, opts, manifest)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +129,7 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 		policy:      policy,
 		base:        baseRuntime,
 		overlays:    overlayRegistry,
+		listener:    listenerRuntime,
 		idGenerator: idGenerator,
 		now:         now,
 		sessionTTL:  sessionTTL,
@@ -132,7 +141,7 @@ func (r *Runtime) Close() error {
 	if r == nil {
 		return nil
 	}
-	return errors.Join(r.overlays.Close(), r.base.Close())
+	return errors.Join(r.listener.close(), r.overlays.Close(), r.base.Close())
 }
 
 func (r *Runtime) Paths() projectstate.DeploymentPathPolicy {
@@ -288,6 +297,9 @@ func (r *Runtime) CleanupExpiredSessions() ([]string, error) {
 
 	var err error
 	for _, sessionID := range expiredIDs {
+		if r.listener != nil {
+			r.listener.dropSession(sessionID)
+		}
 		if deleteErr := r.overlays.Delete(sessionID); deleteErr != nil && !errors.Is(deleteErr, projectstate.ErrUnknownOverlaySession) {
 			err = errors.Join(err, deleteErr)
 		}
@@ -341,6 +353,9 @@ func (r *Runtime) DeleteSession(sessionID string) error {
 		}
 		return err
 	}
+	if r.listener != nil {
+		r.listener.dropSession(trimmedID)
+	}
 	return nil
 }
 
@@ -381,6 +396,50 @@ func (r *Runtime) SessionSnapshot(sessionID string) (projectstate.Snapshot, erro
 		return projectstate.Snapshot{}, err
 	}
 	return runtime.Snapshot(), nil
+}
+
+func (r *Runtime) EnsureListenerForSession(sessionID string, projectID string) error {
+	if r == nil {
+		return ErrRuntimeRequired
+	}
+
+	trimmedSessionID := strings.TrimSpace(sessionID)
+	if trimmedSessionID == "" {
+		return ErrDeploymentListenerSessionRequired
+	}
+	if r.listener != nil && strings.TrimSpace(projectID) == "" {
+		return ErrDeploymentListenerProjectRequired
+	}
+	if _, err := r.requireSession(trimmedSessionID); err != nil {
+		return err
+	}
+	if r.listener == nil {
+		return nil
+	}
+	return r.listener.ensure(trimmedSessionID, projectID)
+}
+
+func (r *Runtime) DeploymentListenerHandleCount() int {
+	if r == nil || r.listener == nil {
+		return 0
+	}
+	r.listener.mu.Lock()
+	defer r.listener.mu.Unlock()
+	return len(r.listener.handles)
+}
+
+func (r *Runtime) HasDeploymentListenerHandle(sessionID string, projectID string) bool {
+	if r == nil || r.listener == nil {
+		return false
+	}
+	key := deploymentListenerHandleKey{
+		SessionID: strings.TrimSpace(sessionID),
+		ProjectID: strings.TrimSpace(projectID),
+	}
+	r.listener.mu.Lock()
+	defer r.listener.mu.Unlock()
+	_, ok := r.listener.handles[key]
+	return ok
 }
 
 func (r *Runtime) LoadAppSpec(appDefinition *projectstate.AppDefinition) (any, error) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 	"time"
 
@@ -497,6 +498,91 @@ func TestRuntimeLoadAppSpecReadsDeploymentRelativePath(t *testing.T) {
 	}
 }
 
+func TestOpenFailsClosedWhenEnabledDeploymentListenerEntrypointMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentFixture(t, root, singleProjectDocument("project-alpha", "Alpha"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+		"listener": map[string]any{
+			"entrypoint": "listener/app.py",
+			"enabled":    true,
+		},
+	}, map[string]any{})
+
+	_, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+		ListenerPython: deploymentTestPython(t),
+	})
+	if !errors.Is(err, ErrDeploymentListenerEntrypointMissing) {
+		t.Fatalf("expected missing listener entrypoint error, got %v", err)
+	}
+}
+
+func TestRuntimeEnsureListenerForSessionRequiresSessionID(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := openTestDeploymentRuntimeWithListener(t, `def build_listener(listener):
+    return None
+`)
+
+	if err := deploymentRuntime.EnsureListenerForSession("", "project-alpha"); !errors.Is(err, ErrDeploymentListenerSessionRequired) {
+		t.Fatalf("expected missing session id error, got %v", err)
+	}
+}
+
+func TestRuntimeDeploymentListenerHandlesAreScopedBySessionAndProject(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := openTestDeploymentRuntimeWithListener(t, `def build_listener(listener):
+    return None
+`)
+	if _, err := deploymentRuntime.CreateSessionWithID("session-a"); err != nil {
+		t.Fatalf("create session-a: %v", err)
+	}
+
+	if err := deploymentRuntime.EnsureListenerForSession("session-a", "project-alpha"); err != nil {
+		t.Fatalf("ensure listener for default project: %v", err)
+	}
+	if err := deploymentRuntime.EnsureListenerForSession("session-a", "project-beta"); err != nil {
+		t.Fatalf("ensure listener for second project: %v", err)
+	}
+	if err := deploymentRuntime.EnsureListenerForSession("session-a", "project-alpha"); err != nil {
+		t.Fatalf("re-ensure listener for default project: %v", err)
+	}
+
+	waitForDeploymentListenerHandleCount(t, deploymentRuntime, 2)
+
+	deploymentRuntime.listener.dropSession("session-a")
+	waitForDeploymentListenerHandleCount(t, deploymentRuntime, 0)
+}
+
+func TestRuntimeDeploymentListenerDropsCompletedHandle(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := openTestDeploymentRuntimeWithListener(t, `import os
+import threading
+
+def build_listener(listener):
+    threading.Timer(0.05, lambda: os._exit(0)).start()
+`)
+	if _, err := deploymentRuntime.CreateSessionWithID("session-a"); err != nil {
+		t.Fatalf("create session-a: %v", err)
+	}
+
+	if err := deploymentRuntime.EnsureListenerForSession("session-a", "project-alpha"); err != nil {
+		t.Fatalf("ensure listener: %v", err)
+	}
+
+	waitForDeploymentListenerHandleCount(t, deploymentRuntime, 0)
+}
+
 func openTestDeploymentRuntime(t *testing.T) *Runtime {
 	t.Helper()
 
@@ -516,6 +602,42 @@ func openTestDeploymentRuntime(t *testing.T) *Runtime {
 	})
 	if err != nil {
 		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+	return deploymentRuntime
+}
+
+func openTestDeploymentRuntimeWithListener(t *testing.T, entrypointContent string) *Runtime {
+	t.Helper()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentFixture(t, root, singleProjectDocument("project-alpha", "Alpha"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+		"listener": map[string]any{
+			"entrypoint": "listener/app.py",
+			"enabled":    true,
+		},
+	}, map[string]any{})
+	writeDeploymentListenerFile(t, root, entrypointContent)
+
+	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+		ListenerHost:   "127.0.0.1",
+		ListenerPort:   65535,
+		ListenerPython: deploymentTestPython(t),
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime with listener: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := deploymentRuntime.Close(); err != nil {
@@ -567,6 +689,64 @@ func writeDeploymentJSON(t *testing.T, path string, payload any) {
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
 		t.Fatalf("write deployment json: %v", err)
 	}
+}
+
+func writeDeploymentListenerFile(t *testing.T, root string, content string) {
+	t.Helper()
+
+	path := filepath.Join(root, "listener", "app.py")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir deployment listener dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write deployment listener entrypoint: %v", err)
+	}
+}
+
+func waitForDeploymentListenerHandleCount(t *testing.T, runtime *Runtime, expected int) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		runtime.listener.mu.Lock()
+		count := len(runtime.listener.handles)
+		runtime.listener.mu.Unlock()
+		if count == expected {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	runtime.listener.mu.Lock()
+	count := len(runtime.listener.handles)
+	keys := make([]deploymentListenerHandleKey, 0, len(runtime.listener.handles))
+	for key := range runtime.listener.handles {
+		keys = append(keys, key)
+	}
+	runtime.listener.mu.Unlock()
+	t.Fatalf("expected %d deployment listener handles, got %d with keys %#v", expected, count, keys)
+}
+
+func deploymentTestPython(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := goruntime.Caller(0)
+	if !ok {
+		t.Fatal("resolve deployment test file")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	candidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
+	return ""
 }
 
 func singleProjectDocument(projectID string, name string) projectstate.Document {

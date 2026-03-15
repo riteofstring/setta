@@ -272,9 +272,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 	}
 	if modePolicy.IsDeployment() {
+		listenerPython, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
+		if err != nil {
+			listenerPython = ""
+		}
 		deploymentRuntime, err = deployments.Open(context.Background(), deployments.RuntimeOptions{
 			DeploymentRoot: cfg.Paths.DeploymentRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
+			ListenerHost:   cfg.Server.Host,
+			ListenerPort:   cfg.Server.Port,
+			ListenerPython: listenerPython,
 		})
 		if err != nil {
 			return nil, err

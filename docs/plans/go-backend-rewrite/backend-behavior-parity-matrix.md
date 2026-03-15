@@ -148,8 +148,8 @@ It covers:
   adds no new concrete gap.
 - The desktop-launcher bootstrap/native-installer/release-tooling slice mostly
   closes with proofs and adds no new concrete gap.
-- The deployment-listener manifest/runtime slice closes publish/defaulting
-  behavior, but it adds one real runtime gap (`DL-02`).
+- The deployment-listener manifest/runtime slice now closes with proofs and
+  retains no further concrete gap.
 - The chat-section persistence / stale-chat-cleanup slice mostly closes with
   proofs, but it now only adds one dormant direct-HTTP read boundary row and
   one proof-gap row.
@@ -331,8 +331,6 @@ It covers:
     (`AU-04`)
 - The deployment publish/session slice mostly closes with proofs and now
   retains:
-  - one real behavior gap around missing deployment-listener autostart
-    (`DP-08`)
   - one broader proof-gap row around typed publish validation/error mapping
     (`DP-05`)
   - two dormant transport/mode-boundary rows (`DP-02`, `DP-07`)
@@ -777,7 +775,7 @@ It covers:
 | `DP-05` | Publish transport preserves typed validation/error mapping for missing project config, invalid deployment names/policies, missing app definition, and missing/invalid app spec inputs. | Source routes: `backend/setta/routers/share_deployments.py::route_publish_share_deployment`; `backend/setta/routers/app_deployments.py::route_publish_app_deployment`; source tests: `tests/routers/test_app_deployments.py::{test_requires_app_definition,test_requires_app_spec_path}`. | Impl: `internal/httpapi/deployment_ide_routes.go::handleDeploymentPublishError`; publish services: `internal/deployments/share_publish.go`; `internal/deployments/app_publish.go`. | `Implemented, proof incomplete` | Current Go code has the typed branches, but this slice does not yet cite direct Go route tests for those error mappings. |
 | `DP-06` | Publish and deployment project-config request bodies reject unknown extra JSON fields instead of accepting them silently. | Source request models use `extra=\"forbid\"`: `backend/setta/routers/share_deployments.py::{PublishShareDeploymentRequest,LoadShareProjectConfigRequest}`; `backend/setta/routers/app_deployments.py::{PublishAppDeploymentRequest,LoadAppProjectConfigRequest}`. | Impl: `internal/httpapi/deployment_ide_routes.go::{publishShareDeploymentHandler,publishAppDeploymentHandler}`; `internal/httpapi/deployment_routes.go::{shareDeploymentProjectConfigHandler,appDeploymentProjectConfigHandler}`; strict decoder: `internal/httpapi/launcher_management_routes.go::decodeStrictJSONBody`; proof: `internal/httpapi/deployment_ide_routes_test.go::TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish`; `internal/httpapi/deployment_routes_test.go::TestRegisterDeploymentRoutesRejectUnknownFieldsOnProjectConfigLoad`. | `Proved` | Go now rejects unknown fields on both publish and deployment project-config request bodies instead of silently accepting them. |
 | `DP-07` | Source catalog surfaces keep `versions/latest` mounted and, in deployment mode, block list/version reads with `403` while returning redacted `latest` metadata for the active deployment. | Source routes: `backend/setta/routers/share_deployments.py::{route_list_share_deployments,route_list_share_deployment_versions,route_get_latest_share_deployment}`; `backend/setta/routers/app_deployments.py::{route_list_app_deployments,route_list_app_deployment_versions,route_get_latest_app_deployment}`; source tests: `tests/routers/test_share_sessions.py::{test_share_mode_blocks_deployment_lists,test_share_mode_latest_redacts_paths}`. | Current Go only mounts catalog routes in IDE mode via `internal/httpapi/deployment_ide_routes.go::RegisterDeploymentIDERoutes`; outside IDE they disappear rather than returning source-style `403`/redacted payloads; current active modal callers stay in IDE: `frontend/src/components/Modals/ShareDeploymentsModal/PublishShareDeploymentModal.tsx`; `frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal.tsx`. | `Dormant / unproven caller` | Current active UI does not rely on deployment-mode `list/version/latest`, so this slice records the transport delta without yet classifying it as a live product gap. |
-| `DP-08` | Enabled deployment listener entrypoints (`listener/app.py`) auto-start per deployment session on deployment frontend/state bootstrap and bind to the session-scoped Go listener websocket transport. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; `docs/reference/setta-listener-examples.md`; source bootstrap paths: `backend/setta/routers/share_deployments.py::{route_get_share_deployment_state,route_load_share_project_config}`; `backend/setta/routers/websocket.py::{route_websocket_frontend,route_websocket_share_frontend}`; source retained loader/tests: `backend/setta/share/listener_runtime.py`; `tests/share/test_listener_runtime.py`. | Current Go still publishes listener metadata and exposes the retained listener websocket protocol, but there is no deployment-session loader path: `internal/httpapi/deployment_ide_routes.go::{publishShareDeploymentHandler,publishAppDeploymentHandler}` copies listener config; `internal/wsapi/routes.go` only handles client-initiated `ListenerInit`; `internal/app/app.go` wires deployment runtime plus listener broadcaster without any retained Python loader/runtime invocation. | `Missing` | Current docs and publish modals still expose deployment listener entrypoints, but current Go never launches a retained loader or equivalent runtime per share/app deployment session. |
+| `DP-08` | Enabled deployment listener entrypoints (`listener/app.py`) auto-start per deployment session on deployment frontend/state bootstrap and bind to the session-scoped Go listener websocket transport. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; `docs/reference/setta-listener-examples.md`; source bootstrap paths: `backend/setta/routers/share_deployments.py::{route_get_share_deployment_state,route_load_share_project_config}`; `backend/setta/routers/websocket.py::{route_websocket_frontend,route_websocket_share_frontend}`; source retained loader/tests: `backend/setta/share/listener_runtime.py`; `tests/share/test_listener_runtime.py`. | Impl: retained Python launcher `backend/setta/share/deployment_listener_process.py`; deployment runtime/session hooks `internal/deployments/{listener_runtime.go,runtime.go}`; bootstrap hooks `internal/httpapi/deployment_routes.go`; frontend websocket hook `internal/wsapi/routes.go::serveFrontendConnection`; app wiring `internal/app/app.go`; proof: `internal/httpapi/deployment_routes_test.go::{TestRegisterDeploymentRoutesCurrentSessionStartsDefaultDeploymentListener,TestRegisterDeploymentRoutesShareProjectConfigStartsExplicitDeploymentListener}`; app proof: `internal/app/deployment_test.go::TestAppShareModeFrontendWebsocketAutostartsDeploymentListenerWithBuildCallbacks`. | `Proved` | Go now starts a retained Python listener process per `(shareSessionId, projectConfigId)` on deployment bootstrap paths and the listener connects back over the Go `/ws/listeners/{listenerID}` transport with share-session scoping. |
 
 ## Status, Server Mode, And Launcher Surfaces
 
@@ -1124,13 +1122,11 @@ It covers:
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `DL-01` | Publishing share/app deployments preserves listener config, rewrites the listener entrypoint into the canonical `listener/app.py` deployment path, copies the listener file into the deployment root, and defaults `listener.enabled` to `true` when omitted from the deployment manifest. | Source docs: `docs/reference/sharing-mode-vs-ide-mode.md`; source model: `backend/setta/types/share_deployment.py::{DeploymentListenerConfig,DeploymentManifest}`; source retained runtime: `backend/setta/share/listener_runtime.py`. | Impl: `internal/deployments/{share_publish.go,app_publish.go,manifest.go}`; proof: `internal/deployments/share_publish_test.go::TestSharePublisherCopiesListenerEntrypoint`; `internal/deployments/app_publish_test.go::TestAppPublisherCopiesListenerEntrypoint`; `internal/deployments/runtime_test.go::TestLoadManifestDefaultsListenerEnabled`. | `Proved` | Current Go still carries listener metadata and copied listener files inside published deployment snapshots even though session runtime startup is tracked separately below. |
-| `DL-02` | The deployment listener runtime fails closed on a missing entrypoint or missing session id, keys listener handles by `(shareSessionId, projectConfigId)`, accepts either `build_listener` or `build_callbacks`, and drops stopped/completed per-session handles and loaded modules. | Source docs: `docs/reference/setta-listener-examples.md`; `docs/reference/sharing-mode-vs-ide-mode.md`; source retained runtime: `backend/setta/share/listener_runtime.py`; source tests: `tests/share/test_listener_runtime.py::{test_missing_entrypoint_raises,test_requires_session_id,test_uses_build_callbacks_fallback_when_build_listener_is_missing,test_stop_session_listener_and_stop_all,test_session_handles_are_scoped_by_config,test_completed_listener_task_drops_handle_and_module}`. | Current Go deployment runtime only manages overlays/sessions in `internal/deployments/runtime.go`; deployment HTTP bootstrap paths in `internal/httpapi/deployment_routes.go` create sessions but never launch a retained listener runtime; websocket wiring in `internal/wsapi/routes.go` still assumes a client-initiated listener websocket rather than a deployment-owned runtime manager. | `Missing` | `DP-08` separately tracks the missing auto-start/session-bootstrap behavior. This row captures the deeper retained-runtime lifecycle contract that still has no Go equivalent once a deployment listener is published. |
+| `DL-02` | The deployment listener runtime fails closed on a missing entrypoint or missing session id, keys listener handles by `(shareSessionId, projectConfigId)`, accepts either `build_listener` or `build_callbacks`, and drops stopped/completed per-session handles and loaded modules. | Source docs: `docs/reference/setta-listener-examples.md`; `docs/reference/sharing-mode-vs-ide-mode.md`; source retained runtime: `backend/setta/share/listener_runtime.py`; source tests: `tests/share/test_listener_runtime.py::{test_missing_entrypoint_raises,test_requires_session_id,test_uses_build_callbacks_fallback_when_build_listener_is_missing,test_stop_session_listener_and_stop_all,test_session_handles_are_scoped_by_config,test_completed_listener_task_drops_handle_and_module}`. | Impl: retained Python launcher `backend/setta/share/deployment_listener_process.py`; deployment listener runtime `internal/deployments/{listener_runtime.go,runtime.go}`; proof: `internal/deployments/runtime_test.go::{TestOpenFailsClosedWhenEnabledDeploymentListenerEntrypointMissing,TestRuntimeEnsureListenerForSessionRequiresSessionID,TestRuntimeDeploymentListenerHandlesAreScopedBySessionAndProject,TestRuntimeDeploymentListenerDropsCompletedHandle}`; app proof: `internal/app/deployment_test.go::TestAppShareModeFrontendWebsocketAutostartsDeploymentListenerWithBuildCallbacks`. | `Proved` | The Go equivalent keeps retained Python listener subprocess handles keyed by `(shareSessionId, projectConfigId)`; dropping or completing a process removes the handle and the subprocess-local loaded module state together. |
 
 ## Current Findings
 
-1. The matrix now contains two concrete source-parity gaps:
-   `DP-08`,
-   `DL-02`.
+1. The matrix no longer contains any concrete source-parity gaps.
 2. The prompt-template slice now closes with:
    - linked-section refresh and delete/reference proofs (`PT-06`, `PT-08`)
    - documented transport/realtime divergence (`PT-04`, `PT-05`, `PT-07`)
@@ -1191,10 +1187,9 @@ It covers:
     restart-capability proof gap (`PL-08`).
 23. The auth/bootstrap/share-session slice now closes its real behavior gaps
     and retains one broader consume-transport proof gap (`AU-04`).
-24. The deployment publish/session slice mostly closes with proofs, and it
-    now carries one real behavior gap (`DP-08`), one broader publish-error
-    proof gap (`DP-05`), and two dormant transport/mode-boundary rows
-    (`DP-02`, `DP-07`).
+24. The deployment publish/session slice now closes its real behavior gaps
+    and retains one broader publish-error proof gap (`DP-05`) plus two
+    dormant transport/mode-boundary rows (`DP-02`, `DP-07`).
 25. The code-edit/LSP/watch-code slice mostly closes with proofs and now
     retains four broader proof-gap rows (`CE-02`, `LD-04`, `TC-02`, `WC-02`).
 26. The docstring/completion/signature-help slice adds no new real behavior
@@ -1255,17 +1250,14 @@ It covers:
     it adds no new real behavior gap.
 49. The desktop-launcher bootstrap/native-installer/release-tooling slice
     mostly closes with proofs, and it adds no new real behavior gap.
-50. The deployment-listener manifest/runtime slice closes publish/defaulting
-    behavior, but it adds one real runtime gap (`DL-02`) on top of the
-    already-missing deployment listener session bootstrap (`DP-08`).
+50. The deployment-listener manifest/runtime slice now closes with proofs and
+    adds no remaining concrete gap.
 51. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `DP-08` and `DL-02` should be restored or documented as
-      intentional divergences
     - decide whether `BP-03` still matters for any active Go-era share caller
       or can be classified as a dead-path transport
     - decide whether `CP-04`, `PW-04`, `DP-02`, `DP-07`, `AP-04`, `LM-03`,

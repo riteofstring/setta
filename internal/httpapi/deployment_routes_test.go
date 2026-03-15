@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -210,6 +211,36 @@ func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
 	}
 }
 
+func TestRegisterDeploymentRoutesCurrentSessionStartsDefaultDeploymentListener(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeApp,
+		Now:         &now,
+		GeneratedID: "generated-app",
+		ListenerEntrypoint: `def build_listener(listener):
+    return None
+`,
+	})
+	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload AppDeploymentSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode app current-session response: %v", err)
+	}
+
+	waitForHTTPDeploymentListenerHandleCount(t, deploymentRuntime, 1)
+	assertHTTPDeploymentListenerHandle(t, deploymentRuntime, payload.ShareSessionID, "project-alpha")
+}
+
 func TestRegisterDeploymentRoutesLoadsShareDeploymentStateFromOverlaySession(t *testing.T) {
 	t.Parallel()
 
@@ -297,6 +328,36 @@ func TestRegisterDeploymentRoutesLoadsShareDeploymentProjectConfig(t *testing.T)
 	if payload.ProjectState.ProjectConfig.ID != "project-beta" {
 		t.Fatalf("expected project-beta config, got %q", payload.ProjectState.ProjectConfig.ID)
 	}
+}
+
+func TestRegisterDeploymentRoutesShareProjectConfigStartsExplicitDeploymentListener(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeShare,
+		Now:         &now,
+		GeneratedID: "generated-share",
+		ListenerEntrypoint: `def build_listener(listener):
+    return None
+`,
+	})
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+	handler := newDeploymentRouteTestHandler(t, config.ModeShare, deploymentRuntime)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/share/deployments/demo-share/v1/project_config", strings.NewReader(`{"projectConfigId":"project-beta"}`))
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+	request = setDeploymentRouteParams(request, "demo-share", "v1")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	waitForHTTPDeploymentListenerHandleCount(t, deploymentRuntime, 1)
+	assertHTTPDeploymentListenerHandle(t, deploymentRuntime, "share-a", "project-beta")
 }
 
 func TestRegisterDeploymentRoutesShareStateRequiresSession(t *testing.T) {
@@ -568,14 +629,15 @@ func TestRegisterDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T) {
 }
 
 type httpTestDeploymentRuntimeOptions struct {
-	Mode              config.Mode
-	Now               *time.Time
-	GeneratedID       string
-	DeploymentName    string
-	DeploymentVersion string
-	Document          projectstate.Document
-	Policy            map[string]any
-	ExtraFiles        map[string]any
+	Mode               config.Mode
+	Now                *time.Time
+	GeneratedID        string
+	DeploymentName     string
+	DeploymentVersion  string
+	Document           projectstate.Document
+	Policy             map[string]any
+	ExtraFiles         map[string]any
+	ListenerEntrypoint string
 }
 
 func newDeploymentRouteTestHandler(t *testing.T, mode config.Mode, deploymentRuntime *deployments.Runtime) http.Handler {
@@ -669,10 +731,22 @@ func newHTTPTestDeploymentRuntimeWithOptions(t *testing.T, opts httpTestDeployme
 		"deploymentType":         deploymentType,
 		"defaultProjectConfigId": defaultProjectID,
 		"deploymentVersion":      deploymentVersion,
+		"listener": func() any {
+			if strings.TrimSpace(opts.ListenerEntrypoint) == "" {
+				return nil
+			}
+			return map[string]any{
+				"entrypoint": "listener/app.py",
+				"enabled":    true,
+			}
+		}(),
 	})
 	writeHTTPDeploymentJSON(t, filepath.Join(root, "policy.json"), policy)
 	for relativePath, payload := range opts.ExtraFiles {
 		writeHTTPDeploymentJSON(t, filepath.Join(root, relativePath), payload)
+	}
+	if strings.TrimSpace(opts.ListenerEntrypoint) != "" {
+		writeHTTPDeploymentFile(t, filepath.Join(root, "listener", "app.py"), opts.ListenerEntrypoint)
 	}
 
 	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
@@ -684,6 +758,9 @@ func newHTTPTestDeploymentRuntimeWithOptions(t *testing.T, opts httpTestDeployme
 		IDGenerator: func() string {
 			return opts.GeneratedID
 		},
+		ListenerHost:   "127.0.0.1",
+		ListenerPort:   65535,
+		ListenerPython: httpTestDeploymentPython(t),
 	})
 	if err != nil {
 		t.Fatalf("open deployment runtime: %v", err)
@@ -727,4 +804,59 @@ func writeHTTPDeploymentJSON(t *testing.T, path string, payload any) {
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
 		t.Fatalf("write deployment json: %v", err)
 	}
+}
+
+func writeHTTPDeploymentFile(t *testing.T, path string, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir deployment file dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write deployment file: %v", err)
+	}
+}
+
+func waitForHTTPDeploymentListenerHandleCount(t *testing.T, runtime *deployments.Runtime, expected int) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if runtime.DeploymentListenerHandleCount() == expected {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf("expected %d deployment listener handles, got %d", expected, runtime.DeploymentListenerHandleCount())
+}
+
+func assertHTTPDeploymentListenerHandle(t *testing.T, runtime *deployments.Runtime, sessionID string, projectID string) {
+	t.Helper()
+
+	if !runtime.HasDeploymentListenerHandle(sessionID, projectID) {
+		t.Fatalf("expected deployment listener handle for %s/%s", sessionID, projectID)
+	}
+}
+
+func httpTestDeploymentPython(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve deployment routes test file")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	candidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
+	return ""
 }
