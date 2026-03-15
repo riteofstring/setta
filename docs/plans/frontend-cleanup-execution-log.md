@@ -5,6 +5,11 @@ Append-only log of completed frontend cleanup slices.
 Use [frontend/src/README.md](../../frontend/src/README.md) as the current
 module map and placement guide while this cleanup progresses.
 
+Historical note: older "Next highest-value unblocked slice" bullets record what
+was locally true when that entry was written. They are useful context, but they
+are not authoritative once newer hotspot rankings or ownership boundaries land
+in `frontend/src/README.md` and the cleanup plans.
+
 ## 2026-03-14 14:06:02 PDT
 
 - Slice completed: Phase 0 frontend cleanup foundation refresh

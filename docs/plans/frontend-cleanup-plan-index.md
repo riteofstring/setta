@@ -15,10 +15,12 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Core Plan
 
 - [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
-  - Shared principles, hotspot summary, and the chat/project-AI/windowing/browser/runtime tracks.
+  - Shared principles, hotspot summary, and cross-domain prioritization rules.
 
 ## Companion Plans
 
+- [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
+  - Shared chat rendering, project-AI surfaces, and project chat windowing hotspots.
 - [frontend-pages-shell-cleanup-plan.md](./frontend-pages-shell-cleanup-plan.md)
   - Routing, app shell composition, home/launcher/share pages, and standalone project surfaces.
 - [frontend-panes-and-authoring-cleanup-plan.md](./frontend-panes-and-authoring-cleanup-plan.md)
@@ -32,12 +34,15 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 
 ## Suggested Reading Order
 
-1. Read [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) for the overall direction.
-2. Pick the companion plan that matches the feature you are changing.
-3. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
-4. Re-check the current tree before acting on any exact file-size or hotspot claim in these docs.
+1. Read [frontend/src/README.md](../../frontend/src/README.md) for the current hotspot list, ownership map, and placement rules.
+2. Read [frontend-cleanup-plan.md](./frontend-cleanup-plan.md) for the overall direction and current prioritization pivot.
+3. Read [frontend-cleanup-execution-log.md](./frontend-cleanup-execution-log.md) for recent slices, but treat older "next slice" notes as historical context rather than automatic instructions.
+4. Pick the companion plan that matches the feature you are changing.
+5. If a change crosses multiple domains, prefer the tighter domain boundary and only pull in the second plan if necessary.
+6. Re-check the current tree before acting on any exact file-size or hotspot claim in these docs.
 
 ## Coverage Notes
 
-- Chat, project-AI, project chat windowing, browser/file-management hotspots, and app/plugin runtime are already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md).
+- Chat, project-AI, and project chat windowing hotspots now have a dedicated companion plan in [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md).
+- Browser/file-management hotspots and app/plugin runtime remain covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md).
 - The companion plans cover the rest of the authored frontend surface so the cleanup roadmap is distributed rather than concentrated in one document.

@@ -73,6 +73,37 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1753 lines
+
+## Current Pivot (2026-03-15)
+
+- Phase 0 documentation work is in place, and many of the old state monoliths
+  have already been split into stable helper seams plus thin compatibility
+  facades.
+- Future cleanup should default to the remaining giant render-heavy hotspots,
+  not to more taxonomic splitting of already smaller `state/actions` modules.
+- In practice that means the next default priority order is:
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/components/App/appRegistry.tsx`
+- Do not pick a smaller `state/actions` or `state/hooks` split while a
+  same-domain 2000+ line UI file remains, unless the lower-level extraction is
+  a direct prerequisite for simplifying that larger file.
+- Treat the existing thin compatibility facades as acceptable transition
+  surfaces for now. Only spend time on them when doing so directly reduces the
+  mixed responsibilities in one of the top hotspots above.
+- Use [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
+  for the shared chat/project-AI/windowing cluster instead of keeping that work
+  only in this core plan.
+
+## Existing Seams To Preserve
+
 - `frontend/src/state/actions/aiChatStreaming.ts` is now 181 lines and owns the public streaming entrypoint plus managed-chat detail updates, while `frontend/src/state/actions/aiChatStreamingChunkContext.ts` owns placeholder filtering, project/section context resolution, and chatId-to-section lookup caching, `frontend/src/state/actions/aiChatStreamingSectionRouting.ts` owns stream-active tracking, section persistence, tool-preview cleanup, and scope-violation side effects, `frontend/src/state/actions/aiChatStreamingRouting.ts` is now a thin compatibility facade, `frontend/src/state/actions/aiChatStreamingMessageDeltas.ts` owns assistant placeholder creation plus shared text/thinking delta reducers, `frontend/src/state/actions/aiChatStreamingMessageUpserts.ts` owns finalized-assistant merge plus generic message upserts and response-placeholder detection, `frontend/src/state/actions/aiChatStreamingMessages.ts` is now a thin compatibility facade, `frontend/src/state/actions/aiChatStreamingSectionState.ts` owns managed chat-section reconciliation, `frontend/src/state/actions/aiChatStreamingToolCalls.ts` owns shared tool-call placeholder/delta reducers, `frontend/src/state/actions/aiChatStreamingToolPreviews.ts` owns preview-store updates plus app-spec patch preview application, and `frontend/src/state/actions/aiChatStreamingAppDefinition.ts` owns app-definition tool result handling after retiring `frontend/src/state/actions/ai.ts`.
 - `frontend/src/state/actions/chatMessageMerge.ts` now owns generic message completeness scoring plus message merge normalization, `frontend/src/state/actions/chatHydrationMerge.ts` now owns hydration-time local-vs-backend chat reconciliation for in-flight overlays, and `frontend/src/state/actions/chatMergeUtils.ts` is now the thin compatibility facade.
 - `frontend/src/state/actions/chatBranchState.ts` now owns branch bootstrap, active-branch fallback, and incoming-message sync, `frontend/src/state/actions/chatBranchEditing.ts` now owns edited-message history truncation plus child-branch creation, `frontend/src/state/actions/chatBranchIndexState.ts` now owns branch-index derivation from section branch records, and `frontend/src/state/actions/chatBranches.ts` is now the thin compatibility facade.
@@ -656,16 +687,20 @@ Notes:
   - exceptions must be deliberate and documented
 - Define a small set of allowed patterns for store access, selector creation, transport wrappers, and test placement so Codex agents are not guessing.
 
-## Phase 1: Split The Chat Domain First
+## Phase 1: Simplify Chat, Project AI, And Windowing First
 
 - Start with the highest-traffic shared path:
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
-  - `frontend/src/state/actions/aiChatStreaming.ts`
+- Use [frontend-chat-project-ai-windowing-cleanup-plan.md](./frontend-chat-project-ai-windowing-cleanup-plan.md)
+  as the detailed companion plan for this cluster.
 - Keep existing feature-local helpers in `frontend/src/components/Panes/Overview/ProjectLevelAI/` and adjacent chat directories as stable seams instead of folding behavior back into the large surface files.
+- Only take a lower-level chat/windowing state split when it is a direct
+  prerequisite for simplifying one of the render-heavy surfaces above.
 - Break `ChatMessages.tsx` into distinct modules:
   - message content rendering
   - assistant activity/timeline rendering
@@ -679,7 +714,9 @@ Notes:
   - slash command resolution
   - dictation/transcription controls
   - presentational subcomponents
-- Continue splitting streaming-heavy chat action modules into domain commands with obvious names such as:
+- Continue simplifying the lower-level chat/windowing action modules only when
+  the extraction removes mixed responsibilities from one of the large UI
+  surfaces above, for example around:
   - chat submission/editing
   - chat hydration
   - chat streaming reducers
@@ -764,11 +801,10 @@ Notes:
 ## Recommended Execution Order
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
-2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiChatSubmissionPayload.ts`, `state/actions/websocketLifecycleHandlers.ts`, `state/actions/edges.ts`, `state/actions/projectChatWindowingSectionState.ts`, `state/actions/stateMachineEdgeMutations.ts`, or the shared chat UI surfaces.
-3. Continue the project chat windowing split from the existing `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingStateNormalization.ts`, `projectChatWindowingNormalization.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingInstanceState.ts`, `projectChatWindowingPlacementState.ts`, `projectChatWindowingBoundsState.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingSectionState.ts`, `projectChatWindowingMetadataState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWriteState.ts`, `projectChatWindowingWriteQueue.ts`, `projectChatWindowingWritePublish.ts`, `projectChatWindowingWriteSync.ts`, `projectChatWindowingWritePipeline.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, `projectChatWindowingEphemeralKeys.ts`, `projectChatWindowingTrackedGitPaneState.ts`, `projectChatWindowingEmbeddedPaneVisibility.ts`, and `projectChatWindowingEphemeral.ts` seams.
-4. Clean up file browser and section layout hotspots.
-5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
-6. Add feature READMEs as each area stabilizes.
+2. Choose the highest unresolved UI hotspot from `frontend/src/README.md`, usually `components/Chat/ChatMessages.tsx`, `components/ChatWindowing/ProjectChatBottomDock.tsx`, `components/Chat/ChatInput.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`, `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `components/Section/Layouts/BrowserArea.tsx`, `plugins/runtime.ts`, or `components/App/appRegistry.tsx`.
+3. Only choose a smaller `state/actions` or `state/hooks` slice when it is a direct prerequisite for simplifying one of those larger hotspots or when it deletes a now-unnecessary compatibility surface after callers have converged.
+4. Continue project chat windowing, file browser, section layout, page, pane, and runtime cleanup from the companion plans once the highest current hotspot in that area is clear.
+5. Add feature READMEs as each area stabilizes.
 
 ## Notes
 

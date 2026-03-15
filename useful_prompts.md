@@ -96,24 +96,43 @@ Output requirements:
 
 Goal: clean up the authored frontend so it is easier for coding agents and humans to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
 
-This is an autonomous execution session. Work independently and make reasonable assumptions from the current code, repo instructions, and cleanup docs. Only stop to ask a question if behavior intent is genuinely ambiguous after reading the code/docs, or if you hit conflicting local changes that cannot be resolved safely from context. If one slice is blocked by tooling or verification requirements, note the blocker briefly and continue with the next highest-value unblocked slice.
+This is an autonomous execution session. Work independently from the current tree and docs. Do not follow stale plan snapshots blindly.
 
 Read in this order:
 
-1. `docs/plans/frontend-cleanup-plan-index.md`
-2. `docs/plans/frontend-cleanup-plan.md`
-3. `docs/plans/frontend-cleanup-execution-log.md` if it exists
-4. The one companion plan that matches the slice you pick:
+1. `frontend/src/README.md`
+2. `docs/plans/frontend-cleanup-plan-index.md`
+3. `docs/plans/frontend-cleanup-plan.md`
+4. `docs/plans/frontend-cleanup-execution-log.md` if it exists
+5. The one companion plan that matches the slice you pick:
+   - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
    - `docs/plans/frontend-pages-shell-cleanup-plan.md`
    - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
    - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
    - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
    - `docs/plans/frontend-forks-cleanup-plan.md` when the slice directly touches `frontend/src/forks/**`
-5. Read a second companion plan only if the chosen slice truly crosses domains.
+6. A second companion plan only if the slice truly crosses domains
 
-Treat the plans as a living baseline, not a frozen snapshot. Before choosing a slice, verify the current tree, re-measure the current hotspots, and preserve any helper/module seams that already exist. If a file-size claim, hotspot list, or ownership boundary in the docs is stale, update the docs as part of the cleanup instead of following the older snapshot blindly.
+Treat `frontend/src/README.md` as the current source of truth for hotspot rankings, ownership, and placement rules.
+Treat older execution-log "next slice" notes as historical context, not automatic instructions.
 
-Then implement the cleanup. Do not spend the session writing new plans unless a small supporting doc is directly needed for a completed slice.
+Default slice-selection rules:
+
+- Pick one slice that materially improves one of the current top unresolved hotspots.
+- Default priority order is:
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/components/App/appRegistry.tsx`
+- Do not choose a smaller `state/actions` or `state/hooks` split while a same-domain 2000+ UI file remains, unless the lower-level split is a direct prerequisite for simplifying that UI file.
+- Treat thin compatibility facades as mostly good enough for now. Do not spend a turn creating or extending a compatibility barrel unless it clearly removes mixed responsibilities from a top hotspot.
+- Prefer feature-local extraction: pure helpers, selectors, hooks, render subcomponents, and command adapters next to the owning large file.
 
 Autonomy rules:
 
@@ -125,8 +144,8 @@ Autonomy rules:
 
 Execution rules:
 
-- Complete one cleanup slice end-to-end per turn. Only take a second slice if it is small, adjacent, and uses the same verification context.
-- Start with Phase 0 foundation work if it is missing or stale on the branch. Otherwise take the highest-value hotspot from the execution log or the plans.
+- Complete one cleanup slice end-to-end per turn.
+- Bias toward reducing mixed responsibilities in giant render-heavy files, not toward taxonomic splitting of already-small modules.
 - Add or update Vitest coverage for substantial refactors.
 - Add or update Playwright coverage when interactive UI behavior changes materially.
 - For visual or performance-sensitive frontend refactors, use `chrome-devtools-mcp`, do the required visual verification, and append before/after notes under `perf/reports/frontend/` when the change is meaningful.
@@ -137,6 +156,7 @@ Execution rules:
 Tracking rules:
 
 - If `docs/plans/frontend-cleanup-execution-log.md` does not exist on the branch, create it first and maintain it as an append-only work log.
+- If hotspot rankings, ownership boundaries, or acceptable entrypoints change materially, update `frontend/src/README.md` and the relevant cleanup docs as part of the slice.
 - After each completed slice, append:
   - date/time
   - slice completed
@@ -145,36 +165,20 @@ Tracking rules:
   - perf/CDP notes if relevant
   - commit hash
   - next highest-value unblocked slice
+- In the execution log, record why the chosen slice was higher value than the next unresolved hotspots when that tradeoff is not obvious.
 - Do not rewrite earlier log entries; only append.
-
-Suggested execution order:
-
-1. Refresh or implement the Phase 0 foundation if it is missing or stale:
-   - module map / placement rules
-   - execution log
-   - ownership guidance for where new frontend code should live
-2. Then tackle the largest shared hotspots currently blocking agent legibility:
-   - `frontend/src/state/actions/ai.ts`
-   - `frontend/src/state/definitions.ts`
-   - shared chat / project-AI surface files
-3. Then continue through the remaining domains from the plans:
-   - project chat windowing
-   - pages and shell
-   - panes and authoring
-   - sections and params
-   - remaining runtime / infrastructure cleanup
-   - fork cleanup when the selected slice directly touches `frontend/src/forks/**`
 
 When you get a message like "proceed" or "proceed with the next step", interpret it as:
 
+- read `frontend/src/README.md`
 - read the execution log if it exists
-- choose the next highest-value unblocked slice
+- choose the highest-value unresolved hotspot
 - read the matching companion plan(s) for that slice
 - implement the slice end-to-end
 - verify it
 - commit it
 - append the execution log
-- stop after that slice unless a second small adjacent slice is clearly justified
+- stop after that slice unless a second adjacent slice is clearly justified
 
 At the end of each turn, report:
 
@@ -182,4 +186,4 @@ At the end of each turn, report:
 - what files/modules now own the behavior
 - what tests/verification you ran
 - the commit hash
-- the next slice you would take when told to proceed
+- the next highest-value unresolved hotspot
