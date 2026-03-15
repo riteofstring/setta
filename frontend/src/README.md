@@ -14,7 +14,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Non-generated TS/TSX files at `1000+` lines: `42`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
-  - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
@@ -22,7 +21,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Git/GitGraphOverlay.tsx` (`2040`)
   - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
-  - `components/Chat/chatAssistantActivityCard.tsx` (`1918`)
+  - `components/Chat/chatAssistantActivityCard.tsx` (`1917`)
+  - `components/App/appRegistry.tsx` (`1753`)
 
 ## Module Map
 
@@ -547,7 +547,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/Panes/Overview/FileBrowser/*` owns file browsing panes and file
     browser editors.
-  - `components/Section/Layouts/BrowserArea.tsx` owns the browser section layout.
+  - `components/Section/Layouts/BrowserArea.tsx` now coordinates browser-section
+    navigation, root bootstrap, filter persistence, and file-open commands.
+  - `components/Section/Layouts/BrowserAreaContentView.tsx` owns the browser
+    section list, icon, and carousel render surface.
+  - `components/Section/Layouts/useBrowserAreaPreviewState.ts` owns browser
+    preview URL loading, text-preview fetch state, and carousel selection.
+  - `components/Section/Layouts/browserAreaPreviewModel.ts` owns preview-kind,
+    extension-badge, file-size, and stale-preview helpers for that surface.
   - `utils/fileBrowser*.ts`, `utils/browserPaths.ts`, and nearby helpers own the
     pure file-browser derivation and path utilities.
 

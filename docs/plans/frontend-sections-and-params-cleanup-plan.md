@@ -92,6 +92,14 @@ Make section chrome and param rendering easy to change without touching measurem
   visible-sibling keyboard move planning and grouped move dispatch, and
   `frontend/src/state/actions/params/moveParams.ts` is now the thin
   compatibility facade.
+- `frontend/src/components/Section/Layouts/BrowserArea.tsx` is no longer a
+  single preview-heavy front door on this branch: it now delegates the
+  list/icon/carousel render surface to
+  `frontend/src/components/Section/Layouts/BrowserAreaContentView.tsx`,
+  preview URL/text-preview cache plus carousel selection to
+  `frontend/src/components/Section/Layouts/useBrowserAreaPreviewState.ts`, and
+  preview-kind plus extension/staleness helpers to
+  `frontend/src/components/Section/Layouts/browserAreaPreviewModel.ts`.
 
 ## Current State (Observed)
 
