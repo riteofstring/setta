@@ -85,9 +85,10 @@ Use these as the audit source of truth:
 
 `Incomplete`
 
-The remaining proof against completeness is active Python runtime ownership,
-not reproduced Go parity failures. The targeted Go-owned parity blockers found
-during this audit have been fixed.
+The remaining proof against completeness includes both active Python runtime
+ownership and missing Go-native plugin parity. The targeted Go-owned parity
+blockers found earlier in this audit have been fixed, but the rewrite still is
+not complete.
 
 ### Current blocker set
 
@@ -97,8 +98,15 @@ during this audit have been fixed.
   - `backend/setta/routers/listener.py`
   - `backend/setta/server_state.py`
   - `backend/setta/share/listener_runtime.py`
+- Full backend plugin parity is still missing. The previous plugin backend
+  feature set now needs Go-native replacements rather than product-level
+  deletion, including backend routes/static assets, listener/runtime hooks,
+  backend MCP tools, codegen targets, language-server integration,
+  external-agent integration, and the Go-native backend plugin authoring/runtime
+  model itself.
 - The rewrite is not complete until those paths are either removed, moved to
-  Go, or narrowed to the documented retained Python SDK surface only.
+  Go, or narrowed to the documented retained Python SDK surface only, and until
+  the missing backend plugin feature set is restored in Go.
 
 ### Current proven Go-owned surface
 

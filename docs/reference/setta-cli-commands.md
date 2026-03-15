@@ -276,7 +276,7 @@ Subcommands:
 
 - `setta plugins init <plugin_id> [--template frontend|full|content] [--out PATH]`
   - Scaffold a plugin package with `setta.plugin.json`, `pyproject.toml`, and template files.
-  - `full` scaffolds frontend + content files; backend scaffolding is intentionally not generated.
+  - `full` scaffolds frontend + content files today. Go-native backend plugin scaffolding is not landed yet; that is a temporary rewrite gap, not the target end state.
   - Ownership: Go.
 - `setta plugins validate <plugin_folder>`
   - Validate a plugin manifest/folder contract.

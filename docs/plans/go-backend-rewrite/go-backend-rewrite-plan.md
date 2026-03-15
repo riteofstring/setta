@@ -10,6 +10,8 @@ Use this file for clean-break defaults, port-vs-redesign decisions, and
 - This is a clean break, not a Python compatibility program.
 - Preserve active product behavior for current callers. Do not preserve Python
   route shapes, storage formats, or architecture by default.
+- Full plugin support remains part of the target product behavior. The rewrite
+  should move backend plugin logic to Go, not silently drop plugin capability.
 - Progress is measured in caller reachability and ownership cutover, not in how
   aggressively Python files are deleted during the rewrite.
 
@@ -63,6 +65,9 @@ When the right move is unclear, decide in this order:
   runtime path are proven gone or behaviorally replaced by Go. Git history is
   the rewrite log; the repo does not need to preserve dead Python files as
   historical breadcrumbs.
+- Do not classify backend plugin features as dead just because the Python
+  worker/runtime is being removed. Plugin feature parity must be restored in
+  Go unless there is an explicit product decision to drop a capability.
 - Retained Python source after a Go cutover is a merge buffer/reference
   surface, not an active fallback or source of truth.
 - Do not preserve Python dev startup/reload wrappers or Python plugin backend
@@ -121,6 +126,10 @@ Not acceptable to defer:
     generated-runtime fallback inside the Python listener client
 - Backend/plugin extension boundaries:
   - backend/plugin logic that touches Setta runtime should land in Go
+  - full backend plugin capability remains in scope: Go-native replacements are
+    required for the previous backend plugin feature set rather than treating
+    those features as accepted removals
+  - backend plugin authors should write backend logic in Go, not Python
   - generic stdio MCP servers and external tool/provider runtimes remain
     acceptable subprocess boundaries
 - Provider edges:

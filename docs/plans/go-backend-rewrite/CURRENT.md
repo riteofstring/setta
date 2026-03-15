@@ -17,6 +17,9 @@ Read this file first for active Go backend rewrite work.
 - The rewrite is in late-stage cleanup. Once a Python surface is provably dead
   or behaviorally replaced by Go, delete the Python code/tests instead of
   keeping them around as rewrite history.
+- Do not treat required plugin capabilities as deletable just because their
+  Python implementation is going away. Full plugin support remains in scope;
+  only the implementation language/runtime is changing.
 
 ## Explicit Retained Python Boundaries
 
@@ -45,7 +48,9 @@ Everything else should default to Go ownership. That includes dev startup or
 reload wrappers and any remaining listener-side dependency-graph rebuilding.
 The Go-owned plugin authoring path should not scaffold new Python backend
 plugins; treat any remaining Python backend plugin runtime as rewrite debt
-rather than a retained authoring surface.
+rather than a retained authoring surface. That does not make backend plugin
+capability optional. The target is full plugin support in a Go-native backend
+plugin model, not product-level removal of backend plugin features.
 
 ## Read Order
 
@@ -76,6 +81,9 @@ rather than a retained authoring surface.
   the docs.
 - Preserve active product behavior and current callers, not Python
   implementation details.
+- Full plugin support is part of active product behavior for rewrite purposes.
+  Restore plugin capability in Go rather than treating deleted Python-backed
+  plugin features as accepted scope reduction.
 - Test parity is behavioral, not implementation-level. Before deleting Python
   tests, either prove they only covered a dead path or point to the Go tests
   that now cover the surviving behavior.

@@ -14,9 +14,10 @@ This generates:
 - `frontend/dist/` and `content/` scaffolding when using `--template full`
 - `pyproject.toml` with package metadata aligned to manifest `id` and `version`
 
-`setta plugins init` no longer generates `backend/entrypoint.py`. Backend plugin
-ownership is moving to Go, so the canonical authoring path here is frontend +
-content.
+`setta plugins init` no longer generates `backend/entrypoint.py`. That is a
+temporary rewrite limitation, not the target product model. Backend plugin
+support remains in scope, but the backend authoring path is being moved to Go
+rather than Python.
 
 ## 2. Implement plugin logic
 
@@ -148,5 +149,7 @@ setta plugins restart-required
 ```
 
 Use fixture references in `tests/fixtures/plugins/` for known-good examples.
-Prefer `frontend` and `content` for current authoring guidance; backend fixtures
-remain runtime/rewrite coverage while backend plugin ownership moves to Go.
+Prefer `frontend` and `content` for the currently landed authoring path.
+Backend plugin parity still needs a Go-native authoring/runtime path; the old
+Python backend plugin fixtures are rewrite reference material, not the target
+end state.
