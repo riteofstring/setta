@@ -782,3 +782,12 @@ authoring. After that slice, the rewrite no longer has any live Python plugin
 worker/runtime owner. The remaining cleanup in this area is narrower: stale
 plugin-codegen manifest/schema/model/fixture metadata still advertises
 `registerCodegenTarget` even though the runtime behind that capability is gone.
+
+A later follow-up cleanup slice removed that stale `registerCodegenTarget`
+advertising too. The plugin manifest capability lists in Go/Python no longer
+accept it, the dead backend-codegen and worker-failure codegen fixtures were
+deleted, the Playwright/plugin-pane expectations were updated to current
+capabilities, and the shared Playwright seed script no longer injects deleted
+backend plugin fixtures into test workspaces. The remaining rewrite tail is no
+longer the deleted plugin codegen capability itself; it is whatever broader
+dead backend-plugin metadata still remains elsewhere in the tree.

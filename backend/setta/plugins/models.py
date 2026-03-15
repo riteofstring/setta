@@ -17,7 +17,6 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "readProjectState",
     "subscribeProjectState",
     "emitListenerEvents",
-    "registerCodegenTarget",
     "registerListenerEndpoint",
     "registerStaticDir",
     "writeWorkspacePlugins",

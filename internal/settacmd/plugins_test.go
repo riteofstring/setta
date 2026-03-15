@@ -918,9 +918,7 @@ func writeBackendPluginFixture(t *testing.T, root string, pluginID string, name 
 		"backend": map[string]any{
 			"entrypoint": "backend/entrypoint.py",
 		},
-		"capabilities": []string{
-			"registerCodegenTarget",
-		},
+		"capabilities": []string{},
 	}
 	writePluginFixture(t, root, manifest, map[string]string{
 		"backend/entrypoint.py": "def register(app):\n    return None\n",

@@ -9,7 +9,6 @@ import {
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
   getPluginCapabilityStatus,
-  getRegisteredCodegenTargets,
   getRegisteredExternalAgentAdapters,
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
@@ -41,7 +40,6 @@ const pluginsPaneTestApi = {
   buildCapabilityUnavailableMessage,
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
-  getRegisteredCodegenTargets,
   getRegisteredExternalAgentAdapters,
   getPluginCapabilityStatus,
   getRestartRequiredPluginIds,
@@ -106,7 +104,6 @@ function buildPluginStatusEntry(
     effectiveCapabilities: [],
     blockedCapabilities: [],
     registeredExternalAgentAdapters: [],
-    registeredCodegenTargets: [],
     enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
@@ -329,7 +326,7 @@ describe("plugins pane helpers", () => {
         requestedCapabilities: [
           "registerCommand",
           "registerPane",
-          "registerCodegenTarget",
+          "writeWorkspacePlugins",
         ],
         effectiveCapabilities: ["registerPane"],
         blockedCapabilities: [
@@ -341,8 +338,8 @@ describe("plugins pane helpers", () => {
         capabilityList: [
           "registerCommand",
           "registerPane",
-          "registerCodegenTarget",
-          "registerStaticDir",
+          "writeWorkspacePlugins",
+          "registerTopNavBarItem",
         ],
       },
     );
@@ -355,12 +352,12 @@ describe("plugins pane helpers", () => {
     ).toBe("effective");
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get(
-        "registerCodegenTarget",
+        "writeWorkspacePlugins",
       ),
     ).toBe("requested_unavailable");
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get(
-        "registerStaticDir",
+        "registerTopNavBarItem",
       ),
     ).toBe("not_requested");
     expect(
@@ -410,28 +407,14 @@ describe("plugins pane helpers", () => {
           defaultModel: null,
         },
       ],
-      registeredCodegenTargets: [
-        {
-          targetId: "plugin:alpha",
-          pluginId: "plugin",
-          language: "typescript",
-          name: "TypeScript",
-          defaultFileName: "setta_gen.ts",
-        },
-      ],
     } as PluginStatusEntry;
 
     const firstAdapters =
       pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
     const secondAdapters =
       pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
-    const firstCodegenTargets =
-      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
-    const secondCodegenTargets =
-      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
 
     expect(firstAdapters).toBe(secondAdapters);
-    expect(firstCodegenTargets).toBe(secondCodegenTargets);
   });
 
   it("extracts and sorts registered external agent adapters from plugin status", () => {
@@ -482,50 +465,6 @@ describe("plugins pane helpers", () => {
     expect(
       pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry),
     ).toEqual([]);
-  });
-
-  it("extracts and sorts registered codegen targets from plugin status", () => {
-    const statusEntry = {
-      ...buildPluginStatusEntry({}),
-      registeredCodegenTargets: [
-        {
-          targetId: "plugin:beta",
-          pluginId: "plugin",
-          language: "zig",
-          name: "Zig",
-          defaultFileName: "setta_gen.zig",
-        },
-        {
-          targetId: "plugin:alpha",
-          pluginId: "plugin",
-          language: "typescript",
-          name: "TypeScript",
-          defaultFileName: "setta_gen.ts",
-        },
-      ],
-    } as PluginStatusEntry;
-
-    const registrations =
-      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
-
-    expect(registrations.map((entry) => entry.name)).toEqual([
-      "TypeScript",
-      "Zig",
-    ]);
-    expect(registrations[0].defaultFileName).toBe("setta_gen.ts");
-  });
-
-  it("returns no codegen targets when status payload omits registrations", () => {
-    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
-    delete (
-      statusEntry as PluginStatusEntry & {
-        registeredCodegenTargets?: unknown;
-      }
-    ).registeredCodegenTargets;
-
-    expect(pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry)).toEqual(
-      [],
-    );
   });
 
   it("parses plugin config drafts as JSON objects", () => {

@@ -173,7 +173,10 @@ func TestServiceRuntimeRedactsConfigAndSourceOutsideIDE(t *testing.T) {
 func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	// Runtime status should surface deterministic blocked-capability reasons outside IDE mode.
 	roots := newFilesystemResolverTestRoots(t)
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"writeWorkspacePlugins"}
+	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeShare)
 	runtimeResponse, err := service.Runtime(RuntimeOptions{
@@ -187,53 +190,18 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
 	}
 	if len(runtimeResponse.List.Plugins[0].EffectiveCapabilities) != 0 {
-		t.Fatalf("expected blocked codegen capability to be removed from effective list, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
+		t.Fatalf("expected blocked writeWorkspacePlugins capability to be removed from effective list, got %#v", runtimeResponse.List.Plugins[0].EffectiveCapabilities)
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
 	if len(statusEntry.BlockedCapabilities) != 1 {
 		t.Fatalf("expected one blocked capability, got %#v", statusEntry.BlockedCapabilities)
 	}
-	if statusEntry.BlockedCapabilities[0].Capability != "registerCodegenTarget" {
-		t.Fatalf("expected registerCodegenTarget blocked, got %#v", statusEntry.BlockedCapabilities[0])
+	if statusEntry.BlockedCapabilities[0].Capability != "writeWorkspacePlugins" {
+		t.Fatalf("expected writeWorkspacePlugins blocked, got %#v", statusEntry.BlockedCapabilities[0])
 	}
 	if statusEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonModePolicy {
 		t.Fatalf("expected mode-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
-	}
-}
-
-func TestServiceRuntimeKeepsRemovedBackendCodegenRegistrationsUnavailable(t *testing.T) {
-	// Runtime should not surface removed backend codegen registrations.
-	roots := newFilesystemResolverTestRoots(t)
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
-
-	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-
-	if len(runtimeResponse.Status.Plugins) != 1 {
-		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
-	}
-
-	findEntry := func(pluginID string) StatusEntry {
-		t.Helper()
-		for _, entry := range runtimeResponse.Status.Plugins {
-			if entry.PluginID == pluginID {
-				return entry
-			}
-		}
-		t.Fatalf("expected runtime status entry for %q", pluginID)
-		return StatusEntry{}
-	}
-
-	statusEntry := findEntry("setta-fixture-backend-codegen")
-	if len(statusEntry.RegisteredCodegenTargets) != 0 {
-		t.Fatalf("expected no registered codegen targets after runtime removal, got %#v", statusEntry.RegisteredCodegenTargets)
-	}
-	if len(statusEntry.Errors) != 0 {
-		t.Fatalf("expected no backend registration errors for codegen-only plugin, got %#v", statusEntry.Errors)
 	}
 }
 

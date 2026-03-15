@@ -11,9 +11,9 @@ import (
 // Rescan should preserve the documented workspace > setta_files > global precedence and keep shadowed entries visible.
 func TestDiscoveryServiceRescanHonorsScopePrecedence(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	globalRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "backend-codegen")
-	settaFilesRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "backend-codegen")
-	workspaceRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
+	globalRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "backend")
+	settaFilesRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "backend")
+	workspaceRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
 
 	rewritePluginManifest(t, workspaceRoot, func(payload map[string]any) {
 		payload["version"] = "0.3.0"
@@ -70,11 +70,11 @@ func TestDiscoveryServiceRescanHonorsScopePrecedence(t *testing.T) {
 func TestDiscoveryServiceRescanUsesPersistedEnablementAndRestartState(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	workspacePluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
-	settaFilesPluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "backend-codegen")
+	settaFilesPluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "full")
 
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"disabledPluginIds":              []string{"setta-fixture-backend"},
-		"pendingRestartBackendPluginIds": []string{"setta-fixture-backend-codegen"},
+		"pendingRestartBackendPluginIds": []string{"setta-fixture-full"},
 	})
 
 	service := mustNewDiscoveryService(t, roots, config.ModeIDE)
@@ -100,7 +100,7 @@ func TestDiscoveryServiceRescanUsesPersistedEnablementAndRestartState(t *testing
 		t.Fatalf("expected workspace disabled enablement source, got %#v", disabled.EnablementSource)
 	}
 
-	pendingRestart := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-backend-codegen", PluginScopeSettaFiles)
+	pendingRestart := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-full", PluginScopeSettaFiles)
 	if pendingRestart.State != PluginRuntimeStatePendingRestart {
 		t.Fatalf("expected pending restart plugin, got %q", pendingRestart.State)
 	}

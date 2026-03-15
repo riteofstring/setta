@@ -6350,160 +6350,6 @@ func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	}
 }
 
-func TestAppServesPluginRuntimeWithoutRemovedBackendCodegenRegistrations(t *testing.T) {
-	// The real app should keep removed backend codegen registrations unavailable in runtime status.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	installAppBackendCodegenFixture(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-
-	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
-	if err != nil {
-		t.Fatalf("new plugin runtime request: %v", err)
-	}
-	runtimeRequest.AddCookie(authCookie)
-
-	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
-	if err != nil {
-		t.Fatalf("get plugin runtime: %v", err)
-	}
-	defer runtimeResponse.Body.Close()
-	if runtimeResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(runtimeResponse.Body)
-		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
-	}
-
-	var runtimePayload struct {
-		Status struct {
-			Plugins []struct {
-				PluginID              string   `json:"pluginId"`
-				State                 string   `json:"state"`
-				EffectiveCapabilities []string `json:"effectiveCapabilities"`
-				BlockedCapabilities   []struct {
-					Capability string `json:"capability"`
-					Reason     string `json:"reason"`
-				} `json:"blockedCapabilities"`
-				RegisteredExternalAgentAdapters []struct {
-					AdapterID       string   `json:"adapterId"`
-					PluginID        string   `json:"pluginId"`
-					Name            string   `json:"name"`
-					RunModes        []string `json:"runModes"`
-					Command         string   `json:"command"`
-					Args            []string `json:"args"`
-					EnvVarWhitelist []string `json:"envVarWhitelist"`
-					DefaultModel    *string  `json:"defaultModel"`
-				} `json:"registeredExternalAgentAdapters"`
-				RegisteredCodegenTargets []struct {
-					TargetID        string `json:"targetId"`
-					PluginID        string `json:"pluginId"`
-					Language        string `json:"language"`
-					Name            string `json:"name"`
-					DefaultFileName string `json:"defaultFileName"`
-				} `json:"registeredCodegenTargets"`
-				Errors []struct {
-					Code string `json:"code"`
-				} `json:"errors"`
-			} `json:"plugins"`
-		} `json:"status"`
-	}
-	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
-		t.Fatalf("decode plugin runtime payload: %v", err)
-	}
-	if len(runtimePayload.Status.Plugins) != 1 {
-		t.Fatalf("expected one plugin in runtime status payload, got %#v", runtimePayload.Status.Plugins)
-	}
-
-	findEntry := func(pluginID string) struct {
-		PluginID              string   `json:"pluginId"`
-		State                 string   `json:"state"`
-		EffectiveCapabilities []string `json:"effectiveCapabilities"`
-		BlockedCapabilities   []struct {
-			Capability string `json:"capability"`
-			Reason     string `json:"reason"`
-		} `json:"blockedCapabilities"`
-		RegisteredExternalAgentAdapters []struct {
-			AdapterID       string   `json:"adapterId"`
-			PluginID        string   `json:"pluginId"`
-			Name            string   `json:"name"`
-			RunModes        []string `json:"runModes"`
-			Command         string   `json:"command"`
-			Args            []string `json:"args"`
-			EnvVarWhitelist []string `json:"envVarWhitelist"`
-			DefaultModel    *string  `json:"defaultModel"`
-		} `json:"registeredExternalAgentAdapters"`
-		RegisteredCodegenTargets []struct {
-			TargetID        string `json:"targetId"`
-			PluginID        string `json:"pluginId"`
-			Language        string `json:"language"`
-			Name            string `json:"name"`
-			DefaultFileName string `json:"defaultFileName"`
-		} `json:"registeredCodegenTargets"`
-		Errors []struct {
-			Code string `json:"code"`
-		} `json:"errors"`
-	} {
-		t.Helper()
-		for _, entry := range runtimePayload.Status.Plugins {
-			if entry.PluginID == pluginID {
-				return entry
-			}
-		}
-		t.Fatalf("expected runtime entry for %q", pluginID)
-		return struct {
-			PluginID              string   `json:"pluginId"`
-			State                 string   `json:"state"`
-			EffectiveCapabilities []string `json:"effectiveCapabilities"`
-			BlockedCapabilities   []struct {
-				Capability string `json:"capability"`
-				Reason     string `json:"reason"`
-			} `json:"blockedCapabilities"`
-			RegisteredExternalAgentAdapters []struct {
-				AdapterID       string   `json:"adapterId"`
-				PluginID        string   `json:"pluginId"`
-				Name            string   `json:"name"`
-				RunModes        []string `json:"runModes"`
-				Command         string   `json:"command"`
-				Args            []string `json:"args"`
-				EnvVarWhitelist []string `json:"envVarWhitelist"`
-				DefaultModel    *string  `json:"defaultModel"`
-			} `json:"registeredExternalAgentAdapters"`
-			RegisteredCodegenTargets []struct {
-				TargetID        string `json:"targetId"`
-				PluginID        string `json:"pluginId"`
-				Language        string `json:"language"`
-				Name            string `json:"name"`
-				DefaultFileName string `json:"defaultFileName"`
-			} `json:"registeredCodegenTargets"`
-			Errors []struct {
-				Code string `json:"code"`
-			} `json:"errors"`
-		}{}
-	}
-
-	statusEntry := findEntry("setta-fixture-backend-codegen")
-	if len(statusEntry.RegisteredCodegenTargets) != 0 {
-		t.Fatalf("expected no backend codegen registrations after removal, got %#v", statusEntry.RegisteredCodegenTargets)
-	}
-	if len(statusEntry.Errors) != 0 {
-		t.Fatalf("expected no backend codegen registration errors, got %#v", statusEntry.Errors)
-	}
-}
-
 func TestAppWritesPluginConfigAndUpdatesRuntime(t *testing.T) {
 	// The real app should accept plugin config writes and reflect them in subsequent runtime reads.
 	cfg := testConfig(t)
@@ -8930,7 +8776,7 @@ func TestAppRejectsPluginSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 }
 
 func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
-	// Linking a legacy plugin-codegen plugin after startup should not revive removed runtime registrations.
+	// Linking a backend plugin after startup should not make removed plugin codegen targets available again.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -8957,8 +8803,8 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	}
 
 	repoRoot := appTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-codegen")
-	localPluginRoot := filepath.Join(t.TempDir(), "backend-codegen")
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
+	localPluginRoot := filepath.Join(t.TempDir(), "backend")
 	copyAppTestDir(t, sourceRoot, localPluginRoot)
 
 	server := httptest.NewServer(app.Handler())
@@ -8995,10 +8841,7 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	getRuntime := func() struct {
 		Status struct {
 			Plugins []struct {
-				PluginID                 string `json:"pluginId"`
-				RegisteredCodegenTargets []struct {
-					TargetID string `json:"targetId"`
-				} `json:"registeredCodegenTargets"`
+				PluginID string `json:"pluginId"`
 			} `json:"plugins"`
 		} `json:"status"`
 	} {
@@ -9023,10 +8866,7 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 		var payload struct {
 			Status struct {
 				Plugins []struct {
-					PluginID                 string `json:"pluginId"`
-					RegisteredCodegenTargets []struct {
-						TargetID string `json:"targetId"`
-					} `json:"registeredCodegenTargets"`
+					PluginID string `json:"pluginId"`
 				} `json:"plugins"`
 			} `json:"status"`
 		}
@@ -9047,11 +8887,8 @@ func TestAppLinkedPluginCodegenTargetsStayUnavailableAfterLink(t *testing.T) {
 	if len(runtimePayload.Status.Plugins) != 1 {
 		t.Fatalf("expected one linked plugin in runtime payload, got %#v", runtimePayload.Status.Plugins)
 	}
-	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-backend-codegen" {
+	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-backend" {
 		t.Fatalf("unexpected linked plugin runtime payload %#v", runtimePayload.Status.Plugins[0])
-	}
-	if len(runtimePayload.Status.Plugins[0].RegisteredCodegenTargets) != 0 {
-		t.Fatalf("expected no linked plugin codegen targets after removal, got %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets)
 	}
 
 	requestBody := mustAppJSON(t, map[string]any{
@@ -10254,12 +10091,6 @@ func requireAppTestCommand(t *testing.T, name string) string {
 		t.Skipf("required command %q not available: %v", name, err)
 	}
 	return path
-}
-
-func installAppBackendCodegenFixture(t *testing.T, cfg config.Config) {
-	t.Helper()
-
-	installAppPluginFixture(t, cfg, "backend-codegen", "setta-fixture-backend-codegen")
 }
 
 func installAppPluginFixture(t *testing.T, cfg config.Config, fixtureName string, pluginID string) {

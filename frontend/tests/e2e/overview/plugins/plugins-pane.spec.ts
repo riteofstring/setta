@@ -84,11 +84,18 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
+  const backendPluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-backend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(backendPluginCard).toBeVisible();
   await expect(
-    page.getByText(/^Restart required for \d+ plugins?$/),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Backend changes are pending for: setta-fixture-backend"),
+    backendPluginCard.getByText(/scope=workspace source=local:/),
   ).toBeVisible();
 
   await postBackend(page, "/plugins/link", {
@@ -301,7 +308,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
         sourcePath: "/tmp/setta-fixture-install",
         canonicalSourceKey: "pypi:setta-fixture-install",
         sourceDigestSha256: "sha256:fixture",
-        requestedCapabilities: ["registerCodegenTarget", "registerPane"],
+        requestedCapabilities: ["writeWorkspacePlugins", "registerPane"],
         trustStatus: "unverified",
         trustWarning: "Source is unverified. Install only from trusted owners.",
         components: ["backend", "frontend"],
@@ -334,7 +341,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
     ),
   ).toBeVisible();
   await expect(
-    confirmation.getByText("requested=registerCodegenTarget, registerPane"),
+    confirmation.getByText("requested=registerPane, writeWorkspacePlugins"),
   ).toBeVisible();
   await expect(
     confirmation.getByText("sourceDigestSha256=sha256:fixture"),
@@ -590,10 +597,10 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
         }
         return {
           ...plugin,
-          requestedCapabilities: ["registerCodegenTarget"],
+          requestedCapabilities: ["writeWorkspacePlugins"],
           effectiveCapabilities: [],
           blockedCapabilities: [
-            { capability: "registerCodegenTarget", reason: "mode_policy" },
+            { capability: "writeWorkspacePlugins", reason: "mode_policy" },
           ],
         };
       },
@@ -616,7 +623,7 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
 
   await expect(backendPluginCard.getByText("Capabilities")).toBeVisible();
   await expect(
-    backendPluginCard.getByText("registerCodegenTarget (mode_policy)"),
+    backendPluginCard.getByText("writeWorkspacePlugins (mode_policy)"),
   ).toBeVisible();
   await expect(
     page.getByText(

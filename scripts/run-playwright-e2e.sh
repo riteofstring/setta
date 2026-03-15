@@ -277,8 +277,6 @@ trap cleanup EXIT
 trap 'log "Error on line ${LINENO}: ${BASH_COMMAND}"' ERR
 
 readonly WORKSPACE_SEED_FIXTURES=(
-  "backend-language-server-e2e"
-  "backend-codegen"
 )
 
 seed_workspace() {
@@ -322,11 +320,17 @@ PY
 
 compute_workspace_seed_fixture_signature() {
   local root_dir="$1"
+  if [[ ${#WORKSPACE_SEED_FIXTURES[@]} -eq 0 ]]; then
+    return 0
+  fi
   compute_named_plugin_fixture_signature "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"
 }
 
 compute_workspace_seed_fixture_change_stamp() {
   local root_dir="$1"
+  if [[ ${#WORKSPACE_SEED_FIXTURES[@]} -eq 0 ]]; then
+    return 0
+  fi
   compute_named_plugin_fixture_change_stamp "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"
 }
 
@@ -344,7 +348,10 @@ seeded_plugin_fixture_is_complete() {
 }
 
 seed_workspace_plugin_fixtures() {
-  local fixtures=("${WORKSPACE_SEED_FIXTURES[@]}")
+  local fixtures=()
+  if [[ ${#WORKSPACE_SEED_FIXTURES[@]} -gt 0 ]]; then
+    fixtures=("${WORKSPACE_SEED_FIXTURES[@]}")
+  fi
   local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
   local seed_cache_dir="${SETTA_WORKSPACE_ROOT}/setta_files/.cache"
   local seed_cache_file="${seed_cache_dir}/playwright-e2e-seeded-plugin-fixtures.signature"
@@ -352,6 +359,11 @@ seed_workspace_plugin_fixtures() {
   local current_signature current_stamp cached_signature cached_stamp
   mkdir -p "${plugins_root}"
   mkdir -p "${seed_cache_dir}"
+
+  if [[ ${#fixtures[@]} -eq 0 ]]; then
+    log "No workspace plugin fixtures configured for seeding."
+    return
+  fi
 
   current_stamp="$(
     compute_workspace_seed_fixture_change_stamp "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}'

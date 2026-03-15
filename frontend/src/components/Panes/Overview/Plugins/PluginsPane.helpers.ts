@@ -7,16 +7,10 @@ import type {
 
 type PluginRegisteredExternalAgentAdapter =
   PluginStatusEntry["registeredExternalAgentAdapters"][number];
-type PluginRegisteredCodegenTarget =
-  PluginStatusEntry["registeredCodegenTargets"][number];
 
 const cachedExternalAgentAdaptersByStatus = new WeakMap<
   PluginStatusEntry,
   PluginRegisteredExternalAgentAdapter[]
->();
-const cachedCodegenTargetsByStatus = new WeakMap<
-  PluginStatusEntry,
-  PluginRegisteredCodegenTarget[]
 >();
 
 type PluginCapabilityStatus =
@@ -88,23 +82,6 @@ export function getRegisteredExternalAgentAdapters(
         return byName;
       }
       return a.adapterId.localeCompare(b.adapterId);
-    },
-  );
-}
-
-export function getRegisteredCodegenTargets(
-  pluginStatus: PluginStatusEntry | null,
-): PluginRegisteredCodegenTarget[] {
-  return getCachedSortedRegistrations(
-    pluginStatus,
-    cachedCodegenTargetsByStatus,
-    (entry) => entry.registeredCodegenTargets,
-    (a, b) => {
-      const byName = a.name.localeCompare(b.name);
-      if (byName !== 0) {
-        return byName;
-      }
-      return a.targetId.localeCompare(b.targetId);
     },
   );
 }

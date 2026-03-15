@@ -76,7 +76,6 @@
           "readProjectState",
           "subscribeProjectState",
           "emitListenerEvents",
-          "registerCodegenTarget",
           "registerListenerEndpoint",
           "registerStaticDir",
           "writeWorkspacePlugins"

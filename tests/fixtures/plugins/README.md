@@ -12,11 +12,7 @@ Principles:
 Current fixtures:
 
 - `backend/`: backend-only plugin shell with a minimal Python entrypoint.
-- `backend-codegen/`: backend-only plugin that registers a worker-based codegen target.
 - `backend-external-agent/`: backend-only plugin that registers external agent adapters.
-- `backend-worker-failure-transport/`: intentional failure fixture for worker transport/process-exit errors.
-- `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
-- `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
 - `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
 - `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
@@ -32,11 +28,11 @@ Target fixture catalog (coverage baseline):
 
 - Maintain at least 15 fixture plugins under `tests/fixtures/plugins/`.
 - Include fixtures for each category:
-- backend success paths (external-agent/codegen)
+- backend success paths (minimal backend shells, historical external-agent fixture)
 - frontend success paths (sections/panes/commands/top-nav)
 - full-stack success paths
 - content-only paths
-- deterministic validation/runtime failures (manifest, metadata mismatch, worker handshake/timeouts, frontend registration errors)
+- deterministic validation/runtime failures (manifest, metadata mismatch, frontend registration errors)
 - precedence/scope scenarios (`workspace`, `setta_files`, `global`, shadowing)
 
 Current count:

@@ -23,7 +23,6 @@ var (
 		"readProjectState":             {},
 		"subscribeProjectState":        {},
 		"emitListenerEvents":           {},
-		"registerCodegenTarget":        {},
 		"registerExternalAgentAdapter": {},
 		"registerListenerEndpoint":     {},
 		"registerStaticDir":            {},
