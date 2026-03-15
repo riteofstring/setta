@@ -455,6 +455,10 @@ Current closeout status:
 - The second item is not yet satisfied:
   - the Phase 2 closeout rerun showed the callable subtree is materially flatter, but pan stayed within noise, zoom stayed effectively flat, and resize was only marginally different on the same locked scenario
   - later Phase 3 work improved the callable filter/reorder path, but it did not convert the locked pan/zoom/resize scenario into a clear callable-owned win
+  - the fresh locked resize reopen check also failed to hand ownership back to the callable subtree:
+    - the worktree still exposed `ForcedReflow`
+    - the dominant contributors stayed in shared chrome/editor work (`eq`, `ProjectChatBottomDock`)
+    - callable-owned contributions (`getHandleCenter`, `KwargsControls.updateHeight`) remained small trailing costs
 - Therefore this callable-specific track should currently be treated as stopped short of full completion, not as "tasks completed".
 - Only reopen the callable track if:
   - a fresh trace proves the locked pan/zoom/resize gap is still callable-owned, or

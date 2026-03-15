@@ -862,3 +862,34 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
   - Any follow-up work should either:
     - prove a new callable-owned hotspot on the locked scenario, or
     - explicitly expand scope beyond the callable subtree into the shared page chrome / editor path.
+
+### Fresh locked resize reopen check: still not a callable-owned hotspot
+
+- Date/time: 2026-03-16
+- Scope:
+  - re-ran the locked `open` control resize delta on both branches using deterministic width updates on the callable section itself
+  - artifacts:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase4-reopen-resize-state.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase4-reopen-resize-state.trace.json`
+- Replay details:
+  - width reset to `200` (`240.578px` on screen at the current zoom)
+  - width updated to `270` (`324.780px` on screen)
+  - width restored to `200` after the trace
+- DevTools read:
+  - untouched `main`:
+    - no `ForcedReflow` insight on this rerun
+    - only `CLSCulprits`
+  - worktree:
+    - `ForcedReflow` remained present
+    - total reflow time: `29ms`
+    - top contributors called out by DevTools:
+      - `24ms` in `eq` from `chunk-MB4RGFJ3.js`
+      - `4ms` in `ProjectChatBottomDock.tsx`
+      - `1ms` in `getHandleCenter` from `src/state/actions/edgeHandles.ts`
+      - `1ms` in `KwargsControls.tsx` `updateHeight`
+- Interpretation:
+  - This was the explicit reopen test requested by the callable plan’s stop condition.
+  - It still does not support more callable-specific implementation work:
+    - the dominant unresolved resize work is still shared page chrome / editor work
+    - callable-owned contributions remain present but minor
+  - Treat this as confirmation that the callable track remains incomplete rather than as evidence for a new callable Phase 4 checkpoint.

@@ -978,3 +978,45 @@ Append-only log for the callable DOM-first performance refactor.
     - do not report `tasks completed`
 - Next action:
   - If this effort resumes, start a new trace-backed track around the shared page chrome / editor hotspots or prove with a fresh trace that the locked pan/zoom/resize gap is still callable-owned.
+
+### 2026-03-16 41
+
+- Item: Fresh locked resize reopen check against the original pan/zoom/resize gap.
+- Status: `done`
+- Details:
+  - Re-ran the locked `open` callable control resize path on both branches using the same scene family as the accepted Phase 2 closeout:
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - Used a deterministic width update on the callable section to replay the same screen-space resize delta without depending on a fragile manual drag channel:
+    - reset callable width to the locked baseline (`200`, which renders as `240.578px` at the current zoom)
+    - update callable width to `270`, which renders as `324.780px`
+    - restore the width to `200` after the trace
+  - New trace artifacts:
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/main-phase4-reopen-resize-state.trace.json`
+    - `perf/reports/frontend/artifacts/2026-03-16_callable-dom-first/worktree-phase4-reopen-resize-state.trace.json`
+  - Both branches hit the same width delta cleanly:
+    - before: `240.578px`
+    - after: `324.780px`
+  - DevTools insight read:
+    - untouched `main`:
+      - no `ForcedReflow` insight surfaced on the fresh resize-state rerun
+      - only a `CLSCulprits` insight was reported
+    - worktree:
+      - `ForcedReflow` still surfaced on the fresh resize-state rerun
+      - top contributors from DevTools:
+        - `24ms` in `eq` from `chunk-MB4RGFJ3.js`
+        - `4ms` in `ProjectChatBottomDock.tsx`
+        - `1ms` in `getHandleCenter` from `src/state/actions/edgeHandles.ts`
+        - `1ms` in `KwargsControls.tsx` `updateHeight`
+      - total reflow time: `29ms`
+  - Secondary ownership check from the raw trace text:
+    - worktree trace still carried heavy shared-page markers (`ProjectChatBottomDock`, `eq`)
+    - callable-owned markers were present but not dominant
+- Interpretation:
+  - This fresh locked-scenario reopen check does not justify resuming callable-specific code changes.
+  - The unresolved resize gap still does not read as primarily callable-owned:
+    - the dominant work is still shared page chrome / editor work
+    - the callable-owned pieces remain small trailing contributors
+  - That means the callable track remains stopped short of completion, and there is still no justified next callable-specific step inside this plan.
+- Next action:
+  - Do not continue callable-specific implementation work under this plan unless the scope explicitly expands beyond the callable subtree or a later fresh trace produces a clearly callable-owned hotspot.
