@@ -18,16 +18,66 @@ func TestProjectSetSectionNameTrimsAndUpdatesSection(t *testing.T) {
 
 // Format validation should stay authoritative in projectstate instead of
 // letting invalid names through to later rename transport work.
-func TestProjectSetSectionNameRejectsInvalidFormat(t *testing.T) {
+func TestProjectSetSectionNameRejectsDocumentedFormatFailures(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "path_separator",
+			input: "bad/name",
+		},
+		{
+			name:  "dotdot_segment",
+			input: "bad..name",
+		},
+		{
+			name:  "empty_after_trim",
+			input: "   ",
+		},
+		{
+			name:  "control_character",
+			input: "bad\nname",
+		},
+		{
+			name:  "leading_dot",
+			input: ".dog",
+		},
+		{
+			name:  "invalid_character",
+			input: "bad#name",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			project := sectionNameTestProject(t)
+			err := project.SetSectionName("target", testCase.input)
+			if !IsInvalidSectionNameError(err) {
+				t.Fatalf("expected InvalidSectionNameError, got %v", err)
+			}
+			if got := project.Sections["target"].Name; got != "Target" {
+				t.Fatalf("expected rejected rename to keep Target, got %q", got)
+			}
+		})
+	}
+}
+
+// Section names do not reserve route words, so valid names like Chat_ should
+// still be accepted even though other namespaces reserve similar values.
+func TestProjectSetSectionNameAllowsDocumentedValidNames(t *testing.T) {
 	t.Parallel()
 
 	project := sectionNameTestProject(t)
-	err := project.SetSectionName("target", "bad/name")
-	if !IsInvalidSectionNameError(err) {
-		t.Fatalf("expected InvalidSectionNameError, got %v", err)
+	if err := project.SetSectionName("target", "Chat_"); err != nil {
+		t.Fatalf("set section name Chat_: %v", err)
 	}
-	if err == nil || err.Error() != "Section name cannot include path separators." {
-		t.Fatalf("unexpected invalid format error: %v", err)
+	if got := project.Sections["target"].Name; got != "Chat_" {
+		t.Fatalf("expected Chat_ section name, got %q", got)
 	}
 }
 
