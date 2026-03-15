@@ -1296,6 +1296,36 @@ func ensureProjectParamMutationsAllowed(
 	return false
 }
 
+func ensureProjectVariantMutationsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ProjectRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowVariantChanges {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"variant_changes_forbidden",
+		"Deployment policy disallows variant changes.",
+	)
+	return false
+}
+
 func resolveStructuralMutationSettingsFromRuntime(
 	runtime *settingsstate.Runtime,
 ) (projectstate.StructuralMutationSettings, error) {
@@ -1468,6 +1498,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
 		router.With(shareGuard).Post(RouteUndo, undoHandler(deps))
 		router.With(shareGuard).Post(RouteRedo, redoHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptTemplate, setPromptTemplateHandler(deps))
@@ -3458,12 +3489,17 @@ func setActiveViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectVariantMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetActiveViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, activeViewModeID); err != nil {
+		if _, err := runtime.SetActiveViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, activeViewModeID); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
