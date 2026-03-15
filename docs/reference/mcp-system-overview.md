@@ -1,9 +1,9 @@
 # Setta MCP System
 
-Setta exposes its agent surface through the Model Context Protocol (MCP). The active MCP transport/runtime is now Go-owned under `internal/mcpx` and `internal/tools`; the Python modules referenced below are legacy/test-side reference where they still remain in-tree. This document captures that older Python MCP implementation shape for cleanup/audit work, not the active ownership map.
+Setta exposes its agent surface through the Model Context Protocol (MCP). The active MCP transport/runtime is Go-owned under `internal/mcpx` and `internal/tools`, the app mounts that Go server under `/mcp`, and the React UI plus the managed-chat runtime consume that Go-owned surface.
 
-## Server runtime (`backend/setta/mcp/server.py`)
-- Legacy note: `SettaFastMCP` subclasses `mcp.server.fastmcp.FastMCP` in the older Python implementation. The packaged runtime no longer mounts it through `SettaFastAPIState`; active MCP ownership now lives in Go.
+## Server runtime (`internal/mcpx`)
+- The active MCP server/runtime lives in `internal/mcpx/server.go` and is mounted by the Go app under `/mcp`.
 - The constructor wires together Setta-specific state: it loads the canonical ↔ temporary ID map from the database (`dbe.read_temporary_id_map()`), stores a reference to the FastAPI state object, and broadcasts a `SettaNotification` once the server is ready so the UI can show “MCP Server Ready”.
 - Tool registration happens immediately via `add_setta_tools()`. Functions decorated with `@setta_init_tool` become always-on “init” tools, while `@setta_tool` registrations are marked as “discoverable”. The `SettaToolType` annotation is injected into each tool’s metadata so clients can split the sets.
 - `setta_id_transformer` wraps every tool callable so we can transparently convert between canonical IDs and the temporary IDs that LLMs see. After each call we persist the latest ID map to keep the client and server aligned.
@@ -26,8 +26,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
 - Tools can also declare `ToolRuntimePolicyMetadata`, currently used for:
   - `requiresLLM`
   - `startsRun`
-- `SettaFastMCP._run_tool_with_runtime_policy` enforces these annotations before
-  the tool body runs.
+- The Go MCP runtime enforces these annotations before the tool body runs.
 - `requiresLLM` checks the active runtime/deployment policy before execution.
 - `startsRun` performs a request-scoped pending run-start authorization so
   single-run deployment limits and run permissions are reserved before the tool
