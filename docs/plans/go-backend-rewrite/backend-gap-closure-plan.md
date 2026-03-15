@@ -57,9 +57,10 @@ categorize them.
 - The next queue should come from the remaining matrix `Missing` and
   `Implemented, proof incomplete` rows outside this now-proved `/settings`
   slice
-- The latest-state stale-`activeIds` load-normalization row is now proved via
-  the default harness; the next likely latest-state queue is the remaining
-  project/window-space load-normalization rows
+- The latest-state stale-`activeIds`, empty-`windowSpaces`, and
+  project/window-space load-normalization rows are now proved via the default
+  harness; add more corpus/latest-state scenarios only when a new current-
+  caller mismatch appears or an unproved row still lacks executable coverage
 - The fail-closed missing-authoritative `projectChatWindowing`, section-bound
   title-clearing/dedupe, project-chat owner/mode validation, saved
   window-space owner/mode validation, and empty latest-state `windowSpaces`
@@ -73,7 +74,8 @@ categorize them.
   the source FastAPI validation envelope as a retained Python boundary and
   compares the caller-visible rejection detail text instead of Python's raw
   stringified validator internals
-- The duplicate-`sortIndex` saved-window-space load-normalization row is now
-  proved too; the next queue is the broader remaining
-  project/window-space load-normalization backlog plus more corpus-driven
-  latest-state hydration / projection scenarios
+- The prompt-template-link non-prompt-section route row is now proved via the
+  default harness too, including normalization of the source dynamic
+  `Section <id> failed type guard` detail string; the next queue remains the
+  broader remaining `Missing` and `Implemented, proof incomplete` rows
+  outside the now-proved windowing, `/settings`, and prompt-link slices
