@@ -8,7 +8,7 @@ Source baseline commit for current audit slices:
 `26e7406b764009690b3b5af7ade260c91407c0be`
 
 Target rewrite head:
-`4c003a62f3bc9699bbef0f22a4a88e42f9e1d9e6`
+`3bae0edea716594bf32d09a68345d465bac6fed2`
 
 This is a partial matrix, not the finished matrix.
 It currently covers:
@@ -95,6 +95,7 @@ It currently covers:
   hot-reload, and no-python-codegen bootstrap behavior
 - retained chat-toolkit helper stream-assembly and chat-section-sync behavior
 - retained `SettaRunner` auth, summary, and detached-run param-sweep behavior
+- auth token/current-session helper and local session registry behavior
 
 Rows outside these slices are still pending.
 
@@ -169,6 +170,9 @@ Rows outside these slices are still pending.
   matrix omission by classifying the surviving `SettaListener`,
   `setta.api.chat_toolkit`, and `SettaRunner` authoring/client behavior as
   explicit retained boundaries.
+- The auth/session-registry slice adds no new concrete gap, but it does add
+  two more proof-gap rows around current-session loading and caller-applied
+  active-session filtering.
 - Forty-seven concrete parity gaps are already visible:
   - source-baseline `add_kwarg` creates unnamed editable params
   - current Go `AddKwarg` assigns a non-empty generated name instead
@@ -1145,6 +1149,16 @@ Rows outside these slices are still pending.
 | `RR-02` | `SettaRunner.summary()` fetches the latest project state for the resolved default project config and exposes stable section lookup by name or id through `RunnerSummary`. | Source docs: `docs/reference/param-sweeps.md`; source client: `backend/setta/api/runner.py::{summary,_resolve_project_config_id,RunnerSummary.section}`; source tests: `tests/api/test_runner.py::{test_resolve_project_config_id_matches_name_and_id,test_resolve_project_config_id_raises_on_unknown,test_summary_loads_latest_project_state_for_default_config}`. | Retained-boundary decision: `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`; current retained client proof: `backend/setta/api/runner.py::{summary,_resolve_project_config_id,RunnerSummary.section}`; `tests/api/test_runner.py::{test_resolve_project_config_id_matches_name_and_id,test_resolve_project_config_id_raises_on_unknown,test_summary_loads_latest_project_state_for_default_config}`. | `Retained Python boundary` | This row is about the retained runner-side lookup helper, not the Go route that serves latest project state. |
 | `RR-03` | `run_detached(...)` resolves a human-friendly `entry_section` through `summary()` and serializes dependency-key param overrides into the `sectionId:paramId` payload form expected by the detached-run route. | Source docs: `docs/reference/param-sweeps.md`; source client: `backend/setta/api/runner.py::run_detached`; source tests: `tests/api/test_runner.py::{test_run_detached_resolves_entry_section_name_via_summary,test_run_detached_encodes_param_overrides_from_dependency_keys}`. | Retained-boundary decision: `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`; current retained client proof: `backend/setta/api/runner.py::run_detached`; `tests/api/test_runner.py::{test_run_detached_resolves_entry_section_name_via_summary,test_run_detached_encodes_param_overrides_from_dependency_keys}`. | `Retained Python boundary` | The detached-run backend behavior itself is tracked separately in `DR-*`; this row is about the retained Python client adapter. |
 
+## Auth Tokens, Current Session, And Local Session Registry
+
+| ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `AC-01` | Session-scoped auth cookie names reject blank session ids instead of silently minting an unusable cookie key. | Source docs: `docs/reference/auth-and-sessions.md`; source helper: `backend/setta/auth/cookies.py::auth_cookie_name`; source test: `tests/auth/test_cookies.py::test_auth_cookie_name_requires_non_empty_session_id`. | Impl: `internal/auth/service.go::CookieName`; proof: `internal/auth/service_test.go::TestServiceCookieNameIsSessionScopedAndSanitized`. | `Proved` | Current Go additionally sanitizes the profile cookie prefix before appending the session id; this row only claims the surviving session-scoped non-empty-id contract. |
+| `AC-02` | Current-session secret loading honors `SETTA_SESSION_ID`, accepts an explicit `SETTA_SESSIONS_ROOT` override before falling back to the runtime-root sessions directory, and returns `nil` when the session id or secret is missing. | Source helper: `backend/setta/auth/session.py::load_current_session_secret`; source tests: `tests/auth/test_session.py::{test_load_current_session_secret_returns_metadata,test_load_current_session_secret_prefers_env_session,test_load_current_session_secret_uses_sessions_root_env,test_load_current_session_secret_returns_none_without_session_id,test_load_current_session_secret_returns_none_when_secret_missing,test_load_current_session_secret_clears_cache_when_secret_deleted}`. | Impl: `internal/auth/session.go::LoadCurrentSession`; partial proof: `internal/auth/service_test.go::TestLoadCurrentSessionUsesRuntimeRootFallback`; startup proof: `cmd/setta-server/local_session_test.go::TestMaybeBootstrapLocalSessionCreatesCurrentSessionAndCleansUp`. | `Implemented, proof incomplete` | Current Go intentionally avoids the Python-side stale-cache problem by reloading current-session state each time, but this slice still lacks direct Go proof for the sessions-root override and missing-session / missing-secret branches. |
+| `AC-03` | Bootstrap-token and auth-cookie helpers round-trip the current session, reject replayed or expired bootstrap tokens, and drive near-expiry auth-cookie refresh decisions while leaving fresh cookies alone. | Source docs: `docs/reference/auth-and-sessions.md`; source tests: `tests/auth/test_tokens.py::{TestBootstrapTokenManager::test_mint_and_consume_round_trip,TestBootstrapTokenManager::test_rejects_reused_token,TestBootstrapTokenManager::test_rejects_expired_token,TestAuthCookieManager::test_mint_and_validate_round_trip,TestAuthCookieManager::test_rejects_expired_cookie}`. | Impl: `internal/auth/service.go::{MintBootstrapToken,ConsumeBootstrapToken,MintAuthCookie,ValidateAuthCookie,ShouldRefreshAuthCookie}`; proof: `internal/auth/service_test.go::{TestServiceBootstrapTokenRoundTripRejectsReplay,TestServiceBootstrapTokenRejectsExpiry,TestServiceAuthCookieRoundTrip,TestServiceShouldRefreshNearExpiryAuthCookie,TestServiceDoesNotRefreshFreshAuthCookie}`. | `Proved` | Tamper-path hardening, raw token-decoder edge cases, and launch-intent-token semantics remain outside this bounded slice. |
+| `SR-01` | Local session registry creation/load persists canonical workspace/connect-info fields plus the secret path, returns sessions newest-first, and resolves workspace+server-mode matches against canonicalized workspace paths. | Source helper: `backend/setta/sessions/registry.py::SessionRegistry`; source tests: `tests/sessions/test_registry.py::{test_create_and_load_session,test_create_session_persists_connect_info_path_fields,test_find_sessions_by_workspace_resolves_paths,test_find_sessions_by_workspace_and_mode_filters_server_mode}`. | Impl: `internal/localsessions/registry.go::{CreateSession,LoadSessions,FindSessionsByWorkspaceAndMode}`; proof: `internal/localsessions/registry_test.go::{TestRegistryCreateSessionWritesMetadataAndSecret,TestRegistryLoadSessionsAndFindByWorkspaceAndMode}`; startup proof: `cmd/setta-server/local_session_test.go::TestMaybeBootstrapLocalSessionCreatesCurrentSessionAndCleansUp`. | `Proved` | The Go registry stores the same core connect-info fields under the runtime sessions root; this row is scoped to the persisted load/filter contract, not stale-session pruning. |
+| `SR-02` | Active-session filtering keeps only live Setta processes, recognizes `setta` / `setta-script.py` / `setta-server` process signatures, and ignores current-PID sessions unless in-process mode is explicitly enabled. | Source helper: `backend/setta/sessions/registry.py::{load_sessions,_is_session_stale,is_session_process_setta}`; source tests: `tests/sessions/test_registry.py::{test_is_session_process_setta_detects_console_script_name,test_is_session_process_setta_detects_script_py_name,test_is_session_process_setta_detects_server_binary_name,test_load_sessions_prunes_non_setta_process,test_load_sessions_prunes_current_pid_without_in_process_flag,test_load_sessions_keeps_current_pid_with_in_process_flag}`. | Impl: `internal/localsessions/registry.go::{FilterActiveSessions,IsSessionActive}`; caller usage: `internal/settacli/cli.go`; `internal/settacli/tool_api.go`; `internal/settacmd/backups.go`. | `Implemented, proof incomplete` | Source Python baked this into `load_sessions(prune_stale=True)`, while current Go factors it into caller-applied filtering helpers. This slice does not yet cite direct Go tests for the process-signature and current-PID branches. |
+
 ## Current Findings
 
 1. The matrix now contains forty-seven concrete source-parity gaps:
@@ -1288,12 +1302,14 @@ Rows outside these slices are still pending.
     it closes a matrix omission by classifying the surviving
     `SettaListener`, `setta.api.chat_toolkit`, and `SettaRunner` authoring /
     client surface as explicit retained boundaries.
-44. Git route behavior is now largely proved, including literal pathspec
+44. The auth/session-registry slice adds no new real behavior gap, but it
+    does add two broader proof-gap rows (`AC-02`, `SR-02`).
+45. Git route behavior is now largely proved, including literal pathspec
     handling, pagination/decorations, and commit-diff historical-path
     behavior.
-45. The remaining issues in the naming slice are still mostly proof gaps rather
+46. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
-46. The next high-value steps are:
+47. The next high-value steps are:
     - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
       `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
       `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
@@ -1324,13 +1340,14 @@ Rows outside these slices are still pending.
       proof gaps (`ST-03`, `LM-01`), the new workspace-launch proof gaps
       (`WL-01`, `WL-03`, `WL-04`), the new deployment proof gap (`DP-05`),
       the new plugin proof gap (`PL-08`), the new auth/bootstrap proof gap
-      (`AU-04`), and the new transcription proof gaps (`TS-02`, `TS-04`,
+      (`AU-04`, `AC-02`), and the new transcription proof gaps (`TS-02`, `TS-04`,
       `TS-07`, `TS-11`), plus the new chat/managed-stop proof gaps (`AH-02`,
       `MS-02`), plus the new chat-section proof gap (`CS-06`), plus the new
       project-chat-windowing proof gaps (`CW-02`, `CW-06`), plus the new
       managed-agent-run proof gap (`MA-05`), plus the new state-machine-run
       proof gap (`SM-05`), plus the new workflow-signal/websocket proof gaps
-      (`WS-02`, `WS-05`), plus the new param-value proof gap (`PV-02`), plus
-      the new section-variant proof gap (`SV-02`)
+      (`WS-02`, `WS-05`), plus the new local-session filtering proof gap
+      (`SR-02`), plus the new param-value proof gap (`PV-02`), plus the new
+      section-variant proof gap (`SV-02`)
     - continue the matrix into the remaining realtime/runtime slices that are
       still outside this partial matrix
