@@ -292,18 +292,14 @@ class SettaRunner:
         return RunStatusResponse(**data)
 
     def _post(self, route: Route, payload: dict) -> dict:
-        self._ensure_auth_headers()
+        if self._resolved_auth_headers is None:
+            headers = self._resolve_auth_headers()
+            self._session.headers.update(headers)
+            self._resolved_auth_headers = headers
         url = f"{self._base_url}{Route.PREFIX.value}{route.value}"
         response = self._session.post(url, json=payload)
         response.raise_for_status()
         return response.json()
-
-    def _ensure_auth_headers(self) -> None:
-        if self._resolved_auth_headers is not None:
-            return
-        headers = self._resolve_auth_headers()
-        self._session.headers.update(headers)
-        self._resolved_auth_headers = headers
 
     def _resolve_auth_headers(self) -> dict[str, str]:
         if self._auth_headers is not None:

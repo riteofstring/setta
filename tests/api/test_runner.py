@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import requests
 
 import setta.api.runner as runner_mod
 from setta.api.runner import RunOverride, RunPlan, SettaRunner
@@ -127,3 +128,39 @@ def test_resolve_auth_headers_prefers_matching_session_over_newer_workspace_sess
     assert runner._resolve_auth_headers() == {
         "Cookie": f"{auth_cookie_name(matching.id)}=cookie-{matching.id}"
     }
+
+
+def test_post_resolves_auth_headers_once_and_reuses_session_headers(
+    monkeypatch,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com")
+    resolve_calls = 0
+    observed_headers: list[dict[str, str]] = []
+
+    def resolve_auth_headers() -> dict[str, str]:
+        nonlocal resolve_calls
+        resolve_calls += 1
+        return {"Cookie": "setta-auth=cached"}
+
+    def post(url: str, json: dict) -> requests.Response:
+        del json
+        observed_headers.append(dict(runner._session.headers))
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"{}"
+        response.url = url
+        return response
+
+    monkeypatch.setattr(runner, "_resolve_auth_headers", resolve_auth_headers)
+    monkeypatch.setattr(runner._session, "post", post)
+
+    # Runner posts should resolve auth once, cache the result, and then reuse
+    # the same session headers for later requests.
+    runner._post(runner_mod.Route.GET_RUN_STATUS, {"runId": "run-1"})
+    runner._post(runner_mod.Route.CANCEL_RUN, {"runId": "run-1"})
+
+    assert resolve_calls == 1
+    assert [headers["Cookie"] for headers in observed_headers] == [
+        "setta-auth=cached",
+        "setta-auth=cached",
+    ]
