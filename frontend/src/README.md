@@ -10,19 +10,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-15`
-- Authored TS/TSX files under `frontend/src`: `1438`
-- Non-generated TS/TSX files at `1000+` lines: `43`
+- Authored TS/TSX files under `frontend/src`: `1448`
+- Non-generated TS/TSX files at `1000+` lines: `42`
 - Biggest current production hotspots:
   - `plugins/runtime.ts` (`2730`)
   - `components/Section/Layouts/BrowserArea.tsx` (`2323`)
   - `components/Section/Layouts/TaskBoardArea.tsx` (`2304`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`2297`)
   - `components/Chat/ChatInput.tsx` (`2117`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2091`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2087`)
   - `components/Git/GitGraphOverlay.tsx` (`2040`)
   - `components/Panes/Overview/Plugins/PluginsPane.tsx` (`2023`)
   - `components/Section/Layouts/ChatArea.tsx` (`1972`)
+  - `components/Chat/chatAssistantActivityCard.tsx` (`1918`)
 
 ## Module Map
 
@@ -111,6 +111,22 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns project-chat history DnD ids, pointer geometry, drop-target
     resolution, and thread/group reorder math used by
     `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.ts`
+    owns the delete/undo tooltip copy shared by the extracted project-chat
+    history render owners.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadEntry.tsx`
+    owns project-chat history thread rows, unread/working indicators, per-row
+    action chrome, and thread drop-zone rendering used by
+    `components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadFolders.tsx`
+    owns grouped/ungrouped thread folder shells, inline group rename, and
+    default new-group naming used by
+    `components/Panes/Overview/ProjectLevelAI/projectChatHistory.tsx` and
+    `components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx`.
+  - `components/Panes/Overview/ProjectLevelAI/projectChatHistoryPanel.tsx`
+    owns the project-chat history toolbar, header-portal shell, empty state,
+    and grouped/ungrouped panel composition used by
+    `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`.
   - `components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts`
     owns preferred-engine selection, selected-thread engine reconciliation,
     engine-switch continuation guards, and LLM-unavailable messaging used by
@@ -168,8 +184,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
     persistence, and manager routing over the local external-agent owner.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now
     focuses on polling, local toolbar state, search navigation, thread/group
-    commands, DnD orchestration, and the history render shells over those
-    local view-model and DnD owners.
+    commands, DnD orchestration, and wiring the extracted history panel/folder
+    owners over those local view-model and DnD helpers.
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
     now focuses on skills filtering/selection, skill markdown loading or edit
     shells, MCP runtime grouping, and aux-view routing over the local slash
