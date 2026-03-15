@@ -68,6 +68,54 @@ func (d *Document) CloneProject(projectID string, newName string) (string, strin
 	return clonedProjectID, normalizedName, nil
 }
 
+func (d *Document) SaveAsNewProjectConfig(
+	projectID string,
+	newName string,
+	withRefs bool,
+) (string, string, error) {
+	if d == nil {
+		return "", "", ErrProjectNotFound
+	}
+
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return "", "", err
+	}
+
+	normalizedName, err := validateProjectName(*d, "new-project", newName, false)
+	if err != nil {
+		return "", "", err
+	}
+	clonedProjectID, err := newProjectStateID()
+	if err != nil {
+		return "", "", err
+	}
+
+	cloned := cloneProjectForSaveAs(project, withRefs)
+	cloned.ID = clonedProjectID
+	cloned.Name = normalizedName
+
+	if d.Projects == nil {
+		d.Projects = map[string]Project{}
+	}
+	d.Projects[clonedProjectID] = cloned
+	d.reconcileDefaultProjectID()
+	return clonedProjectID, normalizedName, nil
+}
+
+func cloneProjectForSaveAs(project Project, withRefs bool) Project {
+	cloned := project.Clone()
+	cloned.WindowSpaces = clearWindowSpaceChatIDs(cloned.WindowSpaces)
+	if withRefs {
+		emptyWindowing := DefaultProjectChatWindowingState()
+		cloned.ProjectChatWindowing = &emptyWindowing
+		return cloned
+	}
+	clearedWindowing := clearProjectChatWindowingChatIDs(cloned.ProjectChatWindowing)
+	cloned.ProjectChatWindowing = &clearedWindowing
+	return cloned
+}
+
 func (d *Document) DeleteProjects(projectIDs []string) ([]string, error) {
 	if d == nil {
 		return nil, ErrProjectNotFound
@@ -124,6 +172,32 @@ func (r *Runtime) CloneProject(ctx context.Context, projectID string, newName st
 	)
 	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		projectID, projectName, err := document.CloneProject(projectID, newName)
+		if err != nil {
+			return Document{}, err
+		}
+		clonedProjectID = projectID
+		normalizedName = projectName
+		return document, nil
+	})
+	return snapshot, clonedProjectID, normalizedName, err
+}
+
+func (r *Runtime) SaveAsNewProjectConfig(
+	ctx context.Context,
+	projectID string,
+	newName string,
+	withRefs bool,
+) (Snapshot, string, string, error) {
+	var (
+		clonedProjectID string
+		normalizedName  string
+	)
+	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		projectID, projectName, err := document.SaveAsNewProjectConfig(
+			projectID,
+			newName,
+			withRefs,
+		)
 		if err != nil {
 			return Document{}, err
 		}

@@ -1,6 +1,9 @@
 package projectstate
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) {
 	t.Parallel()
@@ -129,6 +132,115 @@ func TestDocumentCloneProjectCreatesIndependentCopy(t *testing.T) {
 	}
 }
 
+func TestDocumentSaveAsNewProjectConfigWithRefsClearsSavedChatIDsAndResetsLiveWindowing(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = testSaveAsNewProjectConfigSourceProject()
+
+	clonedProjectID, normalizedName, err := document.SaveAsNewProjectConfig(
+		"project-alpha",
+		"  Copied With Refs  ",
+		true,
+	)
+	if err != nil {
+		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
+	}
+	if normalizedName != "Copied With Refs" {
+		t.Fatalf("expected normalized cloned name, got %q", normalizedName)
+	}
+	if clonedProjectID == "project-alpha" {
+		t.Fatalf("expected new project id, got %q", clonedProjectID)
+	}
+
+	clonedProject, err := document.ProjectByID(clonedProjectID)
+	if err != nil {
+		t.Fatalf("ProjectByID clone returned error: %v", err)
+	}
+	if clonedProject.ProjectChatWindowing == nil {
+		t.Fatal("expected cloned live windowing state")
+	}
+	if !reflect.DeepEqual(*clonedProject.ProjectChatWindowing, DefaultProjectChatWindowingState()) {
+		t.Fatalf("expected withRefs clone to seed empty live windowing, got %#v", clonedProject.ProjectChatWindowing)
+	}
+
+	clonedWindowSpace := clonedProject.WindowSpaces["space-1"]
+	if clonedWindowSpace.WindowsByID["project-window"].ChatID != nil {
+		t.Fatalf("expected saved project-chat binding cleared, got %#v", clonedWindowSpace.WindowsByID["project-window"].ChatID)
+	}
+	if clonedWindowSpace.WindowsByID["section-window"].ChatID != nil {
+		t.Fatalf("expected saved section-chat binding cleared, got %#v", clonedWindowSpace.WindowsByID["section-window"].ChatID)
+	}
+	if clonedWindowSpace.WindowsByID["section-window"].SectionIDOrNull == nil || *clonedWindowSpace.WindowsByID["section-window"].SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected saved section binding to stay project-scoped, got %#v", clonedWindowSpace.WindowsByID["section-window"].SectionIDOrNull)
+	}
+	if _, ok := clonedProject.Sections["chat-section"]; !ok {
+		t.Fatalf("expected cloned project to retain project-scoped section ids, got %#v", clonedProject.Sections)
+	}
+}
+
+func TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsChatIDs(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = testSaveAsNewProjectConfigSourceProject()
+
+	clonedProjectID, normalizedName, err := document.SaveAsNewProjectConfig(
+		"project-alpha",
+		"Copied Without Refs",
+		false,
+	)
+	if err != nil {
+		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
+	}
+	if normalizedName != "Copied Without Refs" {
+		t.Fatalf("expected normalized cloned name, got %q", normalizedName)
+	}
+
+	clonedProject, err := document.ProjectByID(clonedProjectID)
+	if err != nil {
+		t.Fatalf("ProjectByID clone returned error: %v", err)
+	}
+	if clonedProject.ProjectChatWindowing == nil {
+		t.Fatal("expected cloned live windowing state")
+	}
+	if !reflect.DeepEqual(clonedProject.ProjectChatWindowing.Order, []string{"project-window", "section-window"}) {
+		t.Fatalf("expected live window order to be preserved, got %#v", clonedProject.ProjectChatWindowing.Order)
+	}
+	if clonedProject.ProjectChatWindowing.NextInstanceNumber != 3 {
+		t.Fatalf("expected next instance number 3, got %d", clonedProject.ProjectChatWindowing.NextInstanceNumber)
+	}
+
+	projectWindow := clonedProject.ProjectChatWindowing.InstancesByID["project-window"]
+	if projectWindow.ChatID != nil {
+		t.Fatalf("expected copied project chat id to be cleared, got %#v", projectWindow.ChatID)
+	}
+	if projectWindow.Bounds.Width != 520 || projectWindow.Bounds.Height != 360 {
+		t.Fatalf("expected live project-chat bounds to be preserved, got %#v", projectWindow.Bounds)
+	}
+
+	sectionWindow := clonedProject.ProjectChatWindowing.InstancesByID["section-window"]
+	if sectionWindow.ChatID != nil {
+		t.Fatalf("expected copied section chat id to be cleared, got %#v", sectionWindow.ChatID)
+	}
+	if sectionWindow.SectionIDOrNull == nil || *sectionWindow.SectionIDOrNull != "chat-section" {
+		t.Fatalf("expected copied section binding to stay valid within the cloned project, got %#v", sectionWindow.SectionIDOrNull)
+	}
+	if _, ok := clonedProject.Sections["chat-section"]; !ok {
+		t.Fatalf("expected cloned project to retain project-scoped section ids, got %#v", clonedProject.Sections)
+	}
+
+	clonedWindowSpace := clonedProject.WindowSpaces["space-1"]
+	if clonedWindowSpace.WindowsByID["project-window"].ChatID != nil {
+		t.Fatalf("expected saved project-chat binding cleared, got %#v", clonedWindowSpace.WindowsByID["project-window"].ChatID)
+	}
+	if clonedWindowSpace.WindowsByID["section-window"].ChatID != nil {
+		t.Fatalf("expected saved section-chat binding cleared, got %#v", clonedWindowSpace.WindowsByID["section-window"].ChatID)
+	}
+}
+
 func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
 	t.Parallel()
 
@@ -176,6 +288,81 @@ func TestDocumentSetDefaultProjectIDTrimsWhitespaceAndUpdatesDefault(t *testing.
 	}
 	if document.DefaultProjectID != "project-beta" {
 		t.Fatalf("expected default project-beta, got %q", document.DefaultProjectID)
+	}
+}
+
+func testSaveAsNewProjectConfigSourceProject() Project {
+	return Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		Sections: map[string]Section{
+			"chat-section": {
+				ID:   "chat-section",
+				Name: "Chat Section",
+			},
+		},
+		WindowSpaces: map[string]WindowSpaceConfig{
+			"space-1": {
+				ID:        "space-1",
+				Name:      "Copied Layout",
+				SortIndex: 0,
+				Order:     []string{"project-window", "section-window"},
+				WindowsByID: map[string]WindowSpaceWindow{
+					"project-window": {
+						SurfaceKind:      WindowSpaceSurfaceKindProjectChat,
+						Mode:             ChatWindowModeProjectAI,
+						Title:            stringPointer("Project Chat"),
+						ChatID:           stringPointer("source-project-chat"),
+						ZIndex:           3,
+						NormalizedBounds: NormalizedFloatingWindowBounds{X: 0.1, Y: 0.2, Width: 0.5, Height: 0.4},
+					},
+					"section-window": {
+						SurfaceKind:      WindowSpaceSurfaceKindSection,
+						Mode:             ChatWindowModeSection,
+						SectionIDOrNull:  stringPointer("chat-section"),
+						Title:            stringPointer("Section Chat"),
+						ChatID:           stringPointer("source-section-chat"),
+						ZIndex:           4,
+						NormalizedBounds: NormalizedFloatingWindowBounds{X: 0.2, Y: 0.3, Width: 0.4, Height: 0.5},
+					},
+				},
+			},
+		},
+		ProjectChatWindowing: &ProjectChatWindowingState{
+			InstancesByID: map[string]ProjectChatWindowInstance{
+				"project-window": {
+					InstanceID: "project-window",
+					Placement:  ChatWindowPlacementFloating,
+					Mode:       ChatWindowModeProjectAI,
+					Title:      stringPointer("Project Chat"),
+					ChatID:     stringPointer("live-project-chat"),
+					ZIndex:     5,
+					Bounds: ChatWindowBounds{
+						X:      48,
+						Y:      64,
+						Width:  520,
+						Height: 360,
+					},
+				},
+				"section-window": {
+					InstanceID:      "section-window",
+					Placement:       ChatWindowPlacementFloating,
+					Mode:            ChatWindowModeSection,
+					SectionIDOrNull: stringPointer("chat-section"),
+					Title:           stringPointer("Section Chat"),
+					ChatID:          stringPointer("live-section-chat"),
+					ZIndex:          6,
+					Bounds: ChatWindowBounds{
+						X:      640,
+						Y:      96,
+						Width:  420,
+						Height: 320,
+					},
+				},
+			},
+			Order:              []string{"project-window", "section-window"},
+			NextInstanceNumber: 3,
+		},
 	}
 }
 

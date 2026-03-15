@@ -454,11 +454,7 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:                      "project-alpha",
-			Name:                    "Alpha",
-			AllowJSONSourceKeyEdits: true,
-		}
+		document.Projects["project-alpha"] = appProjectShellTestProjectWithWindowing()
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed project runtime: %v", err)
@@ -579,6 +575,16 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	}
 	if clonedProjectID == "" {
 		t.Fatalf("expected cloned project in %#v", persistedDocument.Projects)
+	}
+	clonedProject := persistedDocument.Projects[clonedProjectID]
+	if clonedProject.ProjectChatWindowing == nil {
+		t.Fatal("expected cloned live windowing state")
+	}
+	if len(clonedProject.ProjectChatWindowing.Order) != 0 || clonedProject.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected withRefs save-as to seed empty live windowing, got %#v", clonedProject.ProjectChatWindowing)
+	}
+	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
+		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
 	}
 
 	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
@@ -790,4 +796,61 @@ func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *t
 	if notificationPayload.Timestamp == "" {
 		t.Fatalf("expected save notification timestamp, got %#v", notificationPayload)
 	}
+}
+
+func appProjectShellTestProjectWithWindowing() projectstate.Project {
+	return projectstate.Project{
+		ID:                      "project-alpha",
+		Name:                    "Alpha",
+		AllowJSONSourceKeyEdits: true,
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID:   "focus",
+				Name: "Focus",
+			},
+		},
+		ActiveViewModeID: "focus",
+		WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+			"space-1": {
+				ID:        "space-1",
+				Name:      "Copied Layout",
+				SortIndex: 0,
+				Order:     []string{"chat-window"},
+				WindowsByID: map[string]projectstate.WindowSpaceWindow{
+					"chat-window": {
+						SurfaceKind:      projectstate.WindowSpaceSurfaceKindProjectChat,
+						Mode:             projectstate.ChatWindowModeProjectAI,
+						Title:            appProjectShellTestStringPointer("Project Chat"),
+						ChatID:           appProjectShellTestStringPointer("saved-chat"),
+						ZIndex:           2,
+						NormalizedBounds: projectstate.NormalizedFloatingWindowBounds{X: 0.1, Y: 0.2, Width: 0.5, Height: 0.4},
+					},
+				},
+			},
+		},
+		ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+			InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+				"project-window": {
+					InstanceID: "project-window",
+					Placement:  projectstate.ChatWindowPlacementFloating,
+					Mode:       projectstate.ChatWindowModeProjectAI,
+					Title:      appProjectShellTestStringPointer("Project Chat"),
+					ChatID:     appProjectShellTestStringPointer("live-chat"),
+					ZIndex:     4,
+					Bounds: projectstate.ChatWindowBounds{
+						X:      48,
+						Y:      64,
+						Width:  520,
+						Height: 360,
+					},
+				},
+			},
+			Order:              []string{"project-window"},
+			NextInstanceNumber: 3,
+		},
+	}
+}
+
+func appProjectShellTestStringPointer(value string) *string {
+	return &value
 }

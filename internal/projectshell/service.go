@@ -170,12 +170,17 @@ func (s *Service) CreateProjectConfig(ctx context.Context, previewImgColor strin
 	return createdName, nil
 }
 
-func (s *Service) SaveAsNewProjectConfig(ctx context.Context, projectConfigID string, newConfigName string, _ bool) error {
+func (s *Service) SaveAsNewProjectConfig(ctx context.Context, projectConfigID string, newConfigName string, withRefs bool) error {
 	if s == nil || s.projectState == nil {
 		return ErrProjectStateRequired
 	}
 
-	snapshot, _, _, err := s.projectState.CloneProject(ctx, projectConfigID, newConfigName)
+	snapshot, _, _, err := s.projectState.SaveAsNewProjectConfig(
+		ctx,
+		projectConfigID,
+		newConfigName,
+		withRefs,
+	)
 	if err != nil {
 		return err
 	}

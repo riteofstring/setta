@@ -192,12 +192,7 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Forty-seven concrete parity gaps are already visible:
-  - source-baseline `add_kwarg` creates unnamed editable params
-  - current Go `AddKwarg` assigns a non-empty generated name instead
-  - source-baseline `saveAsNewProjectConfig` changes behavior based on
-    `withRefs`
-  - current Go ignores `withRefs` and always performs the same clone path
+- Forty-six concrete parity gaps are already visible:
   - source-baseline prompt-template updates refresh linked prompt-section
     cached state
   - current Go does not run an equivalent linked-section refresh
@@ -544,7 +539,7 @@ It covers:
 | `PS-05` | `saveProject` persists the latest in-memory project state. | `backend/setta/routers/projects.py::route_save_project`; `backend/setta/project_state/session_project_manager.py::save`; `tests/project_state/test_manual_save_queue.py::test_project_manual_save_waits_for_pending_ops`. | Impl: `internal/projectshell/service.go::SaveProject`; proof: `internal/projectshell/service_test.go::TestServiceSaveProjectPersistsCurrentRuntimeAndRunsHook`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesSavesProject`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellLifecycleRoutes`. | `Proved` | This row only claims the persisted-save result. The Python queue/autosave coordination is tracked separately. |
 | `PS-06` | Manual save drains pending writes and cancels pending autosave before persistence. | `backend/setta/routers/projects.py::route_save_project` awaits `finish_pending_operations()` before `perform_manual_save()`; `tests/project_state/test_manual_save_queue.py::test_project_manual_save_waits_for_pending_ops`; `tests/project_state/test_manual_save_autosave.py::test_manual_save_cancels_pending_autosave`. | Current Go path: `internal/httpapi/project_shell_routes.go::saveProjectHandler`; `internal/projectshell/service.go::SaveProject`. | `Dormant / unproven caller` | The source behavior guarded the Python async queue/autosave model. Current Go has no direct project-shell queue/debouncer layer, and this matrix slice does not yet prove whether a distinct equivalent is still required for active callers. |
 | `PS-07` | `createProjectConfig` persists the created project and follows with an all-project-metadata broadcast. | `backend/setta/routers/projects.py::route_create_project_config`; `backend/setta/project_state/base_project_manager.py::create_project_config`; `backend/setta/project_state/base_project_manager.py::broadcast_all_project_metadata`. | Impl: `internal/projectshell/service.go::CreateProjectConfig`; app hook: `internal/app/app.go::broadcastAllProjectMetadata`; proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesCreatesProjectConfig`; app proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | The project-name/default-view-mode invariants for creation are tracked in `PN-06`; this row covers the project-shell persistence/broadcast contract. |
-| `PS-08` | `saveAsNewProjectConfig` changes clone behavior based on `withRefs`: `withRefs=true` seeds empty project chat windowing and clears copied chat ids, while `withRefs=false` copies windowing layout and remaps copied section ids. | `backend/setta/project_state/session_project_manager.py::save_as_new_project_config`; `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_with_refs_seeds_windowing_and_clears_chat_ids`; `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_without_refs_copies_windowing_layout_and_remaps_sections`. | Current Go path: `internal/projectshell/service.go::SaveAsNewProjectConfig` ignores `withRefs` and always calls `CloneProject`; proof of divergence: `internal/projectshell/service_test.go::TestServiceSaveAsNewProjectConfigAlwaysCreatesIndependentClone`. | `Missing` | This is the second concrete parity gap found in the matrix. The current Go shell route accepts `withRefs` but discards it. |
+| `PS-08` | `saveAsNewProjectConfig` honors `withRefs` for copied windowing state: `withRefs=true` seeds empty project chat windowing and clears copied saved-window `chatId`s, while `withRefs=false` copies the live windowing layout and clears copied thread bindings. | `backend/setta/project_state/session_project_manager.py::save_as_new_project_config`; `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_with_refs_seeds_windowing_and_clears_chat_ids`; `tests/project_state/test_project_chat_windowing_persistence.py::test_save_as_new_project_config_without_refs_copies_windowing_layout_and_remaps_sections`. | Impl: `internal/projectstate/project_lifecycle.go::{SaveAsNewProjectConfig,cloneProjectForSaveAs}`; proof: `internal/projectstate/project_lifecycle_test.go::{TestDocumentSaveAsNewProjectConfigWithRefsClearsSavedChatIDsAndResetsLiveWindowing,TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsChatIDs}`; service proof: `internal/projectshell/service_test.go::{TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing,TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout}`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag`; app proof: `internal/app/project_shell_test.go::TestAppServesProjectShellLifecycleRoutes`; current product doc: `docs/reference/project-chat-windowing.md`. | `Intentional divergence` | Current Go now restores the active save-as `withRefs` split, but it intentionally keeps section and window-space ids stable within each cloned project instead of remapping them because the Go document model scopes those ids by `projectConfigId`. |
 | `PS-09` | Invalid save-as names return `422` with validation detail. | `backend/setta/routers/projects.py::route_save_as_new_project_config` catches `InvalidProjectName` and returns `422`. | Proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail`. | `Proved` | |
 | `PS-10` | `deleteProjectConfigs` removes the selected projects, reconciles the default-project pointer, and rebroadcasts all-project metadata. | `backend/setta/project_state/base_project_manager.py::delete_project_configs`; `backend/setta/project_state/base_project_manager.py::broadcast_all_project_metadata`. | Impl: `internal/projectshell/service.go::DeleteProjectConfigs`; proof: `internal/projectshell/service_test.go::TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault`; route proof: `internal/httpapi/project_shell_routes_test.go::TestRegisterProjectShellRoutesDeletesProjectConfigs`; app proof: `internal/app/project_shell_test.go::TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification`. | `Proved` | |
 | `PS-11` | Deleting projects also reclaims terminal sessions attached to the deleted project ids. | `backend/setta/routers/projects.py::route_delete_project_configs` explicitly deletes matching PTYs after project deletion. | Impl: `internal/app/app.go::deleteProjectTerminals`; proof: `internal/app/project_shell_test.go::TestAppServesProjectShellLifecycleRoutes`. | `Proved` | This is an app-level side effect, not a pure projectstate behavior. |
@@ -1247,8 +1242,8 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains forty-seven concrete source-parity gaps:
-   `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
+1. The matrix now contains forty-six concrete source-parity gaps:
+   `PT-06`, `PT-08`, `EC-05`, `LS-11`, `LS-17`, `LD-03`,
    `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
    `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
@@ -1410,13 +1405,13 @@ It covers:
 52. The remaining issues in the naming slice are still mostly proof gaps rather
     than obvious implementation gaps.
 53. The next high-value steps are:
-    - decide whether `CN-07`, `PS-08`, `PT-06`, `PT-08`, `EC-05`, `LD-03`,
-      `FB-02`, `US-05`, `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`,
-      `LM-02`, `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`,
-      `AU-10`, `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`,
-      `BR-03`, `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`,
-      `VL-07`, `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`,
-      `CT-02`, `SC-05`, `SC-06`, and `DL-02` should be restored or
+    - decide whether `PT-06`, `PT-08`, `EC-05`, `LD-03`, `FB-02`, `US-05`,
+      `RV-02`, `AH-04`, `FS-01`, `WS-01`, `WS-04`, `AP-02`, `LM-02`,
+      `DP-06`, `DP-08`, `PL-04`, `PL-05`, `AU-07`, `AU-09`, `AU-10`,
+      `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
+      `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
+      `SP-03`, `PA-02`, `PV-05`, `SV-05`, `VM-03`, `MV-02`, `CT-02`,
+      `SC-05`, `SC-06`, and `DL-02` should be restored or
       documented as intentional divergences
     - decide whether `LS-11` and `LS-17` should be restored or documented as
       intentional divergences

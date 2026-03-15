@@ -520,7 +520,7 @@ func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *
 	}
 }
 
-func TestServiceSaveAsNewProjectConfigAlwaysCreatesIndependentClone(t *testing.T) {
+func TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -532,18 +532,7 @@ func TestServiceSaveAsNewProjectConfigAlwaysCreatesIndependentClone(t *testing.T
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:                      "project-alpha",
-				Name:                    "Alpha",
-				AllowJSONSourceKeyEdits: true,
-				ViewModes: map[string]projectstate.ViewMode{
-					"focus": {
-						ID:   "focus",
-						Name: "Focus",
-					},
-				},
-				ActiveViewModeID: "focus",
-			},
+			"project-alpha": serviceTestProjectWithWindowing(),
 		},
 	}); err != nil {
 		t.Fatalf("seed project store: %v", err)
@@ -606,6 +595,92 @@ func TestServiceSaveAsNewProjectConfigAlwaysCreatesIndependentClone(t *testing.T
 	if len(clonedProject.ViewModes) != 1 || clonedProject.ActiveViewModeID != "focus" {
 		t.Fatalf("expected cloned project graph to be copied, got %#v", clonedProject)
 	}
+	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
+		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
+	}
+	if clonedProject.ProjectChatWindowing == nil {
+		t.Fatal("expected cloned live windowing state")
+	}
+	if len(clonedProject.ProjectChatWindowing.Order) != 0 || clonedProject.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected withRefs clone to reset live windowing, got %#v", clonedProject.ProjectChatWindowing)
+	}
+}
+
+func TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": serviceTestProjectWithWindowing(),
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	service, err := NewService(ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SaveAsNewProjectConfig(context.Background(), "project-alpha", "Cloned Alpha", false); err != nil {
+		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+
+	var clonedProject projectstate.Project
+	foundClone := false
+	for projectID, project := range reloaded.Projects {
+		if projectID == "project-alpha" {
+			continue
+		}
+		if project.Name == "Cloned Alpha" {
+			clonedProject = project
+			foundClone = true
+		}
+	}
+	if !foundClone {
+		t.Fatalf("expected cloned project in %#v", reloaded.Projects)
+	}
+	if clonedProject.ProjectChatWindowing == nil {
+		t.Fatal("expected cloned live windowing state")
+	}
+	if len(clonedProject.ProjectChatWindowing.Order) != 1 || clonedProject.ProjectChatWindowing.Order[0] != "project-window" {
+		t.Fatalf("expected live window order to be preserved, got %#v", clonedProject.ProjectChatWindowing.Order)
+	}
+	if clonedProject.ProjectChatWindowing.NextInstanceNumber != 3 {
+		t.Fatalf("expected next instance number 3, got %d", clonedProject.ProjectChatWindowing.NextInstanceNumber)
+	}
+	clonedWindow := clonedProject.ProjectChatWindowing.InstancesByID["project-window"]
+	if clonedWindow.ChatID != nil {
+		t.Fatalf("expected copied live chat id cleared, got %#v", clonedWindow.ChatID)
+	}
+	if clonedWindow.Bounds.Width != 520 || clonedWindow.Bounds.Height != 360 {
+		t.Fatalf("expected copied bounds preserved, got %#v", clonedWindow.Bounds)
+	}
+	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
+		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
+	}
 }
 
 func TestServiceSaveAsNewProjectConfigRejectsInvalidName(t *testing.T) {
@@ -642,6 +717,63 @@ func TestServiceSaveAsNewProjectConfigRejectsInvalidName(t *testing.T) {
 	if !projectstate.IsInvalidProjectNameError(err) {
 		t.Fatalf("expected invalid project name error, got %v", err)
 	}
+}
+
+func serviceTestProjectWithWindowing() projectstate.Project {
+	return projectstate.Project{
+		ID:                      "project-alpha",
+		Name:                    "Alpha",
+		AllowJSONSourceKeyEdits: true,
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID:   "focus",
+				Name: "Focus",
+			},
+		},
+		ActiveViewModeID: "focus",
+		WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+			"space-1": {
+				ID:        "space-1",
+				Name:      "Copied Layout",
+				SortIndex: 0,
+				Order:     []string{"chat-window"},
+				WindowsByID: map[string]projectstate.WindowSpaceWindow{
+					"chat-window": {
+						SurfaceKind:      projectstate.WindowSpaceSurfaceKindProjectChat,
+						Mode:             projectstate.ChatWindowModeProjectAI,
+						Title:            serviceTestStringPointer("Project Chat"),
+						ChatID:           serviceTestStringPointer("saved-chat"),
+						ZIndex:           2,
+						NormalizedBounds: projectstate.NormalizedFloatingWindowBounds{X: 0.1, Y: 0.2, Width: 0.5, Height: 0.4},
+					},
+				},
+			},
+		},
+		ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+			InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+				"project-window": {
+					InstanceID: "project-window",
+					Placement:  projectstate.ChatWindowPlacementFloating,
+					Mode:       projectstate.ChatWindowModeProjectAI,
+					Title:      serviceTestStringPointer("Project Chat"),
+					ChatID:     serviceTestStringPointer("live-chat"),
+					ZIndex:     4,
+					Bounds: projectstate.ChatWindowBounds{
+						X:      48,
+						Y:      64,
+						Width:  520,
+						Height: 360,
+					},
+				},
+			},
+			Order:              []string{"project-window"},
+			NextInstanceNumber: 3,
+		},
+	}
+}
+
+func serviceTestStringPointer(value string) *string {
+	return &value
 }
 
 func TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault(t *testing.T) {

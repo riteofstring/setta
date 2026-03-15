@@ -325,7 +325,7 @@ func TestRegisterProjectShellRoutesSavesProject(t *testing.T) {
 	}
 }
 
-func TestRegisterProjectShellRoutesSaveAsClonesProject(t *testing.T) {
+func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -337,18 +337,7 @@ func TestRegisterProjectShellRoutesSaveAsClonesProject(t *testing.T) {
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:                      "project-alpha",
-				Name:                    "Alpha",
-				AllowJSONSourceKeyEdits: true,
-				ViewModes: map[string]projectstate.ViewMode{
-					"focus": {
-						ID:   "focus",
-						Name: "Focus",
-					},
-				},
-				ActiveViewModeID: "focus",
-			},
+			"project-alpha": projectShellRouteTestProjectWithWindowing(),
 		},
 	}); err != nil {
 		t.Fatalf("seed project store: %v", err)
@@ -370,7 +359,7 @@ func TestRegisterProjectShellRoutesSaveAsClonesProject(t *testing.T) {
 	}
 
 	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":true,"frontendOpId":"save-as-op-1"}`))
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":false,"frontendOpId":"save-as-op-1"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -384,6 +373,32 @@ func TestRegisterProjectShellRoutesSaveAsClonesProject(t *testing.T) {
 	}
 	if len(reloaded.Projects) != 2 {
 		t.Fatalf("expected two persisted projects, got %#v", reloaded.Projects)
+	}
+	var clonedProject projectstate.Project
+	foundClone := false
+	for projectID, project := range reloaded.Projects {
+		if projectID == "project-alpha" {
+			continue
+		}
+		if project.Name == "Cloned Alpha" {
+			clonedProject = project
+			foundClone = true
+		}
+	}
+	if !foundClone {
+		t.Fatalf("expected cloned project in %#v", reloaded.Projects)
+	}
+	if clonedProject.ProjectChatWindowing == nil {
+		t.Fatal("expected cloned live windowing state")
+	}
+	if len(clonedProject.ProjectChatWindowing.Order) != 1 || clonedProject.ProjectChatWindowing.Order[0] != "project-window" {
+		t.Fatalf("expected live window layout to be copied, got %#v", clonedProject.ProjectChatWindowing.Order)
+	}
+	if clonedProject.ProjectChatWindowing.InstancesByID["project-window"].ChatID != nil {
+		t.Fatalf("expected copied live chat id cleared, got %#v", clonedProject.ProjectChatWindowing.InstancesByID["project-window"].ChatID)
+	}
+	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
+		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
 	}
 }
 
@@ -430,6 +445,63 @@ func TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail(t *testing
 	if payload["detail"] != "Project name 'home' is reserved." {
 		t.Fatalf("unexpected invalid save-as payload %#v", payload)
 	}
+}
+
+func projectShellRouteTestProjectWithWindowing() projectstate.Project {
+	return projectstate.Project{
+		ID:                      "project-alpha",
+		Name:                    "Alpha",
+		AllowJSONSourceKeyEdits: true,
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID:   "focus",
+				Name: "Focus",
+			},
+		},
+		ActiveViewModeID: "focus",
+		WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+			"space-1": {
+				ID:        "space-1",
+				Name:      "Copied Layout",
+				SortIndex: 0,
+				Order:     []string{"chat-window"},
+				WindowsByID: map[string]projectstate.WindowSpaceWindow{
+					"chat-window": {
+						SurfaceKind:      projectstate.WindowSpaceSurfaceKindProjectChat,
+						Mode:             projectstate.ChatWindowModeProjectAI,
+						Title:            projectShellRouteTestStringPointer("Project Chat"),
+						ChatID:           projectShellRouteTestStringPointer("saved-chat"),
+						ZIndex:           2,
+						NormalizedBounds: projectstate.NormalizedFloatingWindowBounds{X: 0.1, Y: 0.2, Width: 0.5, Height: 0.4},
+					},
+				},
+			},
+		},
+		ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+			InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+				"project-window": {
+					InstanceID: "project-window",
+					Placement:  projectstate.ChatWindowPlacementFloating,
+					Mode:       projectstate.ChatWindowModeProjectAI,
+					Title:      projectShellRouteTestStringPointer("Project Chat"),
+					ChatID:     projectShellRouteTestStringPointer("live-chat"),
+					ZIndex:     4,
+					Bounds: projectstate.ChatWindowBounds{
+						X:      48,
+						Y:      64,
+						Width:  520,
+						Height: 360,
+					},
+				},
+			},
+			Order:              []string{"project-window"},
+			NextInstanceNumber: 3,
+		},
+	}
+}
+
+func projectShellRouteTestStringPointer(value string) *string {
+	return &value
 }
 
 func TestRegisterProjectShellRoutesDeletesProjectConfigs(t *testing.T) {

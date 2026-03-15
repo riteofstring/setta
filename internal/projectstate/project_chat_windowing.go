@@ -422,6 +422,20 @@ func CloneWindowSpacesOrEmpty(
 	return cloned
 }
 
+func clearWindowSpaceChatIDs(
+	windowSpaces map[string]WindowSpaceConfig,
+) map[string]WindowSpaceConfig {
+	cleared := CloneWindowSpacesOrEmpty(windowSpaces)
+	for windowSpaceID, windowSpace := range cleared {
+		for windowID, window := range windowSpace.WindowsByID {
+			window.ChatID = nil
+			windowSpace.WindowsByID[windowID] = window
+		}
+		cleared[windowSpaceID] = windowSpace
+	}
+	return cleared
+}
+
 func ProjectChatWindowingOrDefault(
 	state *ProjectChatWindowingState,
 ) ProjectChatWindowingState {
@@ -439,6 +453,17 @@ func ProjectChatWindowingOrDefault(
 		cloned.Order = []string{}
 	}
 	return cloned
+}
+
+func clearProjectChatWindowingChatIDs(
+	state *ProjectChatWindowingState,
+) ProjectChatWindowingState {
+	cleared := ProjectChatWindowingOrDefault(state)
+	for instanceID, instance := range cleared.InstancesByID {
+		instance.ChatID = nil
+		cleared.InstancesByID[instanceID] = instance
+	}
+	return cleared
 }
 
 func validateWindowingOwner(
