@@ -2276,3 +2276,31 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts`,
     now the largest authored/shared state hotspot at 426 lines, by separating
     reveal snapshot capture from rollback/restore application helpers.
+
+## 2026-03-15 03:03:32 PDT
+
+- Slice completed: split reveal snapshot capture/failure assembly away from
+  rollback and owned restore application
+- Key files touched:
+  - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationCapture.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationRestore.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutations.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationCapture.test.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingRevealMutationCapture.test.ts src/state/actions/uiSettingRevealMutationSnapshots.test.ts src/state/actions/uiSettingRevealMutationOwnership.test.ts src/state/actions/uiSettingReveal.test.ts src/state/actions/uiSettingRevealDom.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/uiSettingRevealMutationSnapshots.ts src/state/actions/uiSettingRevealMutationCapture.ts src/state/actions/uiSettingRevealMutationRestore.ts src/state/actions/uiSettingRevealMutations.ts src/state/actions/uiSettingRevealMutationSnapshots.test.ts src/state/actions/uiSettingRevealMutationCapture.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `b5405ec3d`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatSubmission.ts`, now the largest
+    authored/shared state hotspot at 423 lines, by separating request payload
+    assembly from the remaining pending-surface orchestration helpers.
