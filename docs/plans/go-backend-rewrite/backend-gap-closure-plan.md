@@ -96,3 +96,7 @@ categorize them.
   config backlog is the harder profile-validation and platform-default-path
   rows, so keep preferring small, direct tests where the shared owner is
   already implemented and the branch can be isolated cleanly
+- The profile-loader fail-closed validation family is now proved too; that
+  leaves the platform-default Setta-home path row as the main remaining config
+  proof slice before it makes sense to switch focus fully back to the larger
+  deployment, websocket, watch-code, external-agent, and packaged-CLI gaps
