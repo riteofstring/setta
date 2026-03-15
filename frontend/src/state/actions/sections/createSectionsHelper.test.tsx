@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -13,7 +14,10 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTopLevelSectionWithResult } from "./createSections";
-import { createTopLevelSectionFromImplSpecs } from "./createSectionsHelper";
+import {
+  createTopLevelSectionFromImplSpecs,
+  useCreateSectionsList,
+} from "./createSectionsHelper";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_update_param_impl_config: vi.fn(),
@@ -27,7 +31,17 @@ vi.mock("./createSections", () => ({
   createTopLevelSectionWithResult: vi.fn(),
 }));
 
-describe("createTopLevelSectionFromImplSpecs", () => {
+function Probe({
+  onResolve,
+}: {
+  onResolve: (items: ReturnType<typeof useCreateSectionsList>) => void;
+}) {
+  const items = useCreateSectionsList();
+  onResolve(items);
+  return null;
+}
+
+describe("useCreateSectionsList", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
@@ -43,6 +57,85 @@ describe("createTopLevelSectionFromImplSpecs", () => {
 
   afterEach(() => {
     resetProjectStores();
+  });
+
+  it("includes dedicated calendar meta-control preset and omits deprecated controls", () => {
+    let items: ReturnType<typeof useCreateSectionsList> = [];
+    renderToStaticMarkup(
+      <Probe
+        onResolve={(resolvedItems) => {
+          items = resolvedItems;
+        }}
+      />,
+    );
+
+    const metaControlGroup = items.find(
+      (group) => group.group === "MetaControls",
+    );
+    expect(metaControlGroup).toBeDefined();
+
+    const calendar = metaControlGroup?.items.find(
+      (item) => item.name === "Calendar",
+    );
+    const timeDisplay = metaControlGroup?.items.find(
+      (item) => item.name === "Time Display",
+    );
+    const codeInput = metaControlGroup?.items.find(
+      (item) => item.name === "Code Input",
+    );
+
+    expect(calendar).toBeDefined();
+    expect(timeDisplay).toBeUndefined();
+    expect(codeInput).toBeUndefined();
+    expect(calendar?.controlCodeObjType).toBe(CodeObjTypeEnum.DateParam);
+    expect(calendar?.controlParamConfig).toEqual({
+      dateControlMode: DateControlModeEnum.calendar,
+      dateSelectionMode: DateSelectionModeEnum.multiple,
+      dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+    });
+  });
+
+  it("places task board in the Other group instead of Section", () => {
+    let items: ReturnType<typeof useCreateSectionsList> = [];
+    renderToStaticMarkup(
+      <Probe
+        onResolve={(resolvedItems) => {
+          items = resolvedItems;
+        }}
+      />,
+    );
+
+    const sectionGroup = items.find((group) => group.group === "Section");
+    const otherGroup = items.find((group) => group.group === "Other");
+
+    expect(sectionGroup).toBeDefined();
+    expect(otherGroup).toBeDefined();
+    expect(sectionGroup?.items.some((item) => item.name === "Task Board")).toBe(
+      false,
+    );
+    expect(otherGroup?.items.some((item) => item.name === "Task Board")).toBe(
+      true,
+    );
+  });
+
+  it("exposes workflow control sections in a dedicated group", () => {
+    let items: ReturnType<typeof useCreateSectionsList> = [];
+    renderToStaticMarkup(
+      <Probe
+        onResolve={(resolvedItems) => {
+          items = resolvedItems;
+        }}
+      />,
+    );
+
+    const workflowGroup = items.find((group) => group.group === "Workflow");
+
+    expect(workflowGroup).toBeDefined();
+    expect(workflowGroup?.items.map((item) => item.name)).toEqual([
+      "State Machine Start",
+      "State Machine Gate",
+      "State Machine End",
+    ]);
   });
 
   it("applies preset config when create response includes a meta control param id", async () => {

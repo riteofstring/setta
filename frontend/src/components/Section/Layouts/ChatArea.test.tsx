@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getManagedChatRunRefreshKey,
   shouldExitManagedChatHistory,
-} from "./chatAreaManagedHistory";
+} from "./ChatArea";
 
 describe("shouldExitManagedChatHistory", () => {
   it("closes history when the managed chat binding changes", () => {
