@@ -2,15 +2,13 @@ import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
 import React from "react";
 import {
+  getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
-  isBaseCodeSectionType,
-} from "state/actions/sectionInfos";
-import {
-  getActiveViewModeConfig,
   getSectionShouldRender,
   getSectionViewModeVisibility,
-} from "state/actions/sectionViewModeVisibility";
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import {

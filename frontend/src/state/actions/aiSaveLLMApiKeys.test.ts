@@ -29,8 +29,8 @@ const mockedRouteGetLLMApiKeys = vi.mocked(route_get_llm_api_keys);
 const mockedRouteSetLLMApiKeys = vi.mocked(route_set_llm_api_keys);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let mutateAndSaveLLMApiKeys: typeof import("state/actions/aiManagedApiKeyPersistence").mutateAndSaveLLMApiKeys;
-let receiveLLMApiKeysSnapshotUpdate: typeof import("state/actions/aiManagedApiKeyState").receiveLLMApiKeysSnapshotUpdate;
+let mutateAndSaveLLMApiKeys: typeof import("state/actions/ai").mutateAndSaveLLMApiKeys;
+let receiveLLMApiKeysSnapshotUpdate: typeof import("state/actions/ai").receiveLLMApiKeysSnapshotUpdate;
 let memoryStorage: Storage;
 
 describe("mutateAndSaveLLMApiKeys", () => {
@@ -57,16 +57,9 @@ describe("mutateAndSaveLLMApiKeys", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
 
-    const aiManagedApiKeyPersistence = await import(
-      "state/actions/aiManagedApiKeyPersistence"
-    );
-    const aiManagedApiKeyState = await import(
-      "state/actions/aiManagedApiKeyState"
-    );
-    mutateAndSaveLLMApiKeys =
-      aiManagedApiKeyPersistence.mutateAndSaveLLMApiKeys;
-    receiveLLMApiKeysSnapshotUpdate =
-      aiManagedApiKeyState.receiveLLMApiKeysSnapshotUpdate;
+    const ai = await import("state/actions/ai");
+    mutateAndSaveLLMApiKeys = ai.mutateAndSaveLLMApiKeys;
+    receiveLLMApiKeysSnapshotUpdate = ai.receiveLLMApiKeysSnapshotUpdate;
   });
 
   beforeEach(() => {
