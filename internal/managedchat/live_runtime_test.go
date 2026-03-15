@@ -153,3 +153,108 @@ func TestServiceGetChatUsesConcreteLiveRuntimeOverlay(t *testing.T) {
 		t.Fatal("expected finalized live overlay to clear waiting state")
 	}
 }
+
+func TestLiveRuntimeAIFollowSnapshotDedupesAndClears(t *testing.T) {
+	t.Parallel()
+
+	runtime := NewLiveRuntime(LiveRuntimeOptions{})
+	run := newManagedChatRun(t, managedChatRunOptions{
+		chatID:          "chat-follow",
+		projectConfigID: "project-alpha",
+		engineConfigID:  "engine-managed",
+		startedAt:       time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC),
+		status:          agentruns.RunStatusRunning,
+		inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+	})
+	runtime.ActivateRun(run)
+
+	if err := runtime.ApplyChunk(context.Background(), StreamChunkParams{
+		RunID:           run.ID,
+		ChatID:          "chat-follow",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-1",
+			ToolCallID:      "tool-call-1",
+			ToolName:        "setta__set_param_value",
+			ArgumentsDelta:  `{"sectionId":"section-2","codeObjId":"param-b"}`,
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{"section": {"section-2", "section-1", "section-2"}, "codeObj": {"param-b", "param-a", "param-b"}},
+		},
+	}); err != nil {
+		t.Fatalf("apply preview chunk: %v", err)
+	}
+
+	snapshot := runtime.AIFollowSnapshot("project-alpha")
+	if len(snapshot) != 1 {
+		t.Fatalf("expected one snapshot entry, got %#v", snapshot)
+	}
+	if snapshot[0].ChatID != "chat-follow" {
+		t.Fatalf("expected chat-follow snapshot, got %#v", snapshot[0])
+	}
+	if got := snapshot[0].IDsByType["section"]; len(got) != 2 || got[0] != "section-1" || got[1] != "section-2" {
+		t.Fatalf("unexpected section ids %#v", snapshot[0].IDsByType)
+	}
+	if got := snapshot[0].IDsByType["codeObj"]; len(got) != 2 || got[0] != "param-a" || got[1] != "param-b" {
+		t.Fatalf("unexpected codeObj ids %#v", snapshot[0].IDsByType)
+	}
+
+	if err := runtime.ApplyChunk(context.Background(), StreamChunkParams{
+		RunID:           run.ID,
+		ChatID:          "chat-follow",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-1",
+			ToolCallID:      "tool-call-1",
+			ToolName:        "setta__set_param_value",
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{},
+		},
+	}); err != nil {
+		t.Fatalf("apply clearing preview chunk: %v", err)
+	}
+
+	snapshot = runtime.AIFollowSnapshot("project-alpha")
+	if len(snapshot) != 0 {
+		t.Fatalf("expected cleared snapshot, got %#v", snapshot)
+	}
+}
+
+func TestLiveRuntimeAIFollowSnapshotClearsOnDeactivate(t *testing.T) {
+	t.Parallel()
+
+	runtime := NewLiveRuntime(LiveRuntimeOptions{})
+	run := newManagedChatRun(t, managedChatRunOptions{
+		chatID:          "chat-follow",
+		projectConfigID: "project-alpha",
+		engineConfigID:  "engine-managed",
+		startedAt:       time.Date(2026, 3, 9, 11, 15, 0, 0, time.UTC),
+		status:          agentruns.RunStatusRunning,
+		inputMessages:   []map[string]any{userMessage("user-1", "Hello")},
+	})
+	runtime.ActivateRun(run)
+
+	if err := runtime.ApplyChunk(context.Background(), StreamChunkParams{
+		RunID:           run.ID,
+		ChatID:          "chat-follow",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-1",
+			ToolCallID:      "tool-call-1",
+			ToolName:        "setta__set_param_value",
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{"section": {"section-1"}},
+		},
+	}); err != nil {
+		t.Fatalf("apply preview chunk: %v", err)
+	}
+
+	runtime.DeactivateRun(run.ID)
+
+	snapshot := runtime.AIFollowSnapshot("project-alpha")
+	if len(snapshot) != 0 {
+		t.Fatalf("expected snapshot to clear on deactivate, got %#v", snapshot)
+	}
+}

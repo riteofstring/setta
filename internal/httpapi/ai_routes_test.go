@@ -766,6 +766,102 @@ func TestRegisterAIRoutesReturnsExternalAIFollowSnapshot(t *testing.T) {
 	}
 }
 
+func TestRegisterAIRoutesReturnsManagedAndExternalAIFollowSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	managedRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	managedRun.ID = "run-managed-follow"
+	fixture.managedLive.ActivateRun(managedRun)
+	if err := fixture.managedLive.ApplyChunk(context.Background(), managedchat.StreamChunkParams{
+		RunID:           managedRun.ID,
+		ChatID:          "chat-managed",
+		ProjectConfigID: stringPtr("project-alpha"),
+		Chunk: realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            realtime.StreamingEventTypeToolArgumentPreview,
+			MessageID:       "assistant-managed",
+			ToolCallID:      "tool-call-managed",
+			ToolName:        mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+			ArgumentsDelta:  `{"sectionId":"section-managed"}`,
+			PreviewKind:     "paramValue",
+			TargetIDsByType: map[string][]string{"section": {"section-managed", "section-managed"}},
+		},
+	}); err != nil {
+		t.Fatalf("apply managed preview chunk: %v", err)
+	}
+
+	run := fixture.seedRun("run-follow", agentruns.RunStatusRunning)
+	if err := fixture.runtime.ActivateRun(run.ID, &aiRouteStubController{}); err != nil {
+		t.Fatalf("activate external run: %v", err)
+	}
+	if err := fixture.runtime.SetLiveChatState(run.ID, externalagents.ChatState{
+		Messages: []map[string]any{
+			{
+				"id":      "assistant-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id": "tool-call-1",
+						"function": map[string]any{
+							"name": mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+							"arguments": map[string]any{
+								"sectionId": "section-alpha",
+							},
+						},
+					},
+				},
+			},
+		},
+		ToolCallArguments: map[string]string{
+			"tool-call-1": `{"sectionId":"section-alpha"}`,
+		},
+		WaitingForResponse: true,
+	}); err != nil {
+		t.Fatalf("set external live follow state: %v", err)
+	}
+
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime, fixture.follow)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetAIFollowSnapshot,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload []realtime.AIFollowToolArgumentsUpdateContent
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode snapshot response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected two snapshot entries, got %#v", payload)
+	}
+	if payload[0].ProjectConfigID != "project-alpha" || payload[0].ChatID != "chat-managed" {
+		t.Fatalf("unexpected managed snapshot identity %#v", payload[0])
+	}
+	if len(payload[0].IDsByType["section"]) != 1 || payload[0].IDsByType["section"][0] != "section-managed" {
+		t.Fatalf("unexpected managed follow ids %#v", payload[0].IDsByType)
+	}
+	if payload[1].ProjectConfigID != "project-alpha" || payload[1].ChatID != "chat-alpha" {
+		t.Fatalf("unexpected external snapshot identity %#v", payload[1])
+	}
+	if len(payload[1].IDsByType["section"]) != 1 || payload[1].IDsByType["section"][0] != "section-alpha" {
+		t.Fatalf("unexpected external follow ids %#v", payload[1].IDsByType)
+	}
+}
+
 func TestRegisterAIRoutesRejectsMissingProjectIDForAIFollowSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -4223,6 +4319,7 @@ type aiRouteFixture struct {
 	transcriptionProfiles *transcriptionprofiles.Service
 	transcriptionSessions *transcriptionsessions.Service
 	sessions              aiRouteStaticSessionProvider
+	managedLive           *managedchat.LiveRuntime
 	managed               *managedchat.Service
 	managedStarter        *aiRouteStubManagedStarter
 	runtime               *externalagents.Runtime
@@ -4373,6 +4470,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	if managedStarter == nil {
 		managedStarter = &aiRouteStubManagedStarter{disabled: true}
 	}
+	managedLiveRuntime := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{})
 	managedService, err := managedchat.NewService(managedchat.ServiceOptions{
 		ProjectState: projectRuntime,
 		Runs:         store,
@@ -4380,6 +4478,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		LLM:          llmRuntime,
 		Profiles:     agentProfileStore,
 		Starter:      managedStarter,
+		Live:         managedLiveRuntime,
 		Stopper:      managedRunRuntime,
 	})
 	if err != nil {
@@ -4442,6 +4541,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		transcriptionProfiles: transcriptionProfileService,
 		transcriptionSessions: transcriptionSessionService,
 		sessions:              sessionProvider,
+		managedLive:           managedLiveRuntime,
 		managed:               managedService,
 		managedStarter:        managedStarter,
 		runtime:               runtime,

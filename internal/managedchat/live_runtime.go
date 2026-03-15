@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -33,13 +34,32 @@ type LiveRuntime struct {
 	broadcaster StreamBroadcaster
 
 	mu     sync.RWMutex
-	active map[string]*ChatState
+	active map[string]*liveRunState
+
+	followByChat map[managedAIFollowChatKey]managedAIFollowEntry
+}
+
+type liveRunState struct {
+	ChatState       *ChatState
+	ProjectConfigID string
+	ChatID          string
+}
+
+type managedAIFollowChatKey struct {
+	ProjectConfigID string
+	ChatID          string
+}
+
+type managedAIFollowEntry struct {
+	RunID     string
+	IDsByType map[string][]string
 }
 
 func NewLiveRuntime(options LiveRuntimeOptions) *LiveRuntime {
 	return &LiveRuntime{
-		broadcaster: options.Broadcaster,
-		active:      map[string]*ChatState{},
+		broadcaster:  options.Broadcaster,
+		active:       map[string]*liveRunState{},
+		followByChat: map[managedAIFollowChatKey]managedAIFollowEntry{},
 	}
 }
 
@@ -56,7 +76,11 @@ func (r *LiveRuntime) ActivateRun(run agentruns.Run) {
 		return
 	}
 	r.mu.Lock()
-	r.active[runID] = state.Clone()
+	r.active[runID] = &liveRunState{
+		ChatState:       state.Clone(),
+		ProjectConfigID: resolveRunInputString(run, "projectConfigId"),
+		ChatID:          resolveRunInputString(run, "chatId"),
+	}
 	r.mu.Unlock()
 }
 
@@ -69,6 +93,13 @@ func (r *LiveRuntime) DeactivateRun(runID string) {
 		return
 	}
 	r.mu.Lock()
+	if state, ok := r.active[trimmedRunID]; ok {
+		if key, ok := state.followKey(); ok {
+			if entry, exists := r.followByChat[key]; exists && entry.RunID == trimmedRunID {
+				delete(r.followByChat, key)
+			}
+		}
+	}
 	delete(r.active, trimmedRunID)
 	r.mu.Unlock()
 }
@@ -84,10 +115,45 @@ func (r *LiveRuntime) GetLiveChatState(runID string) (*ChatState, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	state, ok := r.active[trimmedRunID]
-	if !ok || state == nil {
+	if !ok || state == nil || state.ChatState == nil {
 		return nil, nil
 	}
-	return state.Clone(), nil
+	return state.ChatState.Clone(), nil
+}
+
+func (r *LiveRuntime) AIFollowSnapshot(projectConfigID string) []realtime.AIFollowToolArgumentsUpdateContent {
+	if r == nil {
+		return []realtime.AIFollowToolArgumentsUpdateContent{}
+	}
+	trimmedProjectID := strings.TrimSpace(projectConfigID)
+	if trimmedProjectID == "" {
+		return []realtime.AIFollowToolArgumentsUpdateContent{}
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	keys := make([]managedAIFollowChatKey, 0, len(r.followByChat))
+	for key, entry := range r.followByChat {
+		if key.ProjectConfigID != trimmedProjectID || len(entry.IDsByType) == 0 {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i int, j int) bool {
+		return keys[i].ChatID < keys[j].ChatID
+	})
+
+	snapshot := make([]realtime.AIFollowToolArgumentsUpdateContent, 0, len(keys))
+	for _, key := range keys {
+		entry := r.followByChat[key]
+		snapshot = append(snapshot, realtime.AIFollowToolArgumentsUpdateContent{
+			ProjectConfigID: key.ProjectConfigID,
+			ChatID:          key.ChatID,
+			IDsByType:       cloneStringSliceMap(entry.IDsByType),
+		})
+	}
+	return snapshot
 }
 
 func (r *LiveRuntime) ApplyChunk(ctx context.Context, params StreamChunkParams) error {
@@ -105,16 +171,41 @@ func (r *LiveRuntime) ApplyChunk(ctx context.Context, params StreamChunkParams) 
 
 	r.mu.Lock()
 	current, ok := r.active[runID]
-	if !ok || current == nil {
+	if !ok || current == nil || current.ChatState == nil {
 		r.mu.Unlock()
 		return ErrLiveRunNotActive
 	}
-	nextState, err := applyStreamChunk(*current, params.Chunk)
+	nextState, err := applyStreamChunk(*current.ChatState, params.Chunk)
 	if err != nil {
 		r.mu.Unlock()
 		return err
 	}
-	r.active[runID] = nextState.Clone()
+	nextRunState := &liveRunState{
+		ChatState: nextState.Clone(),
+	}
+	if trimmedProjectID := strings.TrimSpace(current.ProjectConfigID); trimmedProjectID != "" {
+		nextRunState.ProjectConfigID = trimmedProjectID
+	}
+	if params.ProjectConfigID != nil {
+		if trimmedProjectID := strings.TrimSpace(*params.ProjectConfigID); trimmedProjectID != "" {
+			nextRunState.ProjectConfigID = trimmedProjectID
+		}
+	}
+	if trimmedChatID := strings.TrimSpace(current.ChatID); trimmedChatID != "" {
+		nextRunState.ChatID = trimmedChatID
+	}
+	if trimmedChatID := strings.TrimSpace(params.ChatID); trimmedChatID != "" {
+		nextRunState.ChatID = trimmedChatID
+	}
+	if previousKey, ok := current.followKey(); ok {
+		if nextKey, nextOK := nextRunState.followKey(); !nextOK || nextKey != previousKey {
+			if entry, exists := r.followByChat[previousKey]; exists && entry.RunID == runID {
+				delete(r.followByChat, previousKey)
+			}
+		}
+	}
+	r.applyManagedAIFollowUpdateLocked(runID, nextRunState, params.Chunk)
+	r.active[runID] = nextRunState
 	r.mu.Unlock()
 
 	if r.broadcaster == nil {
@@ -127,6 +218,116 @@ func (r *LiveRuntime) ApplyChunk(ctx context.Context, params StreamChunkParams) 
 		ProjectConfigID: cloneStringPointer(params.ProjectConfigID),
 	}), realtime.Selection{Type: realtime.ConnectionTypeFrontend})
 	return err
+}
+
+func (s *liveRunState) followKey() (managedAIFollowChatKey, bool) {
+	if s == nil {
+		return managedAIFollowChatKey{}, false
+	}
+	projectConfigID := strings.TrimSpace(s.ProjectConfigID)
+	chatID := strings.TrimSpace(s.ChatID)
+	if projectConfigID == "" || chatID == "" {
+		return managedAIFollowChatKey{}, false
+	}
+	return managedAIFollowChatKey{
+		ProjectConfigID: projectConfigID,
+		ChatID:          chatID,
+	}, true
+}
+
+func (r *LiveRuntime) applyManagedAIFollowUpdateLocked(runID string, state *liveRunState, chunk any) {
+	if r == nil || state == nil {
+		return
+	}
+	key, ok := state.followKey()
+	if !ok {
+		return
+	}
+	idsByType, ok := extractManagedAIFollowIDsByType(chunk)
+	if !ok {
+		return
+	}
+	current, exists := r.followByChat[key]
+	if len(idsByType) == 0 {
+		if exists && current.RunID == runID {
+			delete(r.followByChat, key)
+		}
+		return
+	}
+	if exists && current.RunID == runID && stringSliceMapsEqual(current.IDsByType, idsByType) {
+		return
+	}
+	r.followByChat[key] = managedAIFollowEntry{
+		RunID:     runID,
+		IDsByType: cloneStringSliceMap(idsByType),
+	}
+}
+
+func extractManagedAIFollowIDsByType(chunk any) (map[string][]string, bool) {
+	switch typed := chunk.(type) {
+	case realtime.ToolArgumentPreviewDeltaEvent:
+		return normalizeManagedAIFollowIDsByType(typed.TargetIDsByType), true
+	case *realtime.ToolArgumentPreviewDeltaEvent:
+		if typed == nil {
+			return nil, false
+		}
+		return extractManagedAIFollowIDsByType(*typed)
+	default:
+		return nil, false
+	}
+}
+
+func normalizeManagedAIFollowIDsByType(input map[string][]string) map[string][]string {
+	if len(input) == 0 {
+		return nil
+	}
+	normalized := make(map[string][]string, len(input))
+	for rawType, ids := range input {
+		idType := strings.TrimSpace(rawType)
+		if idType == "" {
+			continue
+		}
+		seen := map[string]struct{}{}
+		values := make([]string, 0, len(ids))
+		for _, rawID := range ids {
+			id := strings.TrimSpace(rawID)
+			if id == "" {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			values = append(values, id)
+		}
+		if len(values) == 0 {
+			continue
+		}
+		sort.Strings(values)
+		normalized[idType] = values
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func stringSliceMapsEqual(left map[string][]string, right map[string][]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValues := range left {
+		rightValues, ok := right[key]
+		if !ok || len(leftValues) != len(rightValues) {
+			return false
+		}
+		for index := range leftValues {
+			if leftValues[index] != rightValues[index] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func applyStreamChunk(state ChatState, chunk any) (*ChatState, error) {

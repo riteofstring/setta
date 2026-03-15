@@ -14,6 +14,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 )
 
 const (
@@ -75,6 +76,10 @@ const (
 
 type LiveChatStateProvider interface {
 	GetLiveChatState(runID string) (*ChatState, error)
+}
+
+type aiFollowSnapshotProvider interface {
+	AIFollowSnapshot(projectConfigID string) []realtime.AIFollowToolArgumentsUpdateContent
 }
 
 type ChatStarter interface {
@@ -219,6 +224,17 @@ func NewService(options ServiceOptions) (*Service, error) {
 
 func (s *Service) Disabled() bool {
 	return s == nil || s.starter == nil || s.starter.Disabled()
+}
+
+func (s *Service) AIFollowSnapshot(projectConfigID string) []realtime.AIFollowToolArgumentsUpdateContent {
+	if s == nil || s.live == nil {
+		return []realtime.AIFollowToolArgumentsUpdateContent{}
+	}
+	provider, ok := s.live.(aiFollowSnapshotProvider)
+	if !ok {
+		return []realtime.AIFollowToolArgumentsUpdateContent{}
+	}
+	return provider.AIFollowSnapshot(projectConfigID)
 }
 
 func (s *Service) StartChat(request StartChatRequest) (StartChatResult, error) {

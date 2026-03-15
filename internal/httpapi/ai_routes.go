@@ -355,12 +355,14 @@ func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ExternalAgentFollow == nil {
+		if deps.ManagedChats == nil || deps.ExternalAgentFollow == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		writeJSON(w, http.StatusOK, deps.ExternalAgentFollow.Snapshot(projectConfigID))
+		snapshot := deps.ManagedChats.AIFollowSnapshot(projectConfigID)
+		snapshot = append(snapshot, deps.ExternalAgentFollow.Snapshot(projectConfigID)...)
+		writeJSON(w, http.StatusOK, snapshot)
 	}
 }
 

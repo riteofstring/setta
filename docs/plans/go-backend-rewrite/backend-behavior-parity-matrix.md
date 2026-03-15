@@ -192,7 +192,7 @@ It covers:
 - The auth/session-registry slice adds no new concrete gap, but it does add
   two more proof-gap rows around current-session loading and caller-applied
   active-session filtering.
-- Forty-four concrete parity gaps are already visible:
+- Thirty-three concrete parity gaps are already visible:
   - source-baseline listener registration changes push
     `ListenerCoverageSnapshot` updates over the frontend websocket
   - current Go only exposes the pull route and does not emit the websocket
@@ -203,9 +203,6 @@ It covers:
     active `shareSessionId`
   - current Go reveal routing ignores share-session scope and treats frontend
     selection globally
-  - source-baseline `getAIFollowSnapshot` merges managed and external
-    AI-follow state for the active project
-  - current Go only returns external-agent follow state from that route
   - source-baseline workflow chats with signal-filtered outgoing edges fail
     closed when the selected agent profile cannot call
     `report_state_machine_signal`
@@ -359,10 +356,8 @@ It covers:
     (`AH-02`)
   - one proof-gap cluster around already-stopped stop transport proof
     (`MS-02`)
-- The AI-follow / external-run-stop / agent-run-read slice mostly closes with
-  proofs, but it adds:
-  - one concrete behavior gap around missing managed follow-state snapshot
-    rehydrate (`FS-01`)
+- The AI-follow / external-run-stop / agent-run-read slice now closes with
+  proofs and adds no new real behavior gap.
 - The managed-agent-run slice mostly closes with proofs and adds:
   - one documented clean-break divergence around source hybrid
     external-agent dispatch on `startAgentRun` (`MA-02`)
@@ -765,7 +760,7 @@ It covers:
 
 | ID | Behavior | Source-baseline evidence (`main`) | Go implementation / proof | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `FS-01` | `getAIFollowSnapshot` returns the current project-scoped follow-tool snapshot across both managed and external AI chats so callers can rehydrate follow state after load/reconnect. | Source route merges both runtimes: `backend/setta/routers/ai.py::route_get_ai_follow_snapshot`; source managed snapshot behavior: `tests/llm/test_agent_runner_ai_follow_snapshot.py::test_snapshot_dedupes_and_clears`; source external snapshot behavior: `tests/agentic/test_external_agent_runner.py::test_ai_follow_snapshot_normalizes`. | Current Go route only returns the external follow owner: `internal/httpapi/ai_routes.go::getAIFollowSnapshotHandler` writes `deps.ExternalAgentFollow.Snapshot(projectConfigID)`; route proof: `internal/httpapi/ai_routes_test.go::TestRegisterAIRoutesReturnsExternalAIFollowSnapshot`. | `Missing` | This is a concrete parity gap. Current frontend still rehydrates from this route on load/share/reconnect flows: `frontend/src/state/actions/aiFollow.ts::requestAIFollowSnapshot`; `frontend/src/state/actions/project/loadProject.ts`; `frontend/src/state/actions/share.ts`; `frontend/src/state/actions/websocketReceive.ts`. |
+| `FS-01` | `getAIFollowSnapshot` returns the current project-scoped follow-tool snapshot across both managed and external AI chats so callers can rehydrate follow state after load/reconnect. | Source route merges both runtimes: `backend/setta/routers/ai.py::route_get_ai_follow_snapshot`; source managed snapshot behavior: `tests/llm/test_agent_runner_ai_follow_snapshot.py::test_snapshot_dedupes_and_clears`; source external snapshot behavior: `tests/agentic/test_external_agent_runner.py::test_ai_follow_snapshot_normalizes`. | Impl: `internal/managedchat/live_runtime.go::{ApplyChunk,AIFollowSnapshot,DeactivateRun}`; `internal/managedchat/service.go::AIFollowSnapshot`; route mapping: `internal/httpapi/ai_routes.go::getAIFollowSnapshotHandler`; proof: `internal/managedchat/live_runtime_test.go::{TestLiveRuntimeAIFollowSnapshotDedupesAndClears,TestLiveRuntimeAIFollowSnapshotClearsOnDeactivate}`; route proof: `internal/httpapi/ai_routes_test.go::{TestRegisterAIRoutesReturnsManagedAndExternalAIFollowSnapshot,TestRegisterAIRoutesReturnsExternalAIFollowSnapshot}`. | `Proved` | Current frontend still rehydrates from this route on load/share/reconnect flows: `frontend/src/state/actions/aiFollow.ts::requestAIFollowSnapshot`; `frontend/src/state/actions/project/loadProject.ts`; `frontend/src/state/actions/share.ts`; `frontend/src/state/actions/websocketReceive.ts`. |
 | `FS-02` | External follow snapshots normalize/dedupe ids, resolve temporary ids back to canonical ids, and drop unknown temporary ids before returning `idsByType`. | `tests/agentic/test_external_agent_runner.py::test_ai_follow_snapshot_normalizes`; source runtime: `backend/setta/agentic/external_agent_runner.py::get_ai_follow_snapshot`. | Impl: `internal/externalagents/follow.go::{Snapshot,resolveFollowID}`; proof: `internal/externalagents/follow_test.go::{TestRuntimeSetLiveChatStateSyncsExternalAIFollowAndStopClearsIt,TestFollowServiceSkipsUnknownTemporaryIDs}`; route proof: `internal/httpapi/ai_routes_test.go::TestRegisterAIRoutesReturnsExternalAIFollowSnapshot`. | `Proved` | Current caller transport still posts the same project-id payload: `frontend/src/utils/generatedEndpoints.test.ts::it("posts AI-follow snapshot reads and returns typed snapshot entries", ...)`. |
 
 ## External Agent Run Control
@@ -1200,9 +1195,9 @@ It covers:
 
 ## Current Findings
 
-1. The matrix now contains thirty-four concrete source-parity gaps:
+1. The matrix now contains thirty-three concrete source-parity gaps:
    `LS-11`, `LS-17`,
-   `US-05`, `FS-01`, `WS-01`, `WS-04`,
+   `US-05`, `WS-01`, `WS-04`,
    `DP-08`, `AU-07`, `AU-09`, `AU-10`,
    `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`, `SD-05`,
    `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`, `SP-03`, `PA-02`,
@@ -1246,8 +1241,8 @@ It covers:
     (`TS-02`, `TS-04`, `TS-07`, `TS-11`).
 14. The chat-hydration / managed-stop / external-response slice now closes its
     real behavior gaps and retains two proof-gap clusters (`AH-02`, `MS-02`).
-15. The AI-follow / external-run-stop / agent-run-read slice mostly closes
-    with proofs, but it adds one real behavior gap (`FS-01`).
+15. The AI-follow / external-run-stop / agent-run-read slice now closes with
+    proofs and adds no new real behavior gap.
 16. The managed-agent-run slice mostly closes with proofs, but it adds one
     documented clean-break divergence (`MA-02`) plus one more proof gap
     (`MA-05`).
@@ -1354,7 +1349,7 @@ It covers:
     than obvious implementation gaps.
 53. The next high-value steps are:
     - decide whether `US-05`,
-      `FS-01`, `WS-01`, `WS-04`,
+      `WS-01`, `WS-04`,
       `DP-08`, `AU-07`, `AU-09`, `AU-10`,
       `AU-11`, `TB-03`, `TB-04`, `CH-01`, `CH-03`, `BR-02`, `BR-03`,
       `SD-05`, `SD-06`, `CS-02`, `CS-04`, `CB-03`, `CB-04`, `VL-07`,
