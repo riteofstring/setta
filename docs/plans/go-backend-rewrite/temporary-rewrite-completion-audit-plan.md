@@ -624,3 +624,15 @@ backend fixture instead of a generated backend scaffold. This does not remove
 the remaining Python plugin worker runtime, but it does stop the active Go CLI
 from creating new Python backend authoring surfaces while that runtime tail is
 being removed.
+
+A twenty-fifth follow-up rewrite step removed dead plugin UI-setting support
+from the retained Python worker runtime. `backend/setta/plugins/worker.py` no
+longer advertises `host.register_ui_setting` or
+`plugin.invoke_ui_setting_handler`, no longer stores Python-side UI-setting
+handler tables, and no longer exposes `register_ui_setting(...)` on the worker
+plugin context. The unused `PluginRegisteredUISetting` model was also removed
+from `backend/setta/plugins/models.py`, and the dedicated Python worker tests
+for that dead path were deleted. This does not change the remaining blocker
+status, because plugin UI settings were already Go-owned, but it narrows the
+Python worker runtime to the still-live route/MCP/codegen/language-server/
+external-agent surface.
