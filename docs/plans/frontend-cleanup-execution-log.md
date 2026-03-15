@@ -5237,3 +5237,53 @@ in `frontend/src/README.md` and the cleanup plans.
   - `61a70646a6748aae5a62b668662338a74d1dda43`
 - Next highest-value unblocked slice:
   - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, which is now the next unresolved default-priority chat/project-AI hotspot at about `2297` lines after `ChatInput.tsx` dropped to about `2117` lines.
+
+## 2026-03-15 18:09:36 PDT
+
+- Slice completed: extracted the project-chat settings popover surface and
+  engine-selection rules out of `ProjectChat.tsx`
+- Why this slice now:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+    was still the highest-priority project-AI front-door surface in the current
+    cleanup order, even after earlier chat/windowing slices reduced other files.
+  - The settings popover plus engine/model/config selection rules were the
+    clearest remaining feature-local seam inside that entry surface: they mixed
+    render-heavy toolbar UI with thread-engine reconciliation and default-engine
+    selection logic.
+  - This was higher value than jumping straight to `ProjectChatCore.tsx` or
+    `ProjectAISettings.tsx` because it cut `ProjectChat.tsx` from about `2721`
+    lines to about `2091` while making the settings owner obvious from the
+    caller.
+- Key files touched:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSwitchContinuation.integration.test.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSwitchContinuation.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `pnpm -C frontend exec vitest run src/state/actions/websocketReceive.test.ts src/state/actions/aiConfigurationCatalogs.test.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSettingsPopover.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSwitchContinuation.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSelection.test.ts src/state/actions/websocketIncomingMessages.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - No perf report was added because this slice was a behavior-preserving
+    ownership extraction without meaningful render-path changes.
+  - CDP visual verification was done on `http://127.0.0.1:3002/desert_wise`
+    after fixing the unrelated app-shell boot blocker in
+    `websocketIncomingMessages.ts`.
+  - Verified that the `Project AI Settings` popover still opens from the
+    project chat toolbar, shows the engine/transcription/microphone/model/tools
+    and activity controls, and that the `Skills` quick-link still routes into
+    the aux view.
+- Commit hash:
+  - `9788f9be9903b8835618f26a1c66c5eb248adcca`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`,
+    which is now the next default-priority front-door surface in the same
+    project-AI path after `ProjectChat.tsx` delegated settings and engine
+    selection to local owners.
