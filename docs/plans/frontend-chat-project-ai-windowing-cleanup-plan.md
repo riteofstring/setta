@@ -20,8 +20,8 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 ## Status Refresh (2026-03-15)
 
 - The largest unresolved frontend hotspots are still concentrated here:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at about 4227 lines
   - `frontend/src/components/Chat/ChatMessages.tsx` at about 3920 lines
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at about 3414 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at about 3328 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at about 3121 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at about 2721 lines
@@ -38,6 +38,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
   - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations for `ProjectChatBottomDock.tsx`
   - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling for `ProjectChatBottomDock.tsx`
+  - `frontend/src/components/ChatWindowing/projectChatFloatingInteractions.ts` now owns floating preview bounds state, snap-preview state, viewport guardrails, and floating drag/resize or snap-resize pointer-session handling for `ProjectChatBottomDock.tsx`
   - feature-local `ProjectLevelAI` helpers such as `projectChatHydrationAuthority.ts`, `projectChatFocusUtils.ts`, and starter/slash-command helpers
   - chat action families such as `aiHydration*.ts`, `aiChatSubmission*.ts`, `aiChatStreaming*.ts`, `chatHistory*.ts`, and `chatBranch*.ts`
   - project chat windowing modules such as `projectChatWindowingDefaultBounds.ts`, `projectChatWindowingSelectors.ts`, `projectChatWindowingInstanceCreation.ts`, `projectChatWindowingInstanceUpdates.ts`, `projectChatWindowingWrite*.ts`, and related command modules
@@ -48,7 +49,7 @@ Make shared chat rendering, project-AI orchestration, and project chat windowing
 - `ChatMessages.tsx` still mixes message-row composition and interaction shells even after assistant activity/timeline derivation moved into `chatAssistantActivity.ts`, structured-output/tool-call rendering moved into `chatStructuredOutput.tsx`, attachment/media preview handling moved into `chatAttachmentPreviewUrls.ts` plus `chatAttachmentPreviews.tsx`, markdown/search-highlight rendering moved into `chatMessageContent.tsx`, and timers/streaming runtime wiring moved into `chatMessageRuntime.tsx`.
 - `ChatInput.tsx` mixes composer state, attachment handling, slash commands, dictation/transcription, execution settings, and presentational controls.
 - `ProjectChat.tsx`, `ProjectChatCore.tsx`, and `ProjectChatHistory.tsx` mix surface orchestration, layout rules, chat-history derivation, hydration authority, and auxiliary-pane state.
-- `ProjectChatBottomDock.tsx` still combines floating drag state, snap logic, animation state, tracked git-pane behavior, and render shells even after dock keyboard shortcut parsing moved into `projectChatWindowShortcuts.ts`, dock layout math moved into `projectChatBottomDockLayout.ts`, and dock-resize state moved into `projectChatDockResize.ts`.
+- `ProjectChatBottomDock.tsx` still combines animation state, tracked git-pane behavior, focus/placement commands, and render shells even after dock keyboard shortcut parsing moved into `projectChatWindowShortcuts.ts`, dock layout math moved into `projectChatBottomDockLayout.ts`, dock-resize state moved into `projectChatDockResize.ts`, and floating drag/resize or snap-preview state moved into `projectChatFloatingInteractions.ts`.
 - The state layer under these surfaces is already more decomposed than the UI layer, so additional state-only slices often add debug hops without materially improving agent legibility.
 
 ## Cleanup Principles

@@ -64,7 +64,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` at 2444 lines
-- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 4227 lines
+- `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` at 3414 lines
 - The file/browser and section layout path has similar coupling:
   - `frontend/src/components/Section/Layouts/BrowserArea.tsx` at 2323 lines
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
@@ -82,8 +82,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - Future cleanup should default to the remaining giant render-heavy hotspots,
   not to more taxonomic splitting of already smaller `state/actions` modules.
 - In practice that means the next default priority order is:
-  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`
   - `frontend/src/components/Chat/ChatInput.tsx`
   - `frontend/src/plugins/runtime.ts`
@@ -115,6 +115,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/components/ChatWindowing/projectChatWindowShortcuts.ts` now owns dock-specific keyboard shortcut parsing, editable-target gating, and keydown listener wiring used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatBottomDockLayout.ts` now owns dock strip reservation math, visible dock-window selection, width-fitting, and minimized-pill display-mode calculations used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/components/ChatWindowing/projectChatDockResize.ts` now owns dock preview width/height state, stale-preview pruning, and dock-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
+- `frontend/src/components/ChatWindowing/projectChatFloatingInteractions.ts` now owns floating preview bounds state, snap-preview state, viewport guardrails, and floating drag/resize or snap-resize pointer-session handling used by `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`.
 - `frontend/src/state/actions/chatBranchState.ts` now owns branch bootstrap, active-branch fallback, and incoming-message sync, `frontend/src/state/actions/chatBranchEditing.ts` now owns edited-message history truncation plus child-branch creation, `frontend/src/state/actions/chatBranchIndexState.ts` now owns branch-index derivation from section branch records, and `frontend/src/state/actions/chatBranches.ts` is now the thin compatibility facade.
 - `frontend/src/state/actions/aiHydrationOutcome.ts` now owns managed/external hydration route probes plus outcome classification, `frontend/src/state/actions/aiHydrationChatState.ts` now owns managed/external chat-detail reconciliation plus app-generation hydration, `frontend/src/state/actions/aiHydrationSectionState.ts` now owns managed/external chat-section reconciliation plus persistence sync, `frontend/src/state/actions/aiHydrationApply.ts` is now the thin apply-orchestration facade, and `frontend/src/state/actions/aiHydration.ts` is now the thin public hydration facade.
 - `frontend/src/state/actions/chatHistoryEntries.ts` now owns thread-entry derivation and chat label normalization, `frontend/src/state/actions/chatHistoryProvenance.ts` now owns canonical plus scoped chat provenance resolution, `frontend/src/state/actions/chatHistoryShared.ts` now owns shared run filtering/grouping helpers, `frontend/src/state/actions/chatHistoryTypes.ts` now owns shared history filter/provenance types, and `frontend/src/state/actions/chatHistory.ts` is now a thin compatibility facade.
