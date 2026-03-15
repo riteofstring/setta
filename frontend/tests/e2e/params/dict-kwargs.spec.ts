@@ -52,3 +52,50 @@ test("dict kwargs render after add_kwarg", async ({ page }) => {
     });
   }
 });
+
+test("dict header menu still opens after shared shell flattening", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for section placement.");
+  }
+  const sectionResponse = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Dict",
+      viewportBounds,
+    },
+  );
+  const sectionId = sectionResponse?.sectionId;
+  if (!sectionId) {
+    throw new Error("Missing sectionId when creating dict section.");
+  }
+
+  try {
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+
+    const menuTrigger = sectionNode.locator("header.section-title > button").first();
+    await expect(menuTrigger).toBeVisible();
+    await menuTrigger.click();
+
+    await expect(
+      page.getByRole("menuitem", { name: "Hide Unpinned Params" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Reset To Default Version" }),
+    ).toBeVisible();
+  } finally {
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
+  }
+});
