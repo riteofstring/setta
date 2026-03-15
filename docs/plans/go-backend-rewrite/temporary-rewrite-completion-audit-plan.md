@@ -833,3 +833,13 @@ modules directly. After that slice, the remaining Python rewrite blocker is no
 longer the deleted route transport surface; it is the narrower legacy
 `SettaFastAPIState` / `backend/setta/websockets/**` / Python project-state
 support tail that still exists behind retained listener/share behavior.
+
+A later follow-up cleanup slice removed the dead Python CLI websocket path as
+well. The stub `WMHCLISender`/`WMHCLIReceiver` classes were deleted, the legacy
+`SettaFastAPIState` no longer constructs CLI websocket handlers, Python
+`RunCodeRequest` no longer carries `cliId`, the Python terminal run path no
+longer branches on CLI output transport, and the old `/cli` websocket route
+constants were removed from the Python route enum. After that slice, the
+remaining Python backend tail no longer includes a dormant CLI transport path;
+it is the broader server-state/websocket-support and Python project-state
+runtime still carried for retained listener/share behavior.

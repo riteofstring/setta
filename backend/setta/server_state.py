@@ -62,8 +62,6 @@ from setta.utils.paths import (
     get_setta_paths,
 )
 from setta.websockets.listener_registry import ListenerRegistry
-from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
-from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
@@ -273,7 +271,6 @@ class SettaFastAPIState:
         else:
             self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
-        self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.transcription_session_manager = TranscriptionSessionManager()
         self.transcription_session_cleanup_task: asyncio.Task[None] | None = None
 
@@ -302,7 +299,6 @@ class SettaFastAPIState:
         self.wmh_frontend_receiver: WMHFrontendReceiver = self._defer_attr(
             "wmh_frontend_receiver"
         )
-        self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
         self.wmh_python_script_receiver: WMHPythonScriptReceiver = self._defer_attr(
             "wmh_python_script_receiver"
         )
