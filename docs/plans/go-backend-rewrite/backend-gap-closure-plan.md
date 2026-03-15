@@ -144,3 +144,8 @@ categorize them.
 - The backups-list restore-stash suppression row is now proved too; keep taking
   these one-branch packaged CLI rows when they fall out of an already-open
   owner before switching to a wider runtime or websocket slice
+- The packaged `setta api` namespaced-tool and slash-prefixed tool-name
+  rejection row is now proved too; the next cheap packaged-CLI wins are the
+  remaining explicit-cookie precedence and explicit-auth unknown-tool branches
+  before it is likely time to move back to the broader deployment, websocket,
+  watch-code, or external-agent backlog
