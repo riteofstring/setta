@@ -344,6 +344,371 @@ func TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend(t
 	}
 }
 
+func TestRegisterAIRoutesReturnsManagedValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	testCases := []struct {
+		name      string
+		body      string
+		wantCode  int
+		wantError string
+	}{
+		{
+			name: "missing scoped section id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Scoped send"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":false,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "section_id_required",
+		},
+		{
+			name: "allow unscoped conflicts with section id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Conflicting scope"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":"section-alpha",
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "allow_unscoped_conflict",
+		},
+		{
+			name: "continue conflicts with explicit chat id",
+			body: `{
+				"chatId":"chat-managed",
+				"continueFromChatId":"chat-source",
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Conflicting continue"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "continue_from_chat_conflict",
+		},
+		{
+			name: "branch edits require both fields",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Branch edit"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"branchParentChatId":"chat-parent",
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "branch_fields_required",
+		},
+		{
+			name: "continue conflicts with branch edits",
+			body: `{
+				"chatId":null,
+				"continueFromChatId":"chat-source",
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Branch continue conflict"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"branchParentChatId":"chat-parent",
+				"branchFromMessageId":"msg-1",
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "continue_from_chat_with_branch_edits",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteGetLLMResponse,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != testCase.wantCode {
+				t.Fatalf("expected %d, got %d with body %q", testCase.wantCode, response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != testCase.wantError {
+				t.Fatalf("expected error %q, got %#v", testCase.wantError, payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAIRoutesReturnsManagedChatIdentityMismatchErrors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	externalRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeExternalAgent,
+		"chatId":          "chat-managed-conflict",
+		"projectConfigId": "project-alpha",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	if err := fixture.store.Save(externalRun); err != nil {
+		t.Fatalf("save external conflict run: %v", err)
+	}
+	managedRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed-project-mismatch",
+		"projectConfigId": "project-beta",
+		"engineConfigId":  "engine-managed",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	if err := fixture.store.Save(managedRun); err != nil {
+		t.Fatalf("save managed mismatch run: %v", err)
+	}
+
+	testCases := []struct {
+		name      string
+		body      string
+		wantError string
+	}{
+		{
+			name: "engine mismatch",
+			body: `{
+				"chatId":"chat-managed-conflict",
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reuse chat"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantError: "chat_engine_mismatch",
+		},
+		{
+			name: "project mismatch",
+			body: `{
+				"chatId":"chat-managed-project-mismatch",
+				"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reuse chat"}]},
+				"engineConfigId":"engine-managed",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantError: "chat_project_config_mismatch",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetLLMResponse, strings.NewReader(testCase.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != http.StatusConflict {
+				t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != testCase.wantError {
+				t.Fatalf("expected error %q, got %#v", testCase.wantError, payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAIRoutesReturnsExternalValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	testCases := []struct {
+		name      string
+		body      string
+		wantCode  int
+		wantError string
+	}{
+		{
+			name: "missing scoped section id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Scoped send"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":false,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "section_id_required",
+		},
+		{
+			name: "allow unscoped conflicts with section id",
+			body: `{
+				"chatId":null,
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Conflicting scope"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":"section-alpha",
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "allow_unscoped_conflict",
+		},
+		{
+			name: "continue conflicts with explicit chat id",
+			body: `{
+				"chatId":"chat-external",
+				"continueFromChatId":"chat-source",
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Conflicting continue"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusBadRequest,
+			wantError: "continue_from_chat_conflict",
+		},
+		{
+			name: "missing continuation source",
+			body: `{
+				"chatId":null,
+				"continueFromChatId":"missing-chat",
+				"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Continue missing"}]},
+				"engineConfigId":"engine-external",
+				"thinking":false,
+				"projectConfigId":"project-alpha",
+				"sectionId":null,
+				"allowUnscoped":true,
+				"permissionMode":"minimal",
+				"searchEnabled":true
+			}`,
+			wantCode:  http.StatusNotFound,
+			wantError: "source_chat_not_found",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/api"+RouteGetLLMResponse,
+				strings.NewReader(testCase.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			if response.Code != testCase.wantCode {
+				t.Fatalf("expected %d, got %d with body %q", testCase.wantCode, response.Code, response.Body.String())
+			}
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode error payload: %v", err)
+			}
+			if payload.Error.Code != testCase.wantError {
+				t.Fatalf("expected error %q, got %#v", testCase.wantError, payload)
+			}
+		})
+	}
+}
+
+func TestRegisterAIRoutesReturnsExternalChatProjectMismatch(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeExternalAgent,
+		"chatId":          "chat-external-project-mismatch",
+		"projectConfigId": "project-beta",
+		"engineConfigId":  "engine-external",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	if err := fixture.store.Save(run); err != nil {
+		t.Fatalf("save external mismatch run: %v", err)
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":"chat-external-project-mismatch",
+			"message":{"id":"user-external","role":"user","content":[{"type":"text","text":"Reuse chat"}]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":true
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "chat_project_config_mismatch" {
+		t.Fatalf("expected chat_project_config_mismatch, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled(t *testing.T) {
 	t.Parallel()
 

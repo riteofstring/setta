@@ -159,6 +159,40 @@ func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 	}
 }
 
+func TestSendServiceAppliesCodexThinkingReasoningDefaults(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-thinking",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Think carefully through this refactor."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		Thinking:        true,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("start thinking external chat: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	if got := fixture.executor.last.Inputs["effort"]; got != "high" {
+		t.Fatalf("expected thinking run to default effort=high, got %#v", got)
+	}
+	if got := fixture.executor.last.Inputs["summary"]; got != "auto" {
+		t.Fatalf("expected thinking run to default summary=auto, got %#v", got)
+	}
+}
+
 func TestSendServiceComposesExternalPromptFromProfileAndAppGenerationMode(t *testing.T) {
 	t.Parallel()
 

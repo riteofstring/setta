@@ -77,6 +77,38 @@ func TestServiceListDiscoversWorkspaceUserAndEnvRoots(t *testing.T) {
 	}
 }
 
+func TestServiceListDedupsAliasedSkillRootsByNormalizedPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	homeDir := filepath.Join(root, "home")
+	for _, path := range []string{workspaceRoot, homeDir} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "aliased-skill", "SKILL.md"), "# Aliased Skill\n\nShared root.\n")
+
+	service := newTestService(t, workspaceRoot, homeDir, testEnv{
+		"AGENTS_HOME": filepath.Join(workspaceRoot, ".", ".agents"),
+	})
+
+	// AGENTS_HOME can alias the workspace .agents root; list should walk that
+	// normalized skills path once and keep the first authoritative root identity.
+	rows, err := service.List()
+	if err != nil {
+		t.Fatalf("list skills: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected one deduped skill row, got %#v", rows)
+	}
+	if rows[0].SkillID != "workspace_agents_skills::aliased-skill" {
+		t.Fatalf("expected workspace root to win dedup order, got %#v", rows[0])
+	}
+}
+
 func TestServiceMarksRootLevelSkillNonEditable(t *testing.T) {
 	t.Parallel()
 
