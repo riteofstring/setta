@@ -12,7 +12,7 @@ import { indentLess, indentMore } from "@codemirror/commands";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import { useSettings } from "state/stores/uiPreferenceStores";
+import { useSettings } from "state/definitions";
 import type { CodeLanguage } from "utils/codeLanguage";
 import { moveFocus } from "utils/focusManager";
 import { shortcutCodemirrorFormat } from "utils/utils";
