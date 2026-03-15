@@ -428,6 +428,75 @@ func TestManagerHandleFileEventIgnoresNonPythonAndIgnoredPaths(t *testing.T) {
 	}
 }
 
+func TestManagerHandleFileEventIgnoresEachDocumentedDefaultDirAndKeepsUserRuntimeFolder(t *testing.T) {
+	t.Parallel()
+
+	// Runtime events should ignore the documented dirs while still allowing unrelated runtime-named folders.
+	workspaceRoot := t.TempDir()
+	runtimeDir := filepath.Join(workspaceRoot, "runtime")
+	documentedIgnoredDirs := []string{
+		"node_modules",
+		".venv",
+		"setta_files",
+		"__pycache__",
+	}
+	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
+		t.Fatalf("mkdir runtime dir: %v", err)
+	}
+	for _, dirName := range documentedIgnoredDirs {
+		if err := os.MkdirAll(filepath.Join(workspaceRoot, dirName), 0o755); err != nil {
+			t.Fatalf("mkdir ignored dir %q: %v", dirName, err)
+		}
+	}
+
+	runtimeFile := filepath.Join(runtimeDir, "keep.py")
+	if err := os.WriteFile(runtimeFile, []byte("pass\n"), 0o644); err != nil {
+		t.Fatalf("write runtime file: %v", err)
+	}
+	ignoredFiles := make([]string, 0, len(documentedIgnoredDirs))
+	for _, dirName := range documentedIgnoredDirs {
+		ignoredFile := filepath.Join(workspaceRoot, dirName, "ignored.py")
+		if err := os.WriteFile(ignoredFile, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write ignored file in %q: %v", dirName, err)
+		}
+		ignoredFiles = append(ignoredFiles, ignoredFile)
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: ".", Recursive: true}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	for _, ignoredFile := range ignoredFiles {
+		if err := manager.HandleFileEvent(ignoredFile, EventTypeModified, ""); err != nil {
+			t.Fatalf("handle ignored file event for %q: %v", ignoredFile, err)
+		}
+	}
+	if err := manager.HandleFileEvent(runtimeFile, EventTypeModified, ""); err != nil {
+		t.Fatalf("handle runtime file event: %v", err)
+	}
+
+	expectedScans := []ScanRequest{{
+		ConfigID:     "project-alpha",
+		Path:         runtimeFile,
+		BaselineOnly: false,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
+		t.Fatalf("expected only runtime folder event to schedule a scan, got %#v", manager.ScheduledScans())
+	}
+	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+		t.Fatalf("expected no deletes for ignored inputs, got %#v", deletes)
+	}
+}
+
 func TestManagerHandleFileEventSchedulesDeleteForTrackedDeletes(t *testing.T) {
 	t.Parallel()
 

@@ -43,6 +43,69 @@ func TestBuildTrackedFileSnapshotIgnoresDefaultIgnoredDirs(t *testing.T) {
 	}
 }
 
+func TestBuildTrackedFileSnapshotIgnoresEachDocumentedDefaultDirAndKeepsUserRuntimeFolder(t *testing.T) {
+	t.Parallel()
+
+	// Snapshot builds should ignore the documented default dirs without suppressing unrelated runtime-named folders.
+	workspaceRoot := t.TempDir()
+	projectDir := filepath.Join(workspaceRoot, "project")
+	runtimeDir := filepath.Join(projectDir, "runtime")
+	documentedIgnoredDirs := []string{
+		"node_modules",
+		".venv",
+		"setta_files",
+		"__pycache__",
+	}
+	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
+		t.Fatalf("mkdir runtime dir: %v", err)
+	}
+	for _, dirName := range documentedIgnoredDirs {
+		if err := os.MkdirAll(filepath.Join(projectDir, dirName), 0o755); err != nil {
+			t.Fatalf("mkdir ignored dir %q: %v", dirName, err)
+		}
+	}
+
+	trackedFile := filepath.Join(projectDir, "tracked.py")
+	runtimeFile := filepath.Join(runtimeDir, "keep.py")
+	if err := os.WriteFile(trackedFile, []byte("print('tracked')\n"), 0o644); err != nil {
+		t.Fatalf("write tracked file: %v", err)
+	}
+	if err := os.WriteFile(runtimeFile, []byte("print('runtime')\n"), 0o644); err != nil {
+		t.Fatalf("write runtime file: %v", err)
+	}
+	for _, dirName := range documentedIgnoredDirs {
+		ignoredFile := filepath.Join(projectDir, dirName, "ignored.py")
+		if err := os.WriteFile(ignoredFile, []byte("print('ignored')\n"), 0o644); err != nil {
+			t.Fatalf("write ignored file in %q: %v", dirName, err)
+		}
+	}
+
+	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: projectDir, Recursive: true}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tracked file snapshot: %v", err)
+	}
+
+	if len(snapshot.Files) != 2 {
+		t.Fatalf("expected only tracked and runtime files, got %#v", snapshot.Files)
+	}
+	for _, expectedPath := range []string{trackedFile, runtimeFile} {
+		if _, ok := snapshot.Files[expectedPath]; !ok {
+			t.Fatalf("expected tracked snapshot to include %q, got %#v", expectedPath, snapshot.Files)
+		}
+	}
+	for _, dirName := range documentedIgnoredDirs {
+		ignoredFile := filepath.Join(projectDir, dirName, "ignored.py")
+		if _, ok := snapshot.Files[ignoredFile]; ok {
+			t.Fatalf("expected ignored snapshot to omit %q, got %#v", ignoredFile, snapshot.Files)
+		}
+	}
+}
+
 func TestDiffTrackedFileSnapshotsDetectsRenameWithoutHeuristics(t *testing.T) {
 	t.Parallel()
 
