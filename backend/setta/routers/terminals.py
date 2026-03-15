@@ -1,14 +1,19 @@
-from fastapi import HTTPException
+import logging
+
+from fastapi import HTTPException, WebSocket
 from pydantic import BaseModel
 
+from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
 )
 from setta.routers.dependencies import (
     RuntimeContextFromRequest,
+    RuntimeContextFromWebsocket,
 )
 from setta.routers.setta_api_router import (
+    SettaNonLauncherAPIRouter,
     SettaProjectContextNonLauncherAPIRouter,
 )
 from setta.share.policy import (
@@ -23,6 +28,8 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
 terminals_http_router = SettaProjectContextNonLauncherAPIRouter()
+terminals_ws_router = SettaNonLauncherAPIRouter()
+logger = logging.getLogger(__name__)
 
 
 class DeleteTerminalsRequest(BaseModel):
@@ -60,6 +67,75 @@ async def _validate_run_overrides(
                 param_info_id=param_info_id,
                 share_session_id=ctx.share_session_id,
             )
+
+
+@terminals_ws_router.websocket(Route.TERMINAL)
+async def terminal_websocket_endpoint(
+    websocket: WebSocket,
+    projectConfigId: ID,
+    sectionId: ID,
+    id: str,
+    ctx: RuntimeContextFromWebsocket,
+):
+    share_session_id = ctx.share_session_id
+    allowed = await ctx.enforce_run_allowed_ws(websocket)
+    if not allowed:
+        return
+    terminal_id = build_terminal_id(sectionId, share_session_id)
+    ctx.state.terminals.new_terminal(
+        projectConfigId,
+        terminal_id,
+        share_session_id=share_session_id,
+    )
+
+    extra_values = {
+        "section_id": sectionId,
+        "client_id": id,
+    }
+    if share_session_id is not None:
+        extra_values["share_session_id"] = share_session_id
+
+    async with bind_websocket_logging_context(
+        websocket,
+        project_config_id=projectConfigId,
+        extra_values=extra_values,
+    ):
+        context = {
+            "terminal_project_id": str(projectConfigId),
+            "terminal_section_id": str(sectionId),
+            "terminal_client_id": id,
+        }
+        if share_session_id is not None:
+            context["terminal_share_session_id"] = share_session_id
+        try:
+            did_connect = await ctx.state.terminals.connect(websocket, terminal_id, id)
+            if not did_connect:
+                return
+            touch_session = None
+            if share_session_id is not None:
+
+                def touch_session() -> None:
+                    ctx.state.share_session_store.touch_session(share_session_id)
+
+            await ctx.state.terminals.write_to_terminal(
+                websocket,
+                terminal_id,
+                allow_input=not ctx.deployment_mode,
+                on_activity=touch_session,
+            )
+        except Exception as exc:
+            await ctx.state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
+                exc,
+                label="terminal-websocket",
+                message=f"Terminal websocket error: {projectConfigId}/{sectionId} (client {id})",
+                severity=SettaBackendLogEventSeverity.error,
+                project_config_id=projectConfigId,
+                context=context,
+            )
+            raise
+        finally:
+            logger.debug("terminal_websocket_endpoint disconnect: %s", id)
+            ctx.state.terminals.disconnect(terminal_id, id)
 
 
 @terminals_http_router.post(Route.DELETE_TERMINALS)
@@ -116,6 +192,7 @@ async def route_run_code(
             x,
             manager,
             ctx.state.terminals,
+            ctx.state.wmh_cli_sender,
             share_session_id=share_session_id,
         )
     except Exception as exc:
