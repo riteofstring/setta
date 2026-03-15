@@ -235,6 +235,68 @@ func TestRegistryLoadSessionsAndFindByWorkspaceAndMode(t *testing.T) {
 	}
 }
 
+func TestRegistryLoadSessionsSkipsMetadataMissingServerMode(t *testing.T) {
+	t.Parallel()
+
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	registry, err := NewRegistry(RegistryOptions{
+		SessionsRoot: sessionsRoot,
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	validSessionDir := filepath.Join(sessionsRoot, "valid")
+	if err := os.MkdirAll(validSessionDir, 0o755); err != nil {
+		t.Fatalf("mkdir valid session dir: %v", err)
+	}
+	validMetadata := auth.SessionMetadata{
+		ID:         "valid-session",
+		Host:       "127.0.0.1",
+		Port:       61234,
+		ServerMode: "ide",
+		StartedAt:  time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC),
+	}
+	validBytes, err := json.Marshal(validMetadata)
+	if err != nil {
+		t.Fatalf("marshal valid metadata: %v", err)
+	}
+	validBytes = append(validBytes, '\n')
+	if err := os.WriteFile(filepath.Join(validSessionDir, sessionMetadataFileName), validBytes, 0o644); err != nil {
+		t.Fatalf("write valid metadata: %v", err)
+	}
+
+	missingModeDir := filepath.Join(sessionsRoot, "missing-mode")
+	if err := os.MkdirAll(missingModeDir, 0o755); err != nil {
+		t.Fatalf("mkdir missing-mode session dir: %v", err)
+	}
+	missingModeMetadata := auth.SessionMetadata{
+		ID:        "missing-mode-session",
+		Host:      "127.0.0.1",
+		Port:      61235,
+		StartedAt: time.Date(2026, time.March, 8, 12, 1, 0, 0, time.UTC),
+	}
+	missingModeBytes, err := json.Marshal(missingModeMetadata)
+	if err != nil {
+		t.Fatalf("marshal missing-mode metadata: %v", err)
+	}
+	missingModeBytes = append(missingModeBytes, '\n')
+	if err := os.WriteFile(filepath.Join(missingModeDir, sessionMetadataFileName), missingModeBytes, 0o644); err != nil {
+		t.Fatalf("write missing-mode metadata: %v", err)
+	}
+
+	loaded, err := registry.LoadSessions()
+	if err != nil {
+		t.Fatalf("load sessions: %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("expected one valid session after skipping missing server mode metadata, got %#v", loaded)
+	}
+	if loaded[0].ID != validMetadata.ID {
+		t.Fatalf("expected valid session %q, got %#v", validMetadata.ID, loaded[0])
+	}
+}
+
 func TestIsSessionActiveRecognizesSettaProcessSignatures(t *testing.T) {
 	for _, basename := range registryRecognizedProcessNames() {
 		basename := basename
