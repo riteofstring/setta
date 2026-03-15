@@ -114,7 +114,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	if deps.RegisterAuthenticatedRoot != nil {
 		if deps.Auth != nil && deps.Auth.Enabled() {
 			router.Group(func(r chi.Router) {
-				r.Use(authMiddleware(deps.Auth))
+				r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 				deps.RegisterAuthenticatedRoot(r)
 			})
 		} else {
@@ -124,7 +124,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 
 	router.Route(apiPrefix, func(r chi.Router) {
 		if deps.Auth != nil && deps.Auth.Enabled() {
-			r.Use(authMiddleware(deps.Auth))
+			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 		}
 		r.Get(RouteGetServerMode, func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{
@@ -248,7 +248,7 @@ func bootstrapConsumeHandler(authService *auth.Service, trustedOrigins *frontend
 	}
 }
 
-func authMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
+func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodOptions {
@@ -270,7 +270,33 @@ func authMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
 			}
 
 			if strings.HasPrefix(r.URL.Path, apiPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
-				requestInfo, err = authService.RefreshAuthCookie(w, r, now)
+				token, payload, err := authService.MintAuthCookie(now)
+				if err != nil {
+					if errors.Is(err, auth.ErrMissingCurrentSession) {
+						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+						return
+					}
+					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					return
+				}
+				if trustedOrigins != nil {
+					if err := trustedOrigins.RefreshSessionExpiry(requestInfo.SessionID, payload.Exp); err != nil {
+						var unavailable *frontendorigins.StoreUnavailableError
+						if !errors.As(err, &unavailable) {
+							writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+							return
+						}
+					}
+				}
+				if err := authService.SetAuthCookie(w, r, token); err != nil {
+					if errors.Is(err, auth.ErrMissingCurrentSession) {
+						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+						return
+					}
+					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					return
+				}
+				requestInfo, err = authService.ValidateAuthCookie(token, now)
 				if err != nil {
 					if errors.Is(err, auth.ErrMissingCurrentSession) {
 						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")

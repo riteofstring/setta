@@ -943,6 +943,73 @@ func TestHandlerDoesNotRefreshFreshAuthCookieOnAPIResponses(t *testing.T) {
 	}
 }
 
+func TestHandlerRefreshesTrustedFrontendOriginExpiryWithAuthCookie(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+
+	trustedNow := time.Now().UTC()
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+		Now:         func() time.Time { return trustedNow },
+	})
+	if err != nil {
+		t.Fatalf("new trusted frontend origin service: %v", err)
+	}
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	oldToken, _, err := authService.MintAuthCookie(trustedNow.Add(-(12 * time.Hour) + (30 * time.Minute)))
+	if err != nil {
+		t.Fatalf("mint old auth cookie: %v", err)
+	}
+	oldInfo, err := authService.ValidateAuthCookie(oldToken, trustedNow)
+	if err != nil {
+		t.Fatalf("validate old auth cookie: %v", err)
+	}
+
+	origin := "http://127.0.0.1:61234"
+	if _, err := trustedOrigins.TrustOrigin(origin, currentSession.Metadata.ID, oldInfo.ExpiresAt.Unix()); err != nil {
+		t.Fatalf("trust origin: %v", err)
+	}
+
+	cookieName, err := authService.CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/runtimeInfo", nil)
+	request.Header.Set("Origin", origin)
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: oldToken,
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if len(response.Result().Cookies()) != 1 {
+		t.Fatalf("expected one refreshed auth cookie, got %d", len(response.Result().Cookies()))
+	}
+
+	trustedNow = oldInfo.ExpiresAt.Add(time.Second)
+	if !trustedOrigins.IsTrustedOrigin(origin, currentSession.Metadata.ID) {
+		t.Fatal("expected auth-cookie refresh to extend trusted frontend origin expiry")
+	}
+}
+
 func newTestAuthService(t *testing.T) *auth.Service {
 	t.Helper()
 

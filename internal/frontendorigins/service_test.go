@@ -37,6 +37,34 @@ func TestServiceTrustsOriginsAndPrunesExpiredEntries(t *testing.T) {
 	}
 }
 
+func TestServiceRefreshSessionExpiryExtendsExistingOrigins(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_710_000_000, 0).UTC()
+	service, err := NewService(Options{
+		RuntimeRoot: filepath.Join(t.TempDir(), "runtime"),
+		Now:         func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new trusted frontend origin service: %v", err)
+	}
+
+	origin := "http://127.0.0.1:9001"
+	initialExpiry := now.Add(5 * time.Minute).Unix()
+	if _, err := service.TrustOrigin(origin, "session-1", initialExpiry); err != nil {
+		t.Fatalf("trust origin: %v", err)
+	}
+
+	if err := service.RefreshSessionExpiry("session-1", now.Add(15*time.Minute).Unix()); err != nil {
+		t.Fatalf("refresh session expiry: %v", err)
+	}
+
+	now = now.Add(6 * time.Minute)
+	if !service.IsTrustedOrigin(origin, "session-1") {
+		t.Fatal("expected refreshed origin expiry to remain trusted past original expiry")
+	}
+}
+
 func TestResolveRequestOriginPrefersClientOriginHeaderWhenAllowed(t *testing.T) {
 	t.Parallel()
 

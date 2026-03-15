@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 )
@@ -36,8 +37,9 @@ type PluginRouteDependencies struct {
 }
 
 type PluginRootRouteDependencies struct {
-	Service PluginRootRouteService
-	Auth    *auth.Service
+	Service        PluginRootRouteService
+	Auth           *auth.Service
+	TrustedOrigins *frontendorigins.Service
 }
 
 type PluginAssetService interface {
@@ -479,7 +481,7 @@ func pluginBackendRootHandler(deps PluginRootRouteDependencies) http.HandlerFunc
 				}
 			})
 			if deps.Auth != nil && deps.Auth.Enabled() {
-				authMiddleware(deps.Auth)(dispatchHandler).ServeHTTP(w, r)
+				authMiddleware(deps.Auth, deps.TrustedOrigins)(dispatchHandler).ServeHTTP(w, r)
 				return
 			}
 			dispatchHandler.ServeHTTP(w, r)
