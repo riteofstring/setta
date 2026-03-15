@@ -3807,3 +3807,40 @@ Append-only log for the section performance refactor.
   - Treat final insertion math under the changed row geometry as the active blocker.
   - Preserve the clean branch's last top-row `placeholder:reorder nextIndex 0` transition and final `newIndex: 7` while recovering the shared-row geometry match against untouched `main`.
   - If the next attempt returns to the row/CSS seam, prefer the shape-specific `labelShapeKey` path over another blanket descendant-wrapper override.
+
+### 2026-03-18 103
+
+- Item: Narrow the checkpoint-1 blocker from generic final insertion math to the exact past-halfway owner seam.
+- Status: `needs_more_work`
+- Details:
+  - Reviewed the existing clean-versus-failing drag-lifecycle evidence together with code read and subagent-backed inspection in:
+    - `frontend/src/components/Params/ParamDndMonitor.tsx`
+    - `frontend/src/forks/dnd-kit/adapter/collisionCompare.ts`
+    - `frontend/src/forks/dnd-kit/adapter/collision.ts`
+    - `frontend/src/forks/dnd-kit/adapter/sorting.ts`
+    - `frontend/src/state/actions/params/paramTree.ts`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - Confirmed the final backend `newIndex` mismatch (`7` on the clean run versus `8` on the failing wrapper-geometry variant) is downstream-only inside `handleParamDragEnd`:
+    - `resolveFullIndexForVisibleInsertion()` in `paramTree.ts` only translates the temp placeholder's visible index into the final full-child insertion index after the placeholder position is already fixed
+    - there is no current evidence that `paramTree.ts` or `moveParams.ts` is inventing the wrong reorder target after a correct placeholder placement
+  - Confirmed the live decision seam is earlier in same-parent drag-over handling:
+    - `resolveOverCollisionId()` promotes and ranks the effective row collision using sortable-container metadata, trigger-distance fields, and child-over-parent promotion
+    - `getPastHalfway()` uses pointer-direction edge selection plus sticky `±10` hysteresis on repeated collisions
+    - `maybeMovePlaceholder()` in `ParamDndMonitor.tsx` feeds that boolean into `computeNewIndex()`
+    - for the relevant `overIdx < activeIdx` path, `computeNewIndex()` only moves the placeholder to the absolute top when `pastHalfway === false`; otherwise it leaves the placeholder one slot later
+  - Interpretation:
+    - the already logged missing final `placeholder:reorder nextIndex 0` transition is now explained by the active owner stack instead of a later backend serialization bug
+    - the wrapper-local geometry variant's `21px -> 20px` dragged-row height shift is now a plausible mechanism for the missed final top-row flip because the active row edge and sticky halfway buffer both participate in the last same-parent reorder decision
+  - Additional row-seam read:
+    - `labelShapeKey` is computed in `ParamSwitch.tsx`
+    - `labelShapeKey` already participates in `ParamContainer` memo equality
+    - `ParamContainer.tsx` does not currently render `labelShapeKey` into the DOM or class output
+    - any future shape-specific CSS correction must expose that seam first without changing the row `<article>` hitbox or drag surface
+  - Recorded the owner-seam narrowing in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-past-halfway-owner-seam.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Aim the next lower-seam attempt at preserving the clean branch's final top-row `pastHalfway: false` to `placeholder:reorder nextIndex 0` transition inside the `resolveOverCollisionId` / `getPastHalfway` / `computeNewIndex` stack.
+  - Do not spend the next pass in `resolveFullIndexForVisibleInsertion()` unless fresh evidence shows the temp placeholder index is already correct before drag end.
+  - If the next geometry candidate returns to row-level CSS, expose a shape-specific modifier seam without changing the row hitbox before rerunning the callable reorder representative and the shared-row compare.
