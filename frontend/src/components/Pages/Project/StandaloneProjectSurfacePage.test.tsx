@@ -63,6 +63,8 @@ type MockShareSessionState = {
 
 const hoisted = vi.hoisted(() => {
   const { create } = require("zustand") as typeof import("zustand");
+  const { createWithEqualityFn } =
+    require("zustand/traditional") as typeof import("zustand/traditional");
   const state = {
     projectState: {
       projectConfig: {
@@ -92,12 +94,8 @@ const hoisted = vi.hoisted(() => {
 
   const buildChatHistoryEntriesMock = vi.fn(() => state.chatHistoryEntries);
   const aiStoreSelectorMock = create<MockAIState>(() => state.aiState);
-  const useProjectStateMock = Object.assign(
-    (selector: (nextState: MockProjectState) => unknown) =>
-      selector(state.projectState),
-    {
-      getState: () => state.projectState,
-    },
+  const projectStateSelectorMock = createWithEqualityFn<MockProjectState>()(
+    () => state.projectState,
   );
 
   const useShareSessionMock = Object.assign(
@@ -111,13 +109,14 @@ const hoisted = vi.hoisted(() => {
   return {
     aiStoreSelectorMock,
     buildChatHistoryEntriesMock,
+    projectStateSelectorMock,
     state,
-    useProjectStateMock,
     useShareSessionMock,
   };
 });
 const standaloneWindowSpaceSurfaceRender = vi.fn();
 const sectionWindowSurfaceRender = vi.fn();
+const projectChatWindowSurfaceRender = vi.fn();
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -143,14 +142,17 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
-  ProjectChatWindowSurface: ({ children }: { children: ReactNode }) => (
-    <section
-      data-testid="mock-project-chat-window-frame"
-      data-chat-window-frame="project-chat"
-    >
-      {children}
-    </section>
-  ),
+  ProjectChatWindowSurface: ({ children }: { children: ReactNode }) => {
+    projectChatWindowSurfaceRender();
+    return (
+      <section
+        data-testid="mock-project-chat-window-frame"
+        data-chat-window-frame="project-chat"
+      >
+        {children}
+      </section>
+    );
+  },
 }));
 
 function MockUnifiedChatSurface({
@@ -260,7 +262,7 @@ vi.mock("state/definitions", async (importOriginal) => {
   return {
     ...actual,
     useAIStore: hoisted.aiStoreSelectorMock,
-    useProjectState: hoisted.useProjectStateMock,
+    useProjectState: hoisted.projectStateSelectorMock,
     useShareSession: hoisted.useShareSessionMock,
   };
 });
@@ -397,6 +399,11 @@ function createTextSectionFixture({
   };
 }
 
+function setProjectState(nextState: MockProjectState): void {
+  hoisted.state.projectState = nextState;
+  hoisted.projectStateSelectorMock.setState(nextState, true);
+}
+
 describe("StandaloneProjectSurfacePage", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -405,7 +412,8 @@ describe("StandaloneProjectSurfacePage", () => {
     hoisted.buildChatHistoryEntriesMock.mockClear();
     sectionWindowSurfaceRender.mockClear();
     standaloneWindowSpaceSurfaceRender.mockClear();
-    hoisted.state.projectState = {
+    projectChatWindowSurfaceRender.mockClear();
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
@@ -415,7 +423,8 @@ describe("StandaloneProjectSurfacePage", () => {
       sectionVariants: {},
       sectionImpls: {},
       parentSectionMap: {},
-    };
+    });
+    hoisted.projectStateSelectorMock.setState(hoisted.state.projectState, true);
     hoisted.state.aiState = {
       activeChatId: "workspace-chat",
       agentRuns: [],
@@ -565,8 +574,83 @@ describe("StandaloneProjectSurfacePage", () => {
     ).not.toBeNull();
   });
 
+  it("keeps standalone project chat routes stable across unrelated project structure churn", async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/chat-alpha"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="standalone-project-chat-thread-surface"]',
+      ),
+    ).not.toBeNull();
+    const initialProjectChatRenderCount =
+      projectChatWindowSurfaceRender.mock.calls.length;
+    expect(initialProjectChatRenderCount).toBeGreaterThan(0);
+
+    await act(async () => {
+      hoisted.projectStateSelectorMock.setState((state) => {
+        const nextState: MockProjectState = {
+          ...state,
+          projectConfig: {
+            ...state.projectConfig,
+            windowSpaces: {
+              ...state.projectConfig.windowSpaces,
+              "space-1": createWindowSpaceConfig({
+                id: "space-1",
+                name: "Research Board",
+                windowsById: {},
+                order: [],
+              }),
+            },
+          },
+          sections: {
+            ...state.sections,
+            "section-extra": {
+              name: "notes",
+              sharedModifier: {},
+            },
+          },
+          sectionVariants: {
+            ...state.sectionVariants,
+            "section-extra-variant": {
+              impl: "section-extra-impl",
+              modifier: {},
+            },
+          },
+          sectionImpls: {
+            ...state.sectionImpls,
+            "section-extra-impl": {
+              type: SectionTypeEnum.TextBlock,
+            },
+          },
+        };
+        hoisted.state.projectState = nextState;
+        return nextState;
+      });
+    });
+
+    expect(projectChatWindowSurfaceRender).toHaveBeenCalledTimes(
+      initialProjectChatRenderCount,
+    );
+    expect(
+      host.querySelector(
+        '[data-testid="standalone-project-chat-thread-surface"]',
+      ),
+    ).not.toBeNull();
+  });
+
   it("keeps standalone window-space routes stable across unrelated AI history churn", async () => {
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {
@@ -599,7 +683,7 @@ describe("StandaloneProjectSurfacePage", () => {
       sectionVariants: {},
       sectionImpls: {},
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -641,7 +725,7 @@ describe("StandaloneProjectSurfacePage", () => {
       sectionId: "section-text",
       sectionName: "notes",
     });
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
@@ -659,7 +743,7 @@ describe("StandaloneProjectSurfacePage", () => {
         [textSection.implId]: textSection.impl,
       },
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -911,7 +995,7 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: false,
       },
     };
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {
@@ -944,7 +1028,7 @@ describe("StandaloneProjectSurfacePage", () => {
       sectionVariants: {},
       sectionImpls: {},
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -981,7 +1065,7 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: false,
       },
     };
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
@@ -999,7 +1083,7 @@ describe("StandaloneProjectSurfacePage", () => {
         [scriptableChat.implId]: scriptableChat.impl,
       },
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -1034,7 +1118,7 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: false,
       },
     };
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {
@@ -1075,7 +1159,7 @@ describe("StandaloneProjectSurfacePage", () => {
         [managedChat.implId]: managedChat.impl,
       },
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -1117,7 +1201,7 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: false,
       },
     };
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {
@@ -1196,7 +1280,7 @@ describe("StandaloneProjectSurfacePage", () => {
         [scriptableChat.implId]: scriptableChat.impl,
       },
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -1237,7 +1321,7 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: false,
       },
     };
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {
@@ -1297,7 +1381,7 @@ describe("StandaloneProjectSurfacePage", () => {
         [textSection.implId]: textSection.impl,
       },
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
@@ -1479,7 +1563,7 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: true,
       },
     };
-    hoisted.state.projectState = {
+    setProjectState({
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {
@@ -1512,7 +1596,7 @@ describe("StandaloneProjectSurfacePage", () => {
       sectionVariants: {},
       sectionImpls: {},
       parentSectionMap: {},
-    };
+    });
 
     await act(async () => {
       root.render(
