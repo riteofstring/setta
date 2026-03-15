@@ -46,7 +46,7 @@ categorize them.
 ## Current Starting Backlog
 
 - Expand the differential manifest beyond the first bootstrap / websocket /
-  view-mode slice
+  view-mode / create-defaults slice
 - More corpus-driven latest-state hydration / projection scenarios
 - Matrix rows that are still explicitly `Missing`, starting with
-  `project.create.seeds_authoritative_default_windowing_state`
+  the caller-backed settings-project bootstrap / dedicated `/settings` gap
