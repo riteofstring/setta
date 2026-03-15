@@ -126,7 +126,13 @@ function TempParamSwitch({
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
+  const {
+    sectionId,
+    paramInfoId,
+    hasSectionStyleTheme,
+    isNestedChildInTree,
+    listKey,
+  } = props;
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -225,44 +231,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
     />
   );
 
-  const sharedProps = {
-    ...props,
-    bg,
-    border,
-    hasSectionStyleTheme,
-    isKwarg,
-    isNestedParam,
-    label,
-    maybeErrorMessage,
-    onClick: handleParamClick,
-    onMouseDown: onMouseDownAlways,
-    paramChildren,
-  };
-
-  return <SortableRealParamSwitchRow {...sharedProps} />;
-}
-
-export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
-
-function SortableRealParamSwitchRow({
-  sectionId,
-  isNestedChildInTree,
-  paramInfoId,
-  listKey,
-  paramChildren,
-  label,
-  ...props
-}: ParamSwitchProps & {
-  bg: string;
-  border: string;
-  isKwarg: boolean;
-  isNestedParam: boolean;
-  label: React.ReactNode;
-  maybeErrorMessage: string;
-  onClick: React.MouseEventHandler;
-  onMouseDown: React.MouseEventHandler;
-  paramChildren: string[];
-}) {
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
   const dndId = getParamDndItemId(paramInfoId, listKey);
@@ -298,12 +266,22 @@ function SortableRealParamSwitchRow({
 
   return (
     <ParamContainer
-      {...props}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
+      requiredParamIdsToPaths={props.requiredParamIdsToPaths}
+      onResizeStart={props.onResizeStart}
+      isTopLevelWithPad={props.isTopLevelWithPad}
       isNestedChildInTree={isNestedChildInTree}
       listKey={listKey}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       paramChildren={paramChildren}
+      bg={bg}
+      border={border}
+      isKwarg={isKwarg}
+      isNestedParam={isNestedParam}
+      maybeErrorMessage={maybeErrorMessage}
+      onClick={handleParamClick}
+      onMouseDown={onMouseDownAlways}
       dndAttributes={restAttributes}
       dndListeners={listeners}
       dndRef={setNodeRef}
@@ -314,3 +292,5 @@ function SortableRealParamSwitchRow({
     </ParamContainer>
   );
 }
+
+export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);

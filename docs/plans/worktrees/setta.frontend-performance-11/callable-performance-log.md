@@ -491,3 +491,29 @@ Append-only log for the callable DOM-first performance refactor.
     - the accepted worktree control scene preserved the same pinned and nested-child geometry as checkpoint 28
 - Next action:
   - Continue Phase 2 only if the next step removes another row/tree seam with real contract value, ideally around DnD placeholder ownership or duplicated row-shell responsibilities across `ParamContainer` and `ParamSwitch`.
+
+### 2026-03-16 30
+
+- Item: Phase 2 checkpoint 4 real-row wrapper component collapse.
+- Status: `done`
+- Details:
+  - Collapsed the shallow `SortableRealParamSwitchRow` layer into `frontend/src/components/Params/ParamSwitch.tsx`.
+  - `RealParamSwitch` now owns both the real-row state derivation and the DnD wiring before rendering `ParamContainer`, instead of handing that work through an extra wrapper component.
+  - This does not change the row DOM contract, but it removes one per-row React component boundary from the steady-state callable path.
+  - Re-ran the expanded callable minimum regression spec.
+  - Result: `4 passed`
+  - Re-ran the callable pair:
+    - `frontend/tests/e2e/params/callable-phase0-baseline.spec.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Result: `5 passed`
+  - Re-ran the required CDP comparison on the stable `open` control scene:
+    - `main`: `http://127.0.0.1:3087/busy_tide`
+    - worktree: `http://127.0.0.1:3011/late_flake`
+  - The callable screenshots remained visually aligned after the wrapper-component collapse.
+  - Live control-scene read:
+    - callable subtree nodes:
+      - `main`: `125`
+      - worktree: `100`
+    - visible param rows: `7` on both `main` and the worktree
+- Next action:
+  - Continue Phase 2 only if the next step deepens another real row-tree boundary, with the best remaining candidate being the duplicated sortable placeholder/real-row shell seam in `ParamSwitch`.

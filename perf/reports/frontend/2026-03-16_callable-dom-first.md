@@ -424,3 +424,29 @@ Pending the next Phase 1 checkpoint. Reuse the exact same callable setup, viewpo
 - Interpretation:
   - this checkpoint does not reduce DOM count further on the stable control scene
   - it does reduce `ParamContainer` branch complexity by removing a redundant non-nested row split, which makes the row/tree ownership boundary slightly deeper before the next DnD-shell step
+
+### Phase 2 checkpoint 4: real-row wrapper component collapse
+
+- Date/time: 2026-03-16
+- Scope:
+  - removed the shallow `SortableRealParamSwitchRow` component from `frontend/src/components/Params/ParamSwitch.tsx`
+  - merged the real-row DnD wiring into `RealParamSwitch` so the real-row path now owns its state derivation and sortable handoff in one component before rendering `ParamContainer`
+- Automated verification:
+  - reran `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `4 passed`
+  - reran:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-phase0-baseline.spec.ts frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - result: `5 passed`
+- CDP visual verification:
+  - reloaded the stable `open` callable control scene on:
+    - worktree: `http://127.0.0.1:3011/late_flake`
+    - untouched `main`: `http://127.0.0.1:3087/busy_tide`
+  - element screenshots of the callable surface remained visually aligned after the component-boundary collapse
+- Live control-scene read:
+  - callable subtree nodes:
+    - `main`: `125`
+    - worktree: `100`
+  - visible param rows: `7` on both `main` and the worktree
+- Interpretation:
+  - this checkpoint is a React-boundary reduction, not a DOM reduction
+  - the row/tree cluster is slightly deeper because `ParamSwitch` no longer exposes an extra shallow wrapper layer before steady-state rows reach `ParamContainer`
