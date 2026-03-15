@@ -4251,3 +4251,55 @@ Append-only log for the section performance refactor.
   - Keep the accepted window-only `windowFlow` split.
   - Move to the remaining canvas-side `sectionChrome` grid contract.
   - Keep one floating section window, one standalone section route, and one floating project chat window in the verification set while widening the seam.
+
+### 2026-03-18 114
+
+- Item: Accept the non-meta canvas `sectionChrome` split by moving canvas section surfaces onto `windowFlow` while keeping true `MetaControl` on grid.
+- Status: `done`
+- Details:
+  - Kept the production change inside:
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+  - Canvas-side split now resolves to:
+    - true `MetaControl`: shared `grid` path
+    - all other canvas sections: `surfaceLayout: "windowFlow"`
+  - Focused automated coverage now also pins the previously untested root path:
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - standard canvas shell: `flex-col`, no `section-grid-cols`
+      - root `Incrementer` branch: same `windowFlow` shell
+      - text-block meta-control style: still distinct from true meta-control grid
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+      - result: `4` files passed, `22` tests passed
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts frontend/tests/e2e/params/dict-kwargs.spec.ts frontend/tests/e2e/params/global-variables-kwargs.spec.ts frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts`
+      - result: `31` passed
+  - CDP compare:
+    - untouched `main` control `marsh_zooming` `GenPythonCode` still reads:
+      - `display: grid`
+      - `section-grid-cols section-grid-rows section-grid-areas`
+      - shell bounds `1500 x 496`
+      - article bounds `1500 x 406`
+      - editor font `monospace`, `13px / 18.2px`
+    - disposable worktree scene `working_slate` on `3211/8211` now reads:
+      - `display: flex`
+      - `flexDirection: column`
+      - no `section-grid-*`
+      - shell bounds `500 x 187`
+      - article bounds `500 x 165`
+      - editor font stack `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`
+      - editor typography `16px / 22.4px`
+    - scene caveat:
+      - the disposable worktree page carried a live Project AI conversation overlay over the canvas
+      - acceptance therefore used DOM/class/computed-style inspection plus the accessibility snapshot that still resolved the `Generated Python Code` subtree, rather than relying on a clean element screenshot
+  - Interpretation:
+    - the accepted higher shared `sectionChrome` seam now covers:
+      - window-only surfaces
+      - non-meta canvas surfaces
+    - the remaining `sectionChrome` grid consumer is the true canvas `MetaControl` path
+    - the next pass should stay off the accepted non-meta surfaces and decide whether the next live seam is still true `MetaControl` `sectionChrome` or the lower meta-control single-cell contract
+  - Recorded the accepted compare in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-canvas-non-meta-windowflow-split.md`
+- Next action:
+  - Keep the accepted non-meta canvas `windowFlow` split.
+  - Treat true canvas `MetaControl` as the only remaining `sectionChrome` shared-grid consumer.
+  - Use the next pass to decide whether the live target stays in `sectionChrome` or drops into the lower meta-control shell.

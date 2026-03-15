@@ -74,6 +74,22 @@ describe("sectionChrome", () => {
     expect(chrome.surfaceClassName).toContain("grid-cols-1");
   });
 
+  it("builds non-meta canvas chrome without the shared section grid", () => {
+    const chrome = getCanvasSectionChrome({
+      sectionTypeName: SectionTypeEnum.Code,
+      textBlockMetaControlStyle: false,
+      isUserView: false,
+      hasSectionStyleTheme: false,
+      positionAndSizeLocked: false,
+    });
+
+    expect(chrome.bgColor).toBe("bg-white dark:bg-setta-900");
+    expect(chrome.useMetaControlStyle).toBe(false);
+    expect(chrome.headerVariant).toBe("sectionHeader");
+    expect(chrome.surfaceClassName).toContain("flex-col");
+    expect(chrome.surfaceClassName).not.toContain("section-grid-cols");
+  });
+
   it("keeps text-block meta-control chrome distinct from real meta-control layout", () => {
     const chrome = getCanvasSectionChrome({
       sectionTypeName: SectionTypeEnum.TextBlock,
@@ -90,6 +106,8 @@ describe("sectionChrome", () => {
     expect(chrome.surfaceClassName).toContain(
       "group-hover/card-section:z-[170]",
     );
+    expect(chrome.surfaceClassName).toContain("flex-col");
+    expect(chrome.surfaceClassName).not.toContain("section-grid-cols");
     expect(chrome.surfaceClassName).not.toContain("grid-cols-1");
   });
 

@@ -31,6 +31,8 @@ let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
 };
 
+let mockIsRoot = false;
+
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
     mode,
@@ -85,7 +87,7 @@ vi.mock("state/actions/sectionInfos", () => ({
 }));
 
 vi.mock("state/actions/uiTypes/utils", () => ({
-  getIsRoot: () => false,
+  getIsRoot: () => mockIsRoot,
 }));
 
 vi.mock("state/definitions", () => ({
@@ -202,6 +204,7 @@ describe("SectionContainerCoreResizable", () => {
       isMinimized: false,
       metaControlStyle: false,
     };
+    mockIsRoot = false;
     mockProjectState = {
       projectConfig: {
         id: "project-1",
@@ -294,6 +297,45 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain("group-hover/card-section:z-[170]");
   });
 
+  it("routes standard canvas chrome through the windowFlow-style surface shell", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-testid="mock-code-area"');
+    expect(markup).toContain("flex-col");
+    expect(markup).not.toContain("section-grid-cols");
+  });
+
+  it("keeps root incrementers inside the same windowFlow-style canvas shell", () => {
+    mockIsRoot = true;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-header"');
+    expect(markup).toContain('data-testid="mock-incrementer"');
+    expect(markup).toContain('data-testid="mock-code-area"');
+    expect(markup).toContain("flex-col");
+    expect(markup).not.toContain("section-grid-cols");
+  });
+
   it("keeps text-block meta-control menus even when the normal header is hidden", () => {
     mockSectionImpl = {
       type: SectionTypeEnum.TextBlock,
@@ -316,6 +358,8 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="mock-textblock-meta-control-menu"');
     expect(markup).not.toContain('data-testid="mock-section-header"');
     expect(markup).toContain('data-meta-control-style="true"');
+    expect(markup).toContain("flex-col");
+    expect(markup).not.toContain("section-grid-cols");
     expect(markup).not.toContain("grid-cols-1");
   });
 
