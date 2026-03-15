@@ -238,6 +238,11 @@ categorize them.
   other bounded proof-only rows such as UI-setting/plugin-state,
   workspace-launch local metadata persistence, or similarly narrow service and
   route slices before returning to heavier missing surfaces
+- That UI-setting plugin availability row is now proved too, so the next
+  bounded proof-only queue should likely shift to workspace-launch local
+  metadata persistence or the remaining similarly narrow config/external-agent
+  proof slices before spending more time on heavier missing implementation
+  areas
 - The websocket launcher-mode guard row is now proved too; the remaining
   websocket backlog should focus on still-unproved listener policy branches
   and other route-specific deployment/runtime behavior rather than the shared
