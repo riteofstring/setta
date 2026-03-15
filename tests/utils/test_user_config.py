@@ -4,10 +4,7 @@ from pathlib import Path
 import pytest
 
 from setta.utils.setta_home import resolve_setta_home, resolve_setta_user_config_path
-from setta.utils.user_config import (
-    clear_setta_user_config_cache,
-    load_setta_user_config,
-)
+from setta.utils.user_config import load_setta_user_config
 
 
 def test_load_setta_user_config_rejects_legacy_keys() -> None:
@@ -28,7 +25,7 @@ def test_load_setta_user_config_rejects_legacy_keys() -> None:
         encoding="utf-8",
     )
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     with pytest.raises(ValueError, match=r"openWorkspaceFallback"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -38,7 +35,7 @@ def test_load_setta_user_config_uses_defaults_without_creating_file() -> None:
     config_path = resolve_setta_user_config_path(setta_home=setta_home)
     assert not config_path.exists()
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     config = load_setta_user_config(setta_home=setta_home)
 
     assert config.auto_mode == "create_local"
@@ -55,7 +52,7 @@ def test_load_setta_user_config_rejects_invalid_json() -> None:
 
     config_path.write_text("{", encoding="utf-8")
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     with pytest.raises(ValueError, match=r"Invalid JSON"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -67,7 +64,7 @@ def test_load_setta_user_config_rejects_non_object_payload() -> None:
 
     config_path.write_text(json.dumps(["not", "an", "object"]) + "\n", encoding="utf-8")
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     with pytest.raises(ValueError, match=r"must be a JSON object"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -90,7 +87,7 @@ def test_load_setta_user_config_resolves_relative_global_base() -> None:
         encoding="utf-8",
     )
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     config = load_setta_user_config(setta_home=setta_home)
     assert config.global_setta_files_base == (setta_home / "state").resolve(strict=False)
 
@@ -118,7 +115,7 @@ def test_load_setta_user_config_expands_env_vars(
         encoding="utf-8",
     )
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     config = load_setta_user_config(setta_home=setta_home)
     assert config.global_setta_files_base == (base / "subdir").resolve(strict=False)
 
@@ -140,7 +137,7 @@ def test_load_setta_user_config_rejects_invalid_auto_mode() -> None:
         encoding="utf-8",
     )
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     with pytest.raises(ValueError, match=r"autoMode must be one of"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -166,6 +163,6 @@ def test_load_setta_user_config_rejects_global_base_that_is_file() -> None:
         encoding="utf-8",
     )
 
-    clear_setta_user_config_cache()
+    load_setta_user_config.cache_clear()
     with pytest.raises(ValueError, match=r"globalSettaFilesBase is not a directory"):
         load_setta_user_config(setta_home=setta_home)

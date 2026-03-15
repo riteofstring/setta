@@ -1,14 +1,14 @@
 from pathlib import Path
 
 from setta.utils.paths import get_setta_paths
-from setta.utils.profile_config import clear_setta_profile_config_cache
-from setta.utils.user_config import clear_setta_user_config_cache
+from setta.utils.profile_config import load_setta_profile
+from setta.utils.user_config import load_setta_user_config
 
 
 def clear_setta_paths_cache() -> None:
     get_setta_paths.cache_clear()
-    clear_setta_user_config_cache()
-    clear_setta_profile_config_cache()
+    load_setta_user_config.cache_clear()
+    load_setta_profile.cache_clear()
 
 
 def normalize_workspace_path(

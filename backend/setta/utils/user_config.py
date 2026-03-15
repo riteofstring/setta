@@ -115,7 +115,3 @@ def _load_setta_user_config_uncached(*, setta_home: Path) -> SettaUserConfig:
 def load_setta_user_config(*, setta_home: Path | None = None) -> SettaUserConfig:
     resolved_home = (setta_home or resolve_setta_home()).resolve(strict=False)
     return _load_setta_user_config_uncached(setta_home=resolved_home)
-
-
-def clear_setta_user_config_cache() -> None:
-    load_setta_user_config.cache_clear()
