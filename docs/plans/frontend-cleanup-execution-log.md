@@ -3193,3 +3193,34 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/activeSectionUI.ts`, now the largest authored/shared
     state hotspot at 364 lines, by separating active-section selection reads or
     writes from backend sync ownership and reconciliation helpers.
+
+## 2026-03-15 07:14:17 PDT
+
+- Slice completed: split active-section selection ownership from backend sync
+  ownership
+- Key files touched:
+  - `frontend/src/state/activeSectionSelection.ts`
+  - `frontend/src/state/activeSectionBackendSync.ts`
+  - `frontend/src/state/activeSectionSelection.test.ts`
+  - `frontend/src/state/activeSectionUI.test.ts`
+  - `frontend/src/state/activeSectionUI.ts`
+  - `frontend/src/state/actions/activeSections.ts`
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/activeSectionSelection.test.ts src/state/activeSectionUI.test.ts src/state/actions/activeSections.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/projectStateOptimisticUpdates.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/activeSectionSelection.ts src/state/activeSectionBackendSync.ts src/state/activeSectionUI.ts src/state/activeSectionSelection.test.ts src/state/activeSectionUI.test.ts src/state/actions/activeSections.ts src/state/actions/project/loadProject.ts src/state/actions/sectionProjectStateSync.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state ownership split and did
+    not change frontend rendering behavior.
+- Commit hash:
+  - `a73b3a237`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/storeDefinitions.ts`, now the largest
+    authored/shared hotspot at 338 lines, by separating atomic project-store
+    publication helpers from the remaining local cross-feature Zustand store
+    definitions.
