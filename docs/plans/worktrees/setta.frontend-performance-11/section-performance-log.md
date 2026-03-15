@@ -3956,3 +3956,52 @@ Append-only log for the section performance refactor.
   - Keep the current `25.26px` worktree row candidate as the green baseline.
   - Do not spend the next pass on another wrapper-border removal attempt at the same row-CSS seam.
   - Decide next whether to reopen the collision/placeholder owner stack for full parity, or to document that the remaining gap is blocked at the current lower seam.
+
+### 2026-03-18 107
+
+- Item: Confirm that the rejected residual-gap CSS attempt reopens the same insertion-index failure path, not a new one.
+- Status: `needs_more_work`
+- Details:
+  - Added temporary local-only HTTP logging and Playwright readback, then removed them again after capture:
+    - `backend/setta/routers/status.py`
+    - `frontend/src/components/Params/ParamDndMonitor.tsx`
+    - `frontend/src/forks/dnd-kit/ParamDndContext.tsx`
+    - `frontend/src/state/actions/params/moveParams.ts`
+    - `frontend/tests/e2e/params/callable-minimum-regression.spec.ts`
+  - Reapplied the rejected residual-gap CSS candidate locally on top of the kept `nameInput*` typography baseline:
+    - removed the `nameInputLeaf` / `nameInputParent` wrapper bottom border from layout
+    - redrew the underline on the inner `.peer/nameinput` / `.peer/textinput` surfaces
+  - Verification:
+    - `SETTA_PARAM_DND_DEBUG_RUN_ID_PREFIX=residual-gap ./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-minimum-regression.spec.ts --grep "light workspace and standalone callable routes preserve reorder and tab indent behavior"`
+      - result: failed
+      - observed visible order after dragging `k` before `h`: `h > k > i > j`
+  - Captured event trail for `residual-gap-light-workspace-structure`:
+    - drag start placeholder height: `20`
+    - placeholder reorder advanced only through `nextIndex: 2` then `nextIndex: 1`
+    - the final clean-path top-row `placeholder:reorder nextIndex: 0` step never happened
+    - drag end still committed:
+      - `end:move`
+      - `newIndex: 8`
+      - `move:send`
+      - `move:response`
+      - backend status: `200`
+  - Interpretation:
+    - this confirms the rejected residual-gap candidate reopens the same owner-path failure already captured in the earlier drag-lifecycle report
+    - the failure is not dead collisions, not missing backend acceptance, and not a new wrapper-local pointer mode
+    - the remaining checkpoint-1 seam stays in:
+      - collision resolution / `pastHalfway`
+      - same-parent placeholder reorder
+      - final insertion math under the changed row geometry
+  - Cleanup:
+    - reverted the local residual-gap CSS attempt
+    - removed the temporary HTTP logging / Playwright instrumentation
+    - left no production-code changes from this debug pass in the worktree
+  - Recorded the confirmation in:
+    - `perf/reports/frontend/2026-03-18_section-shell-s1-checkpoint1-residual-gap-debug-confirmation.md`
+- Next action:
+  - Keep checkpoint 1 open.
+  - Treat the temporary-instrumentation question as answered for the current residual-gap candidate.
+  - Do not spend another pass on wrapper-border removal or a near-identical row-CSS cleanup at this seam.
+  - Choose next between:
+    - reopening the collision/placeholder owner stack directly
+    - documenting the remaining `~1.2px` row-height gap as blocked at the current lower seam
