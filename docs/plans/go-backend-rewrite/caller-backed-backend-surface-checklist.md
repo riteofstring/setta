@@ -15,8 +15,8 @@ Use this checklist to answer:
 
 This is a current-caller inventory, not a route-for-route Python parity list.
 Together with the ownership checklist, this doc is the rewrite progress
-tracker. File deletion is not the tracker while Python source is being retained
-for mergeability.
+tracker. File deletion is not the primary tracker; the cleanup phase should
+delete dead Python only after the caller/runtime proof is recorded.
 
 Status meanings:
 

@@ -58,9 +58,9 @@ When the right move is unclear, decide in this order:
   details.
 - Test parity is behavior-only. Do not chase implementation-level symmetry
   between Python and Go.
-- Move runtime ownership to Go as slices land, but keep superseded Python
-  source in-tree until the rewrite is complete when that makes merges from
-  `main` easier.
+- The rewrite target is already met for the active backend/runtime scope. Do
+  not keep superseded Python in-tree by default now that cleanup is the active
+  phase.
 - In the final cleanup stage, delete dead Python code/tests once the caller and
   runtime path are proven gone or behaviorally replaced by Go. Git history is
   the rewrite log; the repo does not need to preserve dead Python files as

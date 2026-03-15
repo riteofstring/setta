@@ -8,6 +8,8 @@ Use this file only as the folder map.
 
 - `CURRENT.md`
   - entrypoint, read order, retained Python boundaries, task loop
+- `unused-python-deletion-plan.md`
+  - stepwise evidence-gated plan for deleting superseded Python code and tests
 - `caller-backed-backend-surface-checklist.md`
   - whether current callers already hit Go-owned transport/runtime
 - `backend-capability-coverage-checklist.md`

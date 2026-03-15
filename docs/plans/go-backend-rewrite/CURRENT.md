@@ -14,9 +14,12 @@ Read this file first when touching repo areas tracked under the Go backend rewri
   unless a current repo workflow explicitly requires a bounded exception.
 - Progress is tracked in the two checklist docs, not by how much Python source
   has been deleted from this branch.
-- The backend rewrite now satisfies the completion audit. Remaining Python
-  files should be treated as either explicit retained boundaries or cleanup/
-  reference tail, not as active backend ownership.
+- The backend rewrite is complete for the backend/runtime scope tracked by this
+  doc set. Remaining Python files should be treated as either explicit
+  retained boundaries or cleanup/reference tail, not as active backend
+  ownership unless current code proves otherwise.
+- The next cleanup track after completion is governed by
+  `unused-python-deletion-plan.md`.
 - Do not treat required plugin capabilities as deletable just because their
   Python implementation is going away. Full plugin support remains in scope;
   only the implementation language/runtime is changing.
@@ -60,6 +63,8 @@ plugin model, not product-level removal of backend plugin features.
      `caller-backed-backend-surface-checklist.md`
    - runtime/service ownership:
      `backend-capability-coverage-checklist.md`
+   - stepwise deletion of unused Python code/tests:
+     `unused-python-deletion-plan.md`
    - clean-break defaults and port-vs-redesign decisions:
      `go-backend-rewrite-plan.md`
    - testing expectations:
@@ -93,19 +98,19 @@ plugin model, not product-level removal of backend plugin features.
   product decision requires it.
 - Read Go code first. Read Python only as behavior reference or when touching a
   retained Python boundary.
-- Because `main` still evolves the Python backend, retain superseded Python
-  source in-tree until the rewrite is complete unless a file clearly blocks the
-  work. Do not treat retained Python files as the active source of truth once a
-  slice is Go-owned.
+- The rewrite is already complete for the active backend/runtime scope. Do not
+  retain superseded Python by default. Delete dead Python code/tests in
+  bounded batches once the replacement-owner or no-replacement justification is
+  proved.
 - Default to a behavior-first, architecture-conservative port. Reopen redesign
   only when correctness, testability, or active caller coverage requires it.
 - Prefer explicit ownership, thin transports, typed boundaries, deterministic
   source-of-truth paths, and established libraries.
 - Do not widen scope unless a concrete caller, workflow, runtime issue, or
   documented product decision requires it.
-- The repo does not need to route active callers through mixed Go/Python
-  ownership while the rewrite is in flight, even if superseded Python source is
-  temporarily retained for mergeability.
+- The repo does not need mixed Go/Python ownership for active callers. Any
+  remaining mixed boundary must be explicit retained surface or temporary
+  cleanup residue with a clear deletion plan.
 
 ## Task Router
 
@@ -113,6 +118,8 @@ plugin model, not product-level removal of backend plugin features.
   `caller-backed-backend-surface-checklist.md`
 - "Where does ownership live overall?":
   `backend-capability-coverage-checklist.md`
+- "How do we delete unused Python safely after completion?":
+  `unused-python-deletion-plan.md`
 - "Should this be ported as-is or redesigned?":
   `go-backend-rewrite-plan.md`
 - "What tests should prove this?":
@@ -147,6 +154,8 @@ plugin model, not product-level removal of backend plugin features.
 - The rewrite progress tracker is:
   - `caller-backed-backend-surface-checklist.md`
   - `backend-capability-coverage-checklist.md`
+- The final Python cleanup tracker/plan is:
+  - `unused-python-deletion-plan.md`
 - Update `caller-backed-backend-surface-checklist.md` when active caller
   reachability changed.
 - Update `backend-capability-coverage-checklist.md` when runtime/service

@@ -21,8 +21,8 @@ Archived dead history, vendor payloads, and third-party provider internals are
 out of scope except where they are an explicit runtime boundary.
 
 Together with the caller-backed checklist, this doc is the rewrite progress
-tracker. File deletion is not the tracker while Python source is being retained
-for mergeability.
+tracker. File deletion is not the primary tracker; the cleanup phase should
+delete dead Python only after the ownership proof is recorded.
 
 Status meanings:
 
