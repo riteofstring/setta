@@ -31,7 +31,6 @@ type CreateSectionResponse = {
   sectionId?: string;
 };
 
-
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
@@ -50,6 +49,17 @@ const ATTACHMENT_FIXTURES_DIR = path.join(
   "fixtures",
   "attachments",
 );
+
+async function readAttachmentThumbnailUsesSingleCell(
+  thumbnail: Locator,
+): Promise<boolean> {
+  return thumbnail.evaluate((element) => {
+    return (
+      element.outerHTML.includes("single-cell-container") ||
+      element.outerHTML.includes("single-cell-child")
+    );
+  });
+}
 
 test.describe.serial("chat attachments", () => {
   test("project chat attachments via picker", async ({ page }) => {
@@ -353,6 +363,23 @@ test.describe.serial("chat attachments", () => {
       });
       await expect(modal).toBeVisible();
       await expect(modal.locator("iframe")).toBeVisible();
+
+      // The shared MediaCarousel default thumbnail renderer in the preview
+      // modal should stay off the old single-cell helper classes.
+      const imageThumbnail = modal.getByRole("button", {
+        name: "sample_image.jpg",
+      });
+      const textThumbnail = modal.getByRole("button", {
+        name: "sample_text.txt",
+      });
+      await expect(imageThumbnail).toBeVisible();
+      await expect(textThumbnail).toBeVisible();
+      expect(await readAttachmentThumbnailUsesSingleCell(imageThumbnail)).toBe(
+        false,
+      );
+      expect(await readAttachmentThumbnailUsesSingleCell(textThumbnail)).toBe(
+        false,
+      );
 
       await modal.getByRole("button", { name: "sample_audio.mp3" }).click();
       await expect(modal.locator("audio")).toBeVisible();

@@ -141,4 +141,16 @@ describe("BrowserArea list view", () => {
     expect(markup).toContain('aria-label="Go back"');
     expect(markup).toContain('aria-label="Go forward"');
   });
+
+  it("renders the file explorer region in carousel view", () => {
+    setBrowserSectionState(BrowserAreaViewModeEnum.carousel);
+    const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
+
+    // Carousel mode keeps the Browser host shell stable even when the shared
+    // MediaCarousel body renders an empty-state null branch.
+    expect(markup).toContain('aria-label="File explorer"');
+    expect(markup).toContain('aria-label="Carousel view"');
+    expect(markup).toContain(`CodeMirror-${sectionId}-browser-path`);
+    expect(markup).not.toContain("Date modified");
+  });
 });
