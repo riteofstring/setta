@@ -1,4 +1,4 @@
-import { useAppConfigs } from "state/stores/appStores";
+import { useAppConfigs } from "state/definitions";
 import type { ProjectStateSingleConfigWithCompletedOpIds } from "utils/generatedTypes";
 
 export function processAppProjectStateUpdateFromBackend(

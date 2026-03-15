@@ -222,6 +222,9 @@ The app-generation/skills viewer flow adds these backend routes:
     - refreshed `skillContent`
 - `/api/streamAppSpec`
   - Streams JSONL patch ops for tool-driven or API-driven app-spec generation.
+  - The current app-config pane generation flow no longer depends on this
+    route; it now uses `/api/getLLMResponse` plus `/ws/frontend` tool-preview
+    updates and Go-owned `stream_app_definition` persistence.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
     app-generation turns.

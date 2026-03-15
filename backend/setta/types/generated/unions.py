@@ -82,10 +82,6 @@ BaseCodeSectionImplUnion = (
 
 BaseDictSectionImplUnion = DictSectionImpl | GlobalVariablesSectionImpl
 
-BaseDictSectionImplUnionWithDiscriminator = Annotated[
-    BaseDictSectionImplUnion, Field(discriminator="type")
-]
-
 from typing import Annotated
 
 from pydantic import Field
@@ -223,10 +219,6 @@ BaseSectionImplArgsUnion = (
     | TaskBoardSectionImplArgs
     | SpreadsheetSectionImplArgs
 )
-
-BaseSectionImplArgsUnionWithDiscriminator = Annotated[
-    BaseSectionImplArgsUnion, Field(discriminator="type")
-]
 
 from typing import Annotated
 
