@@ -3,9 +3,12 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useNodeInternals, useProjectState } from "state/definitions";
-import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useProjectState,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
