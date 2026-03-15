@@ -2818,6 +2818,329 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	}
 }
 
+func TestRegisterProjectRoutesLayoutChromeUsesDeploymentOverlayWhenLayoutChangesAllowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("layout_presentation", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": layoutPresentationRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": true,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				post := func(route string, body string) *httptest.ResponseRecorder {
+					t.Helper()
+					request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					return response
+				}
+
+				for _, requestSpec := range []struct {
+					route string
+					body  string
+				}{
+					{
+						route: RouteSetShowParamDisplayNames,
+						body:  `{"projectConfigId":"project-alpha","showParamDisplayNames":true}`,
+					},
+					{
+						route: RouteSetSectionTagColor,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","tagColor":"#123456"}`,
+					},
+					{
+						route: RouteSetSectionStyleColor,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`,
+					},
+					{
+						route: RouteSetSectionColumnWidth,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","columnWidth":248.5}`,
+					},
+					{
+						route: RouteSetCallableHideParams,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideParams":true}`,
+					},
+					{
+						route: RouteSetSectionHideUnpinnedParams,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideUnpinnedParams":true}`,
+					},
+					{
+						route: RouteSetSectionPinnedParams,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","pinnedParams":["param-a","param-b"]}`,
+					},
+				} {
+					response := post(requestSpec.route, requestSpec.body)
+					if response.Code != http.StatusOK {
+						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+				if !overlayProject.ShowParamDisplayNames {
+					t.Fatal("expected overlay ShowParamDisplayNames=true")
+				}
+				overlayCallableModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["callable-section"].SharedModifier)
+				if got := overlayCallableModifier["tagColor"]; got != "#123456" {
+					t.Fatalf("expected overlay tagColor #123456, got %#v", got)
+				}
+				if got := overlayCallableModifier["styleColor"]; got != "#654321" {
+					t.Fatalf("expected overlay styleColor #654321, got %#v", got)
+				}
+				if got := overlayCallableModifier["columnWidth"]; got != 248.5 {
+					t.Fatalf("expected overlay columnWidth 248.5, got %#v", got)
+				}
+				if got := overlayCallableModifier["hideParams"]; got != true {
+					t.Fatalf("expected overlay hideParams=true, got %#v", got)
+				}
+				if got := overlayCallableModifier["hideUnpinnedParams"]; got != true {
+					t.Fatalf("expected overlay hideUnpinnedParams=true, got %#v", got)
+				}
+				if got := decodeProjectRouteStringArray(overlayCallableModifier["pinnedParams"]); !reflect.DeepEqual(got, []string{"param-a", "param-b"}) {
+					t.Fatalf("expected overlay pinnedParams [param-a param-b], got %#v", got)
+				}
+
+				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+				if baseProject.ShowParamDisplayNames {
+					t.Fatal("expected base ShowParamDisplayNames to remain false")
+				}
+				baseCallableModifier := decodeProjectRouteRawObject(t, baseProject.Sections["callable-section"].SharedModifier)
+				if got := baseCallableModifier["tagColor"]; got == "#123456" {
+					t.Fatalf("expected base tagColor to remain unchanged, got %#v", got)
+				}
+				if got := baseCallableModifier["styleColor"]; got == "#654321" {
+					t.Fatalf("expected base styleColor to remain unchanged, got %#v", got)
+				}
+				if got := baseCallableModifier["columnWidth"]; got == 248.5 {
+					t.Fatalf("expected base columnWidth to remain unchanged, got %#v", got)
+				}
+				if got := baseCallableModifier["hideParams"]; got == true {
+					t.Fatalf("expected base hideParams to remain unchanged, got %#v", got)
+				}
+				if got := baseCallableModifier["hideUnpinnedParams"]; got == true {
+					t.Fatalf("expected base hideUnpinnedParams to remain unchanged, got %#v", got)
+				}
+				if got := decodeProjectRouteStringArray(baseCallableModifier["pinnedParams"]); len(got) != 0 {
+					t.Fatalf("expected base pinnedParams to remain empty, got %#v", got)
+				}
+			})
+
+			t.Run("param_filter", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": sectionFilterMetaControlRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": true,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RouteSetSectionParamFilter,
+					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"params-section","value":"   "}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSectionParamFilter, response.Code, response.Body.String())
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+				overlayParamsModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["params-section"].SharedModifier)
+				if got := overlayParamsModifier["paramFilter"]; got != "   " {
+					t.Fatalf("expected overlay paramFilter whitespace to persist, got %#v", got)
+				}
+
+				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+				baseParamsModifier := decodeProjectRouteRawObject(t, baseProject.Sections["params-section"].SharedModifier)
+				if got := baseParamsModifier["paramFilter"]; got == "   " {
+					t.Fatalf("expected base paramFilter to remain unchanged, got %#v", got)
+				}
+			})
+		})
+	}
+}
+
+func TestRegisterProjectRoutesLayoutChromeRejectsDeploymentPolicyWhenLayoutChangesDisallowed(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("layout_presentation", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": layoutPresentationRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": false,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				post := func(route string, body string) *httptest.ResponseRecorder {
+					t.Helper()
+					request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+					request.Header.Set("Content-Type", "application/json")
+					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					return response
+				}
+
+				for _, requestSpec := range []struct {
+					route string
+					body  string
+				}{
+					{
+						route: RouteSetShowParamDisplayNames,
+						body:  `{"projectConfigId":"project-alpha","showParamDisplayNames":true}`,
+					},
+					{
+						route: RouteSetSectionTagColor,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","tagColor":"#123456"}`,
+					},
+					{
+						route: RouteSetSectionStyleColor,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`,
+					},
+					{
+						route: RouteSetSectionColumnWidth,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","columnWidth":248.5}`,
+					},
+					{
+						route: RouteSetCallableHideParams,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideParams":true}`,
+					},
+					{
+						route: RouteSetSectionHideUnpinnedParams,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideUnpinnedParams":true}`,
+					},
+					{
+						route: RouteSetSectionPinnedParams,
+						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","pinnedParams":["param-a","param-b"]}`,
+					},
+				} {
+					response := post(requestSpec.route, requestSpec.body)
+					if response.Code != http.StatusForbidden {
+						t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+						t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+					}
+					if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+						t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+					}
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+				if overlayProject.ShowParamDisplayNames {
+					t.Fatal("expected rejected mutations to keep overlay ShowParamDisplayNames false")
+				}
+				overlayCallableModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["callable-section"].SharedModifier)
+				if len(overlayCallableModifier) != 0 {
+					t.Fatalf("expected rejected mutations to keep overlay callable shared modifier empty, got %#v", overlayCallableModifier)
+				}
+			})
+
+			t.Run("param_filter", func(t *testing.T) {
+				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+					Mode: mode,
+					Document: projectstate.Document{
+						SchemaVersion:    projectstate.CurrentSchemaVersion,
+						DefaultProjectID: "project-alpha",
+						Projects: map[string]projectstate.Project{
+							"project-alpha": sectionFilterMetaControlRouteTestProject(t),
+						},
+					},
+					Policy: map[string]any{
+						"allowLayoutChanges": false,
+					},
+				})
+				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+					t.Fatalf("create deployment session: %v", err)
+				}
+
+				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+				request := httptest.NewRequest(
+					http.MethodPost,
+					"/api"+RouteSetSectionParamFilter,
+					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"params-section","value":"   "}`),
+				)
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("expected 403 for %s, got %d with body %q", RouteSetSectionParamFilter, response.Code, response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
+					t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
+				}
+				if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
+					t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
+				}
+
+				overlay, err := deploymentRuntime.Overlay("share-a")
+				if err != nil {
+					t.Fatalf("deployment overlay: %v", err)
+				}
+				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+				overlayParamsModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["params-section"].SharedModifier)
+				if len(overlayParamsModifier) != 0 {
+					t.Fatalf("expected rejected param filter mutation to keep overlay params shared modifier empty, got %#v", overlayParamsModifier)
+				}
+			})
+		})
+	}
+}
+
 func TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 

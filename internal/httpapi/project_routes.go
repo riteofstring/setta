@@ -1520,6 +1520,14 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionStyleColor, setSectionStyleColorHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionParamFilter, setSectionParamFilterHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionColumnWidth, setSectionColumnWidthHandler(deps))
+		router.With(shareGuard).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
+		router.With(shareGuard).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
 		router.With(shareGuard).Post(RouteToggleParamSelected, toggleParamSelectedHandler(deps))
 		router.With(shareGuard).Post(RouteUnselectAllParams, unselectAllParamsHandler(deps))
 		router.With(shareGuard).Post(RouteCreateChildSections, createChildSectionsHandler(deps))
@@ -3365,12 +3373,17 @@ func setShowParamDisplayNamesHandler(deps ProjectRouteDependencies) http.Handler
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetShowParamDisplayNames(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ShowParamDisplayNames); err != nil {
+		if _, err := runtime.SetShowParamDisplayNames(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ShowParamDisplayNames); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -4154,12 +4167,17 @@ func setSectionTagColorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionTagColor(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.TagColor); err != nil {
+		if _, err := runtime.SetSectionTagColor(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.TagColor); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -4185,12 +4203,17 @@ func setSectionStyleColorHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionStyleColor(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.StyleColor); err != nil {
+		if _, err := runtime.SetSectionStyleColor(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.StyleColor); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -4216,12 +4239,17 @@ func setSectionParamFilterHandler(deps ProjectRouteDependencies) http.HandlerFun
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionParamFilter(
+		if _, err := runtime.SetSectionParamFilter(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -4288,12 +4316,17 @@ func setCallableHideParamsHandler(deps ProjectRouteDependencies) http.HandlerFun
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetCallableHideParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideParams); err != nil {
+		if _, err := runtime.SetCallableHideParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideParams); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -4355,12 +4388,17 @@ func setSectionColumnWidthHandler(deps ProjectRouteDependencies) http.HandlerFun
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionColumnWidth(
+		if _, err := runtime.SetSectionColumnWidth(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
@@ -4570,12 +4608,17 @@ func setSectionHideUnpinnedParamsHandler(deps ProjectRouteDependencies) http.Han
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionHideUnpinnedParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideUnpinnedParams); err != nil {
+		if _, err := runtime.SetSectionHideUnpinnedParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideUnpinnedParams); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -4601,12 +4644,17 @@ func setSectionPinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionPinnedParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.PinnedParams); err != nil {
+		if _, err := runtime.SetSectionPinnedParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.PinnedParams); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
