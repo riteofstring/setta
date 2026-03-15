@@ -4,9 +4,6 @@ import re
 from typing import TYPE_CHECKING, assert_never
 
 from setta.secrets.password_store import get_password_secret, set_password_secret
-from setta.types.artifact import (
-    DrawAreaLayer,
-)
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -24,7 +21,6 @@ from setta.types.core import (
     Core,
     Variant,
     compute_initial_nonPresetImpls,
-    get_default_section_core_name,
 )
 from setta.types.dropzone import normalize_dropzone_value
 from setta.types.edges import Edge
@@ -37,7 +33,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseDictSectionImplArgsWithCallable,
     BaseParamCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
-    BaseParentSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
@@ -47,20 +42,16 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
-    create_section_impl,
 )
 from setta.types.generated.settings_state import (
     SettingsState,
     get_user_default_code_obj_from_settings,
-    get_user_default_section_from_settings,
 )
 from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
-    BaseSectionImplArgsUnion,
 )
-from setta.types.generated.user_defaults import UserDefaultTaskBoardSectionImpl
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
     get_curr_effective_code_obj_impl,
@@ -74,32 +65,20 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, TopLevelSectionLayout
 from setta.types.section_impls import (
-    BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
     ChatSectionState,
-    DrawSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    SectionSize,
-    SectionSizeMode,
-    SectionType,
-    TaskBoardColumn,
-    TaskBoardSectionImpl,
-    TerminalSectionImpl,
-    TextBlockFormat,
-    TextBlockSectionImpl,
 )
 from setta.utils.name_validation import (
     validate_project_name,
     validate_section_name,
 )
-from setta.utils.utils import insert_into_array
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +134,7 @@ def get_meta_control_param_id(p: "ProjectStateSingleConfig", section_id: ID) -> 
     return param_id
 
 
-def get_curr_section_children_ids(
+def _get_curr_section_children_ids(
     p: "ProjectStateSingleConfig",
     section_id: ID,
 ):
@@ -209,7 +188,7 @@ def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
     while parent_id:
         child_impl = get_curr_effective_section_impl(p, child_id)
         if isinstance(child_impl, ListRootSectionImpl):
-            idx = get_curr_section_children_ids(p, parent_id).index(child_id)
+            idx = _get_curr_section_children_ids(p, parent_id).index(child_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name
@@ -380,388 +359,6 @@ def set_project_config_name(
 ):
     normalized = validate_project_name(p, projectConfigId, newName)
     p.projectConfigs[projectConfigId].name = normalized
-
-
-def create_default_task_board_columns() -> list[TaskBoardColumn]:
-    return [
-        TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
-        TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
-        TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
-    ]
-
-
-def _task_board_columns_explicitly_overridden(
-    impl_overrides: BaseSectionImplArgsUnion | None,
-) -> bool:
-    if impl_overrides is None:
-        return False
-    if isinstance(impl_overrides, dict):
-        return "columns" in impl_overrides
-    fields_set = getattr(impl_overrides, "model_fields_set", None)
-    if isinstance(fields_set, set):
-        return "columns" in fields_set
-    return hasattr(impl_overrides, "columns")
-
-
-def create_section(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    impl_type: SectionType,
-    impl_overrides: BaseSectionImplArgsUnion | None = None,
-    core_overrides: CoreArgs | None = None,
-    control_code_obj_type: CodeObjType | None = None,
-):
-    section_defaults = get_user_default_section_from_settings(settings, impl_type)
-    if (
-        impl_type == SectionType.TaskBoard
-        and isinstance(section_defaults, UserDefaultTaskBoardSectionImpl)
-        and section_defaults.columns is None
-    ):
-        section_defaults = section_defaults.model_copy(
-            deep=True,
-            update={"columns": []},
-        )
-    impl = create_section_impl(  # type: ignore
-        impl_type,  # type: ignore
-        section_defaults,  # type: ignore
-        impl_overrides,  # type: ignore
-    )
-    if (
-        isinstance(impl, TaskBoardSectionImpl)
-        and len(impl.columns) == 0
-        and not _task_board_columns_explicitly_overridden(impl_overrides)
-        and settings.taskBoardSectionDefault.columns is None
-    ):
-        impl.columns = create_default_task_board_columns()
-    impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)
-    variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
-    default_core_args: CoreArgs = {
-        "name": get_default_section_core_name(impl_type),
-        **compute_initial_default_variant(variant),
-    }
-    if isinstance(impl, TextBlockSectionImpl) and impl.headingAsSectionName:
-        first_heading = (
-            get_first_markdown_heading(impl.text)
-            if impl.format == TextBlockFormat.Markdown
-            else get_first_heading_or_text(impl.text)
-        )
-        if first_heading:
-            default_core_args["name"] = first_heading
-    if core_overrides:
-        default_core_args.update(core_overrides)
-    core = Core(**default_core_args)
-    if isinstance(impl, DrawSectionImpl):
-        init_draw_section_layer(impl)
-
-    p.projectConfig.sectionVariantMap[core.id] = variant.id
-    p.sections[core.id] = core
-    p.sectionImpls[impl.id] = impl
-    p.sectionVariants[variant.id] = variant
-
-    if isinstance(impl, MetaControlSectionImpl):
-        control_type = (
-            control_code_obj_type
-            if control_code_obj_type is not None
-            else CodeObjType.SliderParam
-        )
-        add_meta_control_code_obj(settings, p, core.id, control_type)
-
-    return core.id
-
-
-def init_draw_section_layer(impl: DrawSectionImpl):
-    layer = DrawAreaLayer(elements=[])
-    impl.layers = [layer]
-
-
-def _coerce_section_size_value(
-    section_id: ID,
-    dimension: str,
-    value: float | SectionSizeMode,
-) -> float | SectionSizeMode:
-    if value == SectionSizeMode.auto:
-        return value
-    if isinstance(value, bool):
-        raise ValueError(
-            f"Section {section_id} has invalid {dimension} value {value!r}."
-        )
-    numeric = float(value)
-    if not math.isfinite(numeric):
-        raise ValueError(
-            f"Section {section_id} has non-finite {dimension} value {value!r}."
-        )
-    return numeric
-
-
-def _clamp_section_dimension(
-    value: float | SectionSizeMode, min_value: float, max_value: float
-) -> float | SectionSizeMode:
-    if value == SectionSizeMode.auto:
-        return value
-    if max_value < min_value:
-        max_value = min_value
-    return max(min_value, min(max_value, value))
-
-
-def normalize_section_size(
-    settings: SettingsState,
-    section_type: SectionType,
-    section_id: ID,
-    size: SectionSize,
-) -> SectionSize:
-    policy = settings.sectionSizingPolicy.byType
-    entry = getattr(policy, section_type.value)
-    min_width = max(0.0, float(entry.minWidth))
-    min_height = max(0.0, float(entry.minHeight))
-    max_width = float(entry.maxWidth)
-    max_height = float(entry.maxHeight)
-
-    width = _coerce_section_size_value(section_id, "width", size.width)
-    height = _coerce_section_size_value(section_id, "height", size.height)
-
-    width = _clamp_section_dimension(width, min_width, max_width)
-    height = _clamp_section_dimension(height, min_height, max_height)
-
-    return SectionSize(width=width, height=height)
-
-
-def create_top_level_section(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    impl_type: SectionType,
-    position: Position,
-    impl_overrides: BaseSectionImplArgsUnion | None = None,
-    core_overrides: CoreArgs | None = None,
-    control_code_obj_type: CodeObjType | None = None,
-):
-    sectionId = create_section(
-        settings,
-        p,
-        impl_type,
-        impl_overrides,
-        core_overrides,
-        control_code_obj_type=control_code_obj_type,
-    )
-    p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
-        **position.model_dump()
-    )
-    return sectionId
-
-
-def _validate_code_section_children_for_creation(
-    parentId: ID,
-    parentImpl: BaseParentSectionImpl,
-    impl_type: SectionType,
-    numChildren: int,
-) -> None:
-    if not isinstance(parentImpl, BaseCodeSectionImpl):
-        return
-    if impl_type != SectionType.Terminal:
-        raise ValueError("Code sections can only create terminal children.")
-    if numChildren != 1:
-        raise ValueError("Code sections can only have one terminal child.")
-    if parentImpl.children:
-        raise ValueError(f"Code section {parentId} already has a child.")
-
-
-def _validate_code_section_children_for_parent(
-    p: "ProjectStateSingleConfig",
-    parentId: ID,
-    parentImpl: BaseParentSectionImpl,
-    childIds: list[ID],
-) -> None:
-    if not isinstance(parentImpl, BaseCodeSectionImpl):
-        return
-    if len(childIds) != 1:
-        raise ValueError("Code sections can only have one terminal child.")
-    terminalId = childIds[0]
-    get_curr_effective_section_impl_with_type_guard(p, terminalId, TerminalSectionImpl)
-    if parentImpl.children and parentImpl.children != [terminalId]:
-        raise ValueError(f"Code section {parentId} already has a child.")
-
-
-def _set_code_section_attached_terminal(
-    p: "ProjectStateSingleConfig", sectionId: ID, terminalId: ID
-) -> None:
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {"attachedTerminalSectionId": terminalId},
-    )
-    logger.info(
-        "code_section_attached_terminal_set section=%s terminal=%s",
-        sectionId,
-        terminalId,
-    )
-
-
-def _maybe_clear_code_section_attached_terminal(
-    p: "ProjectStateSingleConfig", parentId: ID | None, childId: ID
-) -> None:
-    if not parentId:
-        return
-    parent_impl = get_curr_effective_section_impl(p, parentId)
-    if isinstance(parent_impl, BaseCodeSectionImpl):
-        if parent_impl.attachedTerminalSectionId == childId:
-            set_curr_effective_section_impl_value(
-                p,
-                parentId,
-                {"attachedTerminalSectionId": None},
-            )
-            logger.info(
-                "code_section_attached_terminal_cleared parent=%s child=%s",
-                parentId,
-                childId,
-            )
-
-
-def _get_terminal_default_height(settings: SettingsState) -> float:
-    terminal_defaults = get_user_default_section_from_settings(
-        settings, SectionType.Terminal
-    )
-    terminal_height = terminal_defaults.size.height
-    if terminal_height == SectionSizeMode.auto:
-        raise ValueError("Terminal default height must not be auto.")
-    return float(terminal_height)
-
-
-def ensure_code_section_embedded_terminal_size(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    terminalId: ID | None,
-) -> None:
-    if terminalId is None:
-        return
-    code_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseCodeSectionImpl
-    )
-    terminal_impl = get_curr_effective_section_impl_with_type_guard(
-        p, terminalId, TerminalSectionImpl
-    )
-    sizing_policy = settings.sectionSizingPolicy.byType
-    expected_min_height = (
-        float(sizing_policy.Code.minHeight)
-        + float(sizing_policy.Terminal.minHeight)
-        + 80.0
-    )
-    expected_max_height = float(sizing_policy.Code.maxHeight)
-    if expected_min_height > expected_max_height:
-        expected_min_height = expected_max_height
-
-    current_height = code_impl.size.height
-    if current_height != SectionSizeMode.auto:
-        if float(current_height) >= expected_min_height:
-            code_height = current_height
-        else:
-            code_height = expected_min_height
-    else:
-        code_height = expected_min_height
-
-    if code_height != current_height:
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            {"size": SectionSize(width=code_impl.size.width, height=code_height)},
-        )
-
-    # Keep embedded terminal dimensions in lockstep with code width and a
-    # concrete terminal height so attached-first terminals can reflow text
-    # correctly before/after detach.
-    code_width = code_impl.size.width
-    next_terminal_width = terminal_impl.size.width
-    if code_width != SectionSizeMode.auto:
-        next_terminal_width = code_width
-    next_terminal_height = terminal_impl.size.height
-    if next_terminal_height == SectionSizeMode.auto:
-        next_terminal_height = _get_terminal_default_height(settings)
-    if (
-        next_terminal_width != terminal_impl.size.width
-        or next_terminal_height != terminal_impl.size.height
-    ):
-        set_curr_effective_section_impl_value(
-            p,
-            terminalId,
-            {
-                "size": SectionSize(
-                    width=next_terminal_width, height=next_terminal_height
-                )
-            },
-        )
-
-
-def create_child_sections(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    parentId: ID,
-    impl_type: SectionType,
-    numChildren: int,
-    startIdx: int | None,
-):
-    if impl_type in {
-        SectionType.StateMachineStart,
-        SectionType.StateMachineGate,
-        SectionType.StateMachineEnd,
-    }:
-        raise ValueError(f"Section type {impl_type} can only exist at the top level.")
-    effectiveImpl = get_curr_effective_section_impl_with_type_guard(
-        p, parentId, BaseParentSectionImpl
-    )
-    _validate_code_section_children_for_creation(
-        parentId, effectiveImpl, impl_type, numChildren
-    )
-    size = SectionSize(width=effectiveImpl.size.width)
-    if (
-        isinstance(effectiveImpl, BaseCodeSectionImpl)
-        and impl_type == SectionType.Terminal
-    ):
-        size = SectionSize(
-            width=effectiveImpl.size.width,
-            height=_get_terminal_default_height(settings),
-        )
-    newIds = [
-        create_section(settings, p, impl_type, {"size": size})
-        for _ in range(numChildren)
-    ]
-    if startIdx is None:
-        startIdx = len(effectiveImpl.children)
-
-    set_curr_effective_section_impl_value(
-        p,
-        parentId,
-        BaseParentSectionImplArgsWithCallable(
-            children=lambda currChildren: insert_into_array(
-                currChildren, startIdx, newIds
-            )
-        ),
-    )
-    if isinstance(effectiveImpl, BaseCodeSectionImpl):
-        _set_code_section_attached_terminal(p, parentId, newIds[0])
-        ensure_code_section_embedded_terminal_size(settings, p, parentId, newIds[0])
-
-    return newIds
-
-
-def create_child_sections_via_incrementer(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    calledBy: ID,
-    impl_type: SectionType,
-    numChildren: int,
-):
-    impl = get_curr_effective_section_impl(p, calledBy)
-    if isinstance(impl, BaseParentSectionImpl):
-        parentId = calledBy
-        startIdx = 0
-    else:
-        parentId = p.parentSectionMap[calledBy]
-        if not parentId:
-            raise ValueError
-        parent_impl = get_curr_effective_section_impl_with_type_guard(
-            p, parentId, BaseParentSectionImpl
-        )
-        startIdx = parent_impl.children.index(calledBy) + 1
-    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
 def _prune_unused_code_objs(p: "ProjectStateSingleConfig") -> None:
@@ -1293,114 +890,6 @@ def set_chat_section_state(
             branches=state.branches,
         ),
     )
-
-
-def move_section_to_pane(
-    p: "ProjectStateSingleConfig", sectionId: ID, position: Position
-):
-    oldParentId = p.parentSectionMap[sectionId]
-    if oldParentId:
-        _maybe_clear_code_section_attached_terminal(p, oldParentId, sectionId)
-        # remove from old parent
-        set_curr_effective_section_impl_value(
-            p,
-            oldParentId,
-            BaseParentSectionImplArgsWithCallable(
-                children=lambda currChildren: [
-                    c for c in currChildren if c != sectionId
-                ]
-            ),
-        )
-        # add to pane
-        next_z_index = _get_next_top_level_z_index(p)
-        p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
-            x=position.x, y=position.y, zIndex=next_z_index
-        )
-    else:
-        # it's already on the pane, so just adjust its position
-        p.projectConfig.topLevelSections[sectionId].x = position.x
-        p.projectConfig.topLevelSections[sectionId].y = position.y
-
-
-def _get_next_top_level_z_index(p: "ProjectStateSingleConfig") -> int:
-    if not p.projectConfig.topLevelSections:
-        return 0
-    return (
-        max(layout.zIndex for layout in p.projectConfig.topLevelSections.values()) + 1
-    )
-
-
-def move_sections_to_parent_section(
-    p: "ProjectStateSingleConfig",
-    newParentId: ID,
-    sectionIds: list[ID],
-    newIndex: int,
-):
-    if newIndex < 0:
-        raise ValueError("Expected non-negative new index.")
-    if not sectionIds:
-        return
-
-    if newParentId not in p.parentSectionMap:
-        raise KeyError(f"Missing parentSectionMap entry for ancestor {newParentId}.")
-
-    new_parent_impl = get_curr_effective_section_impl_with_type_guard(
-        p, newParentId, BaseParentSectionImpl
-    )
-    _validate_code_section_children_for_parent(
-        p, newParentId, new_parent_impl, sectionIds
-    )
-    selected_set = set(sectionIds)
-    if newParentId in selected_set:
-        raise ValueError("Cannot reparent into a selected section.")
-    ancestor = newParentId
-    while ancestor is not None:
-        if ancestor not in p.parentSectionMap:
-            raise KeyError(f"Missing parentSectionMap entry for ancestor {ancestor}.")
-        if ancestor in selected_set:
-            raise ValueError("Cannot reparent into a descendant of selection.")
-        ancestor = p.parentSectionMap[ancestor]
-
-    curr_children = get_curr_section_children_ids(p, newParentId)
-    remaining = [c for c in curr_children if c not in selected_set]
-    if newIndex > len(remaining):
-        raise ValueError("New index exceeds available sibling range.")
-
-    ids_by_parent: dict[ID | None, list[ID]] = {}
-    for section_id in sectionIds:
-        parent_id = p.parentSectionMap[section_id]
-        ids_by_parent.setdefault(parent_id, []).append(section_id)
-
-    for parent_id, ids in ids_by_parent.items():
-        if parent_id is None:
-            for section_id in ids:
-                if section_id in p.projectConfig.topLevelSections:
-                    del p.projectConfig.topLevelSections[section_id]
-            continue
-        for section_id in ids:
-            _maybe_clear_code_section_attached_terminal(p, parent_id, section_id)
-        removal_set = set(ids)
-        set_curr_effective_section_impl_value(
-            p,
-            parent_id,
-            BaseParentSectionImplArgsWithCallable(
-                children=lambda currChildren: [
-                    c for c in currChildren if c not in removal_set
-                ]
-            ),
-        )
-
-    def insert_children(curr_children: list[ID]):
-        remaining = [c for c in curr_children if c not in selected_set]
-        return insert_into_array(remaining, newIndex, sectionIds)
-
-    set_curr_effective_section_impl_value(
-        p,
-        newParentId,
-        BaseParentSectionImplArgsWithCallable(children=insert_children),
-    )
-    if isinstance(new_parent_impl, BaseCodeSectionImpl):
-        _set_code_section_attached_terminal(p, newParentId, sectionIds[0])
 
 
 def delete_code_obj(p: "ProjectStateCore", codeObjId: ID):

@@ -1,6 +1,5 @@
 import pytest
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl2 import create_top_level_section
 from setta.types.project_chat_windowing import (
     normalize_project_chat_windowing,
     validate_project_chat_thread_bindings_unchanged,
@@ -14,6 +13,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import SectionType
+from tests.helpers.project_state_sections import create_top_level_section
 
 
 def _apply_project_chat_windowing_state(

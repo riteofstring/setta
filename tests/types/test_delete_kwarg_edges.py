@@ -9,7 +9,6 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
-    create_top_level_section,
     delete_kwarg,
     set_param_entered_value,
     set_section_edge_inputs,
@@ -18,6 +17,7 @@ from setta.types.id import create_new_id
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, SectionType
+from tests.helpers.project_state_sections import create_top_level_section
 
 
 class TestDeleteKwargEdges:

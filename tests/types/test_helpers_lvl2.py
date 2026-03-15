@@ -22,7 +22,6 @@ from setta.types.helpers_lvl2 import (
     add_children_of_callable,
     add_kwarg,
     change_param_impl,
-    create_top_level_section,
     get_curr_top_level_param_ids,
     get_first_markdown_heading,
     set_chat_section_chat_id,
@@ -47,6 +46,7 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TextBlockSectionImpl,
 )
+from tests.helpers.project_state_sections import create_top_level_section
 
 
 def build_callable_project_state(
