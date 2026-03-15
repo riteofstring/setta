@@ -53,6 +53,30 @@ ROUTE_DELETE_VIEW_MODE = "/api/deleteViewMode"
 ROUTE_CREATE_WORKSPACE_LAUNCH_INTENT = "/api/createWorkspaceLaunchIntent"
 ROUTE_LAUNCH = "/api/launch"
 
+SETTINGS_CORE_SECTION_NAMES = [
+    "shortcuts",
+    "gui",
+    "backend",
+    "sectionSizingPolicy",
+    "languageServer",
+]
+SETTINGS_PARAM_LAYOUT_SENTINEL_SECTION_NAMES = [
+    "buttonParamCodeObjDefault",
+    "codeCallableCodeObjDefault",
+    "codeParamCodeObjDefault",
+]
+SETTINGS_STRUCTURE_WORKFLOW_SECTION_NAMES = [
+    "stateMachineStartSectionDefault",
+    "stateMachineGateSectionDefault",
+    "stateMachineEndSectionDefault",
+]
+SETTINGS_ALL_LEAD_SECTION_NAMES = [
+    "shortcuts",
+    "gui",
+    "backend",
+    "chatWindowing",
+]
+
 
 class ParityHarnessError(RuntimeError):
     pass
@@ -1877,10 +1901,7 @@ def summarize_settings_project_shell(
     latest_http_status: int | None,
     latest_payload: Any,
 ) -> dict[str, Any]:
-    summary: dict[str, Any] = {
-        "httpStatus": http_status,
-        "latestHttpStatus": latest_http_status,
-    }
+    summary: dict[str, Any] = {"httpStatus": http_status, "latestHttpStatus": latest_http_status}
     if http_status != 200 or not isinstance(payload, dict):
         return summary
 
@@ -1895,17 +1916,11 @@ def summarize_settings_project_shell(
         section_names.append(normalized_string(section.get("name")))
     section_names.sort()
 
-    ordered_view_modes = []
-    for key in sorted(view_modes):
-        view_mode = expect_object(view_modes[key], f"viewModes.{key}")
-        ordered_view_modes.append(view_mode)
-    ordered_view_modes.sort(
-        key=lambda view_mode: (
-            int(view_mode.get("sortIndex") or 0),
-            normalized_string(view_mode.get("name")),
-            normalized_string(view_mode.get("id")),
-        )
-    )
+    ordered_view_mode_names_list = ordered_view_mode_names(view_modes)
+    ordered_view_modes = [
+        settings_view_mode_by_name(view_modes, view_mode_name)
+        for view_mode_name in ordered_view_mode_names_list
+    ]
 
     counts_by_view: dict[str, int] = {}
     active_view_mode_name = ""
@@ -1940,10 +1955,7 @@ def summarize_settings_project_shell(
             "sectionCount": len(sections),
             "sectionNames": section_names,
             "viewModeCount": len(view_modes),
-            "viewModeNames": [
-                normalized_string(view_mode.get("name"))
-                for view_mode in ordered_view_modes
-            ],
+            "viewModeNames": ordered_view_mode_names_list,
             "activeViewModeName": active_view_mode_name,
             "countsByView": counts_by_view,
             "showParamDisplayNames": bool(
@@ -1957,6 +1969,23 @@ def summarize_settings_project_shell(
             "latestProjectIDMatchesLoadProjectID": latest_project_id_matches,
         }
     )
+    summary.update(
+        summarize_settings_view_mode_layout_contract(
+            project_config=project_config,
+            sections=sections,
+        )
+    )
+    if latest_http_status == 200 and isinstance(latest_payload, dict):
+        latest_project_state = object_field(latest_payload, "projectState")
+        latest_project_config = object_field(latest_project_state, "projectConfig")
+        latest_sections = object_field(latest_project_state, "sections", allow_missing=True)
+        summary.update(
+            summarize_settings_view_mode_layout_contract(
+                project_config=latest_project_config,
+                sections=latest_sections,
+                key_prefix="latest",
+            )
+        )
     return summary
 
 
@@ -3142,6 +3171,118 @@ def ordered_view_mode_names(view_modes: dict[str, Any]) -> list[str]:
         )
     )
     return [normalized_string(view_mode.get("name")) for view_mode in ordered]
+
+
+def summarize_settings_view_mode_layout_contract(
+    project_config: dict[str, Any],
+    sections: dict[str, Any],
+    key_prefix: str = "",
+) -> dict[str, Any]:
+    section_id_by_name = settings_section_id_by_name(sections)
+    view_modes = object_field(project_config, "viewModes", allow_missing=True)
+    ordered_names = ordered_view_mode_names(view_modes)
+    viewport_defaults: dict[str, dict[str, Any]] = {}
+    for view_mode_name in ordered_names:
+        view_mode = settings_view_mode_by_name(view_modes, view_mode_name)
+        viewport_defaults[view_mode_name] = {
+            "viewportIsNone": view_mode.get("viewport") is None,
+            "viewportInitialized": bool(view_mode.get("viewportInitialized", False)),
+        }
+    return {
+        prefixed_summary_key(key_prefix, "viewModeNames"): ordered_names,
+        prefixed_summary_key(
+            key_prefix, "viewModeViewportDefaults"
+        ): viewport_defaults,
+        prefixed_summary_key(
+            key_prefix, "coreLayoutSentinels"
+        ): settings_view_mode_layout_sentinels(
+            settings_view_mode_by_name(view_modes, "Core"),
+            section_id_by_name=section_id_by_name,
+            section_names=SETTINGS_CORE_SECTION_NAMES,
+        ),
+        prefixed_summary_key(
+            key_prefix, "paramLayoutSentinels"
+        ): settings_view_mode_layout_sentinels(
+            settings_view_mode_by_name(view_modes, "Param Defaults"),
+            section_id_by_name=section_id_by_name,
+            section_names=SETTINGS_PARAM_LAYOUT_SENTINEL_SECTION_NAMES,
+        ),
+        prefixed_summary_key(
+            key_prefix, "structureWorkflowLayoutSentinels"
+        ): settings_view_mode_layout_sentinels(
+            settings_view_mode_by_name(
+                view_modes, "Section Defaults Structure and Code"
+            ),
+            section_id_by_name=section_id_by_name,
+            section_names=SETTINGS_STRUCTURE_WORKFLOW_SECTION_NAMES,
+        ),
+        prefixed_summary_key(
+            key_prefix, "allSettingsLeadLayoutSentinels"
+        ): settings_view_mode_layout_sentinels(
+            settings_view_mode_by_name(view_modes, "All Settings"),
+            section_id_by_name=section_id_by_name,
+            section_names=SETTINGS_ALL_LEAD_SECTION_NAMES,
+        ),
+    }
+
+
+def prefixed_summary_key(prefix: str, base_key: str) -> str:
+    if not prefix:
+        return base_key
+    return prefix + base_key[:1].upper() + base_key[1:]
+
+
+def settings_section_id_by_name(sections: dict[str, Any]) -> dict[str, str]:
+    section_id_by_name: dict[str, str] = {}
+    for section_id, raw_section in sections.items():
+        section = expect_object(raw_section, f"sections.{section_id}")
+        section_name = normalized_string(section.get("name"))
+        if section_name:
+            section_id_by_name[section_name] = section_id
+    return section_id_by_name
+
+
+def settings_view_mode_by_name(
+    view_modes: dict[str, Any],
+    view_mode_name: str,
+) -> dict[str, Any]:
+    for view_mode_id, raw_view_mode in view_modes.items():
+        view_mode = expect_object(raw_view_mode, f"viewModes.{view_mode_id}")
+        if normalized_string(view_mode.get("name")) == view_mode_name:
+            return view_mode
+    raise ParityHarnessError(
+        f"Unable to find settings view mode named {view_mode_name!r}"
+    )
+
+
+def settings_view_mode_layout_sentinels(
+    view_mode: dict[str, Any],
+    section_id_by_name: dict[str, str],
+    section_names: list[str],
+) -> dict[str, dict[str, float]]:
+    top_level_sections = object_field(view_mode, "topLevelSections", allow_missing=True)
+    visibility = object_field(view_mode, "visibilityBySectionId", allow_missing=True)
+    sentinels: dict[str, dict[str, float]] = {}
+    for section_name in section_names:
+        section_id = normalized_string(section_id_by_name.get(section_name))
+        if not section_id:
+            raise ParityHarnessError(
+                f"Unable to find settings section named {section_name!r}"
+            )
+        if section_id in visibility and visibility[section_id] is not True:
+            raise ParityHarnessError(
+                f"Expected settings section {section_name!r} to be visible in view "
+                f"{normalized_string(view_mode.get('name'))!r}"
+            )
+        layout = expect_object(
+            top_level_sections.get(section_id),
+            f"topLevelSections.{section_id}",
+        )
+        sentinels[section_name] = {
+            "x": float(layout.get("x") or 0),
+            "y": float(layout.get("y") or 0),
+        }
+    return sentinels
 
 
 def find_settings_view_mode_id(payload: dict[str, Any], view_mode_name: str) -> str:

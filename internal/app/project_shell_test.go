@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -179,6 +180,7 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 	if loadSettingsPayload.ProjectConfig.ActiveViewModeID == nil || *loadSettingsPayload.ProjectConfig.ActiveViewModeID == "" {
 		t.Fatal("expected settings project active view mode id")
 	}
+	assertSettingsProjectViewModeRouteContract(t, loadSettingsPayload)
 
 	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
 	if err != nil {
@@ -207,6 +209,7 @@ func TestAppLoadProjectConfigServesDedicatedSettingsProjectRuntime(t *testing.T)
 	if latestStatePayload.ProjectState.ProjectConfig.Name != settingsstate.SettingsProjectName {
 		t.Fatalf("expected latest-state settings project name %q, got %q", settingsstate.SettingsProjectName, latestStatePayload.ProjectState.ProjectConfig.Name)
 	}
+	assertSettingsProjectViewModeRouteContract(t, latestStatePayload.ProjectState)
 }
 
 func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testing.T) {
@@ -826,6 +829,153 @@ func settingsProjectViewCodeObjValue(t *testing.T, payload projectview.SingleCon
 		t.Fatalf("decode code object impl %q: %v", implID, err)
 	}
 	return decoded.Value
+}
+
+func assertSettingsProjectViewModeRouteContract(
+	t *testing.T,
+	payload projectview.SingleConfig,
+) {
+	t.Helper()
+
+	expectedViewModeNames := []string{
+		"Core",
+		"Section Defaults Structure and Code",
+		"Section Defaults Content and Media",
+		"Param Defaults",
+		"All Settings",
+	}
+	orderedViewModes := make([]projectstate.ViewMode, 0, len(payload.ProjectConfig.ViewModes))
+	for _, viewMode := range payload.ProjectConfig.ViewModes {
+		orderedViewModes = append(orderedViewModes, viewMode)
+	}
+	sort.Slice(orderedViewModes, func(i int, j int) bool {
+		if orderedViewModes[i].SortIndex != orderedViewModes[j].SortIndex {
+			return orderedViewModes[i].SortIndex < orderedViewModes[j].SortIndex
+		}
+		if orderedViewModes[i].Name != orderedViewModes[j].Name {
+			return orderedViewModes[i].Name < orderedViewModes[j].Name
+		}
+		return orderedViewModes[i].ID < orderedViewModes[j].ID
+	})
+	if len(orderedViewModes) != len(expectedViewModeNames) {
+		t.Fatalf("expected %d settings view modes, got %d", len(expectedViewModeNames), len(orderedViewModes))
+	}
+	for idx, expectedName := range expectedViewModeNames {
+		if orderedViewModes[idx].Name != expectedName {
+			t.Fatalf("expected settings view mode %d to be %q, got %q", idx, expectedName, orderedViewModes[idx].Name)
+		}
+		if orderedViewModes[idx].Viewport != nil {
+			t.Fatalf("expected settings view mode %q viewport to default to nil, got %#v", expectedName, orderedViewModes[idx].Viewport)
+		}
+		if orderedViewModes[idx].ViewportInitialized {
+			t.Fatalf("expected settings view mode %q viewportInitialized to default to false", expectedName)
+		}
+	}
+
+	sectionIDByName := make(map[string]string, len(payload.Sections))
+	for sectionID, section := range payload.Sections {
+		sectionIDByName[section.Name] = sectionID
+	}
+
+	assertSettingsPayloadViewModeLayouts(
+		t,
+		settingsPayloadViewModeByName(t, payload.ProjectConfig.ViewModes, "Core"),
+		sectionIDByName,
+		[]string{
+			"shortcuts",
+			"gui",
+			"backend",
+			"sectionSizingPolicy",
+			"languageServer",
+		},
+		0,
+	)
+	assertSettingsPayloadViewModeLayouts(
+		t,
+		settingsPayloadViewModeByName(t, payload.ProjectConfig.ViewModes, "Param Defaults"),
+		sectionIDByName,
+		[]string{
+			"buttonParamCodeObjDefault",
+			"codeCallableCodeObjDefault",
+			"codeParamCodeObjDefault",
+		},
+		0,
+	)
+	assertSettingsPayloadViewModeLayouts(
+		t,
+		settingsPayloadViewModeByName(t, payload.ProjectConfig.ViewModes, "Section Defaults Structure and Code"),
+		sectionIDByName,
+		[]string{
+			"stateMachineStartSectionDefault",
+			"stateMachineGateSectionDefault",
+			"stateMachineEndSectionDefault",
+		},
+		9,
+	)
+	assertSettingsPayloadViewModeLayouts(
+		t,
+		settingsPayloadViewModeByName(t, payload.ProjectConfig.ViewModes, "All Settings"),
+		sectionIDByName,
+		[]string{
+			"shortcuts",
+			"gui",
+			"backend",
+			"chatWindowing",
+		},
+		0,
+	)
+}
+
+func settingsPayloadViewModeByName(
+	t *testing.T,
+	viewModes map[string]projectstate.ViewMode,
+	viewModeName string,
+) projectstate.ViewMode {
+	t.Helper()
+	for _, viewMode := range viewModes {
+		if viewMode.Name == viewModeName {
+			return viewMode
+		}
+	}
+	t.Fatalf("expected settings payload view mode %q", viewModeName)
+	return projectstate.ViewMode{}
+}
+
+func assertSettingsPayloadViewModeLayouts(
+	t *testing.T,
+	viewMode projectstate.ViewMode,
+	sectionIDByName map[string]string,
+	sectionNames []string,
+	startIndex int,
+) {
+	t.Helper()
+	for idx, sectionName := range sectionNames {
+		sectionID, ok := sectionIDByName[sectionName]
+		if !ok {
+			t.Fatalf("expected settings section %q", sectionName)
+		}
+		layout, ok := viewMode.TopLevelSections[sectionID]
+		if !ok {
+			t.Fatalf("expected payload view mode %q to include layout for %q", viewMode.Name, sectionName)
+		}
+		expectedIndex := startIndex + idx
+		expectedX := float64(expectedIndex%3) * 600
+		expectedY := float64(expectedIndex/3) * 600
+		if layout.X != expectedX || layout.Y != expectedY {
+			t.Fatalf(
+				"expected payload view mode %q section %q at (%v, %v), got (%v, %v)",
+				viewMode.Name,
+				sectionName,
+				expectedX,
+				expectedY,
+				layout.X,
+				layout.Y,
+			)
+		}
+		if !viewMode.VisibilityBySectionID[sectionID] {
+			t.Fatalf("expected payload view mode %q to mark %q visible", viewMode.Name, sectionName)
+		}
+	}
 }
 
 func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"sort"
 	"testing"
 
 	"setta/internal/projectstate"
@@ -50,6 +51,7 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	if len(project.TopLevelSections) != 46 {
 		t.Fatalf("expected shared settings layout to include 46 sections, got %d", len(project.TopLevelSections))
 	}
+	assertSettingsProjectViewModeLayoutAndViewportContract(t, project)
 
 	expectedCountsByView := map[string]int{
 		"All Settings":                        46,
@@ -422,6 +424,154 @@ func TestEnsureProjectRuntimeBootstrappedBackfillsMissingCodeObjWithinExistingSe
 	codeObjID := settingsCodeObjID("backend", []string{"backend", "renameRefactorMode"})
 	if _, ok := project.CodeObjs[codeObjID]; !ok {
 		t.Fatalf("expected EnsureProjectRuntimeBootstrapped to restore %q", codeObjID)
+	}
+}
+
+func assertSettingsProjectViewModeLayoutAndViewportContract(
+	t *testing.T,
+	project projectstate.Project,
+) {
+	t.Helper()
+
+	expectedViewModeNames := []string{
+		"Core",
+		"Section Defaults Structure and Code",
+		"Section Defaults Content and Media",
+		"Param Defaults",
+		"All Settings",
+	}
+	orderedViewModes := make([]projectstate.ViewMode, 0, len(project.ViewModes))
+	for _, viewMode := range project.ViewModes {
+		orderedViewModes = append(orderedViewModes, viewMode)
+	}
+	sort.Slice(orderedViewModes, func(i int, j int) bool {
+		if orderedViewModes[i].SortIndex != orderedViewModes[j].SortIndex {
+			return orderedViewModes[i].SortIndex < orderedViewModes[j].SortIndex
+		}
+		if orderedViewModes[i].Name != orderedViewModes[j].Name {
+			return orderedViewModes[i].Name < orderedViewModes[j].Name
+		}
+		return orderedViewModes[i].ID < orderedViewModes[j].ID
+	})
+	if len(orderedViewModes) != len(expectedViewModeNames) {
+		t.Fatalf("expected %d ordered settings view modes, got %d", len(expectedViewModeNames), len(orderedViewModes))
+	}
+	for idx, expectedName := range expectedViewModeNames {
+		if orderedViewModes[idx].Name != expectedName {
+			t.Fatalf("expected settings view mode %d to be %q, got %q", idx, expectedName, orderedViewModes[idx].Name)
+		}
+		if orderedViewModes[idx].Viewport != nil {
+			t.Fatalf("expected view mode %q viewport to default to nil, got %#v", expectedName, orderedViewModes[idx].Viewport)
+		}
+		if orderedViewModes[idx].ViewportInitialized {
+			t.Fatalf("expected view mode %q viewportInitialized to default to false", expectedName)
+		}
+	}
+
+	sectionIDByName := make(map[string]string, len(project.Sections))
+	for sectionID, section := range project.Sections {
+		sectionIDByName[section.Name] = sectionID
+	}
+
+	assertSettingsViewModeSectionLayouts(
+		t,
+		settingsProjectViewModeByName(t, project, "Core"),
+		sectionIDByName,
+		[]string{
+			"shortcuts",
+			"gui",
+			"backend",
+			"sectionSizingPolicy",
+			"languageServer",
+		},
+		0,
+	)
+	assertSettingsViewModeSectionLayouts(
+		t,
+		settingsProjectViewModeByName(t, project, "Section Defaults Structure and Code"),
+		sectionIDByName,
+		[]string{
+			"stateMachineStartSectionDefault",
+			"stateMachineGateSectionDefault",
+			"stateMachineEndSectionDefault",
+		},
+		9,
+	)
+	assertSettingsViewModeSectionLayouts(
+		t,
+		settingsProjectViewModeByName(t, project, "Param Defaults"),
+		sectionIDByName,
+		[]string{
+			"buttonParamCodeObjDefault",
+			"codeCallableCodeObjDefault",
+			"codeParamCodeObjDefault",
+		},
+		0,
+	)
+	assertSettingsViewModeSectionLayouts(
+		t,
+		settingsProjectViewModeByName(t, project, "All Settings"),
+		sectionIDByName,
+		settingsSectionOrder,
+		0,
+	)
+
+	hiddenSectionID := sectionIDByName["buttonParamCodeObjDefault"]
+	coreViewMode := settingsProjectViewModeByName(t, project, "Core")
+	if coreViewMode.VisibilityBySectionID[hiddenSectionID] {
+		t.Fatal("expected buttonParamCodeObjDefault to remain hidden in the Core settings tab")
+	}
+}
+
+func settingsProjectViewModeByName(
+	t *testing.T,
+	project projectstate.Project,
+	viewModeName string,
+) projectstate.ViewMode {
+	t.Helper()
+	for _, viewMode := range project.ViewModes {
+		if viewMode.Name == viewModeName {
+			return viewMode
+		}
+	}
+	t.Fatalf("expected settings view mode %q", viewModeName)
+	return projectstate.ViewMode{}
+}
+
+func assertSettingsViewModeSectionLayouts(
+	t *testing.T,
+	viewMode projectstate.ViewMode,
+	sectionIDByName map[string]string,
+	sectionNames []string,
+	startIndex int,
+) {
+	t.Helper()
+	for idx, sectionName := range sectionNames {
+		sectionID, ok := sectionIDByName[sectionName]
+		if !ok {
+			t.Fatalf("expected settings section %q", sectionName)
+		}
+		layout, ok := viewMode.TopLevelSections[sectionID]
+		if !ok {
+			t.Fatalf("expected view mode %q to include top-level layout for %q", viewMode.Name, sectionName)
+		}
+		if !viewMode.VisibilityBySectionID[sectionID] {
+			t.Fatalf("expected view mode %q to mark %q visible", viewMode.Name, sectionName)
+		}
+		expectedIndex := startIndex + idx
+		expectedX := float64(expectedIndex%settingsViewGridColumns) * settingsViewGridSpacing
+		expectedY := float64(expectedIndex/settingsViewGridColumns) * settingsViewGridSpacing
+		if layout.X != expectedX || layout.Y != expectedY {
+			t.Fatalf(
+				"expected view mode %q section %q at (%v, %v), got (%v, %v)",
+				viewMode.Name,
+				sectionName,
+				expectedX,
+				expectedY,
+				layout.X,
+				layout.Y,
+			)
+		}
 	}
 }
 

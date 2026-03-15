@@ -290,29 +290,107 @@ class Route:
                 "showParamDisplayNames": True,
                 "allowJsonSourceKeyEdits": False,
                 "viewModes": {
-                    "settings-all": {
-                        "id": "settings-all",
-                        "name": "All Settings",
-                        "sortIndex": 4,
-                        "visibilityBySectionId": {
-                            "section-a": True,
-                            "section-b": True,
-                        },
-                    },
                     "settings-core": {
                         "id": "settings-core",
                         "name": "Core",
                         "sortIndex": 0,
+                        "viewport": None,
+                        "viewportInitialized": False,
                         "visibilityBySectionId": {
                             "section-a": True,
-                            "section-b": False,
+                            "section-b": True,
+                            "section-c": True,
+                            "section-d": True,
+                            "section-e": True,
+                            "section-f": False,
+                        },
+                        "topLevelSections": {
+                            "section-a": {"x": 0, "y": 0},
+                            "section-b": {"x": 600, "y": 0},
+                            "section-c": {"x": 1200, "y": 0},
+                            "section-d": {"x": 0, "y": 600},
+                            "section-e": {"x": 600, "y": 600},
+                        },
+                    },
+                    "settings-structure-and-code": {
+                        "id": "settings-structure-and-code",
+                        "name": "Section Defaults Structure and Code",
+                        "sortIndex": 1,
+                        "viewport": None,
+                        "viewportInitialized": False,
+                        "visibilityBySectionId": {
+                            "section-i": True,
+                            "section-j": True,
+                            "section-k": True,
+                        },
+                        "topLevelSections": {
+                            "section-i": {"x": 0, "y": 1800},
+                            "section-j": {"x": 600, "y": 1800},
+                            "section-k": {"x": 1200, "y": 1800},
+                        },
+                    },
+                    "settings-content-and-media": {
+                        "id": "settings-content-and-media",
+                        "name": "Section Defaults Content and Media",
+                        "sortIndex": 2,
+                        "viewport": None,
+                        "viewportInitialized": False,
+                        "visibilityBySectionId": {},
+                        "topLevelSections": {},
+                    },
+                    "settings-param-defaults": {
+                        "id": "settings-param-defaults",
+                        "name": "Param Defaults",
+                        "sortIndex": 3,
+                        "viewport": None,
+                        "viewportInitialized": False,
+                        "visibilityBySectionId": {
+                            "section-f": True,
+                            "section-g": True,
+                            "section-h": True,
+                        },
+                        "topLevelSections": {
+                            "section-f": {"x": 0, "y": 0},
+                            "section-g": {"x": 600, "y": 0},
+                            "section-h": {"x": 1200, "y": 0},
+                        },
+                    },
+                    "settings-all": {
+                        "id": "settings-all",
+                        "name": "All Settings",
+                        "sortIndex": 4,
+                        "viewport": None,
+                        "viewportInitialized": False,
+                        "visibilityBySectionId": {
+                            "section-a": True,
+                            "section-b": True,
+                            "section-c": True,
+                            "section-n": True,
+                        },
+                        "topLevelSections": {
+                            "section-a": {"x": 0, "y": 0},
+                            "section-b": {"x": 600, "y": 0},
+                            "section-c": {"x": 1200, "y": 0},
+                            "section-n": {"x": 0, "y": 600},
                         },
                     },
                 },
             },
             "sections": {
-                "section-a": {"name": "backend"},
+                "section-a": {"name": "shortcuts"},
                 "section-b": {"name": "gui"},
+                "section-c": {"name": "backend"},
+                "section-d": {"name": "sectionSizingPolicy"},
+                "section-e": {"name": "languageServer"},
+                "section-f": {"name": "buttonParamCodeObjDefault"},
+                "section-g": {"name": "codeCallableCodeObjDefault"},
+                "section-h": {"name": "codeParamCodeObjDefault"},
+                "section-i": {"name": "stateMachineStartSectionDefault"},
+                "section-j": {"name": "stateMachineGateSectionDefault"},
+                "section-k": {"name": "stateMachineEndSectionDefault"},
+                "section-l": {"name": "browserSectionDefault"},
+                "section-m": {"name": "callableSectionDefault"},
+                "section-n": {"name": "chatWindowing"},
             },
             "projectChatWindowing": {
                 "instancesById": {},
@@ -320,14 +398,7 @@ class Route:
                 "order": [],
             },
         }
-        latest_payload = {
-            "projectState": {
-                "projectConfig": {
-                    "id": "settings",
-                    "name": "settings",
-                }
-            }
-        }
+        latest_payload = {"projectState": payload}
 
         summary = harness.summarize_settings_project_shell(
             http_status=200,
@@ -342,14 +413,83 @@ class Route:
                 "httpStatus": 200,
                 "latestHttpStatus": 200,
                 "projectName": "settings",
-                "sectionCount": 2,
-                "sectionNames": ["backend", "gui"],
-                "viewModeCount": 2,
-                "viewModeNames": ["Core", "All Settings"],
+                "sectionCount": 14,
+                "sectionNames": [
+                    "backend",
+                    "browserSectionDefault",
+                    "buttonParamCodeObjDefault",
+                    "callableSectionDefault",
+                    "chatWindowing",
+                    "codeCallableCodeObjDefault",
+                    "codeParamCodeObjDefault",
+                    "gui",
+                    "languageServer",
+                    "sectionSizingPolicy",
+                    "shortcuts",
+                    "stateMachineEndSectionDefault",
+                    "stateMachineGateSectionDefault",
+                    "stateMachineStartSectionDefault",
+                ],
+                "viewModeCount": 5,
+                "viewModeNames": [
+                    "Core",
+                    "Section Defaults Structure and Code",
+                    "Section Defaults Content and Media",
+                    "Param Defaults",
+                    "All Settings",
+                ],
                 "activeViewModeName": "Core",
                 "countsByView": {
-                    "Core": 1,
-                    "All Settings": 2,
+                    "Core": 5,
+                    "Section Defaults Structure and Code": 3,
+                    "Section Defaults Content and Media": 0,
+                    "Param Defaults": 3,
+                    "All Settings": 4,
+                },
+                "viewModeViewportDefaults": {
+                    "Core": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "Section Defaults Structure and Code": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "Section Defaults Content and Media": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "Param Defaults": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "All Settings": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                },
+                "coreLayoutSentinels": {
+                    "shortcuts": {"x": 0.0, "y": 0.0},
+                    "gui": {"x": 600.0, "y": 0.0},
+                    "backend": {"x": 1200.0, "y": 0.0},
+                    "sectionSizingPolicy": {"x": 0.0, "y": 600.0},
+                    "languageServer": {"x": 600.0, "y": 600.0},
+                },
+                "paramLayoutSentinels": {
+                    "buttonParamCodeObjDefault": {"x": 0.0, "y": 0.0},
+                    "codeCallableCodeObjDefault": {"x": 600.0, "y": 0.0},
+                    "codeParamCodeObjDefault": {"x": 1200.0, "y": 0.0},
+                },
+                "structureWorkflowLayoutSentinels": {
+                    "stateMachineStartSectionDefault": {"x": 0.0, "y": 1800.0},
+                    "stateMachineGateSectionDefault": {"x": 600.0, "y": 1800.0},
+                    "stateMachineEndSectionDefault": {"x": 1200.0, "y": 1800.0},
+                },
+                "allSettingsLeadLayoutSentinels": {
+                    "shortcuts": {"x": 0.0, "y": 0.0},
+                    "gui": {"x": 600.0, "y": 0.0},
+                    "backend": {"x": 1200.0, "y": 0.0},
+                    "chatWindowing": {"x": 0.0, "y": 600.0},
                 },
                 "showParamDisplayNames": True,
                 "allowJsonSourceKeyEdits": False,
@@ -360,6 +500,58 @@ class Route:
                 ],
                 "latestProjectName": "settings",
                 "latestProjectIDMatchesLoadProjectID": True,
+                "latestViewModeNames": [
+                    "Core",
+                    "Section Defaults Structure and Code",
+                    "Section Defaults Content and Media",
+                    "Param Defaults",
+                    "All Settings",
+                ],
+                "latestViewModeViewportDefaults": {
+                    "Core": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "Section Defaults Structure and Code": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "Section Defaults Content and Media": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "Param Defaults": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                    "All Settings": {
+                        "viewportIsNone": True,
+                        "viewportInitialized": False,
+                    },
+                },
+                "latestCoreLayoutSentinels": {
+                    "shortcuts": {"x": 0.0, "y": 0.0},
+                    "gui": {"x": 600.0, "y": 0.0},
+                    "backend": {"x": 1200.0, "y": 0.0},
+                    "sectionSizingPolicy": {"x": 0.0, "y": 600.0},
+                    "languageServer": {"x": 600.0, "y": 600.0},
+                },
+                "latestParamLayoutSentinels": {
+                    "buttonParamCodeObjDefault": {"x": 0.0, "y": 0.0},
+                    "codeCallableCodeObjDefault": {"x": 600.0, "y": 0.0},
+                    "codeParamCodeObjDefault": {"x": 1200.0, "y": 0.0},
+                },
+                "latestStructureWorkflowLayoutSentinels": {
+                    "stateMachineStartSectionDefault": {"x": 0.0, "y": 1800.0},
+                    "stateMachineGateSectionDefault": {"x": 600.0, "y": 1800.0},
+                    "stateMachineEndSectionDefault": {"x": 1200.0, "y": 1800.0},
+                },
+                "latestAllSettingsLeadLayoutSentinels": {
+                    "shortcuts": {"x": 0.0, "y": 0.0},
+                    "gui": {"x": 600.0, "y": 0.0},
+                    "backend": {"x": 1200.0, "y": 0.0},
+                    "chatWindowing": {"x": 0.0, "y": 600.0},
+                },
             },
         )
 
