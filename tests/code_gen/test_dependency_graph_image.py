@@ -6,7 +6,10 @@ from setta.types.dependency_value import (
     LiteralDependencyValue,
 )
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl1 import set_curr_effective_section_impl_value
+from setta.types.helpers_lvl2 import (
+    create_top_level_section,
+    set_image_area_image_path,
+)
 from setta.types.project_config import (
     Position,
     ProjectConfig,
@@ -16,8 +19,6 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
-from tests.helpers.project_state_sections import create_top_level_section
-
 
 class TestImageDependencyGraph:
     def test_image_section_exports_file_value_when_enabled(self) -> None:
@@ -31,10 +32,10 @@ class TestImageDependencyGraph:
             SectionType.Image,
             Position(),
         )
-        set_curr_effective_section_impl_value(
+        set_image_area_image_path(
             project_state,
             section_id,
-            {"imagePath": "artifacts/reversed_image.png"},
+            "artifacts/reversed_image.png",
         )
         policy = project_state.projectConfig.codegenTargets[0].sectionPolicy
         policy.typePolicies[SectionType.Image] = SectionTypeCodegenPolicy(
@@ -62,10 +63,10 @@ class TestImageDependencyGraph:
             SectionType.Image,
             Position(),
         )
-        set_curr_effective_section_impl_value(
+        set_image_area_image_path(
             project_state,
             section_id,
-            {"imagePath": "artifacts/reversed_image.png"},
+            "artifacts/reversed_image.png",
         )
         policy = project_state.projectConfig.codegenTargets[0].sectionPolicy
         policy.typePolicies[SectionType.Image] = SectionTypeCodegenPolicy(
@@ -87,7 +88,7 @@ class TestImageDependencyGraph:
         project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
         )
-        create_top_level_section(
+        section_id = create_top_level_section(
             settings,
             project_state,
             SectionType.Image,

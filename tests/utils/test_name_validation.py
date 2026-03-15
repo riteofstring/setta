@@ -23,7 +23,18 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
+    add_code_obj,
+    add_kwarg,
+    add_meta_control_code_obj,
+    create_child_sections,
+    create_top_level_section,
     get_section_path_full_name,
+    move_sections_to_parent_section,
+    set_code_file_binding,
+    set_project_config_name,
+    set_section_name,
+    set_text_block_heading_as_section_name,
+    set_text_block_text,
 )
 from setta.types.project_config import (
     Position,
@@ -66,18 +77,6 @@ from setta.utils.name_validation import (
 )
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
-from tests.helpers.project_state_mutations import (
-    add_code_obj,
-    add_kwarg,
-    add_meta_control_code_obj,
-    set_project_config_name,
-    set_section_name,
-)
-from tests.helpers.project_state_sections import (
-    create_child_sections,
-    create_top_level_section,
-    move_sections_to_parent_section,
-)
 
 
 def _ensure_callable_root(
@@ -525,8 +524,8 @@ class TestSectionNameValidation:
         errors = collect_section_name_format_errors(project_state)
         assert section_id in errors
         assert (
-            errors[section_id]
-            == ["Section name can only contain letters, numbers, spaces, '_' and '-'."]
+            "Section name can only contain letters, numbers, spaces, '_' and '-'.",
+            errors[section_id],
         )
 
     def test_text_block_heading_name_error_flags_invalid_heading(
@@ -541,21 +540,13 @@ class TestSectionNameValidation:
             Position(),
         )
         project_state.validate_parent_section_map()
-        set_curr_effective_section_impl_value(
-            project_state,
-            section_id,
-            {
-                "headingAsSectionName": True,
-                "text": "# Bad/Name",
-            },
-        )
+        set_text_block_heading_as_section_name(project_state, section_id, True)
+        set_text_block_text(project_state, section_id, "# Bad/Name")
         errors = collect_text_block_heading_name_errors(project_state)
         assert section_id in errors
         assert (
-            errors[section_id]
-            == [
-                "Text block heading cannot be used as section name: Section name cannot include path separators."
-            ]
+            "Text block heading cannot be used as section name: Section name cannot include path separators.",
+            errors[section_id],
         )
 
     def test_text_block_heading_name_error_flags_duplicate_sibling(
@@ -577,20 +568,12 @@ class TestSectionNameValidation:
         )
         project_state.validate_parent_section_map()
         set_section_name(project_state, sibling_id, "Duplicate")
-        set_curr_effective_section_impl_value(
-            project_state,
-            text_block_id,
-            {
-                "headingAsSectionName": True,
-                "text": "# Duplicate",
-            },
-        )
+        set_text_block_heading_as_section_name(project_state, text_block_id, True)
+        set_text_block_text(project_state, text_block_id, "# Duplicate")
         errors = collect_text_block_heading_name_errors(project_state)
         assert (
-            errors[text_block_id]
-            == [
-                'Text block heading cannot be used as section name: Section name "Duplicate" already exists under this parent.'
-            ]
+            'Text block heading cannot be used as section name: Section name "Duplicate" already exists under this parent.',
+            errors[text_block_id],
         )
 
     def test_section_name_rejects_dotdot(
@@ -722,10 +705,8 @@ class TestSectionNameValidation:
         assert first in conflicts
         assert second in conflicts
         assert (
-            conflicts[first]
-            == [
-                "Section name conflicts with another top-level name after Python identifier sanitization."
-            ]
+            "Section name conflicts with another top-level name after Python identifier sanitization.",
+            conflicts[first],
         )
 
     def test_collect_section_name_conflicts_allows_chat_slug_with_namespaced_routes(
@@ -961,19 +942,7 @@ class TestSectionNameValidation:
             access_mode=CodeFileAccessMode.read_write,
             autoBinding=False,
         )
-        set_curr_effective_section_impl_value(
-            project_state,
-            child_b,
-            {
-                "codeFileBinding": manual_binding.model_copy(
-                    update={
-                        "canonical_path": normalize_workspace_path(
-                            manual_binding.canonical_path
-                        )
-                    }
-                )
-            },
-        )
+        set_code_file_binding(project_state, child_b, manual_binding)
 
         move_sections_to_parent_section(
             project_state,
@@ -1032,11 +1001,7 @@ class TestSectionNameValidation:
             access_mode=CodeFileAccessMode.read_write,
             autoBinding=False,
         )
-        set_curr_effective_section_impl_value(
-            project_state,
-            section_id,
-            {"codeFileBinding": legacy_binding},
-        )
+        set_code_file_binding(project_state, section_id, legacy_binding)
         project_state.validate_code_file_bindings()
         impl_after = get_curr_effective_section_impl_with_type_guard(
             project_state,
@@ -1241,7 +1206,10 @@ class TestParamNameValidation:
         project_state.codeObjs[param_id].name = "invalid name"
         errors = collect_param_name_format_errors(project_state)
         assert param_id in errors
-        assert errors[param_id] == ["Param name must be a valid Python identifier."]
+        assert (
+            "Param name must be a valid Python identifier.",
+            errors[param_id],
+        )
 
     def test_collect_param_name_format_errors_flags_meta_control(
         self,
@@ -1271,7 +1239,10 @@ class TestParamNameValidation:
         project_state.codeObjs[param_id].name = "invalid name"
         errors = collect_param_name_format_errors(project_state)
         assert param_id in errors
-        assert errors[param_id] == ["Param name must be a valid Python identifier."]
+        assert (
+            "Param name must be a valid Python identifier.",
+            errors[param_id],
+        )
 
     def test_param_name_rejects_path_separators(
         self,

@@ -7,17 +7,16 @@ import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import {
   getDisplayedSectionIdToChildren,
-  getParamDisplayName,
   getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionDisplayStructure";
+import { getParamDisplayName } from "state/actions/sectionFeatureSelectors";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import {
   useProjectSearch,
-  useProjectState,
-  useSettings,
-  ZustandProjectSearch,
-  ZustandProjectState,
-} from "state/definitions";
+  type ZustandProjectSearch,
+} from "state/stores/searchStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { clamp } from "utils/utils";
 
 export function useUpdateProjectSearch() {

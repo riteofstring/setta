@@ -1,4 +1,5 @@
-import { useNotifications, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useNotifications } from "state/stores/feedbackStores";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {

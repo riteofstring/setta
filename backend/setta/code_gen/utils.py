@@ -1,8 +1,13 @@
 import keyword
 import re
 
+SELF_IDENTIFIER = "state"
 GEN_CODE_INSTANCE_NAME = "state"
 GEN_CODE_CLASS_NAME = "SettaState"
+CLASS_DEF = f"""
+class {GEN_CODE_CLASS_NAME}:
+    def __init__({SELF_IDENTIFIER}):
+""".lstrip()
 
 
 def sanitize_name(name):

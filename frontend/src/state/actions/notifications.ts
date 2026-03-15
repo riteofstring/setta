@@ -1,4 +1,4 @@
-import { useNotifications } from "state/definitions";
+import { useNotifications } from "state/stores/feedbackStores";
 import { C } from "utils/c";
 import {
   createSettaNotification,

@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("state/actions/ai", async () => {
-  const actual =
-    await vi.importActual<typeof import("state/actions/ai")>(
-      "state/actions/ai",
-    );
+vi.mock("state/actions/aiHydration", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/aiHydration")
+  >("state/actions/aiHydration");
   return {
     ...actual,
     getExternalAgentChatHydrationOutcome: vi.fn(),
@@ -15,7 +14,7 @@ vi.mock("state/actions/ai", async () => {
 import {
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-} from "state/actions/ai";
+} from "state/actions/aiHydration";
 import { hydrateProjectChatFromRuntime } from "./ProjectChatCore";
 
 describe("hydrateProjectChatFromRuntime", () => {

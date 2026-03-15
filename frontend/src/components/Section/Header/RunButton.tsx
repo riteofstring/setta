@@ -1,6 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { runCodeBlock } from "state/actions/runOrImportCode";
+import { runCodeBlock } from "state/actions/runCodeExecution";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";

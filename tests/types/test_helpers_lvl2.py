@@ -13,43 +13,76 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dropzone import parse_dropzone_value
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseSectionWithParamsImplArgsWithCallable,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
+    set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
+    add_children_of_callable,
+    add_kwarg,
+    apply_top_level_section_layout_snapshot,
+    change_param_impl,
+    compute_smart_top_level_section_position,
+    create_child_sections_via_incrementer,
+    create_top_level_section,
+    delete_sections,
+    delete_selected_params,
     get_curr_top_level_param_ids,
+    get_first_markdown_heading,
+    indent_params,
+    move_params_to_parent,
+    move_params_within_parent,
     set_chat_section_chat_id,
+    set_chat_section_settings,
+    set_list_root_view_mode,
+    set_param_entered_value,
+    set_parent_default_child_section_type,
+    set_prompt_section_format,
+    set_prompt_section_template,
+    set_section_param_filter,
+    set_spreadsheet_section_settings,
+    set_text_block_heading_as_section_name,
+    set_text_block_master_font_size,
+    set_text_block_text,
+    unindent_params,
+    update_param_impl_config,
 )
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
+    ViewportBounds,
 )
 from setta.types.project_state import (
+    ChatWindowPlacement,
+    ProjectChatWindowingState,
+    ProjectChatWindowInstance,
     ProjectStateSingleConfig,
 )
+from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
+    BaseParentSectionImpl,
     CallableSectionImpl,
+    ChatDictationMode,
+    ChatPermissionMode,
     ChatSectionImpl,
+    ListRootSectionImpl,
+    ListRootViewMode,
     MetaControlSectionImpl,
+    PromptSectionImpl,
+    SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
+    SpreadsheetSectionImpl,
     TextBlockFormat,
     TextBlockSectionImpl,
-)
-from tests.helpers.project_state_mutations import (
-    add_children_of_callable,
-    add_kwarg,
-    change_param_impl,
-    set_param_entered_value,
-    update_param_impl_config,
-)
-from tests.helpers.project_state_sections import (
-    create_top_level_section,
-    get_first_markdown_heading,
 )
 
 
@@ -241,6 +274,58 @@ class TestAddKwarg:
         assert shown.unpinned.requiredParamIdsToPaths[kwarg_id] == (kwarg_id,)
 
 
+class TestDeleteSections:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_delete_sections_cleans_section_variant_map(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        assert section_id in self.project_state.projectConfig.sectionVariantMap
+
+        delete_sections(self.project_state, [section_id])
+
+        assert section_id not in self.project_state.sections
+        assert section_id not in self.project_state.projectConfig.sectionVariantMap
+        self.project_state.validate_code_file_bindings()
+
+    def test_delete_sections_prunes_project_chat_windowing_for_removed_sections(
+        self,
+    ) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        window = ProjectChatWindowInstance(
+            instanceId="project-chat-window-1",
+            placement=ChatWindowPlacement.floating,
+            sectionIdOrNull=section_id,
+        )
+        self.project_state.projectChatWindowing = ProjectChatWindowingState(
+            instancesById={window.instanceId: window},
+            order=[window.instanceId],
+            nextInstanceNumber=2,
+        )
+        self.project_state.validate_parent_section_map()
+
+        delete_sections(self.project_state, [section_id])
+
+        assert self.project_state.projectChatWindowing.instancesById == {}
+        assert self.project_state.projectChatWindowing.order == []
+        assert self.project_state.projectChatWindowing.nextInstanceNumber == 2
+
+
 class TestChatSectionChatId:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
@@ -266,6 +351,124 @@ class TestChatSectionChatId:
             ChatSectionImpl,
         )
         assert section_impl.chatId == chat_id
+
+    def test_set_chat_section_settings_updates_agent_profile(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        agent_profile_id = ID("agent-1")
+        engine_config_id = ID("engine-1")
+        transcription_profile_id = ID("transcription-1")
+
+        set_chat_section_settings(
+            self.project_state,
+            section_id,
+            managed=True,
+            engineConfigId=engine_config_id,
+            transcriptionProfileId=transcription_profile_id,
+            agentProfileId=agent_profile_id,
+            thinking=True,
+            permissionMode=ChatPermissionMode.yolo,
+            searchEnabled=False,
+            dictationMode=ChatDictationMode.provider,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        assert section_impl.managed
+        assert section_impl.engineConfigId == engine_config_id
+        assert section_impl.transcriptionProfileId == transcription_profile_id
+        assert section_impl.agentProfileId == agent_profile_id
+        assert section_impl.thinking
+        assert section_impl.permissionMode == ChatPermissionMode.yolo
+        assert not section_impl.searchEnabled
+        assert section_impl.dictationMode == ChatDictationMode.provider
+
+
+class TestPromptSection:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_prompt_section_preview_reports_missing_variables(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name }}",
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
+
+    def test_prompt_section_reports_syntax_errors(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name ",
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        assert impl.renderedText == ""
+        assert impl.missingVariables == []
+        assert impl.renderError is not None
+
+    def test_prompt_section_format_updates_rendering(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(),
+        )
+
+        set_prompt_section_template(
+            self.project_state,
+            section_id,
+            "Hello {{ name }}",
+        )
+        set_prompt_section_format(
+            self.project_state,
+            section_id,
+            PromptFormat.Jinja,
+        )
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            PromptSectionImpl,
+        )
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
 
 
 class TestChangeParamImpl:
@@ -578,6 +781,377 @@ class TestDropzoneParamValue:
         assert parsed.attachments[0].id == "text:first"
 
 
+class TestDeleteSelectedParams:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_delete_selected_params_removes_children_and_selection(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        param_one = add_kwarg(self.settings, self.project_state, section_id)
+        param_two = add_kwarg(self.settings, self.project_state, section_id)
+
+        set_curr_effective_section_impl_value(
+            self.project_state,
+            section_id,
+            BaseSectionWithParamsImplArgsWithCallable(
+                pinnedParams=[param_one, param_two],
+                selectedParams=[param_one],
+            ),
+        )
+
+        delete_selected_params(
+            self.settings, self.project_state, section_id, [param_one]
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseDictSectionImpl,
+        )
+        assert param_one not in section_impl.pinnedParams
+        assert param_one not in section_impl.selectedParams
+        assert param_two in section_impl.pinnedParams
+
+        top_level_param_id = section_impl.topLevelParamId
+        assert top_level_param_id is not None
+        top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            top_level_param_id,
+            NestedParamCodeObjImpl,
+        )
+        assert param_one not in top_level_impl.children
+        assert param_two in top_level_impl.children
+
+
+class TestParamMove:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        self.section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        self.param_ids = [
+            add_kwarg(self.settings, self.project_state, self.section_id)
+            for _ in range(3)
+        ]
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            BaseDictSectionImpl,
+        )
+        self.root_id = section_impl.topLevelParamId
+        assert self.root_id is not None
+
+    def _get_root_impl(self) -> NestedParamCodeObjImpl:
+        return get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.root_id,
+            NestedParamCodeObjImpl,
+        )
+
+    def test_move_params_within_parent_reorders(self) -> None:
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == [
+            self.param_ids[1],
+            self.param_ids[2],
+            self.param_ids[0],
+        ]
+
+    def test_param_filter_whitespace_allows_reorder(self) -> None:
+        set_section_param_filter(self.project_state, self.section_id, "   ")
+
+        move_params_within_parent(
+            self.project_state,
+            self.section_id,
+            [self.param_ids[0]],
+            new_index=2,
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == [
+            self.param_ids[1],
+            self.param_ids[2],
+            self.param_ids[0],
+        ]
+
+    def test_indent_converts_previous_sibling(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == [self.param_ids[0], self.param_ids[2]]
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        assert parent_impl.children == [self.param_ids[1]]
+
+    def test_indent_non_contiguous_groups(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == [param_ids[0], param_ids[2]]
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        assert first_parent_impl.children == [param_ids[1]]
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            NestedParamCodeObjImpl,
+        )
+        assert second_parent_impl.children == [param_ids[3]]
+
+    def test_unindent_converts_empty_nested(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == [
+            self.param_ids[0],
+            self.param_ids[1],
+            self.param_ids[2],
+        ]
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        assert parent_impl.value == "{}"
+
+    def test_unindent_multi_parent_selection(self) -> None:
+        extra_param = add_kwarg(self.settings, self.project_state, self.section_id)
+        param_ids = [*self.param_ids, extra_param]
+
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+        unindent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [param_ids[1], param_ids[3]],
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == param_ids
+
+        first_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[0],
+            CodeParamCodeObjImpl,
+        )
+        assert first_parent_impl.value == "{}"
+
+        second_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            param_ids[2],
+            CodeParamCodeObjImpl,
+        )
+        assert second_parent_impl.value == "{}"
+
+    def test_move_params_to_parent_reparents(self) -> None:
+        indent_params(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[1]],
+        )
+
+        move_params_to_parent(
+            self.settings,
+            self.project_state,
+            self.section_id,
+            [self.param_ids[2]],
+            self.param_ids[0],
+            new_index=1,
+        )
+
+        root_impl = self._get_root_impl()
+        assert root_impl.children == [self.param_ids[0]]
+
+        parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            self.section_id,
+            self.param_ids[0],
+            NestedParamCodeObjImpl,
+        )
+        assert parent_impl.children == [self.param_ids[1], self.param_ids[2]]
+
+
+class TestSmartLayout:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_smart_layout_places_inside_viewport(self) -> None:
+        viewport_bounds = ViewportBounds(x=0, y=0, w=300, h=240)
+        overrides = {"size": SectionSize(width=100, height=80)}
+
+        position, pan_to = compute_smart_top_level_section_position(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            overrides,
+            None,
+            viewport_bounds,
+        )
+
+        assert position.x == pytest.approx(24.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is None
+
+    def test_smart_layout_positions_right_and_pans_when_viewport_too_narrow(
+        self,
+    ) -> None:
+        viewport_bounds = ViewportBounds(x=0, y=0, w=100, h=240)
+        overrides = {"size": SectionSize(width=160, height=100)}
+
+        position, pan_to = compute_smart_top_level_section_position(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            overrides,
+            None,
+            viewport_bounds,
+        )
+
+        assert position.x == pytest.approx(124.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is not None
+        assert pan_to.x == pytest.approx(position.x + 100.0)
+        assert pan_to.y == pytest.approx(position.y + 50.0)
+
+    def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        existing_layout = self.project_state.projectConfig.topLevelSections[section_id]
+        existing_layout.w = 200
+        existing_layout.h = 200
+        viewport_bounds = ViewportBounds(x=0, y=0, w=148, h=148)
+        overrides = {"size": SectionSize(width=100, height=100)}
+        layout_snapshot = {section_id: TopLevelSectionLayout(x=300, y=0, w=200, h=200)}
+        apply_top_level_section_layout_snapshot(self.project_state, layout_snapshot)
+
+        position, pan_to = compute_smart_top_level_section_position(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            overrides,
+            None,
+            viewport_bounds,
+        )
+
+        assert position.x == pytest.approx(300.0)
+        assert position.y == pytest.approx(224.0)
+        assert pan_to is not None
+        assert pan_to.x == pytest.approx(400.0)
+        assert pan_to.y == pytest.approx(274.0)
+
+
+class TestTextBlockHeadingAsName:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_invalid_heading_does_not_block_text_update(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        self.project_state.validate_parent_section_map()
+        original_name = self.project_state.sections[section_id].name
+        set_text_block_heading_as_section_name(
+            self.project_state,
+            section_id,
+            True,
+        )
+        text = "# Intro @ 2026\n\nBody content."
+        set_text_block_text(self.project_state, section_id, text)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        assert section_impl.text == text
+        assert self.project_state.sections[section_id].name == original_name
+
+
 class TestTextBlockDefaults:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
@@ -617,3 +1191,149 @@ class TestTextBlockDefaults:
             TextBlockSectionImpl,
         )
         assert impl.headingAsSectionName
+
+
+class TestListAndGroupChildDefaults:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_incrementer_uses_requested_child_type(self) -> None:
+        # Configure a list root to create dict children by default.
+        parent_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.ListRoot,
+            Position(),
+        )
+        set_parent_default_child_section_type(
+            self.project_state, parent_id, SectionType.Dict
+        )
+
+        # Incrementer uses explicit requested child type.
+        create_child_sections_via_incrementer(
+            self.settings,
+            self.project_state,
+            parent_id,
+            SectionType.Dict,
+            1,
+        )
+
+        parent_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            parent_id,
+            BaseParentSectionImpl,
+        )
+        assert len(parent_impl.children) == 1
+        child_id = parent_impl.children[0]
+        get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            child_id,
+            BaseDictSectionImpl,
+        )
+
+    def test_disallows_singleton_section_types_as_default_child(self) -> None:
+        parent_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Group,
+            Position(),
+        )
+        with pytest.raises(ValueError):
+            set_parent_default_child_section_type(
+                self.project_state,
+                parent_id,
+                SectionType.GlobalVariables,
+            )
+
+    def test_list_root_view_mode_persists_on_section_impl(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.ListRoot,
+            Position(),
+        )
+        set_list_root_view_mode(
+            self.project_state,
+            section_id,
+            ListRootViewMode.kanban,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ListRootSectionImpl,
+        )
+        assert section_impl.viewMode == ListRootViewMode.kanban
+
+
+class TestTextBlockFontSize:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_master_font_size_clamps_to_supported_range(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+
+        set_text_block_master_font_size(self.project_state, section_id, 2.0)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        assert impl.masterFontSizePx == 8.0
+
+        set_text_block_master_font_size(self.project_state, section_id, 99.0)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        assert impl.masterFontSizePx == 48.0
+
+
+class TestSpreadsheetSectionSettings:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_spreadsheet_section_settings_persist(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Spreadsheet,
+            Position(),
+        )
+
+        set_spreadsheet_section_settings(
+            self.project_state,
+            section_id,
+            True,
+            False,
+            SpreadsheetGridDensity.comfortable,
+            False,
+        )
+
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            SpreadsheetSectionImpl,
+        )
+        assert impl.readOnly is True
+        assert impl.showRowNumbers is False
+        assert impl.density == SpreadsheetGridDensity.comfortable
+        assert impl.autoReloadOnExternalChange is False
