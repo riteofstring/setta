@@ -267,6 +267,68 @@ func TestRefreshProjectRuntimeFromSettingsRepairsMissingRequiredViewMode(t *test
 	}
 }
 
+func TestRefreshProjectRuntimeFromSettingsRepairsMissingVisibleSectionLayout(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	settingsDocument, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+
+	if err := EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("ensure settings project runtime bootstrapped: %v", err)
+	}
+
+	missingSectionID := settingsSectionID("buttonParamCodeObjDefault")
+	if _, err := projectRuntime.MutateAndSave(t.Context(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects[SettingsProjectID]
+		paramDefaultsViewMode := project.ViewModes["settings-param-defaults"]
+		delete(paramDefaultsViewMode.TopLevelSections, missingSectionID)
+		project.ViewModes["settings-param-defaults"] = paramDefaultsViewMode
+		document.Projects[SettingsProjectID] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("remove visible settings section layout: %v", err)
+	}
+
+	if err := RefreshProjectRuntimeFromSettings(t.Context(), settingsRuntime, projectRuntime); err != nil {
+		t.Fatalf("refresh settings project runtime: %v", err)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("project by id after refresh: %v", err)
+	}
+	paramDefaultsViewMode := project.ViewModes["settings-param-defaults"]
+	if _, ok := paramDefaultsViewMode.TopLevelSections[missingSectionID]; !ok {
+		t.Fatalf("expected Param Defaults view mode to restore layout for %q", missingSectionID)
+	}
+	if !paramDefaultsViewMode.VisibilityBySectionID[missingSectionID] {
+		t.Fatalf("expected Param Defaults view mode to keep %q visible", missingSectionID)
+	}
+}
+
 func TestEnsureProjectRuntimeBootstrappedFailsClosedOnMissingRequiredSection(t *testing.T) {
 	t.Parallel()
 

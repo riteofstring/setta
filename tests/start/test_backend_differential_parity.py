@@ -972,6 +972,46 @@ class Route:
         self.assertEqual(project_config["viewport"], {"x": 80, "y": 40, "zoom": 1.3})
         self.assertTrue(project_config["viewportInitialized"])
 
+    def test_remove_settings_view_mode_layout_entry_from_store_payload_supports_python_store_shape(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        payload = {
+            "projects": {
+                "settings": {
+                    "projectConfig": {
+                        "viewModes": {
+                            "settings-param-defaults": {
+                                "id": "settings-param-defaults",
+                                "name": "Param Defaults",
+                                "topLevelSections": {
+                                    "section-a": {},
+                                    "section-b": {},
+                                },
+                            }
+                        }
+                    },
+                    "sections": {
+                        "section-a": {"name": "buttonParamCodeObjDefault"},
+                        "section-b": {"name": "codeCallableCodeObjDefault"},
+                    },
+                }
+            }
+        }
+
+        updated = harness.remove_settings_view_mode_layout_entry_from_store_payload(
+            payload,
+            view_mode_name="Param Defaults",
+            section_name="buttonParamCodeObjDefault",
+        )
+        top_level_sections = updated["projects"]["settings"]["projectConfig"]["viewModes"][
+            "settings-param-defaults"
+        ]["topLevelSections"]
+
+        self.assertNotIn("section-a", top_level_sections)
+        self.assertIn("section-b", top_level_sections)
+
     def test_summarize_settings_project_top_level_layout_repair_detects_rebuild(
         self,
     ) -> None:
@@ -1038,6 +1078,53 @@ class Route:
                 "restartLatestTopLevelSectionCount": 2,
                 "persistedViewModeCount": 2,
                 "persistedTopLevelSectionCount": 2,
+            },
+        )
+
+    def test_summarize_settings_project_missing_visible_layout_repair_detects_restore(
+        self,
+    ) -> None:
+        harness = load_harness_module()
+
+        restart_load_payload = {
+            "projectConfig": {
+                "viewModes": {
+                    "settings-param-defaults": {
+                        "id": "settings-param-defaults",
+                        "name": "Param Defaults",
+                        "visibilityBySectionId": {
+                            "section-a": True,
+                            "section-b": True,
+                        },
+                        "topLevelSections": {
+                            "section-a": {"x": 0, "y": 0},
+                            "section-b": {"x": 600, "y": 0},
+                        },
+                    }
+                },
+            },
+            "sections": {
+                "section-a": {"name": "buttonParamCodeObjDefault"},
+                "section-b": {"name": "codeCallableCodeObjDefault"},
+            },
+        }
+        restart_latest_payload = {"projectState": restart_load_payload}
+        summary = harness.summarize_settings_project_missing_visible_layout_repair(
+            initial_load_http_status=200,
+            restart_load_http_status=200,
+            restart_load_payload=restart_load_payload,
+            restart_latest_http_status=200,
+            restart_latest_payload=restart_latest_payload,
+        )
+
+        self.assertEqual(
+            summary,
+            {
+                "initialLoadHttpStatus": 200,
+                "restartLoadHttpStatus": 200,
+                "restartLatestHttpStatus": 200,
+                "restartLoadParamLayoutPresent": True,
+                "restartLatestParamLayoutPresent": True,
             },
         )
 

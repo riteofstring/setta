@@ -47,6 +47,10 @@ scenarios:
     kind: settings_project_valid_view_mode_noop
     seed: none
     description: Restarting and reloading an already-valid dedicated settings project should not rewrite the persisted settings shell.
+  - name: settings_project_missing_visible_layout_repair
+    kind: settings_project_missing_visible_layout_repair
+    seed: none
+    description: Restarting after a built-in settings tab loses one of its visible section layouts should restore that missing layout entry on load and latest-state readback without dropping the dedicated settings shell.
   - name: settings_project_top_level_layout_repair
     kind: settings_project_top_level_layout_repair
     seed: none
