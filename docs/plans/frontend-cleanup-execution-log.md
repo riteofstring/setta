@@ -4867,3 +4867,30 @@ in `frontend/src/README.md` and the cleanup plans.
   - `defc62a308dee1021c9e79eb326500b83d5704cd`
 - Next highest-value unblocked slice:
   - Split markdown/code message content rendering plus conversation-search highlighting out of `frontend/src/components/Chat/ChatMessages.tsx` so MarkdownContent, inline image-url rendering, and search-highlight wrappers stop sharing the top-level chat surface.
+
+## 2026-03-15 14:14:58 PDT
+
+- Slice completed: extracted markdown/code message rendering and conversation-search highlighting out of `ChatMessages.tsx`
+- Why this slice now:
+  - `frontend/src/components/Chat/ChatMessages.tsx` still had the clearest high-value local seam after the assistant-activity, structured-output, and attachment splits. Finishing the markdown/search-highlight owner in the same surface reduced one more dense render branch before switching context to `ProjectChatBottomDock.tsx`.
+- Key files touched:
+  - `frontend/src/components/Chat/chatMessageContent.tsx`
+  - `frontend/src/components/Chat/chatMessageContent.test.tsx`
+  - `frontend/src/components/Chat/ChatMessages.tsx`
+  - `frontend/src/components/Chat/ChatMessages.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md`
+  - `perf/reports/frontend/chat-markdown-content-2026-03-15.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Chat/chatMessageContent.test.tsx src/components/Chat/chatAttachmentPreviewUrls.test.ts src/components/Chat/chatAttachmentPreviews.test.tsx src/components/Chat/chatStructuredOutput.test.tsx src/components/Chat/chatAssistantActivity.test.ts src/components/Chat/ChatMessages.test.tsx src/components/Chat/ChatMessages.activityThoughtPreview.test.tsx src/components/Chat/ChatMessages.streamingAnimation.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Chat/ChatMessages.tsx src/components/Chat/ChatMessages.test.tsx src/components/Chat/chatMessageContent.tsx src/components/Chat/chatMessageContent.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-chat-project-ai-windowing-cleanup-plan.md ../perf/reports/frontend/chat-markdown-content-2026-03-15.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Added `perf/reports/frontend/chat-markdown-content-2026-03-15.md` with same-origin harness before/after notes and screenshots.
+  - CDP visual verification was done through a same-origin harness that imported `ChatMessageList` directly, because the normal app shell was still blank due to the unrelated `aiConfigurationCatalogLoads.ts` import error.
+  - Verified the extracted markdown surface still rendered the heading, inline code, fenced code block, and table wrapper, and that visible search highlights still skipped fenced and inline code. The harness metrics stayed flat on highlight/code/table counts and dropped from `63` to `59` nodes overall.
+- Commit hash:
+  - `05ed6e4ab337890f64f20a4d8fe869a1d9f33e03`
+- Next highest-value unblocked slice:
+  - Simplify `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`, which is now the largest remaining render-heavy hotspot and still mixes layout math, pointer resize or drag state, snap logic, animation state, tracked git-pane behavior, and render shells.
